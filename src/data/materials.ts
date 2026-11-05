@@ -18907,6 +18907,35 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  hamiltoniancycles: Object.freeze({
+    dark: [20, 26, 34] as const,
+    light: [226, 230, 236] as const,
+    roughness: 0.5,
+    relief: 0.004,
+    // A Hamiltonian cycle on a square grid of vertices: a closed line along the grid that goes through every vertex once (such a cycle needs a grid with an even number of vertices on a side, because the grid is bipartite).
+    // It is made as in the usual construction (mine, from memory): the grid is cut into blocks of 2 by 2 vertices, each a cycle of four edges, a random spanning tree of the blocks (Kruskal on edges in the order of the
+    // seed) joins them, and for each tree edge the two sides that face each other are swapped for the two edges that join the blocks, which turns two cycles into one; after all the tree edges there is one cycle through
+    // every vertex. The grid is sides[seed] vertices on a side (12, 16 or 20), at the pitch of 1 / side with the vertices at (i + 0.5) pitches, so the cycle does not touch the cycles of the tiles around it. A vertex is a disc
+    // of beadShare of the pitch (the radius) and an edge a line of lineShare of the pitch (the half width), drawn under the beads. The seed picks the cycle, the side and a surface (the tones of the ground, of the line and
+    // of the beads, all shifted together a little).
+    sides: Object.freeze([12, 16, 20]),
+    lineShare: 0.21,
+    beadShare: 0.27,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.14, line: 0.58, bead: 0.9 }),
+      Object.freeze({ ground: 0.88, line: 0.5, bead: 0.16 }),
+      Object.freeze({ ground: 0.5, line: 0.2, bead: 0.9 }),
+      Object.freeze({ ground: 0.22, line: 0.85, bead: 0.52 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    lineHeight: 0.3,
+    beadHeight: 0.5,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25399,6 +25428,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  hamiltoniancycles: 1,
   i2ctransactions: 1,
   redblacktrees: 1,
   debruijnstrips: 1,

@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'hamiltoniancycles',
   'i2ctransactions',
   'redblacktrees',
   'debruijnstrips',
@@ -53098,6 +53099,127 @@ export function createSurfaceSampler(
             p.groundRoughness +
               (p.inkRoughness - p.groundRoughness) *
                 Math.max(grid, clockCover, dataCover),
+          );
+          occlusion = 1;
+        };
+      }
+      case 'hamiltoniancycles': {
+        const p = proceduralMaterialPresets.hamiltoniancycles,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(140, 1, seed ^ 0x340001) * p.surfaces.length)
+            ],
+          shift = (hash(140, 2, seed ^ 0x340002) * 2 - 1) * p.toneShift,
+          side =
+            p.sides[
+              Math.min(
+                p.sides.length - 1,
+                Math.floor(hash(140, 3, seed ^ 0x340003) * p.sides.length),
+              )
+            ],
+          blocks = side / 2,
+          pitch = 1 / side,
+          lineHalf = p.lineShare * pitch,
+          beadRadius = p.beadShare * pitch,
+          // The edge from the vertex (x, y) to (x + 1, y) is horizontal[y * side + x], the edge to (x, y + 1) is vertical[y * side + x].
+          horizontal = new Uint8Array(side * side),
+          vertical = new Uint8Array(side * side),
+          joined = new Int32Array(blocks * blocks).map((_, i) => i),
+          root = (block: number): number => {
+            while (joined[block] !== block) {
+              joined[block] = joined[joined[block]];
+              block = joined[block];
+            }
+            return block;
+          },
+          // The edges between neighbouring blocks (right: 0, below: 1), in the order of the seed.
+          neighbours: number[] = [];
+        for (let by = 0; by < blocks; by++)
+          for (let bx = 0; bx < blocks; bx++) {
+            const x = 2 * bx,
+              y = 2 * by;
+            horizontal[y * side + x] = 1;
+            horizontal[(y + 1) * side + x] = 1;
+            vertical[y * side + x] = 1;
+            vertical[y * side + x + 1] = 1;
+            if (bx + 1 < blocks) neighbours.push(by * blocks + bx);
+            if (by + 1 < blocks)
+              neighbours.push(blocks * blocks + by * blocks + bx);
+          }
+        neighbours.sort(
+          (a, b) => hash(a, 7, seed ^ 0x340004) - hash(b, 7, seed ^ 0x340004),
+        );
+        for (const edge of neighbours) {
+          const below = edge >= blocks * blocks,
+            block = edge % (blocks * blocks),
+            bx = block % blocks,
+            by = Math.floor(block / blocks),
+            other = below ? block + blocks : block + 1,
+            x = 2 * bx,
+            y = 2 * by;
+          if (root(block) === root(other)) continue;
+          joined[root(block)] = root(other);
+          if (below) {
+            horizontal[(y + 1) * side + x] = 0;
+            horizontal[(y + 2) * side + x] = 0;
+            vertical[(y + 1) * side + x] = 1;
+            vertical[(y + 1) * side + x + 1] = 1;
+          } else {
+            vertical[y * side + x + 1] = 0;
+            vertical[y * side + x + 2] = 0;
+            horizontal[y * side + x + 1] = 1;
+            horizontal[(y + 1) * side + x + 1] = 1;
+          }
+        }
+        const horizontalAt = (x: number, y: number): number =>
+            x >= 0 && x < side - 1 && y >= 0 && y < side
+              ? horizontal[y * side + x]
+              : 0,
+          verticalAt = (x: number, y: number): number =>
+            x >= 0 && x < side && y >= 0 && y < side - 1
+              ? vertical[y * side + x]
+              : 0;
+        return () => {
+          const gx = (u - Math.floor(u)) * side - 0.5,
+            gy = (v - Math.floor(v)) * side - 0.5,
+            ix = Math.floor(gx),
+            iy = Math.floor(gy),
+            fx = gx - ix,
+            fy = gy - iy;
+          // The lines along the four sides of the square of the grid the place is in (the place is inside the length of each), and the beads at its four corners.
+          let line = -1,
+            bead = -1;
+          if (horizontalAt(ix, iy))
+            line = Math.max(line, lineHalf - fy * pitch);
+          if (horizontalAt(ix, iy + 1))
+            line = Math.max(line, lineHalf - (1 - fy) * pitch);
+          if (verticalAt(ix, iy)) line = Math.max(line, lineHalf - fx * pitch);
+          if (verticalAt(ix + 1, iy))
+            line = Math.max(line, lineHalf - (1 - fx) * pitch);
+          for (const cx of [0, 1])
+            for (const cy of [0, 1])
+              bead = Math.max(
+                bead,
+                beadRadius - Math.hypot((fx - cx) * pitch, (fy - cy) * pitch),
+              );
+          const lineCover = cover(line),
+            beadCover = cover(bead),
+            ground = surface.ground + shift,
+            lined = ground + (surface.line + shift - ground) * lineCover,
+            beaded = lined + (surface.bead + shift - lined) * beadCover,
+            heightLined =
+              p.groundHeight + (p.lineHeight - p.groundHeight) * lineCover;
+          color = clamp(beaded);
+          height = clamp(
+            heightLined + (p.beadHeight - heightLined) * beadCover,
+          );
+          roughness = clamp(
+            p.groundRoughness +
+              (p.inkRoughness - p.groundRoughness) *
+                Math.max(lineCover, beadCover),
           );
           occlusion = 1;
         };

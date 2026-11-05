@@ -84824,3 +84824,508 @@ describe('i2ctransactions: the clock and the data line of an I2C bus as a logic 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('hamiltoniancycles: a closed line through every vertex of a square grid once, drawn with beads at the vertices, on a grid of 12, 16 or 20 vertices a side by the seed', () => {
+  const p = proceduralMaterialPresets.hamiltoniancycles,
+    out = empty();
+  const toneAt = (sample: Sampler, x: number, y: number): number => {
+    sample(x, y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  type Reading = {
+    side: number;
+    surface: number;
+    shift: number;
+    tones: { ground: number; line: number; bead: number };
+    // h[y][x]: the edge from the vertex (x, y) to (x + 1, y); v[y][x]: the edge from (x, y) to (x, y + 1).
+    h: boolean[][];
+    v: boolean[][];
+  };
+  // The number of vertices of the cycle through (0, 0) if every vertex has two edges, else null: checked here by walking the edges.
+  const cycleLength = (r: Pick<Reading, 'side' | 'h' | 'v'>): number | null => {
+    const { side, h, v } = r,
+      around = (x: number, y: number): [number, number][] => {
+        const next: [number, number][] = [];
+        if (x < side - 1 && h[y][x]) next.push([x + 1, y]);
+        if (x > 0 && h[y][x - 1]) next.push([x - 1, y]);
+        if (y < side - 1 && v[y][x]) next.push([x, y + 1]);
+        if (y > 0 && v[y - 1][x]) next.push([x, y - 1]);
+        return next;
+      };
+    for (let y = 0; y < side; y++)
+      for (let x = 0; x < side; x++) if (around(x, y).length !== 2) return null;
+    let at: [number, number] = [0, 0],
+      before: [number, number] = [-1, -1],
+      length = 0;
+    do {
+      const [a, b] = around(at[0], at[1]),
+        next = a[0] === before[0] && a[1] === before[1] ? b : a;
+      before = at;
+      at = next;
+      length++;
+    } while (at[0] !== 0 || at[1] !== 0);
+    return length;
+  };
+  // Finds the side, the surface and the edges from the picture: the ground is the corner of the tile, the beads are at the vertices, an edge is the line tone at the middle of the two vertices, and the middle of the squares is ground.
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [],
+      ground = toneAt(sample, 0, 0);
+    for (const side of p.sides) {
+      const at = (a: number): number => (a + 0.5) / side,
+        bead = toneAt(sample, at(0), at(0));
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (Math.abs(shift) > p.toneShift + 1e-9) return;
+        if (Math.abs(bead - (surface.bead + shift)) > 1e-6) return;
+        const line = surface.line + shift,
+          h: boolean[][] = [],
+          v: boolean[][] = [];
+        let valid = true;
+        const drawn = (x: number, y: number): boolean => {
+          const tone = toneAt(sample, x, y);
+          if (Math.abs(tone - line) < 1e-6) return true;
+          if (Math.abs(tone - ground) > 1e-6) valid = false;
+          return false;
+        };
+        for (let y = 0; y < side && valid; y++) {
+          h.push([]);
+          v.push([]);
+          for (let x = 0; x < side && valid; x++) {
+            if (Math.abs(toneAt(sample, at(x), at(y)) - bead) > 1e-6)
+              valid = false;
+            h[y].push(x < side - 1 && drawn(at(x) + 0.5 / side, at(y)));
+            v[y].push(y < side - 1 && drawn(at(x), at(y) + 0.5 / side));
+            // The middle of the square, and the places where the edges to the next tile would be, are ground.
+            for (const [px, py] of [
+              [at(x) + 0.5 / side, at(y) + 0.5 / side],
+              [at(x) + 0.5 / side, at(y)],
+              [at(x), at(y) + 0.5 / side],
+            ] as const)
+              if (
+                (px === at(x) + 0.5 / side && py === at(y) && x < side - 1) ||
+                (px === at(x) && py === at(y) + 0.5 / side && y < side - 1)
+              )
+                continue;
+              else if (Math.abs(toneAt(sample, px % 1, py % 1) - ground) > 1e-6)
+                valid = false;
+          }
+        }
+        if (!valid || cycleLength({ side, h, v }) === null) return;
+        options.push({
+          side,
+          surface: index,
+          shift,
+          tones: { ground, line, bead },
+          h,
+          v,
+        });
+      });
+    }
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  const edgesOf = (r: Reading): [number, number, number, number][] => {
+    const list: [number, number, number, number][] = [];
+    for (let y = 0; y < r.side; y++)
+      for (let x = 0; x < r.side; x++) {
+        if (r.h[y][x]) list.push([x, y, x + 1, y]);
+        if (r.v[y][x]) list.push([x, y, x, y + 1]);
+      }
+    return list;
+  };
+  type Piece = 'ground' | 'line' | 'bead';
+  const lineHalf = (r: Reading): number => p.lineShare / r.side,
+    beadRadius = (r: Reading): number => p.beadShare / r.side;
+  // The model of the picture: the beads at every vertex (of every tile), the lines as rectangles from vertex to vertex.
+  const piece = (r: Reading, x: number, y: number): Piece => {
+    const s = r.side,
+      cx = Math.floor(x * s - 0.5),
+      cy = Math.floor(y * s - 0.5);
+    for (let b = cy - 1; b <= cy + 2; b++)
+      for (let a = cx - 1; a <= cx + 2; a++)
+        if (Math.hypot(x - (a + 0.5) / s, y - (b + 0.5) / s) <= beadRadius(r))
+          return 'bead';
+    for (let b = cy - 1; b <= cy + 2; b++)
+      for (let a = cx - 1; a <= cx + 2; a++) {
+        const inside = a >= 0 && a < s && b >= 0 && b < s;
+        if (!inside) continue;
+        if (
+          a < s - 1 &&
+          r.h[b][a] &&
+          x >= (a + 0.5) / s &&
+          x <= (a + 1.5) / s &&
+          Math.abs(y - (b + 0.5) / s) <= lineHalf(r)
+        )
+          return 'line';
+        if (
+          b < s - 1 &&
+          r.v[b][a] &&
+          y >= (b + 0.5) / s &&
+          y <= (b + 1.5) / s &&
+          Math.abs(x - (a + 0.5) / s) <= lineHalf(r)
+        )
+          return 'line';
+      }
+    return 'ground';
+  };
+  const toneOf = (r: Reading, label: Piece): number => r.tones[label],
+    heightOf = (label: Piece): number =>
+      ({ ground: p.groundHeight, line: p.lineHeight, bead: p.beadHeight })[
+        label
+      ],
+    roughnessOf = (label: Piece): number =>
+      label === 'ground' ? p.groundRoughness : p.inkRoughness;
+  // Whether a place is within a distance of any edge of the drawing (the circles of the beads, the sides and the ends of the lines).
+  const nearEdge = (
+    r: Reading,
+    x: number,
+    y: number,
+    within: number,
+  ): boolean => {
+    const s = r.side,
+      cx = Math.floor(x * s - 0.5),
+      cy = Math.floor(y * s - 0.5);
+    for (let b = cy - 1; b <= cy + 2; b++)
+      for (let a = cx - 1; a <= cx + 2; a++) {
+        if (
+          Math.abs(
+            Math.hypot(x - (a + 0.5) / s, y - (b + 0.5) / s) - beadRadius(r),
+          ) < within
+        )
+          return true;
+        if (a < 0 || a >= s || b < 0 || b >= s) continue;
+        const rects: [number, number, number, number][] = [];
+        if (a < s - 1 && r.h[b][a])
+          rects.push([
+            (a + 0.5) / s,
+            (b + 0.5) / s - lineHalf(r),
+            (a + 1.5) / s,
+            (b + 0.5) / s + lineHalf(r),
+          ]);
+        if (b < s - 1 && r.v[b][a])
+          rects.push([
+            (a + 0.5) / s - lineHalf(r),
+            (b + 0.5) / s,
+            (a + 0.5) / s + lineHalf(r),
+            (b + 1.5) / s,
+          ]);
+        for (const [x0, y0, x1, y1] of rects) {
+          const outside = Math.hypot(
+              Math.max(x0 - x, 0, x - x1),
+              Math.max(y0 - y, 0, y - y1),
+            ),
+            inside = Math.min(x - x0, x1 - x, y - y0, y1 - y);
+          if (Math.abs(outside > 0 ? outside : -inside) < within) return true;
+        }
+      }
+    return false;
+  };
+
+  it('draws one closed line that goes along the grid through every vertex once, on a grid with an even number of vertices on a side, for the three sizes', () => {
+    const sides = new Set<number>(),
+      cycles = new Set<string>();
+    for (let seed = 0; seed < 150; seed++) {
+      const reading = readSurface(
+        createSurfaceSampler('hamiltoniancycles', seed * 11 + 3),
+      );
+      sides.add(reading.side);
+      expect(reading.side % 2).toBe(0);
+      expect(cycleLength(reading)).toBe(reading.side * reading.side);
+      expect(edgesOf(reading).length).toBe(reading.side * reading.side);
+      cycles.add(
+        `${reading.side}${reading.h.map((row) => row.map(Number).join('')).join('/')}${reading.v.map((row) => row.map(Number).join('')).join('/')}`,
+      );
+    }
+    expect([...sides].sort((a, b) => a - b)).toEqual([12, 16, 20]);
+    expect(cycles.size).toBe(150);
+  });
+
+  it('is checked by a reader that complains about an edge that is missing (a vertex with one edge) and about a picture that is two cycles', () => {
+    const reading = readSurface(createSurfaceSampler('hamiltoniancycles', 5)),
+      { side } = reading,
+      copy = (rows: boolean[][]): boolean[][] => rows.map((row) => [...row]);
+    expect(cycleLength(reading)).toBe(side * side);
+    const missing = { side, h: copy(reading.h), v: copy(reading.v) },
+      first = edgesOf(reading)[0];
+    if (first[1] === first[3]) missing.h[first[1]][first[0]] = false;
+    else missing.v[first[1]][first[0]] = false;
+    expect(cycleLength(missing)).toBeNull();
+    // Two cycles: the 2 by 2 blocks each as their own cycle of four edges also give every vertex two edges, but not a single cycle.
+    const blocks = {
+      side,
+      h: Array.from({ length: side }, () =>
+        new Array<boolean>(side).fill(false),
+      ),
+      v: Array.from({ length: side }, () =>
+        new Array<boolean>(side).fill(false),
+      ),
+    };
+    for (let y = 0; y < side; y += 2)
+      for (let x = 0; x < side; x += 2) {
+        blocks.h[y][x] = true;
+        blocks.h[y + 1][x] = true;
+        blocks.v[y][x] = true;
+        blocks.v[y][x + 1] = true;
+      }
+    expect(cycleLength(blocks)).toBe(4);
+    expect(cycleLength(blocks)).not.toBe(side * side);
+  });
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model (ground, line, bead) at every place of the picture away from the edges, for several seeds of each size',
+    { timeout: 120000 },
+    () => {
+      const sizes = new Set<number>();
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+        const sample = createSurfaceSampler('hamiltoniancycles', seed),
+          reading = readSurface(sample);
+        sizes.add(reading.side);
+        const o = empty();
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (nearEdge(reading, x, y, 0.0008)) continue;
+            sample(x, y, o);
+            const label = piece(reading, x, y);
+            expect(o.color).toBeCloseTo(toneOf(reading, label), 6);
+            expect(o.height / p.relief).toBeCloseTo(heightOf(label), 6);
+            expect(o.roughness).toBeCloseTo(roughnessOf(label), 6);
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(150000);
+      }
+      expect(sizes.size).toBe(3);
+    },
+  );
+
+  it('puts the circle of a bead and the sides of a line where the model puts them: just inside and just outside by 0.0004 of a tile, exactly (where no other edge is within the softened width), and softens them over edgeSoft', () => {
+    const delta = 0.0004,
+      quarter = 0.25 * p.edgeSoft;
+    let beads = 0,
+      lines = 0,
+      softBeads = 0,
+      softLines = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('hamiltoniancycles', seed),
+        reading = readSurface(sample),
+        { side, tones } = reading,
+        at = (a: number): number => (a + 0.5) / side,
+        tone = (x: number, y: number): number => toneAt(sample, x, y),
+        exact = (x: number, y: number): boolean => {
+          if (nearEdge(reading, x, y, 0.0003)) return false;
+          close(tone(x, y), toneOf(reading, piece(reading, x, y)));
+          return true;
+        };
+      for (let b = 0; b < side; b += 3)
+        for (let a = 0; a < side; a += 3)
+          for (const angle of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2])
+            for (const radius of [
+              beadRadius(reading) - delta,
+              beadRadius(reading) + delta,
+            ])
+              beads += Number(
+                exact(
+                  at(a) + radius * Math.cos(angle),
+                  at(b) + radius * Math.sin(angle),
+                ),
+              );
+      for (const [x0, y0, x1, y1] of edgesOf(reading)) {
+        const mx = (at(x0) + at(x1)) / 2,
+          my = (at(y0) + at(y1)) / 2,
+          alongX = y0 === y1;
+        for (const sign of [-1, 1])
+          for (const d of [
+            lineHalf(reading) - delta,
+            lineHalf(reading) + delta,
+          ])
+            lines += Number(
+              exact(alongX ? mx : mx + sign * d, alongX ? my + sign * d : my),
+            );
+        // The quarter probes at the middle of the line, which is far (over 0.01) from any bead, any end of a line and any other line, so only its two sides have an edge within the softened width.
+        for (const sign of [-1, 1])
+          for (const [d, amount] of [
+            [lineHalf(reading) - quarter, 0.75],
+            [lineHalf(reading) + quarter, 0.25],
+          ] as const) {
+            const x = alongX ? mx : mx + sign * d,
+              y = alongX ? my + sign * d : my;
+            close(tone(x, y), blend(tones.ground, tones.line, amount));
+            softLines++;
+          }
+      }
+      // The circle of a bead on a side where no line leaves the vertex.
+      for (let b = 1; b < side - 1; b++)
+        for (let a = 1; a < side - 1; a++) {
+          for (const [dx, dy, has] of [
+            [1, 0, reading.h[b][a]],
+            [-1, 0, reading.h[b][a - 1]],
+            [0, 1, reading.v[b][a]],
+            [0, -1, reading.v[b - 1][a]],
+          ] as const) {
+            if (has) continue;
+            for (const [radius, amount] of [
+              [beadRadius(reading) - quarter, 0.75],
+              [beadRadius(reading) + quarter, 0.25],
+            ] as const) {
+              const x = at(a) + dx * radius,
+                y = at(b) + dy * radius;
+              close(tone(x, y), blend(tones.ground, tones.bead, amount));
+              softBeads++;
+            }
+          }
+        }
+    }
+    expect(beads).toBeGreaterThan(300);
+    expect(lines).toBeGreaterThan(1000);
+    expect(softLines).toBeGreaterThan(500);
+    expect(softBeads).toBeGreaterThan(500);
+  });
+
+  it('gives the ground, the line and the bead their heights and roughnesses, and full occlusion', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('hamiltoniancycles', seed),
+        reading = readSurface(sample),
+        { side } = reading,
+        at = (a: number): number => (a + 0.5) / side,
+        read = (x: number, y: number): [number, number, number] => {
+          sample(x, y, out);
+          return [out.height / p.relief, out.roughness, out.occlusion];
+        },
+        [x0, y0, x1, y1] = edgesOf(reading)[5];
+      const [groundHeight, groundRoughness, groundOcclusion] = read(0, 0),
+        [lineHeight, lineRoughness, lineOcclusion] = read(
+          (at(x0) + at(x1)) / 2,
+          (at(y0) + at(y1)) / 2,
+        ),
+        [beadHeight, beadRoughness, beadOcclusion] = read(at(0), at(0));
+      expect(groundHeight).toBeCloseTo(p.groundHeight, 6);
+      expect(lineHeight).toBeCloseTo(p.lineHeight, 6);
+      expect(beadHeight).toBeCloseTo(p.beadHeight, 6);
+      expect(groundRoughness).toBeCloseTo(p.groundRoughness, 6);
+      expect([lineRoughness, beadRoughness]).toEqual([
+        p.inkRoughness,
+        p.inkRoughness,
+      ]);
+      expect([groundOcclusion, lineOcclusion, beadOcclusion]).toEqual([
+        1, 1, 1,
+      ]);
+    }
+  });
+
+  it(
+    'uses every size and every surface about equally often, makes almost every cycle different, and shifts the tones over the whole range, over 1000 seeds',
+    { timeout: 120000 },
+    () => {
+      const sizes = new Map<number, number>(),
+        surfaces = new Map<number, number>(),
+        cycles = new Set<string>(),
+        shifts: number[] = [],
+        // For the smallest grid: how often each pair of neighbouring 2 by 2 blocks is joined (the two sides facing each other are replaced by the two edges between the blocks).
+        joins = new Map<string, number>();
+      let small = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('hamiltoniancycles', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        if (reading.side === 12) {
+          small++;
+          for (let by = 0; by < 6; by++)
+            for (let bx = 0; bx < 6; bx++) {
+              if (bx < 5 && !reading.v[2 * by][2 * bx + 1])
+                joins.set(
+                  `right ${bx} ${by}`,
+                  (joins.get(`right ${bx} ${by}`) ?? 0) + 1,
+                );
+              if (by < 5 && !reading.h[2 * by + 1][2 * bx])
+                joins.set(
+                  `below ${bx} ${by}`,
+                  (joins.get(`below ${bx} ${by}`) ?? 0) + 1,
+                );
+            }
+        }
+        sizes.set(reading.side, (sizes.get(reading.side) ?? 0) + 1);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        cycles.add(
+          `${reading.side}${reading.h.map((row) => row.map(Number).join('')).join('/')}${reading.v.map((row) => row.map(Number).join('')).join('/')}`,
+        );
+      }
+      expect(sizes.size).toBe(p.sides.length);
+      for (const count of sizes.values())
+        expect(Math.abs(count - 1000 / p.sides.length)).toBeLessThan(60);
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+      expect(cycles.size).toBe(1000);
+      // Every one of the 60 pairs of neighbouring blocks is joined in some cycles and not joined in others (a spanning tree has 35 of the 60 edges, so a pair is joined in about 58 of 100): between 30 and 85 of 100.
+      expect(joins.size).toBe(60);
+      for (const count of joins.values()) {
+        expect(count / small).toBeGreaterThan(0.3);
+        expect(count / small).toBeLessThan(0.85);
+      }
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('hamiltoniancycles', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('hamiltoniancycles', 0),
+      b = createSurfaceSampler('hamiltoniancycles', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});
