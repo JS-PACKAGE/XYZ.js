@@ -1,11 +1,11 @@
-export const profilerDefaults = Object.freeze({
+export const profilerDefaults = /* @__PURE__ */ Object.freeze({
   windowFrames: 240,
   maximumWindowFrames: 65536,
   hitchMilliseconds: 50,
 });
 
 /** Opt-in query pools stay bounded even when the GPU/readback falls behind. */
-export const gpuTimingDefaults = Object.freeze({
+export const gpuTimingDefaults = /* @__PURE__ */ Object.freeze({
   maxInFlight: 4,
   maxInFlightLimit: 32,
   maxTimedPasses: 128,
@@ -14,7 +14,7 @@ export const gpuTimingDefaults = Object.freeze({
 });
 
 /** Plateau classification needs sustained, meaningful growth, not a positive slope. */
-export const measurementDefaults = Object.freeze({
+export const measurementDefaults = /* @__PURE__ */ Object.freeze({
   tailSamples: 32,
   minimumTrendSamples: 12,
   minimumTrendSeconds: 60,
@@ -28,7 +28,7 @@ export const measurementDefaults = Object.freeze({
 });
 
 /** These emulate CPU/network pressure; none represents certification on low-tier hardware. */
-export const soakProfiles = Object.freeze({
+export const soakProfiles = /* @__PURE__ */ Object.freeze({
   native: {
     cpuRate: 1,
     latencyMs: 0,
@@ -49,7 +49,7 @@ export const soakProfiles = Object.freeze({
   },
 });
 
-export const soakWorkload = Object.freeze({
+export const soakWorkload = /* @__PURE__ */ Object.freeze({
   navigationWorkBudget: 512,
   navigationConcurrentSearches: 4,
   routeIntervalSeconds: 2,
@@ -61,7 +61,7 @@ export const soakWorkload = Object.freeze({
 });
 
 /** Reproducible authored workloads, not universal hardware/FPS promises. */
-export const productionWorkload = Object.freeze({
+export const productionWorkload = /* @__PURE__ */ Object.freeze({
   width: 1280,
   height: 720,
   pixelRatio: 1,
@@ -80,9 +80,9 @@ export const productionWorkload = Object.freeze({
 });
 
 /** Authored quality tiers; changing tier changes workload, not measured device identity. */
-export const productionQualityProfiles = Object.freeze({
+export const productionQualityProfiles = /* @__PURE__ */ Object.freeze({
   baseline: productionWorkload,
-  low: Object.freeze({
+  low: /* @__PURE__ */ Object.freeze({
     ...productionWorkload,
     width: 960,
     height: 540,
@@ -94,7 +94,7 @@ export const productionQualityProfiles = Object.freeze({
     spotLights: 2,
     overlaySprites3D: 32,
   }),
-  high: Object.freeze({
+  high: /* @__PURE__ */ Object.freeze({
     ...productionWorkload,
     width: 1920,
     height: 1080,
@@ -109,7 +109,7 @@ export const productionQualityProfiles = Object.freeze({
 });
 
 /** Revision changes invalidate pinned profiles when authored work or phase semantics change. */
-export const productionRegressionWorkload = Object.freeze({
+export const productionRegressionWorkload = /* @__PURE__ */ Object.freeze({
   revision: 4,
   denseColliders: 96,
   denseRadius: 32,
@@ -127,7 +127,7 @@ export const productionRegressionWorkload = Object.freeze({
 });
 
 /** Calibration margins are explicit policy, never silently adapted by a failing gate. */
-export const productionCalibrationDefaults = Object.freeze({
+export const productionCalibrationDefaults = /* @__PURE__ */ Object.freeze({
   minimumRuns: 3,
   defaultRuns: 5,
   maximumRuns: 20,
