@@ -1233,6 +1233,7 @@ try {
     'golombrulers',
     'sortingtraces',
     'editdistance',
+    'euclideanrhythms',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

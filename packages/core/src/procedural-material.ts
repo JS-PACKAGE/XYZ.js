@@ -1170,6 +1170,7 @@ export type ProceduralMaterialKind =
   | 'golombrulers'
   | 'sortingtraces'
   | 'editdistance'
+  | 'euclideanrhythms'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2588,6 +2589,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'golombrulers',
   'sortingtraces',
   'editdistance',
+  'euclideanrhythms',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

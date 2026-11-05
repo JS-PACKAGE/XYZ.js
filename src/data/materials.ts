@@ -19589,6 +19589,32 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.4,
     gapOcclusion: 0.5,
   }),
+  euclideanrhythms: Object.freeze({
+    dark: [30, 10, 4] as const,
+    light: [255, 200, 110] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x4a6b,
+    // The Euclidean rhythms E(k, n) of steps[variant] = n steps, k from 1 (the top row) to n: k onsets spread as evenly as possible round a circle of n steps (an onset at the step i when (i k) mod n >= n - k, a rotation of the rhythm that Bjorklund's algorithm gives, in which the gaps between neighbouring onsets, round the circle, are n / k rounded down or up). A tile of n by n cells, row k the rhythm of k onsets: an onset is toned and raised by the gap that follows it (the shorter one or the longer one, the same when k divides n) and a step without an onset is a faint low tile. The seed is split in two: seed % 6 picks the variant and floor(seed / 6) the group, which turns row k round by group times k steps (mod n), so seeds 0 to 5 are the six variants unturned.
+    steps: [8, 12, 16, 20, 24, 32] as const,
+    // The gap on each side of a cell, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.08,
+    corner: 0.16,
+    edgeSoft: 0.07,
+    grainCells: 128,
+    toneGround: 0.03,
+    // The tone of a step without an onset, of an onset with the shorter gap and of one with the longer gap.
+    toneRest: 0.12,
+    toneShort: 0.55,
+    toneLong: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of a step without an onset, of an onset with the shorter gap and of one with the longer gap, as fractions of cellHeight.
+    heightRest: 0.18,
+    heightShort: 0.6,
+    heightLong: 1,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21422,6 +21448,7 @@ export const proceduralTileMeters = Object.freeze({
   golombrulers: 0.5,
   sortingtraces: 0.5,
   editdistance: 0.5,
+  euclideanrhythms: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

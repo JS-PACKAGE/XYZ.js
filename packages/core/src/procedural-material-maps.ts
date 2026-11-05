@@ -56637,6 +56637,68 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'euclideanrhythms': {
+        const p = proceduralMaterialPresets.euclideanrhythms,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.steps.length,
+          group = Math.floor(unsigned / p.steps.length),
+          n: number = p.steps[variant],
+          // The class of every cell: 0 a step without an onset, 1 an onset with the shorter gap
+          // to the next onset round the circle, 2 an onset with the longer gap.
+          classes = new Uint8Array(n * n);
+        for (let row = 0; row < n; row++) {
+          const k = row + 1,
+            onsets: number[] = [];
+          for (let step = 0; step < n; step++)
+            if ((step * k) % n >= n - k) onsets.push(step);
+          onsets.forEach((step, index) => {
+            const next = onsets[(index + 1) % onsets.length],
+              gap = (next - step + n) % n || n,
+              shortest = Math.floor(n / k);
+            // Turned round by group times k steps: the step goes to the column step - turn.
+            const column = (((step - group * k) % n) + n) % n;
+            classes[row * n + column] = gap > shortest ? 2 : 1;
+          });
+        }
+        const half = 0.5 - p.gap,
+          inner = half - p.corner;
+        return () => {
+          const x = fract(u) * n,
+            y = fract(v) * n,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            qx = Math.abs(x - column - 0.5) - inner,
+            qy = Math.abs(y - row - 0.5) - inner,
+            // The distance to the rounded square of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            kind = classes[row * n + column],
+            tone =
+              kind === 0 ? p.toneRest : kind === 1 ? p.toneShort : p.toneLong,
+            lift =
+              kind === 0
+                ? p.heightRest
+                : kind === 1
+                  ? p.heightShort
+                  : p.heightLong,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * lift;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65607,6 +65669,7 @@ export function createSurfaceSampler(
     kind === 'golombrulers' ||
     kind === 'sortingtraces' ||
     kind === 'editdistance' ||
+    kind === 'euclideanrhythms' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

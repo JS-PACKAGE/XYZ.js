@@ -1196,6 +1196,7 @@ const kinds: ProceduralMaterialKind[] = [
   'golombrulers',
   'sortingtraces',
   'editdistance',
+  'euclideanrhythms',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -213035,6 +213036,305 @@ describe('Edit distance as the table of two words with an optimal path', () => {
     expect(blue / (512 * 512)).toBeLessThan(86.1);
     expect(maxTilt).toBeGreaterThan(0.0432);
     expect(maxTilt).toBeLessThan(0.0433);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Euclidean rhythms as onsets spread as evenly as possible', () => {
+  const p = proceduralMaterialPresets.euclideanrhythms;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** Bjorklund's algorithm: k groups [1] and n - k groups [0], and while the shorter list has more than one group, every group of it takes a group of the other and the rest of the other list is what is left to share out; the patterns are then joined. */
+  const bjorklund = (k: number, n: number): number[] => {
+    let a: number[][] = Array.from({ length: k }, () => [1]),
+      b: number[][] = Array.from({ length: n - k }, () => [0]);
+    while (Math.min(a.length, b.length) > 1) {
+      const m = Math.min(a.length, b.length),
+        joined = a.slice(0, m).map((x, i) => x.concat(b[i]));
+      b = a.length > b.length ? a.slice(m) : b.slice(m);
+      a = joined;
+    }
+    return [...a, ...b].flat();
+  };
+  /** Whether b is a to a rotation of a. */
+  const isRotation = (a: number[], b: number[]): boolean =>
+    a.length === b.length &&
+    a.some((_, r) => a.every((v, i) => v === b[(i + r) % a.length]));
+  /** The classes of the cells as the picture shows them, read back at the middle of every cell (the height gives it): 0 a step without an onset, 1 an onset with the shorter gap, 2 with the longer gap. */
+  const readClasses = (seed: number): number[][] => {
+    const n: number = p.steps[seed % p.steps.length],
+      sample = createSurfaceSampler('euclideanrhythms', seed),
+      out = empty(),
+      rows: number[][] = [];
+    for (let row = 0; row < n; row++) {
+      const cells: number[] = [];
+      for (let column = 0; column < n; column++) {
+        sample((column + 0.5) / n, (row + 0.5) / n, out);
+        const high = out.height / p.relief / p.cellHeight;
+        const kind = [p.heightRest, p.heightShort, p.heightLong].findIndex(
+          (h) => Math.abs(h - high) < 1e-9,
+        );
+        expect(kind).toBeGreaterThanOrEqual(0);
+        cells.push(kind);
+      }
+      rows.push(cells);
+    }
+    return rows;
+  };
+  /** The grid of 256 by 256 colours above 0.75 (the onsets with the longer gap), for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('euclideanrhythms', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.75));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9639, lit: 0.08008, mean: 0.29149 }],
+      [1, { high: 0.9641, lit: 0.07568, mean: 0.28327 }],
+      [0xffffffff, { high: 0.9638, lit: 0.09721, mean: 0.28768 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('euclideanrhythms', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.75);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0156);
+      expect(low).toBeLessThan(0.0161);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every rhythm E(k, n) of k onsets as a rotation of what Bjorklund algorithm gives, read back from the picture, and the unturned group as the floor formula', () => {
+    for (let seed = 0; seed < 24; seed++) {
+      const n: number = p.steps[seed % p.steps.length],
+        group = Math.floor(seed / p.steps.length),
+        classes = readClasses(seed);
+      for (let k = 1; k <= n; k++) {
+        const row = classes[k - 1].map((c) => Number(c > 0));
+        expect(isRotation(row, bjorklund(k, n))).toBe(true);
+        // The unturned rhythm: an onset at the step i when the floor of (i + 1) k / n is more than the floor of i k / n; the turn of the group moves it left by group times k steps.
+        const formula = Array.from({ length: n }, (_, i) =>
+          Number(Math.floor(((i + 1) * k) / n) > Math.floor((i * k) / n)),
+        );
+        const turn = (group * k) % n;
+        expect(row).toEqual(formula.map((_, c) => formula[(c + turn) % n]));
+      }
+    }
+  });
+  it('spreads the onsets as evenly as possible, read from the picture: k onsets in row k, gaps of only the two sizes n / k rounded down and up with the longer ones marked, and every window of the circle holding the same number of onsets up to one', () => {
+    for (let seed = 0; seed < 24; seed++) {
+      const n: number = p.steps[seed % p.steps.length],
+        classes = readClasses(seed);
+      for (let k = 1; k <= n; k++) {
+        const row = classes[k - 1],
+          onsets = row.map((c, i) => (c > 0 ? i : -1)).filter((i) => i >= 0);
+        expect(onsets.length).toBe(k);
+        const low = Math.floor(n / k),
+          high = Math.ceil(n / k);
+        let longGaps = 0;
+        onsets.forEach((step, index) => {
+          const gap = (onsets[(index + 1) % k] - step + n) % n || n;
+          expect([low, high]).toContain(gap);
+          // The class of the onset says which gap follows it (when k divides n all the gaps are the shorter).
+          expect(row[step]).toBe(gap > low ? 2 : 1);
+          longGaps += Number(gap > low);
+        });
+        expect(longGaps).toBe(n % k);
+        // Balance: the number of onsets in a window of w steps differs by at most 1 from window to window.
+        for (let w = 1; w < n; w++) {
+          const counts = Array.from({ length: n }, (_, start) => {
+            let c = 0;
+            for (let d = 0; d < w; d++) c += Number(row[(start + d) % n] > 0);
+            return c;
+          });
+          expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(
+            1,
+          );
+        }
+      }
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const n: number = p.steps[seed % p.steps.length],
+        classes = readClasses(seed),
+        sample = createSurfaceSampler('euclideanrhythms', seed),
+        out = empty(),
+        half = 0.5 - p.gap,
+        inner = half - p.corner;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * n,
+          y = v * n,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          dx = Math.abs(x - column - 0.5),
+          dy = Math.abs(y - row - 0.5),
+          // The distance to the rounded square, by the straight sides or by the corner circle.
+          distance =
+            dx <= inner || dy <= inner
+              ? Math.max(dx, dy) - half
+              : Math.hypot(dx - inner, dy - inner) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          kind = classes[row][column],
+          tone = [p.toneRest, p.toneShort, p.toneLong][kind],
+          lift = [p.heightRest, p.heightShort, p.heightLong][kind];
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * lift,
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.1055908203125, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.10009765625, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('euclideanrhythms', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber Euclidean rhythm maps on dark brown with raised onsets and shaded gaps', () => {
+    const maps = generateProceduralMaps('euclideanrhythms', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(93.2);
+    expect(red / (512 * 512)).toBeLessThan(94.3);
+    expect(green / (512 * 512)).toBeGreaterThan(63.3);
+    expect(green / (512 * 512)).toBeLessThan(64.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(33.5);
+    expect(blue / (512 * 512)).toBeLessThan(34.5);
+    expect(maxTilt).toBeGreaterThan(0.0499);
+    expect(maxTilt).toBeLessThan(0.05);
     expect(invalid).toBe(0);
   });
 });
