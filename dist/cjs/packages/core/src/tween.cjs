@@ -233,13 +233,14 @@ var Timeline = class {
 };
 var TweenGroup = class {
 	running = /* @__PURE__ */ new Set();
+	snapshot;
 	disposed = !1;
 	get size() {
 		return this.running.size;
 	}
 	add(e) {
 		if (this.disposed) throw Error(`TweenGroup is destroyed.`);
-		return this.running.add(e), e.play(), e;
+		return this.snapshot = void 0, this.running.add(e), e.play(), e;
 	}
 	to(e, t, n) {
 		return this.add(Tween.to(e, t, n));
@@ -248,19 +249,19 @@ var TweenGroup = class {
 		return this.add(Tween.from(e, t, n));
 	}
 	remove(e) {
-		return this.running.delete(e);
+		return this.snapshot = void 0, this.running.delete(e);
 	}
 	update(e) {
 		if (!this.disposed) {
 			nonnegative(e, `Tween delta`);
-			for (let t of [...this.running]) this.running.has(t) && !t.update(e) && !t.playing && this.running.delete(t);
+			for (let t of this.snapshot ??= [...this.running]) this.running.has(t) && !t.update(e) && !t.playing && (this.running.delete(t), this.snapshot = void 0);
 		}
 	}
 	clear() {
-		this.running.clear();
+		this.running.clear(), this.snapshot = void 0;
 	}
 	destroy() {
-		this.disposed = !0, this.running.clear();
+		this.disposed = !0, this.running.clear(), this.snapshot = void 0;
 	}
 };
 //#endregion

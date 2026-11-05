@@ -120,7 +120,13 @@ var NavigationTiledGraph3D = class NavigationTiledGraph3D {
 	getConnectionIndex(e, t) {
 		let n = this.ids.get(e), r = this.ids.get(t);
 		if (n === void 0 || r === void 0) throw RangeError(`Unknown tiled endpoint.`);
-		return this.edges[n].find((e) => e.to === r)?.connection;
+		let i = this.edges[n], a = 0, o = i.length - 1;
+		for (; a <= o;) {
+			let e = a + o >>> 1, t = i[e];
+			if (t.to < r) a = e + 1;
+			else if (t.to > r) o = e - 1;
+			else return t.connection;
+		}
 	}
 	setConnection(e, t) {
 		this.setConnections([{

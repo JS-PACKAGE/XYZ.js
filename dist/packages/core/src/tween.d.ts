@@ -123,6 +123,8 @@ export declare class Timeline implements Tweenable {
 /** Owns running tweens and timelines and advances them together; `scene.tweens` is one. */
 export declare class TweenGroup {
     private readonly running;
+    /** Immutable during an update, including nested updates and callback mutations. */
+    private snapshot;
     private disposed;
     get size(): number;
     /** Starts `item` (a Tween or Timeline) and keeps updating it until it finishes. */

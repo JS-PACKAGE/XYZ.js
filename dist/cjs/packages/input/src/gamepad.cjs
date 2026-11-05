@@ -385,14 +385,7 @@ var ActionMap = class {
 		this.pendingReleased.clear();
 	}
 	export() {
-		let e = {};
-		for (let [t, n] of this.map) Object.defineProperty(e, t, {
-			value: n.map((e) => ({ ...e })),
-			enumerable: !0,
-			configurable: !0,
-			writable: !0
-		});
-		return e;
+		return Object.fromEntries(Array.from(this.map, ([e, t]) => [e, t.map((e) => ({ ...e }))]));
 	}
 	import(e) {
 		if (!e || typeof e != `object` || Array.isArray(e)) throw RangeError(`Action bindings must be an object.`);
