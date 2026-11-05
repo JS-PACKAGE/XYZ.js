@@ -14893,3 +14893,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：8項（色調範圍、冠軍數字、72個seed與模擬器逐格相同、畫面規則、逐點比對、不同轉位鏡射位移與決定性、C1與UV週期、maps），`-t "Busy beavers as"`8項通過。
 - gates（工具實跑）：build、strict typecheck、對改動檔的eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、`check-distribution`皆通過，`-t "Busy beavers as|busybeavers|kinds|catalog|distinct|periodic"`定向測試**2687項通過／4891項未選**，輸出`GATES-OK`。
 - 未驗證：selfreferentialsequences、numbertriangles、adjacencymatrices與busybeavers的完整suite與瀏覽器gallery（最近一次完整suite與gallery在`771b981c9`，涵蓋到linearcodes）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-06 記錄：完整suite與瀏覽器gallery（到busybeavers）
+
+- 範圍：只記錄驗證，沒有改程式。對象是`2c3adf71a`（[P08] Add Busy Beavers material），涵蓋上一次記錄（`771b981c9`）之後新增的四個材質：selfreferentialsequences、numbertriangles、adjacencymatrices、busybeavers。
+- 完整suite（工具實跑，獨立worktree、`vitest run`）：**181個檔案／11,538項測試全部通過**，耗時1599 s（開始時主機load約3.8）。上一次（`771b981c9`）是11,505項，差額33項與這四個材質新增的測試數（7＋7＋7＋8＝29）不符，另外4項我沒有查來源（可能是其他人同期新增的測試），這裡只記錄實測數字。
+- 瀏覽器gallery（工具實跑，Chrome啟用WebGPU，Vite開發伺服器）：`/examples/pbr3d/`在WebGPU與`?renderer=webgl2`兩種後端都載入成功，狀態列顯示1,188種procedural material presets，下拉選單1,189個選項（含plain）；以`input`事件選取四個新材質，唯讀區在各後端都出現對應的`Material <kind> `字樣，`tab.errors()`為空。這只證明選取與初次生成沒有丟錯，沒有逐一截圖檢視這四個在gallery內的樣子。
+- 未驗證：跨瀏覽器（只有一個Chrome）、跨GPU（只有這一台）、Canvas2D（本頁無3D能力）、完整`lint`全倉；不push。
