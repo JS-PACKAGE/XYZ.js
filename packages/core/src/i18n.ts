@@ -74,7 +74,8 @@ type PluralForms = Readonly<Partial<Record<PluralCategory, string>>> & {
  */
 function pluralForms(value: object): PluralForms | undefined {
   const entries = Object.entries(value);
-  const other: unknown = Object.fromEntries(entries).other;
+  const forms = Object.fromEntries(entries);
+  const other: unknown = forms.other;
   if (
     typeof other !== 'string' ||
     !entries.every(
@@ -82,7 +83,7 @@ function pluralForms(value: object): PluralForms | undefined {
     )
   )
     return undefined;
-  return Object.freeze({ ...Object.fromEntries(entries), other });
+  return Object.freeze({ ...forms, other });
 }
 
 function flatten(

@@ -82,6 +82,27 @@ it('selects plural forms with Intl.PluralRules and formats numbers per locale', 
   expect(new I18n({ locale: 'de' }).formatNumber(1234.5)).toBe('1.234,5');
 });
 
+it('snapshots enumerable plural forms once and owns the resulting catalog', () => {
+  const reads: string[] = [];
+  let other = 'many';
+  const forms = {
+    get one() {
+      reads.push('one');
+      return 'single';
+    },
+    get other() {
+      reads.push('other');
+      return other;
+    },
+  };
+  const i18n = new I18n({ messages: { en: { items: forms } } });
+  other = 'changed';
+  expect(reads).toEqual(['one', 'other']);
+  expect(i18n.t('items', { count: 1 })).toBe('single');
+  expect(i18n.t('items', { count: 2 })).toBe('many');
+  expect(reads).toEqual(['one', 'other']);
+});
+
 it('keeps cached plural and number formatting correct across locale changes', () => {
   const i18n = new I18n({ locale: 'de', fallback: 'en', messages });
   expect(i18n.t('apples', { count: 1234 })).toBe('1.234 apples');
