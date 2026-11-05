@@ -56394,6 +56394,145 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sortingtraces': {
+        const p = proceduralMaterialPresets.sortingtraces,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % 6,
+          group = Math.floor(unsigned / 6),
+          size: number = p.size,
+          rows = (() => {
+            const multiplier = 2 * ((5 * group + 3) % 32) + 1,
+              offset = (7 * group + 11) % size,
+              a = Array.from(
+                { length: size },
+                (_, i) => (multiplier * i + offset) % size,
+              ),
+              steps: number[][] = [],
+              snap = (): void => {
+                steps.push(a.slice());
+              },
+              swap = (i: number, j: number): void => {
+                [a[i], a[j]] = [a[j], a[i]];
+              },
+              // Sift the element at the root down in a max-heap of the first end elements.
+              sift = (root: number, end: number): void => {
+                let at = root;
+                for (;;) {
+                  let big = at;
+                  const left = 2 * at + 1,
+                    right = left + 1;
+                  if (left < end && a[left] > a[big]) big = left;
+                  if (right < end && a[right] > a[big]) big = right;
+                  if (big === at) return;
+                  swap(at, big);
+                  at = big;
+                }
+              },
+              quick = (low: number, high: number): void => {
+                if (low >= high) return;
+                let store = low;
+                for (let j = low; j < high; j++)
+                  if (a[j] < a[high]) swap(store++, j);
+                swap(store, high);
+                snap();
+                quick(low, store - 1);
+                quick(store + 1, high);
+              };
+            if (variant === 5) {
+              for (let root = (size >> 1) - 1; root >= 0; root--)
+                sift(root, size);
+              snap();
+              for (let end = size - 1; end > 0; end--) {
+                swap(0, end);
+                sift(0, end);
+                snap();
+              }
+              return steps;
+            }
+            snap();
+            if (variant === 0) {
+              for (let pass = 1; pass < size; pass++) {
+                for (let i = 0; i + pass < size; i++)
+                  if (a[i] > a[i + 1]) swap(i, i + 1);
+                snap();
+              }
+            } else if (variant === 1) {
+              for (let k = 1; k < size; k++) {
+                const value = a[k];
+                let j = k - 1;
+                while (j >= 0 && a[j] > value) {
+                  a[j + 1] = a[j];
+                  j--;
+                }
+                a[j + 1] = value;
+                snap();
+              }
+            } else if (variant === 2) {
+              for (let k = 0; k + 1 < size; k++) {
+                let least = k;
+                for (let j = k + 1; j < size; j++)
+                  if (a[j] < a[least]) least = j;
+                swap(k, least);
+                snap();
+              }
+            } else if (variant === 3) {
+              for (let width = 1; width < size; width *= 2)
+                for (let start = 0; start < size; start += 2 * width) {
+                  const merged: number[] = [];
+                  let left = start,
+                    right = start + width;
+                  const leftEnd = start + width,
+                    rightEnd = start + 2 * width;
+                  while (left < leftEnd || right < rightEnd)
+                    merged.push(
+                      right >= rightEnd ||
+                        (left < leftEnd && a[left] <= a[right])
+                        ? a[left++]
+                        : a[right++],
+                    );
+                  merged.forEach((value, i) => {
+                    a[start + i] = value;
+                  });
+                  snap();
+                }
+            } else {
+              quick(0, size - 1);
+              while (steps.length < size) snap();
+            }
+            return steps;
+          })(),
+          half = 0.5 - p.gap,
+          inner = half - p.corner;
+        return () => {
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            qx = Math.abs(x - i - 0.5) - inner,
+            qy = Math.abs(y - j - 0.5) - inner,
+            // The distance to the rounded square of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            level = rows[j][i] / (size - 1),
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65362,6 +65501,7 @@ export function createSurfaceSampler(
     kind === 'mondrianpartitions' ||
     kind === 'langfordpairings' ||
     kind === 'golombrulers' ||
+    kind === 'sortingtraces' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

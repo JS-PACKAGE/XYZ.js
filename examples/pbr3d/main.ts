@@ -1231,6 +1231,7 @@ try {
     'mondrianpartitions',
     'langfordpairings',
     'golombrulers',
+    'sortingtraces',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

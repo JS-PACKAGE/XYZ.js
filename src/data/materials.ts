@@ -19536,6 +19536,29 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.6,
     gapOcclusion: 0.5,
   }),
+  sortingtraces: Object.freeze({
+    dark: [24, 4, 10] as const,
+    light: [255, 140, 160] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x39d1,
+    // The trace of a sorting algorithm on 64 values: row t of the grid is the array after the step t (the row 0 on top), a cell is toned by its value, so the gradient of the sorted array comes out of the mess step by step. The algorithms (variant): 0 bubble sort (the row t after the pass t: the pass goes up to the sorted tail), 1 insertion sort (after the insertion of the element t), 2 selection sort (after the t-th swap of the least of the rest into place), 3 bottom-up merge sort (after the t-th merge of two neighbouring runs of 1, then 2, 4 ... elements), 4 quicksort with the last element as the pivot and Lomuto's partition (after each partition, the left part before the right part; the last rows repeat the sorted array if there are fewer partitions) and 5 heapsort (the row 0 is the heap that is built, then after the t-th swap of the greatest to the end and the sifting down of the new top). The seed is split in two: seed % 6 picks the algorithm and floor(seed / 6) the input, where the element i is (a i + b) mod 64 for a = 2 ((5 group + 3) mod 32) + 1 and b = (7 group + 11) mod 64.
+    size: 64,
+    // The gap on each side of a cell, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.09,
+    corner: 0.14,
+    edgeSoft: 0.07,
+    grainCells: 128,
+    toneGround: 0.03,
+    toneMin: 0.2,
+    toneMax: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of a cell is cellHeight times (heightBase + heightSwing times its value level from 0 to 1).
+    heightBase: 0.3,
+    heightSwing: 0.7,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21367,6 +21390,7 @@ export const proceduralTileMeters = Object.freeze({
   mondrianpartitions: 0.5,
   langfordpairings: 0.5,
   golombrulers: 0.5,
+  sortingtraces: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

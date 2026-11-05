@@ -1194,6 +1194,7 @@ const kinds: ProceduralMaterialKind[] = [
   'mondrianpartitions',
   'langfordpairings',
   'golombrulers',
+  'sortingtraces',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -212215,6 +212216,394 @@ describe('Golomb rulers as every difference of two marks different', () => {
     expect(blue / (512 * 512)).toBeLessThan(12.3);
     expect(maxTilt).toBeGreaterThan(0.0716);
     expect(maxTilt).toBeLessThan(0.0717);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Sorting traces as the array after every step of a sorting algorithm', () => {
+  const p = proceduralMaterialPresets.sortingtraces;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The input of a group: the element i is (a i + b) mod 64 for a = 2 ((5 group + 3) mod 32) + 1 and b = (7 group + 11) mod 64. */
+  const inputOf = (group: number): number[] =>
+    Array.from(
+      { length: 64 },
+      (_, i) =>
+        ((2 * ((5 * group + 3) % 32) + 1) * i + ((7 * group + 11) % 64)) % 64,
+    );
+  /** The rows of the trace of an algorithm (0 bubble, 1 insertion, 2 selection, 3 bottom-up merge, 4 quicksort, 5 heapsort) written another way than the sampler writes it: bubble sort by whole passes over the array, insertion sort as the sorted prefix with the rest as it was, selection sort by looking the least up with indexOf, merging by sorting the two runs, quicksort with a stack of ranges and heapsort with a recursive sift. */
+  const expectedRows = (seed: number): number[][] => {
+    const variant = seed % 6,
+      a = inputOf(Math.floor(seed / 6)),
+      rows: number[][] = [];
+    const swap = (i: number, j: number) => {
+      [a[i], a[j]] = [a[j], a[i]];
+    };
+    if (variant === 1) {
+      const input = a.slice();
+      for (let k = 0; k < 64; k++)
+        rows.push([
+          ...input.slice(0, k + 1).sort((x, y) => x - y),
+          ...input.slice(k + 1),
+        ]);
+      return rows;
+    }
+    if (variant === 5) {
+      const down = (root: number, end: number): void => {
+        const left = 2 * root + 1,
+          right = left + 1;
+        let big = root;
+        if (left < end && a[left] > a[big]) big = left;
+        if (right < end && a[right] > a[big]) big = right;
+        if (big !== root) {
+          swap(root, big);
+          down(big, end);
+        }
+      };
+      for (let root = 31; root >= 0; root--) down(root, 64);
+      rows.push(a.slice());
+      for (let end = 63; end >= 1; end--) {
+        swap(0, end);
+        down(0, end);
+        rows.push(a.slice());
+      }
+      return rows;
+    }
+    rows.push(a.slice());
+    if (variant === 0) {
+      for (let pass = 1; pass < 64; pass++) {
+        for (let i = 0; i < 63; i++) if (a[i] > a[i + 1]) swap(i, i + 1);
+        rows.push(a.slice());
+      }
+    } else if (variant === 2) {
+      for (let k = 0; k < 63; k++) {
+        swap(k, k + a.slice(k).indexOf(Math.min(...a.slice(k))));
+        rows.push(a.slice());
+      }
+    } else if (variant === 3) {
+      for (let width = 1; width < 64; width *= 2)
+        for (let start = 0; start < 64; start += 2 * width) {
+          const merged = a
+            .slice(start, start + 2 * width)
+            .sort((x, y) => x - y);
+          a.splice(start, 2 * width, ...merged);
+          rows.push(a.slice());
+        }
+    } else {
+      const ranges = [[0, 63]];
+      while (ranges.length > 0) {
+        const [low, high] = ranges.pop()!;
+        if (low >= high) continue;
+        let store = low;
+        for (let j = low; j < high; j++) {
+          if (a[j] < a[high]) {
+            swap(store, j);
+            store++;
+          }
+        }
+        swap(store, high);
+        rows.push(a.slice());
+        ranges.push([store + 1, high], [low, store - 1]);
+      }
+      while (rows.length < 64) rows.push(a.slice());
+    }
+    return rows;
+  };
+  /** The grid of values as the picture shows them, read back at the middle of every cell (the height gives the value): 64 rows of 64. */
+  const readRows = (seed: number): number[][] => {
+    const sample = createSurfaceSampler('sortingtraces', seed),
+      out = empty(),
+      rows: number[][] = [];
+    for (let j = 0; j < 64; j++) {
+      const row: number[] = [];
+      for (let i = 0; i < 64; i++) {
+        sample((i + 0.5) / 64, (j + 0.5) / 64, out);
+        const level =
+          (out.height / p.relief / p.cellHeight - p.heightBase) / p.heightSwing;
+        const value = level * 63;
+        expect(Math.abs(value - Math.round(value))).toBeLessThan(1e-6);
+        row.push(Math.abs(Math.round(value)));
+      }
+      rows.push(row);
+    }
+    return rows;
+  };
+  /** The grid of 256 by 256 colours above 0.75, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('sortingtraces', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.75));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.07083, high: 0.9633, lit: 0.20285, mean: 0.48257 }],
+      [1, { low: 0.07209, high: 0.9627, lit: 0.20255, mean: 0.48256 }],
+      [0xffffffff, { low: 0.0716, high: 0.963, lit: 0.20319, mean: 0.48259 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('sortingtraces', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.75);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      // At the corner where four cells meet there is no ink: the gap occlusion (the 256 grid never lands on a corner, so its least occlusion is higher).
+      const corner = empty();
+      sample(5 / 64, 9 / 64, corner);
+      expect(corner.height).toBe(0);
+      expect(corner.occlusion).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws the trace of every algorithm on every input, read back at the middle of every cell, equal to a separately written trace', () => {
+    for (let seed = 0; seed < 36; seed++)
+      expect(readRows(seed)).toEqual(expectedRows(seed));
+  });
+  it('shows what each algorithm guarantees at every step, read from the picture: a permutation in every row, the sorted tail of bubble sort, the sorted prefix of insertion sort, the least values in place for selection sort, the sorted runs of merge sort, the pivots in place of quicksort and the heap with the sorted tail of heapsort', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const variant = seed % 6,
+        rows = readRows(seed),
+        sorted = Array.from({ length: 64 }, (_, i) => i);
+      for (const row of rows)
+        expect([...row].sort((x, y) => x - y)).toEqual(sorted);
+      // The last row is the sorted array: the gradient.
+      expect(rows[63]).toEqual(sorted);
+      const ascending = (row: number[], from: number, to: number): boolean =>
+        row.slice(from, to).every((v, i, part) => i === 0 || part[i - 1] < v);
+      rows.forEach((row, t) => {
+        if (variant === 0)
+          // After the pass t the t greatest values are in place at the end.
+          expect(row.slice(64 - t)).toEqual(sorted.slice(64 - t));
+        if (variant === 1) {
+          // After the insertion t the first t + 1 elements are sorted and the rest is as it was.
+          expect(ascending(row, 0, t + 1)).toBe(true);
+          expect(row.slice(t + 1)).toEqual(rows[0].slice(t + 1));
+        }
+        if (variant === 2)
+          // After the swap t the t least values are in place at the start.
+          expect(row.slice(0, t)).toEqual(sorted.slice(0, t));
+        if (variant === 5 && t > 0) {
+          // After the extraction t the t greatest are at the end, and the rest is a max-heap.
+          expect(row.slice(64 - t)).toEqual(sorted.slice(64 - t));
+          const heap = row.slice(0, 64 - t);
+          for (let i = 1; i < heap.length; i++)
+            expect(heap[(i - 1) >> 1]).toBeGreaterThan(heap[i]);
+        }
+      });
+      if (variant === 5) {
+        const heap = rows[0];
+        for (let i = 1; i < 64; i++)
+          expect(heap[(i - 1) >> 1]).toBeGreaterThan(heap[i]);
+      }
+      if (variant === 3) {
+        // The rows after the last merge of the widths 1, 2, 4, 8, 16 and 32 (the merges 32, 48, 56, 60, 62 and 63): every run of that width is sorted.
+        [
+          [32, 2],
+          [48, 4],
+          [56, 8],
+          [60, 16],
+          [62, 32],
+          [63, 64],
+        ].forEach(([t, run]) => {
+          for (let start = 0; start < 64; start += run)
+            expect(ascending(rows[t], start, start + run)).toBe(true);
+        });
+      }
+      if (variant === 4) {
+        // The number of pivots in their final place (a place s with the value s and every value before it less) never goes down from row to row, and the rows after the last partition repeat.
+        const fixed = rows.map(
+          (row) =>
+            row.filter((v, i) => v === i && row.slice(0, i).every((w) => w < v))
+              .length,
+        );
+        for (let t = 1; t < 64; t++)
+          expect(fixed[t]).toBeGreaterThanOrEqual(fixed[t - 1]);
+        expect(fixed[63]).toBe(64);
+        let last = 63;
+        while (last > 0 && rows[last - 1].join() === rows[63].join()) last--;
+        expect(rows[last]).toEqual(sorted);
+      }
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const rows = expectedRows(seed),
+        sample = createSurfaceSampler('sortingtraces', seed),
+        out = empty(),
+        half = 0.5 - p.gap,
+        inner = half - p.corner;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * 64,
+          y = v * 64,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          dx = Math.abs(x - column - 0.5),
+          dy = Math.abs(y - row - 0.5),
+          // The distance to the rounded square, by the straight sides or by the corner circle.
+          distance =
+            dx <= inner || dy <= inner
+              ? Math.max(dx, dy) - half
+              : Math.hypot(dx - inner, dy - inner) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          level = rows[row][column] / 63,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.222381591796875, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.0453643798828125, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('sortingtraces', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 rose sorting trace maps on dark plum with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('sortingtraces', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(102.3);
+    expect(red / (512 * 512)).toBeLessThan(103.3);
+    expect(green / (512 * 512)).toBeGreaterThan(49.9);
+    expect(green / (512 * 512)).toBeLessThan(50.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(60.7);
+    expect(blue / (512 * 512)).toBeLessThan(61.7);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1071);
     expect(invalid).toBe(0);
   });
 });
