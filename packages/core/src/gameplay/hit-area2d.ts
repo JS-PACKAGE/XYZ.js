@@ -10,6 +10,7 @@ export class HitArea2D {
   readonly bounds: Readonly<Rect2D>;
   readonly points: readonly (readonly [number, number])[];
   private readonly radius: number;
+  private readonly coordinates: Float64Array | undefined;
   private constructor(
     kind: HitAreaKind2D,
     bounds: Rect2D,
@@ -20,6 +21,14 @@ export class HitArea2D {
     this.bounds = Object.freeze(bounds);
     this.points = Object.freeze(points);
     this.radius = radius;
+    if (kind === 'polygon') {
+      const coordinates = new Float64Array(points.length * 2);
+      for (let i = 0; i < points.length; i++) {
+        coordinates[i * 2] = points[i]![0];
+        coordinates[i * 2 + 1] = points[i]![1];
+      }
+      this.coordinates = coordinates;
+    }
     Object.freeze(this);
   }
   static rectangle(rect: Rect2D): HitArea2D {
@@ -119,17 +128,16 @@ export class HitArea2D {
           this.radius ** 2
       );
     let inside = false;
+    const coordinates = this.coordinates!;
     for (
       let i = 0, j = this.points.length - 1;
       i < this.points.length;
       j = i++
     ) {
-      const a = this.points[j],
-        b = this.points[i],
-        ax = a[0],
-        ay = a[1],
-        bx = b[0],
-        by = b[1];
+      const ax = coordinates[j * 2]!,
+        ay = coordinates[j * 2 + 1]!,
+        bx = coordinates[i * 2]!,
+        by = coordinates[i * 2 + 1]!;
       const cross = (x - ax) * (by - ay) - (y - ay) * (bx - ax);
       if (
         cross === 0 &&
