@@ -57,14 +57,19 @@ function parseAssetBundle(n) {
 }
 function selectAssetBundleVariant(n, r, i = {}) {
 	if (!r.capabilities.threeD) throw new require_texture.AssetError(`Renderer does not support bundle 3D models.`);
-	if (n.textures.some((e) => e.width > r.capabilities.maxTextureSize || e.height > r.capabilities.maxTextureSize)) throw new require_texture.AssetError(`Bundle textures exceed device dimensions.`);
-	let a = new Set(r.capabilities.supportedTextureFormats), o = n.variants.find((e) => (e.codec !== `draco` || i.draco) && e.formats.every((e) => {
-		if (!a.has(e)) return !1;
-		let [i, o, , , , s] = require_native_texture.nativeTextureFormats[e];
-		return r.backend !== `webgpu` || !s || n.textures.every((e) => e.width % i === 0 && e.height % o === 0);
+	let a = n.textures;
+	for (let t = 0, n = a.length; t < n; t++) {
+		if (!(t in a)) continue;
+		let n = a[t];
+		if (n.width > r.capabilities.maxTextureSize || n.height > r.capabilities.maxTextureSize) throw new require_texture.AssetError(`Bundle textures exceed device dimensions.`);
+	}
+	let o = new Set(r.capabilities.supportedTextureFormats), s = n.variants.find((e) => (e.codec !== `draco` || i.draco) && e.formats.every((e) => {
+		if (!o.has(e)) return !1;
+		let [i, a, , , , s] = require_native_texture.nativeTextureFormats[e];
+		return r.backend !== `webgpu` || !s || n.textures.every((e) => e.width % i === 0 && e.height % a === 0);
 	}));
-	if (!o) throw new require_texture.AssetError(`No compatible bundle variant.`);
-	return o;
+	if (!s) throw new require_texture.AssetError(`No compatible bundle variant.`);
+	return s;
 }
 async function sha256(e) {
 	let t = new Uint8Array(await crypto.subtle.digest(`SHA-256`, e)), n = ``;

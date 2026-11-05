@@ -29,7 +29,8 @@ function reject(t) {
 	throw new require_texture.AssetError(`glTF export: ${t}`);
 }
 function finite(e, t) {
-	for (let n = 0; n < e.length; n++) (!Number.isFinite(e[n]) || !Number.isFinite(Math.fround(e[n]))) && reject(`${t} contains a non-finite Float32 value.`);
+	if (e instanceof Float32Array) for (let n = 0; n < e.length; n++) Number.isFinite(e[n]) || reject(`${t} contains a non-finite Float32 value.`);
+	else for (let n = 0; n < e.length; n++) (!Number.isFinite(e[n]) || !Number.isFinite(Math.fround(e[n]))) && reject(`${t} contains a non-finite Float32 value.`);
 }
 function pose(e, t = [
 	1,

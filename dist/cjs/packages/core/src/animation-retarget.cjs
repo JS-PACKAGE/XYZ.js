@@ -106,7 +106,7 @@ var AnimationRetargeter = class {
 			let e = this.mappings.get(t.target), r = new Float32Array(t.values.length);
 			for (let n = 0; n < r.length; n += t.size) {
 				let i = t.interpolation === `CUBICSPLINE` && n / t.size % 3 != 1;
-				if (t.path === `rotation`) transformRotation(e.left, e.right, t.values, n, o), r.set(o, n);
+				if (t.path === `rotation`) transformRotation(e.left, e.right, t.values, n, o), r[n] = o[0], r[n + 1] = o[1], r[n + 2] = o[2], r[n + 3] = o[3];
 				else if (t.path === `scale`) {
 					let i = e.targetBind.scale / e.sourceBind.scale;
 					for (let e = 0; e < 3; e++) r[n + e] = t.values[n + e] * i;

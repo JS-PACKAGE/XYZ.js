@@ -9,6 +9,7 @@ export declare class AnimatedImageTimeline {
     readonly durations: readonly number[];
     readonly duration: number;
     readonly plays: number;
+    private readonly frameDurations;
     private elapsed;
     private index;
     private active;

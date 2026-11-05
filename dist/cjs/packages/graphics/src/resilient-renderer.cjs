@@ -175,7 +175,7 @@ var ResilientRenderer = class {
 		this.recovering || this.current.endFrame();
 	}
 	resize(e, t) {
-		this.size = {
+		this.size ? (this.size.width = e, this.size.height = t) : this.size = {
 			width: e,
 			height: t
 		}, this.recovering || this.current.resize(e, t);

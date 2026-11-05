@@ -18,6 +18,7 @@ var AnimatedImageTimeline = class {
 	durations;
 	duration;
 	plays;
+	frameDurations;
 	elapsed = 0;
 	index = 0;
 	active = !0;
@@ -25,7 +26,7 @@ var AnimatedImageTimeline = class {
 	constructor(e, t = 1 / 0) {
 		if (validatePlays(t), !e.length || e.length > require_graphics2d.graphics2dLimits.frames || e.some((e) => !Number.isFinite(e) || e <= 0)) throw RangeError(`Animated image frame durations must be positive finite seconds within the frame budget.`);
 		if (this.durations = Object.freeze([...e]), this.duration = e.reduce((e, t) => e + t, 0), !Number.isFinite(this.duration) || !Number.isFinite(this.duration * (t === 1 / 0 ? 1 : t))) throw RangeError(`Animated image duration overflow.`);
-		this.plays = t;
+		this.plays = t, this.frameDurations = Float64Array.from(this.durations);
 	}
 	get frame() {
 		return this.index;
@@ -54,9 +55,9 @@ var AnimatedImageTimeline = class {
 			let t = e % this.duration, n = this.duration - this.elapsed;
 			this.elapsed = t >= n ? t - n : this.elapsed + t;
 		} else this.elapsed += e;
-		let n = this.elapsed % this.duration;
-		for (this.index = 0; this.index < this.durations.length - 1 && n >= this.durations[this.index];) n -= this.durations[this.index], this.index++;
-		return this.index;
+		let n = this.elapsed % this.duration, r = this.frameDurations, i = 0;
+		for (; i < r.length - 1 && n >= r[i];) n -= r[i], i++;
+		return this.index = i, i;
 	}
 };
 var AnimatedImageTexture = class AnimatedImageTexture extends require_texture2d.CanvasTexture2D {
