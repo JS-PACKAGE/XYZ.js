@@ -19819,6 +19819,31 @@ export const proceduralMaterialPresets = Object.freeze({
     heightCompositeLiar: 1,
     gapOcclusion: 0.5,
   }),
+  lightsoutpuzzles: Object.freeze({
+    dark: [18, 6, 4] as const,
+    light: [255, 235, 150] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x4c8b,
+    // Two Lights Out puzzles on a size by size board (a press toggles the cell and its 4 neighbours), one in each row of two panels: the board of lit cells on the left and the presses of a fewest-press solution on the right. A puzzle is made by pressing the cells of a pattern on a dark board: patterns[k] 0 the centre, 1 the cross through the centre, 2 every cell, 3 the cells with i + j even, 4 the border ring and 5 the main diagonal; the solution is found by Gaussian elimination over GF(2) and, when the board has quiet patterns (several solutions), the lightest of all solutions is taken. The seed is split in two: seed % 6 picks the pattern of the top puzzle and floor(seed / 6) the group, whose value mod 4 picks the size from sizes and (value / 4 rounded down) mod 5 picks how many patterns later the bottom puzzle's pattern is (1 to 5).
+    sizes: [5, 6, 7, 9] as const,
+    // The gap on each side of a cell inside a panel and at the edge of a panel, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.06,
+    gapPanel: 0.3,
+    corner: 0.14,
+    edgeSoft: 0.07,
+    grainCells: 128,
+    toneGround: 0.03,
+    // The tone of a cell that is off (dark) or on (a lit cell, a pressed cell).
+    toneOff: 0.18,
+    toneOn: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The heights of an off and an on cell as fractions of cellHeight.
+    heightOff: 0.3,
+    heightOn: 1,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21660,6 +21685,7 @@ export const proceduralTileMeters = Object.freeze({
   minesweeperboards: 0.5,
   finitefieldtables: 0.5,
   pseudoprimeliars: 0.5,
+  lightsoutpuzzles: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

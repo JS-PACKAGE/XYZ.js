@@ -1204,6 +1204,7 @@ const kinds: ProceduralMaterialKind[] = [
   'minesweeperboards',
   'finitefieldtables',
   'pseudoprimeliars',
+  'lightsoutpuzzles',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -215622,6 +215623,349 @@ describe('Pseudoprime liars as the Fermat, Euler and strong liars of odd numbers
     expect(blue / (512 * 512)).toBeLessThan(88.4);
     expect(maxTilt).toBeGreaterThan(0.0999);
     expect(maxTilt).toBeLessThan(0.1);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Lights Out puzzles as boards and fewest-press solutions', () => {
+  const p = proceduralMaterialPresets.lightsoutpuzzles;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The sizes of the boards, written out again. */
+  const sizes = [5, 6, 7, 9];
+  /** The neighbours a press toggles: the cell itself and the four around it. */
+  const around = [
+    [0, 0],
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ];
+  /** The board after pressing the cells with 1 in the press grid (a press toggles itself and its neighbours). */
+  const afterPresses = (n: number, presses: number[][], board: number[][]) => {
+    const result = board.map((row) => [...row]);
+    for (let j = 0; j < n; j++)
+      for (let i = 0; i < n; i++)
+        if (presses[j][i] === 1)
+          for (const [di, dj] of around)
+            if (i + di >= 0 && i + di < n && j + dj >= 0 && j + dj < n)
+              result[j + dj][i + di] ^= 1;
+    return result;
+  };
+  /** Which cells the pattern k presses: 0 the centre, 1 the cross through the centre, 2 every cell, 3 the cells with i + j even, 4 the border ring, 5 the main diagonal. */
+  const patternPresses = (n: number, k: number): number[][] =>
+    Array.from({ length: n }, (_, j) =>
+      Array.from({ length: n }, (_, i) => {
+        const middle = (n - 1) / 2;
+        return [
+          i === middle && j === middle,
+          i === Math.floor(middle) || j === Math.floor(middle),
+          true,
+          (i + j) % 2 === 0,
+          i === 0 || j === 0 || i === n - 1 || j === n - 1,
+          i === j,
+        ][k]
+          ? 1
+          : 0;
+      }),
+    );
+  /** Every solution of a board by light chasing: choose the presses of the first row, then every cell of a row that is still lit is fixed by the press below it; a solution is a choice after which the last row is dark. */
+  const allSolutions = (n: number, board: number[][]): number[][][] => {
+    const solutions: number[][][] = [];
+    for (let first = 0; first < 2 ** n; first++) {
+      const presses = Array.from({ length: n }, () =>
+        new Array<number>(n).fill(0),
+      );
+      for (let i = 0; i < n; i++) presses[0][i] = (first >> i) & 1;
+      for (let j = 0; j + 1 < n; j++) {
+        const state = afterPresses(n, presses, board);
+        for (let i = 0; i < n; i++) presses[j + 1][i] = state[j][i];
+      }
+      if (afterPresses(n, presses, board)[n - 1].every((bit) => bit === 0))
+        solutions.push(presses);
+    }
+    return solutions;
+  };
+  /** The four boards of a seed read back from the picture at the middle of every cell: [row][column] with the column 0 the lit board and 1 the presses, as grid[j][i]; the height tells on (1) from off (0). */
+  const readBoards = (seed: number): number[][][][] => {
+    const n = sizes[Math.floor(seed / 6) % 4],
+      sample = createSurfaceSampler('lightsoutpuzzles', seed),
+      out = empty();
+    return [0, 1].map((row) =>
+      [0, 1].map((column) =>
+        Array.from({ length: n }, (_, j) =>
+          Array.from({ length: n }, (_, i) => {
+            sample(
+              (column * n + i + 0.5) / (2 * n),
+              (row * n + j + 0.5) / (2 * n),
+              out,
+            );
+            const high = out.height / p.relief / p.cellHeight;
+            expect(
+              Math.min(
+                Math.abs(high - p.heightOn),
+                Math.abs(high - p.heightOff),
+              ),
+            ).toBeLessThan(1e-9);
+            return Math.abs(high - p.heightOn) < 1e-9 ? 1 : 0;
+          }),
+        ),
+      ),
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5 (the lit cells and the presses), for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('lightsoutpuzzles', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.0157, high: 0.964, lit: 0.18456, mean: 0.26391 }],
+      [1, { low: 0.0158, high: 0.9638, lit: 0.27766, mean: 0.33497 }],
+      [0xffffffff, { low: 0.01561, high: 0.9644, lit: 0.36632, mean: 0.41019 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('lightsoutpuzzles', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('shows two puzzles made from the patterns, and pressing the solution on the lit board puts every light out, read back from the picture for the six patterns and twenty groups', () => {
+    for (let seed = 0; seed < 120; seed++) {
+      const n = sizes[Math.floor(seed / 6) % 4],
+        later = 1 + (Math.floor(Math.floor(seed / 6) / 4) % 5),
+        boards = readBoards(seed);
+      [seed % 6, (seed + later) % 6].forEach((pattern, row) => {
+        const [lit, presses] = boards[row],
+          dark = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+        // The lit board is what pressing the pattern on a dark board gives.
+        expect(lit).toEqual(afterPresses(n, patternPresses(n, pattern), dark));
+        // Pressing the solution on it puts every light out.
+        expect(afterPresses(n, presses, lit)).toEqual(dark);
+      });
+    }
+  });
+  it('shows a fewest-press solution: it is one of all the solutions found by light chasing and has the least presses among them, with 1, 4 or 256 solutions for the sizes 6 and 7, 5 and 9', () => {
+    const solutionCounts = new Map<number, Set<number>>();
+    for (let seed = 0; seed < 120; seed += 3) {
+      const n = sizes[Math.floor(seed / 6) % 4],
+        boards = readBoards(seed);
+      for (const [lit, presses] of boards) {
+        const solutions = allSolutions(n, lit),
+          weights = solutions.map((s) => s.flat().reduce((a, b) => a + b, 0)),
+          picture = presses.flat().reduce((a, b) => a + b, 0);
+        expect(
+          solutions.some((s) =>
+            s.every((row, j) => row.every((bit, i) => bit === presses[j][i])),
+          ),
+        ).toBe(true);
+        expect(picture).toBe(Math.min(...weights));
+        solutionCounts.set(
+          n,
+          (solutionCounts.get(n) ?? new Set<number>()).add(solutions.length),
+        );
+      }
+    }
+    expect([...solutionCounts].map(([n, counts]) => [n, [...counts]])).toEqual([
+      [5, [4]],
+      [6, [1]],
+      [7, [1]],
+      [9, [256]],
+    ]);
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const n = sizes[Math.floor(seed / 6) % 4],
+        cells = 2 * n,
+        boards = readBoards(seed),
+        sample = createSurfaceSampler('lightsoutpuzzles', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * cells,
+          y = v * cells,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          // The gaps on the four sides of the cell: wider at the edge of a panel.
+          left = i % n === 0 ? p.gapPanel : p.gap,
+          right = i % n === n - 1 ? p.gapPanel : p.gap,
+          top = j % n === 0 ? p.gapPanel : p.gap,
+          bottom = j % n === n - 1 ? p.gapPanel : p.gap,
+          dx = Math.abs(x - i - (1 + left - right) / 2),
+          dy = Math.abs(y - j - (1 + top - bottom) / 2),
+          hx = (1 - left - right) / 2,
+          hy = (1 - top - bottom) / 2,
+          innerX = hx - p.corner,
+          innerY = hy - p.corner,
+          // The distance to the rounded rectangle, by the straight sides or by the corner circle.
+          distance =
+            dx <= innerX || dy <= innerY
+              ? Math.max(dx - hx, dy - hy)
+              : Math.hypot(dx - innerX, dy - innerY) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          on = boards[Math.floor(j / n)][Math.floor(i / n)][j % n][i % n],
+          tone = on === 1 ? p.toneOn : p.toneOff,
+          lift = on === 1 ? p.heightOn : p.heightOff;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * lift,
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4650);
+  });
+  it('draws a different view per pattern, size and second pattern and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.28302001953125, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.1998138427734375, 8);
+    expect(unlike(first, litGrid(12))).toBeCloseTo(0.1374053955078125, 8);
+    expect(unlike(first, litGrid(24))).toBeCloseTo(0.1880950927734375, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('lightsoutpuzzles', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cream Lights Out maps on dark brown with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('lightsoutpuzzles', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(118.2);
+    expect(red / (512 * 512)).toBeLessThan(119.3);
+    expect(green / (512 * 512)).toBeGreaterThan(102.8);
+    expect(green / (512 * 512)).toBeLessThan(103.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(65.5);
+    expect(blue / (512 * 512)).toBeLessThan(66.6);
+    expect(maxTilt).toBeGreaterThan(0.0492);
+    expect(maxTilt).toBeLessThan(0.0493);
     expect(invalid).toBe(0);
   });
 });

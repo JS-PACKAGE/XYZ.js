@@ -57330,6 +57330,169 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lightsoutpuzzles': {
+        const p = proceduralMaterialPresets.lightsoutpuzzles,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          pattern = unsigned % 6,
+          group = Math.floor(unsigned / 6),
+          size: number = p.sizes[group % p.sizes.length],
+          later = 1 + (Math.floor(group / p.sizes.length) % 5),
+          cells = size * size,
+          // Whether the pattern k presses the cell (i, j).
+          pressed = (k: number, i: number, j: number): boolean => {
+            const middle = (size - 1) / 2;
+            if (k === 0) return i === middle && j === middle;
+            if (k === 1)
+              return i === Math.floor(middle) || j === Math.floor(middle);
+            if (k === 2) return true;
+            if (k === 3) return (i + j) % 2 === 0;
+            if (k === 4)
+              return i === 0 || j === 0 || i === size - 1 || j === size - 1;
+            return i === j;
+          },
+          // The board after pressing the cells of a press vector: every press toggles the cell and its neighbours.
+          lightsAfter = (presses: Uint8Array): Uint8Array => {
+            const lit = new Uint8Array(cells);
+            for (let j = 0; j < size; j++)
+              for (let i = 0; i < size; i++)
+                if (presses[j * size + i] === 1)
+                  for (const [di, dj] of [
+                    [0, 0],
+                    [1, 0],
+                    [-1, 0],
+                    [0, 1],
+                    [0, -1],
+                  ]) {
+                    const a = i + di,
+                      b = j + dj;
+                    if (a >= 0 && a < size && b >= 0 && b < size)
+                      lit[b * size + a] ^= 1;
+                  }
+            return lit;
+          },
+          // The fewest-press solution of a board by Gaussian elimination over GF(2): reduce the equations, take the particular solution with the free presses 0, and try every combination of the quiet patterns (one for each free press).
+          solve = (lit: Uint8Array): Uint8Array => {
+            const rows: Uint8Array[] = [];
+            for (let r = 0; r < cells; r++) {
+              const row = new Uint8Array(cells + 1),
+                i = r % size,
+                j = Math.floor(r / size);
+              for (const [di, dj] of [
+                [0, 0],
+                [1, 0],
+                [-1, 0],
+                [0, 1],
+                [0, -1],
+              ]) {
+                const a = i + di,
+                  b = j + dj;
+                if (a >= 0 && a < size && b >= 0 && b < size)
+                  row[b * size + a] = 1;
+              }
+              row[cells] = lit[r];
+              rows.push(row);
+            }
+            const pivotColumn: number[] = [];
+            let rank = 0;
+            for (let c = 0; c < cells; c++) {
+              let found = -1;
+              for (let r = rank; r < cells; r++)
+                if (rows[r][c] === 1) {
+                  found = r;
+                  break;
+                }
+              if (found < 0) continue;
+              [rows[rank], rows[found]] = [rows[found], rows[rank]];
+              for (let r = 0; r < cells; r++)
+                if (r !== rank && rows[r][c] === 1)
+                  for (let k = c; k <= cells; k++) rows[r][k] ^= rows[rank][k];
+              pivotColumn.push(c);
+              rank++;
+            }
+            const particular = new Uint8Array(cells),
+              free: number[] = [];
+            pivotColumn.forEach((c, r) => {
+              particular[c] = rows[r][cells];
+            });
+            for (let c = 0; c < cells; c++)
+              if (!pivotColumn.includes(c)) free.push(c);
+            // The quiet pattern of every free press: that press 1, the pivot presses by the reduced rows.
+            const quiet = free.map((f) => {
+              const vector = new Uint8Array(cells);
+              vector[f] = 1;
+              pivotColumn.forEach((c, r) => {
+                vector[c] = rows[r][f];
+              });
+              return vector;
+            });
+            let best = particular,
+              bestWeight = particular.reduce((sum, bit) => sum + bit, 0);
+            for (let mask = 1; mask < 2 ** quiet.length; mask++) {
+              const candidate = Uint8Array.from(particular);
+              quiet.forEach((vector, k) => {
+                if ((mask >> k) & 1)
+                  for (let c = 0; c < cells; c++) candidate[c] ^= vector[c];
+              });
+              const weight = candidate.reduce((sum, bit) => sum + bit, 0);
+              if (weight < bestWeight) {
+                best = candidate;
+                bestWeight = weight;
+              }
+            }
+            return best;
+          },
+          // The two puzzles as [lit board, solution presses].
+          puzzles = [pattern, (pattern + later) % 6].map((k) => {
+            const made = new Uint8Array(cells);
+            for (let j = 0; j < size; j++)
+              for (let i = 0; i < size; i++)
+                made[j * size + i] = pressed(k, i, j) ? 1 : 0;
+            const lit = lightsAfter(made);
+            return [lit, solve(lit)];
+          }),
+          total = 2 * size;
+        return () => {
+          const x = fract(u) * total,
+            y = fract(v) * total,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            column = Math.floor(i / size),
+            row = Math.floor(j / size),
+            px = i % size,
+            py = j % size,
+            on = puzzles[row][column][py * size + px],
+            // The gaps on the four sides of the cell: wider at the edge of a panel.
+            left = px === 0 ? p.gapPanel : p.gap,
+            right = px === size - 1 ? p.gapPanel : p.gap,
+            top = py === 0 ? p.gapPanel : p.gap,
+            bottom = py === size - 1 ? p.gapPanel : p.gap,
+            hx = (1 - left - right) / 2,
+            hy = (1 - top - bottom) / 2,
+            qx = Math.abs(x - i - (1 + left - right) / 2) - (hx - p.corner),
+            qy = Math.abs(y - j - (1 + top - bottom) / 2) - (hy - p.corner),
+            // The distance to the rounded rectangle of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            tone = on === 1 ? p.toneOn : p.toneOff,
+            lift = on === 1 ? p.heightOn : p.heightOff,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * lift;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -66310,6 +66473,7 @@ export function createSurfaceSampler(
     kind === 'minesweeperboards' ||
     kind === 'finitefieldtables' ||
     kind === 'pseudoprimeliars' ||
+    kind === 'lightsoutpuzzles' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

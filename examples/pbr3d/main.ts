@@ -1241,6 +1241,7 @@ try {
     'minesweeperboards',
     'finitefieldtables',
     'pseudoprimeliars',
+    'lightsoutpuzzles',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

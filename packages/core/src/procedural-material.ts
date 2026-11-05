@@ -1178,6 +1178,7 @@ export type ProceduralMaterialKind =
   | 'minesweeperboards'
   | 'finitefieldtables'
   | 'pseudoprimeliars'
+  | 'lightsoutpuzzles'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2604,6 +2605,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'minesweeperboards',
   'finitefieldtables',
   'pseudoprimeliars',
+  'lightsoutpuzzles',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
