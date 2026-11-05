@@ -1197,6 +1197,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sortingtraces',
   'editdistance',
   'euclideanrhythms',
+  'hanoistates',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -213335,6 +213336,341 @@ describe('Euclidean rhythms as onsets spread as evenly as possible', () => {
     expect(blue / (512 * 512)).toBeLessThan(34.5);
     expect(maxTilt).toBeGreaterThan(0.0499);
     expect(maxTilt).toBeLessThan(0.05);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Hanoi states as every state of the shortest solution', () => {
+  const p = proceduralMaterialPresets.hanoistates;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The moves of the shortest solution as [disk, from, to] (the disks 1 to k from a peg to another by the spare one): the k - 1 smaller disks go to the spare peg, the biggest goes over, the k - 1 smaller ones follow it. */
+  const hanoiMoves = (k: number, from: number, to: number): number[][] =>
+    k === 0
+      ? []
+      : [
+          ...hanoiMoves(k - 1, from, 3 - from - to),
+          [k, from, to],
+          ...hanoiMoves(k - 1, 3 - from - to, to),
+        ];
+  /** The stacks (bottom to top) of the three pegs after every move of the solution, the start included. */
+  const expectedStates = (seed: number): number[][][] => {
+    const variant = seed % p.disks.length,
+      group = Math.floor(seed / p.disks.length),
+      n: number = p.disks[variant],
+      stacks: number[][] = [Array.from({ length: n }, (_, i) => n - i), [], []],
+      states: number[][][] = [stacks.map((s) => s.slice())];
+    for (const [disk, from, to] of hanoiMoves(n, 0, p.targets[variant])) {
+      expect(stacks[from].pop()).toBe(disk);
+      stacks[to].push(disk);
+      states.push(stacks.map((s) => s.slice()));
+    }
+    let shown = states;
+    if (group & 2) shown = [...shown].reverse();
+    // The drawn column c shows the peg c, or the peg 2 - c when the group draws them from right to left.
+    return group & 1
+      ? shown.map((state) => [state[2], state[1], state[0]])
+      : shown;
+  };
+  /** The stacks as the picture shows them, read back at the middle of every bar place of every panel, in the order of the panels (the height of a bar gives the size of the disk): [panel][drawn column][level from the bottom]. */
+  const readStates = (seed: number): number[][][] => {
+    const variant = seed % p.disks.length,
+      n: number = p.disks[variant],
+      columns: number = p.columns[variant],
+      rows: number = p.rows[variant],
+      sample = createSurfaceSampler('hanoistates', seed),
+      out = empty(),
+      states: number[][][] = [];
+    for (let row = 0; row < rows; row++)
+      for (let column = 0; column < columns; column++) {
+        const stacks: number[][] = [[], [], []];
+        for (let peg = 0; peg < 3; peg++)
+          for (let level = 0; level < n; level++) {
+            const px = (peg + 0.5) / 3,
+              py = 1 - (level + 0.5) / (n + 1);
+            sample(
+              (column + p.margin + px * (1 - 2 * p.margin)) / columns,
+              (row + p.margin + py * (1 - 2 * p.margin)) / rows,
+              out,
+            );
+            if (out.height <= 0) continue;
+            const sizeLevel =
+              (out.height / p.relief / p.cellHeight - p.heightBase) /
+              p.heightSwing;
+            const size = 1 + sizeLevel * (n - 1);
+            expect(Math.abs(size - Math.round(size))).toBeLessThan(1e-6);
+            stacks[peg].push(Math.round(size));
+          }
+        states.push(stacks);
+      }
+    return states;
+  };
+  /** The grid of 256 by 256 colours above 0.75 (the biggest disks), for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('hanoistates', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.75));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9639, lit: 0.04779, mean: 0.08512 }],
+      [1, { high: 0.9635, lit: 0.03076, mean: 0.08985 }],
+      [0xffffffff, { high: 0.9642, lit: 0.04869, mean: 0.08523 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('hanoistates', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.75);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0153);
+      expect(low).toBeLessThan(0.0157);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every state of the shortest solution in order, read back from the picture and equal to a separate recursion, for the four groups of the mirror and the reverse', () => {
+    for (let seed = 0; seed < 24; seed++) {
+      const variant = seed % p.disks.length;
+      const states = readStates(seed);
+      expect(states.length).toBe(2 ** p.disks[variant]);
+      expect(states).toEqual(expectedStates(seed));
+    }
+  });
+  it('shows a legal shortest solution, read from the picture: every state has its disks once, each stack a big disk under a smaller, 2 ^ n different states, the first and the last state at the right pegs, every step one move of the top disk and the disk moved the 1 + the number of trailing zeros of the step', () => {
+    for (let variant = 0; variant < 6; variant++) {
+      const n: number = p.disks[variant],
+        target: number = p.targets[variant],
+        states = readStates(variant);
+      expect(new Set(states.map((s) => JSON.stringify(s))).size).toBe(2 ** n);
+      for (const state of states) {
+        expect(state.flat().sort((a, b) => a - b)).toEqual(
+          Array.from({ length: n }, (_, i) => i + 1),
+        );
+        for (const stack of state)
+          expect(stack.every((d, i) => i === 0 || stack[i - 1] > d)).toBe(true);
+      }
+      const all = Array.from({ length: n }, (_, i) => n - i);
+      expect(states[0][0]).toEqual(all);
+      expect(states[2 ** n - 1][target]).toEqual(all);
+      for (let t = 1; t < 2 ** n; t++) {
+        const before = states[t - 1],
+          after = states[t],
+          changed = [0, 1, 2].filter(
+            (c) => before[c].join() !== after[c].join(),
+          );
+        // Two pegs change: the top disk of one went to the top of the other.
+        expect(changed.length).toBe(2);
+        const [source] = changed.filter(
+            (c) => after[c].length === before[c].length - 1,
+          ),
+          [destination] = changed.filter(
+            (c) => after[c].length === before[c].length + 1,
+          );
+        const disk = before[source][before[source].length - 1];
+        expect(after[destination][after[destination].length - 1]).toBe(disk);
+        let trailing = 0;
+        while (((t >> trailing) & 1) === 0) trailing++;
+        expect(disk).toBe(1 + trailing);
+      }
+    }
+  });
+  it('agrees with the ideal bars away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const variant = seed % p.disks.length,
+        n: number = p.disks[variant],
+        columns: number = p.columns[variant],
+        rows: number = p.rows[variant],
+        states = expectedStates(seed),
+        sample = createSurfaceSampler('hanoistates', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * columns,
+          y = v * rows,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          px = (x - column - p.margin) / (1 - 2 * p.margin),
+          py = (y - row - p.margin) / (1 - 2 * p.margin),
+          peg = Math.min(2, Math.max(0, Math.floor(px * 3))),
+          fromBottom = (1 - py) * (n + 1),
+          level = Math.floor(fromBottom);
+        let ink = 0,
+          size = 0;
+        if (px >= 0 && px < 1 && py >= 0 && py < 1 && level >= 0 && level < n) {
+          size = states[row * columns + column][peg][level] ?? 0;
+          if (size > 0) {
+            const half =
+                (p.barLeast +
+                  ((p.barMost - p.barLeast) * (size - 1)) / (n - 1)) /
+                2,
+              across = half - Math.abs(px * 3 - peg - 0.5),
+              along =
+                Math.min(fromBottom - level, 1 - (fromBottom - level)) - p.gapY;
+            // The ink is 1 more than half the smoothing inside the edge on both axes, 0 more than half of it outside on either, and not compared in between.
+            if (Math.abs(across) < (p.edgeSoft * 3) / 2) continue;
+            if (Math.abs(along) < p.edgeSoft / 2) continue;
+            ink = across > 0 && along > 0 ? 1 : 0;
+          }
+        }
+        const sizeLevel = size > 0 ? (size - 1) / (n - 1) : 0,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * sizeLevel;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * sizeLevel),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5400);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.07684326171875, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.09564208984375, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('hanoistates', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 lime Hanoi state maps on dark green with raised disks and shaded ground', () => {
+    const maps = generateProceduralMaps('hanoistates', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(26.6);
+    expect(red / (512 * 512)).toBeLessThan(27.6);
+    expect(green / (512 * 512)).toBeGreaterThan(44.2);
+    expect(green / (512 * 512)).toBeLessThan(45.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(15.7);
+    expect(blue / (512 * 512)).toBeLessThan(16.8);
+    expect(maxTilt).toBeGreaterThan(0.0573);
+    expect(maxTilt).toBeLessThan(0.0574);
     expect(invalid).toBe(0);
   });
 });

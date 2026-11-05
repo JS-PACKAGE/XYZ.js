@@ -1234,6 +1234,7 @@ try {
     'sortingtraces',
     'editdistance',
     'euclideanrhythms',
+    'hanoistates',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

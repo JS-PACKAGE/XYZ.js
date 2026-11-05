@@ -56699,6 +56699,110 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hanoistates': {
+        const p = proceduralMaterialPresets.hanoistates,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.disks.length,
+          group = Math.floor(unsigned / p.disks.length),
+          n: number = p.disks[variant],
+          columns: number = p.columns[variant],
+          rows: number = p.rows[variant],
+          states = 1 << n,
+          mirror = (group & 1) === 1,
+          reverse = (group & 2) === 2,
+          // The stacks of every state: for the peg c and the level l from the bottom, the size of
+          // the disk (1 the smallest) or 0.
+          stacks = new Uint8Array(states * 3 * n),
+          pegOf = new Array<number>(n + 1).fill(0);
+        {
+          let state = 0;
+          const record = (): void => {
+            const fill = [0, 0, 0];
+            for (let size = n; size >= 1; size--) {
+              const peg = pegOf[size];
+              stacks[(state * 3 + peg) * n + fill[peg]++] = size;
+            }
+            state++;
+          };
+          // Move the disks 1 to size from one peg to another by the spare one, recording every state.
+          const move = (size: number, from: number, to: number): void => {
+            if (size === 0) return;
+            const spare = 3 - from - to;
+            move(size - 1, from, spare);
+            pegOf[size] = to;
+            record();
+            move(size - 1, spare, to);
+          };
+          record();
+          move(n, 0, p.targets[variant]);
+        }
+        return () => {
+          const x = fract(u) * columns,
+            y = fract(v) * rows,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            index = row * columns + column,
+            // Inside the panel, without its margin, from 0 to 1.
+            px = (x - column - p.margin) / (1 - 2 * p.margin),
+            py = (y - row - p.margin) / (1 - 2 * p.margin),
+            peg3 = px * 3,
+            pegColumn = Math.min(2, Math.max(0, Math.floor(peg3))),
+            // The row of disks from the bottom: n + 1 rows, the top one empty.
+            rowHeight = 1 / (n + 1),
+            fromBottom = (1 - py) / rowHeight,
+            level = Math.min(n - 1, Math.max(0, Math.floor(fromBottom))),
+            size =
+              stacks[
+                ((reverse ? states - 1 - index : index) * 3 +
+                  (mirror ? 2 - pegColumn : pegColumn)) *
+                  n +
+                  level
+              ],
+            // Horizontally inside the panel (above and below it the gap term below is 0).
+            inside = px >= 0 && px < 1,
+            half =
+              (p.barLeast + ((p.barMost - p.barLeast) * (size - 1)) / (n - 1)) /
+              2,
+            across =
+              inside && size > 0
+                ? smooth(
+                    clamp(
+                      (half - Math.abs(peg3 - pegColumn - 0.5)) /
+                        (p.edgeSoft * 3) +
+                        0.5,
+                    ),
+                  )
+                : 0,
+            along =
+              inside && size > 0
+                ? smooth(
+                    clamp(
+                      (Math.min(fromBottom - level, 1 - (fromBottom - level)) -
+                        p.gapY) /
+                        p.edgeSoft +
+                        0.5,
+                    ),
+                  )
+                : 0,
+            mask = across * along,
+            sizeLevel = size > 0 ? (size - 1) / (n - 1) : 0,
+            tone = p.toneMin + (p.toneMax - p.toneMin) * sizeLevel,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * mask * (p.heightBase + p.heightSwing * sizeLevel);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65672,6 +65776,7 @@ export function createSurfaceSampler(
     kind === 'sortingtraces' ||
     kind === 'editdistance' ||
     kind === 'euclideanrhythms' ||
+    kind === 'hanoistates' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
