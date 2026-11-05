@@ -284,12 +284,17 @@ describe('2D composed scene ownership', () => {
     const image = texture(4, 4);
     let seed = 7;
     const random = () => (seed = (seed * 1103515245 + 12345) % 2147483648);
-    // 5 layers use bucketed ordering; 40 exceed the bucket budget; equal z is already ordered.
-    for (const layers of [5, 40, 1]) {
+    // Include integer packing, fractional fallback, and spans beyond exact packed keys.
+    for (const layers of [5, 40, 1, 4096, 0.25, Number.MAX_SAFE_INTEGER]) {
       const scene = new Scene();
       const expected: { sprite: Sprite; screen: boolean; z: number }[] = [];
       for (let i = 0; i < 300; i++) {
-        const z = (random() % layers) - 2;
+        const z =
+          layers === 0.25
+            ? (random() % 31) * 0.25
+            : layers === Number.MAX_SAFE_INTEGER
+              ? ((random() % 3) - 1) * Number.MAX_SAFE_INTEGER
+              : (random() % layers) - 2;
         const sprite = scene.add(
           new Sprite({ texture: image, position: [2, 2], zIndex: z }),
         );
