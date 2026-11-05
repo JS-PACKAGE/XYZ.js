@@ -203,7 +203,8 @@ export function omitShaderBlock(source: string, marker: string): string {
       if (depth) throw new Error(`Unbalanced shader block: ${marker}`);
       source = source.slice(0, start) + source.slice(end);
     }
-    start = source.indexOf(marker);
+    // Only the splice boundary can introduce a match before the removed block.
+    start = source.indexOf(marker, Math.max(0, start - marker.length + 1));
   }
   return source;
 }

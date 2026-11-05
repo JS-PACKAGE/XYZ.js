@@ -496,5 +496,7 @@ describe('mesh shader source variants', () => {
     expect(() =>
       omitShaderBlock('if (disabled) { nested();', 'if (disabled)'),
     ).toThrow('Unbalanced');
+    expect(omitShaderBlock('ab;retained;ab{}tail', 'ab')).toBe('retained;tail');
+    expect(omitShaderBlock('aab;b;', 'ab')).toBe('');
   });
 });
