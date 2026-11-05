@@ -1634,15 +1634,27 @@ export class GLTFLoader {
           }
         }
       }
+      // Cache one-based depths so shared ancestor chains are checked only once.
+      const depths = new Uint16Array(nodes.length);
       for (let i = 0; i < nodes.length; i++) {
         let parent = i,
           depth = 0;
-        while (parents[parent] !== -1) {
+        while (parent !== -1 && depths[parent] === 0) {
           parent = parents[parent];
-          if (++depth > modelLimits.hierarchyDepth || parent === i)
+          if (++depth > modelLimits.hierarchyDepth + 1)
             throw new AssetError(
               'Node hierarchy has a cycle or exceeds depth budget.',
             );
+        }
+        depth += parent === -1 ? 0 : depths[parent];
+        if (depth > modelLimits.hierarchyDepth + 1)
+          throw new AssetError(
+            'Node hierarchy has a cycle or exceeds depth budget.',
+          );
+        parent = i;
+        while (parent !== -1 && depths[parent] === 0) {
+          depths[parent] = depth--;
+          parent = parents[parent];
         }
       }
       for (let i = 0; i < nodes.length; i++)
