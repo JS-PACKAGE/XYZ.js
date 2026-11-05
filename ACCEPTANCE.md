@@ -14533,3 +14533,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：8項（色調範圍、分割、群組的轉動與翻轉、邊緣平滑、逐點比對、不同變體與群組與決定性、C1與UV週期、maps），`-t "Mondrian partitions as"`8項通過（約10到12 s）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Mondrian partitions as|mondrianpartitions|kinds|catalog|distinct|periodic"`定向測試**2641項通過／4753項未選**，輸出`GATES-OK`。
 - 未驗證：完整suite（最近一次在`41676b27e`，11,302項全過，不含kneser、debruijntorus與mondrianpartitions）、瀏覽器gallery（最近一次含hamiltonpaths與lowdiscrepancy，kneser、debruijntorus與mondrianpartitions尚未檢查）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-05 完整測試與瀏覽器gallery複驗（至mondrianpartitions，`19c6aca9f`）
+
+- 完整suite（工具實跑，`/private/tmp/xyz-ct-suite`在`19c6aca9f`的乾淨detached worktree，完整`vitest run`）：**179個檔案、11,336項測試，11,335項通過、1項失敗**，耗時2492 s（比上一次的1851 s慢，同時間主目錄還有別人的工作，我沒有量負載）。失敗的是既有的`Closed silver-colored washer rims with twelve inward metal teeth …`的C1測試，錯誤是30000 ms逾時（不是斷言失敗）；單獨重跑那組（5項）全部通過，整組耗時35.9 s，所以這項測試接近30 s的上限，這次整體跑時被負載推過；我沒有查它為什麼慢，也沒有改動它，完整suite沒有重跑。上一次完整suite（`41676b27e`）是11,302項全過；這次多出的34項裡，我的是kneser、debruijntorus與mondrianpartitions（9、8、8項，各含之前沒計入的，我沒有逐一對帳），其餘是主目錄上別人的commit加的測試，沒有逐項確認來源。
+- 瀏覽器gallery（工具實跑，Chrome，`http://127.0.0.1:5391/examples/pbr3d/`，服務`/private/tmp/xyz-ct`在`19c6aca9f`）：WebGPU與`?renderer=webgl2`下選項都是1166項（目錄1165種加plain）；頁面顯示目錄數的欄位這次兩邊都讀到`null`，我沒有查原因，只憑選項數。`kneser`、`debruijntorus`與`mondrianpartitions`在兩種renderer下都能選取且不丟錯（`tab.errors()`皆空）；只做了「能選取且沒有錯誤」，沒有逐像素比對兩個backend，也沒有檢查畫面外觀。
+- 未驗證：Canvas2D fallback下的gallery、其他瀏覽器與GPU；不push。
