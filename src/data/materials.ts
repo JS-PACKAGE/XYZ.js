@@ -19844,6 +19844,33 @@ export const proceduralMaterialPresets = Object.freeze({
     heightOn: 1,
     gapOcclusion: 0.5,
   }),
+  burrowswheeler: Object.freeze({
+    dark: [8, 4, 24] as const,
+    light: [195, 165, 255] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x2a75,
+    // The Burrows-Wheeler transform of two texts of size characters, one in each row of two panels: on the left the size rotations of the text (row j is the text turned j places to the left), on the right the same rotations sorted, whose last column is the transform. The text ends with the unique smallest character $ (symbol 0); the other characters are the symbols 1 to 5 in alphabet order. texts[variant] picks how the text is made (0 the Fibonacci word, 1 the Thue-Morse word, 2 mississippi repeated, 3 banana repeated, 4 four letters A, C, G, T by hash keys, 5 abracadabra repeated), always cut to size - 1 characters and followed by $. The seed is split in two: seed % 6 picks the top text and floor(seed / 6) the group, whose value mod 5 plus 1 is how many texts later the bottom text is (1 to 5).
+    size: 24,
+    texts: [0, 1, 2, 3, 4, 5] as const,
+    // The gap on each side of a cell inside a panel and at the edge of a panel, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.06,
+    gapPanel: 0.3,
+    corner: 0.14,
+    edgeSoft: 0.07,
+    grainCells: 128,
+    toneGround: 0.03,
+    // The tone of a cell goes from toneMin for the symbol 0 to toneMax for the symbol maxSymbol.
+    toneMin: 0.2,
+    toneMax: 0.95,
+    maxSymbol: 5,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of a cell is cellHeight times (heightBase + heightSwing times its symbol divided by maxSymbol).
+    heightBase: 0.3,
+    heightSwing: 0.7,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21686,6 +21713,7 @@ export const proceduralTileMeters = Object.freeze({
   finitefieldtables: 0.5,
   pseudoprimeliars: 0.5,
   lightsoutpuzzles: 0.5,
+  burrowswheeler: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

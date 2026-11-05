@@ -57493,6 +57493,97 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'burrowswheeler': {
+        const p = proceduralMaterialPresets.burrowswheeler,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.texts.length,
+          group = Math.floor(unsigned / p.texts.length),
+          later = 1 + (group % 5),
+          n: number = p.size,
+          keySeed = seed ^ p.seedSalt,
+          // The text of a kind (without the final $) as characters: n - 1 of them.
+          letters = (kind: number): string => {
+            if (kind === 0) {
+              // The Fibonacci word: the rule a -> ab, b -> a applied until it is long enough.
+              let word = 'a';
+              while (word.length < n)
+                word = [...word].map((c) => (c === 'a' ? 'ab' : 'a')).join('');
+              return word.slice(0, n - 1);
+            }
+            if (kind === 1)
+              // The Thue-Morse word: the parity of the number of 1 bits of the position.
+              return Array.from({ length: n - 1 }, (_, i) =>
+                i.toString(2).split('1').length % 2 === 0 ? 'b' : 'a',
+              ).join('');
+            if (kind === 2) return 'mississippi'.repeat(3).slice(0, n - 1);
+            if (kind === 3) return 'banana'.repeat(4).slice(0, n - 1);
+            if (kind === 5) return 'abracadabra'.repeat(3).slice(0, n - 1);
+            return Array.from(
+              { length: n - 1 },
+              (_, i) => 'ACGT'[Math.floor(hash(i, 9, keySeed) * 4)],
+            ).join('');
+          },
+          // The panels of a text: [rotations, sorted rotations] as symbol grids grid[j * n + i]; the symbols are 0 for $ and the rank of the letter in alphabet order from 1.
+          panels = [variant, (variant + later) % 6].map((kind) => {
+            const text = letters(kind),
+              alphabet = [...new Set(text)].sort(),
+              symbols = [
+                ...Array.from(text, (c) => alphabet.indexOf(c) + 1),
+                0,
+              ],
+              rotations = Array.from({ length: n }, (_, j) =>
+                Array.from({ length: n }, (_, i) => symbols[(j + i) % n]),
+              ),
+              sorted = [...rotations].sort((a, b) => {
+                for (let i = 0; i < n; i++)
+                  if (a[i] !== b[i]) return a[i] - b[i];
+                return 0;
+              });
+            return [rotations.flat(), sorted.flat()];
+          }),
+          total = 2 * n;
+        return () => {
+          const x = fract(u) * total,
+            y = fract(v) * total,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            column = Math.floor(i / n),
+            row = Math.floor(j / n),
+            px = i % n,
+            py = j % n,
+            symbol = panels[row][column][py * n + px],
+            // The gaps on the four sides of the cell: wider at the edge of a panel.
+            left = px === 0 ? p.gapPanel : p.gap,
+            right = px === n - 1 ? p.gapPanel : p.gap,
+            top = py === 0 ? p.gapPanel : p.gap,
+            bottom = py === n - 1 ? p.gapPanel : p.gap,
+            hx = (1 - left - right) / 2,
+            hy = (1 - top - bottom) / 2,
+            qx = Math.abs(x - i - (1 + left - right) / 2) - (hx - p.corner),
+            qy = Math.abs(y - j - (1 + top - bottom) / 2) - (hy - p.corner),
+            // The distance to the rounded rectangle of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            level = symbol / p.maxSymbol,
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -66474,6 +66565,7 @@ export function createSurfaceSampler(
     kind === 'finitefieldtables' ||
     kind === 'pseudoprimeliars' ||
     kind === 'lightsoutpuzzles' ||
+    kind === 'burrowswheeler' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

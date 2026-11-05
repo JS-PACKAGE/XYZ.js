@@ -1242,6 +1242,7 @@ try {
     'finitefieldtables',
     'pseudoprimeliars',
     'lightsoutpuzzles',
+    'burrowswheeler',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

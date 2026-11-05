@@ -1179,6 +1179,7 @@ export type ProceduralMaterialKind =
   | 'finitefieldtables'
   | 'pseudoprimeliars'
   | 'lightsoutpuzzles'
+  | 'burrowswheeler'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2606,6 +2607,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'finitefieldtables',
   'pseudoprimeliars',
   'lightsoutpuzzles',
+  'burrowswheeler',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

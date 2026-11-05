@@ -1205,6 +1205,7 @@ const kinds: ProceduralMaterialKind[] = [
   'finitefieldtables',
   'pseudoprimeliars',
   'lightsoutpuzzles',
+  'burrowswheeler',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -215966,6 +215967,356 @@ describe('Lights Out puzzles as boards and fewest-press solutions', () => {
     expect(blue / (512 * 512)).toBeLessThan(66.6);
     expect(maxTilt).toBeGreaterThan(0.0492);
     expect(maxTilt).toBeLessThan(0.0493);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Burrows-Wheeler as the rotations of a text and its sorted rotations', () => {
+  const p = proceduralMaterialPresets.burrowswheeler;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 24;
+  /** The characters of the five fixed texts (without the final $), written another way than the sampler: the Fibonacci word by concatenating the two previous words, the Thue-Morse word by the recurrence t(2k) = t(k), t(2k + 1) = 1 - t(k), and the others by repetition; null for the text made by hash keys. */
+  const expectedLetters = (kind: number): string | null => {
+    const length = size - 1;
+    if (kind === 0) {
+      let previous = 'a',
+        current = 'ab';
+      while (current.length < length)
+        [previous, current] = [current, current + previous];
+      return current.slice(0, length);
+    }
+    if (kind === 1) {
+      const t = [0];
+      for (let k = 1; k < length; k++)
+        t[k] = k % 2 === 0 ? t[k / 2] : 1 - t[(k - 1) / 2];
+      return t.map((bit) => (bit === 0 ? 'a' : 'b')).join('');
+    }
+    if (kind === 2) return 'mississippimississippimis'.slice(0, length);
+    if (kind === 3) return 'bananabananabananabananab'.slice(0, length);
+    if (kind === 5) return 'abracadabraabracadabraabra'.slice(0, length);
+    return null;
+  };
+  /** The symbols of a text: 0 for the final $ and the rank of the letter in alphabet order from 1. */
+  const symbolsOf = (letters: string): number[] => {
+    const alphabet = [...new Set(letters)].sort();
+    return [...[...letters].map((c) => alphabet.indexOf(c) + 1), 0];
+  };
+  /** The four panels of a seed read back from the picture, at the middle of every cell (the height gives the symbol): [row][column] with the column 0 the rotations and 1 the sorted rotations, each as grid[j][i]. */
+  const readPanels = (seed: number): number[][][][] => {
+    const sample = createSurfaceSampler('burrowswheeler', seed),
+      out = empty();
+    return [0, 1].map((row) =>
+      [0, 1].map((column) =>
+        Array.from({ length: size }, (_, j) =>
+          Array.from({ length: size }, (_, i) => {
+            sample(
+              (column * size + i + 0.5) / (2 * size),
+              (row * size + j + 0.5) / (2 * size),
+              out,
+            );
+            const level =
+              (out.height / p.relief / p.cellHeight - p.heightBase) /
+              p.heightSwing;
+            const symbol = Math.round(level * p.maxSymbol);
+            expect(Math.abs(level * p.maxSymbol - symbol)).toBeLessThan(1e-9);
+            return symbol;
+          }),
+        ),
+      ),
+    );
+  };
+  /** The rotations of a text turned j places to the left, j = 0 to n - 1. */
+  const rotationsOf = (text: number[]): number[][] =>
+    text.map((_, j) => text.map((__, i) => text[(j + i) % text.length]));
+  /** The rotations in sorted order by sorting the starting places by the suffixes (the unique smallest $ at the end makes the order of the suffixes the order of the rotations). */
+  const sortedBySuffix = (text: number[]): number[][] => {
+    const starts = text
+      .map((_, k) => k)
+      .sort((a, b) => {
+        for (let i = 0; a + i < text.length && b + i < text.length; i++)
+          if (text[a + i] !== text[b + i]) return text[a + i] - text[b + i];
+        return b - a;
+      });
+    return starts.map((k) => text.map((__, i) => text[(k + i) % text.length]));
+  };
+  /** The text recovered from the last column of the sorted rotations by the last-to-first mapping, starting from the row that begins with the $. */
+  const inverseTransform = (last: number[]): number[] => {
+    const first = [...last].sort((a, b) => a - b),
+      firstPlace = (symbol: number) => first.indexOf(symbol);
+    const mapped = last.map(
+      (symbol, row) =>
+        firstPlace(symbol) +
+        last.slice(0, row).filter((c) => c === symbol).length,
+    );
+    const text = [0];
+    let row = 0;
+    for (let k = 1; k < last.length; k++) {
+      text.unshift(last[row]);
+      row = mapped[row];
+    }
+    return text;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('burrowswheeler', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.01555, high: 0.5141, lit: 0.14566, mean: 0.29853 }],
+      [1, { low: 0.01575, high: 0.8138, lit: 0.28018, mean: 0.35605 }],
+      [0xffffffff, { low: 0.01564, high: 0.6641, lit: 0.2061, mean: 0.3163 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('burrowswheeler', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+    }
+  });
+  it('shows for each of the two texts its rotations and its sorted rotations, read back from the picture: the rotations are the text turned one place per row, the text ends with one $ and is the expected one for the five fixed texts, and the sorted rotations equal the rotations sorted by suffix order', () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const panels = readPanels(seed),
+        group = Math.floor(seed / 6),
+        kinds = [seed % 6, (seed + 1 + (group % 5)) % 6];
+      kinds.forEach((kind, row) => {
+        const [rotations, sorted] = panels[row],
+          text = rotations[0];
+        // The text ends with the only $ (symbol 0), and every other symbol is a letter's rank.
+        expect(text.filter((symbol) => symbol === 0)).toHaveLength(1);
+        expect(text[size - 1]).toBe(0);
+        const letters = expectedLetters(kind);
+        if (letters !== null) expect(text).toEqual(symbolsOf(letters));
+        expect(rotations).toEqual(rotationsOf(text));
+        expect(sorted).toEqual(sortedBySuffix(text));
+      });
+    }
+  });
+  it('is a reversible transform: the last column of the sorted rotations gives back the text through the last-to-first mapping, and has the same symbols as the text', () => {
+    for (let seed = 0; seed < 60; seed += 2) {
+      const panels = readPanels(seed);
+      for (const [rotations, sorted] of panels) {
+        const last = sorted.map((row) => row[size - 1]);
+        expect(inverseTransform(last)).toEqual(rotations[0]);
+        expect([...last].sort((a, b) => a - b)).toEqual(
+          [...rotations[0]].sort((a, b) => a - b),
+        );
+      }
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const cells = 2 * size,
+        panels = readPanels(seed),
+        sample = createSurfaceSampler('burrowswheeler', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * cells,
+          y = v * cells,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          // The gaps on the four sides of the cell: wider at the edge of a panel.
+          left = i % size === 0 ? p.gapPanel : p.gap,
+          right = i % size === size - 1 ? p.gapPanel : p.gap,
+          top = j % size === 0 ? p.gapPanel : p.gap,
+          bottom = j % size === size - 1 ? p.gapPanel : p.gap,
+          dx = Math.abs(x - i - (1 + left - right) / 2),
+          dy = Math.abs(y - j - (1 + top - bottom) / 2),
+          hx = (1 - left - right) / 2,
+          hy = (1 - top - bottom) / 2,
+          innerX = hx - p.corner,
+          innerY = hy - p.corner,
+          // The distance to the rounded rectangle, by the straight sides or by the corner circle.
+          distance =
+            dx <= innerX || dy <= innerY
+              ? Math.max(dx - hx, dy - hy)
+              : Math.hypot(dx - innerX, dy - innerY) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          symbol =
+            panels[Math.floor(j / size)][Math.floor(i / size)][j % size][
+              i % size
+            ],
+          level = symbol / p.maxSymbol,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('makes the text of four letters from hash keys: it uses all four letters and is a different text for every group, on the top row and on the bottom row', () => {
+    const texts = [4, 10, 16, 22, 28].map((seed) =>
+      readPanels(seed)[0][0][0].join(','),
+    );
+    // Seeds 4, 10, 16, 22 and 28 have the text of four letters on the top row: the symbols are $ and 1 to 4, all four used.
+    for (const text of texts) {
+      const symbols = text.split(',').map(Number);
+      expect(Math.max(...symbols)).toBe(4);
+      expect(new Set(symbols.filter((symbol) => symbol > 0)).size).toBe(4);
+    }
+    expect(new Set(texts).size).toBe(texts.length);
+    // Seeds 18 and 48 (the groups 3 and 8) have it on the bottom row: the top text is the Fibonacci word and the bottom one 4 texts later.
+    const bottom = [18, 48].map((seed) => readPanels(seed)[1][0][0].join(','));
+    expect(bottom[0]).not.toBe(bottom[1]);
+    expect(
+      new Set(bottom[0].split(',').filter((symbol) => symbol !== '0')).size,
+    ).toBe(4);
+  });
+  it('draws a different view per text and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.295806884765625, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.2415771484375, 8);
+    expect(unlike(first, litGrid(12))).toBeCloseTo(0.21636962890625, 8);
+    expect(unlike(first, litGrid(24))).toBeCloseTo(0.222015380859375, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('burrowswheeler', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 lavender Burrows-Wheeler maps on dark indigo with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('burrowswheeler', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(69.3);
+    expect(red / (512 * 512)).toBeLessThan(70.4);
+    expect(green / (512 * 512)).toBeGreaterThan(56.8);
+    expect(green / (512 * 512)).toBeLessThan(57.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(99.9);
+    expect(blue / (512 * 512)).toBeLessThan(101);
+    expect(maxTilt).toBeGreaterThan(0.0568);
+    expect(maxTilt).toBeLessThan(0.0569);
     expect(invalid).toBe(0);
   });
 });
