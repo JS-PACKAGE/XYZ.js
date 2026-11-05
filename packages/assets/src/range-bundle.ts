@@ -85,9 +85,9 @@ export class AssetBundleRangeReader {
     private readonly archive: AssetBundleArchive,
     private readonly signal?: AbortSignal,
   ) {
-    this.members = new Map(
-      archive.members.map((member) => [member.path, member]),
-    );
+    const members = new Map<string, AssetBundleArchiveMember>();
+    for (const member of archive.members) members.set(member.path, member);
+    this.members = members;
     this.abort = () => this.controller.abort(signal?.reason);
     signal?.addEventListener('abort', this.abort, { once: true });
     if (signal?.aborted) this.abort();
