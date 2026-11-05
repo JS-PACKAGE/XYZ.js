@@ -28658,6 +28658,56 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .45,
 		paperRoughness: .7
 	}),
+	baudottape: Object.freeze({
+		dark: [
+			40,
+			34,
+			28
+		],
+		light: [
+			240,
+			228,
+			196
+		],
+		roughness: .78,
+		relief: .006,
+		rows: 63,
+		strips: 8,
+		pitch: .1,
+		tapeWidth: .6875,
+		holeRadius: .036,
+		feedRadius: .023,
+		leader: 3,
+		trailer: 3,
+		digitShare: .3,
+		spaceShare: .1,
+		letterSet: Object.freeze(`NUL.E.LF.A.SP.S.I.U.CR.D.R.J.N.F.C.K.T.Z.L.W.H.Y.P.Q.O.B.G.FIGS.M.X.V.LTRS`.split(`.`)),
+		figureSet: Object.freeze(`NUL 3 LF - SP BEL 8 7 CR $ 4 ' , ! : ( 5 " ) 2 # 6 0 1 9 ? & FIGS . / ; LTRS`.split(` `)),
+		surfaces: Object.freeze([
+			Object.freeze({
+				paper: .88,
+				ground: .12
+			}),
+			Object.freeze({
+				paper: .72,
+				ground: .3
+			}),
+			Object.freeze({
+				paper: .92,
+				ground: .45
+			}),
+			Object.freeze({
+				paper: .6,
+				ground: .08
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		paperHeight: .3,
+		groundHeight: .1,
+		paperRoughness: .8,
+		groundRoughness: .6
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37339,6 +37389,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	baudottape: 1,
 	isopapersizes: 1,
 	code128barcodes: 1,
 	fencingpiste: 1,

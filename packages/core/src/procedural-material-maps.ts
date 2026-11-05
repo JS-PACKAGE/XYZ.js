@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'baudottape',
   'isopapersizes',
   'code128barcodes',
   'fencingpiste',
@@ -51659,6 +51660,109 @@ export function createSurfaceSampler(
           roughness = clamp(
             p.paperRoughness +
               (p.inkRoughness - p.paperRoughness) * lined * outer,
+          );
+          occlusion = 1;
+        };
+      }
+      case 'baudottape': {
+        const p = proceduralMaterialPresets.baudottape,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(129, 1, seed ^ 0x290001) * p.surfaces.length)
+            ],
+          swap = hash(129, 2, seed ^ 0x290002) < 0.5,
+          flipX = hash(129, 3, seed ^ 0x290003) < 0.5,
+          flipY = hash(129, 4, seed ^ 0x290004) < 0.5,
+          shift = (hash(129, 5, seed ^ 0x290005) * 2 - 1) * p.toneShift,
+          rows = p.rows,
+          // The tile in inches, a strip with its gap, the columns of holes (six columns 0.1 apart, centred on the tape: two tracks, the feed holes, three tracks) and the codes of the figures and letters.
+          size = rows * p.pitch,
+          stripPitch = size / p.strips,
+          gap = stripPitch - p.tapeWidth,
+          firstColumn = (p.tapeWidth - 5 * p.pitch) / 2,
+          feedAt = firstColumn + 2 * p.pitch,
+          bodyEnd = rows - p.trailer,
+          codes = new Uint8Array(p.strips * rows);
+        for (let strip = 0; strip < p.strips; strip++) {
+          // A leader of blank rows, the body (a letter or a digit or a space at a time, each with the shift code it needs) and LTRS for the rest.
+          let row = p.leader,
+            figures = false;
+          for (let draw = 0; row < bodyEnd; draw++) {
+            const kind = hash(strip, draw * 2, seed ^ 0x290006),
+              pick = hash(strip, draw * 2 + 1, seed ^ 0x290007),
+              digit = kind < p.digitShare,
+              space = !digit && kind < p.digitShare + p.spaceShare,
+              shiftNeeded = !space && digit !== figures;
+            if (row + (shiftNeeded ? 2 : 1) > bodyEnd) break;
+            if (shiftNeeded) {
+              codes[strip * rows + row++] = p.letterSet.indexOf(
+                digit ? 'FIGS' : 'LTRS',
+              );
+              figures = digit;
+            }
+            codes[strip * rows + row++] = space
+              ? p.letterSet.indexOf('SP')
+              : digit
+                ? p.figureSet.indexOf(
+                    String(Math.min(9, Math.floor(pick * 10))),
+                  )
+                : p.letterSet.indexOf(
+                    String.fromCharCode(
+                      65 + Math.min(25, Math.floor(pick * 26)),
+                    ),
+                  );
+          }
+          codes.fill(
+            p.letterSet.indexOf('LTRS'),
+            strip * rows + row,
+            (strip + 1) * rows,
+          );
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            ax = swap ? fv : fu,
+            ay = swap ? fu : fv,
+            // The place in inches in the strips before they are turned and mirrored: x across the strips, y along them.
+            x = (flipX ? 1 - ax : ax) * size,
+            y = (flipY ? 1 - ay : ay) * size,
+            strip = Math.floor(x / stripPitch),
+            across = x - strip * stripPitch - gap / 2,
+            row = Math.floor(y / p.pitch),
+            along = y - (row + 0.5) * p.pitch,
+            code = codes[strip * rows + row],
+            tape = cover(Math.min(across, p.tapeWidth - across) / size);
+          // The feed hole of the row and the data holes of the bits that are set (the bit of the track nearest the narrow edge is the least significant).
+          let hole = cover(
+            (p.feedRadius - Math.hypot(across - feedAt, along)) / size,
+          );
+          for (let bit = 0; bit < 5; bit++)
+            if ((code >> bit) & 1)
+              hole = Math.max(
+                hole,
+                cover(
+                  (p.holeRadius -
+                    Math.hypot(
+                      across -
+                        firstColumn -
+                        (bit < 2 ? bit : bit + 1) * p.pitch,
+                      along,
+                    )) /
+                    size,
+                ),
+              );
+          const paper = tape * (1 - hole);
+          color = clamp(
+            surface.ground + shift + (surface.paper - surface.ground) * paper,
+          );
+          height = clamp(
+            p.groundHeight + (p.paperHeight - p.groundHeight) * paper,
+          );
+          roughness = clamp(
+            p.groundRoughness + (p.paperRoughness - p.groundRoughness) * paper,
           );
           occlusion = 1;
         };

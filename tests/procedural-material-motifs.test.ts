@@ -79031,3 +79031,454 @@ describe('isopapersizes: the A series of ISO 216 as the classic nested diagram, 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('baudottape: strips of five-level punched tape that decode as ITA2 messages, laid in one of eight ways by the seed', () => {
+  const p = proceduralMaterialPresets.baudottape,
+    out = empty(),
+    size = p.rows * p.pitch,
+    stripPitch = size / p.strips,
+    gap = stripPitch - p.tapeWidth,
+    firstColumn = (p.tapeWidth - 5 * p.pitch) / 2,
+    feedAt = firstColumn + 2 * p.pitch,
+    // The place across the tape of the data hole of a bit (the bit of the track nearest the narrow edge is the least significant; the feed holes are the third column).
+    trackAt = (bit: number): number =>
+      firstColumn + (bit < 2 ? bit : bit + 1) * p.pitch;
+  type Way = { swap: boolean; flipX: boolean; flipY: boolean };
+  const toneAt = (sample: Sampler, x: number, y: number, way: Way): number => {
+    // A place in inches in the strips before they are turned and mirrored (x across the strips, y along them) as a place on the picture.
+    const ax = way.flipX ? 1 - x / size : x / size,
+      ay = way.flipY ? 1 - y / size : y / size;
+    sample(way.swap ? ay : ax, way.swap ? ax : ay, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The ITA2 / US-TTY code as the Wikipedia article on the Baudot code gives it (read for this), written out again here: the letter set and the figure set, by the five-bit code from 0 to 31.
+  const letters = [
+      'NUL',
+      'E',
+      'LF',
+      'A',
+      'SP',
+      'S',
+      'I',
+      'U',
+      'CR',
+      'D',
+      'R',
+      'J',
+      'N',
+      'F',
+      'C',
+      'K',
+      'T',
+      'Z',
+      'L',
+      'W',
+      'H',
+      'Y',
+      'P',
+      'Q',
+      'O',
+      'B',
+      'G',
+      'FIGS',
+      'M',
+      'X',
+      'V',
+      'LTRS',
+    ],
+    figures = [
+      'NUL',
+      '3',
+      'LF',
+      '-',
+      'SP',
+      'BEL',
+      '8',
+      '7',
+      'CR',
+      '$',
+      '4',
+      "'",
+      ',',
+      '!',
+      ':',
+      '(',
+      '5',
+      '"',
+      ')',
+      '2',
+      '#',
+      '6',
+      '0',
+      '1',
+      '9',
+      '?',
+      '&',
+      'FIGS',
+      '.',
+      '/',
+      ';',
+      'LTRS',
+    ],
+    FIGS = 27,
+    LTRS = 31,
+    SP = 4,
+    isLetter = (code: number): boolean => /^[A-Z]$/.test(letters[code]),
+    isDigit = (code: number): boolean => /^[0-9]$/.test(figures[code]);
+  type Strip = { text: string; codes: number[] };
+  // Decodes a strip as a reader would: every row has its feed hole, the leader is blank rows, the body is letters, digits and spaces with a shift code exactly where the state needs one and no other, and the rest is LTRS; null where something does not fit.
+  const decodeStrip = (
+    sample: Sampler,
+    way: Way,
+    strip: number,
+    isHole: (tone: number) => boolean,
+  ): Strip | null => {
+    const left = strip * stripPitch + gap / 2,
+      codes: number[] = [];
+    for (let row = 0; row < p.rows; row++) {
+      const y = (row + 0.5) * p.pitch;
+      if (!isHole(toneAt(sample, left + feedAt, y, way))) return null;
+      let code = 0;
+      for (let bit = 0; bit < 5; bit++)
+        if (isHole(toneAt(sample, left + trackAt(bit), y, way)))
+          code |= 1 << bit;
+      codes.push(code);
+    }
+    for (let row = 0; row < p.leader; row++) if (codes[row] !== 0) return null;
+    let text = '',
+      shifted = false,
+      row = p.leader;
+    while (row < p.rows) {
+      const code = codes[row];
+      if (codes.slice(row).every((c) => c === LTRS)) {
+        if (p.rows - row < p.trailer) return null;
+        break;
+      }
+      if (code === FIGS) {
+        const next = codes[row + 1];
+        if (shifted || next === undefined || !isDigit(next)) return null;
+        shifted = true;
+      } else if (code === LTRS) {
+        const next = codes[row + 1];
+        if (!shifted || next === undefined || !isLetter(next)) return null;
+        shifted = false;
+      } else if (code === SP) text += ' ';
+      else if (shifted ? isDigit(code) : isLetter(code))
+        text += shifted ? figures[code] : letters[code];
+      else return null;
+      row++;
+    }
+    return { text, codes };
+  };
+  type Decoded = {
+    way: Way;
+    paper: number;
+    ground: number;
+    strips: Strip[];
+  };
+  const ways: Way[] = [];
+  for (const swap of [false, true])
+    for (const flipX of [false, true])
+      for (const flipY of [false, true]) ways.push({ swap, flipX, flipY });
+  // Decodes all the strips in each of the eight ways (the one way that decodes them all is the way the strips lie), and reads the tones of the paper (between holes, near the narrow edge) and of the ground (in a gap).
+  const decode = (sample: Sampler): Decoded => {
+    const found: Decoded[] = [];
+    for (const way of ways) {
+      const paper = toneAt(sample, gap / 2 + 0.05, 0, way),
+        ground = toneAt(sample, 0.01, 0.01, way),
+        isHole = (tone: number): boolean => tone < (paper + ground) / 2,
+        strips: Strip[] = [];
+      for (let strip = 0; strip < p.strips; strip++) {
+        const decoded = decodeStrip(sample, way, strip, isHole);
+        if (!decoded) break;
+        strips.push(decoded);
+      }
+      if (strips.length === p.strips)
+        found.push({ way, paper, ground, strips });
+    }
+    expect(found.length).toBe(1);
+    return found[0];
+  };
+  type Surface = Decoded & { surface: number; shift: number };
+  const readSurface = (sample: Sampler): Surface => {
+    const decoded = decode(sample),
+      options: Surface[] = [];
+    p.surfaces.forEach((surface, index) => {
+      const shift = decoded.ground - surface.ground;
+      if (
+        Math.abs(shift) <= p.toneShift + 1e-9 &&
+        Math.abs(decoded.paper - surface.paper - shift) < 1e-6
+      )
+        options.push({ ...decoded, surface: index, shift });
+    });
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the ITA2 code in the preset as in the article, the dimensions of five-level tape, and a tile that the strips fill', () => {
+    expect([...p.letterSet]).toEqual(letters);
+    expect([...p.figureSet]).toEqual(figures);
+    // What the article says: E and T are the one-hole letters; the shift codes and the space read the same either way round, and CR and LF are each other's reverse.
+    const holes = (code: number): number =>
+        code.toString(2).split('1').length - 1,
+      reverse = (code: number): number =>
+        parseInt(
+          code.toString(2).padStart(5, '0').split('').reverse().join(''),
+          2,
+        );
+    expect(holes(letters.indexOf('E'))).toBe(1);
+    expect(holes(letters.indexOf('T'))).toBe(1);
+    expect(letters.indexOf('E')).toBe(1);
+    expect(letters.indexOf('T')).toBe(16);
+    for (const code of [FIGS, LTRS, SP]) expect(reverse(code)).toBe(code);
+    expect(reverse(letters.indexOf('CR'))).toBe(letters.indexOf('LF'));
+    expect(FIGS).toBe(letters.indexOf('FIGS'));
+    expect(LTRS).toBe(letters.indexOf('LTRS'));
+    expect(SP).toBe(letters.indexOf('SP'));
+    // The dimensions (the article on punched tape): 11/16 wide for five-bit codes, 0.1 between holes, data holes of 0.072 and feed holes of 0.046 across.
+    expect(p.tapeWidth).toBe(11 / 16);
+    expect(p.pitch).toBe(0.1);
+    expect(p.holeRadius * 2).toBeCloseTo(0.072, 12);
+    expect(p.feedRadius * 2).toBeCloseTo(0.046, 12);
+    // The five tracks and the feed hole are inside the tape and the feed hole is nearer the narrow edge.
+    expect(firstColumn - p.holeRadius).toBeGreaterThan(0);
+    expect(
+      p.tapeWidth - (firstColumn + 5 * p.pitch) - p.holeRadius,
+    ).toBeGreaterThan(0);
+    expect(feedAt).toBeLessThan(p.tapeWidth / 2);
+    // The holes of a row do not touch each other: the data holes are 0.1 from their neighbours (and from the feed hole, which is in a column of its own).
+    expect(p.pitch / 2).toBeGreaterThan(p.holeRadius);
+    expect(p.pitch).toBeGreaterThan(p.holeRadius + p.feedRadius);
+    expect(trackAt(2) - feedAt).toBeCloseTo(p.pitch, 12);
+    expect(feedAt - trackAt(1)).toBeCloseTo(p.pitch, 12);
+    expect(gap).toBeGreaterThan(0);
+    expect(p.strips * stripPitch).toBeCloseTo(size, 12);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws strips that decode as ITA2 (feed holes in every row, a blank leader, only letters, digits and spaces with the shift codes they need, LTRS at the end), with the tones, the height and the roughness of the paper and the ground (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('baudottape', seed),
+        { way, paper, ground, strips } = readSurface(sample),
+        delta = 0.0004 * size;
+      expect(strips.length).toBe(p.strips);
+      strips.forEach((strip, index) => {
+        const left = index * stripPitch + gap / 2;
+        expect(strip.codes.length).toBe(p.rows);
+        expect(strip.text.length).toBeGreaterThan(20);
+        for (let row = 0; row < p.rows; row++) {
+          const y = (row + 0.5) * p.pitch,
+            code = strip.codes[row];
+          // The centre of every data hole position and of the feed hole, the paper beside them and between the rows, the height and roughness of each; the edges of each hole (inside and outside by 0.0004 of a tile) in four directions.
+          const holeAt = (
+            x: number,
+            yy: number,
+            expectedHole: boolean,
+          ): void => {
+            const tone = toneAt(sample, x, yy, way);
+            expect(tone).toBeCloseTo(expectedHole ? ground : paper, 9);
+            expect(out.height / p.relief).toBeCloseTo(
+              expectedHole ? p.groundHeight : p.paperHeight,
+              6,
+            );
+            expect(out.roughness).toBeCloseTo(
+              expectedHole ? p.groundRoughness : p.paperRoughness,
+              6,
+            );
+          };
+          const holes: [number, number, boolean][] = [
+            [feedAt, p.feedRadius, true],
+          ];
+          for (let bit = 0; bit < 5; bit++)
+            holes.push([trackAt(bit), p.holeRadius, ((code >> bit) & 1) === 1]);
+          for (const [offset, radius, punched] of holes) {
+            holeAt(left + offset, y, punched);
+            if (punched)
+              for (const degrees of [0, 90, 180, 270, 45]) {
+                const dx = Math.cos((degrees * Math.PI) / 180),
+                  dy = Math.sin((degrees * Math.PI) / 180);
+                holeAt(
+                  left + offset + (radius - delta) * dx,
+                  y + (radius - delta) * dy,
+                  true,
+                );
+                holeAt(
+                  left + offset + (radius + delta) * dx,
+                  y + (radius + delta) * dy,
+                  false,
+                );
+              }
+          }
+          // Between the rows, on the paper.
+          holeAt(left + feedAt, y + p.pitch / 2, false);
+          // The edges of the tape (both sides) and the gap between the strips.
+          if (row % 9 === 0) {
+            holeAt(left + delta, y, false);
+            holeAt(left + p.tapeWidth - delta, y, false);
+            expect(toneAt(sample, left - delta, y, way)).toBeCloseTo(ground, 9);
+            expect(
+              toneAt(sample, left + p.tapeWidth + delta, y, way),
+            ).toBeCloseTo(ground, 9);
+            expect(out.height / p.relief).toBeCloseTo(p.groundHeight, 6);
+          }
+        }
+      });
+    },
+  );
+
+  it('writes letters, digits and spaces in the shares of the preset, every letter and digit, and both shift codes, over 1000 seeds; uses every surface and all eight ways about equally often; shifts the tones over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [],
+      letterCount = new Map<string, number>(),
+      combos = new Set<string>(),
+      each = [0, 0, 0];
+    let minTrailer = Infinity,
+      maxTrailer = 0,
+      characters = 0,
+      digits = 0,
+      spaces = 0,
+      figShifts = 0,
+      letShifts = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { way, surface, shift, strips } = readSurface(
+        createSurfaceSampler('baudottape', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      each[0] += Number(way.swap);
+      each[1] += Number(way.flipX);
+      each[2] += Number(way.flipY);
+      combos.add(`${way.swap} ${way.flipX} ${way.flipY}`);
+      for (const strip of strips) {
+        for (const character of strip.text) {
+          characters++;
+          if (character === ' ') spaces++;
+          else if (/[0-9]/.test(character)) digits++;
+          letterCount.set(character, (letterCount.get(character) ?? 0) + 1);
+        }
+        // The trailer of LTRS: at least trailer rows, and one more only when the next character and its shift did not fit.
+        let trailer = 0;
+        while (strip.codes[p.rows - 1 - trailer] === LTRS) trailer++;
+        minTrailer = Math.min(minTrailer, trailer);
+        maxTrailer = Math.max(maxTrailer, trailer);
+        figShifts += strip.codes.filter((code) => code === FIGS).length;
+        letShifts += strip.codes
+          .slice(p.leader)
+          .filter((code) => code === LTRS).length;
+      }
+    }
+    expect(Math.abs(digits / characters - p.digitShare)).toBeLessThan(0.02);
+    expect(Math.abs(spaces / characters - p.spaceShare)).toBeLessThan(0.02);
+    for (const character of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+      expect(letterCount.get(character) ?? 0).toBeGreaterThan(100);
+    expect(minTrailer).toBe(p.trailer);
+    expect(maxTrailer).toBe(p.trailer + 1);
+    expect(figShifts).toBeGreaterThan(1000);
+    expect(letShifts).toBeGreaterThan(1000);
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    for (const count of each)
+      expect(Math.abs(count / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(combos.size).toBe(8);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('softens the edge of a hole and of the tape over edgeSoft', () => {
+    const sample = createSurfaceSampler('baudottape', 2),
+      { way, paper, ground, strips } = readSurface(sample),
+      quarter = 0.25 * p.edgeSoft * size,
+      tone = (x: number, y: number): number => toneAt(sample, x, y, way),
+      left = 3 * stripPitch + gap / 2,
+      // A row with a punched data hole in the first track, and the feed hole of it.
+      row = strips[3].codes.findIndex(
+        (code, index) => index >= p.leader && (code & 1) === 1,
+      ),
+      y = (row + 0.5) * p.pitch;
+    expect(row).toBeGreaterThan(0);
+    // The data hole of the first track (inside is the ground, outside the paper) and the feed hole.
+    close(
+      tone(left + trackAt(0) + p.holeRadius - quarter, y),
+      blend(paper, ground, 0.75),
+    );
+    close(
+      tone(left + trackAt(0) + p.holeRadius + quarter, y),
+      blend(paper, ground, 0.25),
+    );
+    close(
+      tone(left + feedAt + p.feedRadius - quarter, y),
+      blend(paper, ground, 0.75),
+    );
+    close(
+      tone(left + feedAt + p.feedRadius + quarter, y),
+      blend(paper, ground, 0.25),
+    );
+    // The edges of the tape (the paper inside, the ground outside), at both sides.
+    close(tone(left + quarter, y + p.pitch / 2), blend(ground, paper, 0.75));
+    close(tone(left - quarter, y + p.pitch / 2), blend(ground, paper, 0.25));
+    close(
+      tone(left + p.tapeWidth - quarter, y + p.pitch / 2),
+      blend(ground, paper, 0.75),
+    );
+    close(
+      tone(left + p.tapeWidth + quarter, y + p.pitch / 2),
+      blend(ground, paper, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('baudottape', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('baudottape', 0),
+      b = createSurfaceSampler('baudottape', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

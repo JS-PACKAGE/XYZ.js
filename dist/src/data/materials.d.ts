@@ -16836,6 +16836,43 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.45;
         paperRoughness: 0.7;
     }>;
+    baudottape: Readonly<{
+        dark: readonly [40, 34, 28];
+        light: readonly [240, 228, 196];
+        roughness: 0.78;
+        relief: 0.006;
+        rows: 63;
+        strips: 8;
+        pitch: 0.1;
+        tapeWidth: 0.6875;
+        holeRadius: 0.036;
+        feedRadius: 0.023;
+        leader: 3;
+        trailer: 3;
+        digitShare: 0.3;
+        spaceShare: 0.1;
+        letterSet: readonly string[];
+        figureSet: readonly string[];
+        surfaces: readonly (Readonly<{
+            paper: 0.88;
+            ground: 0.12;
+        }> | Readonly<{
+            paper: 0.72;
+            ground: 0.3;
+        }> | Readonly<{
+            paper: 0.92;
+            ground: 0.45;
+        }> | Readonly<{
+            paper: 0.6;
+            ground: 0.08;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        paperHeight: 0.3;
+        groundHeight: 0.1;
+        paperRoughness: 0.8;
+        groundRoughness: 0.6;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23321,6 +23358,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    baudottape: 1;
     isopapersizes: 1;
     code128barcodes: 1;
     fencingpiste: 1;

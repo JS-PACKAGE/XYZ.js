@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'baudottape',
     'isopapersizes',
     'code128barcodes',
     'fencingpiste',
