@@ -116,7 +116,13 @@ export class Mask2D {
     );
   }
   containsPoint(point: Vector2): boolean {
-    const [a, b, c, d, tx, ty] = this.transform,
+    const transform = this.transform,
+      a = transform[0],
+      b = transform[1],
+      c = transform[2],
+      d = transform[3],
+      tx = transform[4],
+      ty = transform[5],
       determinant = a * d - b * c;
     const px = point.x - tx,
       py = point.y - ty,
