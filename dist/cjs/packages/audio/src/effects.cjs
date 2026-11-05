@@ -19,7 +19,7 @@ var PreparedAudioImpulse = class {
 		range(this.sampleRate, 8e3, require_audio.audioDefaults.impulseSampleRate, `Impulse sample rate`), range(this.length, 1, require_audio.audioDefaults.impulseValues / this.numberOfChannels, `Impulse frames`);
 		let i = Array.from({ length: this.numberOfChannels }, (e, n) => {
 			let i = r.getChannelData(n).slice();
-			for (let e of i) if (!Number.isFinite(e)) throw new require_errors.AudioError(`Impulse PCM must be finite.`);
+			for (let e = 0; e < i.length; e++) if (!Number.isFinite(i[e])) throw new require_errors.AudioError(`Impulse PCM must be finite.`);
 			return i;
 		});
 		n.set(this, {

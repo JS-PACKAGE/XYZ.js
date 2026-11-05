@@ -25,8 +25,8 @@ function fail(t) {
 function parseKTX2(e) {
 	isKTX2(e) || fail(`missing identifier`), e.length < 80 && fail(`truncated header`);
 	let t = new DataView(e.buffer, e.byteOffset, e.byteLength), u32 = (e) => t.getUint32(e, !0), u64 = (e) => {
-		let n = t.getBigUint64(e, !0);
-		return n > BigInt(2 ** 53 - 1) && fail(`offset is out of range`), Number(n);
+		let n = t.getUint32(e, !0), r = t.getUint32(e + 4, !0);
+		return r > 2097151 && fail(`offset is out of range`), r * 4294967296 + n;
 	}, n = u32(12), r = u32(20), i = u32(24), a = u32(28), o = u32(32), s = u32(36), c = Math.max(u32(40), 1), l = u32(44);
 	r === 0 && fail(`zero width`), a > 1 && fail(`3D textures are unsupported`), c > 32 && fail(`too many levels`), l > 3 && fail(`unknown supercompression scheme`);
 	let range = (t, n, r) => (t + n > e.length && fail(`${r} is out of bounds`), e.subarray(t, t + n)), u = range(u32(48), u32(52), `data format descriptor`), d = range(u64(64), u64(72), `global data`);

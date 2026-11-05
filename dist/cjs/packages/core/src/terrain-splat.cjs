@@ -61,7 +61,7 @@ function bakeTerrainSplat(t) {
 			require_terrain_data.terrainChannels(t.base, o, c, 3, !0, p), _ += linear(p[0]) * t.color[0] * n, v += linear(p[1]) * t.color[1] * n, y += linear(p[2]) * t.color[2] * n;
 			let l = 0, u = 0, d = 1;
 			t.normal && (require_terrain_data.terrainChannels(t.normal, o, c, 3, !0, p), l = (p[0] * 2 - 1) * t.normalScale, u = (p[1] * 2 - 1) * t.normalScale, d = p[2] * 2 - 1);
-			let h = require_hypot.hypot3(l, u, d) || 1;
+			let h = t.normal && require_hypot.hypot3(l, u, d) || 1;
 			b += l / h * n, x += u / h * n, S += d / h * n, t.mr && require_terrain_data.terrainChannels(t.mr, o, c, 3, !0, p), C += t.roughness * (t.mr ? p[1] : 1) * n, w += t.metallic * (t.mr ? p[2] : 1) * n, t.ao && require_terrain_data.terrainChannels(t.ao, o, c, 1, !0, p), T += (t.ao ? p[0] : 1) * n, t.emission && (require_terrain_data.terrainChannels(t.emission, o, c, 3, !0, p), E += linear(p[0]) * t.emissionFactor[0] * n, D += linear(p[1]) * t.emissionFactor[1] * n, O += linear(p[2]) * t.emissionFactor[2] * n);
 		}
 		let k = require_hypot.hypot3(b, x, S);

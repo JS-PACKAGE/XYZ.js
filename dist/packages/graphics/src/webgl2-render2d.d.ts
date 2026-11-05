@@ -72,6 +72,7 @@ export declare class WebGLRender2D {
     private readonly blendProgram;
     private readonly matrixRows;
     private readonly dependencies;
+    private readonly dependencySet;
     private readonly samplers;
     private resolution;
     private viewportWidth;

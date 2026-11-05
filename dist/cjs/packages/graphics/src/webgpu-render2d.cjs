@@ -70,6 +70,7 @@ var WebGPURender2D = class WebGPURender2D {
 	particles = /* @__PURE__ */ new Map();
 	captureCommands = new require_render2d_contract.RenderCommandBuffer2D();
 	dependencies = [];
+	dependencySet = /* @__PURE__ */ new Set();
 	groups = /* @__PURE__ */ new WeakMap();
 	samplers = [];
 	retiredTextures = [];
@@ -291,13 +292,13 @@ var WebGPURender2D = class WebGPURender2D {
 		});
 	}
 	preflight(e, t, n, r, i) {
-		this.hooks.assertAlive(), this.viewportWidth = n, this.viewportHeight = r, this.resolution = i, this.dependencies.length = 0;
+		this.hooks.assertAlive(), this.viewportWidth = n, this.viewportHeight = r, this.resolution = i, this.dependencies.length = 0, this.dependencySet.clear();
 		for (let e of t.effects2D) this.effects.validate(e);
 		this.validateCommands(e, 0), this.ensure(this.count(e));
 	}
 	validateSource(e, t) {
 		if (e.destroyed) throw new require_errors.GraphicsError(`Cannot sample a destroyed 2D texture.`);
-		t?.validate(), e.kind === `render` && (require_render_texture2d.assertRenderTextureOwner2D(e, this.hooks.owner), this.dependencies.includes(e) || this.dependencies.push(e));
+		t?.validate(), e.kind === `render` && (require_render_texture2d.assertRenderTextureOwner2D(e, this.hooks.owner), this.dependencySet.has(e) || (this.dependencySet.add(e), this.dependencies.push(e)));
 	}
 	validateGroup(e) {
 		e.mask?.texture && this.validateSource(e.mask.texture, e.mask.view);

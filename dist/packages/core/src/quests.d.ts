@@ -28,6 +28,7 @@ export declare class QuestSystem extends GameObject {
     private readonly options;
     readonly definitions: readonly QuestDefinition[];
     private readonly byId;
+    private readonly dependants;
     private records;
     private mutating;
     constructor(definitions: readonly QuestDefinition[], options?: {

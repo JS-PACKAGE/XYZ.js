@@ -88,6 +88,7 @@ var WebGLRender2D = class {
 	blendProgram;
 	matrixRows = /* @__PURE__ */ new Float32Array(20);
 	dependencies = [];
+	dependencySet = /* @__PURE__ */ new Set();
 	samplers = /* @__PURE__ */ new Map();
 	resolution = 1;
 	viewportWidth = 1;
@@ -129,13 +130,13 @@ var WebGLRender2D = class {
 		return e.uniforms.has(t) || e.uniforms.set(t, this.gl.getUniformLocation(e.program, t)), e.uniforms.get(t);
 	}
 	preflight(e, t, n, r, i) {
-		this.hooks.assertAlive(), this.viewportWidth = n, this.viewportHeight = r, this.resolution = i, this.dependencies.length = 0;
+		this.hooks.assertAlive(), this.viewportWidth = n, this.viewportHeight = r, this.resolution = i, this.dependencies.length = 0, this.dependencySet.clear();
 		for (let e of t.effects2D) this.hooks.processor(e);
 		this.validateCommands(e, 0);
 	}
 	validateSource(e, t) {
 		if (e.destroyed) throw new require_errors.GraphicsError(`Cannot sample a destroyed 2D texture.`);
-		t?.validate(), e.kind === `render` && (require_render_texture2d.assertRenderTextureOwner2D(e, this.hooks.owner), this.dependencies.includes(e) || this.dependencies.push(e));
+		t?.validate(), e.kind === `render` && (require_render_texture2d.assertRenderTextureOwner2D(e, this.hooks.owner), this.dependencySet.has(e) || (this.dependencySet.add(e), this.dependencies.push(e)));
 	}
 	validateCommands(e, t) {
 		if (t > require_rendering2d.rendering2dLimits.layerDepth) throw RangeError(`2D isolation exceeds its depth budget.`);

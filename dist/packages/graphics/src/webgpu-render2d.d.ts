@@ -35,6 +35,7 @@ export declare class WebGPURender2D {
     private readonly particles;
     private readonly captureCommands;
     private readonly dependencies;
+    private readonly dependencySet;
     private readonly groups;
     private readonly samplers;
     private readonly retiredTextures;

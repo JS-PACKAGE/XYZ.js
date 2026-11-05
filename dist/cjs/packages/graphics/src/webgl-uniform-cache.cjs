@@ -10,7 +10,8 @@ var WebGLUniformCache = class {
 			let e = 0;
 			for (; e < i.length && same(o[e], i[e]);) e++;
 			if (e === i.length) return;
-			o.set(i);
+			if (i.length <= 16) for (; e < i.length; e++) o[e] = i[e];
+			else o.set(i);
 		} else a[t] = i.slice();
 		a[n] = void 0, e.uniform4fv(r, i);
 	}

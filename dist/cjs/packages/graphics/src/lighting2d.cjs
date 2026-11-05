@@ -5,7 +5,7 @@ const require_lighting2d = require("../../core/src/lighting2d.cjs");
 function packLighting2D(n, r, i, a) {
 	require_lighting2d.validateSpriteLighting2D(n);
 	let o = n.lighting;
-	a.fill(0, 24, 80), a.set(o.ambient, 24), a[27] = +!!n.normalTexture, a[70] = o.roughness, a[84] = o.emissive[0], a[85] = o.emissive[1], a[86] = o.emissive[2], a[87] = o.specular;
+	a.fill(0, 24, 80), a.length < 27 && a.set(o.ambient, 24), a[24] = o.ambient[0], a[25] = o.ambient[1], a[26] = o.ambient[2], a[27] = +!!n.normalTexture, a[70] = o.roughness, a[84] = o.emissive[0], a[85] = o.emissive[1], a[86] = o.emissive[2], a[87] = o.specular;
 	let s = 0;
 	for (let e of o.occluders) {
 		if (!e.enabled || e.space !== n.worldSpace) continue;
@@ -26,7 +26,7 @@ function packLighting2D(n, r, i, a) {
 		let t = o.lights[e];
 		if (!t.enabled || t.space !== n.worldSpace) continue;
 		let r = 32 + e * 8;
-		a[r] = t.position[0], a[r + 1] = t.position[1], a[r + 2] = t.height, a[r + 3] = t.radius, a.set(t.color, r + 4), a[r + 7] = t.intensity;
+		a[r] = t.position[0], a[r + 1] = t.position[1], a[r + 2] = t.height, a[r + 3] = t.radius, a.length < r + 7 && a.set(t.color, r + 4), a[r + 4] = t.color[0], a[r + 5] = t.color[1], a[r + 6] = t.color[2], a[r + 7] = t.intensity;
 	}
 	let h = r.elements;
 	a[64] = h[0], a[65] = h[1], a[66] = h[3], a[67] = h[4], a[68] = h[6], a[69] = h[7], a[72] = i.u0, a[73] = i.v0, a[74] = i.ux, a[75] = i.vx, a[76] = i.uy, a[77] = i.vy;

@@ -64,40 +64,41 @@ var TiledContent = class extends require_group2d.Group2D {
 	constructor(t) {
 		if (super(), this.asset = t, t.scope.destroyed) throw new require_tiled_parser.TiledError(`asset`, `resource owner has been released`);
 		try {
-			for (let [n, r] of t.data.layers.entries()) {
-				let a = t.data.layers.find((e) => e.id === r.parentId), s = new TiledLayerGroup(r, t, a?.parallaxX ?? 1, a?.parallaxY ?? 1);
-				if (s.position.set(r.x, r.y), s.opacity = r.opacity, s.visible = r.visible, s.zIndex = typeof r.properties.depth == `number` ? r.properties.depth : r.type === `group` ? 0 : n, (r.parentId === void 0 ? this : this.layers.get(r.parentId)).add(s), this.layers.set(r.id, s), r.type === `tilelayer`) {
-					let e = /* @__PURE__ */ new Map(), n = r.chunks, i = n?.length ? Math.min(...n.map((e) => e.x)) : 0, a = n?.length ? Math.min(...n.map((e) => e.y)) : 0, c = n?.length ? Math.max(...n.map((e) => e.x + e.width)) - i : Math.max(1, t.data.width), l = n?.length ? Math.max(...n.map((e) => e.y + e.height)) - a : Math.max(1, t.data.height);
+			let n = new Map(t.data.layers.map((e) => [e.id, e]));
+			for (let [r, a] of t.data.layers.entries()) {
+				let s = n.get(a.parentId), l = new TiledLayerGroup(a, t, s?.parallaxX ?? 1, s?.parallaxY ?? 1);
+				if (l.position.set(a.x, a.y), l.opacity = a.opacity, l.visible = a.visible, l.zIndex = typeof a.properties.depth == `number` ? a.properties.depth : a.type === `group` ? 0 : r, (a.parentId === void 0 ? this : this.layers.get(a.parentId)).add(l), this.layers.set(a.id, l), a.type === `tilelayer`) {
+					let e = /* @__PURE__ */ new Map(), n = a.chunks, r = n?.length ? Math.min(...n.map((e) => e.x)) : 0, i = n?.length ? Math.min(...n.map((e) => e.y)) : 0, s = n?.length ? Math.max(...n.map((e) => e.x + e.width)) - r : Math.max(1, t.data.width), c = n?.length ? Math.max(...n.map((e) => e.y + e.height)) - i : Math.max(1, t.data.height);
 					for (let n of t.data.tilesets) {
-						let r = Array.from({ length: n.tileCount }, (e, t) => ({
+						let a = Array.from({ length: n.tileCount }, (e, t) => ({
 							x: n.margin + t % n.columns * (n.tileWidth + n.spacing),
 							y: n.margin + Math.floor(t / n.columns) * (n.tileHeight + n.spacing),
 							width: n.tileWidth,
 							height: n.tileHeight
 						})), u = new TiledTileMap({
-							columns: c,
-							rows: l,
-							originColumn: i,
-							originRow: a,
+							columns: s,
+							rows: c,
+							originColumn: r,
+							originRow: i,
 							sparse: t.data.infinite === !0,
 							tileWidth: t.data.tileWidth,
 							tileHeight: t.data.tileHeight,
-							sheet: new require_sprite_sheet.SpriteSheet(t.textures.get(n), r)
+							sheet: new require_sprite_sheet.SpriteSheet(t.textures.get(n), a)
 						});
-						u.tileset = n, s.add(u), e.set(n, u);
+						u.tileset = n, l.add(u), e.set(n, u);
 					}
-					if (this.tileMaps.set(r.id, e), n) for (let e of n) for (let t = 0; t < e.data.length; t++) e.data[t] && this.setGid(r.id, e.x + t % e.width, e.y + Math.floor(t / e.width), e.data[t]);
-					else for (let e = 0; e < r.data.length; e++) r.data[e] && this.setGid(r.id, e % t.data.width, Math.floor(e / t.data.width), r.data[e]);
-				} else if (r.type === `objectgroup`) this.addObjects(s, r);
-				else if (r.type === `imagelayer`) {
-					let n = t.imageTextures.get(r.id);
-					if (!n) throw new require_tiled_parser.TiledError(r.name, `image layer texture is missing`);
-					r.repeatX || r.repeatY ? (s.imageSprite = new require_tiling_sprite2d.TilingSprite2D({
+					if (this.tileMaps.set(a.id, e), n) for (let e of n) for (let t = 0; t < e.data.length; t++) e.data[t] && this.setGid(a.id, e.x + t % e.width, e.y + Math.floor(t / e.width), e.data[t]);
+					else for (let e = 0; e < a.data.length; e++) a.data[e] && this.setGid(a.id, e % t.data.width, Math.floor(e / t.data.width), a.data[e]);
+				} else if (a.type === `objectgroup`) this.addObjects(l, a);
+				else if (a.type === `imagelayer`) {
+					let n = t.imageTextures.get(a.id);
+					if (!n) throw new require_tiled_parser.TiledError(a.name, `image layer texture is missing`);
+					a.repeatX || a.repeatY ? (l.imageSprite = new require_tiling_sprite2d.TilingSprite2D({
 						texture: n,
 						anchor: [0, 0],
 						width: n.width,
 						height: n.height
-					}), s.add(s.imageSprite)) : s.add(new require_sprite.Sprite({
+					}), l.add(l.imageSprite)) : l.add(new require_sprite.Sprite({
 						texture: n,
 						anchor: [0, 0]
 					}));

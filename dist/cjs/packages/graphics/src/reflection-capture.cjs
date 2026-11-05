@@ -71,9 +71,10 @@ function encodeProbeFaces(t, n, i, a) {
 		for (let [e, t] of _) e.visible = t;
 	}
 }
+var i = Float64Array.from({ length: 31 }, (e, t) => 2 ** (t - 15));
 function halfFloat(e) {
 	let t = e & 32768 ? -1 : 1, n = e >> 10 & 31, r = e & 1023;
-	return n === 0 ? t * r * 2 ** -24 : n === 31 ? r ? NaN : t * (1 / 0) : t * (1 + r / 1024) * 2 ** (n - 15);
+	return n === 0 ? t * r * 2 ** -24 : n === 31 ? r ? NaN : t * (1 / 0) : t * (1 + r / 1024) * i[n];
 }
 function capturedEnvironment(e, n, r) {
 	return r?.throwIfAborted(), require_environment.EnvironmentMap.fromCubemap(e, n, 4);

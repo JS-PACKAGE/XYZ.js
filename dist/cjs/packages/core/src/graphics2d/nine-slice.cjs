@@ -108,37 +108,35 @@ var NineSlice = class NineSlice extends require_group2d.Group2D {
 			C += y[e], w += x[e];
 		}
 		if (this.atlasView) {
-			let e = this.atlasView;
-			for (let n = S.length - 1; n >= 0; n--) {
-				let r = S[n], i = r.source, a = Math.max(i.x, e.trim.x), o = Math.max(i.y, e.trim.y), c = Math.min(i.x + i.width, e.trim.x + e.trim.width), l = Math.min(i.y + i.height, e.trim.y + e.trim.height);
-				if (c <= a || l <= o) {
-					S.splice(n, 1);
-					continue;
-				}
-				let u = c - a, d = l - o, f = a - e.trim.x, p = o - e.trim.y, m = e.rotation === 90 ? {
-					x: e.frame.x + e.trim.height - p - d,
-					y: e.frame.y + f,
-					width: d,
-					height: u
-				} : {
-					x: e.frame.x + f,
+			let e = this.atlasView, n = S.length;
+			for (let r = S.length - 1; r >= 0; r--) {
+				let i = S[r], a = i.source, o = Math.max(a.x, e.trim.x), c = Math.max(a.y, e.trim.y), l = Math.min(a.x + a.width, e.trim.x + e.trim.width), u = Math.min(a.y + a.height, e.trim.y + e.trim.height);
+				if (l <= o || u <= c) continue;
+				let d = l - o, f = u - c, p = o - e.trim.x, m = c - e.trim.y, h = e.rotation === 90 ? {
+					x: e.frame.x + e.trim.height - m - f,
 					y: e.frame.y + p,
-					width: u,
+					width: f,
 					height: d
+				} : {
+					x: e.frame.x + p,
+					y: e.frame.y + m,
+					width: d,
+					height: f
 				};
-				r.view = new require_texture2d.TextureView2D(this.texture, {
-					frame: m,
+				i.view = new require_texture2d.TextureView2D(this.texture, {
+					frame: h,
 					rotation: e.rotation,
 					resolution: s,
-					originalSize: [i.width, i.height],
+					originalSize: [a.width, a.height],
 					trim: {
-						x: a - i.x,
-						y: o - i.y,
-						width: u,
-						height: d
+						x: o - a.x,
+						y: c - a.y,
+						width: d,
+						height: f
 					}
-				});
+				}), S[--n] = i;
 			}
+			S.copyWithin(0, n), S.length -= n;
 		}
 		let T = [];
 		try {

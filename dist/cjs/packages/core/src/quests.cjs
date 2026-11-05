@@ -5,6 +5,7 @@ var QuestSystem = class extends require_game_object.GameObject {
 	options;
 	definitions;
 	byId = /* @__PURE__ */ new Map();
+	dependants = /* @__PURE__ */ new Map();
 	records = Object.create(null);
 	mutating = !1;
 	constructor(e, r = {}) {
@@ -25,6 +26,10 @@ var QuestSystem = class extends require_game_object.GameObject {
 			};
 		}
 		require_narrative_data.validateGraph(this.definitions.map((e) => e.id), (e) => this.byId.get(e).prerequisites ?? []);
+		for (let e of this.definitions) for (let t of new Set(e.prerequisites ?? [])) {
+			let n = this.dependants.get(t);
+			n || this.dependants.set(t, n = []), n.push(e);
+		}
 	}
 	get(e) {
 		let t = this.records[e];
@@ -47,7 +52,7 @@ var QuestSystem = class extends require_game_object.GameObject {
 			if (r.progress[t] = Math.min(a, r.progress[t] + n), !i.objectives.every((e) => r.progress[e.id] === e.target)) return;
 			r.status = `completed`, r.rewarded = !0;
 			let o = [];
-			for (let e of this.definitions) this.records[e.id].status === `locked` && e.prerequisites.every((e) => this.records[e].status === `completed`) && (this.records[e.id].status = `available`, o.push(e.id));
+			for (let t of this.dependants.get(e) ?? []) this.records[t.id].status === `locked` && t.prerequisites.every((e) => this.records[e].status === `completed`) && (this.records[t.id].status = `available`, o.push(t.id));
 			if (this.options.onReward?.(i.rewards ?? [], e), !this.destroyed) {
 				this.options.onTransition?.(e, `completed`);
 				for (let e of o) {

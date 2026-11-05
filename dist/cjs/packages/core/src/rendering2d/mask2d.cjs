@@ -49,13 +49,13 @@ var Mask2D = class Mask2D {
 		return e.view?.validate(), new Mask2D(`image`, e, void 0, void 0, n, e.view, r);
 	}
 	containsPoint(e) {
-		let [t, n, r, i, a, o] = this.transform, s = t * i - n * r, c = e.x - a, l = e.y - o, u = (i * c - r * l) / s, d = (t * l - n * c) / s, f;
-		if (this.path) f = this.path.containsPoint(u, d);
+		let t = this.transform, n = t[0], r = t[1], i = t[2], a = t[3], o = t[4], s = t[5], c = n * a - r * i, l = e.x - o, u = e.y - s, d = (a * l - i * u) / c, f = (n * u - r * l) / c, p;
+		if (this.path) p = this.path.containsPoint(d, f);
 		else {
 			let e = this.rect, t = this.texture, n = e?.x ?? 0, r = e?.y ?? 0, i = e?.width ?? this.view?.width ?? (t?.kind === `render` ? t.logicalWidth : t.width), a = e?.height ?? this.view?.height ?? (t?.kind === `render` ? t.logicalHeight : t.height);
-			f = u >= n && u <= n + i && d >= r && d <= r + a;
+			p = d >= n && d <= n + i && f >= r && f <= r + a;
 		}
-		return this.inverse ? !f : f;
+		return this.inverse ? !p : p;
 	}
 	getBounds(e = {
 		x: 0,

@@ -58,9 +58,9 @@ var HitArea2D = class HitArea2D {
 		if (this.kind === `circle`) return this.radius > 0 && (t - r.x - this.radius) ** 2 + (n - r.y - this.radius) ** 2 <= this.radius ** 2;
 		let i = !1;
 		for (let e = 0, r = this.points.length - 1; e < this.points.length; r = e++) {
-			let [a, o] = this.points[r], [s, c] = this.points[e];
-			if ((t - a) * (c - o) - (n - o) * (s - a) === 0 && t >= Math.min(a, s) && t <= Math.max(a, s) && n >= Math.min(o, c) && n <= Math.max(o, c)) return !0;
-			o > n != c > n && t < (s - a) * (n - o) / (c - o) + a && (i = !i);
+			let a = this.points[r], o = this.points[e], s = a[0], c = a[1], l = o[0], u = o[1];
+			if ((t - s) * (u - c) - (n - c) * (l - s) === 0 && t >= Math.min(s, l) && t <= Math.max(s, l) && n >= Math.min(c, u) && n <= Math.max(c, u)) return !0;
+			c > n != u > n && t < (l - s) * (n - c) / (u - c) + s && (i = !i);
 		}
 		return i;
 	}
