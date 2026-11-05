@@ -463,6 +463,8 @@ export class Timeline implements Tweenable {
 /** Owns running tweens and timelines and advances them together; `scene.tweens` is one. */
 export class TweenGroup {
   private readonly running = new Set<Tween | Timeline>();
+  /** Immutable during an update, including nested updates and callback mutations. */
+  private snapshot: readonly (Tween | Timeline)[] | undefined;
   private disposed = false;
 
   get size(): number {
@@ -472,6 +474,7 @@ export class TweenGroup {
   /** Starts `item` (a Tween or Timeline) and keeps updating it until it finishes. */
   add<T extends Tween | Timeline>(item: T): T {
     if (this.disposed) throw new Error('TweenGroup is destroyed.');
+    this.snapshot = undefined;
     this.running.add(item);
     item.play();
     return item;
@@ -494,25 +497,31 @@ export class TweenGroup {
   }
 
   remove(item: Tween | Timeline): boolean {
+    this.snapshot = undefined;
     return this.running.delete(item);
   }
 
   update(delta: number): void {
     if (this.disposed) return;
     nonnegative(delta, 'Tween delta');
-    for (const item of [...this.running]) {
+    for (const item of (this.snapshot ??= [...this.running])) {
       if (!this.running.has(item)) continue;
-      if (!item.update(delta) && !item.playing) this.running.delete(item);
+      if (!item.update(delta) && !item.playing) {
+        this.running.delete(item);
+        this.snapshot = undefined;
+      }
     }
   }
 
   /** Drops every item without finishing it, leaving properties where they are. */
   clear(): void {
     this.running.clear();
+    this.snapshot = undefined;
   }
 
   destroy(): void {
     this.disposed = true;
     this.running.clear();
+    this.snapshot = undefined;
   }
 }
