@@ -12075,6 +12075,17758 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: 4e-4,
 		grainRoughness: .012
 	}),
+	mudcloth: Object.freeze({
+		dark: [
+			31,
+			20,
+			14
+		],
+		light: [
+			232,
+			214,
+			180
+		],
+		roughness: .88,
+		relief: 8e-4,
+		threads: 64,
+		bands: 8,
+		wobbleCells: 24,
+		wobble: .035,
+		strokeHalf: .055,
+		widthJitter: .18,
+		edgeSoft: .03,
+		separatorHalf: .03,
+		zigzagAmplitude: .2,
+		dotRadius: .13,
+		diamondRadius: .3,
+		diamondDotRadius: .075,
+		ladderOffset: .22,
+		rungHalf: .04,
+		groundTone: .1,
+		motifTone: .84,
+		stainCells: 16,
+		stain: .07,
+		threadTone: .06,
+		fiberTone: .06,
+		weaveHeight: .8,
+		dyeCrust: .15,
+		grainHeight: .05,
+		groundRoughness: .86,
+		motifRoughness: .96,
+		grainRoughness: .03,
+		aoFloor: .7,
+		motifAO: .04
+	}),
+	turingpattern: Object.freeze({
+		dark: [
+			52,
+			31,
+			17
+		],
+		light: [
+			232,
+			203,
+			158
+		],
+		roughness: .78,
+		relief: 7e-4,
+		waveX: [
+			13,
+			-6,
+			-7
+		],
+		waveY: [
+			0,
+			11,
+			-11
+		],
+		warpCells: 10,
+		warp: .05,
+		thresholdCells: 4,
+		thresholdLow: .1,
+		thresholdHigh: 1.5,
+		edge: .32,
+		grainCells: 160,
+		groundTone: .82,
+		patternTone: .14,
+		coreTone: .06,
+		coreDepth: 1.2,
+		grainTone: .05,
+		groundHeight: .2,
+		patternHeight: .55,
+		grainHeight: .04,
+		groundRoughness: .74,
+		patternRoughness: .86,
+		grainRoughness: .04,
+		patternAO: .82
+	}),
+	bayerdither: Object.freeze({
+		dark: [
+			18,
+			22,
+			30
+		],
+		light: [
+			236,
+			232,
+			214
+		],
+		roughness: .62,
+		relief: .0036,
+		blocks: 64,
+		phase: .25,
+		levelCells: 3,
+		contrast: 1.5,
+		gap: .06,
+		bevel: .12,
+		jitter: .05,
+		gapTone: .02,
+		onTone: .9,
+		offTone: .14,
+		floorHeight: .04,
+		onHeight: .92,
+		offHeight: .46,
+		onRoughness: .42,
+		offRoughness: .78,
+		gapRoughness: .95,
+		floorAO: .5,
+		onAO: 1,
+		offAO: .8
+	}),
+	patchworkquilt: Object.freeze({
+		dark: [
+			46,
+			34,
+			58
+		],
+		light: [
+			240,
+			218,
+			178
+		],
+		roughness: .82,
+		relief: .0042,
+		patches: 4,
+		threads: 96,
+		designs: 4,
+		toneLevels: [
+			.12,
+			.3,
+			.5,
+			.7,
+			.88
+		],
+		seamWidth: .02,
+		seamSoft: .008,
+		domeWidth: .3,
+		ringWidth: .125,
+		stripes: 3,
+		dotPitch: .1667,
+		dotRadius: .042,
+		dotLift: .16,
+		stitchInset: .07,
+		stitchHalf: .011,
+		stitchSoft: .006,
+		stitchDashes: 6,
+		stitchDuty: .62,
+		threadTone: .93,
+		floorHeight: .1,
+		puffHeight: .62,
+		seamDepth: .16,
+		stitchDepth: .14,
+		weaveHeight: .06,
+		weaveTone: .035,
+		roughnessBase: .8,
+		threadRoughness: .9,
+		seamAO: .45,
+		stitchAO: .25,
+		puffAO: .2
+	}),
+	amberresin: Object.freeze({
+		dark: [
+			88,
+			38,
+			6
+		],
+		light: [
+			252,
+			190,
+			70
+		],
+		roughness: .14,
+		relief: 6e-4,
+		flowCells: 4,
+		flowRows: 28,
+		warpCells: 8,
+		warp: .035,
+		cells: 6,
+		bubbleChance: .55,
+		bubbleMin: .022,
+		bubbleMax: .05,
+		bubbleSoft: .003,
+		rimWidth: .0055,
+		spangleCells: 4,
+		spangleChance: .4,
+		spangleMin: .07,
+		spangleMax: .1,
+		spangleSpokes: 9,
+		spangleSoft: .004,
+		grainCells: 128,
+		baseTone: .55,
+		flowTone: .38,
+		grainTone: .04,
+		bubbleLift: .2,
+		rimDrop: .4,
+		spangleLift: .12,
+		crackDrop: .12,
+		baseHeight: .5,
+		flowHeight: .08,
+		crackDepth: .35,
+		grainHeight: .04,
+		flowRoughness: .08,
+		bubbleRoughness: .05,
+		crackRoughness: .3,
+		bubbleAO: .12
+	}),
+	ammonitestone: Object.freeze({
+		dark: [
+			62,
+			55,
+			46
+		],
+		light: [
+			236,
+			224,
+			196
+		],
+		roughness: .86,
+		relief: .0026,
+		cells: 2,
+		jitter: .05,
+		minScale: .9,
+		maxScale: 1,
+		innerRadius: .03,
+		outerRadius: .4,
+		growth: 2.3,
+		ribs: 18,
+		ribCurve: .35,
+		ribPower: 3,
+		ribFade: 3,
+		keelWidth: .07,
+		edgeSoft: .012,
+		grainCells: 160,
+		mottleCells: 6,
+		matrixTone: .3,
+		mottleTone: .1,
+		grainTone: .05,
+		shellTone: .68,
+		ribTone: .14,
+		sutureTone: .42,
+		matrixHeight: .22,
+		grainHeight: .05,
+		shellHeight: .3,
+		tubeHeight: .42,
+		ribHeight: .14,
+		keelHeight: .06,
+		matrixRoughness: .88,
+		shellRoughness: .55,
+		grainRoughness: .06,
+		shellAO: .55
+	}),
+	octopussuckers: Object.freeze({
+		dark: [
+			78,
+			38,
+			44
+		],
+		light: [
+			236,
+			206,
+			196
+		],
+		roughness: .5,
+		relief: .0034,
+		columns: 4,
+		rows: 4,
+		jitter: .012,
+		minScale: .92,
+		maxScale: 1,
+		radius: .11,
+		rimInner: .58,
+		cupRadius: .58,
+		holeRadius: .17,
+		ridges: 12,
+		ridgeHeight: .1,
+		ridgeTone: .1,
+		wrinkleCells: 24,
+		speckleCells: 64,
+		speckleThreshold: .74,
+		speckleSharp: 9,
+		skinTone: .7,
+		wrinkleTone: .06,
+		speckleTone: .16,
+		rimTone: .92,
+		cupTone: .26,
+		holeTone: .04,
+		skinHeight: .42,
+		wrinkleHeight: .05,
+		rimHeight: .46,
+		cupFloorHeight: .14,
+		holeHeight: .04,
+		skinRoughness: .5,
+		rimRoughness: .36,
+		cupRoughness: .66,
+		cupAO: .5,
+		holeAO: .2
+	}),
+	expandedpolystyrene: Object.freeze({
+		dark: [
+			96,
+			98,
+			102
+		],
+		light: [
+			250,
+			250,
+			246
+		],
+		roughness: .78,
+		relief: .0022,
+		cells: 16,
+		inset: .2,
+		beadRadius: .62,
+		seamWidth: .05,
+		seamSoft: .05,
+		voidSize: .16,
+		voidSoft: .05,
+		grainCells: 192,
+		beadTone: .9,
+		beadVariation: .08,
+		seamTone: .55,
+		voidTone: .12,
+		grainTone: .05,
+		seamHeight: .3,
+		voidHeight: .04,
+		domeHeight: .62,
+		grainHeight: .03,
+		beadRoughness: .78,
+		seamRoughness: .9,
+		seamAO: .7,
+		voidAO: .3
+	}),
+	asphaltshingle: Object.freeze({
+		dark: [
+			34,
+			36,
+			40
+		],
+		light: [
+			168,
+			164,
+			156
+		],
+		roughness: .94,
+		relief: .0045,
+		tabs: 6,
+		courses: 12,
+		slotHalf: .006,
+		slotSoft: .003,
+		slotTop: .42,
+		edgeSoft: .02,
+		granuleCells: 256,
+		wearCells: 6,
+		baseTone: .42,
+		tabVariation: .1,
+		granuleTone: .28,
+		wearTone: .14,
+		shadowTone: .12,
+		slotTone: .03,
+		baseHeight: .4,
+		thickness: .3,
+		granuleHeight: .06,
+		slotHeight: .05,
+		roughnessGranule: .04,
+		shadowAO: .55,
+		shadowReach: .3,
+		slotAO: .2
+	}),
+	lawnstripes: Object.freeze({
+		dark: [
+			22,
+			62,
+			20
+		],
+		light: [
+			158,
+			204,
+			82
+		],
+		roughness: .9,
+		relief: .0028,
+		stripes: 8,
+		lean: 1,
+		strandColumns: 192,
+		strandRows: 48,
+		detailColumns: 384,
+		detailRows: 96,
+		clumpCells: 10,
+		wobbleCells: 12,
+		wobble: .006,
+		baseTone: .5,
+		stripeTone: .14,
+		strandTone: .34,
+		detailTone: .12,
+		clumpTone: .12,
+		baseHeight: .35,
+		strandHeight: .4,
+		detailHeight: .1,
+		clumpHeight: .1,
+		strandRoughness: .06,
+		stripeRoughness: .05,
+		valleyAO: .55
+	}),
+	atomicboomerang: Object.freeze({
+		dark: [
+			34,
+			84,
+			90
+		],
+		light: [
+			240,
+			232,
+			204
+		],
+		roughness: .34,
+		relief: 8e-4,
+		cells: 5,
+		boomerangChance: .62,
+		starChance: .7,
+		jitter: .06,
+		halfLength: .32,
+		rise: .4,
+		halfWidth: .085,
+		taper: 3,
+		edgeSoft: .012,
+		minScale: .8,
+		maxScale: 1,
+		starRadius: .2,
+		starPower: .55,
+		speckleCells: 160,
+		speckleThreshold: .8,
+		speckleSharp: 10,
+		baseTone: .56,
+		lightTone: .94,
+		darkTone: .2,
+		speckleTone: .22,
+		printHeight: .1,
+		baseHeight: .45,
+		printRoughness: .05
+	}),
+	celticplait: Object.freeze({
+		dark: [
+			52,
+			48,
+			42
+		],
+		light: [
+			214,
+			204,
+			180
+		],
+		roughness: .82,
+		relief: .0042,
+		bands: 4,
+		periods: 4,
+		amplitude: .052,
+		ribbonHalf: .029,
+		ribbonSoft: .004,
+		grooveHalf: .006,
+		railPosition: .114,
+		railHalf: .006,
+		shadowWidth: .014,
+		grainCells: 160,
+		groundTone: .3,
+		ribbonTone: .74,
+		grooveTone: .22,
+		railTone: .62,
+		grainTone: .07,
+		groundHeight: .12,
+		ribbonHeight: .62,
+		underDrop: .3,
+		grooveDepth: .12,
+		railHeight: .3,
+		grainHeight: .03,
+		roughnessGrain: .06,
+		shadowAO: .45
+	}),
+	garnetschist: Object.freeze({
+		dark: [
+			60,
+			22,
+			26
+		],
+		light: [
+			226,
+			218,
+			208
+		],
+		roughness: .62,
+		relief: .0035,
+		layers: 28,
+		layerCells: 3,
+		fineLayers: 112,
+		warpCells: 6,
+		warp: .012,
+		sparkleCells: 224,
+		sparkleThreshold: .87,
+		sparkleSharp: 14,
+		cells: 5,
+		garnetChance: .6,
+		jitter: .1,
+		minRadius: .1,
+		maxRadius: .19,
+		tailLength: 2,
+		tailWidth: .7,
+		edgeSoft: .12,
+		baseTone: .46,
+		layerTone: .22,
+		fineTone: .08,
+		sparkleTone: .4,
+		garnetTone: .04,
+		facetVariation: .12,
+		crownTone: .08,
+		tailTone: .16,
+		baseHeight: .4,
+		layerHeight: .12,
+		garnetHeight: .38,
+		crownHeight: .08,
+		tailHeight: .06,
+		sparkleHeight: .05,
+		layerRoughness: .12,
+		garnetRoughness: .3,
+		sparkleRoughness: .35,
+		garnetAO: .85
+	}),
+	topographiccontours: Object.freeze({
+		dark: [
+			70,
+			42,
+			24
+		],
+		light: [
+			244,
+			236,
+			214
+		],
+		roughness: .84,
+		relief: .0012,
+		coarseCells: 3,
+		mediumCells: 6,
+		fineCells: 12,
+		coarseWeight: .5,
+		mediumWeight: .3,
+		fineWeight: .2,
+		rangeLow: .2,
+		rangeHigh: .8,
+		levels: 16,
+		indexEvery: 5,
+		minorHalf: .0012,
+		indexHalf: .0028,
+		lineSoft: .0014,
+		gradientStep: 5e-4,
+		minimumGradient: .05,
+		fiberCells: 256,
+		paperBase: .5,
+		elevationTone: .42,
+		fiberTone: .03,
+		minorTone: .12,
+		indexTone: .04,
+		baseHeight: .15,
+		elevationHeight: .55,
+		lineDepth: .1,
+		fiberHeight: .03,
+		fiberRoughness: .04
+	}),
+	digitalcamo: Object.freeze({
+		dark: [
+			30,
+			38,
+			26
+		],
+		light: [
+			204,
+			186,
+			138
+		],
+		roughness: .9,
+		relief: 7e-4,
+		blocks: 64,
+		coarseShare: .5,
+		broadCells: 4,
+		mediumCells: 12,
+		broadWeight: .55,
+		mediumWeight: .3,
+		jitterWeight: .15,
+		tones: [
+			.08,
+			.34,
+			.62,
+			.9
+		],
+		threads: 128,
+		weaveTone: .03,
+		weaveHeight: .45,
+		baseHeight: .3,
+		inkHeight: .04,
+		weaveRoughness: .04,
+		weaveAO: .25
+	}),
+	radarscope: Object.freeze({
+		dark: [
+			2,
+			10,
+			4
+		],
+		light: [
+			150,
+			255,
+			160
+		],
+		roughness: .3,
+		relief: 4e-4,
+		radius: .46,
+		rings: 5,
+		ringHalf: .0016,
+		outerHalf: .0034,
+		spokes: 24,
+		spokeHalf: .0012,
+		crossEvery: 6,
+		crossHalf: .0022,
+		lineSoft: .0012,
+		sweepWidth: 1.3,
+		sweepLineWidth: .012,
+		blips: 6,
+		blipRadius: .011,
+		blipPersistence: .4,
+		scanlines: 192,
+		scanlineDepth: .12,
+		grainCells: 256,
+		backgroundTone: .04,
+		glowTone: .1,
+		ringTone: .34,
+		spokeTone: .26,
+		sweepTone: .28,
+		sweepLineTone: .9,
+		blipTone: .95,
+		grainTone: .02,
+		baseHeight: .5,
+		lineHeight: .15,
+		baseRoughness: .3,
+		glowRoughness: .15
+	}),
+	hazardstripes: Object.freeze({
+		dark: [
+			18,
+			18,
+			20
+		],
+		light: [
+			246,
+			196,
+			28
+		],
+		roughness: .55,
+		relief: .0032,
+		stripes: 8,
+		chipCells: 96,
+		scratchColumns: 192,
+		scratchRows: 10,
+		grainCells: 192,
+		chipWeight: .55,
+		scratchWeight: .3,
+		edgeWeight: .35,
+		edgeReach: .3,
+		wearThreshold: .66,
+		wearSoft: .05,
+		yellowTone: .86,
+		blackTone: .08,
+		steelHeight: .22,
+		paintHeight: .14,
+		grainHeight: .03,
+		yellowRoughness: .45,
+		blackRoughness: .62,
+		steelRoughness: .36,
+		rimAO: .3
+	}),
+	kiwislices: Object.freeze({
+		dark: [
+			48,
+			34,
+			14
+		],
+		light: [
+			196,
+			232,
+			118
+		],
+		roughness: .28,
+		relief: .0018,
+		cells: 2,
+		jitter: .04,
+		minScale: .92,
+		maxScale: 1,
+		radius: .42,
+		skinWidth: .045,
+		skinSoft: .012,
+		coreRadius: .115,
+		coreSoft: .02,
+		innerSeedRadius: .175,
+		innerSeeds: 20,
+		outerSeedRadius: .24,
+		outerSeeds: 28,
+		seedLength: .019,
+		seedWidth: .0085,
+		streaks: 64,
+		streakPower: 3,
+		fuzzCells: 128,
+		juiceCells: 24,
+		skinTone: .14,
+		fleshTone: .62,
+		gradientTone: .12,
+		streakTone: .14,
+		coreTone: .94,
+		seedTone: .03,
+		fuzzTone: .08,
+		juiceTone: .04,
+		baseHeight: .4,
+		skinHeight: .06,
+		coreHeight: .14,
+		seedDepth: .2,
+		streakHeight: .05,
+		fuzzHeight: .06,
+		fleshRoughness: .24,
+		skinRoughness: .9,
+		seedRoughness: .4,
+		seedAO: .45,
+		coreAO: .92
+	}),
+	mandalaflower: Object.freeze({
+		dark: [
+			24,
+			18,
+			36
+		],
+		light: [
+			238,
+			214,
+			160
+		],
+		roughness: .7,
+		relief: .0014,
+		lotusCount: 12,
+		lotusBase: .3,
+		lotusDepth: .15,
+		lotusPower: .8,
+		dotCount: 36,
+		dotRadius: .27,
+		dotSize: .012,
+		petalCount: 24,
+		petalBase: .12,
+		petalDepth: .11,
+		petalPower: 1.5,
+		innerCount: 12,
+		innerBase: .04,
+		innerDepth: .09,
+		innerPower: 1,
+		hubRadius: .035,
+		outlineWidth: .008,
+		edgeSoft: .003,
+		grainCells: 192,
+		groundTone: .38,
+		lotusTone: .74,
+		dotTone: .16,
+		petalTone: .48,
+		innerTone: .86,
+		hubTone: .12,
+		outlineTone: .1,
+		grainTone: .04,
+		groundHeight: .15,
+		lotusHeight: .35,
+		dotHeight: .55,
+		petalHeight: .5,
+		innerHeight: .7,
+		hubHeight: .85,
+		outlineDepth: .1,
+		grainHeight: .03
+	}),
+	needlepoint: Object.freeze({
+		dark: [
+			34,
+			22,
+			40
+		],
+		light: [
+			244,
+			226,
+			196
+		],
+		roughness: .86,
+		relief: .0026,
+		stitches: 48,
+		motif: 12,
+		halfWidth: .27,
+		halfLength: .66,
+		lengthPower: 4,
+		edgeSoft: .12,
+		plyAlong: 2.5,
+		plyAcross: 1.2,
+		ringTones: [
+			.16,
+			.5,
+			.8
+		],
+		ringWidth: 2,
+		accentTone: .94,
+		accentHalf: 1,
+		jitter: .03,
+		plyTone: .07,
+		holeTone: .03,
+		holeHeight: .04,
+		stitchHeight: .62,
+		baseHeight: .3,
+		plyHeight: .06,
+		holeRoughness: .95,
+		stitchRoughness: .82,
+		holeAO: .45
+	}),
+	dicefaces: Object.freeze({
+		dark: [
+			20,
+			14,
+			14
+		],
+		light: [
+			244,
+			238,
+			220
+		],
+		roughness: .34,
+		relief: .0034,
+		cells: 4,
+		halfSize: .43,
+		cornerRadius: .11,
+		edgeSoft: .012,
+		bevelWidth: .1,
+		pipSpacing: .255,
+		pipRadius: .078,
+		pipSoft: .01,
+		grainCells: 192,
+		faceTone: .9,
+		pipTone: .08,
+		gapTone: .02,
+		grainTone: .03,
+		gapHeight: .04,
+		faceHeight: .55,
+		domeHeight: .3,
+		pipDepth: .35,
+		grainHeight: .02,
+		faceRoughness: .3,
+		pipRoughness: .5,
+		gapRoughness: .9,
+		gapAO: .4,
+		pipAO: .6
+	}),
+	cinderblockwall: Object.freeze({
+		dark: [
+			92,
+			92,
+			90
+		],
+		light: [
+			196,
+			196,
+			190
+		],
+		roughness: .92,
+		relief: .0038,
+		courses: 8,
+		columns: 4,
+		jointWidth: .0095,
+		jointSoft: .003,
+		chamfer: .007,
+		aggregateCells: 160,
+		mottleCells: 8,
+		voidCells: 56,
+		voidChance: .3,
+		voidRadius: .0042,
+		voidSoft: .0014,
+		blockTone: .5,
+		blockVariation: .08,
+		mottleTone: .1,
+		aggregateTone: .12,
+		voidTone: .2,
+		jointHeight: .1,
+		faceHeight: .62,
+		aggregateHeight: .07,
+		chamferHeight: .12,
+		voidDepth: .3,
+		jointRoughness: .98,
+		voidAO: .35,
+		jointAO: .55
+	}),
+	moirefringes: Object.freeze({
+		dark: [
+			18,
+			20,
+			30
+		],
+		light: [
+			240,
+			236,
+			222
+		],
+		roughness: .62,
+		relief: .0014,
+		kx1: 24,
+		ky1: 3,
+		kx2: 24,
+		ky2: -3,
+		duty: .26,
+		edgeSoft: .1,
+		fiberCells: 256,
+		paperTone: .97,
+		inkTone: .04,
+		fiberTone: .03,
+		inkHeight: .55,
+		paperHeight: .3,
+		fiberHeight: .08,
+		paperRoughness: .66,
+		inkRoughness: .45,
+		paperAO: 1,
+		inkAO: .9
+	}),
+	azulejotiles: Object.freeze({
+		dark: [
+			18,
+			38,
+			118
+		],
+		light: [
+			246,
+			246,
+			240
+		],
+		roughness: .2,
+		relief: .0022,
+		tiles: 4,
+		groutWidth: .012,
+		groutSoft: .003,
+		bevel: .014,
+		flowerRadius: .15,
+		flowerLobe: .055,
+		flowerLobes: 4,
+		ringRadius: .3,
+		ringHalfWidth: .012,
+		cornerRadius: .2,
+		cornerRing: .14,
+		cornerRingHalfWidth: .01,
+		edgeSoft: .006,
+		crackCells: 28,
+		crackWidth: .045,
+		brushCells: 96,
+		glazeTone: .93,
+		pigmentTone: .1,
+		brushTone: .1,
+		crackTone: .08,
+		glazeHeight: .7,
+		groutHeight: .1,
+		pigmentHeight: .04,
+		bevelHeight: .2,
+		groutRoughness: .9,
+		pigmentRoughness: .28,
+		groutAO: .5,
+		crackAO: .85
+	}),
+	tumblingblocks: Object.freeze({
+		dark: [
+			30,
+			24,
+			44
+		],
+		light: [
+			236,
+			226,
+			205
+		],
+		roughness: .82,
+		relief: .0018,
+		columns: 7,
+		rows: 8,
+		topTone: .92,
+		rightTone: .62,
+		leftTone: .3,
+		blockJitter: .06,
+		seamHalfWidth: .018,
+		seamSoft: .012,
+		seamTone: .12,
+		threadCells: 224,
+		threadTone: .05,
+		topHeight: .62,
+		rightHeight: .55,
+		leftHeight: .48,
+		seamDepth: .3,
+		threadHeight: .05,
+		seamAO: .6
+	}),
+	kilimflatweave: Object.freeze({
+		dark: [
+			34,
+			20,
+			52
+		],
+		light: [
+			236,
+			218,
+			182
+		],
+		roughness: .9,
+		relief: .0022,
+		cells: 48,
+		band: 12,
+		motif: 12,
+		zigzag: 6,
+		tones: [
+			.1,
+			.3,
+			.56,
+			.88
+		],
+		cellJitter: .05,
+		ribs: 3,
+		ribTone: .05,
+		slitWidth: .14,
+		slitSoft: .05,
+		slitTone: .04,
+		ribHeight: .12,
+		baseHeight: .55,
+		slitDepth: .4,
+		fuzzCells: 192,
+		fuzzTone: .04,
+		slitAO: .5
+	}),
+	ean13barcodes: Object.freeze({
+		dark: [
+			14,
+			14,
+			18
+		],
+		light: [
+			244,
+			243,
+			238
+		],
+		roughness: .55,
+		relief: .0012,
+		rows: 4,
+		quiet: 9,
+		barTop: .1,
+		barBottom: .84,
+		guardBottom: .92,
+		rowGap: .025,
+		edgeSoft: .12,
+		inkGainCells: 128,
+		paperCells: 256,
+		paperTone: .97,
+		inkTone: .05,
+		inkGain: .05,
+		paperGrain: .025,
+		inkHeight: .6,
+		paperHeight: .3,
+		gapHeight: .15,
+		inkRoughness: .4,
+		paperRoughness: .62
+	}),
+	morsetape: Object.freeze({
+		dark: [
+			30,
+			22,
+			16
+		],
+		light: [
+			232,
+			214,
+			170
+		],
+		roughness: .78,
+		relief: .0016,
+		rows: 10,
+		modules: 64,
+		margin: 3,
+		markRadius: .5,
+		guideHalfHeight: .012,
+		edgeSoft: .12,
+		inkCells: 192,
+		paperCells: 256,
+		paperTone: .88,
+		inkTone: .06,
+		guideTone: .6,
+		inkGain: .06,
+		paperGrain: .04,
+		inkHeight: .58,
+		paperHeight: .35,
+		guideHeight: .4,
+		inkRoughness: .5,
+		paperRoughness: .82
+	}),
+	sandripples: Object.freeze({
+		dark: [
+			150,
+			108,
+			62
+		],
+		light: [
+			238,
+			208,
+			150
+		],
+		roughness: .96,
+		relief: .006,
+		kx: 18,
+		ky: 7,
+		windward: .72,
+		warpCells: 6,
+		warpAmplitude: .45,
+		fineWarpCells: 24,
+		fineWarpAmplitude: .08,
+		grainCells: 384,
+		speckCells: 112,
+		speckChance: .05,
+		speckRadius: .2,
+		baseTone: .58,
+		shadeWindward: .08,
+		shadeLee: .2,
+		grainTone: .07,
+		speckTone: .22,
+		grainHeight: .03,
+		leeAO: .25
+	}),
+	frostpolygons: Object.freeze({
+		dark: [
+			54,
+			52,
+			44
+		],
+		light: [
+			196,
+			190,
+			170
+		],
+		roughness: .9,
+		relief: .012,
+		cells: 8,
+		jitter: .7,
+		troughWidth: .06,
+		troughSoft: .05,
+		rimWidth: .42,
+		rimSoft: .12,
+		pebbleCells: 48,
+		stoneRadius: .36,
+		stoneEdge: 5,
+		stoneRimMin: .45,
+		stoneRimSoft: .25,
+		pebbleToneRange: .4,
+		grainHeight: .02,
+		siltCells: 24,
+		grainCells: 256,
+		siltTone: .62,
+		troughTone: .14,
+		rimTone: .48,
+		pebbleTone: .3,
+		siltVariation: .1,
+		grainTone: .06,
+		troughHeight: .08,
+		siltHeight: .46,
+		rimHeight: .62,
+		pebbleHeight: .14,
+		troughAO: .45
+	}),
+	datamatrixcodes: Object.freeze({
+		dark: [
+			16,
+			16,
+			20
+		],
+		light: [
+			242,
+			241,
+			236
+		],
+		roughness: .6,
+		relief: .0012,
+		symbols: 3,
+		size: 18,
+		quiet: 1,
+		dataDensity: .5,
+		edgeSoft: .14,
+		inkCells: 128,
+		paperCells: 256,
+		paperTone: .97,
+		inkTone: .05,
+		inkGain: .06,
+		paperGrain: .025,
+		inkHeight: .58,
+		paperHeight: .3,
+		inkRoughness: .42,
+		paperRoughness: .64
+	}),
+	ecgpaper: Object.freeze({
+		dark: [
+			28,
+			10,
+			22
+		],
+		light: [
+			252,
+			236,
+			236
+		],
+		roughness: .7,
+		relief: .0012,
+		millimeters: 80,
+		rows: 4,
+		major: 5,
+		beat: 20,
+		minorHalfWidth: .045,
+		majorHalfWidth: .09,
+		traceHalfWidth: .2,
+		lineSoft: .06,
+		waves: [
+			[
+				3,
+				.9,
+				.55
+			],
+			[
+				7.6,
+				-.8,
+				.22
+			],
+			[
+				8.4,
+				7,
+				.24
+			],
+			[
+				9.3,
+				-1.8,
+				.26
+			],
+			[
+				14.5,
+				1.7,
+				1
+			]
+		],
+		amplitudeJitter: .06,
+		wanderAmplitude: .25,
+		paperCells: 256,
+		inkCells: 128,
+		paperTone: .96,
+		minorTone: .84,
+		majorTone: .68,
+		inkTone: .04,
+		inkGain: .05,
+		paperGrain: .02,
+		inkHeight: .55,
+		paperHeight: .3,
+		lineHeight: .36,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
+	sheetmusic: Object.freeze({
+		dark: [
+			20,
+			16,
+			14
+		],
+		light: [
+			244,
+			236,
+			214
+		],
+		roughness: .74,
+		relief: .0014,
+		staves: 8,
+		beats: 16,
+		barBeats: 4,
+		spacing: .015625,
+		lineHalf: .07,
+		barHalf: .045,
+		headA: .66,
+		headB: .46,
+		headTilt: .35,
+		holeA: .42,
+		holeB: .2,
+		holeChance: .3,
+		stemHalf: .05,
+		stemLength: 3.5,
+		maxPosition: 8,
+		middlePosition: 4,
+		edgeSoft: .1,
+		inkCells: 128,
+		paperCells: 256,
+		paperTone: .9,
+		inkTone: .05,
+		inkGain: .06,
+		paperGrain: .04,
+		inkHeight: .58,
+		paperHeight: .3,
+		inkRoughness: .46,
+		paperRoughness: .78
+	}),
+	sudokugrid: Object.freeze({
+		dark: [
+			22,
+			24,
+			34
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .72,
+		relief: .0014,
+		clueChance: .42,
+		pixel: .135,
+		thinHalf: .018,
+		thickHalf: .04,
+		edgeSoft: .0025,
+		inkCells: 192,
+		paperCells: 256,
+		paperTone: .92,
+		lineTone: .1,
+		digitTone: .08,
+		inkGain: .08,
+		paperGrain: .04,
+		inkHeight: .56,
+		paperHeight: .3,
+		inkRoughness: .44,
+		paperRoughness: .76
+	}),
+	measuringtape: Object.freeze({
+		dark: [
+			18,
+			16,
+			10
+		],
+		light: [
+			244,
+			206,
+			52
+		],
+		roughness: .5,
+		relief: .0018,
+		strips: 8,
+		centimeters: 16,
+		millimeterLength: 4,
+		halfLength: 6.4,
+		centimeterLength: 9.2,
+		tickHalf: .14,
+		centimeterTickScale: 1.8,
+		edgeLine: .6,
+		tickStart: .6,
+		digitPixel: 1.1,
+		digitLeft: 1,
+		digitTop: 11,
+		edgeSoft: .15,
+		inkCells: 192,
+		tapeCells: 256,
+		tapeTone: .9,
+		inkTone: .04,
+		inkGain: .06,
+		tapeGrain: .05,
+		inkHeight: .55,
+		tapeHeight: .32,
+		inkRoughness: .42,
+		tapeRoughness: .5
+	}),
+	calendarpage: Object.freeze({
+		dark: [
+			28,
+			26,
+			36
+		],
+		light: [
+			244,
+			240,
+			228
+		],
+		roughness: .7,
+		relief: .0014,
+		columns: 7,
+		rows: 6,
+		pixel: .055,
+		numberLeft: .1,
+		numberTop: .1,
+		lineHalf: .012,
+		outerHalf: .03,
+		weekendTint: .1,
+		edgeSoft: .005,
+		inkCells: 192,
+		paperCells: 256,
+		paperTone: .93,
+		lineTone: .12,
+		digitTone: .06,
+		inkGain: .08,
+		paperGrain: .04,
+		inkHeight: .56,
+		paperHeight: .3,
+		inkRoughness: .44,
+		paperRoughness: .74
+	}),
+	fretboard: Object.freeze({
+		dark: [
+			34,
+			18,
+			12
+		],
+		light: [
+			214,
+			204,
+			186
+		],
+		roughness: .46,
+		relief: .004,
+		frets: 12,
+		strings: 6,
+		fretHalf: .0035,
+		stringHalfMin: .0022,
+		stringHalfMax: .0075,
+		stringReach: .04,
+		inlayFrets: [
+			3,
+			5,
+			7,
+			9
+		],
+		inlayRadius: .024,
+		doubleInlayFret: 12,
+		doubleInlayOffset: .17,
+		edgeSoft: .002,
+		grainCellsU: 24,
+		grainCellsV: 192,
+		fineGrainCellsU: 64,
+		fineGrainCellsV: 512,
+		woodTone: .18,
+		woodVariation: .06,
+		fineGrainTone: .03,
+		fretTone: .82,
+		stringTone: .7,
+		inlayTone: .95,
+		woodHeight: .4,
+		fretHeight: .8,
+		stringHeight: .62,
+		inlayHeight: .46,
+		grainHeight: .04,
+		woodRoughness: .55,
+		fretRoughness: .28,
+		inlayRoughness: .3,
+		stringShadow: .5
+	}),
+	crosswordgrid: Object.freeze({
+		dark: [
+			20,
+			20,
+			26
+		],
+		light: [
+			244,
+			240,
+			230
+		],
+		roughness: .72,
+		relief: .0014,
+		size: 15,
+		blackTarget: .17,
+		attempts: 600,
+		minRun: 3,
+		pixel: .05,
+		numberLeft: .08,
+		numberTop: .08,
+		lineHalf: .016,
+		edgeSoft: .004,
+		inkCells: 192,
+		paperCells: 256,
+		paperTone: .94,
+		blackTone: .05,
+		lineTone: .14,
+		digitTone: .08,
+		inkGain: .06,
+		paperGrain: .04,
+		inkHeight: .56,
+		paperHeight: .3,
+		inkRoughness: .44,
+		paperRoughness: .76
+	}),
+	flipdotdisplay: Object.freeze({
+		dark: [
+			10,
+			10,
+			12
+		],
+		light: [
+			236,
+			214,
+			54
+		],
+		roughness: .5,
+		relief: .003,
+		dots: 48,
+		digitColumns: 12,
+		digitRows: 8,
+		discRadius: .42,
+		edgeSoft: .06,
+		pivotRadius: .08,
+		grainCells: 256,
+		panelTone: .02,
+		offTone: .14,
+		onTone: .92,
+		grainTone: .03,
+		panelHeight: .1,
+		offHeight: .46,
+		onHeight: .62,
+		shineHeight: .06,
+		onRoughness: .34,
+		offRoughness: .62,
+		panelRoughness: .9,
+		panelAO: .45
+	}),
+	minesweeperboard: Object.freeze({
+		dark: [
+			34,
+			36,
+			44
+		],
+		light: [
+			214,
+			216,
+			220
+		],
+		roughness: .55,
+		relief: .003,
+		cells: 24,
+		mineDensity: .16,
+		starts: 7,
+		startAttempts: 200,
+		pixel: .12,
+		bevel: .1,
+		edgeSoft: .03,
+		grainCells: 192,
+		raisedTone: .82,
+		revealedTone: .62,
+		lightEdgeTone: .97,
+		shadeEdgeTone: .42,
+		digitTone: .08,
+		lineTone: .46,
+		grainTone: .03,
+		raisedHeight: .7,
+		revealedHeight: .35,
+		bevelDrop: .12,
+		revealedAO: .82,
+		raisedRoughness: .5,
+		revealedRoughness: .7
+	}),
+	tetrisstack: Object.freeze({
+		dark: [
+			12,
+			12,
+			20
+		],
+		light: [
+			236,
+			236,
+			244
+		],
+		roughness: .4,
+		relief: .0035,
+		cells: 16,
+		attempts: 900,
+		tones: [
+			.9,
+			.78,
+			.66,
+			.54,
+			.42,
+			.3,
+			.2
+		],
+		emptyTone: .03,
+		bevel: .14,
+		pieceEdge: .045,
+		edgeSoft: .03,
+		shineWidth: .35,
+		grainCells: 192,
+		grainTone: .03,
+		bevelTone: .12,
+		pieceHeight: .66,
+		emptyHeight: .1,
+		bevelDrop: .12,
+		edgeDrop: .3,
+		pieceRoughness: .36,
+		emptyRoughness: .9,
+		emptyAO: .5,
+		edgeAO: .55
+	}),
+	battleshipgrid: Object.freeze({
+		dark: [
+			26,
+			40,
+			62
+		],
+		light: [
+			210,
+			224,
+			238
+		],
+		roughness: .5,
+		relief: .003,
+		cells: 10,
+		fleet: [
+			5,
+			4,
+			3,
+			3,
+			2
+		],
+		attempts: 400,
+		shotChance: .32,
+		gridHalf: .02,
+		hullInset: .1,
+		edgeSoft: .03,
+		pegRadius: .2,
+		grainCells: 192,
+		waterTone: .72,
+		gridTone: .5,
+		hullTone: .3,
+		hitTone: .08,
+		missTone: .97,
+		grainTone: .04,
+		waterHeight: .3,
+		hullHeight: .62,
+		pegHeight: .8,
+		gridDrop: .08,
+		waterRoughness: .35,
+		hullRoughness: .55,
+		pegRoughness: .4,
+		hullAO: .8
+	}),
+	hilbertcurve: Object.freeze({
+		dark: [
+			16,
+			22,
+			52
+		],
+		light: [
+			244,
+			238,
+			222
+		],
+		roughness: .62,
+		relief: .0014,
+		order: 4,
+		lineHalf: .14,
+		edgeSoft: .03,
+		paperCells: 256,
+		inkCells: 128,
+		paperTone: .94,
+		startTone: .08,
+		endTone: .55,
+		inkGain: .04,
+		paperGrain: .04,
+		inkHeight: .56,
+		paperHeight: .3,
+		inkRoughness: .42,
+		paperRoughness: .72
+	}),
+	mondriancomposition: Object.freeze({
+		dark: [
+			18,
+			18,
+			20
+		],
+		light: [
+			246,
+			242,
+			232
+		],
+		roughness: .66,
+		relief: .0016,
+		maxDepth: 5,
+		forcedDepth: 2,
+		minSize: .14,
+		splitChance: .8,
+		lineHalf: .0075,
+		edgeSoft: .0016,
+		tones: [
+			.97,
+			.97,
+			.97,
+			.62,
+			.4,
+			.78
+		],
+		lineTone: .04,
+		paintGain: .05,
+		canvasGrain: .03,
+		canvasCells: 192,
+		paintCells: 96,
+		lineHeight: .58,
+		fieldHeight: .4,
+		canvasHeight: .04,
+		lineRoughness: .5,
+		fieldRoughness: .7
+	}),
+	lissajousgrid: Object.freeze({
+		dark: [
+			8,
+			24,
+			18
+		],
+		light: [
+			120,
+			240,
+			170
+		],
+		roughness: .4,
+		relief: .002,
+		cells: 4,
+		segments: 160,
+		amplitude: .4,
+		phase: Math.PI / 2,
+		lineHalf: .014,
+		glowWidth: .1,
+		edgeSoft: .008,
+		frameHalf: .012,
+		gratCells: 192,
+		lineTone: .95,
+		glowTone: .2,
+		gridTone: .14,
+		panelTone: .04,
+		gratTone: .02,
+		lineHeight: .6,
+		panelHeight: .3,
+		gridHeight: .38,
+		lineRoughness: .3,
+		panelRoughness: .65
+	}),
+	zoneplates: Object.freeze({
+		dark: [
+			10,
+			12,
+			18
+		],
+		light: [
+			226,
+			230,
+			238
+		],
+		roughness: .38,
+		relief: .0022,
+		plates: 2,
+		zones: 14,
+		radius: .42,
+		ringHalf: .022,
+		ringOffset: .03,
+		edgeSoft: .004,
+		grainCells: 192,
+		openTone: .93,
+		closedTone: .06,
+		mountTone: .5,
+		ringTone: .7,
+		grainTone: .03,
+		closedHeight: .56,
+		openHeight: .3,
+		mountHeight: .4,
+		ringHeight: .66,
+		closedRoughness: .32,
+		openRoughness: .2,
+		mountRoughness: .55
+	}),
+	backgammonboard: Object.freeze({
+		dark: [
+			18,
+			12,
+			10
+		],
+		light: [
+			236,
+			224,
+			200
+		],
+		roughness: .5,
+		relief: .003,
+		pointsPerSide: 12,
+		checkers: 15,
+		maxStack: 5,
+		barWidth: .08,
+		frame: .02,
+		tipLength: .4,
+		checkerFill: .46,
+		edgeSoft: .004,
+		grainCells: 192,
+		feltTone: .2,
+		barTone: .12,
+		pointTones: [.52, .34],
+		lightChecker: .92,
+		darkChecker: .07,
+		rimTone: .5,
+		grainTone: .03,
+		feltHeight: .3,
+		pointHeight: .34,
+		barHeight: .5,
+		checkerHeight: .7,
+		rimDrop: .1,
+		checkerRoughness: .3,
+		feltRoughness: .75
+	}),
+	jigsawpuzzle: Object.freeze({
+		dark: [
+			34,
+			40,
+			58
+		],
+		light: [
+			240,
+			226,
+			196
+		],
+		roughness: .58,
+		relief: .0026,
+		cells: 6,
+		bulbRadius: .115,
+		bulbOffset: .15,
+		neckHalf: .05,
+		lineHalf: .02,
+		bevelWidth: .045,
+		pictureCells: 6,
+		detailCells: 48,
+		grainCells: 192,
+		pieceVariation: .06,
+		pictureTone: .55,
+		pictureRange: .35,
+		detailTone: .08,
+		lineTone: .1,
+		grainTone: .03,
+		pieceHeight: .6,
+		lineHeight: .3,
+		bevelDrop: .08,
+		pieceRoughness: .5,
+		lineRoughness: .8,
+		lineAO: .5
+	}),
+	ramennoodles: Object.freeze({
+		dark: [
+			150,
+			108,
+			40
+		],
+		light: [
+			250,
+			228,
+			150
+		],
+		roughness: .42,
+		relief: .01,
+		strands: 22,
+		harmonics: [
+			3,
+			4,
+			5
+		],
+		amplitude: .085,
+		halfWidth: .026,
+		edgeSoft: .004,
+		brothCells: 128,
+		grainCells: 192,
+		strandTone: .74,
+		shadeTone: .28,
+		toneJitter: .06,
+		brothTone: .18,
+		grainTone: .04,
+		brothHeight: .08,
+		strandHeight: .62,
+		roundness: .28,
+		brothRoughness: .2,
+		contactAO: .55
+	}),
+	connectfourboard: Object.freeze({
+		dark: [
+			8,
+			12,
+			64
+		],
+		light: [
+			238,
+			242,
+			255
+		],
+		roughness: .34,
+		relief: .004,
+		columns: 7,
+		rows: 6,
+		movesMin: 18,
+		movesMax: 30,
+		discRadius: .4,
+		holeRadius: .42,
+		ringRadius: .26,
+		ringHalf: .035,
+		edgeSoft: .03,
+		grainCells: 192,
+		frameTone: .3,
+		trayTone: .14,
+		holeTone: .02,
+		redTone: .46,
+		yellowTone: .96,
+		ringShade: .08,
+		grainTone: .03,
+		frameHeight: .62,
+		holeHeight: .12,
+		discHeight: .4,
+		discRise: .1,
+		trayHeight: .5,
+		discRoughness: .28,
+		frameRoughness: .4,
+		holeAO: .5
+	}),
+	bingocard: Object.freeze({
+		dark: [
+			28,
+			26,
+			40
+		],
+		light: [
+			248,
+			242,
+			226
+		],
+		roughness: .7,
+		relief: .0014,
+		cells: 6,
+		cardColumns: 5,
+		pixel: .09,
+		lineHalf: .02,
+		outerHalf: .04,
+		ringRadius: .45,
+		ringHalf: .025,
+		daubChance: .25,
+		edgeSoft: .012,
+		inkCells: 192,
+		paperCells: 256,
+		paperTone: .94,
+		headerTone: .72,
+		lineTone: .12,
+		digitTone: .07,
+		ringTone: .3,
+		freeTone: .55,
+		inkGain: .08,
+		paperGrain: .04,
+		inkHeight: .56,
+		paperHeight: .3,
+		inkRoughness: .44,
+		paperRoughness: .76
+	}),
+	pegsolitaire: Object.freeze({
+		dark: [
+			30,
+			16,
+			8
+		],
+		light: [
+			236,
+			190,
+			120
+		],
+		roughness: .48,
+		relief: .004,
+		size: 7,
+		reverseMoves: 8,
+		reverseAttempts: 400,
+		holeRadius: .36,
+		pegRadius: .31,
+		shineRadius: .1,
+		edgeSoft: .03,
+		grainCellsU: 24,
+		grainCellsV: 192,
+		woodTone: .46,
+		woodVariation: .1,
+		holeTone: .04,
+		pegTone: .92,
+		shineTone: .12,
+		rimTone: .3,
+		woodHeight: .5,
+		holeHeight: .08,
+		pegHeight: .8,
+		pegDome: .1,
+		grainHeight: .03,
+		woodRoughness: .55,
+		pegRoughness: .28,
+		holeAO: .45
+	}),
+	xylophonebars: Object.freeze({
+		dark: [
+			24,
+			14,
+			12
+		],
+		light: [
+			226,
+			170,
+			110
+		],
+		roughness: .42,
+		relief: .0035,
+		bars: 12,
+		longest: .9,
+		semitoneRatio: .9715319411536059,
+		barGap: .12,
+		nodal: .224,
+		holeRadius: .012,
+		cordHalf: .0032,
+		edgeSoft: .003,
+		grainCellsU: 12,
+		grainCellsV: 192,
+		feltCells: 192,
+		barTone: .55,
+		barSlope: .16,
+		holeTone: .03,
+		cordTone: .82,
+		feltTone: .1,
+		grainTone: .07,
+		barHeight: .62,
+		feltHeight: .1,
+		cordHeight: .7,
+		barRoughness: .34,
+		feltRoughness: .9,
+		shadowAO: .55
+	}),
+	sliderulescale: Object.freeze({
+		dark: [
+			20,
+			20,
+			16
+		],
+		light: [
+			246,
+			238,
+			196
+		],
+		roughness: .46,
+		relief: .002,
+		strips: 8,
+		longLength: .36,
+		mediumLength: .26,
+		shortLength: .17,
+		tickStart: .07,
+		tickHalf: 9e-4,
+		longTickScale: 1.6,
+		digitPixel: .0042,
+		digitLeft: .0045,
+		digitTop: .5,
+		edgeLine: .03,
+		edgeSoft: 7e-4,
+		inkCells: 192,
+		grainCells: 256,
+		baseTone: .92,
+		inkTone: .05,
+		inkGain: .06,
+		grainTone: .04,
+		inkHeight: .56,
+		baseHeight: .3,
+		inkRoughness: .4,
+		baseRoughness: .5
+	}),
+	spirographrosettes: Object.freeze({
+		dark: [
+			18,
+			22,
+			44
+		],
+		light: [
+			244,
+			240,
+			226
+		],
+		roughness: .62,
+		relief: .0012,
+		maskSize: 640,
+		gears: [
+			[5, 3],
+			[8, 3],
+			[7, 2],
+			[9, 4]
+		],
+		outerRadius: .215,
+		penOffset: .55,
+		penJitter: .18,
+		pointsPerLoop: 9e3,
+		lineHalf: 1.1,
+		paperTone: .94,
+		inkTone: .14,
+		inkStep: .2,
+		grainCells: 256,
+		grainTone: .035,
+		inkHeight: .55,
+		paperHeight: .32,
+		inkRoughness: .4,
+		paperRoughness: .7
+	}),
+	juliacells: Object.freeze({
+		dark: [
+			6,
+			8,
+			28
+		],
+		light: [
+			246,
+			224,
+			176
+		],
+		roughness: .5,
+		relief: .0035,
+		centers: [
+			-.4,
+			-.75,
+			-1,
+			-1.25
+		],
+		centerJitter: .04,
+		viewRadius: 2,
+		bailout: 2,
+		maxIterations: 96,
+		glowScale: 9,
+		insideTone: .02,
+		glowTone: .97,
+		insideHeight: .15,
+		glowHeight: .85,
+		insideRoughness: .8,
+		glowRoughness: .35
+	}),
+	nonogrampuzzle: Object.freeze({
+		dark: [
+			22,
+			24,
+			34
+		],
+		light: [
+			248,
+			246,
+			238
+		],
+		roughness: .58,
+		relief: .0016,
+		size: 8,
+		clueCells: 4,
+		density: .55,
+		digitPixel: .115,
+		fillInset: .09,
+		lineHalf: .012,
+		groupLineHalf: .03,
+		groupEvery: 5,
+		edgeSoft: .012,
+		grainCells: 192,
+		paperTone: .95,
+		inkTone: .1,
+		gridTone: .55,
+		clueTone: .12,
+		clueBackTone: .86,
+		grainTone: .035,
+		inkHeight: .6,
+		paperHeight: .3,
+		clueHeight: .34,
+		inkRoughness: .4,
+		paperRoughness: .72
+	}),
+	lightsoutboard: Object.freeze({
+		dark: [
+			10,
+			10,
+			14
+		],
+		light: [
+			255,
+			214,
+			120
+		],
+		roughness: .3,
+		relief: .003,
+		size: 5,
+		pressDensity: .4,
+		inset: .07,
+		corner: .2,
+		edgeSoft: .02,
+		grainCells: 160,
+		frameTone: .05,
+		offTone: .16,
+		onTone: .78,
+		glowTone: .2,
+		shineTone: .12,
+		grainTone: .02,
+		frameHeight: .15,
+		buttonHeight: .7,
+		onRaise: .06,
+		domeDrop: .1,
+		frameRoughness: .75,
+		offRoughness: .45,
+		onRoughness: .2,
+		gapAO: .5
+	}),
+	weavingdraft: Object.freeze({
+		dark: [
+			20,
+			24,
+			40
+		],
+		light: [
+			250,
+			244,
+			226
+		],
+		roughness: .62,
+		relief: .0018,
+		width: 12,
+		shafts: 4,
+		treadles: 4,
+		markInset: .14,
+		cellInset: .04,
+		lineHalf: .025,
+		edgeSoft: .02,
+		grainCells: 192,
+		paperTone: .95,
+		gridTone: .62,
+		markTone: .1,
+		warpTone: .16,
+		weftTone: .86,
+		grainTone: .03,
+		markHeight: .6,
+		warpHeight: .55,
+		weftHeight: .38,
+		paperHeight: .3,
+		markRoughness: .4,
+		warpRoughness: .55,
+		paperRoughness: .72
+	}),
+	scrambledcubenet: Object.freeze({
+		dark: [
+			12,
+			12,
+			16
+		],
+		light: [
+			250,
+			244,
+			232
+		],
+		roughness: .38,
+		relief: .0028,
+		cells: 14,
+		netOffsetX: 1,
+		netOffsetY: 2,
+		moves: 22,
+		inset: .07,
+		corner: .16,
+		edgeSoft: .03,
+		grainCells: 192,
+		tones: [
+			.24,
+			.36,
+			.5,
+			.64,
+			.79,
+			.95
+		],
+		bodyTone: .04,
+		paperTone: .9,
+		grainTone: .02,
+		stickerHeight: .62,
+		bodyHeight: .3,
+		paperHeight: .2,
+		stickerRoughness: .3,
+		bodyRoughness: .6,
+		paperRoughness: .75
+	}),
+	knightstour: Object.freeze({
+		dark: [
+			28,
+			22,
+			18
+		],
+		light: [
+			240,
+			226,
+			196
+		],
+		roughness: .55,
+		relief: .0022,
+		size: 8,
+		nodeBudget: 4e4,
+		attempts: 60,
+		digitPixel: .0125,
+		digitGap: .0125,
+		lineHalf: .0035,
+		edgeSoft: .0015,
+		grainCells: 192,
+		lightSquare: .88,
+		darkSquare: .6,
+		lineTone: .52,
+		inkTone: .08,
+		grainTone: .025,
+		inkHeight: .6,
+		lineHeight: .45,
+		squareHeight: .3,
+		darkSquareHeight: .26,
+		inkRoughness: .4,
+		squareRoughness: .62
+	}),
+	graycodediscs: Object.freeze({
+		dark: [
+			14,
+			16,
+			20
+		],
+		light: [
+			236,
+			238,
+			232
+		],
+		roughness: .42,
+		relief: .0028,
+		bits: [
+			3,
+			4,
+			5,
+			6
+		],
+		discRadius: .235,
+		trackOuter: .2,
+		trackInner: .07,
+		holeRadius: .032,
+		tickHalf: .0016,
+		edgeSoft: .003,
+		grainCells: 192,
+		matTone: .32,
+		bodyTone: .5,
+		slotTone: .93,
+		blockTone: .12,
+		holeTone: .04,
+		grainTone: .03,
+		matHeight: .15,
+		bodyHeight: .6,
+		slotHeight: .35,
+		blockHeight: .6,
+		matRoughness: .8,
+		bodyRoughness: .35,
+		slotRoughness: .7
+	}),
+	code39barcodes: Object.freeze({
+		dark: [
+			12,
+			12,
+			14
+		],
+		light: [
+			250,
+			248,
+			240
+		],
+		roughness: .55,
+		relief: .0012,
+		rows: 6,
+		characters: 5,
+		quietUnits: 10,
+		unitCount: 132,
+		wideRatio: 3,
+		barHeight: .62,
+		barSoft: .1,
+		grainCells: 256,
+		paperTone: .95,
+		inkTone: .06,
+		inkGain: .04,
+		grainTone: .03,
+		inkHeight: .55,
+		paperHeight: .3,
+		inkRoughness: .4,
+		paperRoughness: .72
+	}),
+	amidakuji: Object.freeze({
+		dark: [
+			24,
+			20,
+			36
+		],
+		light: [
+			250,
+			244,
+			226
+		],
+		roughness: .6,
+		relief: .0016,
+		columns: 8,
+		levels: 10,
+		rungChance: .45,
+		labelBand: .1,
+		lineHalf: .0042,
+		rungHalf: .0042,
+		digitPixel: .0095,
+		edgeSoft: .0016,
+		grainCells: 192,
+		paperTone: .95,
+		lineTone: .14,
+		rungTone: .14,
+		inkTone: .08,
+		labelBackTone: .82,
+		grainTone: .03,
+		inkHeight: .58,
+		paperHeight: .3,
+		labelHeight: .36,
+		inkRoughness: .4,
+		paperRoughness: .72
+	}),
+	featherbarbs: Object.freeze({
+		dark: [
+			14,
+			12,
+			16
+		],
+		light: [
+			236,
+			228,
+			212
+		],
+		roughness: .6,
+		relief: .003,
+		barbsPerTile: 48,
+		slope: 1.3,
+		reach: .21,
+		reachVariation: .03,
+		barbWidth: .55,
+		barbSoft: .1,
+		tipSoft: .004,
+		shaftHalf: .0065,
+		shaftSoft: .0015,
+		grainCells: 192,
+		barbToneInner: .78,
+		barbToneOuter: .5,
+		barbToneVariation: .12,
+		shaftTone: .92,
+		gapTone: .06,
+		grainTone: .04,
+		barbHeight: .6,
+		gapHeight: .2,
+		shaftHeight: .85,
+		barbRoughness: .5,
+		gapRoughness: .9,
+		gapAO: .55
+	}),
+	dartboardsectors: Object.freeze({
+		dark: [
+			14,
+			14,
+			12
+		],
+		light: [
+			238,
+			228,
+			196
+		],
+		roughness: .6,
+		relief: .0028,
+		order: [
+			20,
+			1,
+			18,
+			4,
+			13,
+			6,
+			10,
+			15,
+			2,
+			17,
+			3,
+			19,
+			7,
+			16,
+			8,
+			11,
+			14,
+			9,
+			12,
+			5
+		],
+		millimeters: .47 / 225,
+		bull: 6.35,
+		outerBull: 15.9,
+		trebleInner: 99,
+		trebleOuter: 107,
+		doubleInner: 162,
+		doubleOuter: 170,
+		boardOuter: 225,
+		numberRadius: 197,
+		digitPixel: .0095,
+		wireHalf: .0016,
+		edgeSoft: .0012,
+		grainCells: 256,
+		matTone: .3,
+		blackTone: .1,
+		creamTone: .86,
+		redTone: .34,
+		greenTone: .58,
+		wireTone: .97,
+		numberTone: .93,
+		ringTone: .06,
+		grainTone: .04,
+		matHeight: .15,
+		faceHeight: .4,
+		wireHeight: .72,
+		digitHeight: .55,
+		faceRoughness: .82,
+		wireRoughness: .3,
+		matRoughness: .9
+	}),
+	tictactoegames: Object.freeze({
+		dark: [
+			20,
+			22,
+			34
+		],
+		light: [
+			250,
+			246,
+			232
+		],
+		roughness: .6,
+		relief: .002,
+		minPlies: 3,
+		maxPlies: 9,
+		markInset: .2,
+		markHalf: .065,
+		ringRadius: .29,
+		ringHalf: .06,
+		lineHalf: .022,
+		edgeSoft: .02,
+		grainCells: 192,
+		paperTone: .95,
+		lineTone: .4,
+		crossTone: .1,
+		noughtTone: .18,
+		grainTone: .03,
+		markHeight: .58,
+		lineHeight: .4,
+		paperHeight: .3,
+		markRoughness: .4,
+		paperRoughness: .72
+	}),
+	quasicrystalwaves: Object.freeze({
+		dark: [
+			10,
+			12,
+			36
+		],
+		light: [
+			250,
+			232,
+			190
+		],
+		roughness: .5,
+		relief: .003,
+		vectors: [
+			[6, 0],
+			[2, 6],
+			[-5, 4],
+			[-5, -4],
+			[2, -6]
+		],
+		gain: .7,
+		heightGain: .9,
+		glossRoughness: .3,
+		roughnessSpan: .3
+	}),
+	tallymarks: Object.freeze({
+		dark: [
+			22,
+			26,
+			36
+		],
+		light: [
+			244,
+			240,
+			226
+		],
+		roughness: .6,
+		relief: .0016,
+		rows: 8,
+		minCount: 3,
+		maxCount: 49,
+		groupPitch: .072,
+		strokePitch: .016,
+		strokeStart: .012,
+		strokeHalf: .0032,
+		strikeHalf: .0034,
+		strokeHeight: .62,
+		strikeOverhang: .012,
+		marksLeft: .03,
+		digitLeft: .835,
+		digitPixel: .0095,
+		ruleHalf: .002,
+		edgeSoft: .0014,
+		grainCells: 192,
+		jitterCells: 96,
+		paperTone: .95,
+		inkTone: .1,
+		ruleTone: .62,
+		inkJitter: .05,
+		grainTone: .03,
+		inkHeight: .58,
+		ruleHeight: .38,
+		paperHeight: .3,
+		inkRoughness: .4,
+		paperRoughness: .72
+	}),
+	polargraphpaper: Object.freeze({
+		dark: [
+			20,
+			60,
+			56
+		],
+		light: [
+			244,
+			248,
+			240
+		],
+		roughness: .62,
+		relief: .0012,
+		rings: 12,
+		ringSpacing: .04,
+		spokes: 36,
+		heavyEvery: 3,
+		axisEvery: 9,
+		thinHalf: .0011,
+		heavyHalf: .0021,
+		axisHalf: .0032,
+		ringHeavyEvery: 5,
+		edgeSoft: 9e-4,
+		grainCells: 256,
+		paperTone: .95,
+		thinTone: .55,
+		heavyTone: .36,
+		axisTone: .2,
+		grainTone: .03,
+		lineHeight: .5,
+		paperHeight: .3,
+		lineRoughness: .45,
+		paperRoughness: .74
+	}),
+	chesterfieldtufting: Object.freeze({
+		dark: [
+			26,
+			8,
+			6
+		],
+		light: [
+			150,
+			66,
+			34
+		],
+		roughness: .45,
+		relief: .02,
+		period: 4,
+		puff: .7,
+		buttonRadius: .022,
+		buttonRim: .006,
+		edgeSoft: .004,
+		grainCells: 256,
+		wrinkleCells: 48,
+		creaseTone: .1,
+		faceTone: .62,
+		faceGain: .34,
+		buttonTone: .82,
+		buttonShade: .25,
+		wrinkleTone: .06,
+		grainTone: .05,
+		buttonHeight: .96,
+		creaseHeight: .04,
+		faceHeight: .8,
+		faceRoughness: .42,
+		creaseRoughness: .75,
+		buttonRoughness: .18,
+		creaseAO: .45
+	}),
+	louvershutter: Object.freeze({
+		dark: [
+			24,
+			28,
+			30
+		],
+		light: [
+			226,
+			232,
+			224
+		],
+		roughness: .5,
+		relief: .012,
+		slats: 10,
+		gap: .14,
+		stile: .07,
+		rodHalf: .012,
+		pinRadius: .016,
+		edgeSoft: .01,
+		grainCells: 256,
+		grainStretch: 12,
+		faceTop: .88,
+		faceBottom: .58,
+		gapTone: .05,
+		stileTone: .82,
+		rodTone: .72,
+		pinTone: .45,
+		grainTone: .04,
+		slatHeightTop: .78,
+		slatHeightBottom: .52,
+		stileHeight: .9,
+		rodHeight: .96,
+		gapHeight: .05,
+		paintRoughness: .52,
+		gapRoughness: .9,
+		pinRoughness: .3,
+		gapAO: .35
+	}),
+	ledgersheet: Object.freeze({
+		dark: [
+			24,
+			30,
+			44
+		],
+		light: [
+			244,
+			240,
+			214
+		],
+		roughness: .62,
+		relief: .0014,
+		rows: 8,
+		minAmount: 100,
+		maxAmount: 999,
+		indexLeft: .05,
+		amountRight: .49,
+		balanceRight: .94,
+		digitPixel: .0105,
+		ruleHalf: .0016,
+		marginRule: .15,
+		totalRule: .54,
+		columnHalf: .0022,
+		edgeSoft: .0013,
+		grainCells: 256,
+		jitterCells: 96,
+		paperTone: .94,
+		rowRuleTone: .66,
+		columnRuleTone: .45,
+		inkTone: .14,
+		inkJitter: .05,
+		grainTone: .03,
+		inkHeight: .58,
+		ruleHeight: .38,
+		paperHeight: .3,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
+	sundialplate: Object.freeze({
+		dark: [
+			30,
+			24,
+			16
+		],
+		light: [
+			214,
+			176,
+			108
+		],
+		roughness: .4,
+		relief: .003,
+		latitudeMin: 25,
+		latitudeSpan: 30,
+		plateRadius: .475,
+		lineOuter: .385,
+		lineInner: .03,
+		labelRadius: .405,
+		labelRadiusOuter: .447,
+		ringRadii: [
+			.2,
+			.3,
+			.385
+		],
+		digitPixel: .008,
+		lineHalf: .0034,
+		noonHalf: .0052,
+		ringHalf: .0016,
+		hubRadius: .014,
+		edgeSoft: .0012,
+		grainCells: 256,
+		plateTone: .62,
+		matTone: .28,
+		inkTone: .08,
+		hubTone: .9,
+		grainTone: .06,
+		inkHeight: .35,
+		plateHeight: .55,
+		hubHeight: .95,
+		matHeight: .15,
+		plateRoughness: .35,
+		inkRoughness: .55,
+		matRoughness: .85
+	}),
+	doubleslitfringes: Object.freeze({
+		dark: [
+			4,
+			6,
+			14
+		],
+		light: [
+			252,
+			240,
+			200
+		],
+		roughness: .5,
+		relief: .002,
+		ratios: [
+			2,
+			3,
+			4,
+			5
+		],
+		fringesAcross: 16,
+		gamma: .6,
+		gapHalf: .004,
+		edgeSoft: .0015,
+		grainCells: 256,
+		gapTone: .02,
+		grainTone: .015,
+		fringeRoughness: .55,
+		gapRoughness: .85,
+		gapHeight: .1
+	}),
+	fibonaccisquares: Object.freeze({
+		dark: [
+			20,
+			28,
+			40
+		],
+		light: [
+			248,
+			238,
+			208
+		],
+		roughness: .55,
+		relief: .0016,
+		sizes: [
+			1,
+			1,
+			2,
+			3,
+			5,
+			8,
+			13
+		],
+		unit: 1 / 24,
+		lineHalf: .0032,
+		arcHalf: .0042,
+		edgeSoft: .0014,
+		grainCells: 256,
+		tones: [
+			.26,
+			.37,
+			.48,
+			.59,
+			.7,
+			.81,
+			.91
+		],
+		paperTone: .99,
+		lineTone: .1,
+		arcTone: .06,
+		grainTone: .03,
+		lineHeight: .55,
+		arcHeight: .7,
+		faceHeight: .3,
+		paperHeight: .2,
+		lineRoughness: .4,
+		paperRoughness: .74
+	}),
+	bluenoisemask: Object.freeze({
+		dark: [
+			6,
+			8,
+			14
+		],
+		light: [
+			244,
+			248,
+			255
+		],
+		roughness: .55,
+		relief: .002,
+		size: 64,
+		sigma: 1.5,
+		kernelRadius: 5,
+		initialFraction: .1,
+		relaxLimit: 400,
+		smoothing: 0,
+		heightGain: 1,
+		roughnessSpan: .3,
+		roughnessBase: .4
+	}),
+	elementaryautomata: Object.freeze({
+		dark: [
+			10,
+			16,
+			30
+		],
+		light: [
+			236,
+			240,
+			226
+		],
+		roughness: .55,
+		relief: .0014,
+		rules: [
+			90,
+			110,
+			150,
+			184
+		],
+		cells: 31,
+		seedDensity: .12,
+		inset: .08,
+		panelLine: .004,
+		edgeSoft: .02,
+		grainCells: 192,
+		paperTone: .95,
+		deadTone: .85,
+		liveTone: .1,
+		lineTone: .4,
+		grainTone: .03,
+		liveHeight: .6,
+		paperHeight: .3,
+		lineHeight: .45,
+		liveRoughness: .4,
+		paperRoughness: .72
+	}),
+	mastermindboard: Object.freeze({
+		dark: [
+			30,
+			18,
+			10
+		],
+		light: [
+			236,
+			214,
+			170
+		],
+		roughness: .45,
+		relief: .004,
+		columns: 6,
+		rows: 9,
+		pegCount: 4,
+		colorCount: 6,
+		holeRadius: .036,
+		pegRadius: .032,
+		smallHoleRadius: .014,
+		smallPegRadius: .012,
+		edgeSoft: .003,
+		dividerHalf: .004,
+		grainCells: 192,
+		grainStretch: 10,
+		boardTone: .42,
+		boardVariation: .06,
+		holeTone: .14,
+		pegTones: [
+			.34,
+			.46,
+			.58,
+			.7,
+			.82,
+			.9
+		],
+		exactTone: .98,
+		partialTone: .04,
+		shineTone: .1,
+		dividerTone: .2,
+		boardHeight: .5,
+		holeHeight: .15,
+		pegHeight: .85,
+		boardRoughness: .5,
+		pegRoughness: .25,
+		holeAO: .5
+	}),
+	wordsearchgrid: Object.freeze({
+		dark: [
+			24,
+			28,
+			44
+		],
+		light: [
+			250,
+			246,
+			224
+		],
+		roughness: .62,
+		relief: .0014,
+		size: 12,
+		alphabet: `ACDEGILMNORT`,
+		words: [
+			`CODE`,
+			`TREE`,
+			`GRID`,
+			`MINT`,
+			`TIDE`,
+			`LION`,
+			`DOOR`,
+			`CLOT`,
+			`RAIN`,
+			`CELL`,
+			`MOON`,
+			`TIGER`,
+			`ANGLE`,
+			`CIRCLE`,
+			`TRIANGLE`
+		],
+		wordCount: 5,
+		attempts: 300,
+		digitPixel: .0135,
+		lineHalf: .0016,
+		edgeSoft: .0013,
+		grainCells: 192,
+		jitterCells: 96,
+		paperTone: .95,
+		ruleTone: .78,
+		inkTone: .12,
+		inkJitter: .05,
+		grainTone: .03,
+		inkHeight: .58,
+		ruleHeight: .36,
+		paperHeight: .3,
+		inkRoughness: .4,
+		paperRoughness: .72
+	}),
+	magicsquares: Object.freeze({
+		dark: [
+			28,
+			22,
+			38
+		],
+		light: [
+			246,
+			238,
+			214
+		],
+		roughness: .6,
+		relief: .0014,
+		orders: [
+			3,
+			4,
+			5,
+			7
+		],
+		margin: .02,
+		digitFraction: .11,
+		lineHalf: .0014,
+		outerHalf: .0028,
+		edgeSoft: .0013,
+		grainCells: 192,
+		jitterCells: 96,
+		paperTone: .95,
+		cellTone: .9,
+		lineTone: .5,
+		inkTone: .1,
+		inkJitter: .05,
+		grainTone: .03,
+		inkHeight: .58,
+		lineHeight: .4,
+		paperHeight: .3,
+		inkRoughness: .4,
+		paperRoughness: .72
+	}),
+	slidingpuzzle: Object.freeze({
+		dark: [
+			30,
+			24,
+			20
+		],
+		light: [
+			238,
+			214,
+			150
+		],
+		roughness: .5,
+		relief: .004,
+		size: 4,
+		margin: .03,
+		gap: .008,
+		bevel: .014,
+		shuffleMoves: 240,
+		digitFraction: .1,
+		edgeSoft: .0013,
+		grainCells: 192,
+		jitterCells: 96,
+		frameTone: .2,
+		holeTone: .08,
+		gapTone: .1,
+		faceTone: .8,
+		inkTone: .1,
+		inkJitter: .05,
+		grainTone: .05,
+		frameHeight: .62,
+		holeHeight: .05,
+		gapHeight: .2,
+		faceHeight: .86,
+		inkDepth: .06,
+		faceRoughness: .42,
+		frameRoughness: .68,
+		holeRoughness: .9
+	}),
+	kaleidoscope: Object.freeze({
+		dark: [
+			18,
+			20,
+			44
+		],
+		light: [
+			250,
+			226,
+			168
+		],
+		roughness: .34,
+		relief: .002,
+		folds: [
+			6,
+			8,
+			5,
+			12
+		],
+		blobs: 9,
+		rimStart: .455,
+		rimEnd: .485,
+		edgeSoft: .012,
+		ringFrequency: 14,
+		ringAmplitude: .16,
+		baseTone: .4,
+		blobTones: [
+			.12,
+			.28,
+			.5,
+			.66,
+			.82,
+			.95
+		],
+		rimTone: .06,
+		blobHeight: .62,
+		baseHeight: .4,
+		rimHeight: .2,
+		roughnessBase: .4,
+		roughnessBlob: .26
+	}),
+	oghaminscription: Object.freeze({
+		dark: [
+			38,
+			40,
+			38
+		],
+		light: [
+			190,
+			188,
+			174
+		],
+		roughness: .86,
+		relief: .006,
+		rows: 8,
+		cellsPerRow: 6,
+		alphabet: `BLFSNHDTCQMGXZRAOUEI`,
+		words: [
+			`BETH`,
+			`LUIS`,
+			`FEARN`,
+			`SAILLE`,
+			`NION`,
+			`UATH`,
+			`DUIR`,
+			`TINNE`,
+			`COLL`,
+			`CERT`,
+			`GORT`,
+			`RUIS`,
+			`AILM`,
+			`ONN`,
+			`EADHA`,
+			`IDHO`
+		],
+		strokePitch: .024,
+		strokeHalf: .003,
+		strokeReach: .042,
+		stemHalf: .0021,
+		slant: .4,
+		notchHalfLength: .01,
+		notchHalfWidth: .006,
+		edgeSoft: .0011,
+		grainCells: 160,
+		coarseCells: 40,
+		stoneTone: .58,
+		grainTone: .16,
+		coarseTone: .14,
+		carveTone: .16,
+		stoneHeight: .7,
+		carveHeight: .18,
+		heightGrain: .1,
+		stoneRoughness: .88,
+		carveRoughness: .74
+	}),
+	gameoflife: Object.freeze({
+		dark: [
+			8,
+			22,
+			20
+		],
+		light: [
+			150,
+			255,
+			190
+		],
+		roughness: .46,
+		relief: .004,
+		size: 20,
+		density: .36,
+		burnIn: 10,
+		margin: .02,
+		inset: .14,
+		lineHalf: 7e-4,
+		frameHalf: .0026,
+		edgeSoft: .0011,
+		grainCells: 160,
+		deadTone: .1,
+		lineTone: .2,
+		liveTone: .9,
+		frameTone: .5,
+		paperTone: .04,
+		grainTone: .03,
+		liveHeight: .8,
+		deadHeight: .3,
+		lineHeight: .22,
+		frameHeight: .5,
+		paperHeight: .12,
+		liveRoughness: .3,
+		deadRoughness: .62
+	}),
+	pascalmodulo: Object.freeze({
+		dark: [
+			18,
+			12,
+			40
+		],
+		light: [
+			255,
+			222,
+			120
+		],
+		roughness: .5,
+		relief: .003,
+		moduli: [
+			2,
+			3,
+			4,
+			5
+		],
+		rows: 32,
+		margin: .015,
+		gap: 9e-4,
+		edgeSoft: 9e-4,
+		grainCells: 192,
+		emptyTone: .04,
+		lowTone: .2,
+		highTone: .94,
+		frameTone: .5,
+		frameHalf: .0022,
+		grainTone: .03,
+		tileHeight: .7,
+		emptyHeight: .15,
+		frameHeight: .4,
+		heightStep: .12,
+		tileRoughness: .34,
+		emptyRoughness: .8
+	}),
+	dragoncurve: Object.freeze({
+		dark: [
+			14,
+			10,
+			30
+		],
+		light: [
+			255,
+			170,
+			60
+		],
+		roughness: .4,
+		relief: .003,
+		order: 11,
+		margin: .04,
+		lineHalf: .17,
+		edgeSoft: .07,
+		grainCells: 192,
+		backgroundTone: .05,
+		startTone: .42,
+		endTone: .96,
+		grainTone: .03,
+		lineHeight: .75,
+		backgroundHeight: .15,
+		lineRoughness: .32,
+		backgroundRoughness: .82
+	}),
+	cantordust: Object.freeze({
+		dark: [
+			10,
+			16,
+			28
+		],
+		light: [
+			120,
+			235,
+			255
+		],
+		roughness: .44,
+		relief: .003,
+		rows: 6,
+		barDigits: 5,
+		dustDigits: 3,
+		margin: .03,
+		barFill: .6,
+		dustSide: .44,
+		edgeSoft: 9e-4,
+		grainCells: 192,
+		backgroundTone: .05,
+		guideTone: .12,
+		firstTone: .42,
+		lastTone: .92,
+		dustTone: .9,
+		grainTone: .03,
+		barHeight: .7,
+		backgroundHeight: .15,
+		guideHeight: .25,
+		barRoughness: .34,
+		backgroundRoughness: .82
+	}),
+	eightqueens: Object.freeze({
+		dark: [
+			34,
+			22,
+			14
+		],
+		light: [
+			244,
+			226,
+			190
+		],
+		roughness: .5,
+		relief: .004,
+		size: 8,
+		margin: .02,
+		frameHalf: .0035,
+		queenRadius: .22,
+		crownHalf: .3,
+		spikes: 3,
+		edgeSoft: .0012,
+		grainCells: 192,
+		lightSquare: .74,
+		darkSquare: .3,
+		frameTone: .12,
+		queenTone: .97,
+		paperTone: .06,
+		grainTone: .04,
+		squareHeight: .4,
+		queenHeight: .88,
+		frameHeight: .6,
+		paperHeight: .15,
+		squareRoughness: .58,
+		queenRoughness: .28
+	}),
+	hanoitowers: Object.freeze({
+		dark: [
+			40,
+			28,
+			18
+		],
+		light: [
+			236,
+			204,
+			150
+		],
+		roughness: .5,
+		relief: .006,
+		disks: 6,
+		margin: .02,
+		minWidth: .08,
+		widthStep: .044,
+		diskHeight: .062,
+		diskGap: .006,
+		baseY: .88,
+		pegHalf: .012,
+		pegTop: .2,
+		baseHalf: .03,
+		frameHalf: .003,
+		edgeSoft: .0012,
+		grainCells: 192,
+		woodCells: 24,
+		boardTone: .18,
+		pegTone: .42,
+		baseTone: .3,
+		diskLow: .38,
+		diskHigh: .96,
+		frameTone: .1,
+		grainTone: .05,
+		boardHeight: .25,
+		pegHeight: .7,
+		baseHeight: .5,
+		diskHeightLevel: .82,
+		frameHeight: .4,
+		woodRoughness: .62,
+		diskRoughness: .34
+	}),
+	latinsquares: Object.freeze({
+		dark: [
+			20,
+			18,
+			40
+		],
+		light: [
+			255,
+			214,
+			130
+		],
+		roughness: .5,
+		relief: .003,
+		orders: [
+			5,
+			6,
+			7,
+			8
+		],
+		margin: .02,
+		gap: .0016,
+		frameHalf: .0028,
+		edgeSoft: .0011,
+		grainCells: 192,
+		lowTone: .16,
+		highTone: .96,
+		frameTone: .5,
+		paperTone: .05,
+		grainTone: .03,
+		cellHeight: .7,
+		heightStep: .12,
+		frameHeight: .4,
+		paperHeight: .15,
+		cellRoughness: .34,
+		paperRoughness: .8
+	}),
+	mayansums: Object.freeze({
+		dark: [
+			34,
+			40,
+			30
+		],
+		light: [
+			196,
+			190,
+			160
+		],
+		roughness: .86,
+		relief: .006,
+		left: .03,
+		cellWidth: .11,
+		cellHeight: .2,
+		signWidth: .045,
+		topY: .04,
+		rowGap: .02,
+		levelHeight: .045,
+		barHalfWidth: .05,
+		barHalfHeight: .017,
+		dotRadius: .011,
+		dotPitch: .025,
+		shellRadiusX: .05,
+		shellRadiusY: .03,
+		shellWall: .007,
+		minimum: 10,
+		maximum: 199,
+		edgeSoft: .0011,
+		grainCells: 160,
+		coarseCells: 36,
+		stoneTone: .62,
+		grainTone: .15,
+		coarseTone: .14,
+		carveTone: .2,
+		signStrength: .75,
+		stoneHeight: .7,
+		carveHeight: .2,
+		heightGrain: .1,
+		stoneRoughness: .88,
+		carveRoughness: .74
+	}),
+	sortingnetworks: Object.freeze({
+		dark: [
+			8,
+			12,
+			30
+		],
+		light: [
+			120,
+			255,
+			200
+		],
+		roughness: .42,
+		relief: .003,
+		wires: 8,
+		margin: .03,
+		wireHalf: .0014,
+		barHalf: .0022,
+		dotRadius: .0062,
+		frameHalf: .0022,
+		edgeSoft: .0011,
+		grainCells: 192,
+		backgroundTone: .06,
+		panelTone: .1,
+		wireTone: .42,
+		barTone: .96,
+		frameTone: .3,
+		grainTone: .03,
+		wireHeight: .35,
+		barHeight: .8,
+		panelHeight: .2,
+		backgroundHeight: .12,
+		frameHeight: .4,
+		barRoughness: .3,
+		panelRoughness: .75
+	}),
+	primesieve: Object.freeze({
+		dark: [
+			16,
+			14,
+			36
+		],
+		light: [
+			255,
+			230,
+			120
+		],
+		roughness: .46,
+		relief: .004,
+		size: 16,
+		firstMax: 744,
+		margin: .02,
+		gap: .0022,
+		cornerRadius: .004,
+		edgeSoft: .0011,
+		grainCells: 192,
+		gapTone: .05,
+		oneTone: .08,
+		primeTone: .98,
+		factorTones: [
+			.3,
+			.42,
+			.54,
+			.66,
+			.8
+		],
+		grainTone: .03,
+		gapHeight: .12,
+		oneHeight: .2,
+		compositeHeight: .4,
+		primeHeight: .85,
+		primeRoughness: .28,
+		otherRoughness: .55
+	}),
+	knockoutbracket: Object.freeze({
+		dark: [
+			12,
+			18,
+			40
+		],
+		light: [
+			240,
+			232,
+			200
+		],
+		roughness: .52,
+		relief: .004,
+		teams: 16,
+		left: .035,
+		columnPitch: .19,
+		boxWidth: .075,
+		boxHeight: .046,
+		topMargin: .03,
+		pixel: .0072,
+		lineHalf: .0016,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .07,
+		boxTone: .82,
+		finalTone: .97,
+		lineTone: .45,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .15,
+		levelHeight: .6,
+		finalHeight: .85,
+		lineHeight: .35,
+		inkDepth: .08,
+		boxRoughness: .4,
+		paperRoughness: .8
+	}),
+	skyscraperpuzzles: Object.freeze({
+		dark: [
+			24,
+			22,
+			36
+		],
+		light: [
+			244,
+			236,
+			214
+		],
+		roughness: .55,
+		relief: .004,
+		orders: [
+			4,
+			5,
+			6,
+			7
+		],
+		margin: .012,
+		digitFraction: .18,
+		lineHalf: 7e-4,
+		outerHalf: .0022,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		clueTone: .78,
+		cellTone: .9,
+		towerStep: .018,
+		lineTone: .45,
+		inkTone: .1,
+		grainTone: .03,
+		cellHeight: .5,
+		clueHeight: .35,
+		lineHeight: .3,
+		paperHeight: .25,
+		towerRise: .03,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
+	pianoroll: Object.freeze({
+		dark: [
+			14,
+			16,
+			34
+		],
+		light: [
+			120,
+			220,
+			255
+		],
+		roughness: .46,
+		relief: .004,
+		pitches: 24,
+		steps: 32,
+		top: .02,
+		bottom: .02,
+		keyWidth: .075,
+		rollLeft: .085,
+		rollRight: .015,
+		noteInset: .006,
+		lineHalf: 5e-4,
+		beatHalf: 9e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		whiteRowTone: .17,
+		blackRowTone: .09,
+		whiteKeyTone: .94,
+		blackKeyTone: .08,
+		lineTone: .26,
+		beatTone: .34,
+		noteLow: .62,
+		noteHigh: .98,
+		grainTone: .03,
+		rowHeight: .2,
+		blackRowHeight: .12,
+		keyHeight: .55,
+		blackKeyHeight: .8,
+		noteHeight: .7,
+		lineHeight: .28,
+		noteRoughness: .3,
+		otherRoughness: .7
+	}),
+	binaryclock: Object.freeze({
+		dark: [
+			6,
+			10,
+			24
+		],
+		light: [
+			90,
+			255,
+			170
+		],
+		roughness: .4,
+		relief: .004,
+		columns: 6,
+		bits: 4,
+		margin: .02,
+		padding: .035,
+		dotRadius: .02,
+		frameHalf: .0028,
+		edgeSoft: .0011,
+		grainCells: 192,
+		maxStart: 86399,
+		backgroundTone: .05,
+		panelTone: .09,
+		offTone: .16,
+		onTone: .97,
+		ringTone: .3,
+		frameTone: .42,
+		grainTone: .03,
+		panelHeight: .2,
+		offHeight: .12,
+		onHeight: .85,
+		frameHeight: .4,
+		backgroundHeight: .1,
+		onRoughness: .26,
+		panelRoughness: .78
+	}),
+	othelloboard: Object.freeze({
+		dark: [
+			6,
+			40,
+			24
+		],
+		light: [
+			230,
+			244,
+			236
+		],
+		roughness: .5,
+		relief: .004,
+		size: 8,
+		margin: .025,
+		startPlies: 14,
+		extraPlies: 18,
+		lineHalf: .0012,
+		frameHalf: .004,
+		discRadius: .4,
+		rimWidth: .05,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .05,
+		feltTone: .36,
+		lineTone: .15,
+		frameTone: .12,
+		blackTone: .07,
+		whiteTone: .95,
+		rimTone: .5,
+		rimStrength: .5,
+		grainTone: .04,
+		paperHeight: .12,
+		feltHeight: .3,
+		lineHeight: .22,
+		frameHeight: .5,
+		discHeight: .82,
+		discRoughness: .28,
+		feltRoughness: .82
+	}),
+	goboards: Object.freeze({
+		dark: [
+			30,
+			20,
+			10
+		],
+		light: [
+			226,
+			178,
+			104
+		],
+		roughness: .5,
+		relief: .004,
+		size: 9,
+		moves: [
+			16,
+			28,
+			42,
+			58
+		],
+		margin: .02,
+		lineHalf: .0011,
+		frameHalf: .004,
+		starRadius: .1,
+		stoneRadius: .46,
+		edgeSoft: .0011,
+		grainCells: 192,
+		woodCells: 20,
+		paperTone: .07,
+		boardTone: .5,
+		lineTone: .12,
+		frameTone: .2,
+		blackTone: .05,
+		whiteTone: .96,
+		rimTone: .4,
+		rimStrength: .4,
+		rimWidth: .06,
+		grainTone: .05,
+		woodTone: .07,
+		paperHeight: .12,
+		boardHeight: .35,
+		lineHeight: .28,
+		frameHeight: .55,
+		stoneHeight: .85,
+		stoneRoughness: .26,
+		boardRoughness: .58
+	}),
+	dewbeads: Object.freeze({
+		dark: [
+			10,
+			38,
+			18
+		],
+		light: [
+			190,
+			235,
+			200
+		],
+		roughness: .34,
+		relief: .008,
+		cells: 12,
+		coverage: .62,
+		minRadius: .014,
+		maxRadius: .028,
+		jitter: .0117,
+		veinCount: 12,
+		veinHalf: .0016,
+		mottleCells: 40,
+		edgeSoft: 8e-4,
+		leafTone: .3,
+		mottleTone: .1,
+		veinTone: .2,
+		centreTone: .62,
+		rimTone: .18,
+		glintTone: .99,
+		glintSize: .2,
+		leafHeight: .28,
+		mottleHeight: .04,
+		veinHeight: .34,
+		domeHeight: .62,
+		leafRoughness: .62,
+		dropRoughness: .1
+	}),
+	bowlingscoresheet: Object.freeze({
+		dark: [
+			26,
+			24,
+			36
+		],
+		light: [
+			248,
+			242,
+			222
+		],
+		roughness: .58,
+		relief: .003,
+		games: 4,
+		frames: 10,
+		left: .04,
+		top: .03,
+		rowHeight: .24,
+		frameWidth: .088,
+		lastFrameWidth: .12,
+		boxWidth: .03,
+		boxHeight: .05,
+		pixel: .0058,
+		scorePixel: .0072,
+		strikeChance: .3,
+		spareChance: .3,
+		lineHalf: 7e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		boxTone: .86,
+		lineTone: .45,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .25,
+		boxLevel: .4,
+		lineHeight: .3,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
+	hexresourceboard: Object.freeze({
+		dark: [
+			12,
+			30,
+			52
+		],
+		light: [
+			240,
+			226,
+			170
+		],
+		roughness: .5,
+		relief: .005,
+		radius: .088,
+		resources: [
+			4,
+			3,
+			4,
+			4,
+			3,
+			1
+		],
+		numbers: [
+			2,
+			3,
+			3,
+			4,
+			4,
+			5,
+			5,
+			6,
+			6,
+			8,
+			8,
+			9,
+			9,
+			10,
+			10,
+			11,
+			11,
+			12
+		],
+		attempts: 400,
+		gap: .003,
+		tokenRadius: .034,
+		pixel: .0066,
+		edgeSoft: .0011,
+		grainCells: 192,
+		waveCells: 28,
+		seaTone: .1,
+		waveTone: .05,
+		resourceTones: [
+			.26,
+			.4,
+			.54,
+			.7,
+			.84,
+			.97
+		],
+		tokenTone: .94,
+		inkTone: .08,
+		grainTone: .04,
+		seaHeight: .1,
+		tileHeight: .55,
+		tokenHeight: .8,
+		inkDepth: .06,
+		tileRoughness: .5,
+		seaRoughness: .3,
+		tokenRoughness: .36
+	}),
+	kakuropuzzle: Object.freeze({
+		dark: [
+			18,
+			20,
+			34
+		],
+		light: [
+			244,
+			238,
+			216
+		],
+		roughness: .56,
+		relief: .004,
+		size: 8,
+		margin: .03,
+		minBlocks: 6,
+		maxBlocks: 9,
+		attempts: 6e3,
+		digitFraction: .12,
+		cluePixel: .0064,
+		lineHalf: 8e-4,
+		diagonalHalf: .0016,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .9,
+		blockTone: .1,
+		clueTone: .88,
+		diagonalTone: .55,
+		lineTone: .4,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		blockHeight: .3,
+		lineHeight: .35,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
+	hashibridges: Object.freeze({
+		dark: [
+			20,
+			24,
+			40
+		],
+		light: [
+			244,
+			240,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		size: 9,
+		islands: 15,
+		attempts: 400,
+		doubleChance: .4,
+		extraChance: .3,
+		margin: .05,
+		islandRadius: .035,
+		ringHalf: .0022,
+		bridgeHalf: .0017,
+		doubleOffset: .008,
+		pixel: .0078,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .93,
+		islandTone: .86,
+		inkTone: .1,
+		gridTone: .8,
+		gridHalf: 6e-4,
+		grainTone: .03,
+		paperHeight: .2,
+		islandHeight: .55,
+		bridgeHeight: .4,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
+	slitherlinkloop: Object.freeze({
+		dark: [
+			16,
+			22,
+			44
+		],
+		light: [
+			250,
+			238,
+			200
+		],
+		roughness: .52,
+		relief: .004,
+		size: 7,
+		fill: .55,
+		attempts: 800,
+		margin: .045,
+		dotRadius: .0075,
+		loopHalf: .0055,
+		pixel: .0125,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .93,
+		dotTone: .3,
+		loopTone: .1,
+		numberTone: .28,
+		insideTone: .86,
+		grainTone: .03,
+		paperHeight: .22,
+		insideHeight: .3,
+		loopHeight: .62,
+		dotHeight: .5,
+		inkDepth: .05,
+		loopRoughness: .36,
+		paperRoughness: .74
+	}),
+	masyupearls: Object.freeze({
+		dark: [
+			14,
+			18,
+			34
+		],
+		light: [
+			244,
+			236,
+			214
+		],
+		roughness: .5,
+		relief: .004,
+		size: 7,
+		fill: .55,
+		attempts: 800,
+		pearlChance: .4,
+		minPearls: 5,
+		margin: .06,
+		dotRadius: .0065,
+		loopHalf: .0026,
+		pearlRadius: .026,
+		ringHalf: .0028,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .93,
+		dotTone: .4,
+		loopTone: .12,
+		whiteTone: .97,
+		blackTone: .06,
+		grainTone: .03,
+		paperHeight: .22,
+		loopHeight: .5,
+		dotHeight: .4,
+		whiteHeight: .62,
+		blackHeight: .8,
+		pearlRoughness: .24,
+		paperRoughness: .74
+	}),
+	stringartcurves: Object.freeze({
+		dark: [
+			10,
+			12,
+			30
+		],
+		light: [
+			255,
+			210,
+			120
+		],
+		roughness: .4,
+		relief: .003,
+		multipliers: [
+			2,
+			3,
+			4,
+			5
+		],
+		points: 96,
+		radius: .225,
+		lineHalf: .0011,
+		ringHalf: .0016,
+		gain: 1.6,
+		edgeSoft: 9e-4,
+		grainCells: 192,
+		backgroundTone: .05,
+		ringTone: .5,
+		lineTone: .98,
+		grainTone: .03,
+		backgroundHeight: .12,
+		lineHeight: .8,
+		ringHeight: .5,
+		lineRoughness: .28,
+		backgroundRoughness: .8
+	}),
+	fillominoregions: Object.freeze({
+		dark: [
+			26,
+			22,
+			40
+		],
+		light: [
+			246,
+			238,
+			214
+		],
+		roughness: .55,
+		relief: .004,
+		size: 9,
+		maxTarget: 5,
+		maxSize: 9,
+		attempts: 400,
+		margin: .04,
+		digitFraction: .13,
+		thinHalf: 7e-4,
+		thickHalf: .0034,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .9,
+		shadeStep: .018,
+		thinTone: .62,
+		thickTone: .1,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
+	futoshikigrid: Object.freeze({
+		dark: [
+			22,
+			24,
+			44
+		],
+		light: [
+			248,
+			240,
+			216
+		],
+		roughness: .55,
+		relief: .004,
+		size: 5,
+		signChance: .55,
+		margin: .035,
+		cellSize: .15,
+		gap: .045,
+		digitFraction: .14,
+		signReach: .011,
+		signHalf: .0022,
+		frameHalf: .0015,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .9,
+		frameTone: .35,
+		inkTone: .1,
+		signTone: .12,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		frameHeight: .35,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
+	nurikabeislands: Object.freeze({
+		dark: [
+			12,
+			28,
+			54
+		],
+		light: [
+			244,
+			240,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		size: 8,
+		minIslands: 4,
+		extraIslands: 3,
+		maxTarget: 5,
+		maxSize: 9,
+		attempts: 4e3,
+		margin: .04,
+		digitFraction: .13,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		waveCells: 36,
+		islandTone: .94,
+		seaTone: .12,
+		waveTone: .06,
+		lineTone: .5,
+		inkTone: .08,
+		grainTone: .03,
+		islandHeight: .6,
+		seaHeight: .18,
+		inkDepth: .06,
+		inkRoughness: .4,
+		islandRoughness: .7,
+		seaRoughness: .3
+	}),
+	tentsandtrees: Object.freeze({
+		dark: [
+			18,
+			40,
+			26
+		],
+		light: [
+			236,
+			242,
+			214
+		],
+		roughness: .6,
+		relief: .004,
+		size: 8,
+		targetTents: 17,
+		margin: .05,
+		digitFraction: .11,
+		lineHalf: 7e-4,
+		edgeSoft: .0011,
+		grainCells: 160,
+		canopyRadius: .28,
+		trunkHalf: .055,
+		tentApex: .18,
+		tentBase: .82,
+		tentHalf: .36,
+		grassTone: .88,
+		clueTone: .94,
+		lineTone: .55,
+		treeTone: .14,
+		tentTone: .3,
+		inkTone: .08,
+		grainTone: .05,
+		clueHeight: .2,
+		grassHeight: .42,
+		treeHeight: .85,
+		tentHeight: .65,
+		inkDepth: .06,
+		inkRoughness: .4,
+		grassRoughness: .85,
+		solidRoughness: .55
+	}),
+	shikakurects: Object.freeze({
+		dark: [
+			30,
+			22,
+			44
+		],
+		light: [
+			250,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		size: 10,
+		maxArea: 9,
+		stopChance: .4,
+		margin: .05,
+		digitFraction: .12,
+		thinHalf: 7e-4,
+		thickHalf: .0034,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .9,
+		tintRange: .08,
+		thinTone: .62,
+		thickTone: .1,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
+	hitorishading: Object.freeze({
+		dark: [
+			20,
+			20,
+			28
+		],
+		light: [
+			244,
+			238,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		size: 7,
+		targetShaded: 13,
+		margin: .05,
+		digitFraction: .14,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .92,
+		shadeTone: .12,
+		shadeGlyphTone: .88,
+		lineTone: .55,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		shadeHeight: .8,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74,
+		shadeRoughness: .35
+	}),
+	akarilights: Object.freeze({
+		dark: [
+			18,
+			18,
+			30
+		],
+		light: [
+			250,
+			244,
+			214
+		],
+		roughness: .5,
+		relief: .004,
+		size: 8,
+		blackChance: .26,
+		clueChance: .6,
+		margin: .05,
+		digitFraction: .14,
+		bulbRadius: .28,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .92,
+		blackTone: .1,
+		clueTone: .9,
+		bulbTone: .2,
+		lineTone: .5,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		blackHeight: .85,
+		bulbHeight: .7,
+		inkDepth: .06,
+		bulbRoughness: .3,
+		blackRoughness: .35,
+		paperRoughness: .74,
+		clueRoughness: .4
+	}),
+	takuzugrid: Object.freeze({
+		dark: [
+			18,
+			30,
+			52
+		],
+		light: [
+			244,
+			240,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		size: 8,
+		nodeLimit: 1e5,
+		margin: .05,
+		discRadius: .3,
+		ringWidth: .1,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .92,
+		lineTone: .55,
+		discTone: .1,
+		ringTone: .12,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		discHeight: .85,
+		ringHeight: .7,
+		discRoughness: .3,
+		ringRoughness: .4,
+		paperRoughness: .74
+	}),
+	kenkencages: Object.freeze({
+		dark: [
+			24,
+			20,
+			44
+		],
+		light: [
+			250,
+			242,
+			218
+		],
+		roughness: .55,
+		relief: .004,
+		size: 4,
+		maxCage: 3,
+		margin: .1,
+		digitFraction: .12,
+		labelFraction: .05,
+		labelX: .07,
+		labelY: .06,
+		digitY: .62,
+		thinHalf: 8e-4,
+		thickHalf: .0036,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .92,
+		tintRange: .06,
+		thinTone: .62,
+		thickTone: .1,
+		inkTone: .1,
+		labelTone: .2,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
+	numberlinkpaths: Object.freeze({
+		dark: [
+			22,
+			28,
+			50
+		],
+		light: [
+			246,
+			242,
+			224
+		],
+		roughness: .5,
+		relief: .004,
+		size: 6,
+		flips: 600,
+		minPaths: 6,
+		extraPaths: 3,
+		margin: .05,
+		strokeHalf: .11,
+		discRadius: .36,
+		digitFraction: .1,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .92,
+		lineTone: .6,
+		strokeBase: .12,
+		strokeRange: .3,
+		discTone: .08,
+		digitTone: .92,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		strokeHeight: .72,
+		discHeight: .9,
+		digitDepth: .06,
+		strokeRoughness: .35,
+		paperRoughness: .74
+	}),
+	rushhourjam: Object.freeze({
+		dark: [
+			30,
+			26,
+			46
+		],
+		light: [
+			244,
+			238,
+			220
+		],
+		roughness: .5,
+		relief: .004,
+		size: 6,
+		exitRow: 2,
+		vehicles: 11,
+		attempts: 600,
+		margin: .12,
+		wall: .03,
+		inset: .07,
+		corner: .2,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .9,
+		lineTone: .62,
+		wallTone: .12,
+		carBase: .34,
+		carRange: .36,
+		targetTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .4,
+		wallHeight: .9,
+		carHeight: .7,
+		wallRoughness: .35,
+		carRoughness: .28,
+		paperRoughness: .74
+	}),
+	mancalaboard: Object.freeze({
+		dark: [
+			34,
+			20,
+			12
+		],
+		light: [
+			236,
+			214,
+			170
+		],
+		roughness: .5,
+		relief: .006,
+		pits: 6,
+		stones: 48,
+		pitCapacity: 12,
+		storeCapacity: 24,
+		boardLeft: .03,
+		boardRight: .97,
+		boardTop: .2,
+		boardBottom: .8,
+		boardCorner: .06,
+		pitStart: .23,
+		pitPitch: .108,
+		pitRows: [.36, .64],
+		pitRadius: .055,
+		storeCenters: [.1, .9],
+		storeHalfWidth: .06,
+		storeHalfHeight: .2,
+		stoneRadius: .0125,
+		slotPitch: .023,
+		pitSlotColumns: 3,
+		storeSlotColumns: 4,
+		edgeSoft: .0011,
+		grainCells: 160,
+		grainStretch: 6,
+		tableTone: .82,
+		boardTone: .55,
+		pitTone: .2,
+		stoneTone: .96,
+		grainTone: .07,
+		tableHeight: .1,
+		boardHeight: .6,
+		pitHeight: .3,
+		stoneHeight: .88,
+		tableRoughness: .8,
+		boardRoughness: .5,
+		pitRoughness: .6,
+		stoneRoughness: .18
+	}),
+	hidatochain: Object.freeze({
+		dark: [
+			24,
+			30,
+			52
+		],
+		light: [
+			246,
+			242,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		size: 7,
+		nodeLimit: 1e5,
+		givenChance: .22,
+		margin: .08,
+		digitFraction: .09,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .92,
+		givenTone: .78,
+		endTone: .12,
+		lineTone: .55,
+		inkTone: .1,
+		endInkTone: .9,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		givenHeight: .6,
+		endHeight: .85,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74,
+		endRoughness: .35
+	}),
+	euclideanrhythms: Object.freeze({
+		dark: [
+			14,
+			16,
+			30
+		],
+		light: [
+			250,
+			236,
+			190
+		],
+		roughness: .5,
+		relief: .004,
+		steps: 16,
+		tracks: 16,
+		minPulses: 1,
+		maxPulses: 8,
+		margin: .04,
+		padInset: .1,
+		padCorner: .22,
+		edgeSoft: .0011,
+		grainCells: 160,
+		panelTone: .1,
+		padTone: .26,
+		beatTone: .36,
+		litTone: .94,
+		grainTone: .03,
+		panelHeight: .15,
+		padHeight: .45,
+		litHeight: .8,
+		panelRoughness: .7,
+		padRoughness: .55,
+		litRoughness: .25
+	}),
+	chinesecheckersboard: Object.freeze({
+		dark: [
+			30,
+			20,
+			12
+		],
+		light: [
+			240,
+			220,
+			176
+		],
+		roughness: .5,
+		relief: .006,
+		pitch: .062,
+		reach: 4,
+		swaps: 14,
+		plateRadius: 7.3,
+		holeRadius: .42,
+		marbleRadius: .36,
+		edgeSoft: .0011,
+		grainCells: 160,
+		tableTone: .82,
+		plateTone: .55,
+		holeTone: .12,
+		marbleTones: [
+			.3,
+			.42,
+			.55,
+			.69,
+			.83,
+			.96
+		],
+		grainTone: .05,
+		tableHeight: .1,
+		plateHeight: .6,
+		holeHeight: .3,
+		marbleHeight: .9,
+		tableRoughness: .8,
+		plateRoughness: .5,
+		holeRoughness: .6,
+		marbleRoughness: .12
+	}),
+	colormapregions: Object.freeze({
+		dark: [
+			28,
+			36,
+			60
+		],
+		light: [
+			246,
+			236,
+			204
+		],
+		roughness: .55,
+		relief: .004,
+		cells: 6,
+		jitter: .35,
+		scan: 512,
+		nodeLimit: 3e4,
+		borderHalf: .0045,
+		edgeSoft: .0011,
+		grainCells: 160,
+		regionTones: [
+			.3,
+			.44,
+			.58,
+			.72,
+			.86
+		],
+		borderTone: .08,
+		grainTone: .03,
+		regionHeight: .45,
+		borderHeight: .8,
+		regionRoughness: .7,
+		borderRoughness: .4
+	}),
+	draughtsposition: Object.freeze({
+		dark: [
+			26,
+			16,
+			10
+		],
+		light: [
+			238,
+			214,
+			168
+		],
+		roughness: .5,
+		relief: .006,
+		size: 8,
+		minPieces: 6,
+		maxPieces: 12,
+		kingChance: .2,
+		margin: .06,
+		pieceRadius: .38,
+		ringRadius: .2,
+		ringWidth: .05,
+		edgeSoft: .0011,
+		grainCells: 160,
+		grainStretch: 6,
+		tableTone: .82,
+		lightSquare: .88,
+		darkSquare: .36,
+		paleTone: .95,
+		charcoalTone: .1,
+		grainTone: .05,
+		tableHeight: .1,
+		squareHeight: .45,
+		pieceHeight: .85,
+		ringHeight: .7,
+		tableRoughness: .8,
+		squareRoughness: .55,
+		pieceRoughness: .2
+	}),
+	multiplicationtable: Object.freeze({
+		dark: [
+			24,
+			28,
+			48
+		],
+		light: [
+			248,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		factors: 9,
+		margin: .06,
+		digitFraction: .1,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .92,
+		squareTone: .78,
+		headerTone: .14,
+		lineTone: .55,
+		inkTone: .1,
+		headerInkTone: .92,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		squareHeight: .6,
+		headerHeight: .85,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74,
+		headerRoughness: .35
+	}),
+	moonphases: Object.freeze({
+		dark: [
+			10,
+			14,
+			34
+		],
+		light: [
+			244,
+			240,
+			224
+		],
+		roughness: .6,
+		relief: .004,
+		columns: 5,
+		rows: 6,
+		cell: .15,
+		synodicDays: 29.53,
+		moonRadius: .42,
+		craters: 24,
+		craterRadius: .12,
+		edgeSoft: .0011,
+		grainCells: 160,
+		skyTone: .08,
+		shadowTone: .24,
+		litTone: .95,
+		craterShade: .12,
+		grainTone: .025,
+		skyHeight: .1,
+		moonHeight: .7,
+		craterDepth: .12,
+		skyRoughness: .9,
+		moonRoughness: .75
+	}),
+	treemaprects: Object.freeze({
+		dark: [
+			20,
+			36,
+			52
+		],
+		light: [
+			244,
+			240,
+			214
+		],
+		roughness: .55,
+		relief: .004,
+		items: 12,
+		minValue: 4,
+		maxValue: 30,
+		margin: .04,
+		borderHalf: .004,
+		digitPixel: .0055,
+		labelInset: .012,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		toneLow: .38,
+		toneHigh: .82,
+		borderTone: .08,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		borderHeight: .8,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74,
+		borderRoughness: .4
+	}),
+	analogclocks: Object.freeze({
+		dark: [
+			24,
+			26,
+			40
+		],
+		light: [
+			246,
+			240,
+			222
+		],
+		roughness: .4,
+		relief: .005,
+		columns: 4,
+		rows: 4,
+		margin: .04,
+		faceRadius: .44,
+		rimWidth: .035,
+		hourLength: .5,
+		minuteLength: .8,
+		hourWidth: .045,
+		minuteWidth: .03,
+		hubRadius: .05,
+		tickInner: .82,
+		tickOuter: .92,
+		tickWidth: .02,
+		edgeSoft: .0011,
+		grainCells: 160,
+		wallTone: .5,
+		faceTone: .94,
+		rimTone: .2,
+		inkTone: .08,
+		grainTone: .03,
+		wallHeight: .1,
+		faceHeight: .4,
+		rimHeight: .8,
+		handHeight: .9,
+		wallRoughness: .8,
+		faceRoughness: .3,
+		metalRoughness: .3
+	}),
+	piechartwedges: Object.freeze({
+		dark: [
+			26,
+			32,
+			56
+		],
+		light: [
+			246,
+			240,
+			218
+		],
+		roughness: .55,
+		relief: .004,
+		wedges: 8,
+		minPercent: 4,
+		radius: .44,
+		lineHalf: .004,
+		labelRadius: .62,
+		digitPixel: .009,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		toneLow: .28,
+		toneHigh: .84,
+		lineTone: .06,
+		darkInk: .08,
+		lightInk: .95,
+		inkSwitch: .55,
+		grainTone: .03,
+		paperHeight: .22,
+		wedgeHeight: .5,
+		lineHeight: .8,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74,
+		lineRoughness: .4
+	}),
+	regressionscatter: Object.freeze({
+		dark: [
+			24,
+			34,
+			54
+		],
+		light: [
+			248,
+			244,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		points: 28,
+		minSpacing: .075,
+		noise: .07,
+		slopeRange: .7,
+		plotLeft: .1,
+		plotSize: .8,
+		pointRadius: .014,
+		lineHalf: .0025,
+		frameHalf: .0015,
+		gridSteps: 4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		plotTone: .97,
+		frameTone: .72,
+		gridTone: .84,
+		lineTone: .45,
+		pointTone: .08,
+		grainTone: .02,
+		paperHeight: .22,
+		plotHeight: .4,
+		lineHeight: .7,
+		pointHeight: .85,
+		paperRoughness: .74,
+		lineRoughness: .4,
+		pointRoughness: .3
+	}),
+	barchartbars: Object.freeze({
+		dark: [
+			22,
+			38,
+			60
+		],
+		light: [
+			248,
+			244,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		bars: 10,
+		maxValue: 9,
+		left: .1,
+		barWidth: .065,
+		barGap: .015,
+		baseline: .88,
+		unit: .075,
+		digitPixel: .0085,
+		labelGap: .012,
+		axisHalf: .0025,
+		gridHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		gridTone: .84,
+		axisTone: .1,
+		toneLow: .3,
+		toneHigh: .7,
+		inkTone: .08,
+		grainTone: .02,
+		paperHeight: .22,
+		barHeight: .6,
+		axisHeight: .8,
+		inkDepth: .06,
+		paperRoughness: .74,
+		barRoughness: .45,
+		inkRoughness: .4
+	}),
+	truthtablelogic: Object.freeze({
+		dark: [
+			20,
+			30,
+			50
+		],
+		light: [
+			246,
+			242,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		inputs: 4,
+		left: .15,
+		top: .041,
+		columnWidth: .14,
+		rowHeight: .054,
+		digitPixel: .0085,
+		lineHalf: 7e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .92,
+		onTone: .74,
+		headerTone: .14,
+		outputHeaderTone: .3,
+		lineTone: .58,
+		inkTone: .08,
+		headerInkTone: .94,
+		grainTone: .03,
+		paperHeight: .22,
+		cellLevel: .5,
+		onLevel: .62,
+		headerLevel: .85,
+		inkDepth: .06,
+		paperRoughness: .74,
+		headerRoughness: .35,
+		inkRoughness: .4
+	}),
+	fouriersquarewaves: Object.freeze({
+		dark: [
+			18,
+			28,
+			52
+		],
+		light: [
+			246,
+			242,
+			220
+		],
+		roughness: .5,
+		relief: .004,
+		panels: 6,
+		periods: 2,
+		top: .04,
+		panelHeight: .15,
+		amplitude: .045,
+		curveHalf: .0028,
+		axisHalf: 8e-4,
+		refHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		panelTone: .97,
+		axisTone: .8,
+		refTone: .66,
+		curveTone: .08,
+		grainTone: .02,
+		paperHeight: .22,
+		panelLevel: .4,
+		curveHeight: .85,
+		paperRoughness: .74,
+		curveRoughness: .35
+	}),
+	pascaltrianglenumbers: Object.freeze({
+		dark: [
+			26,
+			24,
+			48
+		],
+		light: [
+			248,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 10,
+		top: .085,
+		rowPitch: .092,
+		columnPitch: .09,
+		digitPixel: .0065,
+		discRadius: .043,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		oddTone: .72,
+		evenTone: .95,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		oddHeight: .55,
+		evenHeight: .38,
+		inkDepth: .06,
+		paperRoughness: .74,
+		discRoughness: .5,
+		inkRoughness: .4
+	}),
+	convexhullpoints: Object.freeze({
+		dark: [
+			24,
+			30,
+			56
+		],
+		light: [
+			246,
+			242,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		points: 16,
+		margin: .07,
+		minSpacing: .12,
+		attempts: 4e3,
+		rounds: 48,
+		vertexClear: .012,
+		edgeClear: .02,
+		cornerRadius: .0145,
+		innerRadius: .0085,
+		edgeHalf: .002,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		fillTone: .84,
+		edgeTone: .5,
+		dotTone: .06,
+		grainTone: .03,
+		paperHeight: .22,
+		fillHeight: .4,
+		edgeHeight: .62,
+		dotHeight: .85,
+		paperRoughness: .74,
+		fillRoughness: .6,
+		dotRoughness: .35
+	}),
+	delaunaytriangles: Object.freeze({
+		dark: [
+			22,
+			30,
+			52
+		],
+		light: [
+			246,
+			242,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		points: 18,
+		margin: .06,
+		minSpacing: .1,
+		attempts: 4e3,
+		dotRadius: .0075,
+		edgeHalf: .0016,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		fillTone: .9,
+		fillSpread: .07,
+		edgeTone: .4,
+		dotTone: .06,
+		grainTone: .03,
+		paperHeight: .22,
+		fillHeight: .4,
+		edgeHeight: .62,
+		dotHeight: .85,
+		paperRoughness: .74,
+		fillRoughness: .6,
+		dotRoughness: .35
+	}),
+	collatzsequences: Object.freeze({
+		dark: [
+			30,
+			26,
+			50
+		],
+		light: [
+			248,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 10,
+		columns: 13,
+		candidateLimit: 60,
+		top: .05,
+		rowPitch: .09,
+		columnPitch: .075,
+		digitPixel: .0055,
+		lineHalf: 6e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		evenTone: .94,
+		oddTone: .72,
+		lineTone: .6,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		evenHeight: .4,
+		oddHeight: .55,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
+	hammingcodewords: Object.freeze({
+		dark: [
+			22,
+			32,
+			50
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		bits: 7,
+		left: .06,
+		top: .041,
+		columnWidth: .11,
+		rowHeight: .054,
+		digitPixel: .0085,
+		lineHalf: 7e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .93,
+		parityTone: .84,
+		errorTone: .55,
+		headerTone: .14,
+		syndromeHeaderTone: .3,
+		lineTone: .6,
+		inkTone: .08,
+		headerInkTone: .94,
+		grainTone: .03,
+		paperHeight: .22,
+		cellLevel: .45,
+		parityLevel: .5,
+		errorLevel: .7,
+		headerLevel: .85,
+		inkDepth: .06,
+		paperRoughness: .74,
+		headerRoughness: .35,
+		inkRoughness: .4
+	}),
+	cayleytables: Object.freeze({
+		dark: [
+			24,
+			28,
+			54
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		order: 8,
+		left: .05,
+		top: .05,
+		cell: .1,
+		digitPixel: .009,
+		lineHalf: 7e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .93,
+		identityTone: .7,
+		headerTone: .14,
+		lineTone: .6,
+		inkTone: .08,
+		headerInkTone: .94,
+		grainTone: .03,
+		paperHeight: .22,
+		cellLevel: .45,
+		identityLevel: .6,
+		headerLevel: .85,
+		inkDepth: .06,
+		paperRoughness: .74,
+		headerRoughness: .35,
+		inkRoughness: .4
+	}),
+	romannumerals: Object.freeze({
+		dark: [
+			40,
+			24,
+			30
+		],
+		light: [
+			244,
+			236,
+			214
+		],
+		roughness: .6,
+		relief: .004,
+		rows: 14,
+		maxValue: 199,
+		left: .058,
+		top: .04,
+		cell: .068,
+		rowPitch: .066,
+		digitPixel: .0085,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .34,
+		inkDepth: .06,
+		paperRoughness: .74,
+		stripeRoughness: .6,
+		inkRoughness: .4
+	}),
+	signedencodings: Object.freeze({
+		dark: [
+			26,
+			30,
+			52
+		],
+		light: [
+			246,
+			242,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		bits: 4,
+		left: .075,
+		top: .03,
+		cell: .085,
+		rowPitch: .055,
+		digitPixel: .0085,
+		grainCells: 192,
+		paperTone: .94,
+		negativeTone: .84,
+		signBitTone: .76,
+		headerTone: .14,
+		inkTone: .08,
+		headerInkTone: .94,
+		grainTone: .03,
+		paperHeight: .22,
+		negativeHeight: .4,
+		signBitHeight: .52,
+		headerHeight: .85,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		headerRoughness: .35,
+		inkRoughness: .4
+	}),
+	matrixproducts: Object.freeze({
+		dark: [
+			24,
+			30,
+			52
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		equations: 4,
+		size: 3,
+		left: .12,
+		top: .04,
+		pitch: .24,
+		rowHeight: .06,
+		factorWidth: .06,
+		symbolWidth: .05,
+		productWidth: .1,
+		maxEntry: 9,
+		digitPixel: .0075,
+		bracketHalf: .0012,
+		bracketReach: .012,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .9,
+		productTone: .84,
+		bracketTone: .3,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .36,
+		productHeight: .46,
+		bracketHeight: .7,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		bracketRoughness: .4,
+		inkRoughness: .4
+	}),
+	kochsnowflake: Object.freeze({
+		dark: [
+			18,
+			34,
+			60
+		],
+		light: [
+			244,
+			244,
+			232
+		],
+		roughness: .5,
+		relief: .004,
+		side: .36,
+		levels: 4,
+		edgeHalf: .0024,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		fillTone: .8,
+		edgeTone: .14,
+		grainTone: .03,
+		paperHeight: .22,
+		fillHeight: .42,
+		edgeHeight: .8,
+		paperRoughness: .74,
+		fillRoughness: .6,
+		edgeRoughness: .35
+	}),
+	newtonbasins: Object.freeze({
+		dark: [
+			20,
+			30,
+			62
+		],
+		light: [
+			248,
+			242,
+			224
+		],
+		roughness: .5,
+		relief: .004,
+		extent: 1.6,
+		minDegree: 3,
+		maxDegree: 5,
+		maxSteps: 40,
+		tolerance: 1e-8,
+		shadeSteps: 10,
+		shadePerStep: .006,
+		lowTone: .3,
+		highTone: .92,
+		grainCells: 192,
+		grainTone: .02,
+		heightBase: .2,
+		heightSpan: .5,
+		roughnessBase: .45,
+		roughnessSpan: .3
+	}),
+	mandelbrotbands: Object.freeze({
+		dark: [
+			18,
+			22,
+			52
+		],
+		light: [
+			246,
+			238,
+			214
+		],
+		roughness: .5,
+		relief: .004,
+		views: Object.freeze([
+			Object.freeze({
+				x: -.6,
+				y: 0,
+				extent: 1.6,
+				iterations: 80
+			}),
+			Object.freeze({
+				x: -.745,
+				y: .113,
+				extent: .06,
+				iterations: 160
+			}),
+			Object.freeze({
+				x: -.16,
+				y: 1.0405,
+				extent: .04,
+				iterations: 160
+			}),
+			Object.freeze({
+				x: -1.401155,
+				y: 0,
+				extent: .02,
+				iterations: 160
+			})
+		]),
+		bailout: 256,
+		insideTone: .06,
+		lowTone: .22,
+		highTone: .94,
+		scale: 8,
+		bandDepth: .08,
+		bandPeriod: 3,
+		grainCells: 192,
+		grainTone: .015,
+		insideHeight: .2,
+		heightSpan: .5,
+		insideRoughness: .8,
+		roughnessBase: .4,
+		roughnessSpan: .3
+	}),
+	cantorsetrows: Object.freeze({
+		dark: [
+			30,
+			22,
+			46
+		],
+		light: [
+			246,
+			240,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 8,
+		top: .05,
+		rowPitch: .11,
+		barThickness: .06,
+		removed: Object.freeze([
+			1 / 3,
+			1 / 5,
+			1 / 2
+		]),
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		barTone: .1,
+		grainTone: .03,
+		paperHeight: .22,
+		barLevel: .8,
+		paperRoughness: .74,
+		barRoughness: .4
+	}),
+	conicsections: Object.freeze({
+		dark: [
+			22,
+			30,
+			56
+		],
+		light: [
+			246,
+			242,
+			224
+		],
+		roughness: .5,
+		relief: .004,
+		eccentricities: Object.freeze([
+			0,
+			.6,
+			1,
+			1.6
+		]),
+		focusShifts: Object.freeze([
+			0,
+			.084375,
+			.055,
+			-.092308
+		]),
+		latusRectum: .09,
+		panelHalf: .24,
+		curveHalf: .0022,
+		guideHalf: 7e-4,
+		focusRadius: .006,
+		dashPeriod: .024,
+		dashDuty: .55,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		panelTone: .97,
+		curveTone: .08,
+		guideTone: .62,
+		grainTone: .02,
+		paperHeight: .22,
+		panelHeight: .3,
+		curveHeight: .82,
+		guideHeight: .5,
+		paperRoughness: .74,
+		curveRoughness: .35
+	}),
+	rosecurves: Object.freeze({
+		dark: [
+			40,
+			20,
+			36
+		],
+		light: [
+			248,
+			240,
+			226
+		],
+		roughness: .5,
+		relief: .004,
+		curves: Object.freeze([
+			Object.freeze([1, 1]),
+			Object.freeze([2, 1]),
+			Object.freeze([3, 1]),
+			Object.freeze([4, 1]),
+			Object.freeze([5, 1]),
+			Object.freeze([3, 2]),
+			Object.freeze([5, 2]),
+			Object.freeze([5, 3]),
+			Object.freeze([7, 3])
+		]),
+		radius: .15,
+		curveHalf: .0022,
+		centreRadius: .004,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		panelTone: .97,
+		curveTone: .08,
+		grainTone: .02,
+		paperHeight: .22,
+		panelHeight: .3,
+		curveHeight: .82,
+		paperRoughness: .74,
+		curveRoughness: .35
+	}),
+	cassiniovals: Object.freeze({
+		dark: [
+			20,
+			36,
+			58
+		],
+		light: [
+			246,
+			242,
+			224
+		],
+		roughness: .5,
+		relief: .004,
+		halfSeparations: Object.freeze([
+			.13,
+			.18,
+			.23
+		]),
+		ratios: Object.freeze([
+			.4,
+			.7,
+			.9,
+			1,
+			1.15,
+			1.35,
+			1.6
+		]),
+		curveHalf: .002,
+		lemniscateHalf: .0032,
+		focusRadius: .006,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		curveTone: .1,
+		lemniscateTone: .06,
+		grainTone: .02,
+		paperHeight: .22,
+		curveHeight: .78,
+		paperRoughness: .74,
+		curveRoughness: .35
+	}),
+	twosourceripples: Object.freeze({
+		dark: [
+			14,
+			40,
+			72
+		],
+		light: [
+			236,
+			246,
+			250
+		],
+		roughness: .3,
+		relief: .006,
+		wavelengths: Object.freeze([
+			.04,
+			.052,
+			.07
+		]),
+		separations: Object.freeze([.22, .32]),
+		lowTone: .08,
+		highTone: .96,
+		grainCells: 192,
+		grainTone: .012,
+		heightBase: .5,
+		heightSpan: .5,
+		roughnessBase: .22,
+		roughnessSpan: .3
+	}),
+	luhnnumbers: Object.freeze({
+		dark: [
+			24,
+			34,
+			54
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 10,
+		digits: 16,
+		groupSize: 4,
+		validShare: .6,
+		left: .059,
+		top: .04,
+		cell: .042,
+		rowPitch: .092,
+		digitPixel: .0105,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		checkDigitTone: .78,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .34,
+		checkDigitHeight: .5,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
+	bezierconstruction: Object.freeze({
+		dark: [
+			26,
+			28,
+			62
+		],
+		light: [
+			246,
+			242,
+			224
+		],
+		roughness: .5,
+		relief: .004,
+		curves: Object.freeze([
+			Object.freeze([
+				-.18,
+				.12,
+				-.05,
+				-.2,
+				.08,
+				.2,
+				.18,
+				-.1
+			]),
+			Object.freeze([
+				-.18,
+				-.1,
+				.2,
+				-.22,
+				-.2,
+				-.22,
+				.18,
+				-.1
+			]),
+			Object.freeze([
+				-.2,
+				.15,
+				.22,
+				.2,
+				-.22,
+				-.2,
+				.2,
+				-.15
+			]),
+			Object.freeze([
+				-.2,
+				0,
+				-.1,
+				.22,
+				.1,
+				-.22,
+				.2,
+				0
+			])
+		]),
+		parameters: Object.freeze([
+			.25,
+			1 / 3,
+			.5,
+			2 / 3
+		]),
+		segments: 64,
+		panelHalf: .24,
+		curveHalf: .0028,
+		guideHalf: 8e-4,
+		constructionHalf: .0011,
+		controlRadius: .0085,
+		endHalf: .008,
+		pointRadius: .0105,
+		dashPeriod: .02,
+		dashDuty: .55,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		panelTone: .97,
+		curveTone: .08,
+		guideTone: .62,
+		constructionTone: .4,
+		pointTone: .06,
+		grainTone: .02,
+		paperHeight: .22,
+		panelHeight: .3,
+		curveHeight: .8,
+		guideHeight: .45,
+		pointHeight: .9,
+		paperRoughness: .74,
+		curveRoughness: .35
+	}),
+	vennregions: Object.freeze({
+		dark: [
+			28,
+			26,
+			56
+		],
+		light: [
+			248,
+			242,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		radius: .2,
+		centres: Object.freeze([
+			.4,
+			.44,
+			.6,
+			.44,
+			.5,
+			.6132
+		]),
+		regionLabels: Object.freeze([
+			.3,
+			.4,
+			.7,
+			.4,
+			.5,
+			.74,
+			.5,
+			.34,
+			.4,
+			.58,
+			.6,
+			.58,
+			.5,
+			.5
+		]),
+		maxCount: 40,
+		totalsLeft: .04,
+		totalsTop: [
+			.05,
+			.12,
+			.19
+		],
+		glyphPitch: .045,
+		digitPixel: .008,
+		outlineHalf: .0022,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		layerTone: .07,
+		outlineTone: .2,
+		inkTone: .06,
+		grainTone: .02,
+		paperHeight: .22,
+		layerHeight: .07,
+		outlineHeight: .7,
+		inkDepth: .08,
+		paperRoughness: .74,
+		outlineRoughness: .4,
+		inkRoughness: .4
+	}),
+	ieee754floats: Object.freeze({
+		dark: [
+			24,
+			34,
+			56
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		blocks: 6,
+		top: .04,
+		blockPitch: .155,
+		textLine: .035,
+		bitsLine: .105,
+		textLeft: .06,
+		textPitch: .045,
+		textPixel: .009,
+		bitsLeft: .06,
+		bitsPitch: .027,
+		bitsPixel: .0062,
+		exponentMin: 124,
+		exponentMax: 133,
+		decimals: 4,
+		dividerHalf: 7e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		signTone: .76,
+		exponentTone: .86,
+		mantissaTone: .94,
+		dividerTone: .4,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		signHeight: .5,
+		exponentHeight: .38,
+		mantissaHeight: .3,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
+	bellcurvebands: Object.freeze({
+		dark: [
+			22,
+			36,
+			62
+		],
+		light: [
+			246,
+			242,
+			224
+		],
+		roughness: .5,
+		relief: .004,
+		sigmas: Object.freeze([
+			.07,
+			.09,
+			.11
+		]),
+		baseline: .82,
+		peak: .6,
+		curveHalf: .0026,
+		axisHalf: .0016,
+		tickHalf: 8e-4,
+		tickReach: .03,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		bandTones: Object.freeze([
+			.5,
+			.64,
+			.78,
+			.88
+		]),
+		curveTone: .08,
+		axisTone: .25,
+		tickTone: .45,
+		grainTone: .012,
+		paperHeight: .22,
+		bandHeights: Object.freeze([
+			.6,
+			.5,
+			.42,
+			.34
+		]),
+		curveHeight: .85,
+		paperRoughness: .74,
+		fillRoughness: .55,
+		curveRoughness: .35
+	}),
+	roundingmodes: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 12,
+		pool: Object.freeze([
+			-35,
+			-25,
+			-15,
+			-12,
+			-8,
+			-5,
+			-2,
+			0,
+			2,
+			5,
+			8,
+			12,
+			15,
+			18,
+			25,
+			28,
+			35,
+			45,
+			55,
+			65
+		]),
+		left: .08,
+		top: .04,
+		cell: .14,
+		rowPitch: .07,
+		digitPixel: .0095,
+		lineHalf: 6e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		halfTone: .8,
+		headerTone: .14,
+		lineTone: .62,
+		inkTone: .08,
+		headerInkTone: .94,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .34,
+		halfHeight: .5,
+		headerHeight: .85,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		headerRoughness: .35,
+		inkRoughness: .4
+	}),
+	binaryaddition: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		problems: 3,
+		bits: 8,
+		left: .06,
+		top: .045,
+		blockPitch: .31,
+		cell: .088,
+		rowPitch: .056,
+		digitPixel: .0088,
+		carryPixel: .0055,
+		ruleHalf: .0016,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		carryTone: .86,
+		sumTone: .88,
+		lineTone: .3,
+		inkTone: .08,
+		carryInkTone: .4,
+		grainTone: .03,
+		paperHeight: .22,
+		carryHeight: .3,
+		sumHeight: .42,
+		ruleHeight: .75,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
+	abeliansandpile: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .6,
+		relief: .004,
+		size: 81,
+		grains: Object.freeze([
+			4e3,
+			5200,
+			6400
+		]),
+		grainCells: 192,
+		tones: Object.freeze([
+			.08,
+			.36,
+			.64,
+			.92
+		]),
+		heights: Object.freeze([
+			.1,
+			.35,
+			.6,
+			.85
+		]),
+		grainTone: .03,
+		cellRoughness: .6
+	}),
+	percolationclusters: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .6,
+		relief: .004,
+		size: 48,
+		openings: Object.freeze([
+			.56,
+			.5927,
+			.63
+		]),
+		mediumSize: 8,
+		grainCells: 192,
+		closedTone: .94,
+		smallTone: .62,
+		mediumTone: .38,
+		largestTone: .08,
+		closedHeight: .12,
+		smallHeight: .4,
+		mediumHeight: .6,
+		largestHeight: .85,
+		grainTone: .03,
+		cellRoughness: .6
+	}),
+	gcdtable: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		size: 12,
+		starts: Object.freeze([
+			1,
+			5,
+			13,
+			25
+		]),
+		left: .06,
+		top: .06,
+		cell: .07,
+		digitPixel: .0085,
+		lineHalf: 6e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		coprimeTone: .94,
+		divisorFloor: .5,
+		divisorRange: .44,
+		headerTone: .14,
+		lineTone: .62,
+		inkTone: .08,
+		headerInkTone: .94,
+		grainTone: .03,
+		paperTone: .9,
+		paperHeight: .22,
+		coprimeHeight: .2,
+		divisorHeight: .55,
+		headerHeight: .85,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		headerRoughness: .35,
+		inkRoughness: .4
+	}),
+	bitwiselogic: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		bits: 8,
+		ops: Object.freeze([
+			`AND`,
+			`OR`,
+			`XOR`,
+			`NAND`
+		]),
+		left: .05,
+		top: .03,
+		blockPitch: .245,
+		labelCell: .16,
+		cell: .08,
+		rowPitch: .056,
+		digitPixel: .0088,
+		ruleHalf: .0016,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		oneTone: .8,
+		resultTone: .88,
+		resultOneTone: .66,
+		lineTone: .3,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		oneHeight: .36,
+		resultHeight: .42,
+		resultOneHeight: .6,
+		ruleHeight: .75,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
+	logisticbifurcation: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .6,
+		relief: .004,
+		columns: 256,
+		rows: 256,
+		start: .4,
+		transient: 300,
+		recorded: 500,
+		windows: Object.freeze([
+			Object.freeze([2.5, 4]),
+			Object.freeze([3.4, 4]),
+			Object.freeze([3.55, 3.95])
+		]),
+		grainCells: 192,
+		paperTone: .94,
+		inkTone: .08,
+		saturation: 4,
+		grainTone: .03,
+		paperHeight: .15,
+		inkHeight: .8,
+		cellRoughness: .6
+	}),
+	burningship: Object.freeze({
+		dark: [
+			30,
+			12,
+			8
+		],
+		light: [
+			252,
+			236,
+			190
+		],
+		roughness: .5,
+		relief: .004,
+		views: Object.freeze([
+			Object.freeze({
+				x: -.45,
+				y: -.5,
+				extent: 1.7,
+				iterations: 100
+			}),
+			Object.freeze({
+				x: -1.7443,
+				y: -.0173,
+				extent: .04,
+				iterations: 200
+			}),
+			Object.freeze({
+				x: -1.62,
+				y: -.03,
+				extent: .12,
+				iterations: 160
+			}),
+			Object.freeze({
+				x: -1.861,
+				y: -.002,
+				extent: .02,
+				iterations: 200
+			})
+		]),
+		bailout: 256,
+		insideTone: .05,
+		lowTone: .2,
+		highTone: .94,
+		scale: 8,
+		bandDepth: .08,
+		bandPeriod: 3,
+		grainCells: 192,
+		grainTone: .015,
+		insideHeight: .2,
+		heightSpan: .5,
+		insideRoughness: .8,
+		roughnessBase: .4,
+		roughnessSpan: .3
+	}),
+	modularpowers: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		size: 10,
+		moduli: Object.freeze([
+			13,
+			15,
+			17,
+			21,
+			25
+		]),
+		firstBase: 2,
+		left: .06,
+		top: .06,
+		cell: .082,
+		digitPixel: .0095,
+		lineHalf: 6e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .9,
+		plainTone: .94,
+		sharedFactorTone: .82,
+		oneTone: .55,
+		headerTone: .14,
+		lineTone: .62,
+		inkTone: .08,
+		headerInkTone: .94,
+		grainTone: .03,
+		paperHeight: .22,
+		plainHeight: .2,
+		sharedFactorHeight: .35,
+		oneHeight: .6,
+		headerHeight: .85,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		headerRoughness: .35,
+		inkRoughness: .4
+	}),
+	primefactors: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 12,
+		lowest: 2,
+		highest: 99,
+		left: .05,
+		top: .04,
+		numberWidth: .15,
+		factorWidth: .75,
+		rowPitch: .074,
+		digitPixel: .0095,
+		lineHalf: 6e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		primeTone: .78,
+		numberTone: .88,
+		lineTone: .62,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		primeHeight: .5,
+		numberHeight: .35,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
+	baseconversion: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 12,
+		highest: 255,
+		left: .04,
+		top: .04,
+		widths: Object.freeze([
+			.14,
+			.38,
+			.17,
+			.15
+		]),
+		rowPitch: .074,
+		digitPixel: .0085,
+		indent: .014,
+		lineHalf: 6e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .88,
+		letterTone: .8,
+		lineTone: .62,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .34,
+		letterHeight: .5,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
+	caesarcipher: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		shifts: Object.freeze([
+			3,
+			5,
+			7,
+			13
+		]),
+		messages: Object.freeze([
+			`ATTACKATDAWN`,
+			`HELLOWORLD`,
+			`SECRETMESSAGE`,
+			`MEETATNOON`,
+			`KEEPITSIMPLE`
+		]),
+		columns: 13,
+		left: .05,
+		top: .05,
+		cell: .069,
+		rowPitch: .1,
+		pixel: .0115,
+		lineHalf: 7e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cipherTone: .84,
+		lineTone: .5,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		cipherHeight: .4,
+		lineHeight: .7,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
+	wordsquares: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		squares: Object.freeze([
+			Object.freeze([
+				`SATOR`,
+				`AREPO`,
+				`TENET`,
+				`OPERA`,
+				`ROTAS`
+			]),
+			Object.freeze([
+				`BALL`,
+				`AREA`,
+				`LEAD`,
+				`LADY`
+			]),
+			Object.freeze([
+				`BAND`,
+				`AREA`,
+				`NEST`,
+				`DATA`
+			]),
+			Object.freeze([
+				`BIRD`,
+				`IDEA`,
+				`REST`,
+				`DATE`
+			]),
+			Object.freeze([
+				`BLOW`,
+				`LOVE`,
+				`OVAL`,
+				`WELL`
+			]),
+			Object.freeze([
+				`BEAT`,
+				`EACH`,
+				`ACHE`,
+				`THEY`
+			])
+		]),
+		span: .82,
+		pixel: .03,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		diagonalTone: .78,
+		lineTone: .45,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		diagonalHeight: .5,
+		lineHeight: .7,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
+	vectorfieldarrows: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		nodes: 10,
+		fields: Object.freeze([
+			Object.freeze([
+				0,
+				-1,
+				1,
+				0
+			]),
+			Object.freeze([
+				1,
+				0,
+				0,
+				-1
+			]),
+			Object.freeze([
+				1,
+				0,
+				0,
+				1
+			]),
+			Object.freeze([
+				1,
+				-1,
+				1,
+				1
+			])
+		]),
+		shortest: .3,
+		longest: .88,
+		shaftHalf: .0038,
+		headLength: .02,
+		headHalf: .01,
+		edgeSoft: .0012,
+		grainCells: 192,
+		paperTone: .94,
+		weakTone: .6,
+		strongTone: .08,
+		gridTone: .9,
+		grainTone: .03,
+		paperHeight: .2,
+		arrowHeight: .75,
+		paperRoughness: .74,
+		arrowRoughness: .4
+	}),
+	fordcircles: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		limits: Object.freeze([
+			4,
+			6,
+			8
+		]),
+		tones: Object.freeze([
+			.2,
+			.34,
+			.44,
+			.52,
+			.58,
+			.64,
+			.7,
+			.76
+		]),
+		outlineHalf: .0016,
+		axisHalf: .003,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		outlineTone: .06,
+		axisTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		fillHeight: .45,
+		outlineHeight: .8,
+		paperRoughness: .74,
+		fillRoughness: .5
+	}),
+	mobiusgrid: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		maps: Object.freeze([
+			Object.freeze([
+				0,
+				0,
+				1,
+				0,
+				1,
+				0,
+				0,
+				0
+			]),
+			Object.freeze([
+				1,
+				0,
+				0,
+				0,
+				0,
+				.45,
+				1,
+				0
+			]),
+			Object.freeze([
+				1,
+				0,
+				0,
+				.5,
+				.3,
+				0,
+				1,
+				.5
+			])
+		]),
+		extent: 2,
+		step: .5,
+		lineHalf: .012,
+		edgeSoft: .01,
+		grainCells: 192,
+		paperTone: .94,
+		checkerTone: .8,
+		lineTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		checkerHeight: .4,
+		lineHeight: .8,
+		cellRoughness: .55,
+		lineRoughness: .4
+	}),
+	dipolefieldlines: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		separations: Object.freeze([
+			.25,
+			.4,
+			.55
+		]),
+		extent: 1.2,
+		potentialStep: .4,
+		fieldStep: .3141592653589793,
+		lineHalf: .008,
+		coreRadius: .03,
+		edgeSoft: .008,
+		grainCells: 192,
+		positiveTone: .94,
+		negativeTone: .82,
+		potentialTone: .08,
+		fieldTone: .4,
+		positiveCoreTone: .05,
+		negativeCoreTone: .55,
+		grainTone: .03,
+		paperHeight: .2,
+		fieldHeight: .35,
+		lineHeight: .8,
+		coreHeight: .9,
+		cellRoughness: .55,
+		lineRoughness: .4
+	}),
+	numberwords: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 12,
+		highest: 99,
+		left: .04,
+		top: .04,
+		numberWidth: .14,
+		wordWidth: .78,
+		rowPitch: .074,
+		pixel: .0085,
+		indent: .012,
+		lineHalf: 6e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		irregularTone: .78,
+		lineTone: .62,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .3,
+		irregularHeight: .5,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
+	sorobanabacus: Object.freeze({
+		dark: [
+			30,
+			22,
+			14
+		],
+		light: [
+			246,
+			238,
+			214
+		],
+		roughness: .5,
+		relief: .004,
+		abacuses: 2,
+		rods: 7,
+		left: .07,
+		frameWidth: .86,
+		frameHeight: .28,
+		top: .04,
+		blockPitch: .47,
+		beamCentre: .09,
+		beamHalf: .006,
+		heavenFirst: .029,
+		heavenSecond: .067,
+		earthFirst: .113,
+		slotPitch: .0344,
+		beadHalfWidth: .05,
+		beadHalfHeight: .0172,
+		frameHalf: .004,
+		rodHalf: .0016,
+		labelCentre: .335,
+		pixel: .012,
+		edgeSoft: .0012,
+		grainCells: 192,
+		paperTone: .94,
+		frameTone: .25,
+		beamTone: .2,
+		rodTone: .55,
+		beadTone: .12,
+		grainTone: .03,
+		paperHeight: .2,
+		frameRelief: .7,
+		beadHeight: .85,
+		paperRoughness: .74,
+		beadRoughness: .3
+	}),
+	boxplots: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		panels: 3,
+		points: 15,
+		exponents: Object.freeze([
+			.7,
+			1,
+			1.3
+		]),
+		left: .06,
+		span: .88,
+		top: .035,
+		panelPitch: .32,
+		boxCentre: .085,
+		boxHalfHeight: .045,
+		capHalf: .022,
+		dotRows: Object.freeze([.19, .235]),
+		dotRadius: .009,
+		lineHalf: .0022,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		boxTone: .8,
+		lineTone: .08,
+		dotTone: .2,
+		grainTone: .03,
+		paperHeight: .2,
+		boxHeight: .4,
+		lineHeight: .8,
+		dotHeight: .9,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	stemandleaf: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		count: 29,
+		firstStem: 1,
+		lastStem: 9,
+		left: .06,
+		top: .045,
+		rowPitch: .1,
+		stemWidth: .09,
+		stemGap: .03,
+		leafGap: .02,
+		barHalf: .0016,
+		leafPitch: .034,
+		pixel: .0085,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		medianTone: .7,
+		barTone: .3,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		medianHeight: .5,
+		barHeight: .7,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	substitutionwords: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rules: Object.freeze([
+			Object.freeze({
+				zero: `01`,
+				one: `0`,
+				rows: 9
+			}),
+			Object.freeze({
+				zero: `01`,
+				one: `10`,
+				rows: 7
+			}),
+			Object.freeze({
+				zero: `01`,
+				one: `00`,
+				rows: 7
+			})
+		]),
+		left: .07,
+		width: .86,
+		top: .06,
+		rowPitch: .1,
+		cellHeight: .08,
+		gap: .0016,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		zeroTone: .62,
+		oneTone: .12,
+		gapTone: .6,
+		grainTone: .03,
+		paperHeight: .2,
+		zeroHeight: .35,
+		oneHeight: .8,
+		paperRoughness: .74,
+		cellRoughness: .5
+	}),
+	dicesumbars: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		sides: Object.freeze([
+			4,
+			6,
+			8
+		]),
+		left: .07,
+		width: .86,
+		baseline: .72,
+		fill: .8,
+		stack: 1.12,
+		pixel: .0068,
+		labelTop: .76,
+		axisHalf: .002,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		waysTone: .55,
+		modeTone: .12,
+		axisTone: .3,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		waysHeight: .6,
+		modeHeight: .85,
+		axisHeight: .7,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	binaryheaptree: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		levels: 4,
+		lowest: 10,
+		highest: 99,
+		top: .12,
+		levelPitch: .25,
+		left: .03,
+		width: .94,
+		nodeRadius: .052,
+		ringHalf: .003,
+		edgeHalf: .0025,
+		pixel: .0085,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		nodeTone: .88,
+		rootTone: .62,
+		lineTone: .12,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		nodeHeight: .4,
+		rootHeight: .6,
+		lineHeight: .8,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	bubblesortpasses: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		size: 8,
+		left: .06,
+		top: .06,
+		cell: .108,
+		rowPitch: .11,
+		pixel: .019,
+		cellInset: .006,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .88,
+		settledTone: .62,
+		lineTone: .5,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		cellHeight: .35,
+		settledHeight: .6,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
+	graphcoloring: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		graphs: Object.freeze([
+			Object.freeze({
+				vertices: Object.freeze([
+					Object.freeze([.12, .12]),
+					Object.freeze([.88, .12]),
+					Object.freeze([.88, .88]),
+					Object.freeze([.12, .88]),
+					Object.freeze([.32, .32]),
+					Object.freeze([.6799999999999999, .32]),
+					Object.freeze([.6799999999999999, .6799999999999999]),
+					Object.freeze([.32, .6799999999999999])
+				]),
+				edges: Object.freeze([
+					Object.freeze([0, 1]),
+					Object.freeze([1, 2]),
+					Object.freeze([2, 3]),
+					Object.freeze([3, 0]),
+					Object.freeze([4, 5]),
+					Object.freeze([5, 6]),
+					Object.freeze([6, 7]),
+					Object.freeze([7, 4]),
+					Object.freeze([0, 4]),
+					Object.freeze([1, 5]),
+					Object.freeze([2, 6]),
+					Object.freeze([3, 7])
+				]),
+				colors: Object.freeze([
+					0,
+					1,
+					0,
+					1,
+					1,
+					0,
+					1,
+					0
+				])
+			}),
+			Object.freeze({
+				vertices: Object.freeze([
+					Object.freeze([.5, .12]),
+					Object.freeze([.8614, .3826]),
+					Object.freeze([.7234, .8074]),
+					Object.freeze([.2766, .8074]),
+					Object.freeze([.1386, .3826]),
+					Object.freeze([.5, .31]),
+					Object.freeze([.6807, .4413]),
+					Object.freeze([.6117, .6537]),
+					Object.freeze([.3883, .6537]),
+					Object.freeze([.3193, .4413])
+				]),
+				edges: Object.freeze([
+					Object.freeze([0, 1]),
+					Object.freeze([1, 2]),
+					Object.freeze([2, 3]),
+					Object.freeze([3, 4]),
+					Object.freeze([4, 0]),
+					Object.freeze([0, 5]),
+					Object.freeze([1, 6]),
+					Object.freeze([2, 7]),
+					Object.freeze([3, 8]),
+					Object.freeze([4, 9]),
+					Object.freeze([5, 7]),
+					Object.freeze([7, 9]),
+					Object.freeze([9, 6]),
+					Object.freeze([6, 8]),
+					Object.freeze([8, 5])
+				]),
+				colors: Object.freeze([
+					0,
+					1,
+					0,
+					1,
+					2,
+					1,
+					0,
+					2,
+					2,
+					1
+				])
+			}),
+			Object.freeze({
+				vertices: Object.freeze([
+					Object.freeze([.5, .5]),
+					Object.freeze([.5, .12]),
+					Object.freeze([.8614, .3826]),
+					Object.freeze([.7234, .8074]),
+					Object.freeze([.2766, .8074]),
+					Object.freeze([.1386, .3826])
+				]),
+				edges: Object.freeze([
+					Object.freeze([1, 2]),
+					Object.freeze([2, 3]),
+					Object.freeze([3, 4]),
+					Object.freeze([4, 5]),
+					Object.freeze([5, 1]),
+					Object.freeze([0, 1]),
+					Object.freeze([0, 2]),
+					Object.freeze([0, 3]),
+					Object.freeze([0, 4]),
+					Object.freeze([0, 5])
+				]),
+				colors: Object.freeze([
+					3,
+					0,
+					1,
+					0,
+					1,
+					2
+				])
+			})
+		]),
+		classTones: Object.freeze([
+			.92,
+			.66,
+			.4,
+			.14
+		]),
+		vertexRadius: .05,
+		ringHalf: .004,
+		edgeHalf: .0035,
+		edgeSoft: .0012,
+		grainCells: 192,
+		paperTone: .94,
+		lineTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		vertexHeight: .5,
+		lineHeight: .8,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	runlengthrows: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		blocks: 5,
+		cells: 20,
+		shortest: 2,
+		longest: 6,
+		left: .06,
+		top: .05,
+		blockPitch: .19,
+		cell: .044,
+		cellHeight: .075,
+		textTop: .092,
+		pixel: .0085,
+		gap: .0016,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		whiteTone: .86,
+		blackTone: .1,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		whiteHeight: .35,
+		blackHeight: .8,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .5
+	}),
+	isbn10checks: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 11,
+		left: .08,
+		top: .045,
+		rowPitch: .085,
+		pixel: .0135,
+		stripeInset: .004,
+		lineHalf: 6e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		checkTone: .7,
+		lineTone: .62,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .3,
+		checkHeight: .5,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	projectilearcs: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		angles: Object.freeze([
+			15,
+			30,
+			45,
+			60,
+			75
+		]),
+		ranges: Object.freeze([
+			.4,
+			.44,
+			.48
+		]),
+		ground: .45,
+		pitch: .5,
+		lineHalf: .0032,
+		envelopeHalf: .0026,
+		groundHalf: .0028,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		arcTone: .1,
+		envelopeTone: .5,
+		groundTone: .3,
+		grainTone: .03,
+		paperHeight: .2,
+		arcHeight: .8,
+		envelopeHeight: .55,
+		groundHeight: .65,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	sternbrocottree: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		levels: 4,
+		pitch: .25,
+		pixel: .0085,
+		gap: .036,
+		lineHalf: .0022,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		lineTone: .45,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		lineHeight: .5,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	cycloidcusps: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		cells: 3,
+		extent: .135,
+		lastEpi: Object.freeze([
+			4,
+			5,
+			6
+		]),
+		lastHypo: Object.freeze([
+			6,
+			7,
+			8
+		]),
+		turns: Object.freeze([
+			0,
+			.21,
+			.42,
+			.63
+		]),
+		segments: 360,
+		buckets: 48,
+		lineHalf: .0034,
+		ringHalf: .0012,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		curveTone: .1,
+		ringTone: .62,
+		grainTone: .03,
+		paperHeight: .2,
+		curveHeight: .8,
+		ringHeight: .4,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	zeckendorfrows: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 12,
+		bits: 8,
+		firstMax: 31,
+		columnLeft: Object.freeze([.04, .54]),
+		top: .04,
+		rowPitch: .079,
+		pixel: .0105,
+		stripeInset: .006,
+		stripeWidth: .46,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .3,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	ferrersdiagrams: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		total: 7,
+		columns: 5,
+		rows: 3,
+		box: .027,
+		lineHalf: .0016,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		fillTone: .56,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		fillHeight: .45,
+		inkHeight: .8,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	pairingtables: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		size: 8,
+		pixel: .0095,
+		grainCells: 192,
+		paperTone: .94,
+		checkerTone: .88,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		checkerHeight: .32,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	hexdumprows: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 14,
+		perRow: 6,
+		controlShare: .14,
+		left: .045,
+		top: .032,
+		rowPitch: .068,
+		pixel: .0085,
+		stripeInset: .006,
+		stripeWidth: .93,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .3,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	pythagoreantriples: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 12,
+		maxM: 9,
+		left: .09,
+		top: .04,
+		rowPitch: .08,
+		pixel: .0125,
+		stripeInset: .008,
+		stripeWidth: .82,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		hypotenuseTone: .7,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .3,
+		hypotenuseHeight: .5,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	figuratenumbers: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		columns: 5,
+		rows: 4,
+		pitch: .02,
+		dotRadius: .0075,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		bandTone: .9,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		bandHeight: .3,
+		dotHeight: .8,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	dyckpaths: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		semilength: 4,
+		columns: 2,
+		rows: 7,
+		unit: .028,
+		lineHalf: .0034,
+		baseHalf: .0012,
+		dotRadius: .0058,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		baseTone: .62,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .3,
+		baseHeight: .45,
+		inkHeight: .8,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	sacksspiral: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		lasts: Object.freeze([
+			900,
+			1200,
+			1600
+		]),
+		outerRadius: .475,
+		buckets: 40,
+		dotRadius: .0055,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		inkHeight: .8,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	sierpinskipascal: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		depths: Object.freeze([
+			5,
+			6,
+			7
+		]),
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .22,
+		inkHeight: .8,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	cobwebplots: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rates: Object.freeze([
+			2.8,
+			3.2,
+			3.5,
+			3.74,
+			3.9
+		]),
+		starts: Object.freeze([
+			.11,
+			.27,
+			.46,
+			.83
+		]),
+		iterations: 14,
+		origin: .08,
+		size: .84,
+		pathHalf: .0028,
+		curveHalf: .0022,
+		diagonalHalf: .0018,
+		boxHalf: .0012,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		pathTone: .1,
+		curveTone: .42,
+		diagonalTone: .62,
+		boxTone: .7,
+		grainTone: .03,
+		paperHeight: .2,
+		pathHeight: .8,
+		curveHeight: .55,
+		diagonalHeight: .45,
+		boxHeight: .4,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	divisorcountbars: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		count: 64,
+		firstMax: 400,
+		left: .03,
+		slot: .0146,
+		barWidth: .0115,
+		ground: .945,
+		box: .034,
+		boxGap: .003,
+		baseHalf: .0015,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		baseTone: .5,
+		primeTone: .08,
+		squareTone: .4,
+		otherTone: .24,
+		grainTone: .03,
+		paperHeight: .2,
+		baseHeight: .4,
+		boxHeight: .75,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	timestablecircles: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		points: 72,
+		buckets: 96,
+		cells: 3,
+		kMin: 2,
+		kMax: 20,
+		radius: .15,
+		lineHalf: .0012,
+		ringHalf: .0014,
+		dotRadius: .0034,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		chordTone: .2,
+		ringTone: .5,
+		dotTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		stripeHeight: .28,
+		chordHeight: .6,
+		ringHeight: .45,
+		dotHeight: .8,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	gaussianprimes: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		size: 40,
+		corners: Object.freeze([
+			[0, 0],
+			[-20, -20],
+			[-12, -30],
+			[5, -8],
+			[-35, 4],
+			[18, 21]
+		]),
+		dotRadius: .0092,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		dotTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		stripeHeight: .28,
+		dotHeight: .8,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	josephuscircle: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		counts: Object.freeze([
+			17,
+			19,
+			21,
+			23,
+			24
+		]),
+		steps: Object.freeze([
+			2,
+			3,
+			4,
+			5
+		]),
+		ringRadius: .37,
+		nodeRadius: .047,
+		nodeEdge: .0022,
+		pixel: .0085,
+		bigPixel: .024,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		nodeTone: .86,
+		survivorTone: .62,
+		edgeTone: .35,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .3,
+		nodeHeight: .45,
+		edgeHeight: .6,
+		inkDepth: .15,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	periodictablecells: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		columns: 18,
+		rows: 4,
+		top: .06,
+		rowPitch: .22,
+		symbolPixel: .0062,
+		numberPixel: .0042,
+		symbolShift: .03,
+		numberShift: -.055,
+		cellInset: .0018,
+		grainCells: 192,
+		paperTone: .94,
+		firstTone: .9,
+		secondTone: .82,
+		thirdTone: .7,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		firstHeight: .3,
+		secondHeight: .4,
+		thirdHeight: .5,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	circleoffifths: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		majorRadius: .385,
+		minorRadius: .255,
+		signatureRadius: .125,
+		majorPixel: .011,
+		minorPixel: .0075,
+		signaturePixel: .0075,
+		rings: Object.freeze([
+			.45,
+			.32,
+			.19
+		]),
+		ringHalf: .0016,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		sectorTone: .9,
+		ringTone: .55,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		sectorHeight: .3,
+		ringHeight: .5,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	roulettewheel: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		innerRadius: .3,
+		outerRadius: .45,
+		numberRadius: .375,
+		hubRadius: .085,
+		rimHalf: .0016,
+		spokeHalf: .0011,
+		pixel: .0064,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		redTone: .48,
+		blackTone: .16,
+		greenTone: .78,
+		hubTone: .62,
+		lineTone: .3,
+		lightInk: .96,
+		darkInk: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		pocketHeight: .35,
+		hubHeight: .55,
+		lineHeight: .6,
+		inkDepth: .12,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	roundrobintable: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		teamCounts: Object.freeze([8, 10]),
+		left: .02,
+		top: .035,
+		height: .9,
+		pixels: Object.freeze([.0095, .007]),
+		stripeInset: .006,
+		stripeWidth: .96,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		labelTone: .78,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .3,
+		labelHeight: .42,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	kaprekarsteps: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		columns: 2,
+		chains: 2,
+		maxSteps: 7,
+		left: Object.freeze([.03, .53]),
+		top: .03,
+		blockPitch: .485,
+		linePitch: .062,
+		pixel: .0082,
+		stripeInset: .006,
+		stripeWidth: .46,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		resultTone: .78,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .3,
+		resultHeight: .42,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	lookandsayrows: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		starts: Object.freeze([
+			1,
+			2,
+			3,
+			4,
+			5,
+			6
+		]),
+		maxLength: 26,
+		maxRows: 11,
+		left: .03,
+		top: .04,
+		rowPitch: .08,
+		pixel: .0085,
+		stripeInset: .006,
+		stripeWidth: .94,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		labelTone: .78,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .3,
+		labelHeight: .42,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	happynumberchains: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		rows: 12,
+		lowest: 2,
+		highest: 99,
+		maxLength: 34,
+		left: .03,
+		top: .035,
+		rowPitch: .0765,
+		pixel: .0064,
+		stripeInset: .006,
+		stripeWidth: .94,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		happyTone: .78,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .3,
+		happyHeight: .42,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	recamanarcs: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		counts: Object.freeze([
+			40,
+			50,
+			60,
+			70
+		]),
+		left: .03,
+		width: .94,
+		axis: .5,
+		lineHalf: .0016,
+		axisHalf: .0011,
+		dotRadius: .0034,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		arcTone: .12,
+		axisTone: .55,
+		grainTone: .03,
+		paperHeight: .2,
+		arcHeight: .75,
+		axisHeight: .4,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
+	thuemorsegrid: Object.freeze({
+		dark: [
+			24,
+			26,
+			34
+		],
+		light: [
+			236,
+			232,
+			218
+		],
+		roughness: .6,
+		relief: .005,
+		sizes: Object.freeze([
+			8,
+			16,
+			32
+		]),
+		offsets: 256,
+		groove: .06,
+		edgeSoft: .0012,
+		grainCells: 160,
+		groutTone: .42,
+		darkTone: .1,
+		lightTone: .88,
+		grainTone: .04,
+		groutHeight: .1,
+		darkHeight: .62,
+		lightHeight: .46,
+		groutRoughness: .88,
+		darkRoughness: .32,
+		lightRoughness: .7
+	}),
+	digitalroottable: Object.freeze({
+		dark: [
+			28,
+			30,
+			44
+		],
+		light: [
+			240,
+			234,
+			214
+		],
+		roughness: .6,
+		relief: .005,
+		sizes: Object.freeze([
+			9,
+			12,
+			18
+		]),
+		operations: 3,
+		groove: .05,
+		edgeSoft: .0012,
+		pixelFraction: .12,
+		grainCells: 160,
+		grainTone: .03,
+		groutTone: .5,
+		lowestTone: .12,
+		highestTone: .9,
+		inkDarkTone: .05,
+		inkLightTone: .97,
+		groutHeight: .1,
+		faceHeight: .5,
+		inkHeight: .7,
+		groutRoughness: .9,
+		faceRoughness: .62,
+		inkRoughness: .4
+	}),
+	henonattractor: Object.freeze({
+		dark: [
+			22,
+			24,
+			52
+		],
+		light: [
+			244,
+			240,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		maps: Object.freeze([
+			Object.freeze([1.4, .3]),
+			Object.freeze([1.35, .3]),
+			Object.freeze([1.4, .25]),
+			Object.freeze([1.2, .3])
+		]),
+		windowX: 1.35,
+		windowY: .45,
+		margin: .03,
+		gridSize: 256,
+		iterations: 6e5,
+		warmUp: 200,
+		saturation: 8,
+		grainCells: 192,
+		paperTone: .94,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		inkHeight: .7,
+		paperRoughness: .74,
+		inkRoughness: .42
+	}),
+	golombrulers: Object.freeze({
+		dark: [
+			30,
+			26,
+			22
+		],
+		light: [
+			240,
+			226,
+			188
+		],
+		roughness: .55,
+		relief: .004,
+		rulers: Object.freeze([
+			Object.freeze([
+				0,
+				1,
+				3
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				6
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				9,
+				11
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				10,
+				12,
+				17
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				10,
+				18,
+				23,
+				25
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				9,
+				15,
+				22,
+				32,
+				34
+			]),
+			Object.freeze([
+				0,
+				1,
+				5,
+				12,
+				25,
+				27,
+				35,
+				41,
+				44
+			]),
+			Object.freeze([
+				0,
+				1,
+				6,
+				10,
+				23,
+				26,
+				34,
+				41,
+				53,
+				55
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				13,
+				28,
+				33,
+				47,
+				54,
+				64,
+				70,
+				72
+			])
+		]),
+		left: .05,
+		width: .9,
+		top: .05,
+		rowPitch: .1,
+		barHalf: .012,
+		markHalf: .0028,
+		markReach: .034,
+		unitHalf: .0011,
+		unitReach: .026,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .92,
+		barTone: .7,
+		unitTone: .45,
+		markTone: .08,
+		grainTone: .035,
+		paperHeight: .2,
+		barHeight: .45,
+		unitHeight: .5,
+		markHeight: .78,
+		paperRoughness: .72,
+		inkRoughness: .45
+	}),
+	bitwisetable: Object.freeze({
+		dark: [
+			24,
+			34,
+			40
+		],
+		light: [
+			232,
+			238,
+			226
+		],
+		roughness: .6,
+		relief: .005,
+		sizes: Object.freeze([
+			8,
+			16,
+			32
+		]),
+		operations: 3,
+		groove: .05,
+		edgeSoft: .0012,
+		bitHalf: .42,
+		grainCells: 160,
+		grainTone: .03,
+		groutTone: .5,
+		lowestTone: .12,
+		highestTone: .88,
+		inkDarkTone: .05,
+		inkLightTone: .97,
+		groutHeight: .1,
+		faceHeight: .5,
+		inkHeight: .7,
+		groutRoughness: .9,
+		faceRoughness: .62,
+		inkRoughness: .4
+	}),
+	peanocurve: Object.freeze({
+		dark: [
+			20,
+			34,
+			52
+		],
+		light: [
+			244,
+			240,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		orders: Object.freeze([
+			2,
+			3,
+			4
+		]),
+		margin: .04,
+		lineHalf: .26,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .93,
+		startTone: .06,
+		endTone: .55,
+		grainTone: .03,
+		paperHeight: .2,
+		inkHeight: .7,
+		paperRoughness: .74,
+		inkRoughness: .42
+	}),
+	cliffordattractor: Object.freeze({
+		dark: [
+			20,
+			22,
+			46
+		],
+		light: [
+			246,
+			240,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		maps: Object.freeze([
+			Object.freeze([
+				-1.4,
+				1.6,
+				1,
+				.7
+			]),
+			Object.freeze([
+				1.7,
+				1.7,
+				.6,
+				1.2
+			]),
+			Object.freeze([
+				-1.7,
+				1.3,
+				-.1,
+				-1.2
+			]),
+			Object.freeze([
+				-1.7,
+				1.8,
+				-1.9,
+				-.4
+			]),
+			Object.freeze([
+				1.6,
+				-.6,
+				-1.2,
+				1.6
+			])
+		]),
+		margin: .03,
+		gridSize: 256,
+		iterations: 8e5,
+		warmUp: 200,
+		saturation: 12,
+		grainCells: 192,
+		paperTone: .94,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		inkHeight: .7,
+		paperRoughness: .74,
+		inkRoughness: .42
+	}),
+	voronoicells: Object.freeze({
+		dark: [
+			28,
+			30,
+			38
+		],
+		light: [
+			238,
+			232,
+			214
+		],
+		roughness: .6,
+		relief: .005,
+		counts: Object.freeze([
+			5,
+			7,
+			9
+		]),
+		jitters: Object.freeze([
+			.25,
+			.32,
+			.38
+		]),
+		borderHalf: .0024,
+		dotRadius: .0065,
+		edgeSoft: .0012,
+		grainCells: 192,
+		lowestTone: .38,
+		highestTone: .88,
+		borderTone: .26,
+		dotTone: .04,
+		grainTone: .03,
+		borderHeight: .1,
+		faceHeight: .5,
+		dotHeight: .78,
+		borderRoughness: .88,
+		faceRoughness: .62,
+		dotRoughness: .4
+	}),
+	euclidsquares: Object.freeze({
+		dark: [
+			30,
+			28,
+			44
+		],
+		light: [
+			240,
+			234,
+			218
+		],
+		roughness: .6,
+		relief: .005,
+		rectangles: Object.freeze([
+			Object.freeze([57, 22]),
+			Object.freeze([43, 16]),
+			Object.freeze([49, 19]),
+			Object.freeze([58, 35]),
+			Object.freeze([60, 24]),
+			Object.freeze([55, 21])
+		]),
+		fill: .94,
+		borderHalf: .002,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		firstTone: .3,
+		lastTone: .86,
+		borderTone: .12,
+		grainTone: .03,
+		paperHeight: .15,
+		squareHeight: .5,
+		borderHeight: .1,
+		paperRoughness: .74,
+		squareRoughness: .58,
+		borderRoughness: .88
+	}),
+	youngtableaux: Object.freeze({
+		dark: [
+			34,
+			30,
+			52
+		],
+		light: [
+			242,
+			236,
+			220
+		],
+		roughness: .6,
+		relief: .005,
+		total: 10,
+		side: 5,
+		panels: 2,
+		box: .082,
+		pixelFraction: .1,
+		lineHalf: .0016,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .93,
+		lowestTone: .62,
+		highestTone: .88,
+		lineTone: .12,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		boxHeight: .5,
+		lineHeight: .1,
+		inkHeight: .72,
+		paperRoughness: .74,
+		boxRoughness: .6,
+		lineRoughness: .88,
+		inkRoughness: .42
+	}),
+	braiddiagram: Object.freeze({
+		dark: [
+			28,
+			30,
+			44
+		],
+		light: [
+			240,
+			234,
+			218
+		],
+		roughness: .6,
+		relief: .005,
+		strands: Object.freeze([
+			4,
+			5,
+			6
+		]),
+		levelsPerStrand: 3,
+		left: .1,
+		width: .8,
+		top: .05,
+		bottom: .95,
+		halfWidth: .012,
+		outline: .0034,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		firstTone: .3,
+		lastTone: .86,
+		outlineTone: .08,
+		grainTone: .03,
+		paperHeight: .15,
+		strandHeight: .6,
+		outlineHeight: .35,
+		paperRoughness: .74,
+		strandRoughness: .5
+	}),
+	countingrods: Object.freeze({
+		dark: [
+			30,
+			26,
+			22
+		],
+		light: [
+			236,
+			224,
+			190
+		],
+		roughness: .58,
+		relief: .004,
+		rows: 8,
+		places: 5,
+		rowTop: .06,
+		rowPitch: .11,
+		textLeft: .06,
+		pixel: .0075,
+		rodsLeft: .42,
+		placePitch: .105,
+		rodHalf: .0028,
+		rodGap: .014,
+		rodReach: .04,
+		barOffset: .032,
+		barReach: .032,
+		rodsBelowBar: -.012,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .92,
+		inkTone: .08,
+		stripeTone: .86,
+		grainTone: .035,
+		paperHeight: .2,
+		inkHeight: .72,
+		paperRoughness: .72,
+		inkRoughness: .42
+	}),
+	quadtreecells: Object.freeze({
+		dark: [
+			24,
+			34,
+			46
+		],
+		light: [
+			236,
+			238,
+			226
+		],
+		roughness: .6,
+		relief: .005,
+		shapes: Object.freeze([
+			Object.freeze([
+				0,
+				.5,
+				.5,
+				.36,
+				0
+			]),
+			Object.freeze([
+				0,
+				.38,
+				.55,
+				.27,
+				0
+			]),
+			Object.freeze([
+				0,
+				.62,
+				.42,
+				.31,
+				0
+			]),
+			Object.freeze([
+				1,
+				.5,
+				.5,
+				.33,
+				.06
+			]),
+			Object.freeze([
+				1,
+				.45,
+				.52,
+				.28,
+				.09
+			]),
+			Object.freeze([
+				2,
+				.5,
+				.5,
+				.42,
+				.26
+			]),
+			Object.freeze([
+				2,
+				.5,
+				.5,
+				.24,
+				.4
+			]),
+			Object.freeze([
+				3,
+				1.5,
+				.1,
+				.2,
+				.5
+			]),
+			Object.freeze([
+				3,
+				2.5,
+				.6,
+				.15,
+				.45
+			]),
+			Object.freeze([
+				3,
+				1,
+				.3,
+				.28,
+				.55
+			]),
+			Object.freeze([
+				4,
+				.12,
+				.04,
+				0,
+				0
+			]),
+			Object.freeze([
+				4,
+				.33,
+				-.08,
+				0,
+				0
+			])
+		]),
+		minDepth: 2,
+		maxDepth: 6,
+		lineHalf: .0025,
+		lineFraction: .07,
+		edgeSoft: .0011,
+		grainCells: 192,
+		outsideTone: .9,
+		insideTone: .62,
+		depthShade: .025,
+		lineTone: .1,
+		grainTone: .03,
+		cellHeight: .5,
+		lineHeight: .12,
+		cellRoughness: .62,
+		lineRoughness: .88
+	}),
+	lsystemplant: Object.freeze({
+		dark: [
+			24,
+			40,
+			28
+		],
+		light: [
+			240,
+			238,
+			220
+		],
+		roughness: .58,
+		relief: .004,
+		grammars: Object.freeze([
+			Object.freeze([
+				`X`,
+				`F+[[X]-X]-F[-FX]+X`,
+				`FF`,
+				25,
+				4,
+				5
+			]),
+			Object.freeze([
+				`F`,
+				``,
+				`FF-[-F+F+F]+[+F-F-F]`,
+				22.5,
+				3,
+				4
+			]),
+			Object.freeze([
+				`X`,
+				`F[+X]F[-X]+X`,
+				`FF`,
+				20,
+				5,
+				6
+			]),
+			Object.freeze([
+				`X`,
+				`F[+X][-X]FX`,
+				`FF`,
+				25.7,
+				5,
+				6
+			])
+		]),
+		fill: .9,
+		bucketCells: 48,
+		lineHalf: .0018,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		trunkTone: .1,
+		tipTone: .55,
+		grainTone: .03,
+		paperHeight: .2,
+		inkHeight: .7,
+		paperRoughness: .74,
+		inkRoughness: .45
+	}),
+	htreefractal: Object.freeze({
+		dark: [
+			26,
+			34,
+			52
+		],
+		light: [
+			242,
+			238,
+			222
+		],
+		roughness: .58,
+		relief: .004,
+		depths: Object.freeze([
+			6,
+			7,
+			8,
+			9
+		]),
+		rootHalf: .25,
+		ratio: Math.SQRT1_2,
+		widthStart: .0034,
+		widthFloor: 85e-5,
+		widthDecay: .88,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		rootTone: .08,
+		leafTone: .5,
+		grainTone: .03,
+		paperHeight: .2,
+		inkHeight: .72,
+		paperRoughness: .74,
+		inkRoughness: .42
+	}),
+	wangtiles: Object.freeze({
+		dark: [
+			28,
+			30,
+			44
+		],
+		light: [
+			240,
+			236,
+			220
+		],
+		roughness: .6,
+		relief: .005,
+		counts: Object.freeze([
+			6,
+			8,
+			10
+		]),
+		colourCounts: Object.freeze([3, 4]),
+		lineHalf: .0016,
+		edgeSoft: .0011,
+		grainCells: 192,
+		lowTone: .25,
+		highTone: .88,
+		lineTone: .08,
+		grainTone: .03,
+		faceHeight: .5,
+		lineHeight: .12,
+		faceRoughness: .62,
+		lineRoughness: .88
+	}),
+	marchingsquares: Object.freeze({
+		dark: [
+			24,
+			30,
+			48
+		],
+		light: [
+			240,
+			238,
+			224
+		],
+		roughness: .58,
+		relief: .004,
+		ballSets: Object.freeze([
+			Object.freeze([
+				Object.freeze([
+					.017,
+					.543,
+					.127
+				]),
+				Object.freeze([
+					.91,
+					.112,
+					.115
+				]),
+				Object.freeze([
+					.548,
+					.596,
+					.141
+				]),
+				Object.freeze([
+					.04,
+					.744,
+					.157
+				]),
+				Object.freeze([
+					.074,
+					.7,
+					.111
+				])
+			]),
+			Object.freeze([
+				Object.freeze([
+					.96,
+					.406,
+					.156
+				]),
+				Object.freeze([
+					.994,
+					.664,
+					.108
+				]),
+				Object.freeze([
+					.5,
+					.287,
+					.108
+				]),
+				Object.freeze([
+					.675,
+					.155,
+					.078
+				]),
+				Object.freeze([
+					.853,
+					.312,
+					.071
+				]),
+				Object.freeze([
+					.463,
+					.292,
+					.122
+				])
+			]),
+			Object.freeze([
+				Object.freeze([
+					.015,
+					.78,
+					.097
+				]),
+				Object.freeze([
+					.321,
+					.955,
+					.119
+				]),
+				Object.freeze([
+					.667,
+					.657,
+					.126
+				]),
+				Object.freeze([
+					.161,
+					.929,
+					.139
+				]),
+				Object.freeze([
+					.457,
+					.726,
+					.1
+				]),
+				Object.freeze([
+					.713,
+					.576,
+					.139
+				]),
+				Object.freeze([
+					.443,
+					.206,
+					.111
+				])
+			]),
+			Object.freeze([
+				Object.freeze([
+					.521,
+					.873,
+					.105
+				]),
+				Object.freeze([
+					.926,
+					.742,
+					.083
+				]),
+				Object.freeze([
+					.685,
+					.35,
+					.102
+				]),
+				Object.freeze([
+					.793,
+					.797,
+					.086
+				]),
+				Object.freeze([
+					.119,
+					.404,
+					.149
+				]),
+				Object.freeze([
+					.723,
+					.536,
+					.092
+				]),
+				Object.freeze([
+					.392,
+					.87,
+					.143
+				])
+			]),
+			Object.freeze([
+				Object.freeze([
+					.832,
+					.692,
+					.118
+				]),
+				Object.freeze([
+					.896,
+					.631,
+					.153
+				]),
+				Object.freeze([
+					.384,
+					.783,
+					.144
+				]),
+				Object.freeze([
+					.096,
+					.617,
+					.125
+				]),
+				Object.freeze([
+					.112,
+					.579,
+					.15
+				]),
+				Object.freeze([
+					.092,
+					.276,
+					.14
+				])
+			]),
+			Object.freeze([
+				Object.freeze([
+					.377,
+					.18,
+					.095
+				]),
+				Object.freeze([
+					.881,
+					.392,
+					.14
+				]),
+				Object.freeze([
+					.718,
+					.091,
+					.136
+				]),
+				Object.freeze([
+					.842,
+					.559,
+					.089
+				]),
+				Object.freeze([
+					.903,
+					.4,
+					.088
+				]),
+				Object.freeze([
+					.679,
+					.821,
+					.16
+				]),
+				Object.freeze([
+					.004,
+					.658,
+					.072
+				])
+			]),
+			Object.freeze([
+				Object.freeze([
+					.109,
+					.511,
+					.152
+				]),
+				Object.freeze([
+					.986,
+					.305,
+					.101
+				]),
+				Object.freeze([
+					.93,
+					.903,
+					.087
+				]),
+				Object.freeze([
+					.725,
+					.603,
+					.108
+				]),
+				Object.freeze([
+					.344,
+					.977,
+					.139
+				]),
+				Object.freeze([
+					.656,
+					.45,
+					.113
+				])
+			]),
+			Object.freeze([
+				Object.freeze([
+					.374,
+					.355,
+					.155
+				]),
+				Object.freeze([
+					.383,
+					.116,
+					.126
+				]),
+				Object.freeze([
+					.67,
+					.449,
+					.147
+				]),
+				Object.freeze([
+					.141,
+					.13,
+					.124
+				]),
+				Object.freeze([
+					.574,
+					.638,
+					.111
+				]),
+				Object.freeze([
+					.459,
+					.575,
+					.102
+				])
+			]),
+			Object.freeze([
+				Object.freeze([
+					.22,
+					.074,
+					.159
+				]),
+				Object.freeze([
+					.817,
+					.634,
+					.111
+				]),
+				Object.freeze([
+					.802,
+					.058,
+					.136
+				]),
+				Object.freeze([
+					.529,
+					.871,
+					.104
+				]),
+				Object.freeze([
+					.23,
+					.264,
+					.155
+				])
+			]),
+			Object.freeze([
+				Object.freeze([
+					.419,
+					.088,
+					.14
+				]),
+				Object.freeze([
+					.103,
+					.098,
+					.115
+				]),
+				Object.freeze([
+					.605,
+					.736,
+					.146
+				]),
+				Object.freeze([
+					.969,
+					.279,
+					.138
+				]),
+				Object.freeze([
+					.271,
+					.641,
+					.147
+				]),
+				Object.freeze([
+					.054,
+					.047,
+					.141
+				]),
+				Object.freeze([
+					.441,
+					.167,
+					.09
+				])
+			])
+		]),
+		gridSizes: Object.freeze([
+			16,
+			24,
+			32
+		]),
+		threshold: 1,
+		epsilon: 1e-4,
+		lineHalf: .0016,
+		dotRadius: .0034,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		lineTone: .1,
+		insideDotTone: .2,
+		outsideDotTone: .62,
+		grainTone: .03,
+		paperHeight: .2,
+		lineHeight: .7,
+		paperRoughness: .74,
+		lineRoughness: .42
+	}),
+	tsquarefractal: Object.freeze({
+		dark: [
+			28,
+			30,
+			44
+		],
+		light: [
+			244,
+			238,
+			222
+		],
+		roughness: .6,
+		relief: .004,
+		counts: Object.freeze([2, 3]),
+		depths: Object.freeze([
+			4,
+			5,
+			6
+		]),
+		bigSide: .5,
+		outlineHalf: .0012,
+		outlineShare: .06,
+		edgeSoft: .001,
+		grainCells: 192,
+		paperTone: .94,
+		lowTone: .2,
+		highTone: .8,
+		outlineTone: .08,
+		grainTone: .03,
+		paperHeight: .15,
+		lowHeight: .35,
+		highHeight: .95,
+		outlineHeight: .05,
+		paperRoughness: .74,
+		squareRoughness: .5
+	}),
+	superformulacells: Object.freeze({
+		dark: [
+			30,
+			26,
+			40
+		],
+		light: [
+			246,
+			240,
+			226
+		],
+		roughness: .6,
+		relief: .004,
+		counts: Object.freeze([3, 4]),
+		shapes: Object.freeze([
+			Object.freeze([
+				4,
+				12,
+				15,
+				15
+			]),
+			Object.freeze([
+				3,
+				5,
+				18,
+				18
+			]),
+			Object.freeze([
+				5,
+				2,
+				7,
+				7
+			]),
+			Object.freeze([
+				6,
+				1,
+				1,
+				1
+			]),
+			Object.freeze([
+				8,
+				.5,
+				.5,
+				8
+			]),
+			Object.freeze([
+				10,
+				1,
+				2,
+				2
+			]),
+			Object.freeze([
+				7,
+				3,
+				4,
+				4
+			]),
+			Object.freeze([
+				6,
+				.5,
+				.5,
+				.5
+			]),
+			Object.freeze([
+				5,
+				.5,
+				1.7,
+				1.7
+			]),
+			Object.freeze([
+				12,
+				2,
+				4,
+				6
+			])
+		]),
+		scales: Object.freeze([
+			.7,
+			.85,
+			1
+		]),
+		tones: Object.freeze([
+			.2,
+			.32,
+			.44,
+			.56,
+			.68,
+			.8
+		]),
+		fill: .9,
+		outlineHalf: .0012,
+		edgeSoft: .001,
+		grainCells: 192,
+		paperTone: .94,
+		outlineTone: .08,
+		grainTone: .03,
+		paperHeight: .15,
+		lowHeight: .4,
+		highHeight: .9,
+		outlineHeight: .05,
+		paperRoughness: .74,
+		shapeRoughness: .5
+	}),
+	paleygraphmatrix: Object.freeze({
+		dark: [
+			24,
+			28,
+			44
+		],
+		light: [
+			244,
+			240,
+			226
+		],
+		roughness: .6,
+		relief: .004,
+		primes: Object.freeze([
+			13,
+			17,
+			29,
+			37,
+			41,
+			53
+		]),
+		lineHalf: .0012,
+		edgeSoft: .001,
+		grainCells: 192,
+		edgeTone: .22,
+		gapTone: .88,
+		diagonalTone: .58,
+		lineTone: .08,
+		grainTone: .03,
+		edgeHeight: .8,
+		gapHeight: .3,
+		diagonalHeight: .5,
+		lineHeight: .05,
+		edgeRoughness: .45,
+		gapRoughness: .75,
+		diagonalRoughness: .6
+	}),
+	candlestickcharts: Object.freeze({
+		dark: [
+			22,
+			28,
+			38
+		],
+		light: [
+			246,
+			242,
+			230
+		],
+		roughness: .58,
+		relief: .004,
+		slots: Object.freeze([
+			16,
+			24,
+			32
+		]),
+		panels: 3,
+		low: .12,
+		high: .88,
+		minStep: .04,
+		maxStep: .09,
+		minWick: .012,
+		maxWick: .05,
+		bodyShare: .6,
+		wickHalf: .0014,
+		edgeSoft: .001,
+		grainCells: 192,
+		paperTone: .94,
+		upTone: .8,
+		downTone: .28,
+		wickTone: .06,
+		grainTone: .03,
+		paperHeight: .1,
+		upHeight: .7,
+		downHeight: .5,
+		wickHeight: .9,
+		paperRoughness: .75,
+		bodyRoughness: .45,
+		wickRoughness: .4
+	}),
+	tetrominoes: Object.freeze({
+		dark: [
+			28,
+			24,
+			40
+		],
+		light: [
+			246,
+			242,
+			228
+		],
+		roughness: .58,
+		relief: .004,
+		sizes: Object.freeze([8, 12]),
+		shapes: Object.freeze([
+			Object.freeze([
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[3, 0]
+			]),
+			Object.freeze([
+				[0, 0],
+				[1, 0],
+				[0, 1],
+				[1, 1]
+			]),
+			Object.freeze([
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[1, 1]
+			]),
+			Object.freeze([
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1]
+			]),
+			Object.freeze([
+				[0, 0],
+				[1, 0],
+				[1, 1],
+				[2, 1]
+			]),
+			Object.freeze([
+				[0, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1]
+			]),
+			Object.freeze([
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1]
+			])
+		]),
+		tones: Object.freeze([
+			.16,
+			.28,
+			.4,
+			.52,
+			.64,
+			.76,
+			.88
+		]),
+		tries: 50,
+		steps: 2e4,
+		lineHalf: .0016,
+		edgeSoft: .001,
+		grainCells: 192,
+		lineTone: .05,
+		grainTone: .03,
+		lowHeight: .35,
+		highHeight: .9,
+		lineHeight: .05,
+		pieceRoughness: .5,
+		lineRoughness: .7
+	}),
+	errordiffusion: Object.freeze({
+		dark: [
+			20,
+			22,
+			34
+		],
+		light: [
+			248,
+			244,
+			230
+		],
+		roughness: .6,
+		relief: .004,
+		sizes: Object.freeze([
+			48,
+			64,
+			96
+		]),
+		kernels: Object.freeze([
+			Object.freeze({
+				divisor: 16,
+				taps: Object.freeze([
+					[
+						1,
+						0,
+						7
+					],
+					[
+						-1,
+						1,
+						3
+					],
+					[
+						0,
+						1,
+						5
+					],
+					[
+						1,
+						1,
+						1
+					]
+				])
+			}),
+			Object.freeze({
+				divisor: 8,
+				taps: Object.freeze([
+					[
+						1,
+						0,
+						1
+					],
+					[
+						2,
+						0,
+						1
+					],
+					[
+						-1,
+						1,
+						1
+					],
+					[
+						0,
+						1,
+						1
+					],
+					[
+						1,
+						1,
+						1
+					],
+					[
+						0,
+						2,
+						1
+					]
+				])
+			}),
+			Object.freeze({
+				divisor: 48,
+				taps: Object.freeze([
+					[
+						1,
+						0,
+						7
+					],
+					[
+						2,
+						0,
+						5
+					],
+					[
+						-2,
+						1,
+						3
+					],
+					[
+						-1,
+						1,
+						5
+					],
+					[
+						0,
+						1,
+						7
+					],
+					[
+						1,
+						1,
+						5
+					],
+					[
+						2,
+						1,
+						3
+					],
+					[
+						-2,
+						2,
+						1
+					],
+					[
+						-1,
+						2,
+						3
+					],
+					[
+						0,
+						2,
+						5
+					],
+					[
+						1,
+						2,
+						3
+					],
+					[
+						2,
+						2,
+						1
+					]
+				])
+			}),
+			Object.freeze({
+				divisor: 42,
+				taps: Object.freeze([
+					[
+						1,
+						0,
+						8
+					],
+					[
+						2,
+						0,
+						4
+					],
+					[
+						-2,
+						1,
+						2
+					],
+					[
+						-1,
+						1,
+						4
+					],
+					[
+						0,
+						1,
+						8
+					],
+					[
+						1,
+						1,
+						4
+					],
+					[
+						2,
+						1,
+						2
+					],
+					[
+						-2,
+						2,
+						1
+					],
+					[
+						-1,
+						2,
+						2
+					],
+					[
+						0,
+						2,
+						4
+					],
+					[
+						1,
+						2,
+						2
+					],
+					[
+						2,
+						2,
+						1
+					]
+				])
+			}),
+			Object.freeze({
+				divisor: 32,
+				taps: Object.freeze([
+					[
+						1,
+						0,
+						8
+					],
+					[
+						2,
+						0,
+						4
+					],
+					[
+						-2,
+						1,
+						2
+					],
+					[
+						-1,
+						1,
+						4
+					],
+					[
+						0,
+						1,
+						8
+					],
+					[
+						1,
+						1,
+						4
+					],
+					[
+						2,
+						1,
+						2
+					]
+				])
+			}),
+			Object.freeze({
+				divisor: 32,
+				taps: Object.freeze([
+					[
+						1,
+						0,
+						5
+					],
+					[
+						2,
+						0,
+						3
+					],
+					[
+						-2,
+						1,
+						2
+					],
+					[
+						-1,
+						1,
+						4
+					],
+					[
+						0,
+						1,
+						5
+					],
+					[
+						1,
+						1,
+						4
+					],
+					[
+						2,
+						1,
+						2
+					],
+					[
+						-1,
+						2,
+						2
+					],
+					[
+						0,
+						2,
+						3
+					],
+					[
+						1,
+						2,
+						2
+					]
+				])
+			})
+		]),
+		pictures: Object.freeze([
+			Object.freeze([
+				1,
+				1,
+				.1,
+				.35,
+				.26,
+				.2,
+				.04
+			]),
+			Object.freeze([
+				2,
+				1,
+				.6,
+				.05,
+				.22,
+				.24,
+				.02
+			]),
+			Object.freeze([
+				1,
+				2,
+				.3,
+				.8,
+				.3,
+				.16,
+				.03
+			]),
+			Object.freeze([
+				2,
+				2,
+				.45,
+				.2,
+				.2,
+				.2,
+				.08
+			])
+		]),
+		edgeSoft: 8e-4,
+		grainCells: 192,
+		offTone: .14,
+		onTone: .9,
+		grainTone: .02,
+		offHeight: .2,
+		onHeight: .8,
+		offRoughness: .7,
+		onRoughness: .5
+	}),
+	worleycells: Object.freeze({
+		dark: [
+			18,
+			24,
+			40
+		],
+		light: [
+			244,
+			240,
+			226
+		],
+		roughness: .6,
+		relief: .004,
+		sizes: Object.freeze([
+			6,
+			8,
+			10
+		]),
+		jitters: Object.freeze([
+			.5,
+			.7,
+			.9
+		]),
+		metrics: 3,
+		modes: 4,
+		reach: 1.1,
+		domeReach: .8,
+		lowTone: .1,
+		highTone: .94,
+		grainCells: 192,
+		grainTone: .025,
+		lowHeight: .1,
+		highHeight: 1,
+		domeRoughness: .45,
+		flatRoughness: .8
+	}),
+	equalizerbars: Object.freeze({
+		dark: [
+			12,
+			14,
+			20
+		],
+		light: [
+			236,
+			244,
+			232
+		],
+		roughness: .5,
+		relief: .004,
+		bands: Object.freeze([
+			16,
+			24,
+			32
+		]),
+		rows: Object.freeze([
+			16,
+			20,
+			24
+		]),
+		firstFrequencies: Object.freeze([1, 2]),
+		secondFrequencies: Object.freeze([3, 5]),
+		firstAmplitude: .32,
+		secondAmplitude: .18,
+		scatter: .3,
+		minLevel: .12,
+		maxLevel: .9,
+		insetX: .18,
+		insetY: .22,
+		lowShare: .6,
+		midShare: .25,
+		edgeSoft: .001,
+		grainCells: 192,
+		gapTone: .05,
+		offTone: .2,
+		lowTone: .58,
+		midTone: .78,
+		highTone: .95,
+		grainTone: .02,
+		gapHeight: .05,
+		offHeight: .3,
+		litHeight: .85,
+		offRoughness: .8,
+		litRoughness: .35,
+		gapRoughness: .9
+	}),
+	intelhexrecords: Object.freeze({
+		dark: [
+			16,
+			20,
+			30
+		],
+		light: [
+			246,
+			242,
+			228
+		],
+		roughness: .6,
+		relief: .004,
+		bitmaps: Object.freeze([
+			`000010000010000`,
+			`111101101101111`,
+			`010110010010111`,
+			`111001111100111`,
+			`111001111001111`,
+			`101101111001001`,
+			`111100111001111`,
+			`111100111101111`,
+			`111001010010010`,
+			`111101111101111`,
+			`111101111001111`,
+			`010101111101101`,
+			`110101110101110`,
+			`011100100100011`,
+			`110101101101110`,
+			`111100110100111`,
+			`111100110100100`
+		]),
+		dataLines: 27,
+		bytesPerLine: 16,
+		maxAddress: 4064,
+		edgeSoft: 4e-4,
+		grainCells: 192,
+		paperTone: .94,
+		fieldTones: Object.freeze([
+			.1,
+			.24,
+			.38,
+			.52,
+			.16,
+			.66
+		]),
+		grainTone: .02,
+		paperHeight: .1,
+		inkHeight: .8,
+		paperRoughness: .75,
+		inkRoughness: .45
+	}),
+	flagpatterns: Object.freeze({
+		dark: [
+			20,
+			22,
+			32
+		],
+		light: [
+			244,
+			240,
+			226
+		],
+		roughness: .65,
+		relief: .004,
+		grids: Object.freeze([3, 4]),
+		designs: 8,
+		aspect: 1.5,
+		margin: .07,
+		tones: Object.freeze([
+			.08,
+			.22,
+			.34,
+			.7,
+			.82,
+			.94
+		]),
+		crossHalf: .1,
+		crossInnerHalf: .045,
+		crossCentreX: .55,
+		saltireHalf: .09,
+		discRadius: .3,
+		stripes: 7,
+		cantonWidth: .6,
+		cantonHeight: 4 / 7,
+		outlineHalf: .0016,
+		edgeSoft: .001,
+		grainCells: 192,
+		clothTone: .52,
+		outlineTone: .04,
+		grainTone: .025,
+		clothHeight: .2,
+		flagHeight: .65,
+		outlineHeight: .05,
+		clothRoughness: .85,
+		flagRoughness: .55
+	}),
+	gaugedials: Object.freeze({
+		dark: [
+			16,
+			18,
+			24
+		],
+		light: [
+			246,
+			242,
+			228
+		],
+		roughness: .5,
+		relief: .004,
+		grids: Object.freeze([2, 3]),
+		startAngle: -.75 * Math.PI,
+		sweepAngle: 1.5 * Math.PI,
+		majorTicks: 10,
+		minorPerMajor: 5,
+		bezelRadius: .46,
+		faceRadius: .43,
+		zoneInner: .3,
+		zoneOuter: .34,
+		zoneTones: Object.freeze([
+			.5,
+			.7,
+			.12
+		]),
+		firstBorder: Object.freeze([.5, .7]),
+		secondBorder: Object.freeze([.75, .9]),
+		majorStart: .35,
+		minorStart: .37,
+		tickEnd: .4,
+		majorHalf: .006,
+		minorHalf: .003,
+		needleLength: .32,
+		needleTail: .06,
+		needleHalf: .008,
+		needleRange: Object.freeze([.05, .95]),
+		hubRadius: .035,
+		edgeSoft: 8e-4,
+		grainCells: 192,
+		clothTone: .6,
+		bezelTone: .25,
+		faceTone: .93,
+		tickTone: .1,
+		needleTone: .05,
+		grainTone: .03,
+		clothHeight: .2,
+		bezelHeight: .85,
+		faceHeight: .5,
+		tickHeight: .6,
+		needleHeight: .95,
+		clothRoughness: .85,
+		bezelRoughness: .3,
+		faceRoughness: .35
+	}),
+	qrcodemodules: Object.freeze({
+		dark: [
+			12,
+			12,
+			16
+		],
+		light: [
+			248,
+			246,
+			238
+		],
+		roughness: .6,
+		relief: .004,
+		versions: Object.freeze([
+			1,
+			2,
+			3
+		]),
+		quietModules: 4,
+		darkShare: .5,
+		edgeSoft: 4e-4,
+		inkTone: .05,
+		paperTone: .95,
+		inkHeight: .75,
+		paperHeight: .25,
+		inkRoughness: .45,
+		paperRoughness: .8
+	}),
+	mahjongdots: Object.freeze({
+		dark: [
+			18,
+			30,
+			24
+		],
+		light: [
+			244,
+			242,
+			230
+		],
+		roughness: .45,
+		relief: .004,
+		grids: Object.freeze([3, 4]),
+		tileWidth: .675,
+		tileHeight: .9,
+		cornerRadius: .05,
+		rimWidth: .03,
+		layouts: Object.freeze([
+			Object.freeze([[.5, .5]]),
+			Object.freeze([[.5, .3], [.5, .7]]),
+			Object.freeze([
+				[.28, .2],
+				[.5, .5],
+				[.72, .8]
+			]),
+			Object.freeze([
+				[.3, .3],
+				[.7, .3],
+				[.3, .7],
+				[.7, .7]
+			]),
+			Object.freeze([
+				[.3, .3],
+				[.7, .3],
+				[.5, .5],
+				[.3, .7],
+				[.7, .7]
+			]),
+			Object.freeze([
+				[.3, .2],
+				[.7, .2],
+				[.3, .5],
+				[.7, .5],
+				[.3, .8],
+				[.7, .8]
+			]),
+			Object.freeze([
+				[.22, .14],
+				[.5, .26],
+				[.78, .38],
+				[.3, .66],
+				[.7, .66],
+				[.3, .86],
+				[.7, .86]
+			]),
+			Object.freeze([
+				[.3, .15],
+				[.7, .15],
+				[.3, .38],
+				[.7, .38],
+				[.3, .62],
+				[.7, .62],
+				[.3, .85],
+				[.7, .85]
+			]),
+			Object.freeze([
+				[.22, .2],
+				[.5, .2],
+				[.78, .2],
+				[.22, .5],
+				[.5, .5],
+				[.78, .5],
+				[.22, .8],
+				[.5, .8],
+				[.78, .8]
+			])
+		]),
+		dotRadius: .13,
+		bigDotRadius: .3,
+		centreShare: .35,
+		gapShare: .6,
+		ringTones: Object.freeze([
+			.1,
+			.22,
+			.34
+		]),
+		centreTones: Object.freeze([.46, .58]),
+		faceTone: .93,
+		rimTone: .62,
+		clothTone: .36,
+		grainTone: .04,
+		grainCells: 192,
+		edgeSoft: 8e-4,
+		clothHeight: .1,
+		tileHeightLevel: .7,
+		dotHeight: .6,
+		clothRoughness: .9,
+		tileRoughness: .3
+	}),
+	smithchart: Object.freeze({
+		dark: [
+			14,
+			18,
+			30
+		],
+		light: [
+			244,
+			240,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		chartRadius: .46,
+		resistances: Object.freeze([
+			0,
+			.2,
+			.5,
+			1,
+			2,
+			5
+		]),
+		reactances: Object.freeze([
+			.2,
+			.5,
+			1,
+			2,
+			5
+		]),
+		swrRadii: Object.freeze([
+			.3,
+			.5,
+			.7
+		]),
+		dotRadius: .045,
+		lineHalf: .0016,
+		swrHalf: .004,
+		radialHalf: .0025,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .94,
+		clothTone: .6,
+		lineTone: .32,
+		swrTone: .08,
+		grainTone: .03,
+		clothHeight: .15,
+		paperHeight: .4,
+		lineHeight: .6,
+		swrHeight: .85,
+		clothRoughness: .85,
+		paperRoughness: .55,
+		inkRoughness: .4
+	}),
+	compassrose: Object.freeze({
+		dark: [
+			20,
+			24,
+			36
+		],
+		light: [
+			246,
+			241,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		points: 16,
+		lengths: Object.freeze([
+			.33,
+			.25,
+			.17
+		]),
+		baseHalves: Object.freeze([
+			.045,
+			.034,
+			.022
+		]),
+		turnStep: 5 * Math.PI / 180,
+		turnSteps: 18,
+		centreRadius: .03,
+		centreHalf: .004,
+		ringRadius: .46,
+		ringHalf: .002,
+		tickStep: 5 * Math.PI / 180,
+		tickCount: 72,
+		minorStart: .42,
+		mediumStart: .39,
+		longStart: .36,
+		minorHalf: .0025,
+		mediumHalf: .0035,
+		longHalf: .0045,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .94,
+		inkTone: .12,
+		halfTone: .55,
+		grainTone: .03,
+		paperHeight: .3,
+		inkHeight: .8,
+		halfHeight: .6,
+		paperRoughness: .7,
+		inkRoughness: .4
+	}),
+	windbarbs: Object.freeze({
+		dark: [
+			18,
+			26,
+			40
+		],
+		light: [
+			244,
+			242,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		grids: Object.freeze([3, 4]),
+		maxSpeed: 65,
+		speedStep: 5,
+		directionStep: 10 * Math.PI / 180,
+		directions: 36,
+		ringRadius: .05,
+		calmRadius: .085,
+		ringHalf: .006,
+		staffStart: .05,
+		staffLength: .38,
+		staffHalf: .005,
+		slot: .055,
+		flagWidth: .05,
+		flagHeight: .09,
+		longBarbBack: .05,
+		longBarbSide: .09,
+		shortBarbBack: .025,
+		shortBarbSide: .045,
+		barbHalf: .005,
+		edgeSoft: 8e-4,
+		grainCells: 192,
+		paperTone: .94,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .3,
+		inkHeight: .8,
+		paperRoughness: .7,
+		inkRoughness: .4
+	}),
+	rankchevrons: Object.freeze({
+		dark: [
+			24,
+			30,
+			20
+		],
+		light: [
+			236,
+			232,
+			210
+		],
+		roughness: .75,
+		relief: .005,
+		grids: Object.freeze([3, 4]),
+		maxChevrons: 4,
+		maxRockers: 2,
+		patchRadius: .45,
+		rimRadius: .4,
+		rimHalf: .008,
+		chevronApex: -.24,
+		chevronPitch: .075,
+		chevronSlope: .45,
+		chevronReach: .26,
+		chevronThick: .06,
+		rockerBase: .2,
+		rockerPitch: .07,
+		rockerDepth: .04,
+		rockerReach: .2,
+		rockerThick: .03,
+		pipY: -.325,
+		pipRadius: .03,
+		edgeSoft: 8e-4,
+		grainCells: 192,
+		clothTone: .6,
+		patchTone: .3,
+		inkTone: .86,
+		grainTone: .04,
+		clothHeight: .1,
+		patchHeight: .4,
+		inkHeight: .8,
+		clothRoughness: .9,
+		patchRoughness: .8,
+		inkRoughness: .65
+	}),
+	segmenttree: Object.freeze({
+		dark: [
+			20,
+			22,
+			30
+		],
+		light: [
+			236,
+			232,
+			220
+		],
+		roughness: .6,
+		relief: .004,
+		depths: Object.freeze([
+			3,
+			4,
+			5
+		]),
+		valueMin: .1,
+		valueMax: .9,
+		minRange: 3,
+		gapX: .004,
+		gapY: .01,
+		outline: .005,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		gapTone: .62,
+		outlineTone: .02,
+		grainTone: .04,
+		boxHeight: .7,
+		gapHeight: .1,
+		outlineHeight: .95,
+		boxRoughness: .4,
+		gapRoughness: .9
+	}),
+	vicsekfractal: Object.freeze({
+		dark: [
+			20,
+			24,
+			36
+		],
+		light: [
+			240,
+			236,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		depths: Object.freeze([3, 4]),
+		inset: .05,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .94,
+		cellLight: .5,
+		cellDark: .06,
+		grainTone: .03,
+		paperHeight: .2,
+		cellHeight: .7,
+		paperRoughness: .8,
+		cellRoughness: .4
+	}),
+	jacobisymbols: Object.freeze({
+		dark: [
+			18,
+			22,
+			34
+		],
+		light: [
+			240,
+			236,
+			220
+		],
+		roughness: .55,
+		relief: .004,
+		sizes: Object.freeze([24, 32]),
+		startSteps: 4,
+		inset: .08,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		plusTone: .9,
+		minusTone: .1,
+		zeroTone: .5,
+		gapTone: .62,
+		grainTone: .03,
+		gapHeight: .15,
+		cellHeight: .7,
+		gapRoughness: .85,
+		cellRoughness: .4
+	}),
+	fenwicktree: Object.freeze({
+		dark: [
+			20,
+			22,
+			30
+		],
+		light: [
+			236,
+			232,
+			220
+		],
+		roughness: .6,
+		relief: .004,
+		sizes: Object.freeze([16, 32]),
+		gapX: .003,
+		gapY: .012,
+		outline: .004,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		lowTone: .55,
+		highTone: .82,
+		queryTone: .02,
+		updateTone: .98,
+		groundTone: .3,
+		grainTone: .04,
+		barHeight: .7,
+		groundHeight: .1,
+		outlineHeight: .95,
+		barRoughness: .4,
+		groundRoughness: .9
+	}),
+	semaphorefigures: Object.freeze({
+		dark: [
+			22,
+			26,
+			40
+		],
+		light: [
+			240,
+			236,
+			220
+		],
+		roughness: .55,
+		relief: .004,
+		grids: Object.freeze([3, 4]),
+		directions: 8,
+		headY: -.26,
+		headRadius: .05,
+		torsoTop: -.2,
+		torsoBottom: .12,
+		torsoHalf: .014,
+		shoulderX: .06,
+		shoulderY: -.16,
+		armLength: .2,
+		armHalf: .011,
+		flagGap: .02,
+		flagHalf: .05,
+		edgeSoft: 8e-4,
+		grainCells: 192,
+		paperTone: .93,
+		inkTone: .1,
+		flagLight: .7,
+		flagDark: .28,
+		grainTone: .03,
+		paperHeight: .2,
+		inkHeight: .8,
+		flagHeight: .6,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	hofstadterq: Object.freeze({
+		dark: [
+			20,
+			24,
+			38
+		],
+		light: [
+			240,
+			236,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		terms: 128,
+		starts: Object.freeze([
+			1,
+			129,
+			257,
+			513,
+			1025,
+			2049
+		]),
+		margin: .08,
+		dotRadius: .006,
+		rulings: 8,
+		rulingHalf: .0012,
+		guideHalf: .0016,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		rulingTone: .62,
+		guideTone: .45,
+		dotLow: .08,
+		dotHigh: .3,
+		grainTone: .03,
+		paperHeight: .2,
+		rulingHeight: .35,
+		guideHeight: .5,
+		dotHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	countertimings: Object.freeze({
+		dark: [
+			18,
+			24,
+			34
+		],
+		light: [
+			238,
+			236,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		periods: 16,
+		rows: 5,
+		highAt: .24,
+		lowAt: .76,
+		lineHalf: .0035,
+		guideHalf: 9e-4,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		guideTone: .76,
+		inkLow: .08,
+		inkStep: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		guideHeight: .35,
+		inkHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	qamconstellation: Object.freeze({
+		dark: [
+			20,
+			26,
+			40
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		sizes: Object.freeze([
+			2,
+			4,
+			8
+		]),
+		dotY: .28,
+		dotRadius: .13,
+		bitRowI: .58,
+		bitRowQ: .82,
+		bitSpacing: .27,
+		bitHalf: .09,
+		frameWidth: .035,
+		axisHalf: .004,
+		gridHalf: .0012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTones: Object.freeze([
+			.93,
+			.89,
+			.85,
+			.81
+		]),
+		gridTone: .65,
+		axisTone: .45,
+		dotTone: .38,
+		bitTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		gridHeight: .3,
+		axisHeight: .4,
+		dotHeight: .7,
+		bitHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	chorddiagrams: Object.freeze({
+		dark: [
+			24,
+			22,
+			30
+		],
+		light: [
+			242,
+			236,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		grids: Object.freeze([2, 3]),
+		chords: Object.freeze([
+			Object.freeze([
+				-1,
+				3,
+				2,
+				0,
+				1,
+				0
+			]),
+			Object.freeze([
+				3,
+				2,
+				0,
+				0,
+				0,
+				3
+			]),
+			Object.freeze([
+				-1,
+				-1,
+				0,
+				2,
+				3,
+				2
+			]),
+			Object.freeze([
+				-1,
+				0,
+				2,
+				2,
+				2,
+				0
+			]),
+			Object.freeze([
+				0,
+				2,
+				2,
+				1,
+				0,
+				0
+			]),
+			Object.freeze([
+				-1,
+				0,
+				2,
+				2,
+				1,
+				0
+			]),
+			Object.freeze([
+				0,
+				2,
+				2,
+				0,
+				0,
+				0
+			]),
+			Object.freeze([
+				-1,
+				-1,
+				0,
+				2,
+				3,
+				1
+			]),
+			Object.freeze([
+				1,
+				3,
+				3,
+				2,
+				1,
+				1
+			]),
+			Object.freeze([
+				-1,
+				2,
+				4,
+				4,
+				3,
+				2
+			])
+		]),
+		strings: 6,
+		frets: 5,
+		stringLeft: .2,
+		stringSpacing: .12,
+		boxTop: .3,
+		fretSpacing: .12,
+		markerY: .18,
+		markerRadius: .04,
+		markerHalf: .007,
+		dotRadius: .047,
+		stringHalf: .006,
+		fretHalf: .004,
+		nutHalf: .015,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		lineTone: .4,
+		nutTone: .12,
+		markerTone: .3,
+		dotTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		lineHeight: .4,
+		nutHeight: .7,
+		markerHeight: .6,
+		dotHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	waterfallchart: Object.freeze({
+		dark: [
+			22,
+			26,
+			38
+		],
+		light: [
+			240,
+			236,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		steps: Object.freeze([
+			6,
+			10,
+			14
+		]),
+		startMin: 30,
+		startSpan: 40,
+		stepMin: 3,
+		stepSpan: 16,
+		floor: 10,
+		ceiling: 90,
+		top: .08,
+		bottom: .92,
+		barHalf: .35,
+		connectorHalf: .0012,
+		gridHalf: 8e-4,
+		gridEvery: 10,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		gridTone: .8,
+		baseTone: .5,
+		connectorTone: .5,
+		endTone: .4,
+		upTone: .66,
+		downTone: .2,
+		grainTone: .03,
+		paperHeight: .2,
+		gridHeight: .3,
+		baseHeight: .4,
+		connectorHeight: .45,
+		endHeight: .7,
+		stepHeight: .8,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	intervalpartition: Object.freeze({
+		dark: [
+			20,
+			28,
+			36
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		timeUnits: 64,
+		lanes: 6,
+		maxIntervals: 28,
+		maxGap: 4,
+		minLength: 3,
+		lengthSpan: 12,
+		lanesTop: .04,
+		laneHeight: .12,
+		barHalf: .04,
+		barGap: .0015,
+		stripBottom: .96,
+		stripUnit: .026,
+		stripGap: 6e-4,
+		guideEvery: 8,
+		guideHalf: 8e-4,
+		separatorHalf: 8e-4,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		guideTone: .84,
+		separatorTone: .86,
+		laneLow: .15,
+		laneStep: .09,
+		stripTone: .45,
+		grainTone: .03,
+		paperHeight: .2,
+		guideHeight: .28,
+		separatorHeight: .3,
+		barHeight: .8,
+		stripHeight: .6,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	ecdfplot: Object.freeze({
+		dark: [
+			20,
+			26,
+			40
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		counts: Object.freeze([
+			8,
+			12,
+			16,
+			20
+		]),
+		positions: 256,
+		firstAt: 14,
+		span: 226,
+		minStep: 4,
+		top: .08,
+		bottom: .84,
+		rugTop: .88,
+		rugBottom: .96,
+		tickHalf: .0012,
+		lineHalf: .0016,
+		dotRadius: .006,
+		ringHalf: .0012,
+		guideHalf: 8e-4,
+		guides: Object.freeze([
+			.25,
+			.5,
+			.75
+		]),
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		guideTone: .82,
+		tickTone: .3,
+		inkTone: .14,
+		grainTone: .03,
+		paperHeight: .2,
+		guideHeight: .28,
+		tickHeight: .6,
+		inkHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	spanningtree: Object.freeze({
+		dark: [
+			18,
+			24,
+			36
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		counts: Object.freeze([
+			8,
+			12,
+			16
+		]),
+		lattice: 24,
+		margin: 1,
+		nodeRadius: .014,
+		edgeHalf: .0022,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		nodeTone: .08,
+		edgeFirst: .25,
+		edgeLast: .65,
+		grainTone: .03,
+		paperHeight: .2,
+		edgeHeight: .6,
+		nodeHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	kdtreesplits: Object.freeze({
+		dark: [
+			20,
+			26,
+			40
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		counts: Object.freeze([15, 31]),
+		nodeRadius: .011,
+		rootHalf: .0032,
+		depthShrink: 4e-4,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		nodeTone: .06,
+		lineFirst: .14,
+		lineLast: .62,
+		grainTone: .03,
+		paperHeight: .2,
+		lineHeight: .6,
+		nodeHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	bsttreeorder: Object.freeze({
+		dark: [
+			20,
+			26,
+			40
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		counts: Object.freeze([
+			11,
+			15,
+			19
+		]),
+		maxDepth: 6,
+		top: .07,
+		levelStep: .12,
+		nodeRadius: .016,
+		edgeHalf: .0022,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		edgeTone: .55,
+		nodeFirst: .1,
+		nodeLast: .7,
+		grainTone: .03,
+		paperHeight: .2,
+		edgeHeight: .5,
+		nodeHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	karnaughmap: Object.freeze({
+		dark: [
+			20,
+			26,
+			40
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		variables: Object.freeze([3, 4]),
+		mapLeft: .23,
+		mapTop: .3,
+		cell: .1,
+		fillInset: .012,
+		labelHalf: .014,
+		labelSpread: .0225,
+		labelFrame: .005,
+		labelColumnY: .24,
+		labelRowX: .14,
+		stripX: .86,
+		stripTop: .12,
+		stripSpan: .74,
+		gridHalf: .0011,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		gridTone: .6,
+		fillTone: .15,
+		labelTone: .3,
+		stripTone: .45,
+		grainTone: .03,
+		paperHeight: .2,
+		gridHeight: .3,
+		fillHeight: .8,
+		labelHeight: .6,
+		stripHeight: .7,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	nearesttour: Object.freeze({
+		dark: [
+			18,
+			24,
+			36
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		counts: Object.freeze([
+			8,
+			10,
+			12
+		]),
+		lattice: 24,
+		margin: 1,
+		nodeRadius: .013,
+		startRing: .024,
+		ringHalf: .0016,
+		legHalf: .0024,
+		clearance: .02,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		nodeTone: .08,
+		ringTone: .04,
+		legFirst: .2,
+		legLast: .66,
+		grainTone: .03,
+		paperHeight: .2,
+		legHeight: .6,
+		ringHeight: .5,
+		nodeHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	editdistance: Object.freeze({
+		dark: [
+			20,
+			28,
+			44
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		lengths: Object.freeze([
+			4,
+			5,
+			6,
+			7
+		]),
+		alphabet: 3,
+		origin: .05,
+		cell: .1,
+		fillHalf: .044,
+		frameRadius: .036,
+		frameHalf: .0032,
+		dotPitch: .026,
+		dotRadius: .0105,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		valueLightest: .86,
+		valueStep: .09,
+		frameTone: .04,
+		dotTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		fillHeight: .4,
+		frameHeight: .7,
+		dotHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	hashchains: Object.freeze({
+		dark: [
+			22,
+			30,
+			46
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		buckets: Object.freeze([
+			6,
+			7,
+			8
+		]),
+		keyCounts: Object.freeze([
+			10,
+			14,
+			18
+		]),
+		keyBits: 7,
+		maxChain: 5,
+		top: .07,
+		rowPitch: .1,
+		slotX: .06,
+		slotHalf: .028,
+		linkHalf: .0016,
+		boxLeft: .13,
+		boxWidth: .128,
+		boxPitch: .157,
+		boxHalfHeight: .032,
+		frameWidth: .004,
+		bitInset: .008,
+		bitHalf: .0058,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		slotTone: .55,
+		linkTone: .4,
+		rankFirst: .2,
+		rankLast: .62,
+		bitTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		slotHeight: .45,
+		linkHeight: .5,
+		frameHeight: .65,
+		bitHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	huffmancodes: Object.freeze({
+		dark: [
+			20,
+			28,
+			44
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		counts: Object.freeze([
+			5,
+			6,
+			7
+		]),
+		maxFrequency: 30,
+		top: .09,
+		rowPitch: .11,
+		barX: .05,
+		unit: .0115,
+		barHalf: .028,
+		bitX: .5,
+		bitPitch: .06,
+		bitHalf: .021,
+		ringWidth: .004,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		barTone: .4,
+		bitOnTone: .1,
+		ringTone: .45,
+		grainTone: .03,
+		paperHeight: .2,
+		barHeight: .5,
+		bitOnHeight: .85,
+		ringHeight: .65,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	bodeplots: Object.freeze({
+		dark: [
+			20,
+			28,
+			44
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		types: Object.freeze([
+			0,
+			1,
+			2,
+			3
+		]),
+		cornerExponents: Object.freeze([
+			1,
+			1.25,
+			1.5,
+			1.75,
+			2
+		]),
+		qualities: Object.freeze([
+			.5,
+			.707,
+			1,
+			2,
+			4
+		]),
+		decades: 3,
+		left: .1,
+		right: .94,
+		gainTop: .08,
+		gainBottom: .48,
+		gainMax: 20,
+		gainMin: -60,
+		gainStep: 20,
+		phaseTop: .56,
+		phaseBottom: .92,
+		phaseRange: 180,
+		phaseStep: 90,
+		gridHalf: .0011,
+		curveHalf: .0034,
+		table: 1024,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		gridTone: .65,
+		curveTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		gridHeight: .4,
+		curveHeight: .8,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	sankeyflows: Object.freeze({
+		dark: [
+			20,
+			28,
+			44
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		middleCounts: Object.freeze([3, 4]),
+		maxFlow: 3,
+		unit: .02,
+		nodeGap: .035,
+		centre: .5,
+		nodeX: Object.freeze([
+			.1,
+			.485,
+			.87
+		]),
+		nodeWidth: .03,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		nodeTone: .12,
+		bandFirst: .3,
+		bandStep: .035,
+		grainTone: .03,
+		paperHeight: .2,
+		bandHeight: .45,
+		nodeHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	histogrambins: Object.freeze({
+		dark: [
+			20,
+			28,
+			44
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		valueCounts: Object.freeze([
+			20,
+			28,
+			36
+		]),
+		binCounts: Object.freeze([
+			8,
+			10,
+			12
+		]),
+		places: 280,
+		minGap: 2,
+		left: .08,
+		right: .92,
+		baseline: .72,
+		unit: .04,
+		barGap: .004,
+		baselineHalf: .0014,
+		baselineOverhang: .006,
+		edgeMarkHalf: .0012,
+		edgeMarkLength: .02,
+		rugTop: .8,
+		rugBottom: .88,
+		tickHalf: .0012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		barTone: .38,
+		baselineTone: .55,
+		markTone: .5,
+		tickTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		barHeight: .5,
+		baselineHeight: .4,
+		tickHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	zordercurve: Object.freeze({
+		dark: [
+			20,
+			28,
+			44
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		sizes: Object.freeze([4, 8]),
+		variants: 8,
+		origin: .07,
+		span: .86,
+		nodeRadius: .0125,
+		segmentHalf: .0035,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		nodeTone: .08,
+		rampFirst: .18,
+		rampLast: .7,
+		grainTone: .03,
+		paperHeight: .2,
+		segmentHeight: .55,
+		nodeHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	lorenzcurve: Object.freeze({
+		dark: [
+			20,
+			28,
+			44
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		counts: Object.freeze([
+			8,
+			10,
+			12
+		]),
+		maxIncome: 20,
+		plotLeft: .2,
+		plotTop: .08,
+		side: .6,
+		barBase: .92,
+		unit: .008,
+		barGap: .004,
+		frameHalf: .0014,
+		diagonalHalf: .0014,
+		curveHalf: .003,
+		dotRadius: .0075,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		frameTone: .6,
+		diagonalTone: .55,
+		fillTone: .8,
+		curveTone: .1,
+		dotTone: .08,
+		barTone: .4,
+		grainTone: .03,
+		paperHeight: .2,
+		frameHeight: .4,
+		fillHeight: .3,
+		curveHeight: .7,
+		dotHeight: .85,
+		barHeight: .5,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	ganttschedule: Object.freeze({
+		dark: [
+			20,
+			28,
+			44
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		taskCounts: Object.freeze([
+			6,
+			7,
+			8
+		]),
+		horizon: 16,
+		minDuration: 1,
+		maxDuration: 4,
+		left: .1,
+		unit: .05,
+		top: .08,
+		rowPitch: .105,
+		barHalf: .028,
+		linkHalf: .0016,
+		dotRadius: .0065,
+		gridHalf: 8e-4,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		gridTone: .8,
+		linkTone: .5,
+		barTone: .35,
+		dotTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		gridHeight: .3,
+		linkHeight: .45,
+		barHeight: .6,
+		dotHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	quicksortsteps: Object.freeze({
+		dark: [
+			20,
+			28,
+			44
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		sizes: Object.freeze([
+			8,
+			9,
+			10
+		]),
+		left: .1,
+		barPitch: .08,
+		barWidth: .06,
+		unit: .0064,
+		top: .04,
+		rowPitch: .086,
+		baseOffset: .08,
+		bracketOffset: .004,
+		bracketHalf: .0016,
+		dotOffset: .0105,
+		dotRadius: .0045,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		barTone: .45,
+		placedTone: .15,
+		bracketTone: .6,
+		dotTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		barHeight: .5,
+		placedHeight: .75,
+		bracketHeight: .4,
+		dotHeight: .9,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	binarysearchsteps: Object.freeze({
+		dark: [
+			24,
+			34,
+			52
+		],
+		light: [
+			244,
+			240,
+			228
+		],
+		roughness: .55,
+		relief: .004,
+		sizes: Object.freeze([
+			12,
+			14,
+			16
+		]),
+		left: .07,
+		barPitch: .055,
+		barWidth: .04,
+		unit: .0023,
+		maxStep: 2,
+		top: .03,
+		rowPitch: .092,
+		baseOffset: .084,
+		tickLeft: .025,
+		tickRight: .062,
+		tickHalf: .0015,
+		dotOffset: .004,
+		dotRadius: .0035,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		outTone: .75,
+		inTone: .45,
+		middleTone: .15,
+		tickTone: .55,
+		dotTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		outHeight: .35,
+		inHeight: .5,
+		middleHeight: .75,
+		tickHeight: .4,
+		dotHeight: .9,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	dijkstragrid: Object.freeze({
+		dark: [
+			28,
+			30,
+			46
+		],
+		light: [
+			244,
+			241,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		sizes: Object.freeze([
+			7,
+			8,
+			9
+		]),
+		pitch: .097,
+		cellHalf: .0455,
+		costs: Object.freeze([
+			1,
+			2,
+			3,
+			4,
+			20
+		]),
+		costTones: Object.freeze([
+			.86,
+			.7,
+			.55,
+			.4,
+			.22
+		]),
+		costHeights: Object.freeze([
+			.3,
+			.4,
+			.5,
+			.6,
+			.7
+		]),
+		wallShare: .3,
+		pathHalf: .0055,
+		startRadius: .016,
+		goalRadius: .028,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		pathTone: .06,
+		grainTone: .03,
+		paperHeight: .2,
+		pathHeight: .9,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	kmpfailure: Object.freeze({
+		dark: [
+			30,
+			38,
+			56
+		],
+		light: [
+			244,
+			241,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		groups: 3,
+		sizes: Object.freeze([
+			8,
+			9,
+			10
+		]),
+		minPeriod: 2,
+		maxPeriod: 4,
+		left: .125,
+		pitch: .075,
+		cellWidth: .066,
+		cellHeight: .05,
+		barWidth: .044,
+		unit: .01,
+		top: .07,
+		groupPitch: .29,
+		groupSlack: .02,
+		ruleGap: .012,
+		ruleHalf: .0012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .95,
+		letterTones: Object.freeze([.3, .62]),
+		letterHeights: Object.freeze([.55, .45]),
+		ruleTone: .5,
+		barTone: .15,
+		grainTone: .03,
+		paperHeight: .2,
+		ruleHeight: .4,
+		barHeight: .75,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	vernierscale: Object.freeze({
+		dark: [
+			28,
+			34,
+			50
+		],
+		light: [
+			244,
+			241,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		sets: 5,
+		setPitch: .19,
+		setSlack: .02,
+		top: .06,
+		left: .08,
+		pitch: .03,
+		units: 28,
+		bandOverhang: .02,
+		mainHeight: .05,
+		plateGap: .004,
+		plateHeight: .05,
+		plateOverhang: .015,
+		divisions: 10,
+		ratio: .9,
+		tickHalf: .0012,
+		shortTick: .018,
+		longTick: .03,
+		alignedTick: .036,
+		minWhole: 1,
+		maxWhole: 17,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		mainTone: .86,
+		plateTone: .74,
+		tickTone: .3,
+		longTone: .18,
+		alignedTone: .06,
+		grainTone: .03,
+		paperHeight: .2,
+		mainHeightLevel: .35,
+		plateHeightLevel: .3,
+		tickHeight: .6,
+		longHeight: .7,
+		alignedHeight: .9,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	paretochart: Object.freeze({
+		dark: [
+			26,
+			36,
+			54
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		sizes: Object.freeze([
+			7,
+			8,
+			9
+		]),
+		maxValue: 30,
+		skew: 2.5,
+		left: .1,
+		pitch: .09,
+		barWidth: .07,
+		base: .88,
+		chartHeight: .6,
+		baseHalf: .0018,
+		baseOverhang: .02,
+		shareHalf: .0012,
+		lineHalf: .0018,
+		dotRadius: .0075,
+		share: .8,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .95,
+		barTone: .5,
+		baseTone: .3,
+		shareTone: .65,
+		lineTone: .2,
+		dotTone: .06,
+		grainTone: .03,
+		paperHeight: .2,
+		barHeight: .5,
+		baseHeight: .6,
+		shareHeight: .35,
+		lineHeight: .75,
+		dotHeight: .9,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	radixsortpasses: Object.freeze({
+		dark: [
+			24,
+			34,
+			52
+		],
+		light: [
+			244,
+			241,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		sizes: Object.freeze([
+			10,
+			12,
+			14
+		]),
+		maxValue: 63,
+		digitBits: 2,
+		passes: 3,
+		left: .08,
+		barPitch: .06,
+		barWidth: .048,
+		unit: .0022,
+		minLevel: 2,
+		top: .05,
+		rowPitch: .215,
+		baseOffset: .16,
+		baseHalf: .0015,
+		baseOverhang: .015,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .95,
+		digitTones: Object.freeze([
+			.78,
+			.6,
+			.42,
+			.26
+		]),
+		digitHeights: Object.freeze([
+			.3,
+			.4,
+			.5,
+			.6
+		]),
+		doneTone: .1,
+		doneHeight: .8,
+		baseTone: .35,
+		baseHeight: .55,
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	mergesortruns: Object.freeze({
+		dark: [
+			24,
+			36,
+			54
+		],
+		light: [
+			244,
+			241,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		sizes: Object.freeze([
+			13,
+			14,
+			15,
+			16
+		]),
+		left: .07,
+		barPitch: .055,
+		barWidth: .045,
+		unit: .0045,
+		top: .05,
+		rowPitch: .18,
+		baseOffset: .1,
+		baseHalf: .0015,
+		baseOverhang: .015,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .95,
+		runTones: Object.freeze([.36, .64]),
+		runHeights: Object.freeze([.5, .4]),
+		doneTone: .1,
+		doneHeight: .8,
+		baseTone: .35,
+		baseHeight: .55,
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	bresenhamlines: Object.freeze({
+		dark: [
+			26,
+			32,
+			50
+		],
+		light: [
+			244,
+			241,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		panels: 2,
+		cells: 16,
+		pitch: .0275,
+		cellHalf: .0115,
+		originX: .04,
+		originY: .04,
+		panelPitch: .47,
+		minSpan: 8,
+		gridHalf: 6e-4,
+		lineHalf: 9e-4,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .95,
+		gridTone: .75,
+		litTone: .38,
+		endTone: .12,
+		lineTone: .68,
+		grainTone: .03,
+		paperHeight: .2,
+		gridHeight: .3,
+		litHeight: .5,
+		endHeight: .8,
+		lineHeight: .65,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	bfswavefront: Object.freeze({
+		dark: [
+			24,
+			34,
+			56
+		],
+		light: [
+			244,
+			241,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		sizes: Object.freeze([
+			10,
+			11,
+			12
+		]),
+		wallShare: .24,
+		pitch: .07,
+		cellHalf: .0315,
+		rampTones: Object.freeze([
+			.3,
+			.38,
+			.46,
+			.54,
+			.62,
+			.7,
+			.78,
+			.86
+		]),
+		rampHeights: Object.freeze([
+			.7,
+			.65,
+			.6,
+			.55,
+			.5,
+			.45,
+			.4,
+			.35
+		]),
+		wallTone: .08,
+		wallHeight: .9,
+		shutTone: .92,
+		shutHeight: .15,
+		dotRadius: .012,
+		dotTone: .04,
+		dotHeight: .95,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	knapsacktable: Object.freeze({
+		dark: [
+			28,
+			36,
+			56
+		],
+		light: [
+			244,
+			241,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		instances: 2,
+		itemCounts: Object.freeze([4, 5]),
+		capacity: 9,
+		maxWeight: 4,
+		maxValue: 6,
+		top: .06,
+		instancePitch: .46,
+		rowPitch: .072,
+		cellHalfHeight: .03,
+		tableLeft: .28,
+		colPitch: .066,
+		cellHalfWidth: .029,
+		cellUnit: .0018,
+		cellBarHalf: .01,
+		cellBarFloor: .004,
+		squareLeft: .045,
+		squarePitch: .035,
+		squareHalf: .012,
+		itemBarX: .215,
+		itemBarHalf: .014,
+		itemUnit: .008,
+		frameHalf: .0015,
+		frameGap: .003,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		cellTone: .87,
+		takenTone: .66,
+		barTone: .22,
+		squareTone: .3,
+		itemBarTone: .22,
+		frameTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		cellHeight: .3,
+		takenHeight: .45,
+		barHeight: .7,
+		squareHeight: .6,
+		itemBarHeight: .7,
+		frameHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	prefixtrie: Object.freeze({
+		dark: [
+			26,
+			34,
+			54
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		minWords: 6,
+		maxWords: 8,
+		minLength: 2,
+		maxLength: 4,
+		letters: 3,
+		left: .08,
+		xPitch: .2,
+		top: .1,
+		slotPitch: .11,
+		nodeRadius: .014,
+		ringRadius: .0265,
+		ringHalf: .0025,
+		lineHalf: .0016,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .95,
+		letterTones: Object.freeze([
+			.25,
+			.5,
+			.72
+		]),
+		trunkTone: .6,
+		nodeTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		letterHeights: Object.freeze([
+			.6,
+			.5,
+			.4
+		]),
+		trunkHeight: .35,
+		nodeHeight: .9,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	lrucachetrace: Object.freeze({
+		dark: [
+			26,
+			36,
+			56
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		steps: 14,
+		pages: 6,
+		slotCounts: Object.freeze([3, 4]),
+		left: .08,
+		pitch: .06,
+		squareHalf: .022,
+		top: .12,
+		rowPitch: .07,
+		gapAfterRequest: .03,
+		markerDrop: .06,
+		markerRadius: .009,
+		ringRadius: .012,
+		ringHalf: .0022,
+		frameHalf: .0015,
+		frameGap: .0035,
+		repeatShare: .45,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		pageTones: Object.freeze([
+			.2,
+			.32,
+			.44,
+			.56,
+			.68,
+			.8
+		]),
+		pageHeights: Object.freeze([
+			.8,
+			.7,
+			.6,
+			.5,
+			.4,
+			.3
+		]),
+		emptyTone: .9,
+		emptyHeight: .15,
+		frameTone: .06,
+		markTone: .16,
+		grainTone: .03,
+		paperHeight: .2,
+		frameHeight: .9,
+		markHeight: .7,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	funnelchart: Object.freeze({
+		dark: [
+			26,
+			38,
+			58
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		stageCounts: Object.freeze([5, 6]),
+		minKept: .45,
+		maxKept: .95,
+		centerX: .37,
+		fullWidth: .6,
+		top: .08,
+		stagePitch: .145,
+		stageHeight: .1,
+		slantHeight: .045,
+		trackLeft: .74,
+		trackLength: .2,
+		trackHalf: .012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		barTone: .3,
+		slantTone: .72,
+		trackTone: .88,
+		keptTone: .18,
+		grainTone: .03,
+		paperHeight: .2,
+		barHeight: .7,
+		slantHeightLevel: .4,
+		trackHeight: .3,
+		keptHeight: .8,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	wordlefeedback: Object.freeze({
+		dark: [
+			28,
+			36,
+			52
+		],
+		light: [
+			244,
+			241,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		wordLength: 5,
+		letterCount: 6,
+		guessCounts: Object.freeze([
+			4,
+			5,
+			6
+		]),
+		keepShare: .4,
+		solvedShare: .5,
+		left: .25,
+		pitch: .1,
+		top: .1,
+		secretLine: 6,
+		tileHalf: .042,
+		letterHalf: .02,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		letterTones: Object.freeze([
+			.05,
+			.1,
+			.15,
+			.2,
+			.25,
+			.3
+		]),
+		rightTone: .55,
+		elsewhereTone: .75,
+		noTone: .9,
+		grainTone: .03,
+		paperHeight: .2,
+		letterHeight: .85,
+		rightHeight: .7,
+		elsewhereHeight: .5,
+		noHeight: .3,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	nimgame: Object.freeze({
+		dark: [
+			24,
+			34,
+			56
+		],
+		light: [
+			246,
+			242,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		heapCounts: Object.freeze([3, 4]),
+		maxStones: 7,
+		bitCount: 3,
+		maxStates: 14,
+		forceFrom: 5,
+		left: .08,
+		pitch: .06,
+		top: .06,
+		rowPitch: .13,
+		baseDrop: .11,
+		stoneHeight: .1 / 7,
+		barHalf: .022,
+		bitsGap: .03,
+		bitPitch: .045,
+		dotRadius: .012,
+		ringRadius: .01,
+		ringHalf: .0018,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		barTone: .45,
+		moveTone: .18,
+		ghostTone: .82,
+		dotTone: .15,
+		grainTone: .03,
+		paperHeight: .2,
+		barHeight: .7,
+		moveHeight: .9,
+		ghostHeight: .4,
+		dotHeight: .8,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	gamblersruin: Object.freeze({
+		dark: [
+			30,
+			34,
+			58
+		],
+		light: [
+			244,
+			241,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		laneCount: 5,
+		levels: 8,
+		rounds: 24,
+		winChances: Object.freeze([
+			.4,
+			.5,
+			.6
+		]),
+		left: .05,
+		pitch: .036,
+		top: .08,
+		lanePitch: .16,
+		laneMargin: .02,
+		unit: .015,
+		dotRadius: .0065,
+		lineHalf: .0012,
+		tickLeft: .012,
+		tickPitch: .012,
+		tickHalf: .0035,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		lineTone: .78,
+		dotTone: .14,
+		grainTone: .03,
+		paperHeight: .2,
+		lineHeight: .4,
+		dotHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	bloomfilter: Object.freeze({
+		dark: [
+			28,
+			38,
+			60
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		bitCount: 24,
+		hashCount: 3,
+		insertCount: 6,
+		queryCount: 6,
+		memberQueries: 2,
+		left: .05,
+		pitch: .0375,
+		top: .0475,
+		rowPitch: .065,
+		cellHalf: .0135,
+		dotRadius: .008,
+		markX: .975,
+		ringRadius: .0098,
+		ringHalf: .0022,
+		squareHalf: .01,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		unsetTone: .88,
+		setTone: .25,
+		dotTone: .15,
+		markTone: .22,
+		grainTone: .03,
+		paperHeight: .2,
+		unsetHeight: .3,
+		setHeight: .75,
+		dotHeight: .85,
+		markHeight: .6,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	linearprobing: Object.freeze({
+		dark: [
+			30,
+			36,
+			58
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		slotCount: 16,
+		keyCounts: Object.freeze([
+			8,
+			10,
+			12
+		]),
+		left: .1,
+		pitch: .05,
+		top: .08,
+		rowPitch: .075,
+		slotHalf: .02,
+		homeDrop: .03,
+		homeRadius: .006,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		emptyTone: .88,
+		firstKeyTone: .08,
+		keyToneStep: .04,
+		homeTone: .12,
+		grainTone: .03,
+		paperHeight: .2,
+		emptyHeight: .3,
+		keyHeight: .75,
+		homeHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	unionfindmerges: Object.freeze({
+		dark: [
+			28,
+			40,
+			62
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		elementCount: 14,
+		requestCount: 10,
+		left: .08,
+		pitch: .06,
+		top: .08,
+		rowPitch: .08,
+		squareHalf: .022,
+		dotRise: .032,
+		dotRadius: .006,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		firstSetTone: .06,
+		setToneStep: .04,
+		dotTone: .12,
+		grainTone: .03,
+		paperHeight: .2,
+		squareHeight: .75,
+		dotHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	fareysequence: Object.freeze({
+		dark: [
+			30,
+			36,
+			60
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		rowCounts: Object.freeze([
+			7,
+			8,
+			9
+		]),
+		minDenominator: 11,
+		maxDenominator: 23,
+		left: .1,
+		length: .8,
+		top: .1,
+		rowPitch: .09,
+		tickHalfWidth: .0016,
+		tickHalfHeight: .022,
+		bandHalfHeight: .012,
+		dotDrop: .036,
+		dotRadius: .006,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		oldTickTone: .4,
+		newTickTone: .12,
+		bandTone: .86,
+		dotTone: .2,
+		grainTone: .03,
+		paperHeight: .2,
+		oldTickHeight: .6,
+		newTickHeight: .85,
+		bandHeight: .35,
+		dotHeight: .75,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	lfsrstates: Object.freeze({
+		dark: [
+			26,
+			36,
+			58
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		bitCount: 8,
+		stateCounts: Object.freeze([
+			16,
+			20,
+			24
+		]),
+		tapSets: Object.freeze([
+			Object.freeze([
+				0,
+				2,
+				3,
+				4
+			]),
+			Object.freeze([
+				0,
+				1,
+				2,
+				7
+			]),
+			Object.freeze([
+				0,
+				3,
+				5,
+				7
+			])
+		]),
+		left: .08,
+		pitch: .05,
+		top: .12,
+		rowPitch: .034,
+		cellHalf: .014,
+		outputColumn: 9,
+		feedbackColumn: 10.2,
+		markHalf: .01,
+		tapRise: .045,
+		tapRadius: .007,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		clearTone: .88,
+		setTone: .14,
+		tapTone: .14,
+		grainTone: .03,
+		paperHeight: .2,
+		clearHeight: .3,
+		setHeight: .8,
+		tapHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	crcdivision: Object.freeze({
+		dark: [
+			26,
+			36,
+			58
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		messageBits: 12,
+		checkBits: 4,
+		divisors: Object.freeze([
+			19,
+			25,
+			29
+		]),
+		left: .1,
+		pitch: .05,
+		top: .14,
+		rowPitch: .06,
+		cellHalf: .02,
+		divisorTop: .07,
+		divisorHalf: .011,
+		dotDrop: .035,
+		dotRadius: .006,
+		ringRadius: .0045,
+		ringHalf: .0016,
+		frameGap: .004,
+		frameHalf: .0016,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		clearTone: .88,
+		setTone: .14,
+		markTone: .22,
+		frameTone: .32,
+		grainTone: .03,
+		paperHeight: .2,
+		clearHeight: .3,
+		setHeight: .8,
+		markHeight: .85,
+		frameHeight: .6,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	kolakoskisequence: Object.freeze({
+		dark: [
+			30,
+			38,
+			62
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		symbolPairs: Object.freeze([
+			Object.freeze([1, 2]),
+			Object.freeze([2, 1]),
+			Object.freeze([1, 3]),
+			Object.freeze([3, 1])
+		]),
+		symbolCount: 64,
+		columns: 16,
+		left: .085,
+		pitch: .052,
+		top: .08,
+		rowPitch: .07,
+		runRows: 3,
+		runTop: .42,
+		cellHalf: .02,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		symbolTones: Object.freeze([
+			.14,
+			.5,
+			.78
+		]),
+		grainTone: .03,
+		paperHeight: .2,
+		symbolHeights: Object.freeze([
+			.85,
+			.6,
+			.35
+		]),
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	slopegraph: Object.freeze({
+		dark: [
+			28,
+			38,
+			62
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		itemCounts: Object.freeze([
+			6,
+			8,
+			10
+		]),
+		levelCount: 20,
+		leftX: .2,
+		rightX: .8,
+		top: .1,
+		levelPitch: .04,
+		axisHalf: .0012,
+		axisReach: .02,
+		lineHalf: .0022,
+		dotRadius: .0095,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		axisTone: .8,
+		riseTone: .2,
+		fallTone: .5,
+		levelTone: .72,
+		dotTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		axisHeight: .35,
+		riseHeight: .8,
+		fallHeight: .6,
+		levelHeight: .45,
+		dotHeight: .9,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	astroidladder: Object.freeze({
+		dark: [
+			28,
+			36,
+			62
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		ladderCounts: Object.freeze([
+			14,
+			18,
+			22
+		]),
+		lengths: Object.freeze([
+			.34,
+			.37,
+			.4
+		]),
+		powers: Object.freeze([
+			.8,
+			1,
+			1.25
+		]),
+		centerX: .5,
+		centerY: .5,
+		axisHalf: .0012,
+		axisReach: .45,
+		lineHalf: .0015,
+		endRadius: .003,
+		touchRadius: .0026,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		axisTone: .84,
+		lineTone: .5,
+		endTone: .12,
+		touchTone: .28,
+		grainTone: .03,
+		paperHeight: .2,
+		axisHeight: .3,
+		lineHeight: .6,
+		endHeight: .85,
+		touchHeight: .75,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	eulerlinetriangle: Object.freeze({
+		dark: [
+			26,
+			36,
+			60
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		radii: Object.freeze([
+			.28,
+			.3,
+			.32
+		]),
+		centerX: .5,
+		centerY: .5,
+		arcSpread: .8,
+		edgeHalf: .0022,
+		altitudeHalf: .0014,
+		circleHalf: .0012,
+		eulerHalf: .0016,
+		cornerRadius: .011,
+		ringRadius: .012,
+		ringHalf: .002,
+		centroidRadius: .008,
+		squareHalf: .008,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		circleTone: .76,
+		altitudeTone: .64,
+		edgeTone: .46,
+		eulerTone: .34,
+		cornerTone: .1,
+		squareTone: .2,
+		ringTone: .3,
+		centroidTone: .42,
+		grainTone: .03,
+		paperHeight: .2,
+		circleHeight: .3,
+		altitudeHeight: .4,
+		edgeHeight: .6,
+		eulerHeight: .7,
+		cornerHeight: .9,
+		squareHeight: .85,
+		ringHeight: .8,
+		centroidHeight: .75,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	arbelos: Object.freeze({
+		dark: [
+			30,
+			40,
+			66
+		],
+		light: [
+			246,
+			243,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		left: .1,
+		right: .9,
+		baselineY: .7,
+		shareLow: .25,
+		shareSpan: .17,
+		baselineHalf: .0016,
+		arcHalf: .0022,
+		lineHalf: .0015,
+		twinHalf: .002,
+		dotRadius: .008,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		baselineTone: .3,
+		arcTone: .5,
+		lineTone: .64,
+		twinTone: .22,
+		dotTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		baselineHeight: .45,
+		arcHeight: .6,
+		lineHeight: .35,
+		twinHeight: .75,
+		dotHeight: .9,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	contributiongraph: Object.freeze({
+		dark: [
+			28,
+			78,
+			58
+		],
+		light: [
+			244,
+			244,
+			236
+		],
+		roughness: .55,
+		relief: .004,
+		years: Object.freeze([
+			1990,
+			1992,
+			1995,
+			1997,
+			2e3,
+			2003,
+			2005,
+			2008,
+			2011,
+			2013,
+			2016,
+			2017
+		]),
+		bands: 5,
+		left: .056,
+		top: .09,
+		pitch: .0148,
+		cell: .012,
+		monthGap: .007,
+		bandPitch: .17,
+		keyLeft: .7,
+		keyTop: .935,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		weekendFactor: .4,
+		levelScale: 5.5,
+		busiestWeek: 1,
+		quietestWeek: .3,
+		levelTones: Object.freeze([
+			.86,
+			.68,
+			.5,
+			.33,
+			.16
+		]),
+		levelHeights: Object.freeze([
+			.3,
+			.42,
+			.54,
+			.68,
+			.84
+		]),
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	pythagoreanproof: Object.freeze({
+		dark: [
+			34,
+			44,
+			74
+		],
+		light: [
+			246,
+			243,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		triples: Object.freeze([
+			Object.freeze([
+				3,
+				4,
+				5
+			]),
+			Object.freeze([
+				6,
+				8,
+				10
+			]),
+			Object.freeze([
+				5,
+				12,
+				13
+			]),
+			Object.freeze([
+				8,
+				15,
+				17
+			])
+		]),
+		extent: .84,
+		centerX: .5,
+		centerY: .5,
+		outlineHalf: .0018,
+		gridHalf: 7e-4,
+		dotRadius: .007,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		shortTone: .82,
+		otherShortTone: .7,
+		longTone: .58,
+		triangleTone: .4,
+		gridTone: .46,
+		outlineTone: .24,
+		dotTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		shortHeight: .35,
+		otherShortHeight: .45,
+		longHeight: .55,
+		triangleHeight: .65,
+		gridHeight: .5,
+		outlineHeight: .75,
+		dotHeight: .9,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	keplerorbit: Object.freeze({
+		dark: [
+			28,
+			36,
+			64
+		],
+		light: [
+			246,
+			243,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		semiMajors: Object.freeze([
+			.3,
+			.34,
+			.38
+		]),
+		eccentricities: Object.freeze([
+			.45,
+			.6,
+			.75
+		]),
+		counts: Object.freeze([
+			8,
+			10,
+			12
+		]),
+		centerX: .5,
+		centerY: .5,
+		orbitHalf: .002,
+		rayHalf: .0012,
+		planetRadius: .009,
+		sunRadius: .015,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		wedgeTone: .88,
+		otherWedgeTone: .74,
+		orbitTone: .3,
+		rayTone: .5,
+		planetTone: .1,
+		sunTone: .04,
+		grainTone: .03,
+		paperHeight: .2,
+		wedgeHeight: .3,
+		otherWedgeHeight: .42,
+		orbitHeight: .6,
+		rayHeight: .5,
+		planetHeight: .8,
+		sunHeight: .95,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	eisensteinprimes: Object.freeze({
+		dark: [
+			24,
+			34,
+			62
+		],
+		light: [
+			246,
+			243,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		size: 28,
+		origins: Object.freeze([
+			Object.freeze([14, 14]),
+			Object.freeze([9, 12]),
+			Object.freeze([18, 8]),
+			Object.freeze([6, 19]),
+			Object.freeze([20, 18]),
+			Object.freeze([12, 5]),
+			Object.freeze([15, 22]),
+			Object.freeze([3, 10])
+		]),
+		primeRadius: .012,
+		plainRadius: .0042,
+		originRadius: .0085,
+		ringRadius: .0145,
+		ringHalf: .0015,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		primeTone: .1,
+		plainTone: .66,
+		originTone: .3,
+		ringTone: .44,
+		grainTone: .03,
+		paperHeight: .2,
+		primeHeight: .85,
+		plainHeight: .4,
+		originHeight: .65,
+		ringHeight: .55,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	catalantriangulations: Object.freeze({
+		dark: [
+			26,
+			36,
+			66
+		],
+		light: [
+			246,
+			243,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		sides: Object.freeze([
+			5,
+			6,
+			7
+		]),
+		columns: Object.freeze([
+			3,
+			5,
+			7
+		]),
+		rows: Object.freeze([
+			2,
+			3,
+			6
+		]),
+		extent: .9,
+		margin: .012,
+		edgeHalf: .0018,
+		diagonalHalf: .0013,
+		dotRadius: .0045,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		fillTone: .9,
+		edgeTone: .28,
+		diagonalTone: .5,
+		dotTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		fillHeight: .3,
+		edgeHeight: .6,
+		diagonalHeight: .45,
+		dotHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	binarynecklaces: Object.freeze({
+		dark: [
+			28,
+			38,
+			68
+		],
+		light: [
+			246,
+			243,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		beads: Object.freeze([
+			6,
+			7,
+			8
+		]),
+		columns: Object.freeze([
+			5,
+			5,
+			6
+		]),
+		rows: Object.freeze([
+			3,
+			4,
+			6
+		]),
+		extent: .9,
+		ringShare: .34,
+		beadShare: .7,
+		ringHalf: .0013,
+		outlineHalf: .0012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		ringTone: .62,
+		outlineTone: .26,
+		darkTone: .1,
+		lightTone: .9,
+		grainTone: .03,
+		paperHeight: .2,
+		ringHeight: .35,
+		outlineHeight: .7,
+		darkHeight: .85,
+		lightHeight: .5,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
+	baumsweetgrid: Object.freeze({
+		dark: [
+			24,
+			52,
+			54
+		],
+		light: [
+			244,
+			240,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		side: 64,
+		offsets: Object.freeze([
+			1234,
+			5e3,
+			21847,
+			65537,
+			131e3,
+			150001,
+			41e4,
+			524333
+		]),
+		extent: .94,
+		gapHalf: .0012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		tones: Object.freeze([
+			.12,
+			.36,
+			.52,
+			.66,
+			.8
+		]),
+		grainTone: .03,
+		paperHeight: .2,
+		heights: Object.freeze([
+			.8,
+			.68,
+			.58,
+			.5,
+			.44
+		]),
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	rudinshapirogrid: Object.freeze({
+		dark: [
+			58,
+			32,
+			40
+		],
+		light: [
+			244,
+			238,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		side: 64,
+		offsets: Object.freeze([
+			1234,
+			5e3,
+			7777,
+			30001,
+			150001,
+			600001,
+			3001,
+			12345
+		]),
+		extent: .94,
+		gapHalf: .0012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		tones: Object.freeze([
+			.9,
+			.12,
+			.74,
+			.28,
+			.58,
+			.42
+		]),
+		heights: Object.freeze([
+			.3,
+			.85,
+			.42,
+			.74,
+			.54,
+			.64
+		]),
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	paperfoldingruler: Object.freeze({
+		dark: [
+			30,
+			46,
+			70
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		side: 61,
+		offsets: Object.freeze([
+			1,
+			1234,
+			5e3,
+			7777,
+			12345,
+			30001,
+			150001,
+			600001
+		]),
+		extent: .94,
+		gapHalf: .0012,
+		innerShare: .45,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		tones: Object.freeze([
+			.9,
+			.76,
+			.62,
+			.48,
+			.34,
+			.2
+		]),
+		innerTones: Object.freeze([
+			.3,
+			.38,
+			.46,
+			.76,
+			.84,
+			.92
+		]),
+		heights: Object.freeze([
+			.3,
+			.4,
+			.5,
+			.6,
+			.7,
+			.8
+		]),
+		innerLift: .14,
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	walshmatrix: Object.freeze({
+		dark: [
+			22,
+			40,
+			58
+		],
+		light: [
+			240,
+			236,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		sizes: Object.freeze([
+			8,
+			16,
+			32
+		]),
+		extent: .9,
+		gapHalf: .0012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		plusTone: .1,
+		minusTone: .88,
+		grainTone: .03,
+		paperHeight: .2,
+		plusHeight: .8,
+		minusHeight: .4,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	beattypartition: Object.freeze({
+		dark: [
+			30,
+			44,
+			66
+		],
+		light: [
+			243,
+			238,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		side: 47,
+		alphas: Object.freeze([
+			1.618033988749895,
+			1.4142135623730951,
+			1.7320508075688772,
+			2.718281828459045
+		]),
+		offsets: Object.freeze([
+			1,
+			100,
+			777,
+			2e3
+		]),
+		extent: .94,
+		gapHalf: .0012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		tones: Object.freeze([
+			.1,
+			.22,
+			.34,
+			.62,
+			.74,
+			.86
+		]),
+		heights: Object.freeze([
+			.85,
+			.78,
+			.71,
+			.5,
+			.43,
+			.36
+		]),
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	cycliccellular: Object.freeze({
+		dark: [
+			18,
+			30,
+			62
+		],
+		light: [
+			248,
+			236,
+			204
+		],
+		roughness: .55,
+		relief: .004,
+		side: 20,
+		burnIn: 6,
+		rules: Object.freeze([
+			Object.freeze({
+				states: 6,
+				threshold: 2
+			}),
+			Object.freeze({
+				states: 8,
+				threshold: 1
+			}),
+			Object.freeze({
+				states: 10,
+				threshold: 1
+			})
+		]),
+		extent: .94,
+		panelGap: .04,
+		gapHalf: 8e-4,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		lowTone: .08,
+		highTone: .88,
+		lowHeight: .35,
+		highHeight: .85,
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	wireworldcircuit: Object.freeze({
+		dark: [
+			20,
+			24,
+			44
+		],
+		light: [
+			250,
+			232,
+			168
+		],
+		roughness: .5,
+		relief: .004,
+		side: 22,
+		circuits: Object.freeze([
+			Object.freeze([
+				`......................`,
+				`......................`,
+				`......................`,
+				`...#####TH#########...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#########HT#####...`,
+				`......................`,
+				`......................`,
+				`......................`
+			]),
+			Object.freeze([
+				`......................`,
+				`......................`,
+				`......................`,
+				`......................`,
+				`......................`,
+				`...##TH########.......`,
+				`...#..........#.......`,
+				`...#..........#.......`,
+				`...#..........#.......`,
+				`...#..........#.......`,
+				`...#..........#######.`,
+				`...#..........#.......`,
+				`...#..........#.......`,
+				`...#..........#.......`,
+				`...#..........#.......`,
+				`...#..........#.......`,
+				`...############.......`,
+				`......................`,
+				`......................`,
+				`......................`,
+				`......................`,
+				`......................`
+			]),
+			Object.freeze([
+				`......................`,
+				`......................`,
+				`......................`,
+				`......................`,
+				`..###TH###..#####TH#..`,
+				`..#......#..#......#..`,
+				`..#......#..#......#..`,
+				`..#......#..#......#..`,
+				`..#......#..#......#..`,
+				`..#......#..#......#..`,
+				`..#......####......#..`,
+				`..#......#..#......#..`,
+				`..#......#..#......#..`,
+				`..#......#..#......#..`,
+				`..#......#..#......#..`,
+				`..#......#..#......#..`,
+				`..#......#..#......#..`,
+				`..###HT###..########..`,
+				`......................`,
+				`......................`,
+				`......................`,
+				`......................`
+			]),
+			Object.freeze([
+				`......................`,
+				`......................`,
+				`......................`,
+				`...####TH##########...`,
+				`...#....#####.....#...`,
+				`...#....#####.....#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...#..............#...`,
+				`...################...`,
+				`......................`,
+				`......................`,
+				`......................`,
+				`......................`
+			])
+		]),
+		starts: Object.freeze([
+			0,
+			7,
+			13,
+			22
+		]),
+		extent: .94,
+		panelGap: .04,
+		gapHalf: 8e-4,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		emptyTone: .08,
+		conductorTone: .55,
+		headTone: .95,
+		tailTone: .3,
+		emptyHeight: .25,
+		conductorHeight: .55,
+		headHeight: .85,
+		tailHeight: .4,
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	duccirows: Object.freeze({
+		dark: [
+			28,
+			20,
+			60
+		],
+		light: [
+			244,
+			236,
+			214
+		],
+		roughness: .55,
+		relief: .004,
+		maxValue: 99,
+		sizes: Object.freeze([
+			23,
+			29,
+			31,
+			37
+		]),
+		extent: .94,
+		gapHalf: .0012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		lightTone: .9,
+		darkTone: .08,
+		lightHeight: .35,
+		darkHeight: .85,
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	scrabbleboard: Object.freeze({
+		dark: [
+			18,
+			52,
+			40
+		],
+		light: [
+			246,
+			236,
+			206
+		],
+		roughness: .5,
+		relief: .004,
+		squares: Object.freeze([
+			`T..d...T...d..T`,
+			`.D...t...t...D.`,
+			`..D...d.d...D..`,
+			`d..D...d...D..d`,
+			`....D.....D....`,
+			`.t...t...t...t.`,
+			`..d...d.d...d..`,
+			`T..d...D...d..T`,
+			`..d...d.d...d..`,
+			`.t...t...t...t.`,
+			`....D.....D....`,
+			`d..D...d...D..d`,
+			`..D...d.d...D..`,
+			`.D...t...t...D.`,
+			`T..d...T...d..T`
+		]),
+		layouts: Object.freeze([
+			Object.freeze([
+				Object.freeze({
+					word: `QUARTZ`,
+					x: 4,
+					y: 7,
+					across: !0
+				}),
+				Object.freeze({
+					word: `ZEBRA`,
+					x: 9,
+					y: 7,
+					across: !1
+				}),
+				Object.freeze({
+					word: `QUIET`,
+					x: 4,
+					y: 7,
+					across: !1
+				}),
+				Object.freeze({
+					word: `BOX`,
+					x: 9,
+					y: 9,
+					across: !0
+				}),
+				Object.freeze({
+					word: `AXE`,
+					x: 11,
+					y: 8,
+					across: !1
+				}),
+				Object.freeze({
+					word: `TOY`,
+					x: 4,
+					y: 11,
+					across: !0
+				}),
+				Object.freeze({
+					word: `RAW`,
+					x: 7,
+					y: 7,
+					across: !1
+				})
+			]),
+			Object.freeze([
+				Object.freeze({
+					word: `JAZZY`,
+					x: 3,
+					y: 7,
+					across: !0
+				}),
+				Object.freeze({
+					word: `YAK`,
+					x: 7,
+					y: 7,
+					across: !1
+				}),
+				Object.freeze({
+					word: `FIZZ`,
+					x: 5,
+					y: 4,
+					across: !1
+				}),
+				Object.freeze({
+					word: `JOWL`,
+					x: 3,
+					y: 7,
+					across: !1
+				}),
+				Object.freeze({
+					word: `WAX`,
+					x: 3,
+					y: 9,
+					across: !0
+				}),
+				Object.freeze({
+					word: `KEY`,
+					x: 7,
+					y: 9,
+					across: !0
+				})
+			]),
+			Object.freeze([
+				Object.freeze({
+					word: `OXYGEN`,
+					x: 5,
+					y: 7,
+					across: !0
+				}),
+				Object.freeze({
+					word: `EXPO`,
+					x: 6,
+					y: 6,
+					across: !1
+				}),
+				Object.freeze({
+					word: `GIVE`,
+					x: 8,
+					y: 7,
+					across: !1
+				}),
+				Object.freeze({
+					word: `VOW`,
+					x: 8,
+					y: 9,
+					across: !0
+				}),
+				Object.freeze({
+					word: `WHEY`,
+					x: 10,
+					y: 9,
+					across: !1
+				})
+			])
+		]),
+		points: Object.freeze({
+			A: 1,
+			B: 3,
+			C: 3,
+			D: 2,
+			E: 1,
+			F: 4,
+			G: 2,
+			H: 4,
+			I: 1,
+			J: 8,
+			K: 5,
+			L: 1,
+			M: 3,
+			N: 1,
+			O: 1,
+			P: 3,
+			Q: 10,
+			R: 1,
+			S: 1,
+			T: 1,
+			U: 1,
+			V: 4,
+			W: 4,
+			X: 8,
+			Y: 4,
+			Z: 10
+		}),
+		pointSteps: Object.freeze([
+			1,
+			2,
+			3,
+			4,
+			5,
+			8,
+			10
+		]),
+		tileTones: Object.freeze([
+			.74,
+			.78,
+			.82,
+			.86,
+			.9,
+			.94,
+			.98
+		]),
+		tileHeights: Object.freeze([
+			.72,
+			.76,
+			.8,
+			.84,
+			.88,
+			.92,
+			.96
+		]),
+		side: 15,
+		extent: .94,
+		gapHalf: .0012,
+		tileInset: .004,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		plainTone: .3,
+		doubleLetterTone: .44,
+		tripleLetterTone: .56,
+		doubleWordTone: .18,
+		tripleWordTone: .08,
+		plainHeight: .3,
+		doubleLetterHeight: .34,
+		tripleLetterHeight: .38,
+		doubleWordHeight: .26,
+		tripleWordHeight: .22,
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	monopolyboard: Object.freeze({
+		dark: [
+			24,
+			56,
+			44
+		],
+		light: [
+			244,
+			236,
+			208
+		],
+		roughness: .5,
+		relief: .004,
+		spaces: `G1H1XR2C22J3U33R4H44P5C55R66U6W77H7RC8X8`,
+		side: 11,
+		extent: .94,
+		gapHalf: .0012,
+		bandShare: .28,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		centreTone: .8,
+		streetTone: .92,
+		spaceTones: Object.freeze([
+			.06,
+			.14,
+			.22,
+			.3,
+			.38,
+			.46,
+			.54,
+			.62,
+			.7
+		]),
+		bandTones: Object.freeze([
+			.12,
+			.2,
+			.28,
+			.36,
+			.44,
+			.52,
+			.6,
+			.68
+		]),
+		centreHeight: .3,
+		streetHeight: .5,
+		spaceHeights: Object.freeze([
+			.8,
+			.7,
+			.4,
+			.6,
+			.75,
+			.65,
+			.55,
+			.45,
+			.85
+		]),
+		bandHeights: Object.freeze([
+			.62,
+			.64,
+			.66,
+			.68,
+			.7,
+			.72,
+			.74,
+			.76
+		]),
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	cribbageboard: Object.freeze({
+		dark: [
+			54,
+			30,
+			16
+		],
+		light: [
+			214,
+			168,
+			112
+		],
+		roughness: .55,
+		relief: .004,
+		lanes: 3,
+		holesPerRow: 60,
+		group: 5,
+		left: .0372,
+		pitch: .0136,
+		groupGap: .0112,
+		laneCentres: Object.freeze([
+			.26,
+			.5,
+			.74
+		]),
+		rowOffset: .03,
+		holeRadius: .0042,
+		pegRadius: .0064,
+		maxLead: 24,
+		edgeSoft: 5e-4,
+		grainColumns: 5,
+		grainRows: 144,
+		woodTone: .7,
+		grainTone: .06,
+		holeTone: .06,
+		pegTones: Object.freeze([
+			.22,
+			.4,
+			.96
+		]),
+		woodHeight: .5,
+		holeHeight: .05,
+		pegHeight: .95,
+		woodRoughness: .6,
+		holeRoughness: .9,
+		pegRoughness: .3
+	}),
+	xiangqiboard: Object.freeze({
+		dark: [
+			40,
+			28,
+			22
+		],
+		light: [
+			236,
+			208,
+			156
+		],
+		roughness: .5,
+		relief: .004,
+		pieces: Object.freeze([
+			`rheagaehr`,
+			`.........`,
+			`.c.....c.`,
+			`s.s.s.s.s`,
+			`.........`,
+			`.........`,
+			`S.S.S.S.S`,
+			`.C.....C.`,
+			`.........`,
+			`RHEAGAEHR`
+		]),
+		openings: Object.freeze([
+			Object.freeze([]),
+			Object.freeze([Object.freeze({
+				from: [7, 7],
+				to: [4, 7]
+			})]),
+			Object.freeze([Object.freeze({
+				from: [1, 9],
+				to: [2, 7]
+			})]),
+			Object.freeze([Object.freeze({
+				from: [7, 7],
+				to: [4, 7]
+			}), Object.freeze({
+				from: [7, 0],
+				to: [6, 2]
+			})]),
+			Object.freeze([Object.freeze({
+				from: [2, 9],
+				to: [4, 7]
+			}), Object.freeze({
+				from: [1, 0],
+				to: [2, 2]
+			})]),
+			Object.freeze([Object.freeze({
+				from: [4, 6],
+				to: [4, 5]
+			}), Object.freeze({
+				from: [4, 3],
+				to: [4, 4]
+			})])
+		]),
+		columns: 9,
+		rows: 10,
+		pitch: .085,
+		boardMargin: .045,
+		lineHalf: .0014,
+		pieceRadius: .034,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		boardTone: .74,
+		riverTone: .66,
+		lineTone: .32,
+		blackTones: Object.freeze([
+			.04,
+			.07,
+			.1,
+			.13,
+			.16,
+			.19,
+			.22
+		]),
+		redTones: Object.freeze([
+			.8,
+			.83,
+			.86,
+			.89,
+			.92,
+			.95,
+			.98
+		]),
+		paperHeight: .2,
+		boardHeight: .4,
+		riverHeight: .35,
+		lineHeight: .5,
+		pieceHeight: .85,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	chessopening: Object.freeze({
+		dark: [
+			34,
+			38,
+			52
+		],
+		light: [
+			236,
+			226,
+			200
+		],
+		roughness: .5,
+		relief: .004,
+		openings: Object.freeze([
+			Object.freeze([]),
+			Object.freeze([
+				`e2e4`,
+				`e7e5`,
+				`g1f3`,
+				`b8c6`,
+				`f1b5`
+			]),
+			Object.freeze([
+				`e2e4`,
+				`e7e5`,
+				`g1f3`,
+				`b8c6`,
+				`f1c4`,
+				`f8c5`
+			]),
+			Object.freeze([
+				`e2e4`,
+				`c7c5`,
+				`g1f3`,
+				`d7d6`,
+				`d2d4`,
+				`c5d4`,
+				`f3d4`,
+				`g8f6`,
+				`b1c3`
+			]),
+			Object.freeze([
+				`d2d4`,
+				`d7d5`,
+				`c2c4`,
+				`e7e6`,
+				`b1c3`,
+				`g8f6`
+			]),
+			Object.freeze([
+				`e2e4`,
+				`e7e6`,
+				`d2d4`,
+				`d7d5`,
+				`b1c3`,
+				`f8b4`
+			]),
+			Object.freeze([
+				`d2d4`,
+				`g8f6`,
+				`c2c4`,
+				`g7g6`,
+				`b1c3`,
+				`f8g7`,
+				`e2e4`,
+				`d7d6`
+			]),
+			Object.freeze([
+				`e2e4`,
+				`d7d5`,
+				`e4d5`,
+				`d8d5`,
+				`b1c3`,
+				`d5a5`
+			])
+		]),
+		side: 8,
+		cell: .1,
+		frame: .03,
+		pieceRadius: .036,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		frameTone: .16,
+		darkSquareTone: .28,
+		lightSquareTone: .44,
+		blackTones: Object.freeze([
+			0,
+			.03,
+			.06,
+			.09,
+			.12,
+			.15
+		]),
+		whiteTones: Object.freeze([
+			.68,
+			.74,
+			.8,
+			.86,
+			.92,
+			.98
+		]),
+		paperHeight: .2,
+		frameHeight: .6,
+		squareHeight: .4,
+		pieceHeight: .85,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	ludoboard: Object.freeze({
+		dark: [
+			30,
+			34,
+			46
+		],
+		light: [
+			240,
+			234,
+			214
+		],
+		roughness: .5,
+		relief: .004,
+		side: 15,
+		cell: .054,
+		frame: .02,
+		spotRadius: .043,
+		tokenRadius: .024,
+		lineHalf: 8e-4,
+		edgeSoft: 6e-4,
+		fill: .7,
+		grainCells: 192,
+		paperTone: .97,
+		frameTone: .14,
+		lineTone: .1,
+		trackTone: .86,
+		yardInnerTone: .92,
+		tokenTone: .06,
+		colourTones: Object.freeze([
+			.3,
+			.42,
+			.54,
+			.66
+		]),
+		paperHeight: .2,
+		frameHeight: .6,
+		cellHeight: .4,
+		colourHeight: .5,
+		lineHeight: .3,
+		spotHeight: .6,
+		tokenHeight: .85,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	shogiboard: Object.freeze({
+		dark: [
+			52,
+			36,
+			24
+		],
+		light: [
+			240,
+			218,
+			168
+		],
+		roughness: .55,
+		relief: .004,
+		openings: Object.freeze([
+			Object.freeze([`7g7f`]),
+			Object.freeze([
+				`7g7f`,
+				`3c3d`,
+				`2g2f`,
+				`4c4d`,
+				`2f2e`,
+				`8b4b`
+			]),
+			Object.freeze([
+				`2g2f`,
+				`8c8d`,
+				`2f2e`,
+				`8d8e`,
+				`6i7h`,
+				`3c3d`
+			]),
+			Object.freeze([
+				`7g7f`,
+				`3c3d`,
+				`8h2b`,
+				`3a2b`,
+				`7i7h`,
+				`8b7b`
+			]),
+			Object.freeze([
+				`2g2f`,
+				`8c8d`,
+				`2f2e`,
+				`8d8e`,
+				`2e2d`,
+				`2c2d`,
+				`2h2d`
+			]),
+			Object.freeze([
+				`7g7f`,
+				`3c3d`,
+				`8i7g`,
+				`2b3c`,
+				`3g3f`
+			]),
+			Object.freeze([
+				`9g9f`,
+				`1c1d`,
+				`9f9e`,
+				`1d1e`,
+				`9i9f`,
+				`8c8d`
+			]),
+			Object.freeze([
+				`7g7f`,
+				`3c3d`,
+				`3i4h`,
+				`8c8d`,
+				`6i7h`,
+				`7c7d`
+			])
+		]),
+		side: 9,
+		cell: .09,
+		margin: .012,
+		frame: .02,
+		lineHalf: 6e-4,
+		starRadius: .0045,
+		outline: Object.freeze([
+			Object.freeze([0, -.42]),
+			Object.freeze([.28, -.22]),
+			Object.freeze([.36, .4]),
+			Object.freeze([-.36, .4]),
+			Object.freeze([-.28, -.22])
+		]),
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		frameTone: .16,
+		boardTone: .5,
+		lineTone: .12,
+		pieceTones: Object.freeze([
+			.7,
+			.76,
+			.82,
+			.88,
+			.94,
+			.3,
+			.22,
+			.14
+		]),
+		paperHeight: .2,
+		frameHeight: .6,
+		boardHeight: .4,
+		lineHeight: .3,
+		pieceHeight: .85,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	carromboard: Object.freeze({
+		dark: [
+			48,
+			30,
+			18
+		],
+		light: [
+			244,
+			226,
+			186
+		],
+		roughness: .45,
+		relief: .004,
+		half: .38,
+		frame: .035,
+		pocketCentre: .34,
+		pocketRadius: .028,
+		ringRadii: Object.freeze([.15, .095]),
+		lineHalf: .0014,
+		baseDepths: Object.freeze([.085, .125]),
+		baseReach: .2,
+		coinRadius: .026,
+		strikerRadius: .033,
+		fill: .85,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		frameTone: .2,
+		surfaceTone: .74,
+		lineTone: .1,
+		pocketTone: .03,
+		whiteTone: .96,
+		blackTone: .16,
+		queenTone: .5,
+		strikerTone: .62,
+		paperHeight: .2,
+		frameHeight: .6,
+		surfaceHeight: .35,
+		lineHeight: .3,
+		pocketHeight: .05,
+		coinHeight: .85,
+		strikerHeight: .92,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	ninemensmorris: Object.freeze({
+		dark: [
+			40,
+			28,
+			22
+		],
+		light: [
+			236,
+			218,
+			178
+		],
+		roughness: .5,
+		relief: .004,
+		unit: .115,
+		margin: .045,
+		frame: .03,
+		lineHalf: .0016,
+		dotRadius: .008,
+		pieceRadius: .032,
+		plies: 18,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		frameTone: .2,
+		boardTone: .66,
+		lineTone: .14,
+		whiteTone: .96,
+		blackTone: .05,
+		paperHeight: .2,
+		frameHeight: .6,
+		boardHeight: .35,
+		lineHeight: .3,
+		pieceHeight: .85,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	arnoldcatmap: Object.freeze({
+		dark: [
+			18,
+			20,
+			30
+		],
+		light: [
+			236,
+			232,
+			214
+		],
+		roughness: .5,
+		relief: .004,
+		sizes: Object.freeze([
+			32,
+			40,
+			48,
+			60,
+			64
+		]),
+		glyph: Object.freeze([
+			Object.freeze([
+				.22,
+				.15,
+				.38,
+				.85
+			]),
+			Object.freeze([
+				.22,
+				.15,
+				.78,
+				.3
+			]),
+			Object.freeze([
+				.22,
+				.46,
+				.64,
+				.6
+			])
+		]),
+		rings: Object.freeze([
+			.22,
+			.34,
+			.44
+		]),
+		tones: Object.freeze([
+			.06,
+			.34,
+			.62,
+			.92
+		]),
+		heights: Object.freeze([
+			.15,
+			.35,
+			.55,
+			.75
+		]),
+		inkRoughness: .5
+	}),
+	tablutboard: Object.freeze({
+		dark: [
+			34,
+			26,
+			20
+		],
+		light: [
+			236,
+			220,
+			182
+		],
+		roughness: .5,
+		relief: .004,
+		openings: Object.freeze([
+			Object.freeze([
+				`d1d3`,
+				`e4d4`,
+				`f9f7`,
+				`e5e4`
+			]),
+			Object.freeze([
+				`a4a2`,
+				`d5d4`,
+				`i6i8`,
+				`f5f4`,
+				`a2c2`
+			]),
+			Object.freeze([
+				`e2g2`,
+				`e3f3`,
+				`e8c8`,
+				`e7d7`,
+				`g2g3`,
+				`d7d8`
+			]),
+			Object.freeze([
+				`a6c6`,
+				`c5c3`,
+				`i4g4`,
+				`g5g6`,
+				`c6c4`,
+				`e4d4`
+			]),
+			Object.freeze([
+				`f1f3`,
+				`e6d6`,
+				`d9d7`,
+				`e5e6`,
+				`f3h3`
+			]),
+			Object.freeze([
+				`h5h7`,
+				`f5f6`,
+				`b5b3`,
+				`d5d6`,
+				`h7h8`,
+				`g5g7`
+			]),
+			Object.freeze([
+				`d1b1`,
+				`g5g4`,
+				`d9b9`,
+				`c5c6`,
+				`b1b2`,
+				`e6f6`
+			]),
+			Object.freeze([`i4i2`, `e7f7`])
+		]),
+		side: 9,
+		cell: .09,
+		margin: .012,
+		frame: .025,
+		lineHalf: 7e-4,
+		pieceRadius: .032,
+		kingRadius: .037,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		frameTone: .16,
+		boardTone: .58,
+		campTone: .46,
+		markTone: .3,
+		lineTone: .12,
+		attackerTone: .06,
+		defenderTone: .94,
+		kingTone: .76,
+		paperHeight: .2,
+		frameHeight: .6,
+		boardHeight: .4,
+		campHeight: .35,
+		markHeight: .25,
+		lineHeight: .3,
+		pieceHeight: .85,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	poolrack: Object.freeze({
+		dark: [
+			28,
+			22,
+			18
+		],
+		light: [
+			236,
+			226,
+			204
+		],
+		roughness: .5,
+		relief: .004,
+		halfWidth: .4,
+		halfHeight: .2,
+		rail: .045,
+		pocketRadius: .023,
+		sidePocketRadius: .02,
+		diamondRadius: .0045,
+		ballRadius: .014,
+		bandHalf: .45,
+		lineHalf: .0012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		railTone: .22,
+		clothTone: .5,
+		pocketTone: .03,
+		diamondTone: .85,
+		lineTone: .72,
+		cueTone: .98,
+		ballTones: Object.freeze([
+			.62,
+			.68,
+			.78,
+			.34,
+			.4,
+			.45,
+			.56,
+			.01,
+			.1,
+			.14,
+			.18,
+			.26,
+			.3,
+			.9,
+			.94
+		]),
+		paperHeight: .2,
+		railHeight: .6,
+		clothHeight: .3,
+		pocketHeight: .05,
+		diamondHeight: .65,
+		lineHeight: .32,
+		ballHeight: .9,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
+	playingcardpips: Object.freeze({
+		dark: [
+			20,
+			52,
+			36
+		],
+		light: [
+			248,
+			244,
+			232
+		],
+		roughness: .5,
+		relief: .004,
+		ranks: Object.freeze([
+			Object.freeze([Object.freeze([0, 0])]),
+			Object.freeze([Object.freeze([0, -3]), Object.freeze([0, 3])]),
+			Object.freeze([
+				Object.freeze([0, -3]),
+				Object.freeze([0, 0]),
+				Object.freeze([0, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([0, 0]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([-1, 0]),
+				Object.freeze([1, 0]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([0, -1.5]),
+				Object.freeze([-1, 0]),
+				Object.freeze([1, 0]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([0, -1.5]),
+				Object.freeze([-1, 0]),
+				Object.freeze([1, 0]),
+				Object.freeze([0, 1.5]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([-1, -1]),
+				Object.freeze([1, -1]),
+				Object.freeze([0, 0]),
+				Object.freeze([-1, 1]),
+				Object.freeze([1, 1]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([0, -2]),
+				Object.freeze([-1, -1]),
+				Object.freeze([1, -1]),
+				Object.freeze([-1, 1]),
+				Object.freeze([1, 1]),
+				Object.freeze([0, 2]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			])
+		]),
+		suits: Object.freeze([
+			Object.freeze({
+				tone: .55,
+				discs: Object.freeze([]),
+				polygons: Object.freeze([Object.freeze([
+					Object.freeze([0, -1]),
+					Object.freeze([.7, 0]),
+					Object.freeze([0, 1]),
+					Object.freeze([-.7, 0])
+				])]),
+				anchor: Object.freeze([0, 0])
+			}),
+			Object.freeze({
+				tone: .4,
+				discs: Object.freeze([Object.freeze([
+					-.5,
+					-.25,
+					.5
+				]), Object.freeze([
+					.5,
+					-.25,
+					.5
+				])]),
+				polygons: Object.freeze([Object.freeze([
+					Object.freeze([-.97, -.05]),
+					Object.freeze([.97, -.05]),
+					Object.freeze([0, 1])
+				])]),
+				anchor: Object.freeze([0, .2])
+			}),
+			Object.freeze({
+				tone: .08,
+				discs: Object.freeze([Object.freeze([
+					-.5,
+					.25,
+					.5
+				]), Object.freeze([
+					.5,
+					.25,
+					.5
+				])]),
+				polygons: Object.freeze([Object.freeze([
+					Object.freeze([-.97, .05]),
+					Object.freeze([.97, .05]),
+					Object.freeze([0, -1])
+				]), Object.freeze([
+					Object.freeze([-.28, 1]),
+					Object.freeze([.28, 1]),
+					Object.freeze([0, .35])
+				])]),
+				anchor: Object.freeze([0, -.2])
+			}),
+			Object.freeze({
+				tone: .16,
+				discs: Object.freeze([
+					Object.freeze([
+						0,
+						-.5,
+						.38
+					]),
+					Object.freeze([
+						-.55,
+						.2,
+						.38
+					]),
+					Object.freeze([
+						.55,
+						.2,
+						.38
+					])
+				]),
+				polygons: Object.freeze([Object.freeze([
+					Object.freeze([-.26, 1]),
+					Object.freeze([.26, 1]),
+					Object.freeze([0, -.1])
+				])]),
+				anchor: Object.freeze([0, .3])
+			})
+		]),
+		columns: 5,
+		rows: 4,
+		cardWidth: .15,
+		cardLength: .21,
+		gapX: .03,
+		gapY: .02,
+		pipUnit: .0125,
+		columnX: 2.6,
+		levelStep: 1.3,
+		aceScale: 2.2,
+		lineHalf: .0012,
+		outlineInset: .006,
+		edgeSoft: 6e-4,
+		tableTone: .24,
+		cardTone: .95,
+		outlineTone: .62,
+		tableLevel: .2,
+		cardLevel: .5,
+		outlineLevel: .4,
+		pipLevel: .7,
+		inkRoughness: .45
+	}),
+	tenniscourt: Object.freeze({
+		dark: [
+			24,
+			30,
+			22
+		],
+		light: [
+			236,
+			236,
+			228
+		],
+		roughness: .55,
+		relief: .004,
+		feet: .0075,
+		courtLength: 78,
+		courtWidth: 36,
+		singlesWidth: 27,
+		serviceDistance: 21,
+		runoffEnd: 21,
+		runoffSide: 12,
+		lineWidth: 1 / 3,
+		centreMark: 1 / 3,
+		centreMarkWidth: 1 / 6,
+		netThickness: .4,
+		postOutside: 3,
+		postRadius: .5,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .42,
+				runoff: .3,
+				ground: .18
+			}),
+			Object.freeze({
+				court: .6,
+				runoff: .54,
+				ground: .38
+			}),
+			Object.freeze({
+				court: .46,
+				runoff: .4,
+				ground: .28
+			}),
+			Object.freeze({
+				court: .34,
+				runoff: .26,
+				ground: .14
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		netTone: .12,
+		postTone: .06,
+		groundHeight: .15,
+		runoffHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		netHeight: .8,
+		postHeight: .9,
+		inkRoughness: .45
+	}),
+	badmintoncourt: Object.freeze({
+		dark: [
+			18,
+			34,
+			30
+		],
+		light: [
+			238,
+			240,
+			232
+		],
+		roughness: .5,
+		relief: .004,
+		metre: .0517,
+		courtLength: 13.4,
+		courtWidth: 6.1,
+		singlesWidth: 5.18,
+		shortService: 1.98,
+		longServiceInside: .76,
+		runoffEnd: 2,
+		runoffSide: 1.5,
+		lineWidth: .04,
+		netThickness: .06,
+		postRadius: .06,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .46,
+				runoff: .34,
+				ground: .2
+			}),
+			Object.freeze({
+				court: .4,
+				runoff: .3,
+				ground: .22
+			}),
+			Object.freeze({
+				court: .52,
+				runoff: .44,
+				ground: .3
+			}),
+			Object.freeze({
+				court: .34,
+				runoff: .26,
+				ground: .12
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		netTone: .12,
+		postTone: .06,
+		groundHeight: .15,
+		runoffHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		netHeight: .8,
+		postHeight: .9,
+		inkRoughness: .45
+	}),
+	athleticstrack: Object.freeze({
+		dark: [
+			30,
+			22,
+			20
+		],
+		light: [
+			240,
+			236,
+			226
+		],
+		roughness: .6,
+		relief: .004,
+		metre: .0049,
+		straight: 84.39,
+		innerRadius: 36.5,
+		laneWidth: 1.22,
+		lanes: 8,
+		margin: 2.4,
+		lineWidth: .5,
+		surfaces: Object.freeze([
+			Object.freeze({
+				track: .5,
+				infield: .34,
+				margin: .28,
+				ground: .18
+			}),
+			Object.freeze({
+				track: .44,
+				infield: .3,
+				margin: .36,
+				ground: .2
+			}),
+			Object.freeze({
+				track: .38,
+				infield: .42,
+				margin: .3,
+				ground: .14
+			}),
+			Object.freeze({
+				track: .56,
+				infield: .28,
+				margin: .4,
+				ground: .24
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		infieldHeight: .2,
+		trackHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .5
+	}),
+	soccerpitch: Object.freeze({
+		dark: [
+			20,
+			36,
+			20
+		],
+		light: [
+			236,
+			242,
+			230
+		],
+		roughness: .75,
+		relief: .004,
+		metre: .0081,
+		pitchLength: 105,
+		pitchWidth: 68,
+		goalWidth: 7.32,
+		penaltyDepth: 16.5,
+		goalAreaDepth: 5.5,
+		penaltyMark: 11,
+		circleRadius: 9.15,
+		cornerRadius: 1,
+		margin: 3,
+		lineWidth: .3,
+		markRadius: .3,
+		surfaces: Object.freeze([
+			Object.freeze({
+				pitch: .4,
+				margin: .3,
+				ground: .2
+			}),
+			Object.freeze({
+				pitch: .34,
+				margin: .42,
+				ground: .24
+			}),
+			Object.freeze({
+				pitch: .46,
+				margin: .36,
+				ground: .16
+			}),
+			Object.freeze({
+				pitch: .3,
+				margin: .22,
+				ground: .12
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		pitchHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .7
+	}),
+	hockeyrink: Object.freeze({
+		dark: [
+			18,
+			28,
+			38
+		],
+		light: [
+			236,
+			242,
+			248
+		],
+		roughness: .3,
+		relief: .004,
+		foot: .0042,
+		rinkLength: 200,
+		rinkWidth: 85,
+		cornerRadius: 28,
+		goalLine: 11,
+		blueLine: 75,
+		circleRadius: 15,
+		spotRadius: 1,
+		spotDistance: 20,
+		spotSide: 22,
+		neutralSpot: 5,
+		creaseRadius: 6,
+		creaseHalfWidth: 4,
+		boardWidth: 2,
+		thinLine: .5,
+		thickLine: 1.5,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ice: .86,
+				boards: .42,
+				ground: .2
+			}),
+			Object.freeze({
+				ice: .8,
+				boards: .5,
+				ground: .28
+			}),
+			Object.freeze({
+				ice: .9,
+				boards: .34,
+				ground: .14
+			}),
+			Object.freeze({
+				ice: .76,
+				boards: .56,
+				ground: .34
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		redTone: .55,
+		blueTone: .3,
+		groundHeight: .15,
+		boardHeight: .6,
+		iceHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .35
+	}),
+	basketballcourt: Object.freeze({
+		dark: [
+			34,
+			20,
+			12
+		],
+		light: [
+			244,
+			226,
+			196
+		],
+		roughness: .35,
+		relief: .004,
+		foot: .0085,
+		courtLength: 94,
+		courtWidth: 50,
+		laneWidth: 16,
+		laneLength: 19,
+		circleRadius: 6,
+		innerCircleRadius: 2,
+		backboardDistance: 4,
+		backboardWidth: 6,
+		rimDistance: 5.25,
+		rimRadius: .75,
+		restrictedRadius: 4,
+		threeRadius: 23.75,
+		cornerInset: 3,
+		margin: 6,
+		lineWidth: .4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .62,
+				margin: .4,
+				ground: .2
+			}),
+			Object.freeze({
+				court: .54,
+				margin: .34,
+				ground: .14
+			}),
+			Object.freeze({
+				court: .7,
+				margin: .48,
+				ground: .26
+			}),
+			Object.freeze({
+				court: .46,
+				margin: .58,
+				ground: .3
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .14,
+		groundHeight: .15,
+		marginHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .4
+	}),
+	handballcourt: Object.freeze({
+		dark: [
+			20,
+			40,
+			70
+		],
+		light: [
+			236,
+			238,
+			232
+		],
+		roughness: .4,
+		relief: .004,
+		metre: .0204,
+		courtLength: 40,
+		courtWidth: 20,
+		goalWidth: 3,
+		goalAreaRadius: 6,
+		freeThrowRadius: 9,
+		penaltyDistance: 7,
+		penaltyLength: 1,
+		keeperDistance: 4,
+		keeperLength: .6,
+		circleRadius: 2,
+		endMargin: 2,
+		sideMargin: 1,
+		lineWidth: .2,
+		goalLineWidth: .32,
+		dash: .6,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .5,
+				margin: .36,
+				ground: .2
+			}),
+			Object.freeze({
+				court: .42,
+				margin: .56,
+				ground: .26
+			}),
+			Object.freeze({
+				court: .58,
+				margin: .3,
+				ground: .14
+			}),
+			Object.freeze({
+				court: .36,
+				margin: .46,
+				ground: .3
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .45
+	}),
+	highwaylanes: Object.freeze({
+		dark: [
+			20,
+			20,
+			24
+		],
+		light: [
+			240,
+			238,
+			226
+		],
+		roughness: .8,
+		relief: .004,
+		foot: 1 / 120,
+		laneWidth: 12,
+		lanesPerSide: 2,
+		shoulder: 8,
+		lineWidth: .5,
+		yellowGap: 1 / 3,
+		dash: 10,
+		gap: 30,
+		surfaces: Object.freeze([
+			Object.freeze({
+				road: .2,
+				shoulder: .32,
+				roadside: .44
+			}),
+			Object.freeze({
+				road: .16,
+				shoulder: .28,
+				roadside: .26
+			}),
+			Object.freeze({
+				road: .24,
+				shoulder: .38,
+				roadside: .5
+			}),
+			Object.freeze({
+				road: .3,
+				shoulder: .2,
+				roadside: .38
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		whiteTone: .96,
+		yellowTone: .78,
+		roadsideHeight: .2,
+		shoulderHeight: .3,
+		roadHeight: .4,
+		lineHeight: .46,
+		inkRoughness: .55
+	}),
+	cricketground: Object.freeze({
+		dark: [
+			18,
+			40,
+			18
+		],
+		light: [
+			236,
+			238,
+			218
+		],
+		roughness: .85,
+		relief: .004,
+		metre: .006,
+		pitchLength: 20.12,
+		pitchWidth: 3.05,
+		bowlingCrease: 2.64,
+		stumpWidth: .23,
+		stumpDepth: .3,
+		poppingDistance: 1.22,
+		poppingHalf: 1.83,
+		returnHalf: 1.32,
+		returnLength: 2.44,
+		circleRadius: 27.432,
+		ropeRadius: 68,
+		lineWidth: .25,
+		surfaces: Object.freeze([
+			Object.freeze({
+				outfield: .34,
+				pitch: .6,
+				ground: .18
+			}),
+			Object.freeze({
+				outfield: .28,
+				pitch: .52,
+				ground: .4
+			}),
+			Object.freeze({
+				outfield: .4,
+				pitch: .68,
+				ground: .22
+			}),
+			Object.freeze({
+				outfield: .24,
+				pitch: .46,
+				ground: .34
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 3e-4,
+		lineTone: .96,
+		stumpTone: .1,
+		groundHeight: .15,
+		outfieldHeight: .25,
+		pitchHeight: .32,
+		lineHeight: .38,
+		stumpHeight: .6,
+		inkRoughness: .6
+	}),
+	curlingrink: Object.freeze({
+		dark: [
+			20,
+			36,
+			66
+		],
+		light: [
+			244,
+			248,
+			252
+		],
+		roughness: .25,
+		relief: .004,
+		metre: 1 / 47.5,
+		sheetWidth: 4.75,
+		sheetLength: 45.72,
+		teeDistance: 34.747,
+		outerRadius: 1.829,
+		middleRadius: 1.219,
+		innerRadius: .61,
+		buttonRadius: .152,
+		backLine: 1.829,
+		hackDistance: 3.658,
+		hackLength: .457,
+		hogDistance: 6.401,
+		hogWidth: .102,
+		thinLine: .1,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ice: .86,
+				boards: .3
+			}),
+			Object.freeze({
+				ice: .78,
+				boards: .4
+			}),
+			Object.freeze({
+				ice: .92,
+				boards: .22
+			}),
+			Object.freeze({
+				ice: .82,
+				boards: .5
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 4e-4,
+		blueTone: .4,
+		whiteTone: .95,
+		redTone: .6,
+		lineTone: .12,
+		hogTone: .55,
+		boardHeight: .6,
+		iceHeight: .3,
+		houseHeight: .33,
+		lineHeight: .36,
+		inkRoughness: .3
+	}),
+	baseballdiamond: Object.freeze({
+		dark: [
+			38,
+			24,
+			12
+		],
+		light: [
+			236,
+			240,
+			226
+		],
+		roughness: .9,
+		relief: .004,
+		foot: 1 / 220,
+		centreY: 55,
+		baseDistance: 90,
+		baseSize: 1.25,
+		plateWidth: 17 / 12,
+		pitcherDistance: 60.5,
+		moundCentre: 59,
+		moundRadius: 9,
+		rubberWidth: 2,
+		rubberDepth: .5,
+		boxWidth: 4,
+		boxLength: 6,
+		boxGap: .5,
+		catcherWidth: 43 / 12,
+		catcherDepth: 8,
+		infieldRadius: 95,
+		plateCircle: 13,
+		pathWidth: 3,
+		lineWidth: .5,
+		surfaces: Object.freeze([
+			Object.freeze({
+				grass: .36,
+				infield: .42,
+				dirt: .56
+			}),
+			Object.freeze({
+				grass: .3,
+				infield: .36,
+				dirt: .46
+			}),
+			Object.freeze({
+				grass: .42,
+				infield: .46,
+				dirt: .62
+			}),
+			Object.freeze({
+				grass: .26,
+				infield: .34,
+				dirt: .4
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 5e-4,
+		chalkTone: .96,
+		grassHeight: .3,
+		infieldHeight: .32,
+		dirtHeight: .2,
+		chalkHeight: .4,
+		inkRoughness: .7
+	}),
+	volleyballcourt: Object.freeze({
+		dark: [
+			58,
+			30,
+			14
+		],
+		light: [
+			246,
+			232,
+			204
+		],
+		roughness: .4,
+		relief: .004,
+		metre: .03125,
+		courtLength: 18,
+		courtWidth: 9,
+		attackDistance: 3,
+		endMargin: 6.5,
+		sideMargin: 5,
+		lineWidth: .15,
+		dash: .3,
+		gap: .4,
+		dashCount: 5,
+		markGap: .4,
+		markLength: .3,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .5,
+				margin: .36,
+				ground: .2
+			}),
+			Object.freeze({
+				court: .42,
+				margin: .56,
+				ground: .26
+			}),
+			Object.freeze({
+				court: .58,
+				margin: .3,
+				ground: .14
+			}),
+			Object.freeze({
+				court: .36,
+				margin: .46,
+				ground: .3
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .45
+	}),
+	pickleballcourt: Object.freeze({
+		dark: [
+			26,
+			58,
+			40
+		],
+		light: [
+			236,
+			240,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		foot: .015625,
+		courtLength: 44,
+		courtWidth: 20,
+		kitchenDistance: 7,
+		endMargin: 8,
+		sideMargin: 5,
+		lineWidth: .5,
+		surfaces: Object.freeze([
+			Object.freeze({
+				kitchen: .62,
+				court: .44,
+				margin: .3,
+				ground: .18
+			}),
+			Object.freeze({
+				kitchen: .34,
+				court: .52,
+				margin: .4,
+				ground: .22
+			}),
+			Object.freeze({
+				kitchen: .5,
+				court: .36,
+				margin: .56,
+				ground: .28
+			}),
+			Object.freeze({
+				kitchen: .46,
+				court: .6,
+				margin: .26,
+				ground: .12
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		courtHeight: .3,
+		kitchenHeight: .32,
+		lineHeight: .36,
+		inkRoughness: .45
+	}),
+	squashcourt: Object.freeze({
+		dark: [
+			70,
+			36,
+			18
+		],
+		light: [
+			244,
+			230,
+			206
+		],
+		roughness: .4,
+		relief: .004,
+		metre: .083333,
+		courtLength: 9.75,
+		courtWidth: 6.4,
+		shortLine: 5.44,
+		boxSize: 1.6,
+		wallThickness: .3,
+		lineWidth: .1,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .5,
+				wall: .36,
+				ground: .2
+			}),
+			Object.freeze({
+				court: .42,
+				wall: .56,
+				ground: .26
+			}),
+			Object.freeze({
+				court: .58,
+				wall: .3,
+				ground: .14
+			}),
+			Object.freeze({
+				court: .36,
+				wall: .46,
+				ground: .3
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		wallHeight: .6,
+		courtHeight: .3,
+		lineHeight: .36,
+		inkRoughness: .45
+	}),
+	gridironfield: Object.freeze({
+		dark: [
+			24,
+			52,
+			26
+		],
+		light: [
+			238,
+			242,
+			226
+		],
+		roughness: .85,
+		relief: .004,
+		foot: .0026041667,
+		fieldLength: 300,
+		endZone: 30,
+		fieldWidth: 160,
+		yard: 3,
+		lineSpacing: 15,
+		hashSpacing: 70.75,
+		endMargin: 10,
+		sideMargin: 10,
+		lineWidth: 1.5,
+		hashWidth: 1,
+		hashLength: 4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .18,
+				margin: .3,
+				field: .44,
+				stripe: .5,
+				endzone: .62
+			}),
+			Object.freeze({
+				ground: .22,
+				margin: .4,
+				field: .52,
+				stripe: .45,
+				endzone: .34
+			}),
+			Object.freeze({
+				ground: .28,
+				margin: .56,
+				field: .36,
+				stripe: .42,
+				endzone: .5
+			}),
+			Object.freeze({
+				ground: .12,
+				margin: .26,
+				field: .6,
+				stripe: .54,
+				endzone: .46
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 4e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		fieldHeight: .3,
+		stripeHeight: .32,
+		endZoneHeight: .28,
+		lineHeight: .36,
+		inkRoughness: .5
+	}),
+	netballcourt: Object.freeze({
+		dark: [
+			20,
+			56,
+			92
+		],
+		light: [
+			240,
+			240,
+			232
+		],
+		roughness: .45,
+		relief: .004,
+		metre: .025,
+		courtLength: 30.5,
+		courtWidth: 15.25,
+		goalCircleRadius: 4.9,
+		centreCircleDiameter: .9,
+		margin: 3.05,
+		lineWidth: .15,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .5,
+				margin: .36,
+				ground: .2
+			}),
+			Object.freeze({
+				court: .42,
+				margin: .56,
+				ground: .26
+			}),
+			Object.freeze({
+				court: .58,
+				margin: .3,
+				ground: .14
+			}),
+			Object.freeze({
+				court: .36,
+				margin: .46,
+				ground: .3
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .45
+	}),
+	snookertable: Object.freeze({
+		dark: [
+			18,
+			52,
+			34
+		],
+		light: [
+			236,
+			232,
+			214
+		],
+		roughness: .8,
+		relief: .004,
+		metre: .2272727,
+		playLength: 3.569,
+		playWidth: 1.778,
+		baulkDistance: .737,
+		dRadius: .292,
+		blackDistance: .324,
+		cushion: .05,
+		rail: .1,
+		cornerPocket: .075,
+		middlePocket: .055,
+		middleOffset: .02,
+		lineWidth: .012,
+		spotRadius: .02,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .2,
+				rail: .34,
+				cushion: .46,
+				cloth: .52,
+				pocket: .08
+			}),
+			Object.freeze({
+				ground: .26,
+				rail: .5,
+				cushion: .38,
+				cloth: .44,
+				pocket: .12
+			}),
+			Object.freeze({
+				ground: .14,
+				rail: .28,
+				cushion: .6,
+				cloth: .54,
+				pocket: .06
+			}),
+			Object.freeze({
+				ground: .3,
+				rail: .56,
+				cushion: .34,
+				cloth: .4,
+				pocket: .1
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		markTone: .94,
+		groundHeight: .15,
+		railHeight: .6,
+		cushionHeight: .45,
+		clothHeight: .3,
+		pocketHeight: .05,
+		markHeight: .32,
+		inkRoughness: .5
+	}),
+	archerytarget: Object.freeze({
+		dark: [
+			16,
+			12,
+			10
+		],
+		light: [
+			250,
+			246,
+			236
+		],
+		roughness: .7,
+		relief: .004,
+		metre: .5,
+		zoneWidth: .061,
+		xRadius: .0305,
+		bossRadius: .8,
+		lineWidth: .008,
+		crossArm: .01,
+		crossWidth: .003,
+		surfaces: Object.freeze([
+			Object.freeze({
+				white: .92,
+				black: .1,
+				blue: .38,
+				red: .52,
+				gold: .8,
+				boss: .6,
+				ground: .24
+			}),
+			Object.freeze({
+				white: .88,
+				black: .16,
+				blue: .56,
+				red: .34,
+				gold: .72,
+				boss: .46,
+				ground: .3
+			}),
+			Object.freeze({
+				white: .94,
+				black: .06,
+				blue: .3,
+				red: .62,
+				gold: .84,
+				boss: .54,
+				ground: .16
+			}),
+			Object.freeze({
+				white: .84,
+				black: .2,
+				blue: .62,
+				red: .44,
+				gold: .66,
+				boss: .7,
+				ground: .28
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .04,
+		paleLineTone: .96,
+		groundHeight: .15,
+		bossHeight: .3,
+		faceHeight: .36,
+		lineHeight: .4,
+		inkRoughness: .55
+	}),
+	runwaymarkings: Object.freeze({
+		dark: [
+			26,
+			28,
+			30
+		],
+		light: [
+			238,
+			238,
+			232
+		],
+		roughness: .85,
+		relief: .004,
+		metre: .0012195122,
+		tileLength: 820,
+		startOffset: 40,
+		runwayWidth: 45,
+		shoulder: 7.5,
+		thresholdStart: 6,
+		thresholdLength: 30,
+		thresholdStripes: 12,
+		thresholdStripeWidth: 1.8,
+		thresholdGap: 1.8,
+		centreStripe: 30,
+		centreGap: 20,
+		centreWidth: 1.8,
+		centreStart: 80,
+		aimingStart: 400,
+		aimingLength: 60,
+		aimingWidth: 6,
+		markSpacing: 18,
+		touchdownFirst: 150,
+		touchdownSpacing: 150,
+		touchdownLength: 22.5,
+		touchdownWidth: 3,
+		touchdownPairs: 6,
+		touchdownClear: 50,
+		sideStripeWidth: 1.8,
+		surfaces: Object.freeze([
+			Object.freeze({
+				runway: .18,
+				shoulder: .34,
+				ground: .5
+			}),
+			Object.freeze({
+				runway: .26,
+				shoulder: .44,
+				ground: .34
+			}),
+			Object.freeze({
+				runway: .12,
+				shoulder: .28,
+				ground: .42
+			}),
+			Object.freeze({
+				runway: .3,
+				shoulder: .4,
+				ground: .56
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		markTone: .95,
+		groundHeight: .15,
+		shoulderHeight: .25,
+		runwayHeight: .3,
+		markHeight: .34,
+		inkRoughness: .6
+	}),
+	fieldhockeypitch: Object.freeze({
+		dark: [
+			18,
+			60,
+			40
+		],
+		light: [
+			238,
+			242,
+			232
+		],
+		roughness: .7,
+		relief: .004,
+		metre: .00909091,
+		pitchLength: 91.4,
+		pitchWidth: 55,
+		goalWidth: 3.66,
+		twentyThree: 22.9,
+		circleRadius: 14.63,
+		brokenRadius: 19.63,
+		penaltyDistance: 6.4,
+		innerEnd: 3,
+		innerSide: 2,
+		outerEnd: 2,
+		outerSide: 1,
+		lineWidth: .45,
+		dash: .9,
+		gap: 3,
+		spotRadius: .3,
+		surfaces: Object.freeze([
+			Object.freeze({
+				pitch: .46,
+				inner: .38,
+				outer: .58,
+				ground: .2
+			}),
+			Object.freeze({
+				pitch: .4,
+				inner: .52,
+				outer: .3,
+				ground: .58
+			}),
+			Object.freeze({
+				pitch: .56,
+				inner: .34,
+				outer: .44,
+				ground: .14
+			}),
+			Object.freeze({
+				pitch: .34,
+				inner: .46,
+				outer: .6,
+				ground: .28
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		outerHeight: .22,
+		innerHeight: .26,
+		pitchHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .5
+	}),
+	futsalcourt: Object.freeze({
+		dark: [
+			24,
+			46,
+			92
+		],
+		light: [
+			240,
+			238,
+			228
+		],
+		roughness: .4,
+		relief: .004,
+		metre: .0208333,
+		courtLength: 40,
+		courtWidth: 20,
+		centreRadius: 3,
+		centreMark: .24,
+		penaltyStraight: 3.16,
+		areaRadius: 6,
+		penaltyDistance: 6,
+		secondDistance: 10,
+		markRadius: .24,
+		retreatRadius: .16,
+		retreatOffset: 5,
+		fiveLength: 1.6,
+		cornerRadius: 1,
+		cornerMarkDistance: 5,
+		cornerMarkGap: .2,
+		cornerMarkLength: 1.6,
+		substitutionStart: 5,
+		substitutionZone: 5,
+		substitutionLength: 3.2,
+		margin: 3,
+		lineWidth: .32,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .5,
+				area: .38,
+				margin: .3,
+				ground: .18
+			}),
+			Object.freeze({
+				court: .42,
+				area: .56,
+				margin: .34,
+				ground: .24
+			}),
+			Object.freeze({
+				court: .6,
+				area: .44,
+				margin: .26,
+				ground: .12
+			}),
+			Object.freeze({
+				court: .36,
+				area: .5,
+				margin: .46,
+				ground: .28
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .45
+	}),
+	tabletennistable: Object.freeze({
+		dark: [
+			20,
+			52,
+			96
+		],
+		light: [
+			238,
+			238,
+			232
+		],
+		roughness: .45,
+		relief: .004,
+		metre: .25,
+		tableLength: 2.74,
+		tableWidth: 1.525,
+		lineWidth: .08,
+		centreWidth: .012,
+		netWidth: .04,
+		netReach: .1525,
+		surfaces: Object.freeze([
+			Object.freeze({
+				floor: .45,
+				table: .16
+			}),
+			Object.freeze({
+				floor: .3,
+				table: .22
+			}),
+			Object.freeze({
+				floor: .55,
+				table: .12
+			}),
+			Object.freeze({
+				floor: .2,
+				table: .1
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		floorHeight: .15,
+		tableHeight: .3,
+		lineHeight: .35,
+		netHeight: .9,
+		inkRoughness: .45
+	}),
+	fencingpiste: Object.freeze({
+		dark: [
+			28,
+			44,
+			70
+		],
+		light: [
+			236,
+			238,
+			232
+		],
+		roughness: .45,
+		relief: .004,
+		metre: .05,
+		pisteLength: 14,
+		pisteWidth: 1.5,
+		guardDistance: 2,
+		warningLength: 2,
+		runback: 1.5,
+		lineWidth: .1,
+		dashPieces: 11,
+		surfaces: Object.freeze([
+			Object.freeze({
+				floor: .6,
+				piste: .4,
+				warning: .52,
+				runback: .3
+			}),
+			Object.freeze({
+				floor: .3,
+				piste: .45,
+				warning: .22,
+				runback: .38
+			}),
+			Object.freeze({
+				floor: .45,
+				piste: .22,
+				warning: .34,
+				runback: .12
+			}),
+			Object.freeze({
+				floor: .2,
+				piste: .32,
+				warning: .45,
+				runback: .1
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		floorHeight: .15,
+		runbackHeight: .26,
+		pisteHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .45
+	}),
+	code128barcodes: Object.freeze({
+		dark: [
+			14,
+			14,
+			18
+		],
+		light: [
+			248,
+			246,
+			238
+		],
+		roughness: .55,
+		relief: .0012,
+		rows: 5,
+		symbols: 6,
+		quietUnits: 10,
+		barHeight: .62,
+		edgeSoft: 6e-4,
+		widths: Object.freeze(`212222.222122.222221.121223.121322.131222.122213.122312.132212.221213.221312.231212.112232.122132.122231.113222.123122.123221.223211.221132.221231.213212.223112.312131.311222.321122.321221.312212.322112.322211.212123.212321.232121.111323.131123.131321.112313.132113.132311.211313.231113.231311.112133.112331.132131.113123.113321.133121.313121.211331.231131.213113.213311.213131.311123.311321.331121.312113.312311.332111.314111.221411.431111.111224.111422.121124.121421.141122.141221.112214.112412.122114.122411.142112.142211.241211.221114.413111.241112.134111.111242.121142.121241.114212.124112.124211.411212.421112.421211.212141.214121.412121.111143.111341.131141.114113.114311.411113.411311.113141.114131.311141.411131.211412.211214.211232.233111`.split(`.`)),
+		surfaces: Object.freeze([
+			Object.freeze({
+				paper: .95,
+				ink: .06
+			}),
+			Object.freeze({
+				paper: .72,
+				ink: .1
+			}),
+			Object.freeze({
+				paper: .85,
+				ink: .22
+			}),
+			Object.freeze({
+				paper: .6,
+				ink: .04
+			})
+		]),
+		toneShift: .04,
+		inkHeight: .55,
+		paperHeight: .3,
+		inkRoughness: .4,
+		paperRoughness: .72
+	}),
+	isopapersizes: Object.freeze({
+		dark: [
+			30,
+			36,
+			54
+		],
+		light: [
+			244,
+			242,
+			232
+		],
+		roughness: .6,
+		relief: .003,
+		tileSize: 1400,
+		shortSide: 841,
+		longSide: 1189,
+		levels: 10,
+		lineWidth: 4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .3,
+				first: .92,
+				last: .55
+			}),
+			Object.freeze({
+				ground: .85,
+				first: .6,
+				last: .25
+			}),
+			Object.freeze({
+				ground: .15,
+				first: .5,
+				last: .9
+			}),
+			Object.freeze({
+				ground: .5,
+				first: .88,
+				last: .3
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .04,
+		groundHeight: .15,
+		paperHeight: .3,
+		lineHeight: .4,
+		inkRoughness: .45,
+		paperRoughness: .7
+	}),
+	baudottape: Object.freeze({
+		dark: [
+			40,
+			34,
+			28
+		],
+		light: [
+			240,
+			228,
+			196
+		],
+		roughness: .78,
+		relief: .006,
+		rows: 63,
+		strips: 8,
+		pitch: .1,
+		tapeWidth: .6875,
+		holeRadius: .036,
+		feedRadius: .023,
+		leader: 3,
+		trailer: 3,
+		digitShare: .3,
+		spaceShare: .1,
+		letterSet: Object.freeze(`NUL.E.LF.A.SP.S.I.U.CR.D.R.J.N.F.C.K.T.Z.L.W.H.Y.P.Q.O.B.G.FIGS.M.X.V.LTRS`.split(`.`)),
+		figureSet: Object.freeze(`NUL 3 LF - SP BEL 8 7 CR $ 4 ' , ! : ( 5 " ) 2 # 6 0 1 9 ? & FIGS . / ; LTRS`.split(` `)),
+		surfaces: Object.freeze([
+			Object.freeze({
+				paper: .88,
+				ground: .12
+			}),
+			Object.freeze({
+				paper: .72,
+				ground: .3
+			}),
+			Object.freeze({
+				paper: .92,
+				ground: .45
+			}),
+			Object.freeze({
+				paper: .6,
+				ground: .08
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		paperHeight: .3,
+		groundHeight: .1,
+		paperRoughness: .8,
+		groundRoughness: .6
+	}),
+	hassedivisors: Object.freeze({
+		dark: [
+			24,
+			30,
+			52
+		],
+		light: [
+			240,
+			238,
+			226
+		],
+		roughness: .6,
+		relief: .004,
+		numbers: Object.freeze([
+			12,
+			24,
+			30,
+			36,
+			48,
+			60,
+			72,
+			120,
+			180,
+			210
+		]),
+		height: .7,
+		nodeSpacing: .13,
+		nodeRadius: .035,
+		edgeHalf: .005,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .9,
+				line: .35,
+				low: .55,
+				high: .15
+			}),
+			Object.freeze({
+				ground: .15,
+				line: .6,
+				low: .35,
+				high: .9
+			}),
+			Object.freeze({
+				ground: .7,
+				line: .1,
+				low: .9,
+				high: .3
+			}),
+			Object.freeze({
+				ground: .3,
+				line: .85,
+				low: .5,
+				high: .65
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		lineHeight: .35,
+		nodeHeight: .5,
+		groundRoughness: .72,
+		inkRoughness: .45
+	}),
+	dynkindiagrams: Object.freeze({
+		dark: [
+			20,
+			26,
+			44
+		],
+		light: [
+			242,
+			240,
+			228
+		],
+		roughness: .6,
+		relief: .004,
+		names: Object.freeze(`A2.A3.A4.A5.A6.A7.A8.B3.B4.B5.B6.B7.B8.C3.C4.C5.C6.C7.C8.D4.D5.D6.D7.D8.E6.E7.E8.F4.G2`.split(`.`)),
+		nodeSpacing: .11,
+		nodeRadius: .028,
+		ringWidth: .006,
+		bondHalf: .0035,
+		bondGap: .012,
+		arrowLength: .03,
+		arrowAngle: .6,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .88,
+				ink: .12,
+				centre: .94
+			}),
+			Object.freeze({
+				ground: .2,
+				ink: .85,
+				centre: .3
+			}),
+			Object.freeze({
+				ground: .7,
+				ink: .18,
+				centre: .88
+			}),
+			Object.freeze({
+				ground: .35,
+				ink: .92,
+				centre: .5
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		bondHeight: .35,
+		centreHeight: .28,
+		ringHeight: .4,
+		groundRoughness: .72,
+		inkRoughness: .45
+	}),
+	uarttraces: Object.freeze({
+		dark: [
+			12,
+			24,
+			20
+		],
+		light: [
+			214,
+			236,
+			208
+		],
+		roughness: .5,
+		relief: .003,
+		rows: 8,
+		bits: 64,
+		frameBits: 11,
+		highAt: .3,
+		lowAt: .7,
+		traceHalf: .0032,
+		gridHalf: 7e-4,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .1,
+				grid: .22,
+				trace: .88
+			}),
+			Object.freeze({
+				ground: .9,
+				grid: .72,
+				trace: .15
+			}),
+			Object.freeze({
+				ground: .18,
+				grid: .34,
+				trace: .62
+			}),
+			Object.freeze({
+				ground: .75,
+				grid: .55,
+				trace: .3
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		gridHeight: .22,
+		traceHeight: .4,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	pigpencipher: Object.freeze({
+		dark: [
+			30,
+			26,
+			20
+		],
+		light: [
+			236,
+			228,
+			208
+		],
+		roughness: .62,
+		relief: .003,
+		cells: 8,
+		letters: 27,
+		symbolHalf: .045,
+		lineHalf: .0032,
+		dotRadius: .0085,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .9,
+				ink: .15
+			}),
+			Object.freeze({
+				ground: .12,
+				ink: .85
+			}),
+			Object.freeze({
+				ground: .78,
+				ink: .36
+			}),
+			Object.freeze({
+				ground: .2,
+				ink: .62
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		inkHeight: .45,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	ladderlogic: Object.freeze({
+		dark: [
+			24,
+			28,
+			36
+		],
+		light: [
+			226,
+			230,
+			222
+		],
+		roughness: .55,
+		relief: .003,
+		rows: 6,
+		railX: .05,
+		wireAt: .35,
+		branchDrop: .05,
+		slotX: Object.freeze([
+			.22,
+			.42,
+			.62
+		]),
+		coilX: .8,
+		barGap: .016,
+		barHalf: .028,
+		junction: .036,
+		coilReach: .015,
+		parenRadius: .05,
+		parenShift: .035,
+		parenSpan: .55,
+		coilSlash: Object.freeze([.01, .025]),
+		lineHalf: .0032,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .9,
+				ink: .15
+			}),
+			Object.freeze({
+				ground: .12,
+				ink: .85
+			}),
+			Object.freeze({
+				ground: .78,
+				ink: .36
+			}),
+			Object.freeze({
+				ground: .2,
+				ink: .62
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		inkHeight: .45,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	sokobanlevels: Object.freeze({
+		dark: [
+			38,
+			34,
+			30
+		],
+		light: [
+			214,
+			204,
+			188
+		],
+		roughness: .65,
+		relief: .004,
+		cells: 10,
+		wallChance: .12,
+		boxChoices: 2,
+		pulls: 40,
+		wallHalf: .048,
+		goalRadius: .018,
+		boxHalf: .04,
+		crossHalf: .032,
+		crossWidth: .004,
+		playerRadius: .03,
+		ringRadius: .042,
+		ringHalf: .0035,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .86,
+				wall: .28,
+				goal: .64,
+				box: .5,
+				boxGoal: .72,
+				player: .15,
+				mark: .07
+			}),
+			Object.freeze({
+				ground: .14,
+				wall: .55,
+				goal: .35,
+				box: .7,
+				boxGoal: .84,
+				player: .3,
+				mark: .9
+			}),
+			Object.freeze({
+				ground: .55,
+				wall: .12,
+				goal: .8,
+				box: .33,
+				boxGoal: .66,
+				player: .9,
+				mark: .22
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		wallHeight: .6,
+		goalHeight: .2,
+		boxHeight: .45,
+		boxGoalHeight: .5,
+		playerHeight: .4,
+		markHeight: .5,
+		groundRoughness: .7,
+		wallRoughness: .8,
+		pieceRoughness: .45
+	}),
+	starbattleboard: Object.freeze({
+		dark: [
+			24,
+			28,
+			44
+		],
+		light: [
+			232,
+			230,
+			216
+		],
+		roughness: .6,
+		relief: .003,
+		cells: 8,
+		thinHalf: .0012,
+		thickHalf: .0035,
+		starRadius: .047,
+		innerRatio: .4,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .9,
+				thin: .62,
+				thick: .12,
+				star: .4
+			}),
+			Object.freeze({
+				ground: .14,
+				thin: .38,
+				thick: .88,
+				star: .62
+			}),
+			Object.freeze({
+				ground: .6,
+				thin: .45,
+				thick: .15,
+				star: .88
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		thinHeight: .1,
+		thickHeight: .35,
+		starHeight: .5,
+		groundRoughness: .7,
+		lineRoughness: .5,
+		starRoughness: .4
+	}),
+	debruijnstrips: Object.freeze({
+		dark: [
+			20,
+			24,
+			32
+		],
+		light: [
+			232,
+			232,
+			220
+		],
+		roughness: .55,
+		relief: .003,
+		cells: 32,
+		windowBits: 5,
+		cellHalf: .0144,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .9,
+				on: .18
+			}),
+			Object.freeze({
+				ground: .12,
+				on: .86
+			}),
+			Object.freeze({
+				ground: .72,
+				on: .4
+			}),
+			Object.freeze({
+				ground: .28,
+				on: .7
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		onHeight: .45,
+		groundRoughness: .7,
+		onRoughness: .4
+	}),
+	redblacktrees: Object.freeze({
+		dark: [
+			18,
+			20,
+			28
+		],
+		light: [
+			236,
+			232,
+			220
+		],
+		roughness: .55,
+		relief: .004,
+		nodes: 31,
+		marginX: .05,
+		marginTop: .06,
+		levelGap: .15,
+		nodeRadius: .0245,
+		rimWidth: .004,
+		edgeHalf: .0022,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .9,
+				line: .55,
+				red: .72,
+				black: .12,
+				rim: .3
+			}),
+			Object.freeze({
+				ground: .5,
+				line: .25,
+				red: .78,
+				black: .08,
+				rim: .15
+			}),
+			Object.freeze({
+				ground: .2,
+				line: .6,
+				red: .88,
+				black: .06,
+				rim: .45
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		lineHeight: .25,
+		redHeight: .45,
+		blackHeight: .4,
+		rimHeight: .55,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	i2ctransactions: Object.freeze({
+		dark: [
+			14,
+			22,
+			26
+		],
+		light: [
+			210,
+			232,
+			238
+		],
+		roughness: .5,
+		relief: .003,
+		rows: 4,
+		cells: 64,
+		sclHigh: .1,
+		sclLow: .4,
+		sdaHigh: .6,
+		sdaLow: .9,
+		traceHalf: .0032,
+		gridHalf: 7e-4,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .1,
+				grid: .22,
+				scl: .88,
+				sda: .58
+			}),
+			Object.freeze({
+				ground: .9,
+				grid: .72,
+				scl: .15,
+				sda: .5
+			}),
+			Object.freeze({
+				ground: .18,
+				grid: .34,
+				scl: .62,
+				sda: .9
+			}),
+			Object.freeze({
+				ground: .75,
+				grid: .55,
+				scl: .3,
+				sda: .06
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		gridHeight: .22,
+		sclHeight: .4,
+		sdaHeight: .46,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	hamiltoniancycles: Object.freeze({
+		dark: [
+			20,
+			26,
+			34
+		],
+		light: [
+			226,
+			230,
+			236
+		],
+		roughness: .5,
+		relief: .004,
+		sides: Object.freeze([
+			12,
+			16,
+			20
+		]),
+		lineShare: .21,
+		beadShare: .27,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .14,
+				line: .58,
+				bead: .9
+			}),
+			Object.freeze({
+				ground: .88,
+				line: .5,
+				bead: .16
+			}),
+			Object.freeze({
+				ground: .5,
+				line: .2,
+				bead: .9
+			}),
+			Object.freeze({
+				ground: .22,
+				line: .85,
+				bead: .52
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		lineHeight: .3,
+		beadHeight: .5,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	postnetbarcodes: Object.freeze({
+		dark: [
+			24,
+			24,
+			30
+		],
+		light: [
+			238,
+			232,
+			216
+		],
+		roughness: .55,
+		relief: .003,
+		rows: 6,
+		slots: 64,
+		formats: Object.freeze([
+			5,
+			6,
+			9,
+			11
+		]),
+		codes: Object.freeze([
+			`11000`,
+			`00011`,
+			`00101`,
+			`00110`,
+			`01001`,
+			`01010`,
+			`01100`,
+			`10001`,
+			`10010`,
+			`10100`
+		]),
+		barHalf: .0031,
+		baseShare: .85,
+		tallShare: .55,
+		shortShare: .22,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .92,
+				ink: .12
+			}),
+			Object.freeze({
+				ground: .12,
+				ink: .9
+			}),
+			Object.freeze({
+				ground: .78,
+				ink: .28
+			}),
+			Object.freeze({
+				ground: .22,
+				ink: .7
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		inkHeight: .4,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	itfbarcodes: Object.freeze({
+		dark: [
+			26,
+			26,
+			32
+		],
+		light: [
+			236,
+			230,
+			214
+		],
+		roughness: .55,
+		relief: .003,
+		rows: 6,
+		module: .0072,
+		quiet: 10,
+		minPairs: 2,
+		maxPairs: 6,
+		wides: Object.freeze([
+			2,
+			2.5,
+			3
+		]),
+		patterns: Object.freeze([
+			`nnWWn`,
+			`WnnnW`,
+			`nWnnW`,
+			`WWnnn`,
+			`nnWnW`,
+			`WnWnn`,
+			`nWWnn`,
+			`nnnWW`,
+			`WnnWn`,
+			`nWnWn`
+		]),
+		top: .14,
+		bottom: .86,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .92,
+				ink: .12
+			}),
+			Object.freeze({
+				ground: .12,
+				ink: .9
+			}),
+			Object.freeze({
+				ground: .78,
+				ink: .28
+			}),
+			Object.freeze({
+				ground: .22,
+				ink: .7
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		inkHeight: .4,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	codabarbarcodes: Object.freeze({
+		dark: [
+			28,
+			24,
+			30
+		],
+		light: [
+			238,
+			230,
+			212
+		],
+		roughness: .55,
+		relief: .003,
+		rows: 6,
+		module: .005,
+		quiet: 10,
+		minBody: 4,
+		maxBody: 10,
+		wides: Object.freeze([
+			2.25,
+			2.5,
+			3
+		]),
+		symbols: `0123456789-$:/.+ABCD`,
+		patterns: Object.freeze([
+			`0000011`,
+			`0000110`,
+			`0001001`,
+			`1100000`,
+			`0010010`,
+			`1000010`,
+			`0100001`,
+			`0100100`,
+			`0110000`,
+			`1001000`,
+			`0001100`,
+			`0011000`,
+			`1000101`,
+			`1010001`,
+			`1010100`,
+			`0010101`,
+			`0011010`,
+			`0101001`,
+			`0001011`,
+			`0001110`
+		]),
+		top: .14,
+		bottom: .86,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .92,
+				ink: .12
+			}),
+			Object.freeze({
+				ground: .12,
+				ink: .9
+			}),
+			Object.freeze({
+				ground: .78,
+				ink: .28
+			}),
+			Object.freeze({
+				ground: .22,
+				ink: .7
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		inkHeight: .4,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	rm4sccbarcodes: Object.freeze({
+		dark: [
+			22,
+			24,
+			34
+		],
+		light: [
+			240,
+			232,
+			214
+		],
+		roughness: .55,
+		relief: .003,
+		rows: 6,
+		slots: 64,
+		halves: Object.freeze([
+			`0011`,
+			`0101`,
+			`0110`,
+			`1001`,
+			`1010`,
+			`1100`
+		]),
+		symbols: `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ`,
+		formats: Object.freeze([
+			`A9`,
+			`A99`,
+			`A9A`,
+			`AA9`,
+			`AA99`,
+			`AA9A`
+		]),
+		barHalf: .0034,
+		ascTop: .12,
+		trackTop: .4,
+		trackBottom: .6,
+		descBottom: .88,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .92,
+				ink: .12
+			}),
+			Object.freeze({
+				ground: .12,
+				ink: .9
+			}),
+			Object.freeze({
+				ground: .78,
+				ink: .28
+			}),
+			Object.freeze({
+				ground: .22,
+				ink: .7
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		inkHeight: .4,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	spitransfers: Object.freeze({
+		dark: [
+			16,
+			24,
+			22
+		],
+		light: [
+			214,
+			236,
+			226
+		],
+		roughness: .5,
+		relief: .003,
+		blocks: 3,
+		cells: 64,
+		highShare: .22,
+		lowShare: .78,
+		traceHalf: .003,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .1,
+				select: .52,
+				clock: .9,
+				out: .7,
+				back: .34
+			}),
+			Object.freeze({
+				ground: .9,
+				select: .5,
+				clock: .12,
+				out: .3,
+				back: .68
+			}),
+			Object.freeze({
+				ground: .2,
+				select: .86,
+				clock: .58,
+				out: .4,
+				back: .7
+			}),
+			Object.freeze({
+				ground: .78,
+				select: .2,
+				clock: .45,
+				out: .62,
+				back: .08
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		traceHeight: .4,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	linecodes: Object.freeze({
+		dark: [
+			20,
+			22,
+			30
+		],
+		light: [
+			230,
+			232,
+			220
+		],
+		roughness: .5,
+		relief: .003,
+		rows: 7,
+		cells: 64,
+		bits: 30,
+		lowShare: .84,
+		zeroShare: .5,
+		highShare: .16,
+		traceHalf: .003,
+		gridHalf: 7e-4,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .1,
+				grid: .22,
+				trace: .88
+			}),
+			Object.freeze({
+				ground: .9,
+				grid: .72,
+				trace: .15
+			}),
+			Object.freeze({
+				ground: .18,
+				grid: .34,
+				trace: .62
+			}),
+			Object.freeze({
+				ground: .75,
+				grid: .55,
+				trace: .3
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		gridHeight: .22,
+		traceHeight: .4,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
+	octaneisomers: Object.freeze({
+		dark: [
+			18,
+			30,
+			26
+		],
+		light: [
+			232,
+			238,
+			224
+		],
+		roughness: .5,
+		relief: .003,
+		columns: 3,
+		rows: 6,
+		bond: .044,
+		atomRadius: .0095,
+		bondHalf: .0042,
+		edgeSoft: 6e-4,
+		isomers: [
+			[8],
+			[
+				7,
+				2,
+				1
+			],
+			[
+				7,
+				3,
+				1
+			],
+			[
+				7,
+				4,
+				1
+			],
+			[
+				6,
+				2,
+				1,
+				2,
+				1
+			],
+			[
+				6,
+				2,
+				1,
+				3,
+				1
+			],
+			[
+				6,
+				2,
+				1,
+				4,
+				1
+			],
+			[
+				6,
+				2,
+				1,
+				5,
+				1
+			],
+			[
+				6,
+				3,
+				1,
+				3,
+				1
+			],
+			[
+				6,
+				3,
+				1,
+				4,
+				1
+			],
+			[
+				6,
+				3,
+				2
+			],
+			[
+				5,
+				2,
+				1,
+				2,
+				1,
+				3,
+				1
+			],
+			[
+				5,
+				2,
+				1,
+				2,
+				1,
+				4,
+				1
+			],
+			[
+				5,
+				2,
+				1,
+				3,
+				1,
+				3,
+				1
+			],
+			[
+				5,
+				2,
+				1,
+				3,
+				1,
+				4,
+				1
+			],
+			[
+				5,
+				2,
+				1,
+				3,
+				2
+			],
+			[
+				5,
+				3,
+				1,
+				3,
+				2
+			],
+			[
+				4,
+				2,
+				1,
+				2,
+				1,
+				3,
+				1,
+				3,
+				1
+			]
+		],
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .92,
+				bond: .5,
+				atom: .12
+			}),
+			Object.freeze({
+				ground: .12,
+				bond: .5,
+				atom: .9
+			}),
+			Object.freeze({
+				ground: .8,
+				bond: .35,
+				atom: .1
+			}),
+			Object.freeze({
+				ground: .2,
+				bond: .58,
+				atom: .9
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		bondHeight: .28,
+		atomHeight: .45,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -35480,6 +53232,374 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	octaneisomers: 1,
+	linecodes: 1,
+	spitransfers: 1,
+	rm4sccbarcodes: 1,
+	codabarbarcodes: 1,
+	itfbarcodes: 1,
+	postnetbarcodes: 1,
+	hamiltoniancycles: 1,
+	i2ctransactions: 1,
+	redblacktrees: 1,
+	debruijnstrips: 1,
+	starbattleboard: 1,
+	sokobanlevels: 1,
+	ladderlogic: 1,
+	pigpencipher: 1,
+	uarttraces: 1,
+	dynkindiagrams: 1,
+	hassedivisors: 1,
+	baudottape: 1,
+	isopapersizes: 1,
+	code128barcodes: 1,
+	fencingpiste: 1,
+	tabletennistable: 1,
+	futsalcourt: 1,
+	fieldhockeypitch: 1,
+	runwaymarkings: 1,
+	archerytarget: 1,
+	snookertable: 1,
+	netballcourt: 1,
+	gridironfield: 1,
+	squashcourt: 1,
+	pickleballcourt: 1,
+	volleyballcourt: 1,
+	baseballdiamond: 1,
+	curlingrink: 1,
+	cricketground: 1,
+	highwaylanes: 1,
+	handballcourt: 1,
+	basketballcourt: 1,
+	hockeyrink: 1,
+	soccerpitch: 1,
+	athleticstrack: 1,
+	badmintoncourt: 1,
+	tenniscourt: 1,
+	playingcardpips: 1,
+	poolrack: 1,
+	tablutboard: 1,
+	arnoldcatmap: 1,
+	ninemensmorris: 1,
+	carromboard: 1,
+	shogiboard: 1,
+	ludoboard: 1,
+	chessopening: 1,
+	xiangqiboard: 1,
+	cribbageboard: 1,
+	monopolyboard: 1,
+	scrabbleboard: 1,
+	duccirows: 1,
+	wireworldcircuit: 1,
+	cycliccellular: 1,
+	beattypartition: 1,
+	walshmatrix: 1,
+	paperfoldingruler: 1,
+	rudinshapirogrid: 1,
+	baumsweetgrid: 1,
+	binarynecklaces: 1,
+	catalantriangulations: 1,
+	eisensteinprimes: 1,
+	keplerorbit: 1,
+	pythagoreanproof: 1,
+	contributiongraph: 1,
+	arbelos: 1,
+	eulerlinetriangle: 1,
+	astroidladder: 1,
+	slopegraph: 1,
+	kolakoskisequence: 1,
+	crcdivision: 1,
+	lfsrstates: 1,
+	fareysequence: 1,
+	unionfindmerges: 1,
+	linearprobing: 1,
+	bloomfilter: 1,
+	gamblersruin: 1,
+	nimgame: 1,
+	wordlefeedback: 1,
+	funnelchart: 1,
+	lrucachetrace: 1,
+	prefixtrie: 1,
+	knapsacktable: 1,
+	bfswavefront: 1,
+	bresenhamlines: 1,
+	mergesortruns: 1,
+	radixsortpasses: 1,
+	paretochart: 1,
+	vernierscale: 1,
+	kmpfailure: 1,
+	dijkstragrid: 1,
+	binarysearchsteps: 1,
+	quicksortsteps: 1,
+	ganttschedule: 1,
+	lorenzcurve: 1,
+	zordercurve: 1,
+	histogrambins: 1,
+	sankeyflows: 1,
+	bodeplots: 1,
+	huffmancodes: 1,
+	hashchains: 1,
+	editdistance: 1,
+	nearesttour: 1,
+	karnaughmap: 1,
+	bsttreeorder: 1,
+	kdtreesplits: 1,
+	spanningtree: 1,
+	ecdfplot: 1,
+	intervalpartition: 1,
+	waterfallchart: 1,
+	chorddiagrams: 1,
+	qamconstellation: 1,
+	countertimings: 1,
+	hofstadterq: 1,
+	semaphorefigures: 1,
+	fenwicktree: 1,
+	jacobisymbols: 1,
+	vicsekfractal: 1,
+	segmenttree: 1,
+	rankchevrons: 1,
+	windbarbs: 1,
+	compassrose: 1,
+	smithchart: 1,
+	mahjongdots: 1,
+	qrcodemodules: 1,
+	gaugedials: 1,
+	flagpatterns: 1,
+	intelhexrecords: 1,
+	equalizerbars: 1,
+	worleycells: 1,
+	errordiffusion: 1,
+	tetrominoes: 1,
+	candlestickcharts: 1,
+	paleygraphmatrix: 1,
+	superformulacells: 1,
+	tsquarefractal: 1,
+	marchingsquares: 1,
+	wangtiles: 1,
+	htreefractal: 1,
+	lsystemplant: 1,
+	quadtreecells: 1,
+	countingrods: 1,
+	braiddiagram: 1,
+	youngtableaux: 1,
+	euclidsquares: 1,
+	voronoicells: 1,
+	cliffordattractor: 1,
+	peanocurve: 1,
+	bitwisetable: 1,
+	golombrulers: 1,
+	henonattractor: 1,
+	digitalroottable: 1,
+	thuemorsegrid: 1,
+	recamanarcs: 1,
+	happynumberchains: .8,
+	lookandsayrows: .8,
+	kaprekarsteps: .8,
+	roundrobintable: .8,
+	roulettewheel: .9,
+	circleoffifths: .9,
+	periodictablecells: 1,
+	josephuscircle: .9,
+	gaussianprimes: .8,
+	timestablecircles: .9,
+	divisorcountbars: 1,
+	cobwebplots: .8,
+	sierpinskipascal: .8,
+	sacksspiral: 1,
+	dyckpaths: .7,
+	figuratenumbers: .8,
+	pythagoreantriples: .5,
+	hexdumprows: .6,
+	pairingtables: .8,
+	ferrersdiagrams: .7,
+	zeckendorfrows: .5,
+	cycloidcusps: .9,
+	sternbrocottree: .5,
+	projectilearcs: .6,
+	isbn10checks: .5,
+	runlengthrows: .5,
+	graphcoloring: .6,
+	bubblesortpasses: .5,
+	binaryheaptree: .6,
+	dicesumbars: .5,
+	substitutionwords: .6,
+	stemandleaf: .5,
+	boxplots: .6,
+	sorobanabacus: .5,
+	numberwords: .5,
+	dipolefieldlines: .6,
+	mobiusgrid: .6,
+	fordcircles: .6,
+	vectorfieldarrows: .6,
+	wordsquares: .5,
+	caesarcipher: .5,
+	baseconversion: .5,
+	primefactors: .5,
+	modularpowers: .5,
+	burningship: .6,
+	logisticbifurcation: .6,
+	bitwiselogic: .5,
+	gcdtable: .5,
+	percolationclusters: .6,
+	abeliansandpile: .6,
+	binaryaddition: .5,
+	roundingmodes: .5,
+	bellcurvebands: .6,
+	ieee754floats: .5,
+	vennregions: .5,
+	bezierconstruction: .6,
+	luhnnumbers: .4,
+	twosourceripples: .5,
+	cassiniovals: .5,
+	rosecurves: .6,
+	conicsections: .6,
+	cantorsetrows: .8,
+	mandelbrotbands: .6,
+	newtonbasins: .6,
+	kochsnowflake: .5,
+	matrixproducts: .4,
+	signedencodings: .4,
+	romannumerals: .4,
+	cayleytables: .4,
+	hammingcodewords: .4,
+	collatzsequences: .5,
+	delaunaytriangles: .5,
+	convexhullpoints: .5,
+	pascaltrianglenumbers: .5,
+	fouriersquarewaves: .5,
+	truthtablelogic: .4,
+	barchartbars: .4,
+	regressionscatter: .4,
+	piechartwedges: .5,
+	analogclocks: .5,
+	treemaprects: .5,
+	moonphases: .5,
+	multiplicationtable: .4,
+	draughtsposition: .5,
+	colormapregions: .5,
+	chinesecheckersboard: .6,
+	euclideanrhythms: .4,
+	hidatochain: .5,
+	mancalaboard: .6,
+	rushhourjam: .5,
+	numberlinkpaths: .4,
+	kenkencages: .4,
+	takuzugrid: .4,
+	akarilights: .4,
+	hitorishading: .4,
+	shikakurects: .5,
+	tentsandtrees: .5,
+	nurikabeislands: .5,
+	futoshikigrid: .4,
+	fillominoregions: .5,
+	stringartcurves: .4,
+	masyupearls: .5,
+	slitherlinkloop: .5,
+	hashibridges: .5,
+	kakuropuzzle: .5,
+	hexresourceboard: .5,
+	bowlingscoresheet: .5,
+	dewbeads: .3,
+	goboards: .4,
+	othelloboard: .4,
+	binaryclock: .4,
+	pianoroll: .5,
+	skyscraperpuzzles: .4,
+	knockoutbracket: .5,
+	primesieve: .5,
+	sortingnetworks: .4,
+	mayansums: .5,
+	latinsquares: .4,
+	hanoitowers: .4,
+	eightqueens: .4,
+	cantordust: .5,
+	dragoncurve: .5,
+	pascalmodulo: .4,
+	gameoflife: .4,
+	oghaminscription: .5,
+	kaleidoscope: .4,
+	slidingpuzzle: .3,
+	magicsquares: .4,
+	wordsearchgrid: .35,
+	mastermindboard: .35,
+	elementaryautomata: .4,
+	bluenoisemask: .2,
+	fibonaccisquares: .4,
+	doubleslitfringes: .4,
+	sundialplate: .4,
+	ledgersheet: .3,
+	louvershutter: .4,
+	chesterfieldtufting: .5,
+	polargraphpaper: .3,
+	tallymarks: .3,
+	quasicrystalwaves: .4,
+	tictactoegames: .3,
+	dartboardsectors: .5,
+	featherbarbs: .25,
+	amidakuji: .3,
+	code39barcodes: .3,
+	graycodediscs: .35,
+	knightstour: .4,
+	scrambledcubenet: .4,
+	weavingdraft: .4,
+	lightsoutboard: .25,
+	nonogrampuzzle: .36,
+	juliacells: .4,
+	spirographrosettes: .3,
+	sliderulescale: .25,
+	xylophonebars: .4,
+	pegsolitaire: .35,
+	bingocard: .3,
+	connectfourboard: .5,
+	ramennoodles: .3,
+	jigsawpuzzle: .5,
+	backgammonboard: .6,
+	zoneplates: .2,
+	lissajousgrid: .4,
+	mondriancomposition: .6,
+	hilbertcurve: .3,
+	battleshipgrid: .4,
+	tetrisstack: .4,
+	minesweeperboard: .4,
+	flipdotdisplay: .5,
+	crosswordgrid: .3,
+	fretboard: .32,
+	calendarpage: .3,
+	measuringtape: .16,
+	sudokugrid: .25,
+	sheetmusic: .3,
+	ecgpaper: .08,
+	datamatrixcodes: .4,
+	frostpolygons: 1.5,
+	sandripples: 1,
+	morsetape: .4,
+	ean13barcodes: .35,
+	kilimflatweave: 1.2,
+	tumblingblocks: .6,
+	azulejotiles: .8,
+	moirefringes: .3,
+	cinderblockwall: 1.6,
+	dicefaces: .4,
+	needlepoint: .3,
+	mandalaflower: .6,
+	kiwislices: .25,
+	hazardstripes: .5,
+	radarscope: .3,
+	digitalcamo: 1,
+	topographiccontours: 1,
+	garnetschist: .4,
+	celticplait: .5,
+	atomicboomerang: .6,
+	lawnstripes: 2,
+	asphaltshingle: 1,
+	expandedpolystyrene: .12,
+	octopussuckers: .4,
+	ammonitestone: .5,
+	amberresin: .2,
+	patchworkquilt: .8,
+	bayerdither: .32,
+	turingpattern: .4,
+	mudcloth: .5,
 	to220packagefaces: .08,
 	ftypefemalefaces: .04,
 	usbcfemalefaces: .032,

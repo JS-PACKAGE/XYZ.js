@@ -2921,6 +2921,1411 @@
 
 直接fallthrough重用既有Padauk／Bloodwood系細長橢圓導管sampler，constructor只選preset：40×14個導管site（Float64×4共17,920 B pose表）、4個帶狀起伏、192×9縱向fiber與128²細grain。M0、AO在導管處降低；導管凹陷為真height凹陷，縱向色紋只是顏料不抬高。預設0.16 m nominal tile與0.0025 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：導管占0.54–0.59%，本體色0.254–0.579，橫向與縱向色差比8.8–10.0；seed7的512²平均base color約(86,59,40)。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
 
+`mudcloth`（手繪泥染布條帶紋示意）使目前目錄886→887種，含plain的gallery為888項。八條橫向條帶依序重複四種作者設計的母題：折線、點列（相間大小）、菱形套小圓點、雙軌梯形橫檔；每條帶界有連續淺色分隔線，並以週期雜訊對座標做手繪式微擺動，每條帶另有獨立的相位與筆畫寬度。深褐黑染底與奶油色未染棉紋以單一色階圖呈現（染底約0.10、筆畫約0.84，另含微幅染料沉積與紗線色調變化）；底層是每tile 64×64緯經紗的平紋織物，每格以上下交替的拋物線紗面生成height／AO。Metallic與mortar皆為0。
+
+靈感來自西非泥染布（bògòlanfini）「深色染底＋淺色母題」的外觀，但母題幾何、比例、色彩與紋理皆作者自訂，不是任何特定族群、工坊或傳統紋樣的精確複製，也不代表其文化意涵；未引用或打包外部圖樣。
+
+預設0.5 m nominal tile、0.0008 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512辨識緯經紗與細筆畫，32僅粗預覽；不宣稱本段已完成browser或三backend驗證。
+
+`turingpattern`（Turing式迷宮／斑點皮毛紋示意）使目前目錄887→888種，含plain的gallery為889項。以三組整數波向量（每tile 13、12.5、13.0週期）的餘弦疊加產生近六角斑點格，再用週期雜訊扭曲座標並以緩變門檻在「小圓斑（高門檻）」與「迷宮網狀（低門檻）」之間過渡；柔邊色斑為深褐，底為淡駝色，色斑中心略深、高度略高於底。Metallic與mortar皆為0。
+
+這是解析式的三波疊加近似，不是反應擴散（reaction–diffusion）模擬，也不求再現任何特定動物的斑紋；全部參數與色彩皆作者自訂，未引用或打包外部圖樣。每個sampler點只算三個cos與四個週期雜訊，沒有迴圈或配置。
+
+預設0.4 m nominal tile、0.0007 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議256以上辨識斑點細節，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的像素風表面示意：沒有取自任何圖片或遊戲素材，也不是影像抖動演算法的工具實作。預設0.32 m nominal tile、0.0036 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每塊至少8 px，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`patchworkquilt`（拼布被面示意）使目前目錄889→890種，含plain的gallery為891項。每tile 4×4塊方形布片，依hash各自選用四種設計之一：素色（加印小圓點）、對角半方三角、同心方環、三條布帶，各片取五級色階中的兩級；片與片、片內拼縫為深色凹縫，每片像填充棉被般中央隆起，並沿片界內縮0.07處有一圈虛線縫線（每邊6段、佔空比約0.62，縫線略凹、色較亮、較粗糙），底層為每tile 96×96緯經紗平紋織物。Metallic與mortar皆為0。
+
+這是作者設計的簡化被面示意：色階、設計、比例皆作者自訂，不是任何特定傳統被面圖案（如log cabin或nine patch）的精確複製；未引用或打包外部圖樣。預設0.8 m nominal tile、0.0042 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識虛線縫與圓點，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`amberresin`（拋光琥珀樹脂示意）使目前目錄890→891種，含plain的gallery為892項。以沿v方向28列、沿u方向僅4欄的週期雜訊做拉長的流動色帶（蜂蜜金～深琥珀），再疊上兩種以格點為單位的特徵：6×6格內每格約55%機率出現一個圓形氣泡（半徑0.022–0.05 UV，內部較亮、外緣為暗色細環，只在環上降低AO），以及4×4格內約40%機率的「太陽斑」圓盤（半徑0.07–0.10 UV，略亮並有9組由核心向外淡入的放射狀裂紋，裂紋使高度下凹且較粗糙）。整體roughness約0.14（拋光），Metallic與mortar皆為0。
+
+這是不透明貼圖的作者式近似：琥珀的半透明、折射與昆蟲內含物都沒有模擬，也不依據任何特定產地或標本；未引用或打包外部圖樣。每個特徵的中心保持在所屬格內，完整半徑不會跨格。預設0.2 m nominal tile、0.0006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識氣泡細環，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`ammonitestone`（菊石化石灰岩示意）使目前目錄891→892種，含plain的gallery為893項。2×2格各有一枚圓盤狀菊石化石，位置、大小與起始相位各自微調；殼面是對數螺線：以 whorl = ln(ρ/r₀)/ln(g) − θ/2π 取小數部分作為螺管截面座標，整數處為縫合線（凹、AO暗），中段為圓管狀隆起並帶中央龍骨；肋紋每圈18條、帶弧度（falcoid）扭轉，內圈淡出以避免取樣混疊。基質為灰褐石灰岩（緩變斑駁加細顆粒），殼為奶油色且較光滑（roughness 0.55 對基質0.88）。生長比g＝2.3、殼外半徑0.4格、約3.1圈。Metallic與mortar皆為0。
+
+這是作者設計的示意化石，不是特定種屬或標本的重建：不模擬隔壁縫合線的複雜葉狀、殼口或化石化的礦物差異；未引用或打包外部圖樣。每枚化石的半徑加位置抖動保持小於半格，點只屬於自己的格。預設0.5 m nominal tile、0.0026 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識肋紋，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`octopussuckers`（章魚腕吸盤示意）使目前目錄892→893種，含plain的gallery為894項。4×4個吸盤，奇數列偏移半個欄距，每個吸盤的位置與半徑（0.11 UV的92–100%）各自微調。每個吸盤由三層組成：高出皮膚的環形邊緣（torus，峰值在半徑約79%）、內縮到皮膚高度的杯狀凹陷（12條放射狀隆線，窗函數使隆線在邊緣與中心孔處歸零，因此各通道在邊緣腳處C1連續），以及中央深暗的小孔（AO明顯降低）。皮膚為濕潤的粉灰色，帶緩變皺紋與小塊深色斑點。Metallic與mortar皆為0。
+
+這是作者設計的示意：吸盤數量、列距、斑點與顏色都不是任何特定種類的量測；未引用或打包外部圖樣。每個吸盤半徑小於半個欄距與半個列距，因此點只屬於自己的列與最近的吸盤。預設0.4 m nominal tile、0.0034 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識杯內隆線，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`expandedpolystyrene`（發泡聚苯乙烯珠粒示意）使目前目錄893→894種，含plain的gallery為895項。每tile 16×16顆珠粒，位置以週期Voronoi的方式（每格一個、距格邊至少0.2格）隨機排列；以最近三個site的距離分出：F1擁有的圓頂珠面（高度隨距珠心而隆起，每顆珠獨立色調微變）、F2−F1小於接縫寬的深灰融合縫，以及F3−F1很小的三顆珠交會處暗色空隙。珠面白色、較粗糙度0.78，接縫0.9，空隙最暗且AO最低。Metallic與mortar皆為0。
+
+這是作者設計的示意：珠的排列、大小、融合縫寬與色彩皆不是任何產品或密度等級的量測；未引用或打包外部圖樣。因為每個site都留在自己格內，3×3鄰格足以包含最近三個site，貼圖在兩軸週期。預設0.12 m nominal tile、0.0022 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識空隙，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`asphaltshingle`（瀝青三片式屋頂瓦示意）使目前目錄894→895種，含plain的gallery為896項。每tile 12道瓦列、每列6片瓦舌；每列的瓦舌圖樣向右偏移整數個半片寬（不影響每tile恰好一次的週期），瓦舌間為從列下緣向上延伸的狹縫（只在下58%，露出深色底層；上42%被上一列覆蓋，不開縫）。每片瓦舌向下緣逐漸增厚，在列下緣一個陡降到下一列，下一列上緣因被覆蓋而AO變暗；顆粒雜訊（256×256）提供粗糙礦物顆粒感，並疊加每片的色調微變與緩變磨損。Metallic與mortar皆為0。
+
+這是作者設計的示意：瓦片的尺寸比例、顏色、顆粒與磨損不是任何製造商或型號的量測，也不模擬釘線、密封膠條、苔蘚或自然老化；未引用或打包外部圖樣。預設1.0 m nominal tile、0.0045 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識狹縫與顆粒，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`lawnstripes`（修剪草坪條紋示意）使目前目錄895→896種，含plain的gallery為897項。每tile 8條橫向割草條紋交替明暗（±0.14），條紋邊界以週期雜訊微擺；每條紋內的草葉細絲以沿v拉長的value noise（192×48與384×96兩層）組成，並用整數剪切 x = u + lean·v（lean＝1，偶數條紋＋1、奇數條紋−1）讓草葉在相鄰條紋向相反方向傾斜，兩軸仍保持週期。另有緩變草叢明暗、細絲谷底的AO與微幅粗糙度變化。Metallic與mortar皆為0。
+
+這是作者設計的示意：不模擬單片草葉幾何、枯草、土斑或雜草；傾斜角固定為45°（整數剪切的限制），不是真實草葉的量測；未引用或打包外部圖樣。預設2.0 m nominal tile、0.0028 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識草葉細絲，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`atomicboomerang`（原子時代飛鏢紋層壓板示意）使目前目錄896→897種，含plain的gallery為898項。5×5格各有一個印花：約62%為V形飛鏢（兩臂 y = k|x|，k＝0.4，寬度向臂尖以 1−t³ 收尖），其餘格約70%為四尖星（astroid，|x|^0.55＋|y|^0.55 ≤ r^0.55）；每個印花的位置、尺寸（80–100%）與角度隨機，淺奶油或深青二選一。底色是淡青灰色並帶細小深色斑點（160×160雜訊門檻），印花略微抬高、更光滑。Metallic與mortar皆為0。
+
+這是作者設計的復古圖樣示意，不是任何層壓板品牌或型號的圖樣複製；未引用或打包外部圖樣。印花中心偏移與半長加起來小於半格，因此每個印花完全位於自己的格內且點只需查自己的格。預設0.6 m nominal tile、0.0008 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識星形與飛鏢尖，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`celticplait`（凱爾特雙帶編織浮雕示意）使目前目錄897→898種，含plain的gallery為899項。4條橫向雕刻帶，每條由兩根互相交織的緞帶（y＝±A·sin(2π·4u)，A＝0.052，緞帶半寬0.029）組成，每tile共8個交叉點；兩帶上升方向的那條在每個交叉點都在上方，使每根緞帶沿途交替「過／下」。緞帶有圓截面高度、中央細溝、對下方物件的接觸陰影（只降AO），條帶之間有兩條細軌線；底為凹下的石面，帶細顆粒。Metallic與mortar皆為0。
+
+這是作者設計的簡化雙帶編織：不模擬凱爾特結常見的三帶以上結構、轉角或動物形；未引用或打包外部圖樣。每根緞帶以垂直偏移除以 √(1+斜率²) 近似垂直距離，是近似而非精確offset curve。預設0.5 m nominal tile、0.0042 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識中央細溝，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`garnetschist`（石榴石雲母片岩示意）使目前目錄898→899種，含plain的gallery為900項。底層是沿u拉長的波狀葉理：以週期雜訊對v做微擺，再疊粗細兩層（3×28與6×112格）value noise，另有稀疏的雲母亮點（224²雜訊門檻）。5×5格中約60%各有一顆石榴石斑晶：六邊形外形（以三個面法向投影的最大值為距離，內切半徑0.1–0.19格）、六個錐面各有獨立色調、中心較亮的冠部、凸起且較光滑、AO較低；兩側各有一個沿葉理方向拉長的淺色石英壓力影（長軸2倍半徑、短軸0.7倍）。深端色為暗紅褐，因此石榴石呈暗紅褐、片岩呈偏粉褐。Metallic與mortar皆為0。
+
+這是作者設計的示意：石榴石為二維六邊形外形加六個錐面，不是真實十二面體／偏方三八面體晶形，葉理不會真的繞著斑晶彎曲，也不模擬雲母的方向性反光；單一色階只能近似紅色，不是光譜或礦物學測量。未引用或打包外部圖樣。每顆石榴石的外接圓與壓力影加上位置偏移都小於半格，因此點只查自己的格。預設0.4 m nominal tile、0.0035 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識六角外形，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`topographiccontours`（地形等高線圖示意）使目前目錄899→900種，含plain的gallery為901項。以三層週期value noise（3²、6²、12²格，權重0.5／0.3／0.2）合成平滑高程場f，每tile分16個等高距，圖面以淺米色紙為底、依高程做分層設色（每個等高距的底色變化為0.42/16），等高線取 |f − 最近等級| ÷ |∇f|（梯度以前向差分求得）作為空間距離，因此線寬不隨坡度變化；每第5條為較粗、較深的計曲線。另有細微紙張纖維雜訊。Metallic與mortar皆為0。
+
+這是作者設計的示意：不是任何真實地形資料，也不含高程註記、河流、座標格網或圖例；梯度有下限避免平坦處線寬暴增，極近的等高線（陡坡）會因線寬而相連。預設1.0 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。每個像素需要三次高程場取樣（各三層噪聲），建議512以上辨識細線，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`digitalcamo`（數位像素迷彩示意）使目前目錄900→901種，含plain的gallery為902項。每tile 64×64個方形像素，每個像素有四個色階之一（暗橄欖、橄欖褐、卡其、沙色）；色階由兩層週期value noise（4²、12²）與每塊的雜湊抖動合成，約一半的像素改取其2×2父塊（32²）的值，使像素聚成較大的方塊。以該場所有像素值的四分位數作為門檻，因此四個色階各佔恰好四分之一的像素。上層是每tile 128×128緯經紗的平紋帆布織紋（色調±0.03、高度與AO變化）。Metallic與mortar皆為0。
+
+這是作者設計的示意，不是任何軍用或商業迷彩圖樣的複製，也不代表可見光或近紅外偽裝效果；未引用或打包外部圖樣。預設1.0 m nominal tile、0.0007 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。每個sampler構造需排序4096個像素值（約毫秒級）；建議512以上讓每個像素至少8 px並看見織紋，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`radarscope`（雷達掃描顯示示意）使目前目錄901→902種，含plain的gallery為903項。每tile一個圓形雷達顯示（半徑0.46 UV），深綠黑底；5條等距距離環（外環較粗）、24條每15°的方位輻條（每第6條為較粗十字線）、一條由seed決定角度的亮掃描臂，其後1.3 rad以平方衰減的磷光餘暉，以及6個極座標隨機的亮點（餘暉越近越亮，最低保留40%亮度）。整體有192條水平掃描線的明暗調變與細微雜訊。Metallic與mortar皆為0。
+
+這是作者設計的UI風格示意：不是任何雷達型號的畫面，不含文字、刻度數字或真實距離／方位意義；掃描臂在tile中固定，不隨時間移動。預設0.3 m nominal tile、0.0004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。每個像素最多迴圈6個亮點；建議512以上辨識細線與亮點，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hazardstripes`（警示斜紋漆面剝落示意）使目前目錄902→903種，含plain的gallery為904項。45°斜向的黃黑警示條紋（a = u + v 的整數剪切，每tile 8道，即4黃4黑）塗在鋼板上；漆面被三項磨損得分剝落：96²雜訊碎屑、沿條紋方向拉長的刮痕（以 a = u + v、b = u − v 兩個整數剪切座標取192×10格雜訊），以及偏向條紋邊界的邊緣權重（邊緣0.3條寬內加0.35）。剝落處露出裸鋼：以既有mortar權重混入中性灰（153,153,139），同時metallic M mask與mortar為同一個磨損值（M1＝裸鋼、M0＝漆面）；漆面保持純黃／純黑基色，粗糙度黃0.45、黑0.62、鋼0.36，漆面比鋼高0.14，磨損邊緣的AO略暗。
+
+這是作者設計的示意：不是任何標準（如OSHA、ISO 3864）規定的色彩或條紋比例，不含鏽蝕、焊縫、鉚釘或凹痕；裸鋼只用既有中性灰近似，不是合金或光學量測。未引用或打包外部圖樣。預設0.5 m nominal tile、0.0032 UV-relative relief（非公尺位移）與metallic factor 1；explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識碎屑與刮痕，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`kiwislices`（奇異果切片示意）使目前目錄903→904種，含plain的gallery為905項。2×2格各有一片圓形奇異果切片（半徑0.42格，位置、尺寸92–100%與起始角各自微調）：綠色果肉帶64條放射狀淡色纖維（隨距果心漸暗），中央淡黃綠色果心圓（半徑0.115格），果心外兩圈暗色橢圓種子（內圈20顆於0.175格、外圈28顆於0.24格，內外圈錯開半個間距），外緣為帶細絨雜訊的暗褐果皮環（寬0.045格），切片之間是暗色空隙。種子凹陷、AO較暗，果心略低；果肉較平滑（roughness 0.24），果皮粗糙（0.9）。Metallic與mortar皆為0。
+
+這是作者設計的示意，不是任何品種或切法的量測：種子數量與位置、纖維數與顏色皆簡化；未引用或打包外部圖樣。每片的半徑加位置偏移小於半格，因此點只查自己的格。預設0.25 m nominal tile、0.0018 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識種子與纖維，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`mandalaflower`（曼荼羅花形示意）使目前目錄904→905種，含plain的gallery為906項。每tile一朵以tile中心為圓心的花形（seed決定整體旋轉角），由外到內依序為：12瓣大蓮瓣（極座標玫瑰邊界 ρ＝0.30＋0.15·|cos(6θ)|^0.8）、36顆點環（半徑0.27）、24瓣外層花瓣（ρ＝0.12＋0.11·|cos(12θ)|^1.5）、12瓣內層花瓣（相位偏移半個瓣距）與中央圓心（半徑0.035）。每層都是填色區並有深色輪廓線（寬0.008），由外向內以畫家演算法覆蓋；底面凹下，後層較高。Metallic與mortar皆為0。
+
+這是作者設計的簡化示意，不是任何宗教、傳統或文化的曼荼羅圖樣；未引用或打包外部圖樣。輪廓線寬是以「填色邊界ρ與邊界−寬度」之差取得的徑向寬度，不是垂直於邊界的距離。預設0.6 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。每個像素需要兩次三角函數（atan2與玫瑰邊界的cos）；建議512以上辨識內層花瓣與點環，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`needlepoint`（十字繡／針繡織錦示意）使目前目錄905→906種，含plain的gallery為907項。每tile 48×48針、沿(1,1)方向傾斜的半十字針腳（半寬0.27格、半長0.66格，兩端以4次方收尖，另有兩股絞線的明暗起伏），針腳之間露出深色畫布孔隙。色彩來自每tile 4×4個重複的12×12針母題：同心菱形環（環寬2針、三階色調循環）加上穿過母題中心的十字亮色重點，每針另有±0.03色調抖動。母題在x、y兩軸皆左右鏡像對稱。Metallic與mortar皆為0。
+
+這是作者設計的簡化示意：不是特定針法（如Continental、Basketweave）或特定圖樣的量測，不模擬羊毛毛絨、畫布織紋細節或針腳背面。預設0.3 m nominal tile、0.0026 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每針至少10 px，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`dicefaces`（骰子面示意）使目前目錄906→907種，含plain的gallery為908項。4×4個圓角方形象牙白面（半邊0.43格、圓角半徑0.11格，面緣有圓頂斜角，面間是暗色縫隙），每面依hash擁有1–6個凹陷圓點。圓點落在3×3格點上（間距0.255格、半徑0.078格），採標準中心對稱排列：1＝中心；2＝對角；3＝對角加中心；4＝四角；5＝四角加中心；6＝兩排各三顆；每面另隨機旋轉90°與鏡射，使2、3、6的方向不同。圓點是半球形凹陷（深度0.35，AO較暗）；面較光滑（roughness 0.3）而縫隙粗糙（0.9）。Metallic與mortar皆為0。
+
+這是作者設計的示意，不是任何骰子製造商的規格；不模擬相對面點數和為7，也不區分左／右手骰子，因為這些屬於整顆骰子而不是單面貼圖。未引用或打包外部圖樣。預設0.4 m nominal tile、0.0034 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識圓點邊緣，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`cinderblockwall`（混凝土空心磚牆）使目前目錄907→908種，含plain的gallery為909項。每tile 8皮×4塊，奇數皮向右錯開半塊的錯縫（running bond），比例為2:1的磚塊；灰縫寬0.0095 tile、凹陷，並以既有`mortar`通道填入中性灰漿色。磚面有每塊±0.08色調差、低頻雲狀色斑、160×160的骨料顆粒起伏、倒角斜邊，以及每tile約940個小氣孔（每個56×56格以0.3機率各放一個，半徑0.0025–0.0059 tile）。氣孔凹陷、色與AO較暗；Metallic為0。
+
+這是作者設計的示意，不是特定CMU規格（如ASTM C90的尺寸、孔洞與面殼）的量測；不模擬空心磚孔洞、砂漿擠出、泛白（efflorescence）或油漆。預設1.6 m nominal tile、0.0038 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上才能看清氣孔，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的光學示意，不是疊紋的物理模擬：沒有觀察者視角、相機取樣或螢幕子像素；疊紋是格柵乘積的數學結果。因為波向量是整數，兩格柵與其頻差、頻和在tile邊界皆連續。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每條線至少約5 px，過低解析度或強縮小時貼圖自身會產生額外混疊疊紋；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`azulejotiles`（葡萄牙式彩繪瓷磚）使目前目錄909→910種，含plain的gallery為911項。每tile 4×4片相同的上釉方磚，磚間為0.012 tile寬的凹陷灰縫（使用既有`mortar`通道填入中性灰漿色）；每片是鈷藍對白釉的方形對稱圖樣：中央四瓣花（半徑0.15格、瓣幅0.055格）、半徑0.3格的細環、以及磚角四分之一圓盤（四片磚相接成完整圓，內含白色細環）。藍色有逐筆刷的明暗起伏，釉面另有每tile 28×28格的細微龜裂（craquelure）暗線；磚緣有倒角，釉面光滑（roughness 0.2）、灰縫粗糙。Metallic為0。
+
+這是作者設計的示意，不是特定歷史圖樣或產地（如Delft或Talavera）的量測，沒有手繪筆觸的個別差異，每片磚都相同；磚面圖樣具完整正方形對稱，因此旋轉磚片在這個材質中看不出差別。預設0.8 m nominal tile、0.0022 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`tumblingblocks`（翻滾方塊／等角立方體拼布）使目前目錄910→911種，含plain的gallery為912項。每tile 7欄×8列的六角晶格，每個六邊形（尖頂、外接圓半徑1）被三條由中心射向上右、上左、下方頂點的射線切成頂面（亮，tone 0.92）、右面（中，0.62）與左面（暗，0.3）三個菱形，形成等角立方體錯視；每個面另有±0.06的逐塊色調抖動、帶細織紋的布面顆粒，以及面與面之間的細縫（深色、略凹、AO較暗）。六角晶格以一個六邊形中心對齊u=v=0；因為UV tile是正方形，晶格寬7√3與高12的比例約1.01，六邊形會有約1%的非等比拉伸。Metallic與mortar為0。
+
+這是作者設計的拼布示意，不是特定被面圖樣的量測，沒有縫線、棉被填充或布料皺褶，也不模擬光照下立方體的真實立體感（亮暗面是貼圖色，不隨光向改變）。預設0.6 m nominal tile、0.0018 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`kilimflatweave`（基里姆平織地毯）使目前目錄911→912種，含plain的gallery為913項。每tile 48×48個織格，由上到下分為四條各12列的紋帶：階梯菱形（12格週期、左右上下鏡像、同心環階梯變色）、階梯鋸齒（週期6格、每列各半兩色）、橫條紋（十二列迴文：深、深、紅、紅、赭、白、白、赭、紅、紅、深、深）與十字（每個12×12母題中44格為十字色）。顏色為四階色調（靛、茜紅、藏紅花黃、未染羊毛白），每格有±0.025的染色抖動；weft-faced橫向緯紗肋（每格3道）與低振幅纖維色斑；相鄰格顏色改變處在格的左緣有0.14格寬的細縫（深色、凹陷、AO較暗），模擬平織地毯在色塊交界的垂直縫隙。Metallic與mortar為0。
+
+這是作者設計的簡化示意，不是特定部族或產地基里姆的量測，也不宣稱圖樣出自傳統；沒有經緯紗交織細節、流蘇與磨損。四階色調是亮度而非色相（顏色由dark／light兩端線性插值）。預設1.2 m nominal tile、0.0022 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格至少約10 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`ean13barcodes`（EAN-13條碼標籤）使目前目錄912→913種，含plain的gallery為914項。每tile 4張橫向排列的條碼標籤，每張占滿tile寬（左右各9個模組的空白區加95個模組的條碼，共113模組），並依EAN-13規格編碼：左護線101、左側六個數字（依第一位數字的奇偶樣式選L或G碼）、中央護線01010、右側六個數字（R碼）、右護線101，第十三位為正確的檢查碼。條碼的12個數字由seed與列號決定（因此各列不同），不是註冊的商品編號，也沒有可讀數字文字。護線比數字條略長，條緣有柔邊，墨色有低振幅濃淡、紙面有細微纖維。Metallic與mortar為0。
+
+這是作者設計的示意：圖樣依公開的EAN-13編碼表產生，使「掃描」判讀在結構上成立，但沒有量測列印品質（如ISO 15416等級）、條寬增益補償、可讀文字或前導數字；測試只驗證結構與檢查碼，沒有用實體掃描器或解碼函式庫掃描。預設0.35 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每個模組至少約9 px；512時約4.5 px，邊緣柔化會占模組寬的一大部分；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`morsetape`（摩斯電碼紙帶）使目前目錄913→914種，含plain的gallery為915項。每tile 10行紙帶，每行64個時間單位寬，依各行hash自十個單字（SOS、XYZ、CAT、PLAY、HELLO、WORLD、LIGHT、ENGINE、SIGNAL、TEXTURE）選一個，以國際摩斯電碼拼出：點＝1單位、劃＝3單位、字內間隔1單位、字母間隔3單位，左側空白3單位，其餘留白使圖樣在tile邊界不被切斷。標記是圓端膠囊形、厚度1單位；每行中心有淡淡的導線，墨色有低振幅濃淡，紙面有細微纖維。Metallic與mortar為0。
+
+這是作者設計的示意，不是某特定電報機紙帶規格的量測：沒有紙帶邊的鏈輪孔、墨線抖動或褪色；每行只有單一單字（不含字間隔7單位），單字表是固定的十個。預設0.4 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每個單位約8 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`sandripples`（風成沙紋）使目前目錄914→915種，含plain的gallery為916項。整數波向量(18, 7)的一列沙紋，每tile約18道穿越u方向的波峰；波峰受兩組週期低頻噪聲（6×6與24×24格）彎曲，剖面不對稱：迎風坡占72%的相位、緩升，背風坡占28%、陡降，峰谷以平滑函數圓化。迎風坡色較亮、背風坡較暗並帶AO，另有384×384的砂粒起伏、約5%格子的亮色雲母／礦物斑點。Metallic與mortar為0。
+
+這是作者設計的簡化示意，不是對特定沙丘的量測；沒有波峰分岔（bifurcation／defect）、沙丘尺度的大型形態、風向變化或濕沙。預設1 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`frostpolygons`（凍土多邊形）使目前目錄915→916種，含plain的gallery為917項。每tile 8×8個抖動Voronoi多邊形（抖動0.7）的極地圖案地面：粉質土多邊形中心（略低、色調中等且有低頻雲狀變化），邊緣有一圈隆起的石環（rim，色調較暗，內有圓形卵石，半徑隨機、色調0.3–0.7），多邊形之間是窄而深的暗色冰楔裂溝（troughs，AO較暗）。多邊形邊界由兩個最近種子點的距離差近似，不是真正的邊緣距離，所以裂溝寬度在尖角處略有變化。Metallic與mortar為0。
+
+這是作者設計的簡化示意，不是對特定凍土區（如北極多邊形土或石環）的量測，不模擬冰楔剖面、融凍循環、苔蘚或季節積雪；石環色調以隨機亮度表示，不含岩性。預設1.5 m nominal tile、0.012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`datamatrixcodes`（Data Matrix二維碼標籤）使目前目錄916→917種，含plain的gallery為918項。每tile 3×3個18×18模組的ECC 200風格符號（每個符號四周有1模組空白區，共60×60模組）：左欄與底列為實心的L形尋邊圖樣（finder）、上列與右欄為交替的時序軌（clock track，上列在偶數欄為深色、右欄由底往上在偶數步為深色，因此右上角為淺色），內部16×16資料區的每個模組依seed以約50%機率塗墨。模組為方形、邊緣略柔化（只在與不同狀態的相鄰模組之間），相鄰深色模組連成實心；墨色有低振幅濃淡、紙面有細微纖維。Metallic與mortar為0。
+
+這是作者設計的示意：finder與clock track依Data Matrix的結構繪製，但資料區是隨機位元，不是依ECC 200編碼出的碼字（沒有資料、Reed-Solomon糾錯或碼字擺放），因此不可被掃描解碼，也沒有用任何掃描器或解碼函式庫驗證；測試只驗證finder／clock／空白區與資料區大致密度。預設0.4 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每個模組約17 px；512時約8.5 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意，不是任何真實心電圖的記錄或診斷資料；沒有導程標籤、校準方波、心率變異、雜訊或病理波形，十二導程排版也未模擬。預設0.08 m nominal tile（80 mm見方，剛好對應記錄紙的實際毫米）、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓1 mm格約12.8 px；512時約6.4 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意，不是任何樂曲：沒有譜號、拍號、調號、符尾、連桁、休止符、時值對應的間距或歌詞，空心音符也不改變拍數（每個音符仍佔一拍的位置），因此不可演奏。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓線距約16 px；512時約8 px、符桿只有約0.8 px寬，會變得很淡；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`sudokugrid`（數獨格）使目前目錄919→920種，含plain的gallery為921項。每tile一個9×9的數獨盤面，細線分隔每格（半寬0.018格）、粗線分隔3×3宮（半寬0.04格）。每格依seed以約42%機率顯示一個提示數字，數字以3×5點陣字型（每個點0.135格）畫成像素風格。提示來自一個隱藏的完整解：以標準樣式經過數字重排、宮帶與宮內列／行的置換產生，這些置換都保留數獨規則，所以任何一列、一行、一宮內的提示都不會重複。墨色有低振幅濃淡，紙面有細微纖維。Metallic與mortar為0。
+
+這是作者設計的示意：提示是完整解的隨機子集，不保證只有唯一解，也不是難度分級的謎題；字型是3×5點陣而非真實印刷字體。預設0.25 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約57 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`measuringtape`（卷尺）使目前目錄920→921種，含plain的gallery為922項。每tile 160 mm見方（16 cm寬）、8條黃色卷尺條帶（每條高20 mm）：每1 mm一條短刻度（長4 mm）、每5 mm一條中刻度（6.4 mm）、每10 mm一條長刻度（9.2 mm、略粗），條帶上下緣有深色邊線；每公分的刻度右側以3×5點陣字型（每點1.1 mm）標示該公分序號0–15（兩位數時並排）。墨色有低振幅濃淡，卷尺面有細微顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：只是一段重複的0–15 cm刻度，不是任何卷尺標準（如公制公差等級）的量測；沒有英寸刻度、金屬捲尺的彎曲、字型粗細或磨損。標示值固定為本段的公分序號，tile邊界處15與0銜接。預設0.16 m nominal tile（對應實際的160 mm）、0.0018 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓1 mm約6.4 px；512時1 mm只有約3.2 px，刻度會相當細；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`calendarpage`（月曆頁）使目前目錄921→922種，含plain的gallery為923項。每tile一頁7欄×6列的月曆格，每格左上角以3×5點陣字型標示日期，細線分格、tile外框較粗，第一欄與最後一欄（週末）紙面略深。每個seed決定一個月：從哪一欄開始（0–6）與天數（28–31），日期依閱讀順序從1連續增加到月底，其餘格留白。Metallic與mortar為0。
+
+這是作者設計的示意：沒有星期標題列、月份名稱、年份、節日或手寫備註，也不對應任何真實的月份，只是任選的起始欄與天數；格內只有日期數字。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約73 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`fretboard`（吉他指板）使目前目錄922→923種，含plain的gallery為924項。每tile涵蓋一個八度（從琴枕到第12格）的深色玫瑰木指板：品絲位置依十二平均律，第n品在音階長度的 1−2^(−n/12) 處，以第12品（音階一半）正規化到u=1，因此與下一個tile的琴枕（u=0）銜接；每品的間距是前一品的 2^(−1/12)≈0.944 倍。6條琴弦沿u方向、均勻分布在寬度上，半寬由0.0022（高音側）漸增至0.0075（低音側），琴弦旁有淡淡的陰影；第3、5、7、9品的中點各有一顆珍珠色圓點，第12品中點是上下對稱的雙點。木紋沿u方向拉長。Metallic為0（品絲與琴弦只用亮度與粗糙度表現，不是金屬遮罩）。
+
+這是作者設計的示意：不是特定琴款的量測；音階長度被正規化，因此只有「品絲間距比例」而沒有真實的毫米尺寸；沒有指板弧度（radius）、琴頸斜度、琴弦凹陷或磨損，也不模擬品絲與琴弦的金屬反射（它們只是較亮、較光滑的非金屬）。預設0.32 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓品絲約3.6 px寬；512時約1.8 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：格子只是空白填字格，沒有答案字母、提示文字或粗外框，也不保證有可填入的詞表；規則與編號只在單一tile內成立，tile重複時相鄰tile邊緣的白格連續段會跨過tile邊界，所以重複後並不是一個合規的大型填字格。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每格約68 px（編號像素約3.4 px）；512時每格約34 px，編號會相當小；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`flipdotdisplay`（翻轉點陣顯示器）使目前目錄924→925種，含plain的gallery為926項。每tile 48×48個圓盤，黑色面板上每個圓盤半徑0.42格：亮起的為黃色（tone 0.92，較光滑、略凸並帶左上高光與中心軸點），熄滅的為深灰黑（0.14）。整個盤面是12欄×8列的數字，每個數字佔4×6個點，以3×5點陣字型亮起並在右側與下側各留一點空白，數字內容由seed決定（0–9）。面板有細微顆粒、圓盤之間有較暗的AO。Metallic與mortar為0。
+
+這是作者設計的示意：沒有翻盤動畫、磁性翻轉的雙穩態、盤面反面（黑／黃）的厚度或機械間隙的細節；數字只是隨機序列，沒有時鐘、站名或其他語意。預設0.5 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每個圓盤約21 px；512時約11 px，高光與軸點會很小；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`minesweeperboard`（踩地雷盤面）使目前目錄925→926種，含plain的gallery為927項。每tile一個24×24的踩地雷盤面：每格依seed以16%機率藏一顆地雷（地雷本身不顯示），盤面以環面（torus）計算相鄰地雷數，所以tile邊緣相接時沒有接縫。從7個安全的「0」格開始洪水式揭開（0格會揭開全部8個鄰格），已揭開的格子是平坦、較暗、帶細格線，有相鄰地雷時以3×5點陣字型畫出1–8；未揭開的格子是凸起的按鈕，左上有亮斜角、右下有暗斜角。Metallic與mortar為0。
+
+這是作者設計的示意：盤面沒有旗標、問號、爆炸的地雷或數字顏色（顏色是亮度而非色相）；未揭開區域底下的地雷位置固定但看不見，所以畫面只保證「必要條件」的一致性（見ACCEPTANCE），不保證唯一可解。因為相鄰關係在tile邊界環繞，這不是標準的有邊界踩地雷盤面。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每格約43 px；512時約21 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`tetrisstack`（俄羅斯方塊堆疊）使目前目錄926→927種，含plain的gallery為928項。每tile一個16×16的方塊井：依seed隨機嘗試放置七種四格方塊（I、O、T、S、Z、J、L）的隨機旋轉，只接受完全在井內且不重疊的放置，所以每個方塊恰好4格；七種方塊各用一個色調（0.9–0.2的七階亮度）、每格有斜角與高光，不同方塊之間有深色輪廓線（相同種類相鄰的兩個方塊也被輪廓分開），未被佔用的格子是近黑色的深洞。Metallic與mortar為0。
+
+這是作者設計的示意：不是實際遊戲盤面——沒有重力、消行、下落、遊戲規則，也沒有保證「可由遊戲自然堆疊出來」，只是隨機的非重疊放置；色調是亮度而非遊戲的標準色相。tile邊緣的方塊不會跨越邊界，所以重複時相鄰tile的方塊只是並排。預設0.4 m nominal tile、0.0035 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約32 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`battleshipgrid`（海戰棋盤）使目前目錄927→928種，含plain的gallery為929項。每tile一個10×10的海戰棋盤：藍灰色水面與細格線，以及一支由5、4、3、3、2格組成的艦隊，每艘船是一條直線的深色船體（相鄰格合併成一塊圓角板、與水面交界內縮），船與船之間即使在角落也不相接；每個格子依seed以約32%機率被射擊：射中船的格子有深色圓釘（命中），射中水面的格子有近白圓釘（落空）。Metallic與mortar為0。
+
+這是作者設計的示意：沒有座標標示、沒有沉船或艦種造型，也不保證這個射擊紀錄在實際對局中可能出現（隨機射擊，不是依序輪流）；船隻位置在每個seed固定。tile重複時每塊棋盤是獨立的一局，船隻不會跨越邊界。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約51 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：色調在tile接縫處由最淺跳回最深（索引0與255之間有色調不連續），這是刻意保留的；沒有標示起點終點的記號，也不是其他階數或其他空間填充曲線。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約32 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`mondriancomposition`（蒙德里安式構圖）使目前目錄929→930種，含plain的gallery為931項。每tile一幅由遞迴二分割產生的矩形構圖：前兩層一定分割，之後每個矩形以80%機率繼續分割（最深5層、最小邊長0.14 tile），分割線每次只橫跨被分割的那個矩形（與畫作相同），分割比例在35%–65%之間；tile邊緣也有一圈黑框，使構圖封閉且重複時連續。黑線半寬0.0075 tile，矩形各以六個色階中的一個填色（0.97三份、0.62、0.4、0.78，因此白色矩形占約一半），畫布有細微顆粒、有色矩形另有筆觸濃淡。Metallic與mortar為0。
+
+這是作者設計的示意：不是蒙德里安作品的複製，也沒有紅、藍、黃三原色——填色只是亮度（顏色由dark／light兩端線性插值，所以呈灰階）；分割規則與比例是作者設定的。預設0.6 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓黑線約3.8 px寬；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`lissajousgrid`（李沙育圖形表）使目前目錄930→931種，含plain的gallery為932項。每tile一張4×4的示波器風格李沙育（Lissajous）圖形表：第(欄, 列)格畫出參數曲線 x = A·sin(a·t + π/2)、y = A·sin(b·t)，頻率 a = 欄 + 1、b = 列 + 1（A = 0.4格，t為0到2π、以160段折線近似），所以由1:1的圓到4:4共16種比例，a與b有公因數時曲線會重複描繪、a = 2b 等情況會退化成拋物線弧。線條為亮綠（線半寬0.014格）並帶柔和光暈，面板有深綠色底、淡淡的格框與中心十字刻度，另有細微顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：沒有示波器的螢幕曲率、光暈拖尾、掃描線或讀數文字，相位固定為π/2（不隨格子變化），顏色只是由dark／light兩端線性插值的綠色調。預設0.4 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；每個取樣點要檢查160段折線，成本較其他材質高：單次本機Bun量測512²取樣約155 ms（同一次量測中tumblingblocks約56 ms、brick約17 ms；不是基準測試，也沒有量測瀏覽器或Worker）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`zoneplates`（菲涅耳波帶片）使目前目錄931→932種，含plain的gallery為933項。每tile 2×2片波帶片，每片14個環帶，第k個環帶的外緣半徑為 R·√(k/N)（R = 0.42格、N = 14），這是菲涅耳波帶片的半徑律（各環帶面積相等）；偶數環帶（含中央圓）透明（淺色），奇數環帶不透明（近黑色），最外的第14環不透明並接中灰色底板；波帶片外緣另有一圈淺灰色固定環。環帶邊緣略有柔化，底板與環有細微顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：只依半徑律繪製波帶片的幾何，不模擬繞射、焦點、波長或強度分布；環數、尺寸是正規化的（R與N固定），不對應真實的設計波長與焦距。預設0.2 m nominal tile、0.0022 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓最外圈的環帶（約0.015格寬）約8 px；512時約4 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`backgammonboard`（西洋雙陸棋盤）使目前目錄932→933種，含plain的gallery為934項。每tile一張棋盤：外框內分成左右兩半、每半6個「點」（三角形），中間是較暗的中央隔條（bar）；上排12個三角形尖端向下、下排12個尖端向上，各側色調交替（0.52與0.34），上下兩排相差一格；三角形長度為棋盤高的40%。每方15顆棋子（淺色與深色），隨機放在24個點上，每點最多疊5顆且只放同一種顏色，從棋盤邊緣往中間疊，棋子有邊緣高光與略微凸起。Metallic與mortar為0。
+
+這是作者設計的示意：棋子是「合法的隨機擺放」，不是標準開局或任何實際對局的局面，也沒有骰子、倍率骰、被吃掉棋子放在隔條上或已移出棋盤的棋子；總數固定為每方15顆，因此每個seed中棋子都全部在點上。tile重複時每張棋盤是獨立的一盤。預設0.6 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓棋子約34 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`jigsawpuzzle`（拼圖）使目前目錄933→934種，含plain的gallery為935項。每tile一幅6×6片的環面拼圖：每片以格為基礎，格與格之間的每條邊各有一個圓形凸塊（bulb，半徑0.115格、頸部半寬0.05格、凸出0.15格），凸塊屬於哪一邊由seed隨機決定、嵌入另一邊，因此相鄰的兩片必然一凸一凹地咬合；邊緣在tile邊界環繞，所以重複的拼圖是連續的。每片以細線與微小斜角分隔，畫面是低頻雲狀「圖像」明暗（6×6格）加48×48格的細節與逐片±0.06的色調差、顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：凸塊形狀是圓形加直頸，不是真實拼圖刀模的曲線；沒有卡紙厚度、印刷圖案內容或背面。每片的面積因凸塊與凹槽而略有不同（凸塊、凹槽成對抵消時與一格相同）。預設0.5 m nominal tile、0.0026 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每片約170 px、切線約5 px；512時切線約2 px；每個取樣點要做約40次擁有者判定，成本較高：單次本機Bun量測512²取樣約226 ms（同次量測lissajousgrid約122 ms、tumblingblocks約45 ms、brick約16 ms；非基準測試，未量測瀏覽器或Worker）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`ramennoodles`（拉麵麵條）使目前目錄934→935種，含plain的gallery為936項。每tile 22條沿u方向的波浪形麵條，由上到下疊放，後面的麵條蓋在前面的上面：第i條的中心線是 y = (i + 0.5)/22 + 0.085·sin(2π(k·u + 相位))，k依序取3、4、5，相位以黃金比例（i×0.618…取小數）決定，所以每個seed的麵條形狀相同、只有色調與顆粒隨seed變化；麵條半寬0.026，剖面為圓管（中心線亮、邊緣暗並降低高度與環境遮蔽），逐條有±0.06的色調差，麵條之間約7%的面積露出深色湯面。Metallic與mortar為0。
+
+這是作者設計的示意：沒有捲曲的麵條、斷裂、油花、配料或湯汁的反光；因為麵條都是波浪形且逐條固定層次，看起來較規則。波浪的距離採一階近似（垂直偏移除以√(1＋斜率²)），在波峰斜率大處條寬略有誤差。預設0.3 m nominal tile、0.01 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；每個取樣點要檢查22條麵條，成本中等（單次本機Bun量測512²取樣約200 ms，非基準測試）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`connectfourboard`（四子棋盤）使目前目錄935→936種，含plain的gallery為937項。每tile一張7欄×6列的四子棋盤，下方再加一列底座：藍色面板上有圓孔，孔內是深色（空）、第一位玩家的圓盤（中間色調）或第二位玩家的圓盤（近白色），圓盤有內環與略凸的邊。盤面依seed模擬一局合法的遊戲：兩位玩家輪流在隨機欄位投入圓盤（第一位先手），圓盤因重力從底部往上堆，每次落子若會形成四連線就改選別欄；落子數在18–30之間。因此每欄圓盤由底部連續向上，第一位玩家的圓盤數比第二位多0或1，且沒有任何一方已連成四子。Metallic與mortar為0。
+
+這是作者設計的示意：沒有真實的紅、黃色（顏色是以dark／light兩端線性插值的亮度，所以第一位玩家是中間藍灰色、第二位玩家是近白色）；這是隨機合法局面，不是策略對局，也沒有保證可由雙方「合理」下出來。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每個孔約73 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bingocard`（賓果卡）使目前目錄936→937種，含plain的gallery為938項。每tile 6×6格，左側5欄×6列是一張賓果卡：第一列是淡灰底的「B I N G O」標題（3×5點陣字型），其下5列各格依標準範圍填入數字——B欄1–15、I欄16–30、N欄31–45、G欄46–60、O欄61–75，同一欄內數字互異且由seed隨機選取；中央格（N欄第三列）是空格「free space」，以灰色圓點標示；約25%的數字格被畫上圓圈標記（daub）。卡片外框較粗；右側第六欄是空白邊距，使重複時卡片之間有間隔。Metallic與mortar為0。
+
+這是作者設計的示意：卡上的數字不代表任何實際叫號的狀態（圓圈標記是隨機的，不保證與任何叫號序列一致，也不判斷是否已連線）；字型是3×5點陣，沒有印刷的圖案、卡號或廣告。標題的字母B、I、N、G、O在字型中以點陣近似。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約85 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`pegsolitaire`（單人跳棋／孔明棋）使目前目錄937→938種，含plain的gallery為939項。每tile一張7×7格的英式十字棋盤：四個2×2角落是無孔的實木，其餘33格是孔，孔內為深色（空）或淺色的圓頭木釘（有高光與小圓頂）。盤面由seed從「中心只剩一顆木釘」的終局出發，隨機倒著玩8步（每次倒推的跳躍把「釘、空、空」的直線變成「空、釘、釘」）：因此畫面上的局面（9顆木釘，若嘗試次數用完則較少）必定可由正向跳躍解到只剩一顆。木板有沿u方向拉長的木紋。Metallic與mortar為0。
+
+這是作者設計的示意：局面只保證「可解」（由倒推產生），不保證是最短解或具代表性的謎題；只畫英式33孔棋盤，不含法式37孔或其他變體；顏色是由dark／light兩端線性插值的亮度，所以木釘是淺黃褐色而不是特定顏色。預設0.35 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約73 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`xylophonebars`（木琴音條）使目前目錄938→939種，含plain的gallery為940項。每tile 12根並排的木音條（一個八度的十二個半音），均以tile中線為中心；第一根最長（0.9 tile），之後每根為前一根的 2^(−1/24) ≈ 0.9715 倍——調音音條的頻率與長度平方成反比，一個十二平均律半音（頻率比 2^(1/12)）因此使音條縮短 2^(−1/24)，十二個半音（一個八度）縮短為 2^(−1/2)。每根音條在距兩端22.4%（自由—自由梁第一振動模態的節點位置）處各有一個懸掛孔，相鄰音條的孔以細線（繩）相連；木紋沿音條長度方向，音條色調由長到短略為變淺，背景是深色毛氈。Metallic與mortar為0。
+
+這是作者設計的示意：只依「長度比與節點位置」繪製，沒有考慮音條的厚度、寬度或截面（真實木琴音條常有下凹以微調泛音），也不模擬共鳴管；繩子是孔洞之間的直線，在tile接縫（最後一根到下一個tile的第一根）處折回，是刻意保留的不連續。預設0.4 m nominal tile、0.0035 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`sliderulescale`（計算尺刻度）使目前目錄939→940種，含plain的gallery為941項。每tile疊8條象牙色底的對數C尺，一個「十進位」橫跨整個tile寬：刻度值x畫在u = log10(x)，因此10與下一個tile的1重合、tile可無縫重複。刻度依常見規則：[1,2)每0.02、[2,4)每0.05、[4,10)每0.1，共150條，長度分三級——整數（9條，最長）、十分位（[1,4)的整十分位，與[4,10)的整半）共33條中等、其餘108條最短；每個整數刻度右側有3×5點陣的數字1至9。每條尺上下各有一條細橫線，墨色略有濃淡，紙面有細紋。Metallic與mortar為0。
+
+這是作者設計的示意：只畫C尺的單一十進位，不含其他尺（A／B／D／CI／K／S／T／L）、游標、運算標示或字樣；數字用3×5點陣而非印刷字型；刻度規則採常見分段，並非特定廠牌型號的重現；顏色是線性亮度插值（象牙底＋近黑墨），不代表真實材質的色相。預設0.25 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上（細刻度的間距在u上最小約0.0044）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`spirographrosettes`（繪圖尺花紋）使目前目錄940→941種，含plain的gallery為942項。每tile四個象限各畫一條內擺線（hypotrochoid，小齒輪在大環內滾動、筆離齒輪中心一段距離所畫出的曲線），環／齒輪半徑比依序為5/3、8/3、7/2、9/4，因此各有5、8、7、9個花瓣（R與r互質時，瓣數等於R），曲線在 t 走完 2π·r／gcd(R,r) 後閉合。筆距依seed與象限在齒輪半徑的0.37至0.73倍之間浮動、整條花紋再依seed旋轉；筆尖永遠剛好碰到外圈（半徑0.215 tile），因此瓣尖落在同一個圓上。四個象限的墨色亮度略有不同，紙面有細紋。Metallic與mortar為0。
+
+實作上，曲線在建立取樣器時以約10.8萬個點蓋印進一張640×640的Float32墨跡遮罩（約1.6 MB，每個取樣器各一份），之後每個取樣只做雙線性查表；遮罩解析度固定為640，所以tile超過640 px時線條會被雙線性放大而稍微變軟，不會變得更銳利。
+
+這是作者設計的示意：只畫四種固定的環／齒輪比（不是一般的任意R、r），曲線是均勻取t的折線點陣（9000點每圈，並非精確距離場）；顏色是亮度插值（近黑墨＋米白紙），不代表筆的色相。預設0.3 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512至1024；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`juliacells`（Julia集合方格）使目前目錄941→942種，含plain的gallery為943項。每tile四個象限各畫一個填充Julia集合 z → z² + c，c取實數（約−0.4、−0.75、−1.0、−1.25，各依seed在±0.04內抖動；實數c落在[−2, 1/4]時集合連通，且圖形對x、y軸都鏡像對稱）。每格視窗半徑2，等於逃逸半徑，所以格子邊界上的點一開始就逃逸，格與格之間及tile重複處沒有接縫。集合內部（96次疊代仍未逃逸）為近黑，外側依平滑逃逸次數 μ = n + 1 − log₂(ln|z| / ln 2) 以 1 − exp(−μ/9) 發出由暗到亮的光暈；height與roughness隨同一個光暈變化。Metallic與mortar為0。
+
+這是作者設計的示意：只有四個實數參數的Julia集合，沒有Mandelbrot集合或複數c（複數c不鏡像對稱，會在tile邊界產生接縫）；疊代上限96，所以邊界附近緩慢逃逸的點會被畫成內部；顏色是亮度插值（深藍近黑到暖米色），不代表任何特定配色。預設0.4 m nominal tile、0.0035 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`nonogrampuzzle`（數織）使目前目錄942→943種，含plain的gallery為944項。每tile是一張12×12格的版面：右下8×8是已解開的圖形（約55%的格子填成深色方塊，由seed決定），左側4欄與上方4列是各行各列的連續填格長度提示（run-length clues），以3×5點陣數字（0至8）印在灰底的提示格內，列提示靠右對齊緊貼圖形、行提示靠下對齊；全空的行列印「0」；左上角4×4為空白紙面。圖形格線每5格一條較粗的分組線，外框也較粗。提示與圖形由同一份填格資料算出，因此一定互相一致。Metallic與mortar為0。
+
+這是作者設計的示意：圖形是隨機填格，不保證有唯一解（真正的數織謎題需要唯一解，這裡只是畫出「已解開的版面」）；固定8×8、最多4個提示（8格最多4段連續區）；數字只有單一位數；顏色是亮度插值（近黑墨＋米白紙），不代表任何印刷色。預設0.36 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格約43 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`lightsoutboard`（Lights Out 熄燈遊戲）使目前目錄943→944種，含plain的gallery為945項。每tile一塊5×5的按鈕盤：圓角方形按鈕，亮燈的是帶高光與中心光暈的暖黃色、熄滅的是暗褐色，按鈕之間是深色塑膠框；亮燈的按鈕略為下陷、表面較光滑。亮燈圖樣是從「全暗」開始，按下seed隨機選出的約40%按鈕（每次按下會翻轉該鈕與上下左右鄰居）所得到的結果，所以這個局面必定可解——5×5的熄燈遊戲隨機亂擺的盤面只有四分之一可解。Metallic與mortar為0。
+
+這是作者設計的示意：只有5×5的標準規則（不含其他尺寸或變體），畫的是靜態局面，沒有按鍵順序或解答提示；亮燈的顏色是亮度插值（近黑到暖黃），按鈕沒有對應真實硬體的材質。預設0.25 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議256以上（每鈕約51 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`weavingdraft`（織造圖解）使目前目錄944→945種，含plain的gallery為946項。每tile 16×16格，畫出四綜（4 shafts）織機的完整織造圖解：左上12×4是穿綜圖（threading，每條經線穿過哪一片綜，每欄一個記號，1號綜在最靠近織紋的那一列）、右上4×4是踏板連綜表（tie-up，每個踏板抬起哪些綜）、右下12×4是踩踏順序（treadling，每一梭踩哪個踏板，每列一個記號）、左下12×12是由三者推得的織紋圖（drawdown）：深色格表示該經線在這一梭浮在上面（它的綜被抬起），淺色格表示緯線在上。穿綜與踩踏由seed隨機決定，每個踏板抬起非空且非全部的綜（1至3片），因此織紋由規則完全決定。Metallic與mortar為0。
+
+這是作者設計的示意：只畫四綜、四踏板、12×12的升梭（rising shed）慣例，穿綜與踩踏是隨機的，不是傳統的斜紋或緞紋規則，所以織紋看起來可能不整齊；沒有紗線顏色（深／淺只是「經浮／緯浮」）、也沒有織縮或實際組織的立體感；顏色是亮度插值（近黑墨＋米白紙），不代表任何紗線色相。預設0.4 m nominal tile、0.0018 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格32 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`scrambledcubenet`（打亂的魔術方塊展開圖）使目前目錄945→946種，含plain的gallery為947項。每tile是一張14×14格的紙面，中央是3×3×3魔術方塊的十字形展開圖（上、左、前、右、後、下六面，共54顆貼紙，12×9格），貼紙是圓角方塊、嵌在黑色塑膠本體上；六面的顏色以六個亮度（0.24至0.95）表示。方塊由seed隨機做22次外層四分之一轉（旋轉三維座標與法線，不是隨機填色），所以畫面一定是合法、可還原的方塊狀態：每個亮度恰有9顆貼紙、六個中心貼紙各是一個亮度、12個邊塊與8個角塊各出現一次且不會有相對面的顏色配在同一塊。Metallic與mortar為0。
+
+這是作者設計的示意：展開圖的方向是常見的十字展開（U在F上方、D在F下方、L／R／B在F兩側與後方），不是任何特定轉法記號；顏色只是亮度，不是真實魔術方塊的色相，六個亮度間距約0.12至0.16，在小尺寸下較不易分辨；沒有立體魔術方塊的形狀；22次隨機四分之一轉並不保證達到均勻隨機狀態。預設0.4 m nominal tile、0.0028 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格約37 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：只畫開放路線，不要求能回到起點（不是閉合的巡邏）；沒有棋子；細線在tile內與數字相交時會與數字重疊（數字畫在線上）；路線搜尋是以搜尋預算的啟發式，並非窮盡——本次在600個seed上實際都找到了完整的64步路線（單次建立最久約49 ms，一次性本機量測，非基準），但並未證明任何seed都必定成功；若全部60次嘗試都失敗，已走過的格子會有編號、未走過的格子則是空白（本次未遇到）。顏色是亮度插值（棋盤的淺深米色與近黑墨），不代表真實棋盤材質。預設0.4 m nominal tile、0.0022 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格64 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`graycodediscs`（格雷碼編碼盤）使目前目錄947→948種，含plain的gallery為949項。每tile四個象限各有一片光學編碼盤（optical rotary encoder disc），分別有3、4、5、6條同心軌道（8、16、32、64個扇區）：扇區從+u方向起、朝+v方向（螢幕上順時針）編號，第k條軌道（由外往內數，最外圈是變化最快的第0位元）在該扇區格雷碼 g = s XOR (s >> 1) 的第k位元為1時是亮色的透光槽、為0時是暗色的遮光塊，所以相鄰兩個扇區（包含最後一個接回第0個）恰好只有一條軌道不同。圓盤外緣有細的扇區刻線，中央有一個深色軸孔，盤外是中灰色墊面。Metallic與mortar為0。
+
+這是作者設計的示意：軌道數固定為3、4、5、6（不隨seed改變，seed只影響墊面的細微顆粒），各軌等寬、沒有光電感測器、遮光罩或軸；亮色代表透光、暗色代表遮光只是亮度的約定，不是實際光學材質；顏色是亮度插值。預設0.35 m nominal tile、0.0028 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（64扇區的盤在512 px下每個扇區在最外圈約3 px寬）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`code39barcodes`（Code 39條碼）使目前目錄948→949種，含plain的gallery為950項。每tile 6列條碼，每列是 `*XXXXX*`：起訖字元 `*` 夾著由seed隨機選出的5個字元（0至9、A至Z、`-`、`.`）。每個字元由9個元素（5條黑條、4個空白，黑條開頭）組成，其中恰好3個為寬（寬度為窄的3倍），6個為窄；字元之間隔一個窄空白，前後各有10個窄單位以上的靜區（quiet zone）。紙面為米白、黑條帶些微墨色濃淡與顆粒。Metallic與mortar為0。
+
+編碼表是照記憶輸入，並用Wikipedia〈Code 39〉描述的結構規則（兩條寬黑條以權重1、2、4、7、0相加編為1至10，四個空白中恰有一個寬者選擇「U–Z加符號／數字／A–J／K–T」四組之一）在測試端獨立解碼回來，確認38個資料字元與起訖符號 `*` 的圖樣全部符合該規則；但沒有拿真實的條碼掃描器或ISO/IEC 16388標準全文比對，也沒有實際掃描過這些條碼。
+
+這是作者設計的示意：不含Code 39的檢查碼（該符號本來就沒有必要檢查碼）、不含`$`、`/`、`+`、`%`與空白這五個字元（空白可編碼，但這裡的字母表不使用）、也沒有印刷可讀文字；寬窄比固定為3:1、取樣在1/132 tile的單位上，所以太小的解析度（如32）無法分辨窄條。預設0.3 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上（窄單位約7.7 px）；512仍能分辨，約3.9 px；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`amidakuji`（阿彌陀籤／鬼腳圖）使目前目錄949→950種，含plain的gallery為951項。每tile一張8條縱線、10層橫槓的阿彌陀籤：每一層由seed在相鄰縱線之間隨機畫橫槓（機率約45%，同一層不會有兩根相接的橫槓）；上方一排標出起點號碼1至8，下方一排標出「從哪個起點出發會走到這條縱線」——每個起點沿縱線往下走、碰到橫槓就橫移到相鄰縱線，因此下排號碼是上排號碼的一個排列。標籤列為灰底，數字是3×5點陣，紙面為米白、墨線近黑。Metallic與mortar為0。
+
+這是作者設計的示意：下方標籤是「起點號碼」而不是獎品名稱；橫槓高度固定在10個層級的中央（不像手繪那樣高低不一）；沒有標示哪一條是中獎線，也沒有突顯任何一條走過的路徑；顏色是亮度插值（近黑墨＋米白紙）。預設0.3 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（縱線間約64 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`featherbarbs`（羽毛羽枝）使目前目錄950→951種，含plain的gallery為952項。每tile並排兩片羽毛的羽片（羽軸在u = 1/4與3/4）：細亮的羽軸向兩側伸出一排排羽枝（barbs），羽枝朝羽尾方向斜掃——沿同一根羽枝 v + 1.3·|u − 羽軸| 為定值，所以羽枝是相位 (v + 斜率·|dx|) / 週期 的條紋，每個tile垂直方向有48根；每根羽枝有自己的長度（約0.21 ± 0.03 tile），形成參差的外緣，羽枝間是深色縫隙，由內向外色調由亮轉暗，每根的亮度略有不同。最長的羽枝（約0.24 tile）仍短於羽軸到邊界的0.25 tile，所以每片羽毛在邊界至少留約0.01 tile的空白，所以tile接縫與兩片羽毛之間沒有羽枝接觸。Metallic與mortar為0。
+
+這是作者設計的示意：只畫了羽枝與羽軸，沒有羽小枝（barbules）的細節、沒有彎曲或扭轉的羽片、沒有羽毛輪廓與尖端；兩片羽毛完全鏡像排列；顏色是亮度插值（近黑底、米白羽枝），不代表真實羽毛色相；有高頻條紋（週期約20 px@1024、羽枝寬約0.55個週期），在小尺寸下會產生疊紋。預設0.25 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`dartboardsectors`（飛鏢靶）使目前目錄951→952種，含plain的gallery為953項。每tile一面標準飛鏢靶：中心是紅心（bull，半徑6.35 mm）與外紅心（15.9 mm），其外是20個扇區，依常見順序從正上方順時針為 20、1、18、4、13、6、10、15、2、17、3、19、7、16、8、11、14、9、12、5，每個扇區有單倍區、三倍環（99至107 mm）與雙倍環（162至170 mm）；扇區黑白交替（20號為黑），黑扇區的雙倍／三倍環是「紅」色調、白（米色）扇區的是「綠」色調，每條分界有亮色鋼絲；雙倍環外側是深色數字環，數字以3×5點陣、直立（不旋轉）印在各扇區方向上；靶外是中灰色墊面。尺寸以毫米定義，再縮放到tile（225 mm對應0.47個tile）。Metallic與mortar為0。
+
+數據來源要誠實說明：靶的總直徑451 mm與20個扇區，在本次實作中從Wikipedia〈Darts〉確認；各環的半徑（紅心6.35、外紅心15.9、三倍環99至107、雙倍環162至170 mm）與扇區數字順序是照記憶輸入的標準規格，沒有逐項對照WDF／DRA規格全文；順序有一項已知性質作為自我檢查——相鄰數字差的絕對值總和為198（測試中計算，吻合），且20個數字互不相同、總和210。這是作者設計的示意：顏色是亮度（紅／綠只是兩個不同的灰階），沒有靶面纖維、飛鏢孔、號碼環的圓弧擺放（數字不隨角度旋轉）或鋼絲的立體陰影，鋼絲的寬度（約0.0016 tile）為示意而非實際線徑。預設0.5 m nominal tile、0.0028 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`tictactoegames`（井字遊戲）使目前目錄952→953種，含plain的gallery為954項。每tile四塊3×3的井字棋盤（共6×6格），每塊畫的是一局隨機對弈的局面：X先手，兩方輪流把9個格子依seed決定的隨機順序下滿，遇到第一條連線就停止，否則在3至9手之間（每塊各自隨機）停下，因此每個局面都是實際對弈中可能出現的：X與O的數量相等或X多一，不會同時有兩方連線，連線時剛好是該方剛下完最後一手。格線只畫在同一塊棋盤的格子之間；X是兩條對角線，O是圓環，皆為近黑墨線。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標出勝利連線、下棋順序或對弈者；四塊棋盤之間沒有分隔線，在6×6的格線上會連成一片（每塊棋盤的邊緣格子沒有外框）；X與O的顏色只差0.08的亮度；「可能出現」是依照上述必要條件，不是對每個局面做過完整的博弈樹驗證。預設0.3 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格約85 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`quasicrystalwaves`（準晶波紋）使目前目錄953→954種，含plain的gallery為955項。把五個平面波 cos(2π(m·x) + φ) 相加，波向量 m 取整數 (6, 0)、(2, 6)、(−5, 4)、(−5, −4)、(2, −6)，方向大致落在正五邊形的五個方向（相鄰夾角與72°相差不到10°、長度比小於1.15），相位 φ 由seed決定；和 S 再經 0.5 + 0.5·tanh(0.7·S) 這個單調映射變成亮度（height與roughness也由同一個和導出），畫面呈現近似五重對稱的光斑與五角星結構。因為波向量是整數，整個圖案在tile上精確週期、可無縫重複。Metallic與mortar為0。
+
+這是作者設計的示意：它是「週期近似」而不是真正的準晶——真正的準晶（如Penrose鋪磚）沒有平移週期；這裡的五重對稱只是近似（波向量取整數所造成的角度與長度誤差），在遠處仍會重複；沒有繞射或物理意義上的準晶；顏色是亮度插值（深藍近黑到暖米色），不代表特定配色。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議256以上（最高空間頻率約7.2週期／tile）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`tallymarks`（正字記號／五劃計數）使目前目錄954→955種，含plain的gallery為956項。每tile 8條橫格線，每列一個計數：左側是歐美慣用的「五條一組」計數記號——每組四條直立筆劃再加一條斜線劃過，湊滿5；最後一組若不滿5就只有直立筆劃（1至4條），右側以3×5點陣數字印出該列的總數（3至49，由seed決定）。所以一列有幾條筆劃（滿組算5）就等於右側印的數字。墨色略有濃淡、紙面有細紋與橫格線。Metallic與mortar為0。
+
+這是作者設計的示意：採用的是「四直一斜」的五劃計數法（不是東亞的「正」字記法）；每條筆劃都是完美的直線，沒有手寫的歪斜與粗細變化（墨色濃淡只是整體亮度擾動）；最多49條（10組），再多就放不進一列。預設0.3 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（筆劃寬約3 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`polargraphpaper`（極座標方格紙）使目前目錄955→956種，含plain的gallery為957項。每tile一張置中的極座標圖紙：12個等間距同心圓（半徑0.04 k tile，k = 1至12，第5、10與最外圈較粗）與每10°一條的36條放射線（每30°較粗、四條座標軸最粗），放射線從第1圈外側畫到最外圈，中心留一個空白小圓，圖紙之外是空白紙面。墨色為青綠近黑，紙面米白帶細紋。Metallic與mortar為0。
+
+這是作者設計的示意：沒有角度或半徑的刻度數字、沒有座標軸箭頭；線寬是固定的相對寬度（細0.0011、粗0.0021、軸0.0032 tile），不隨解析度調整，所以在32這種極低解析度下細線會消失；圖紙正好是tile內的一個圓，tile接縫處沒有線。顏色是亮度插值（深青綠到近白）。預設0.3 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上（細線約2 px）；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`chesterfieldtufting`（Chesterfield菱格縫釦皮革）使目前目錄956→957種，含plain的gallery為958項。每tile是4×4個網格點中「索引和為偶數」的8個點各釘一顆圓釦，鄰近的釦子之間沿對角線拉出深色縫褶，縫褶圍成的菱形各自鼓起成軟墊；在旋轉座標 s = 4(u + v)、t = 4(u − v) 中，釦子落在偶數整數上、縫褶是 s = 2m 與 t = 2m 的直線，每個菱形內的高度是 (sin(πs/2)·sin(πt/2))^0.7，菱形中央最高、縫褶為0。亮度隨高度由縫褶的近黑逐漸變為皮革的暖褐色，皮面有細小的皺紋與顆粒，釦子是較亮的小圓（帶一圈邊緣）。Metallic與mortar為0。
+
+這是作者設計的示意：只有菱形（鑽石形）縫釦，不含紐扣的孔洞與縫線、不含皺褶從釦子放射的更細致皺紋；縫褶線在釦子之間是完美的直線；皮革紋路是亮度雜訊而不是真實皮革的毛孔；顏色是亮度插值（近黑褐到磚紅褐），不代表特定皮革。預設0.5 m nominal tile、0.02 UV-relative relief（非公尺位移，起伏較大）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`louvershutter`（百葉窗板）使目前目錄957→958種，含plain的gallery為959項。每tile是一扇百葉窗：左右各一條實心的邊框直條（stile，各約7%寬），中間一根垂直的連動桿，10片斜置的橫向葉片（slat）。每片葉片是一個傾斜面——靠上緣較亮、往下緣逐漸變暗——底部14%是兩片之間的深色縫隙；連動桿穿過縫隙持續可見，並在每片葉片中央有一個小圓軸釘與葉片相連。葉片表面有沿水平方向拉長的細微漆面顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：這是正面平視的簡化圖，沒有透視、沒有葉片之間透出的背景或光線（縫隙只是深色）、也沒有真實的葉片傾斜角度——傾斜只用「上亮下暗」的亮度梯度與高度斜面表示；邊框直條沒有榫接或面板；顏色是亮度插值（近黑灰到淺灰白），不代表特定的漆色。預設0.4 m nominal tile、0.012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`ledgersheet`（帳簿紙）使目前目錄958→959種，含plain的gallery為960項。每tile一張8列的簡易帳簿：每列左側是列號（1至8），中間欄是靠右對齊的三位數金額（100至999，由seed決定），右欄是靠右對齊的累計餘額（目前為止所有金額的總和，第一列為三位數、之後多為四位數）；欄位之間有兩條較深的直線，每列之間是淺色橫線，數字是3×5點陣，墨色略有濃淡，米黃紙面有細紋。所以每一列的餘額都等於前一列餘額加本列金額。Metallic與mortar為0。
+
+這是作者設計的示意：沒有欄位標題、貨幣符號、小數點或借貸欄，只有金額與累計餘額兩個數字欄；金額範圍固定為100至999，最多8列（餘額最大7992，四位數）；顏色是亮度插值（近黑藍墨＋米黃紙），不代表真實帳簿的紅藍墨水。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每個點陣像素約5 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`sundialplate`（日晷盤面）使目前目錄959→960種，含plain的gallery為961項。每tile一面水平日晷的盤面（青銅色圓盤，半徑0.475 tile，盤外為深褐墊面）：中心是晷針根部的小圓，從中心向上半面伸出13條時刻線，正午線垂直向上、較粗，第 h 小時的時刻線與正午線的夾角為 atan(sin φ · tan(15°·h))，h = −6 至 6（±6小時是水平線）；φ 是緯度，由seed決定在25°至55°之間。三個同心環（半徑0.2、0.3、0.385 tile）與時刻線末端外側的數字（6、7、…、11、12、1、…、6，3×5點陣）；相鄰時刻的數字交錯放在兩個不同半徑上，避免低緯度時靠近正午的數字互相重疊。Metallic與mortar為0。
+
+這是作者設計的示意：只畫盤面，沒有晷針的立體或投影；不考慮所在地的經度修正、均時差或日光節約時間；每個seed是一個不同的緯度，不是特定城市；整點之間沒有半小時或刻度細線；顏色是亮度插值（深褐近黑到青銅色），不代表真實青銅的氧化色。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`doubleslitfringes`（雙狹縫干涉條紋）使目前目錄960→961種，含plain的gallery為962項。每tile上下疊四個遠場雙狹縫干涉圖樣面板，沿水平方向的強度為 I(x) = cos²(πx/p) · sinc²(πx/(r·p))，x 是離中央的偏移、p = 1/16 tile 是條紋週期、r 是「狹縫間距÷狹縫寬度」，四個面板的 r 依序為2、3、4、5：條紋位置在 p 的整數倍，當條紋級次 m 恰是 r 的倍數時，剛好落在單縫繞射包絡 sinc² 的零點上而缺級（missing order）。亮度為 I^0.6，暗色背景、奶黃色條紋，面板之間有一條細暗縫。圖樣左右鏡像、以中央為軸，所以在tile接縫處連續，可無縫重複。Metallic與mortar為0。
+
+這是作者設計的示意：這是遠場（Fraunhofer）理想化公式，不是實驗影像——沒有有限狹縫距離、有限光源寬度、非單色光造成的條紋模糊，也沒有真實光強度的物理單位；水平方向是一維圖樣，在垂直方向只是重複；seed只影響極細的顆粒；顏色是亮度（近黑藍到奶黃），不代表特定波長的色光。預設0.4 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（條紋週期約32 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`fibonaccisquares`（斐波那契方塊與黃金螺線）使目前目錄961→962種，含plain的gallery為963項。每tile中央是由邊長為1、1、2、3、5、8、13（單位 = 1/24 tile）的七個正方形拼成的13×21單位的長方形（長寬比21/13 ≈ 1.615，接近黃金比例；七個方形的面積 1 + 1 + 4 + 9 + 25 + 64 + 169 = 273 = 13 × 21，正好鋪滿），每個方形依序以右、上、左、下的順序貼在目前長方形的一側，並有各自的亮度；每個方形內畫一段半徑等於邊長的四分之一圓弧，圓心在方形的一個角，相鄰的弧線在共用端點相切，串成一條連續的黃金螺線。長方形四周是米白紙面。Metallic與mortar為0。
+
+這是作者設計的示意：這是用費氏數列方塊近似的螺線（由四分之一圓弧拼接，曲率在接點不連續），不是真正的對數螺線；長方形不填滿tile，四周留有空白，所以tile重複時圖形之間有間隔；只畫七個方塊（最大13），不能繼續擴大；seed只影響紙面顆粒。預設0.4 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（最小的方形約21 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bluenoisemask`（藍噪聲遮罩）使目前目錄962→963種，含plain的gallery為964項。每tile是一張64×64的藍噪聲（blue noise）抖動遮罩，用 void-and-cluster 演算法（Ulichney）產生：在環面（上下左右相接）上以高斯能量（σ = 1.5）找「最密的群聚」與「最大的空洞」，先把約10%的隨機初始點鬆弛到穩定，再依序為全部4096個texel排出0至4095的名次，每個名次恰好使用一次；亮度 = 名次 ÷ 4095，所以亮度直方圖是完全平坦的，且低頻能量被壓得很低。遮罩在環面上計算，可無縫重複。height隨亮度升高，roughness隨亮度略升。Metallic與mortar為0。
+
+一次性本機量測（seed 0，64×64遮罩的離散傅立葉功率，除以白雜訊的預期功率）：半徑1至5頻率的平均約0.000、半徑8至12約0.003、半徑24至31（接近Nyquist）約1.61；同樣變異數的隨機排列（白雜訊）三者約為1.21、1.14、0.96。單次建立約66 ms（一次性量測，非基準）。
+
+這是作者設計的產物：遮罩大小固定為64×64 texel（再大則演算法時間過長），以最近鄰方式取樣，所以在512 px的圖上每個texel是8×8 px的方塊（想要像素級的藍噪聲請把size設為64，或在shader裡以repeat取樣）；seed只決定初始隨機點，不同seed是不同的遮罩，但品質（頻譜）相近；顏色是亮度，沒有色相意義。預設0.2 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：只有四種規則、固定31格寬與31列；環狀邊界，所以圖樣會在左右邊緣繞接（與tile相鄰面板之間不相連）；起始列含隨機點，因此不是典型的「單一種子」三角形（想看單一種子可把seedDensity設為0）；「奇數環不會歸零」是在目前這些seed上觀察到的結果，沒有數學證明；顏色是亮度（近黑墨、淺灰格線、米白紙）。預設0.4 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格約8 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`mastermindboard`（珠璣妙算／Mastermind棋盤）使目前目錄964→965種，含plain的gallery為966項。每tile是一塊6欄×9列的棋盤：最上面一列是公開的密碼（4顆釘子，從6種顏色中隨機選出），其下8列各是一次隨機猜測的4顆釘子；每個猜測右側的兩欄是2×2的回饋釘孔，依規則計分——位置與顏色都對的「準確釘」（亮色，0.98）先填，只有顏色對但位置錯的「部分釘」（近黑，0.04）接著填，其餘是空孔——填入順序為左到右、上到下。6種釘子顏色以六個亮度（0.34至0.9，間隔0.12）表示，孔是暗褐色，棋盤是木質褐色並帶沿垂直方向拉長的木紋，密碼列與猜測列之間有一條橫線分隔。Metallic與mortar為0。
+
+這是作者設計的示意：猜測是隨機的，不是玩家根據前面的回饋做出的推理（所以後面的猜測不一定與前面的回饋一致，也不保證有任何一列猜中全部）；沒有遮蓋密碼的蓋板；顏色只是亮度，六種釘子在小尺寸下不易分辨；回饋釘的「黑／白」依慣例是「準確／部分」，這裡以亮／暗表示。預設0.35 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`wordsearchgrid`（找字遊戲／Word Search）使目前目錄965→966種，含plain的gallery為967項。每tile是一張12×12的字母方格，字母以3×5點陣大寫字母印出，只用12個字母 A C D E G I L M N O R T：從一份15個單字的清單（CODE、TREE、GRID、MINT、TIDE、LION、DOOR、CLOT、RAIN、CELL、MOON、TIGER、ANGLE、CIRCLE、TRIANGLE）中依seed挑出5個，沿8個方向（橫、直、斜，正向或反向）隨機放進方格（與已放的字母相交時字母必須相同），其餘格子填入字母表中的隨機字母。淺灰格線，米白紙面，墨色略有濃淡。Metallic與mortar為0。
+
+這是作者設計的示意：單字清單不會印在畫面上；填入的隨機字母可能意外拼出清單上的其他單字（測試只要求清單中至少有5個單字能在格內以直線找到）；只有12個字母，3×5點陣的字母在小尺寸下不易分辨（例如D與O、M與N）；字母以單字母方式放置，沒有空格或標點。預設0.35 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上（每格約85 px，點陣像素約14 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：洛書與杜勒幻方的數字照記憶輸入，用「每列、每欄、對角線和相等且為1至n²」的條件驗證（杜勒幻方的其他性質，如四個角落、中央2×2之和也是34，沒有測試）；5階與7階由演算法生成，不是特定的傳統幻方；沒有6階或其他偶數階（需要不同的構造法）；7階的格子較小（約0.07 tile），在512 px約36 px、2位數字的點陣像素只有約4 px。預設0.4 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`slidingpuzzle`（滑塊拼圖／十五數字謎）使目前目錄967→968種，含plain的gallery為969項。每tile是一個4×4的盤面：15塊帶有1至15點陣數字的米黃色方塊與一個下陷的空格，外圍是深色框。盤面從已完成的狀態出發，依seed做240步隨機的合法滑動（空格與鄰格交換，不立即回頭）而得，因此一定可以解回；方塊有細縫與倒角（height），數字略凹。Metallic與mortar為0。
+
+這是作者設計的示意：240步隨機滑動不保證與完成狀態相距最遠，也可能偶然把少數方塊留在原位（測試只要求不超過6塊在原位）；不是「隨機排列」，而是合法滑動的結果；數字只有3×5點陣，兩位數寬度約0.7格；沒有動畫或解法。預設0.3 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：真實萬花筒是以鏡子反射真實物件，這裡是算式模擬的鏡像；n=12的圓盤因楔形很窄而顯得接近放射狀；圖案不是有意義的曼陀羅；所有圓盤的位置固定（2×2），不隨seed移動。預設0.4 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`oghaminscription`（歐甘文刻石）使目前目錄969→970種，含plain的gallery為971項。每tile是一塊灰色粗石面（含細粒與粗尺度的亮度變化），上面刻有8行水平的歐甘（Ogham）文字：每行一條橫向的主幹線，一個單字由1至5道短刻痕為一組的字母從左往右排列。依字母所屬的四個aicme（組）區分刻法：第1組（B L F S N）的刻痕在主幹線下方，第2組（H D T C Q）在上方，第3組（M G NG Z R）斜穿主幹線，第4組（A O U E I，母音）是主幹線上的短槽；組內的刻痕數1至5決定字母。每行單字依seed從16個古愛爾蘭樹名（BETH、LUIS、FEARN、SAILLE、NION、UATH、DUIR、TINNE、COLL、CERT、GORT、RUIS、AILM、ONN、EADHA、IDHO）中挑出，刻痕比石面暗、凹陷（height較低）。Metallic與mortar為0。
+
+這是作者設計的示意：歐甘字母的次序（BLFSN／HDTCQ／MGNGZR／AOUEI）與四組的刻法是憑記憶輸入的，未對照外部資料；真正的歐甘文沿石頭的稜線由下往上讀，這裡改成水平從左到右的簡化排列，每行主幹線是橫貫整個tile的細線；單字是以字母拼寫的樹名（不是考證過的銘文，且沒有使用NG字母——測試字母表中以X代表NG）；沒有風化或崩缺。預設0.5 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：初始狀態是隨機湯而非特定圖案（沒有刻意放置滑翔機等結構）；盤面只有20×20（環面）；先運行10代而非更長，是因為burn-in 24代時14個seed中最少只剩21個活細胞（第一版以一維hash產生初始狀態時seed 0甚至只剩8個，另外初始狀態還出現大片空白，所以改用二維hash），而10代時各seed為59至121個活細胞（400格）；四個盤面的左右上下邊緣在環面上相連，但這個接縫在tile畫面上沒有表示。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`pascalmodulo`（巴斯卡三角形同餘）使目前目錄971→972種，含plain的gallery為973項。每tile分成2×2個32列的左對齊巴斯卡三角形：第r列第c個方塊是二項式係數的遞推值（每格等於上一列左上與正上兩格之和），分別對模2、3、4、5取餘數，四個象限各用一個模數，哪個模數放在哪個象限由seed決定。餘數越大方塊越亮（亮度在0.2與0.94之間等距分布），三角形右上方是空白的深色底；每個盤面有細外框。模2的盤面就是謝爾賓斯基三角形。Metallic與mortar為0。
+
+這是作者設計的示意：只列出32列；餘數以亮度表示（不是色相，模5的5種亮度間距約0.185，小尺寸下不易分辨）；餘數0不是「空白」而是較暗的方塊（亮度0.2），空白只在對角線右上方；四個模數各出現一次。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：龍形曲線只有一條，不隨seed變動形狀（只改變方向與鏡射）；曲線只佔tile中央，四周是平坦背景，並非鋪滿；線寬約為格距的0.34，11階時格距約0.02 tile，在512 px只有約3.5 px寬；11階曲線的線段從不重疊，但在頂點會相接（接點方塊所以看起來有時是交叉）。預設0.5 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：康托爾集只做到第5步（243格，每格寬在1024 px約4 px）、康托爾塵只做3步（27×27）——真正的康托爾集是無窮步的極限；總是去掉中間三分之一（我曾讓seed決定去掉哪一個數字，但去掉2時康托爾塵整個縮到角落看不清，所以固定為1），seed只改變顆粒；它不是分形的視覺化證明。預設0.5 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`eightqueens`（八皇后）使目前目錄974→975種，含plain的gallery為976項。每tile分成2×2塊8×8的西洋棋盤（淺色與深色格交替，深色木框），每塊棋盤上放著八個互不攻擊的皇后——每列、每欄各一個，也沒有任何兩個共用斜線。皇后畫成圓形身體加三尖王冠的亮色剪影；四塊棋盤各自用seed打亂欄的順序後做回溯搜尋，因此是互相獨立的解（共有92種解）。Metallic與mortar為0。
+
+這是作者設計的示意：皇后只是簡化剪影，不是立體棋子；四塊棋盤的解由seed打亂順序決定，並不均勻取自92種解，也可能剛好有兩塊相同；沒有座標標示；棋盤格是淺色與深色的兩種亮度，不是色相。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hanoitowers`（河內塔）使目前目錄975→976種，含plain的gallery為977項。每tile分成2×2個木框面板，每個面板是三根立柱與六個大小不同的圓盤，四個面板依閱讀順序顯示最佳解法（把全部圓盤從左柱搬到右柱，共63步）進行到第0、21、42、63步時的狀態：第0步是六個圓盤依大小疊在左柱，最後一步疊在右柱。圓盤越大越亮、也越寬（寬度0.08至0.30個面板寬），立柱與底板為較暗的木色。Metallic與mortar為0。
+
+這是作者設計的示意：只有一種固定的最佳解法與固定的四個步數（0、21、42、63），seed只改變木紋顆粒；圓盤只靠寬度與亮度區分，沒有立體感；圓盤亮度是0.38到0.96之間的灰階（不是色相），小尺寸下最小的幾個圓盤不易分辨；解法中間步驟的圓盤沒有畫出「正在移動」的樣子。預設0.4 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：所有方陣都是由循環群的乘法表經過列、欄、符號置換得到（同構於循環拉丁方），並不涵蓋所有同階的拉丁方（例如6階還有許多非循環類型）；亮度等級不是色相，8階的相鄰等級只差約0.114，小尺寸下不易分辨；沒有數字或字母標示。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`mayansums`（馬雅數字加法）使目前目錄977→978種，含plain的gallery為979項。tile的四個象限在灰色粗石面上各刻一道加法算式 a + b = c，數字用馬雅的二十進位記法：每個數字由上下兩格組成（上格是20位、下格是個位，各為0至19），一格內0是貝殼形的橢圓環，1至4是一排圓點，5是一道橫槓，6至19是在底部疊上若干條橫槓（每條代表5）再在其上放一排圓點（每點代表1）。a與b由seed在10至199間挑選，c＝a＋b（最大398，仍是兩位二十進位數）；算式的三欄之間刻有加號與等號。Metallic與mortar為0。
+
+這是作者設計的示意：數字是馬雅二十進位數字的簡化畫法（橫槓與圓點、貝殼零），不是考證過的碑文字形，也沒有馬雅長紀曆的18進位位（長紀曆中第二位只到17）；算式只在10至199範圍內選取，且上格的20位可能是0（以貝殼表示）；刻痕只是比石面暗的凹陷，沒有風化或崩缺。預設0.5 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`sortingnetworks`（排序網路）使目前目錄978→979種，含plain的gallery為980項。tile的四個象限各畫一張8條導線的排序網路圖：八條水平導線（由上到下為0至7號），每個比較器是一道垂直的亮色線段，兩端各有一個圓點連到被比較的兩條導線（較小的值放到上方的導線）。每個象限由seed在兩種網路間挑選：Batcher的奇偶合併排序（19個比較器）與雙調排序（24個比較器，取全部遞增的形式）；每個比較器各佔一欄，依執行順序從左排到右。深藍色的面板上帶淡淡的顆粒與細框。Metallic與mortar為0。
+
+這是作者設計的示意：只有8條導線與兩種網路；為了避免巢狀的比較器互相重疊，每個比較器獨佔一欄（因此圖並未把同一層的比較器畫在同一欄，不是標準的分層畫法）；測試端用0-1原理驗證讀回的比較器網路確實把全部256個二進位輸入排序，但沒有證明它是比較器數目最少的網路。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：畫面上沒有數字，只能由模式推知；11以上的最小質因數只用一級表示（不再細分11、13、17…）；起點最大745，所以視窗最大到1000（最小質因數最大為31）；亮度是灰階，不是色相；質數的判定用試除法，不是篩法的實作。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`knockoutbracket`（淘汰賽對戰表）使目前目錄980→981種，含plain的gallery為982項。每tile是一張16隊單敗淘汰賽的賽程樹：左側第一輪是依seed洗牌的1至16號（點陣數字，兩位數使用兩個字形），往右依序是8強、4強、準決賽與冠軍共五欄方框，每場對戰的兩個方框以連線匯入下一欄，下一欄的方框填入該場的勝者（由seed隨機決定是上方或下方的隊伍勝出），因此每個勝者號碼都等於餵入它的兩個方框之一，最右邊是冠軍（較亮的方框）。深藍色背景上的淺色方框、深色數字與灰色連線。Metallic與mortar為0。
+
+這是作者設計的示意：勝負完全隨機，不代表任何實力或比分；沒有比分、隊名與日期；16隊固定、沒有輪空或季軍賽；數字是3×5點陣，兩位數寬約0.05 tile。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`skyscraperpuzzles`（摩天樓謎題）使目前目錄981→982種，含plain的gallery為983項。每tile分成2×2題已解開的摩天樓謎題，階數依閱讀順序為4、5、6、7：中央是n×n的格子，每格是一棟樓的高度（1至n的點陣數字，高樓所在格的底色略深、高度略高），每列與每欄的高度恰為1至n各一次；四周一圈是線索，標出從該側往內看時能看到幾棟樓（較高的樓擋住後面較矮的樓，所以只計算比前面所有樓都高的樓）。數字是3×5點陣，紙面為米白色，有細格線與外框。Metallic與mortar為0。
+
+這是作者設計的示意：畫面上是已解開的答案加上全部四邊的線索（真正的謎題只給線索，並隱藏中央的數字）；解是循環拉丁方經列、欄與符號置換而得，所以不是所有可能的解；1至n的數字以點陣印出，7階的格子較小（約0.05 tile）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`pianoroll`（鋼琴捲簾）使目前目錄982→983種，含plain的gallery為984項。每tile是一張鋼琴捲簾編輯器式的畫面：左側是24個半音（兩個八度）的琴鍵條，白鍵為亮列、黑鍵（每八度的升C、升D、升F、升G、升A）為暗列；右側是24列×32步的格子（每4步有一條較明顯的拍線），其中以亮藍色長條畫出一段旋律。旋律使用一個由seed挑選的大調音階（12個主音之一），從主音開始，每次移動一或兩個音階級（不重複同一音高），每個音符長1至4步，直到填滿32步；音符愈高愈亮。Metallic與mortar為0。
+
+這是作者設計的示意：旋律是隨機走動，沒有節奏或和聲上的音樂性；音高範圍固定為24個半音（兩個八度），主音落在中間偏上的位置；只有大調音階，沒有轉調、和弦或休止；琴鍵條畫成亮暗的列，沒有真實的琴鍵造型。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`binaryclock`（二進位時鐘）使目前目錄983→984種，含plain的gallery為985項。每tile分成2×2個時鐘面板，依閱讀順序顯示連續的四秒：時鐘以二進位編碼十進位（BCD）顯示 時時：分分：秒秒 共六個十進位數字，每個數字是一欄四個圓點，由上到下依序是8、4、2、1位元，亮綠色為1、暗色為0。起始時間由seed在一天（00:00:00至23:59:59）中任選，因此四個面板的最後一欄（秒的個位）逐格加一，遇到進位時（如秒59）會一路進到分與時，過了23:59:59則回到00:00:00。深色面板上有細框。Metallic與mortar為0。
+
+這是作者設計的示意：只有24小時制、沒有日期與毫秒；起始時間隨seed決定，測試的九個seed中不一定出現跨分鐘或跨日的進位（進位的取餘邏輯有寫但未被這些seed涵蓋，見ACCEPTANCE）；亮暗的圓點沒有標示位元權重（8、4、2、1）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`othelloboard`（黑白棋盤）使目前目錄984→985種，含plain的gallery為986項。每tile分成2×2塊8×8的綠色棋盤，依閱讀順序是一局隨機黑白棋（Othello／Reversi）中連續的四個局面，每個局面都是前一個局面再下一步合法棋的結果：從標準開局（中央四子）開始，黑先，由seed決定的合法著手隨機進行14至32手，取該局面與其後三手；一手棋放下一枚新子，並依規則翻轉沿八個方向被夾住的對方連續棋子，沒有合法著手的一方跳過。黑子為深色圓盤，白子為亮色圓盤，棋盤為綠色氈面與細格線，外有深色木框。Metallic與mortar為0。
+
+這是作者設計的示意：棋局是完全隨機的合法著手，不是有意義的對局，也不保證局面看起來「像真的比賽」（預覽中常出現成列或成十字形的棋子）；只顯示四個連續局面，沒有標示輪到誰；測試端以獨立的八方向射線掃描驗證每一步的翻轉，但不驗證整局是否能從開局合法走到第一個局面（只驗證相鄰局面間的一步）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`goboards`（圍棋盤）使目前目錄985→986種，含plain的gallery為987項。每tile分成2×2塊9×9的木紋圍棋盤（細格線、五個星位、深色木框），四塊盤面分別是隨機合法對局進行了16、28、42、58手後的局面：黑先白後輪流，每手下在隨機的空點，若讓對方一個棋群失去所有氣就把它提走（提子），若下了之後自己的棋群沒有氣則該手無效並換下一個點（禁入點）。黑子為深色圓子，白子為亮色圓子。Metallic與mortar為0。
+
+這是作者設計的示意：對局完全隨機，不是有意義的棋局，也不是死活題；規則只實作提子與自殺禁手，沒有「打劫」（ko）限制，也沒有虛手、終局或勝負；若40次嘗試都找不到合法點則該手略過，因此盤面棋子數可能少於手數；白子的亮度是同一色階中最亮的一端，在這套只有「暗到亮」兩色漸變的材質中偏米黃色而不是純白。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`dewbeads`（露珠串）使目前目錄986→987種，含plain的gallery為988項。深綠色的葉面上有斜向排列的細葉脈與柔和的斑駁，散佈著圓形的露珠：把tile分成12×12格，每格以約62%的機率放一顆露珠，半徑在0.014與0.028個tile寬之間，位置在格內稍作抖動，確保露珠不會互相接觸也不會跨越tile邊界。露珠的高度是球冠形（中心最高，往邊緣以√(1−d²)下降，d為到中心的距離與半徑之比），顏色是折射式的：中心偏亮、邊緣偏暗，左上方有一個小亮點；光滑度高於葉面。Metallic與mortar為0。
+
+這是作者設計的示意：露珠只是簡單的球冠，沒有真實折射或倒影，也沒有水膜或流動；位置受格子限制，所以仍可看出一點格狀排列；葉面是人工的斜紋葉脈加噪聲斑駁，不是真實的葉片；顏色只是暗到亮的單色階（綠色色相來自預設的暗亮兩端）。預設0.3 m nominal tile、0.008 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bowlingscoresheet`（保齡球計分表）使目前目錄987→988種，含plain的gallery為989項。每tile是四局保齡球的計分表（每局一列，十格）：每格右上角是投球格——第1至9格兩個小方格、第10格三個——依序記錄每一球的結果，全倒（strike）記為「X」、補中（spare）記為「/」、失誤（0瓶）記為「-」，其餘是倒下的瓶數1至9；格下方是累計得分的點陣數字。投球結果由seed隨機產生（每次約30%的機率全倒或補中，否則在剩餘的瓶數內隨機）；累計得分依標準計分法：全倒得10分加上之後兩球，補中得10分加上之後一球，否則為兩球瓶數；第10格在全倒或補中時可再投第三球，第1至9格全倒時只在右邊的方格寫X。米白紙面與灰色格線，深色墨跡。Metallic與mortar為0。
+
+這是作者設計的示意：投球結果是隨機的，不代表真實球員的分布（全倒與補中的機率固定為各30%，所以分數偏高、也常出現連續全倒）；只有四局，沒有球員姓名、日期或標題；第10格的標記方式（例如全倒後的第二球若再清空，也畫作X）是依一般記法實作，沒有對照任何正式規則書；數字是3×5點陣。預設0.5 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hexresourceboard`（六邊形資源島）使目前目錄988→989種，含plain的gallery為990項。每tile中央是一座由19個六邊形（3、4、5、4、3排列）組成的島嶼，周圍是深藍色的海面。六邊形分成六級亮度表示六種地形，數量為4、3、4、4、3、1（最亮的一種只有一塊，相當於沙漠），哪一種放在哪一格由seed洗牌決定；除了沙漠以外的18個六邊形各放一枚圓形數字標記，使用2、3、3、4、4、5、5、6、6、8、8、9、9、10、10、11、11、12各一組，並採用卡坦島的規則——兩個「紅色」的6或8不會落在相鄰的六邊形（seed洗牌後重試直到符合）。標記為淺色圓盤配深色點陣數字，海面帶淡淡的起伏。Metallic與mortar為0。
+
+這是作者設計的示意：地形只以亮度區分，沒有森林、牧場等具體圖案，標記上的6與8也沒有畫成紅色（這套材質只有一條暗到亮的色階）；數字標記分布與地形配置符合上述規則，但規則是照記憶實作，沒有對照官方規則書；若400次洗牌都無法滿足6與8不相鄰的限制會保留最後一次（我的取樣測試中沒有遇到）；每個tile只有一座島，不隨tile重複的接縫處理。預設0.5 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`kakuropuzzle`（數和謎題／Kakuro）使目前目錄989→990種，含plain的gallery為991項。每tile是一個8×8的已解開Kakuro盤面：第一列與第一欄是黑色格，其餘格中由seed隨機放入6至9個黑格，只保留每條連續白格都至少有兩格的版面；白格填入1至9的數字，使每一條橫向與縱向的連續白格內都沒有重複的數字（以回溯搜尋隨機填入）；每條連續白格的起點之前（左邊或上方）的黑格以斜線分成兩半，橫向的和寫在右上、縱向的和寫在左下（1至2位數的小點陣數字）。米白紙面與深色黑格，白格內是深色大點陣數字。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Kakuro只顯示線索並隱藏白格中的數字；盤面版面由隨機黑格挑選，通過條件只有「每段白格長度至少2」，不保證解答唯一，也不保證是好謎題；版面搜尋每個seed最多嘗試6000次，我只驗證了209個seed（9個測試seed加額外200個）都找到版面；點陣數字為3×5，兩位數的線索寬約0.045個tile。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hashibridges`（橋樑謎題／Hashiwokakero）使目前目錄990→991種，含plain的gallery為992項。每tile是一個9×9格點上已解開的橋樑謎題：圓形的島嶼內寫著1至8的點陣數字，島嶼之間以橫向或縱向的單線或雙線橋樑相連，每座島嶼的數字等於連到它的橋樑總數（雙線算2），橋樑不交叉，所有島嶼互相連通。版面由seed生成：從一座島開始，沿隨機方向隔開至少一格放新島並連一道橋（約40%為雙橋），共約15座島（受嘗試次數限制，可能較少），再為兩座中間無障礙且在同一直線上的島隨機加橋（約30%的配對）。米白紙面、淡淡的格點，島嶼為淺色圓盤配深色細環與數字。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好橋樑的答案，真正的謎題只給島嶼數字並隱藏橋樑；生成方式保證連通與不交叉，但不保證橋樑配置是這組數字的唯一解（原本的謎題要求唯一解），島嶼數目有時少於15；單橋與雙橋的間距很小（雙線相距約0.016個tile）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`slitherlinkloop`（四角迴路謎題／Slitherlink）使目前目錄991→992種，含plain的gallery為993項。每tile是一個7×7格的已解開Slitherlink盤面：格點以小圓點表示，一條粗的深色封閉迴路沿格線繞行，迴路內部的格子底色略深；每格中央寫著（點陣數字0至3）該格四邊中有幾邊是迴路的一部分。迴路是一塊隨機生長的連通區域（約佔55%的格子）的外輪廓：seed決定生長順序，只接受外輪廓每個格點都連著0或2條邊、且走一圈能經過全部迴路格點（只有一個迴圈，不含孔洞或只在角落接觸的區塊）的區域。Metallic與mortar為0。
+
+這是作者設計的示意：畫面同時顯示答案（迴路）與所有格子的數字，真正的謎題只給部分數字並隱藏迴路；區域由隨機生長產生，形狀偏向從某個角落長出（預覽中常是從上方延伸的形狀），不保證解答唯一；7×7是固定的。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`masyupearls`（珍珠謎題／Masyu）使目前目錄992→993種，含plain的gallery為994項。每tile是一個8×8格點（7×7個方格的角點）上已解開的Masyu：一條沿格線的封閉迴路（同樣是隨機生長的連通區域的外輪廓），迴路上放著白珍珠與黑珍珠。白珍珠所在的格點迴路必須直行，且前後相鄰的兩個格點中至少有一個轉彎；黑珍珠所在的格點迴路必須轉彎，且兩條臂的下一個格點都要直行（也就是轉彎後至少各再直走一格）。珍珠依這些規則挑出所有合格的格點，再由seed取其中約40%（至少5顆，若合格格點更少則全數放上）。白珍珠為淺色圓盤配深色細環，黑珍珠為深色圓盤；其他格點是小圓點。Metallic與mortar為0。
+
+這是作者設計的示意：畫面同時顯示答案（迴路）與珍珠，真正的謎題只給珍珠並隱藏迴路；珍珠規則是依一般Masyu規則憑記憶實作（白珍珠直行且至少一側轉彎、黑珍珠轉彎且兩臂直行），沒有對照規則書；珍珠只放在符合規則的格點，所以必然與迴路一致，但不保證整個謎題只有唯一解；迴路由隨機生長的區域產生，形狀偏向從某個角落長出。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`stringartcurves`（弦線藝術／模乘弦圖）使目前目錄993→994種，含plain的gallery為995項。每tile分成2×2個圓：每個圓上均勻分布96個點，依序編號0至95，把點i與點（k·i mod 96）以直線相連（k為該圓的乘數，四個圓分別取2、3、4、5，放在哪個象限由seed洗牌，並把各圓轉動不到一個點距的小角度）。這些直線的包絡線在k=2時是心臟線、k=3時是腎臟線，更大的k得到更多瓣的曲線。線條以加法疊加後再壓縮成亮度（1−e^{−1.6·疊加量}），單線約為0.8的亮度，重疊處趨近飽和，圓周有一圈暗色細環，背景深藍黑。Metallic與mortar為0。
+
+這是作者設計的示意：包絡線是由弦線自然形成的視覺效果，並未另外畫出曲線；k相同點數下，更大的乘數使弦線很密（k=5的圓看起來像模糊的玫瑰）；固定點（k·i≡i）不畫線；點數固定為96。取樣器對每個像素逐一計算到所在圓的最多約95條弦線的距離，512×512單次建立約223 ms，較其他材質慢，未最佳化。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`fillominoregions`（數塊謎題／Fillomino）使目前目錄994→995種，含plain的gallery為996項。每tile是一個9×9已解開的Fillomino盤面：每個格子寫著它所屬區塊的大小（1至9的點陣數字），同一個區塊內的格子數字相同、個數就等於那個數字，區塊之間以較粗的深色線分隔（區塊內部是細線），區塊越大底色越深一點。區塊由seed以隨機生長產生：依格子順序，對每個尚未分配的格子隨機選目標大小1至5並向相鄰的空格生長，若完成時與相鄰的某個區塊大小相同就繼續加格直到不同（因此相鄰的區塊大小必定不同，不會誤合併）；整盤無法完成時（約六成嘗試）重試。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Fillomino只給部分數字；區塊大小受限於1至9（合併後可能超過5），且為了避免相鄰區塊同大小，區塊大小的分布偏向較大；不保證只有一種解；點陣數字為3×5。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`futoshikigrid`（不等式謎題／Futoshiki）使目前目錄995→996種，含plain的gallery為997項。每tile是一個5×5的已解開Futoshiki盤面：25個方格各寫一個1至5的點陣數字，每列每欄1至5恰好各出現一次（拉丁方陣，由循環拉丁方經列、欄、符號置換而得）；相鄰兩格之間以約55%的機率畫上不等號：橫向相鄰用「<」「>」，縱向相鄰用「∧」「∨」，尖端（頂點）指向較小的數那一側。方格是淺色底、細框，格間留有空隙供畫不等號。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Futoshiki只給部分數字與不等號；不等號是由答案推得、全部成立，但不保證整題只有唯一解；不等號是小的細線符號（約0.022個tile寬），在小尺寸下難以辨識；5×5固定。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`nurikabeislands`（島嶼謎題／Nurikabe）使目前目錄996→997種，含plain的gallery為998項。每tile是一個8×8已解開的Nurikabe盤面：淺色格是「島」，深藍的格是連成一片的「海」；每座島只在一格寫著點陣數字，數字等於該島的格數；島與島不會上下左右相接，海是單一連通的區域，且海中沒有任何2×2的方塊（「池塘」）。盤面由seed產生：先放4至7座隨機島嶼，再把出現的2×2池塘用「擴張相鄰島嶼」或「新增一格島」補掉，最後要求海仍然連通與每島不超過9格，不合格就以不同的雜湊重試（我用腳本模擬，約3%的嘗試成功）。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Nurikabe只給島的數字、需要自己推出海；不保證只有唯一解；數字在島的哪一格（固定為最初的起點格）由seed決定；8×8固定，點陣數字為3×5。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`tentsandtrees`（帳篷謎題／Tents）使目前目錄997→998種，含plain的gallery為999項。每tile是一個8×8已解開的Tents盤面：草地格上有圓形樹冠加樹幹的「樹」與三角形的「帳篷」；每頂帳篷各自緊鄰（上下左右）一棵專屬的樹，帳篷之間連斜角都不相接，樹的數量等於帳篷的數量；盤面右側一欄與下方一列以點陣數字標出每列、每欄的帳篷數。盤面由seed產生：依隨機順序放帳篷（不與已放的帳篷相鄰，含斜角），每頂帳篷在上下左右的空草地中選一格放樹，直到約17頂或沒有位置為止。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Tents只給樹與行列數字、帳篷要自己推；不保證只有唯一解；帳篷數由seed決定、通常少於目標的17頂（我對12個seed實測為10至16頂）；樹與帳篷的對應在畫面上沒有連線，只能由相鄰關係看出；8×8固定。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`shikakurects`（矩形分割謎題／Shikaku）使目前目錄998→999種，含plain的gallery為1000項。每tile是一個10×10已解開的Shikaku盤面：整個盤面被切成若干長方形，每個長方形內恰有一格寫著點陣數字，數字等於該長方形的格數；長方形之間以較粗的深色線分隔，內部是細線，每個長方形的底色有些微的隨機深淺。切法由seed決定：從整個盤面開始，沿較長的一邊在隨機位置切成兩塊，面積不超過9的小塊以40%的機率提前停止（面積不超過2的一定停止），較大的一律繼續切；數字放在長方形內的隨機一格。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Shikaku只給數字、要自己畫出長方形；不保證只有唯一解；長方形面積限制在9以內（單一點陣數字）；10×10固定、點陣數字為3×5。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hitorishading`（數字塗黑謎題／Hitori）使目前目錄999→1000種，含plain的gallery為1001項。每tile是一個7×7已解開的Hitori盤面：每格寫著1至7的點陣數字，被塗黑的格子是深色底、數字反白；塗黑的格子上下左右都不相接，沒塗黑的格子連成一整片，且沒塗黑的格子在每一列、每一欄中都沒有重複的數字；每個塗黑格的數字都和同列或同欄某個沒塗黑格相同（因此塗黑它才有意義）。盤面由seed產生：先做一個經列、欄、符號置換的7×7拉丁方陣，依隨機順序塗黑格子（不與已塗黑者相鄰且塗黑後其餘仍連通）直到約13格，再把每個塗黑格的數字改成同列或同欄某個沒塗黑格的數字。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面（塗黑已畫出），真正的Hitori只給數字、要自己決定塗哪些格；不保證只有唯一解，也不保證只有這一種塗法合規；沒塗黑的格構成拉丁方陣的一部分，因此看起來比一般題目更「規則」；塗黑的數量約13格（可能因無法再塗而更少）；7×7固定、點陣數字為3×5。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`akarilights`（點燈謎題／Akari，又名Light Up）使目前目錄1000→1001種，含plain的gallery為1002項。每tile是一個8×8已解開的Akari盤面：白色格子上有圓形的燈泡，黑色的牆（約26%的格子）把視線擋住；每顆燈泡沿所在的列與欄照亮到碰到牆為止，所有白格都被照亮，且沒有兩顆燈泡互相看得到；約六成的牆在深色底上以反白的點陣數字（0至4）寫出它上下左右相鄰的燈泡數。盤面由seed產生：隨機放牆，再依隨機順序把尚未被照亮的白格放上燈泡（尚未照亮的格子看不到任何既有燈泡，所以必不衝突），直到全部照亮。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Akari只給牆與部分數字、燈泡要自己推；不保證只有唯一解；沒有畫出光線；不保證牆全部連通或沒有被牆圍起的孤立白格（孤立的白格會自己放一顆燈泡）；8×8固定、點陣數字為3×5。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`takuzugrid`（二進位謎題／Takuzu，又名Binairo）使目前目錄1001→1002種，含plain的gallery為1003項。每tile是一個8×8已解開的Takuzu盤面：每格不是實心圓（1）就是空心圓環（0），並符合Takuzu的全部規則——每一列、每一欄都恰有4個實心與4個空心、任何一列或一欄中不會有連續三個相同的符號、任兩列不相同、任兩欄也不相同。盤面由seed以回溯搜尋產生：依格子順序逐格嘗試（先試哪個符號由雜湊決定），遇到違反規則就退回，直到填滿。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Takuzu只給部分格子；不保證只有唯一解；回溯搜尋有節點上限（100000個節點）——我對300個seed量測的最大節點數約2400，遠低於上限，但若某個seed超過上限，盤面會留下未填格並被畫成空心圓環，這個情形我沒有遇到也未驗證其外觀；8×8固定。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`kenkencages`（算術方陣謎題／KenKen）使目前目錄1002→1003種，含plain的gallery為1004項。每tile是一個4×4已解開的KenKen盤面：16格各寫一個大的1至4點陣數字，每列每欄1至4恰好各出現一次（拉丁方陣，由循環拉丁方經列、欄、符號置換而得）；盤面被粗線切成「籠」（1至3格的相連區塊，各有些微不同的底色），每個籠在第一格（依列優先順序）的左上角以小號點陣字寫出目標數與運算符：單格籠只寫數字本身；兩格籠可為加（＋）、乘（×）、減（−，大減小）或除（÷，大除以小且需整除）；三格籠為加或乘。運算符是3×5點陣：「＋」「×」「−」「÷」。目標由答案算出，因此全部成立。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的KenKen只給籠與目標（不顯示答案）；不保證只有唯一解（我沒有寫求解器檢查）；籠最多3格；4×4固定；大數字與小標籤都是點陣、在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`numberlinkpaths`（數字連線謎題／Numberlink）使目前目錄1003→1004種，含plain的gallery為1005項。每tile是一個6×6已解開的Numberlink盤面：約6至9對端點，各是深色圓盤內反白的點陣數字（1至9），同一對數字以一條粗線連起來，所有路徑合起來恰好鋪滿全部36格、互不相交、不分叉也沒有環；不同路徑的線條有些微不同的深淺。盤面由seed產生：先用水平骨牌鋪滿棋盤並以大量隨機「2×2旋轉」得到隨機的骨牌鋪法，再把端點相鄰且屬於不同路徑的骨牌頭尾相接，直到剩下約6至9條路徑。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Numberlink只給端點數字；不保證只有唯一解；路徑偏曲折短（因為由骨牌連接而成）；6×6固定、數字為3×5點陣；若合併過程停在超過9條路徑，數字會超出點陣表（我對300個seed加九個測試seed都沒遇到，但沒有證明不會發生）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`rushhourjam`（交通阻塞／Rush Hour）使目前目錄1004→1005種，含plain的gallery為1006項。每tile是一個6×6的滑動車輛盤面：深色的目標車（2格、水平，位於出口那一列）、約10輛長度2（約七成）或3的車與卡車（水平或垂直，圓角矩形、各自有些微不同的灰階深淺），盤面外圍有深色牆，右側出口那一列的牆是開口。車輛互不重疊；水平的車不會放在出口列（否則目標車永遠出不去）。車輛由seed產生：目標車的起始欄隨機，其餘車輛隨機嘗試位置與方向，不重疊就放下，直到約11輛（含目標車）或嘗試次數用完。Metallic與mortar為0。
+
+這是作者設計的示意：畫面只是一個盤面狀態，**不保證有解**（我沒有寫求解器；垂直的車仍可能把目標車永久卡死）、不是難題；顏色只有明度（深目標車與灰階車輛）、沒有色相；車身為簡單圓角矩形、沒有車窗或車燈；6×6固定、出口固定在右側第3列。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`mancalaboard`（播棋／Mancala）使目前目錄1005→1006種，含plain的gallery為1007項。每tile是一個木質的Mancala棋盤：淺色桌面上有一塊圓角的棋盤，棋盤兩側各一個長條形的「倉庫」、中間上下兩排各6個圓形的「坑」，坑與倉庫是深色的凹洞，其中放著淺色的小圓石子。石子共48顆，由seed隨機分配到12個坑與2個倉庫（每個坑最多12顆、倉庫最多24顆，超過上限的容器不再接受）；每個容器內的石子由中心向外依序排列。桌面與棋盤有些微的木紋明暗變化（沿水平方向拉長的雜訊）。Metallic與mortar為0。
+
+這是作者設計的示意：不是遊戲規則驗證——分配是隨機的，不代表任何合法的Mancala對局狀態（真實對局的石子分佈取決於雙方走法）；也沒有畫出玩家標記或對戰方向；石子小（半徑約0.0125個tile寬），在小尺寸下難以辨識；顏色只有明度（木色由暗到亮的線性色帶）。預設0.6 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hidatochain`（數字連鎖謎題／Hidato）使目前目錄1006→1007種，含plain的gallery為1008項。每tile是一個7×7已解開的Hidato盤面：49格各寫一個1至49的點陣數字（單位數置中、兩位數以3×5字形並排），每個數字恰好出現一次，且相鄰的兩個數字k與k+1必定在上下左右或斜角相鄰（國王走法），所以1到49連成一條走遍全盤的路徑。起點「1」與終點「49」以深色底、反白數字標示，另有約22%的格子底色稍暗（模擬「給定的數字」）。路徑由seed以回溯搜尋產生：從隨機的起點出發，每一步優先走「之後可走的空格最少」的相鄰格（Warnsdorff規則，同分以雜湊決定）。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好全部數字的盤面，真正的Hidato只給部分數字；底色較暗的「給定」格只是隨機裝飾，與題目是否有唯一解無關；不保證只有唯一解；回溯搜尋有節點上限（100000個），我對300個seed加九個測試seed都找得到解（獨立腳本量測的最大節點數約2650），若超過上限盤面會停在未走完的路徑上，未驗證其外觀；7×7固定。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：這是靜態圖案，沒有任何音訊；這種「Bresenham」分佈與Bjorklund演算法產生的節奏是旋轉等價的（同一個項鍊），但我沒有逐一證明所有k都等價，也沒有宣稱每條軌道都等同某個特定的傳統節奏名稱；16×16固定；顏色只有明度（深面板、灰按鍵、亮起的米色按鍵）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`chinesecheckersboard`（中國跳棋／Chinese checkers）使目前目錄1008→1009種，含plain的gallery為1010項。每tile是一個木質的中國跳棋星形棋盤：淺色桌面上一個圓形的棋盤板，板上是121個圓孔組成的六角星——中央是半徑4的六角形（61孔），六個星角各有一個10孔的三角形。孔是深色凹洞，其中的彈珠有六種明度（由暗到亮：約0.30、0.42、0.55、0.69、0.83、0.96），每個星角起始時各放10顆同一明度的彈珠，之後由seed隨機把14顆彈珠各自搬到一個隨機的空孔，所以每種明度仍恰好10顆、共60顆。孔位用立方座標（q, r, s=−q−r）與蜂巢格點對應：六角星是「三個座標都≥−4」與「三個座標都≤4」兩個相反三角形的聯集。Metallic與mortar為0。
+
+這是作者設計的示意：六種彈珠只靠明度區分、沒有色相（真實棋具是六種顏色），明度相近的相鄰兩種（差約0.12至0.14）在小尺寸或不同光照下不容易分辨；彈珠的搬動是隨機交換、不代表合法的跳棋走法（沒有檢查跳躍規則）；也沒有標示各玩家的目標角；木紋只是低振幅的雜訊。預設0.6 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`colormapregions`（地圖著色／map colouring）使目前目錄1009→1010種，含plain的gallery為1011項。每tile是一個可無縫平鋪的「地圖」：6×6個隨機抖動的點為中心做週期性的Voronoi分區（共36個區域，邊界是較暗的細線），每個區域塗上一種明度，而且**任兩個相鄰的區域（包含跨越tile邊緣接上下一張tile的相鄰）明度都不同**。著色用回溯搜尋：先嘗試4種明度，找不到（節點上限30000）再用5種（0.30、0.44、0.58、0.72、0.86）；我對100個seed實測，其中66個只用4種、34個用到5種、沒有一個著色失敗。相鄰關係由取樣器在512×512的週期網格上掃描「擁有者改變處」（含斜向）得到。Metallic與mortar為0。
+
+這是作者設計的示意：因為地圖是環面（左右、上下相接），它不受平面圖的四色定理保證——所以不一定能用4色，有三分之一左右的seed需要5色（上面的實測），名稱不代表只用4色；相鄰關係以掃描偵測，長度小於約0.002個tile寬的極短邊界理論上可能漏掉（我用1024網格對seed 2、3重新掃描時沒有發現遺漏，但沒有對所有seed證明）；顏色只有明度。取樣器建立時額外花約32 ms（100個seed平均、在Bun的量測，不是效能認證）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`draughtsposition`（西洋跳棋盤面／draughts, checkers）使目前目錄1010→1011種，含plain的gallery為1012項。每tile是一個8×8的西洋跳棋盤：淺色桌面上一個黑白（實為淺棕與深棕）相間的棋盤，棋子只放在深色格（第(列+行)為奇數的格子）。兩方各有6至12顆棋子（由seed隨機決定），一方是淡色圓盤、另一方是炭黑色圓盤；約兩成的棋子是「王」，圓盤中央有一個與盤色相反的同心圓環。棋子位置由seed隨機選取：把32個深色格隨機排序，兩方依序取用，所以不會重疊也不會落在淺色格。Metallic與mortar為0。
+
+這是作者設計的示意：不是合法的對局狀態——棋子位置是隨機的，不保證符合任何走子歷史（例如兵可能出現在對方的底線而沒有升王，兩方的棋子也可能混在同一個區域）；也沒有表示輪到誰走；顏色只有明度（淡色棋與淺色格的對比小，炭黑棋與深色格的對比也有限）；木紋只是低振幅雜訊。預設0.5 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`multiplicationtable`（乘法表／times table）使目前目錄1011→1012種，含plain的gallery為1013項。每tile是一張9×9的乘法表：第一列與第一欄是深色底、反白點陣數字的因數1至9（左上角空白），其餘81格是對應的乘積（1至81，個位數置中、兩位數以3×5字形並排），對角線上的平方數（1、4、9、…、81）底色稍暗。表格以淺紙色為底，細格線。內容是確定的，不隨seed改變；seed只影響紙張的細微雜訊。Metallic與mortar為0。
+
+這是作者設計的示意：因數只到9（不是12×12的常見大表）；因為內容固定、不同seed只有雜訊差異；點陣數字在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`moonphases`（月相／moon phases）使目前目錄1012→1013種，含plain的gallery為1014項。每tile是一張月相日曆：深藍色夜空上排成5欄×6列共30個月亮，依序代表朔望月（29.53天）中連續的30天，從新月經上弦、滿月、下弦再回到殘月。每個月亮是一個帶有隨機環形山（同一組24個，因為是同一個月球）的灰色圓盤，被照亮的部分是淡色、陰影部分是暗灰色；盈月時（前半個週期）由右側受光，虧月時（後半個週期）由左側受光，明暗界線是橢圓：照亮面積占全圓的比例是 (1−cos 2πφ)/2，其中 φ 是週期內的相位。日曆起點是seed決定的、不足一天的相位偏移，所以不同seed的月相略有差異。Metallic與mortar為0。
+
+這是作者設計的示意：不是天文曆表——相位只用單純的餘弦公式（朔望月固定取29.53天），沒有月球的天平動、地球的反照（地球光）或真實的月面地貌；北半球視角（盈月時右側受光），南半球觀察者會看到左右相反；30天只涵蓋29.53天的一個週期，所以第一個與最後一個月亮的相位接近但不是完全相同；顏色只有明度。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`treemaprects`（樹狀圖／treemap）使目前目錄1013→1014種，含plain的gallery為1015項。每tile是一張樹狀圖：一個方形區域被切成12個長方形，每個長方形的**面積正比於它的數值**，數值（4至30的整數，由seed隨機決定）以3×5點陣數字寫在長方形左上角；數值越大底色越亮（線性對應到由暗到亮的色帶）。切法：把數值由大到小排列，分成總和盡可能相等的兩組（輪流把下一個數值放進目前總和較小的組），沿目前長方形較長的一邊按兩組總和的比例切開，再對兩邊遞迴，直到每組只剩一個數值；長方形之間以深色粗線分隔。Metallic與mortar為0。
+
+這是作者設計的示意：不是常見的「squarified」樹狀圖演算法，只是平衡二分遞迴，長方形的長寬比不保證很接近正方形（我沒有量測最壞長寬比）；數值是隨機的，沒有任何實際資料意義；標籤為固定大小的點陣，長方形很窄時標籤可能超出邊界（測試只確認九個seed的標籤能被正確讀出，沒有檢查標籤是否完全落在長方形內，也沒有證明不會超出）；顏色只有明度。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`analogclocks`（類比時鐘）使目前目錄1014→1015種，含plain的gallery為1016項。每tile是一面4×4的時鐘牆：灰色牆面上16個圓形鐘面（淡色鐘面、深色邊框、十二個刻度），每個鐘各自顯示一個由seed隨機決定的時刻（1至12點、0至59整分）。指針的角度依真實時鐘的轉法計算：分針每分鐘轉6°；時針每小時轉30°再加上每分鐘0.5°，所以時針會隨分鐘慢慢移動，而不是停在整點的位置。時針較短較粗（長度為鐘面半徑的0.5倍），分針較長較細（0.8倍），中心有一個小圓座。Metallic與mortar為0。
+
+這是作者設計的示意：沒有秒針、沒有數字、也沒有區分上午下午；刻度只有12個、沒有分刻度；指針是簡單的直線棒、沒有裝飾形狀；鐘面各自獨立隨機，同一面牆上時間不連貫；顏色只有明度。預設0.5 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`piechartwedges`（圓餅圖）使目前目錄1015→1016種，含plain的gallery為1017項。每tile是一個圓餅圖：一個圓被切成8個扇形，每個扇形的**圓心角等於它的百分比×3.6°**，百分比（每個至少4%、8個加起來恰為100%）以3×5點陣數字寫在扇形中段。百分比由seed決定：每個先分到4%的底，剩下的68%依隨機權重分配，再用「最大餘數法」讓總和恰為100。第一個扇形從seed決定的角度起、順時針排列；每個扇形有各自的明度（依大小排名，由暗到亮線性對應，大小相同時依位置順序決定）；扇形之間與圓周以深色細線分隔，數字依底色明暗選用深或淺色。Metallic與mortar為0。
+
+這是作者設計的示意：百分比是隨機的，沒有任何資料意義；扇形最小4%（約14.4°），標籤是固定大小的點陣，小扇形的標籤可能緊貼邊線；明度只有排名、沒有色相；沒有圖例、標題或軸。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`regressionscatter`（迴歸散佈圖）使目前目錄1016→1017種，含plain的gallery為1018項。每tile是一張散佈圖：淺色紙上一個方形的繪圖區（細框、4×4的淡色格線），區內有最多28個深色圓點，圍繞著一條由seed決定斜率與截距的直線散佈（各點的雜訊是三個均勻亂數相加得到的近似常態分佈），任兩點的距離不小於0.075（繪圖區單位），再從這些點用**最小平方法**求出迴歸直線（斜率＝Σ(x−x̄)(y−ȳ)／Σ(x−x̄)²，截距＝ȳ−斜率·x̄），以較細的中灰色線畫過整個繪圖區。因為擬合是由實際畫出的點算出來的，直線一定通過各點的重心。Metallic與mortar為0。
+
+這是作者設計的示意：因為「最小間距」的拒絕取樣有次數上限，點數可能少於28（我沒有統計各seed的實際點數，測試只要求至少15個）；沒有座標軸刻度數字、標題或圖例；不計算相關係數或殘差；雜訊近似常態但不是嚴格的常態分佈；顏色只有明度（深色點、中灰色線、淡色格線）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`barchartbars`（長條圖）使目前目錄1017→1018種，含plain的gallery為1019項。每tile是一張長條圖：淡色紙上一條深色基準線，上方並排10根長條，每根的高度是**整數個單位**（單位為0.075個tile高，值為1至9，由seed隨機決定），並在長條頂端上方以3×5點陣數字置中寫出該值；每個整數高度處有一條很淡的水平格線；長條的底色依數值線性對應到由暗到亮的色帶（值大者較亮）。Metallic與mortar為0。
+
+這是作者設計的示意：沒有座標軸刻度數字、標題或圖例；所有長條共用同一個高度單位；數值是隨機的，沒有資料意義；長條只到9個單位（最高約0.675個tile高）；顏色只有明度。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`truthtablelogic`（真值表）使目前目錄1018→1019種，含plain的gallery為1020項。每tile是一張四輸入布林函數的真值表：深色表頭寫著輸入A、B、C、D與輸出X（3×5點陣字母，X欄的表頭色調稍亮），下面16列依序列出ABCD的二進位計數（0000到1111，A是最高位），每列最右邊是輸出X的值；X為1的格子底色較暗以便辨認。輸出由seed從八個函數中選一個：(A∧B)∨(C⊕D)、(A⊕B)∧(C∨D)、A?B:C（多工器，與D無關）、¬(A∨B)∨(C∧D)、(A∨C)∧(B∨D)、多數決(A,B,C)⊕D、(A∧¬B)∨(C∧¬D)、四位元奇偶（A⊕B⊕C⊕D）。Metallic與mortar為0。
+
+這是作者設計的示意：只有這八個固定的函數（不是任意的真值表）；輸出以格子底色加深標示是裝飾；沒有化簡後的布林式或邏輯閘符號；點陣數字與字母在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`fouriersquarewaves`（傅立葉方波）使目前目錄1019→1020種，含plain的gallery為1021項。每tile是一張由6個橫向面板疊成的圖：第n個面板畫出方波的傅立葉級數前n個奇次諧波的部分和 (4/π)·Σ sin(kt)/k（k=1, 3, …, 2n−1）。第1個面板是一條純正弦波（振幅4/π），之後每加一個諧波，上下平台越來越平但邊緣出現更多漣波，轉折處越來越陡，而轉折前後約9%的過衝（Gibbs現象）不會消失，會趨近約1.179倍的方波高度。每個面板含淡色的軸線與兩條代表理想方波高低位準的參考線，波形以深色曲線畫出（線寬依斜率修正，陡處不會變細），每個tile橫向涵蓋2個週期。內容是確定的；seed只影響紙張的細微雜訊。Metallic與mortar為0。
+
+這是作者設計的示意：只畫了1至6個諧波，沒有更高階；曲線是用解析公式逐像素計算的，不是描點連線；縱向比例固定，沒有座標軸刻度或標示；「約9%的過衝」是Gibbs現象的理論值（過衝約為整個跳躍幅度的9%，使峰值約為方波高度的1.179倍），測試只驗證量測得到的第6個面板最大值介於1.1與1.2之間，不是精確等於。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`pascaltrianglenumbers`（帕斯卡三角形數字）使目前目錄1020→1021種，含plain的gallery為1022項。每tile是帕斯卡三角形的前10列（第0到第9列，最大的數是126），以3×5點陣數字置中排列成三角形；每個數是上一列左上與右上兩數之和，奇數放在一個較暗的圓盤上、偶數直接落在紙面上，因此奇數圓盤自然呈現謝爾賓斯基三角形的圖樣。內容是確定的，seed只影響紙張的細微雜訊。Metallic與mortar為0。
+
+這是作者設計的示意：只畫了前10列；奇偶圓盤與數字都是確定的；沒有二項式展開式或列和標示；點陣數字在小尺寸下難以辨識。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`convexhullpoints`（凸包）使目前目錄1021→1022種，含plain的gallery為1023項。每tile是一組散布的點（最多16個，彼此至少相隔0.12 UV，並與tile邊緣保持0.07 UV以上的距離，因此可無縫重複）以及它們的凸包：凸包頂點用較大的深色圓點標示，內部的點用較小的圓點，凸包多邊形以淡灰色填色並以細線描邊。凸包由seed決定的點集以Andrew單調鏈算法計算。為了讓凸包不產生歧義，取樣器會挑選「沒有頂點幾乎與相鄰兩頂點共線、也沒有內部點緊貼某條邊」的點集（最多嘗試48組，不符合時採用最後一組）。Metallic與mortar為0。
+
+這是作者設計的示意：點數最多16（受最小間距限制，部分seed較少）；只顯示凸包，不顯示算法過程；「清楚」的判斷是我設定的門檻（頂點離鄰點連線至少0.012 UV、內部點離邊至少0.02 UV），不是數學上的必要條件；48組都不合格時仍會採用最後一組（在我測過的600個seed中此情況沒有造成測試失敗，但我沒有直接統計用完48組的比例）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`delaunaytriangles`（德勞內三角剖分）使目前目錄1022→1023種，含plain的gallery為1024項。每tile是一組散布的點（最多18個，彼此至少相隔0.1 UV，並與tile邊緣保持0.06 UV以上距離，因此可無縫重複）以及它們的德勞內三角剖分：每個三角形以略有深淺差異的淡灰色填色，邊以細線描出，頂點為深色小圓點。三角剖分以暴力法計算：任意三點若其外接圓內（嚴格）沒有其他點，就是一個德勞內三角形（約816組三點乘以其餘點數，只在取樣器建立時算一次）。Metallic與mortar為0。
+
+這是作者設計的示意：只畫出三角剖分的結果，沒有畫外接圓或演算過程；點數最多18（受最小間距限制，部分seed較少）；點的位置是seed決定的偽隨機，對「四點幾乎共圓」的近似平手情況沒有特別處理，這些情況是否判成德勞內三角形取決於浮點誤差，可能出現互相重疊的三角形，我沒有針對這種情況加入保護；每像素要掃過約30個三角形與約47條邊，每像素成本比多數材質高（512×512單次渲染約0.4秒，Bun環境）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`collatzsequences`（考拉茲序列）使目前目錄1023→1024種，含plain的gallery為1025項。每tile有10列，每列是一個起始值的考拉茲（冰雹）序列：偶數折半、奇數乘3加1，一路算到1為止，每個數字佔一格（最多13格），用3×5點陣數字寫出；奇數的格子底色較暗，所以可以看到「乘3加1」的上升步驟；序列結束後該列剩下的格子留白。起始值由seed從2到60之間序列長度不超過13項的21個值裡洗牌後取10個（互不相同），例如3、13、21、53、40等；每個序列只含該起始值自己的軌跡。Metallic與mortar為0。
+
+這是作者設計的示意：只列出序列長度不超過13項的起始值（不含如27這種很長的軌跡），所以並不代表考拉茲猜想本身；數字最多三位（例如53的序列含160）；點陣數字在小尺寸下難以辨識。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hammingcodewords`（漢明碼字）使目前目錄1024→1025種，含plain的gallery為1026項。每tile是一張Hamming(7,4)碼字表：表頭是位置1到7與S（校正子），下面16列是資料半位元組0000到1111（列號r）對應的7位元碼字（位置1到7依序為p1 p2 d1 p3 d2 d3 d4，同位位元在位置1、2、4，底色略暗），每列由seed決定是否翻轉其中一個位元（約八分之一的列不翻轉），被翻轉的格子以最深的底色標示；最右欄S是校正子（收到的字中值為1的位置的XOR），它恰好等於被翻轉的位置，0表示沒有錯誤。因此可以讀到：把S指出的那一格翻回來，就得到原本的碼字，其資料位元就是列號。Metallic與mortar為0。
+
+這是作者設計的示意：只有Hamming(7,4)這一種碼、16列固定是資料0到15，每列最多翻轉一個位元（Hamming碼無法修正兩位元錯誤，所以不畫）；翻轉位置由seed偽隨機決定；點陣數字小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`cayleytables`（凱萊表）使目前目錄1025→1026種，含plain的gallery為1027項。每tile是一張8階群的凱萊（乘法）表：9×9格，最上列與最左欄為元素0到7的深色表頭，其餘8×8格的第a列第b欄是a與b的乘積；表中值為0的格子（單位元）底色較暗，因此可以看到每個單位元各自成一條由拉丁方陣決定的圖樣。seed從8階的五個群裡挑一個：循環群Z8、Z4×Z2、Z2×Z2×Z2、二面體群D4、四元數群Q8，並且把元素1到7的標籤打亂（0固定為單位元）。因此每張表都滿足群公理：有單位元、每列每欄是排列、可結合；表的樣子則可看出是否交換、各元素的階。Metallic與mortar為0。
+
+這是作者設計的示意：只有這五個8階群，沒有其他階或群名標示；標籤打亂後表格看起來不再有「規律」；點陣數字在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`romannumerals`（羅馬數字）使目前目錄1026→1027種，含plain的gallery為1028項。每tile有14列，每列左邊是一個十進位數（1到199，靠右對齊的三格），後面是等號與它的羅馬數字（以I、V、X、L、C的3×5點陣字母寫出，標準減法寫法，例如4寫成IV、9寫成IX、40寫成XL、90寫成XC；靠左、最多九個字母，例如188寫成CLXXXVIII）；奇數列有略深的底色。14個數由seed從1到199中挑選、互不相同並依升序排列。Metallic與mortar為0。
+
+這是作者設計的示意：只到199（不含D、M，所以沒有500以上的數字）；只使用標準的減法寫法，不畫古代的IIII等變體；點陣字母在小尺寸下難以辨識（I與數字1的圖形不同，但很小時仍可能混淆）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`signedencodings`（帶號整數編碼）使目前目錄1027→1028種，含plain的gallery為1029項。每tile是一張4位元的對照表：16列依序列出0000到1111，每列有二進位位元（最高位元所在的欄底色最深，是符號位元）、無號數值（0到15，標頭為U），以及帶號數值（標頭為編碼代號）。seed從三種帶號編碼挑一種：二補數（2C，1000是−8到1111是−1）、一補數（1C，1000是−7，1111是「−0」）、符號大小（SM，1000是「−0」、1001是−1到1111是−7）；負值的列（包括「−0」）底色略深，並以「−」符號寫在帶號數值前面。Metallic與mortar為0。
+
+這是作者設計的示意：只有4位元、只有這三種編碼，沒有溢位或運算示意；一補數與符號大小有「負零」，二補數沒有，這個差異就是這三者並列的目的；點陣數字在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`matrixproducts`（矩陣乘積）使目前目錄1028→1029種，含plain的gallery為1030項。每tile疊著4道算式，每道是A×B=C的3×3矩陣乘法：A與B的9個元素是seed抽出的0到9個位數，C是它們的矩陣乘積（元素最多三位數，例如141、153）；每個矩陣外有方括號，乘積C的格子底色略深，乘號與等號對齊在中間那一列。數字以3×5點陣寫出。Metallic與mortar為0。
+
+這是作者設計的示意：只有3×3、元素為0到9；沒有顯示計算過程，也不排除含0的列或全零的矩陣；點陣數字在小尺寸下難以辨識（三位數的乘積格間隙很窄）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`kochsnowflake`（科赫雪花）使目前目錄1029→1030種，含plain的gallery為1031項。每tile分成2×2四個面板，分別畫出科赫雪花經過0、1、2、3次迭代的樣子：0次是正三角形，之後每一次把每條邊的中間三分之一換成向外的正三角形凸起。四個面板的順序與各自的旋轉角度由seed決定，每個多邊形（最多192段）以偶奇規則填色並以深色細線描邊。因此邊界長度每次迭代乘以4/3，面積依A₀·(8/5 − (3/5)(4/9)ⁿ)增加（0次為A₀，無窮多次趨近1.6·A₀）。Metallic與mortar為0。
+
+這是作者設計的示意：只畫0到3次迭代，沒有畫更高次，也不是真正的碎形極限；邊長0.36 UV（約三角形外接圓半徑0.208 UV）固定，各面板之間不重疊；每像素要掃描最多192條邊，512×512單次渲染約0.3秒（Bun，來自預覽腳本、只量一次）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`newtonbasins`（牛頓吸引盆）使目前目錄1030→1031種，含plain的gallery為1032項。每tile是牛頓法求解z^n − 1（n次單位根）的吸引盆圖：複平面上實部與虛部各−1.6到1.6的正方形視窗，每個點依牛頓迭代z ← z − (z^n − 1)/(n z^(n−1))最後收斂到哪個n次單位根而被塗上對應的亮度（根越多、亮度層級越多），收斂越慢的點略微變暗（最多變暗10步）。n由seed從3、4、5挑選；座標經過三角波折疊，所以圖案在tile邊緣連續。Metallic與mortar為0。
+
+這是作者設計的示意：只有z^n − 1這一類多項式、n為3到5；亮度只表示收斂到哪個根與速度，不是色相（程序材質只有深到淺的亮度漸層）；吸引盆邊界是碎形，邊界附近的像素對浮點誤差敏感，每個像素最多迭代40次，無法收斂的點（接近邊界或極點）依最後位置歸類；三角波折疊使圖樣左右、上下鏡射。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`mandelbrotbands`（曼德博等高帶）使目前目錄1031→1032種，含plain的gallery為1033項。每tile是曼德博集合的平滑逃逸時間等高圖：seed從四個固定視窗挑一個——整個集合（中心−0.6，半寬1.6，80次迭代）、海馬谷（−0.745 + 0.113i，半寬0.06）、一個近虛軸的分支（−0.16 + 1.0405i，半寬0.04），以及接近費根鮑姆點的區域（−1.401155，半寬0.02，這三個放大視窗各160次迭代）。集合內部（在迭代次數內沒有逃逸的點）為深色；外部每點以平滑逃逸時間ν = n + 1 − log₂(log|z| / log 256)決定亮度（ν越大越亮，並疊加週期為3的餘弦等高帶），所以集合周圍有一圈圈的帶。座標經三角波折疊，使圖樣在tile邊緣連續。Metallic與mortar為0。
+
+這是作者設計的示意：只有這四個視窗，沒有互動縮放；內部是用迭代次數上限判斷的，集合邊緣的像素會因上限而略有差異（暫時性測試的120個額外seed中，最佳視窗的吻合率全為1.0000（第二名最高0.265），但那是0.02的容差與80×80格點的結果，不代表所有像素都一致）；亮度只表示逃逸速度、不是色相；三角波折疊使圖樣鏡射。每像素最多160次迭代，512×512單次渲染約0.15秒（Bun，預覽腳本，只量一次）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`cantorsetrows`（康托集合列）使目前目錄1032→1033種，含plain的gallery為1034項。每tile由上到下疊著8條橫帶，第k條（k=0到7）是康托構造進行k步之後的集合：第0條是整條，每多一步就把每個區間的中間一段挖掉。seed從三種「挖掉的比例」挑一種：三分之一（經典的康托集合，第k條有2^k個長度為(1/3)^k的區間）、五分之一（每步保留五分之二，留下較多）、二分之一（每步保留四分之一，留下較少）；第k條共2^k個等長區間、總長度為(1−r)^k（r為挖掉的比例）。Metallic與mortar為0。
+
+這是作者設計的示意：只有8步（第7步的區間窄於一個像素時只看得到淡淡的條紋）、只有這三種挖掉的比例；每條帶的邊緣以到區間邊界的距離軟化；帶與帶之間為紙面。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`conicsections`（圓錐曲線）使目前目錄1033→1034種，含plain的gallery為1035項。每tile分成2×2四個面板，分別畫出離心率e為0、0.6、1、1.6的圓、橢圓、拋物線與雙曲線，面板的排列由seed決定。曲線依「到焦點的距離r = e × 到準線的距離」這條定義畫出（半通徑l固定為0.09 UV；以r = |l − e·x'|表示，x'是沿軸線相對焦點的位移），焦點是一個小圓點，準線（e > 0時）是一條虛線；拋物線與雙曲線延伸到面板邊界為止，雙曲線的兩支都畫出。Metallic與mortar為0。
+
+這是作者設計的示意：只有這四條曲線、軸線固定為水平（不旋轉），沒有座標軸或標示；線寬以隱函數的一階近似距離軟化，所以離頂點很遠的陡處線寬可能略有差異；各面板的焦點位置是為了讓曲線置中而手動設定的（hyperbola焦點往左偏、橢圓往右偏）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`rosecurves`（玫瑰線）使目前目錄1034→1035種，含plain的gallery為1036項。每tile是3×3九個面板，每個面板畫出一條玫瑰線（rhodonea）r = R·cos(kθ)，k分別為1、2、3、4、5、3/2、5/2、5/3、7/3（整數k給出k或2k片花瓣，分數k給出重疊的多片花瓣，k=1是一個圓），九條曲線在面板中的排列由seed決定。曲線以到極座標隱函數的一階距離估計畫線，並標出原點。Metallic與mortar為0。
+
+這是作者設計的示意：只有這九個k值、振幅固定、沒有旋轉相位；沒有顯示公式或標示；分數k的曲線要走過多圈才閉合（分母乘以2π），取樣器對每個像素在2×分母個半圈上求出到曲線的距離估計，所以在花瓣交會處線寬可能略有差異。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：只有這7個比例、固定水平放置、沒有座標軸或標示；線寬以隱函數的一階距離估計軟化（在兩焦點的中點，梯度為零，我加了下限1e-6避免除以零，見下方紀錄）；只在三種焦距裡擇一。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`twosourceripples`（雙波源漣漪）使目前目錄1036→1037種，含plain的gallery為1038項。每tile是兩個相同的圓形波源干涉的圖樣：兩個波源在tile中央水平相隔0.22或0.32 UV，波長取0.04、0.052或0.07 UV（兩者都由seed決定），每點的亮度由兩列波的和 cos(k·r₁) + cos(k·r₂) = 2 cos(k(r₁+r₂)/2) cos(k(r₁−r₂)/2) 決定（r₁、r₂是到兩個波源的距離），所以在 r₁ − r₂ 等於半波長奇數倍的雙曲線上相消、亮度落在中間值（節線），而兩波同步的位置最亮或最暗。座標經三角波折疊，使圖樣在tile邊緣連續。Metallic與mortar為0。
+
+這是作者設計的示意：只有兩個等振幅、同相位的點波源，沒有衰減也沒有反射邊界（三角波折疊只是為了接縫連續，不是物理上的鏡射）；亮度只是干涉強度、不是色相。預設0.5 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽（波長0.04 UV在512×512只有約20個像素，更小尺寸會出現混疊）；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`luhnnumbers`（盧恩校驗碼數字）使目前目錄1037→1038種，含plain的gallery為1039項。每tile有10列16位數字（每4位一組，組間留空），每列最後一位是校驗碼（底色較深），列尾有一個符號：打勾表示整個數字通過Luhn校驗（從右邊起每隔一位乘2、大於9則減9，全部加總是10的倍數），打叉表示沒有通過。每列的前15位由seed抽出、校驗碼由它算出；約六成的列保持有效，其餘則把其中一位改成別的數字（改變任何一位都必然破壞Luhn總和），所以標記與實際校驗結果一致。Metallic與mortar為0。
+
+這是作者設計的示意：數字是隨機的，不是真實的卡號（也不模擬任何發卡機構的開頭規則或長度），僅用於示意Luhn演算法；每個tile的有效比例由seed的偽隨機決定（約六成，而非固定數量）；第2、4、…列有略深的底色；點陣數字在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bezierconstruction`（貝茲曲線作圖）使目前目錄1038→1039種，含plain的gallery為1040項。每tile分成2×2四個面板，每個面板畫出一條三次貝茲曲線（四個固定的控制點P₀到P₃，共四種不同形狀，排列由seed決定），並顯示德卡斯特里奧（de Casteljau）作圖法在某個參數t的過程：虛線連出控制多邊形，端點P₀與P₃是實心方塊、中間兩個控制點P₁與P₂是空心圓環，然後在t處把相鄰點內插得到的第一層與第二層線段以細線畫出，最後一個內插點就是曲線上的點，用實心圓點標出。t由seed從1/4、1/3、1/2、2/3挑一個，四個面板共用同一個t。Metallic與mortar為0。
+
+這是作者設計的示意：只有四條固定的三次曲線與四個固定的t；曲線本身是64段折線近似（每像素對64條線段求距離）；虛線只是控制多邊形的示意，虛線的斷續是由螢幕座標的格點決定，不是沿線的等長虛線；單次512×512渲染約0.2秒（Bun、預覽腳本、只量一次）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`vennregions`（文氏圖區域）使目前目錄1039→1040種，含plain的gallery為1041項。每tile畫一張三個集合A、B、C的文氏圖：三個等大的圓以等邊三角形排列，彼此部分重疊，形成七個區域（只在A、只在B、只在C、A與B、A與C、B與C、三者共有），每個區域中央寫著元素個數（0到40，由seed抽出，以3×5點陣數字寫出），圓重疊的地方底色越來越深（圈內圈數越多越深），圓周畫成深色細線；左上角列出三行總數「A=…」「B=…」「C=…」，各是該圓內所有區域的個數總和，所以可以用容斥原理驗證聯集的大小。Metallic與mortar為0。
+
+這是作者設計的示意：只有三個集合、七個區域，圓的位置與大小固定；區域個數是隨機的，不是真實資料；總數至多三位數（例如A=105）；點陣數字在小尺寸下難以辨識。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`ieee754floats`（IEEE 754單精度浮點數）使目前目錄1040→1041種，含plain的gallery為1042項。每tile由上到下有6組單精度浮點數：每組上面一行是十進位值（取到小數4位，3×5點陣數字、含小數點與負號），下面一行是它的32個位元：1個符號位元（底色最深）、8個指數位元（偏移量127，底色次深）與23個尾數位元（底色最淺），欄位之間以細線分隔。數值依 (−1)^符號 × 2^(指數−127) × (1 + 尾數/2²³) 計算；seed抽出每組的符號、指數（124到133，所以數值的大小約在0.125到128之間）與尾數，所以印出的十進位值與位元是互相對應的。Metallic與mortar為0。
+
+這是作者設計的示意：只有正規化的單精度數、指數固定在124到133、不含0、無限大、NaN與非正規數；十進位值只印4位小數，是把精確值四捨五入後的結果；位元以3×5點陣的0與1寫成，在小尺寸下難以辨識。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bellcurvebands`（鐘形曲線標準差帶）使目前目錄1041→1042種，含plain的gallery為1043項。每tile畫一條常態分佈的鐘形曲線（高斯函數 e^(−z²/2)，z = (x − 平均)/σ），曲線下方的面積依離平均值的標準差個數分成四個色帶：距離平均不超過1個σ最深、1到2個σ次深、2到3個σ更淺、3個σ以外最淺；底部有一條軸線，並在−3σ到+3σ每個σ處畫一個刻度。σ（曲線的寬度）由seed從0.07、0.09、0.11 UV挑選一個，曲線的高度固定。因為面積與e^(−z²/2)的積分成正比，色帶之間的面積比就是常態分佈的68–95–99.7規則（約68.27%、95.45%、99.73%）。Metallic與mortar為0。
+
+這是作者設計的示意：只有一條標準常態曲線、σ只在三個值中擇一，沒有座標軸標示或數值；曲線的線寬依斜率修正；色帶只用亮度表示（程序材質只有深到淺的亮度漸層）；曲線高度固定，所以不同σ的曲線面積不同（只是形狀相似），這個圖示是為了說明「比例」而非機率密度的絕對值。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`roundingmodes`（取整方式）使目前目錄1042→1043種，含plain的gallery為1044項。每tile是一張取整方式對照表：深色表頭是X與四捨五入的五種方式的代號——FL（無條件捨去，floor）、CE（無條件進位，ceiling）、TR（朝零截斷，truncation）、RN（四捨五入，遇到.5朝遠離零的方向）與RE（四捨五入，遇到.5取偶數，銀行家捨入）；下面12列各是一個數x（取到小數1位）以及它在這五種方式下的整數結果。x由seed從20個預設值（−3.5到6.5，含負數、0與各種恰為.5的數）中挑12個、依由小到大排列；恰為.5的那幾列，RN與RE兩欄的底色較深，因為只有在這種情況這兩種方式的結果可能不同（例如2.5：RN得3、RE得2；3.5：兩者皆4）。結果為0時一律印成「0」，不印負號。Metallic與mortar為0。
+
+這是作者設計的示意：只有這五種方式、只有一位小數的x；挑選的數值池是固定的，沒有任意數；點陣文字在小尺寸下難以辨識（x欄的四個字元恰好填滿格子寬度）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`binaryaddition`（二進位加法）使目前目錄1043→1044種，含plain的gallery為1045項。每tile由上而下排三道直式加法，各自把兩個隨機的8位元二進位數相加：每道題上方一列小字是進位（進到第1到第8位的進位），接著是加數A、帶「+」號的加數B、一條橫線，最下面是9位元的和（比加數多一位以容納最高位的進位）；和的那一列有較深的底色。進位列的小字放在「會收到這個進位的那一欄」的正上方，最低位（個位）不會收到進位所以沒有字。每一欄都滿足全加器的規則：A位 + B位 + 進來的進位 = 和的位 + 2 × 出去的進位。三道題的A、B由seed決定（雜湊亂數），沒有刻意挑進位鏈。Metallic與mortar為0。
+
+這是作者設計的示意：只有8位元的無號數加法，沒有負數、溢位標記或十進位對照；進位只用較淺的小字，不單獨著色（程序材質只有深到淺的亮度漸層）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`abeliansandpile`（阿貝爾沙堆）使目前目錄1044→1045種，含plain的gallery為1046項。每tile是在81×81格的網格正中央一格丟下數千顆沙粒後得到的穩定沙堆：只要某格有4顆以上就每4顆分給上下左右四個鄰格各1顆，直到所有格子都不超過3顆，離開網格的沙粒就消失。每格依沙粒數0到3用四個亮度（最暗到最亮）塗色。沙粒數由seed從4000、5200、6400三個值挑一個。這種沙堆的最終形狀與倒塌（toppling）的順序無關（阿貝爾性質），所以結果是確定的，並且具有正方形的八重對稱。Metallic與mortar為0。
+
+這是作者設計的示意：只有中央一點來源、只有三種顆粒數，沒有其他初始配置；格子之間沒有線條，格線與像素對不齊時邊緣會有輕微的階梯（81格對應的像素數不是整數）。堆的範圍只占tile的一部分，其餘是0顆的底色。取樣器第一次呼叫時需要模擬整個沙堆，之後才是查表；預覽腳本在512²量到的單次時間約224毫秒（Bun，未做正式效能量測）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：只有正方晶格的位點滲流，群集不跨越tile邊界相連（網格在邊緣被切斷，相鄰tile的群集不會接在一起，tile縫處會看到斷開）；格子之間沒有線，大小只分三級，亮度只表示群集大小，不是其他物理量。p的三個值是固定的，也沒有標示臨界值或「是否貫穿」。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：只有12×12的範圍、只有四個起點，沒有質因數分解或公式；亮度只代表公因數的大小，不是分類。兩位數的數字（例如12、16）幾乎佔滿格寬。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bitwiselogic`（位元邏輯運算）使目前目錄1047→1048種，含plain的gallery為1049項。每tile由上而下排四個區塊，每個區塊把兩個隨機的8位元數逐位元做一種邏輯運算：第一列是A、第二列是B（左邊標運算名稱），一條橫線，最下面是運算結果；各區塊的運算依序是AND、OR、XOR、NAND的seed決定的排列（每個區塊一種，四種各一次）。1的位元在A與B的列有淡色底，結果列的1位元有較深的底色。Metallic與mortar為0。
+
+這是作者設計的示意：只有四種二元運算、固定8位元，沒有NOT或位移；運算名稱用點陣字母（A、N、D、O、R、X）印出，N的點陣字形是簡化的（像小寫n）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：只有邏輯斯蒂映射，沒有座標軸標示、數值或其他映射；每個欄位只用該欄中央的r，不是整段r的平均；混沌區的點分布受浮點運算細節影響，所以只有圖形輪廓與週期區是穩定的。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`burningship`（燃燒船碎形）使目前目錄1049→1050種，含plain的gallery為1051項。每tile是Burning Ship碎形的平滑逃逸時間等值帶：對每個點c，迭代 z → (|Re z| + i|Im z|)² + c（比Mandelbrot集多了對實部與虛部各取絕對值），超過界限（256）就停，用「逃逸步數加上超出界限的小數修正」的平滑逃逸時間決定亮度，並疊加一條隨逃逸時間變化的等值帶；沒有逃逸的點用最暗的底色。視窗由seed從四個預設區域（一個整體視窗與三個放大視窗，座標見preset；放大視窗的名稱與位置我沒有逐一對照過已知的碎形圖鑑）挑一個，以折疊方式取座標，所以圖在tile邊界連續，而且左右上下鏡射。Metallic與mortar為0。
+
+這是作者設計的示意：只有Burning Ship一種碎形，沒有座標標示；因為取座標時做了鏡射，圖形不是標準的「船」方向，整體視窗看起來像鏡射排列的翅膀；視窗是固定的四個，細節區域（例如小船）依靠固定的迭代上限，更深的放大不在範圍內；逃逸邊緣附近的像素對浮點誤差敏感。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`modularpowers`（模冪表）使目前目錄1050→1051種，含plain的gallery為1052項。每tile是一張10×10的模冪表：深色表頭列是指數k＝1到10，表頭欄是底數a＝2到11，表身每格印出 a^k 除以模數m的餘數；模數m由seed從13、15、17、21、25中挑一個。餘數正好是1的格子用較深的底色，這樣可以看出每個底數的冪次循環（乘法階）；與模數有公因數的底數那一整列則是淺灰底，因為這些底數的冪永遠不會回到1。Metallic與mortar為0。
+
+這是作者設計的示意：只有五個模數、底數2到11、指數1到10，不顯示階的數值或循環長度；兩位數的餘數（例如12、10）幾乎佔滿格寬；一個底數與模數有沒有公因數只以列的底色標出，沒有註明是哪個因數。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`primefactors`（質因數分解）使目前目錄1051→1052種，含plain的gallery為1053項。每tile是12列的質因數分解表：每列左邊是一個2到99之間的整數，右邊是把它寫成質數乘積（以「×」連接，由小到大，例如2×2×3×7）的分解；12個整數由seed從2到99中取12個不重複的數，依由小到大排列。本身是質數的列（分解只有它自己）用較深的底色。Metallic與mortar為0。
+
+這是作者設計的示意：只有2到99的整數、每次12個，不顯示指數寫法或質因數個數；點陣字的乘號是簡化的「x」；最長的分解（例如2×2×2×2×2×3）會佔到格寬的大部分。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`baseconversion`（進位制轉換）使目前目錄1052→1053種，含plain的gallery為1054項。每tile是12列的進位制對照表：每列由左到右是同一個0到255之間整數的十進位、8位數的二進位、3位數的八進位與2位數的十六進位（A到F是大寫字母）；12個整數由seed從0到255中取12個不重複的數，依由小到大排列；表身偶數列與奇數列底色交替，十六進位欄含字母A到F的格子底色較深。Metallic與mortar為0。
+
+這是作者設計的示意：只有四種進位制、數值限在0到255，沒有負數、小數或其他進位制；點陣字母（A到F）是簡化字形，B與8、D與0在小尺寸下容易混淆（字形本身不同，測試以精確的像素圖案區分）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`caesarcipher`（凱薩密碼）使目前目錄1053→1054種，含plain的gallery為1055項。每tile由上而下有三組：字母表A到M與其下一列移位後的密文、字母表N到Z與其密文、一段短訊息與其密文（較淺的灰底表示密文列）；每組之間有一條細線。移位量由seed從3、5、7、13中挑一個（每個字母都往後移這麼多，超過Z就繞回A），訊息由seed從五句預設短句中挑一句。Metallic與mortar為0。
+
+這是作者設計的示意：只有凱薩移位（單一固定的移位量），沒有解密提示、頻率分析或其他密碼；預設短句只有五句，字母用3×5點陣字，某些字母（例如M與N、U與V）在小尺寸下相近。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`wordsquares`（對稱字方陣）使目前目錄1054→1055種，含plain的gallery為1056項。每tile畫一個字方陣：每一列的字與同號的那一欄讀起來相同（第i列等於第i欄）。方陣由seed從六個預設中挑一個：5×5的拉丁文SATOR方陣（SATOR、AREPO、TENET、OPERA、ROTAS）與五個4×4的英文方陣（例如BALL／AREA／LEAD／LADY）。左上到右下的對角線格子（對稱軸）用較深的底色。Metallic與mortar為0。
+
+這是作者設計的示意：只有六個預設方陣，沒有任何由程式搜尋出來的內容；4×4的英文方陣是我用一份手寫的約六百個常見四字母單字清單搜尋、再挑出看起來合理的，不是對照某本辭典驗證，個別字（例如ROTAS、AREPO屬於拉丁文）不保證在標準英文辭典中；字母是3×5點陣字，M與N、U與V等在小尺寸下相近。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`vectorfieldarrows`（向量場箭頭）使目前目錄1055→1056種，含plain的gallery為1057項。每tile在10×10的格點上各畫一支箭頭，方向沿著一個向量場、長度與深淺隨該點向量的大小增加（最弱的箭頭最短最淺，最強的最長最深）。向量場由seed從四個預設中挑一個：旋轉、鞍點、源（向外發散）與螺旋（源加旋轉），座標以tile中心為原點（格點不會落在中心，所以沒有零向量）。Metallic與mortar為0。
+
+這是作者設計的示意：只有四個線性向量場，箭頭只標示格點的方向與相對大小，沒有數值標示或流線；箭頭長度只用0.3到0.88個格寬表示相對大小，不是向量的實際長度；箭頭的頭在很短時按比例縮小，以免超過尾端。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：只有 0 到 1 之間的分數、上限只有三個值，沒有標示分數；分母為1的兩個大圓（0/1與1/1）半徑為0.5，所以占滿tile高度並分居左右兩邊；上限8與6、6與4的差別只是幾個很小的圓，在小尺寸下幾乎看不出差別。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`mobiusgrid`（莫比烏斯格網）使目前目錄1057→1058種，含plain的gallery為1059項。每tile是一個黑白棋盤式的方格網經過莫比烏斯變換 w = (az + b)/(cz + d) 之後的樣子：在z平面上的垂直與水平格線（間距0.5）與方格的棋盤式明暗，變換後格線變成圓或直線（圓與圓在交點仍然垂直，因為這是保角變換），方格的明暗跟著搬過來。取樣器對每個像素先用反變換 z = (dw − b)/(−cw + a) 求出z，再用該點的縮放比例 |ad − bc|/|cz + d|² 把z平面中到最近格線的距離換成w平面（畫面上）的距離，使線寬在畫面上是均勻的。變換由seed從三個預設中挑一個：反演 w = 1/z、一個橢圓型變換與一個螺旋（loxodromic）型變換；座標以折疊方式取得，所以圖在tile邊界連續並左右、上下鏡射。Metallic與mortar為0。
+
+這是作者設計的示意：只有三個預設變換，沒有標示極點與固定點；在對應到z平面無窮遠的那一點附近格線無限密，會變成一整片深色（見圖中心深色的團塊）；線寬只在畫面上均勻，不代表z平面的線寬；因為取座標時做了鏡射，圖形是鏡射排列的。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`dipolefieldlines`（偶極場線）使目前目錄1058→1059種，含plain的gallery為1060項。每tile是一對相反電荷的二維線電荷（位於(−h, 0)的正電荷與(h, 0)的負電荷，h由seed從0.25、0.4、0.55挑一個，單位是視窗半寬）的等位線與電場線：電位 V = ln(r₂/r₁)（r₁、r₂是到正、負電荷的距離）每隔0.4畫一條深色等位線（阿波羅尼斯圓），夾角差 θ₁ − θ₂ 每隔18度（π/10）畫一條較淡的電場線（通過兩個電荷的圓）；V大於0的區域用較亮的底色、小於0的用較暗的底色，兩個電荷各畫一個小圓核（正電荷最深、負電荷較淺）。線寬以梯度長度 2h/(r₁r₂) 換算，在畫面上是均勻的。座標以折疊方式取得，所以圖在tile邊界連續並鏡射。Metallic與mortar為0。
+
+這是作者設計的示意：只有一對等量相反的二維線電荷（不是三維點電荷的場，三維的等位線與場線不是圓），沒有電荷符號或數值標示；等位線與場線的間隔是固定的，所以靠近電荷處線非常密，會變成深色的一團；因為取座標時做了鏡射，圖形是鏡射排列的。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`numberwords`（數字的英文拼寫）使目前目錄1059→1060種，含plain的gallery為1061項。每tile是12列的表：左邊是0到99之間的整數，右邊是它的英文名稱（例如FORTY TWO、NINETY）；12個整數由seed從0到99中取12個不重複的數，依由小到大排列；奇偶列底色交替，小於20的數（名稱是單一獨立的字，不是十位加個位）的數字格底色較深。Metallic與mortar為0。
+
+這是作者設計的示意：只有0到99、美式拼寫（NINETY、FORTY），沒有連字號（複合數字以空格分開，例如TWENTY ONE）；字母是3×5點陣大寫字，某些字母（例如M與N、U與V）在小尺寸下相近。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`sorobanabacus`（算盤）使目前目錄1060→1061種，含plain的gallery為1062項。每tile由上而下是兩把七檔的日式算盤（soroban）：邊框、中間一條橫梁與七根檔桿，每根檔桿在橫梁上方有一顆「五珠」、下方有四顆「一珠」；珠子靠向橫梁代表有算入（五珠靠橫梁表示加5，一珠靠橫梁的顆數表示加0到4），遠離橫梁代表未算入，每根檔桿因此表示一位0到9的數字。每把算盤的下方用點陣字印出它所表示的七位數；每位數字由seed決定（雜湊亂數）。Metallic與mortar為0。
+
+這是作者設計的示意：只有日式算盤（一顆五珠、四顆一珠）且固定七檔，沒有小數點標記、計算過程或其他算盤形式（例如中式的二加五）；珠子是同一個色調，靠橫梁或遠離只用位置區分，在下方五個位置中總有一個空位；兩把算盤的數字都是隨機的七位數，可以有前導的0。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`boxplots`（箱型圖）使目前目錄1061→1062種，含plain的gallery為1063項。每tile由上而下是三組箱型圖：每組有15個資料點，分成上下兩列交錯畫成小圓點（資料由小到大的奇偶順序交替，使相鄰的點不重疊），點的上方是這組資料的箱型圖——中間的箱子從第一四分位數（Q1）畫到第三四分位數（Q3），箱內的一條線是中位數，左右各有一條細線（鬚）延伸到最小值與最大值，鬚的末端有小短線。四分位數用Tukey的「折點」定義：15個資料的第8個是中位數，Q1是下方7個值的中位數（第4個）、Q3是上方7個值的中位數（第12個），沒有內插。三組資料的分佈形狀不同（各自的指數0.7、1、1.3使資料偏向一側）。Metallic與mortar為0。
+
+這是作者設計的示意：只有15個點的資料、沒有離群值（鬚就是最小到最大），沒有座標軸或數值標示；資料是由雜湊亂數產生的，不是任何真實資料；箱子的顏色與線條只表示位置，不代表不同組別的意義。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`stemandleaf`（莖葉圖）使目前目錄1062→1063種，含plain的gallery為1064項。每tile是一張莖葉圖：29個10到99之間的整數，以十位數為「莖」（1到9共九列），個位數為「葉」，每一列的葉由小到大排在豎線右邊；29是奇數，所以中位數是排序後的第15個值，那一片葉的底色較深。數值由seed以兩個隨機數的平均產生（三角分佈），所以中間的莖通常葉子較多，外側較少。Metallic與mortar為0。
+
+這是作者設計的示意：只有兩位數的整數、固定29個值，沒有圖例（例如「5|3 = 53」）或其他統計量；資料是雜湊亂數產生的，不是真實資料；同一個值出現多次時重複畫出多片葉；某一列沒有任何葉時只畫莖。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`substitutionwords`（替換序列）使目前目錄1063→1064種，含plain的gallery為1065項。每tile由上而下是一列列由0與1組成的字：第一列是「0」，之後每一列都是把上一列每個字母依規則替換而成（0變成01，1依規則變成0、10或00）；1用深色格、0用中灰色格，所有列共用同一個格寬而靠左對齊，所以可以看出字不斷增長的階梯形狀。規則由seed從三個預設中挑一個：費氏字（0→01、1→0，長度為1、2、3、5、8…，共9列）、Thue–Morse序列（0→01、1→10，長度加倍，共7列）與週期倍增序列（0→01、1→00，長度加倍，共7列）。Metallic與mortar為0。
+
+這是作者設計的示意：只有這三個替換規則與固定的列數；沒有標示規則或索引；列數受tile寬度限制（最長的一列至少有55或64個格），所以格子很窄，小尺寸下深色與中灰色的差別不明顯；seed只影響規則的選擇，同一個規則的畫面對不同seed完全相同（紙面顆粒除外）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`dicesumbars`（骰子點數和）使目前目錄1064→1065種，含plain的gallery為1066項。每tile是擲兩顆骰子的點數和的次數分佈：橫軸是點數和（從2到面數的兩倍，每欄下方印出該數），每一欄上方用一格一格的小方塊堆疊起來，方塊數就是「兩顆骰子的有序面組合中和等於該數的組數」（例如六面骰的7有6格、2與12各有1格）；組數最多（最可能）的那一欄用較深的色調。骰子的面數由seed從4、6、8挑一個，所以欄數是7、11或15。Metallic與mortar為0。
+
+這是作者設計的示意：只有兩顆相同面數的公正骰子，沒有機率數值或頻率標示（每個方塊只是一種有序組合，(a, b)與(b, a)分開算）；格子很多時（8面骰、15欄）數字很小，小尺寸下不易辨識；與既有的`dicefaces`（骰子的面）是不同的材質。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`binaryheaptree`（二元堆積樹）使目前目錄1065→1066種，含plain的gallery為1067項。每tile是一棵4層、15個節點的完全二元樹：每個節點是一個圓，圓內用點陣字寫一個10到99之間的雙位數，父節點與子節點之間以直線相連；數值滿足堆積（heap）的性質——最小堆積中每個父節點都比兩個子節點小，最大堆積中則都比子節點大，根節點是最小（或最大）值，用較深的底色。seed決定是最小堆積還是最大堆積，並從10到99中取15個不重複的值，依序用標準的「插入後向上調整（sift-up）」放進陣列堆積。Metallic與mortar為0。
+
+這是作者設計的示意：只有15個節點、4層，沒有標示陣列索引或調整的過程；圖上同一層的節點之間沒有大小順序（堆積只保證父子之間的順序）；點陣字在小尺寸下很小。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bubblesortpasses`（氣泡排序的趟）使目前目錄1066→1067種，含plain的gallery為1068項。每tile是一個8×8的方格表：第一列是1到8的一個隨機排列（由seed決定），之後每一列是對上一列做一趟氣泡排序（由左到右比較相鄰兩數，左邊較大就交換）的結果，共7趟；每一趟之後，最大的那幾個數已經就定位在右端，所以第k列最右邊的k格（它們等於最大的k個數、已排好）用較深的底色。第8列（7趟後）是排好序的1到8。數字用大的點陣字印在每格中。Metallic與mortar為0。
+
+這是作者設計的示意：只有8個數的氣泡排序，沒有標出每一趟交換了哪些相鄰對，也不是其他排序法；即使提前排好，之後的列也照畫（內容相同）；深色底色只表示「已就定位」，不是交換次數。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`graphcoloring`（圖著色）使目前目錄1067→1068種，含plain的gallery為1069項。每tile畫一個圖：頂點是圓，邊是直線；每個頂點依它的顏色類別填上一個亮度（程序材質只有深到淺的亮度漸層，所以用四個亮度代表最多四個顏色），並且是「合法著色」——任何一條邊的兩端不會是同一個亮度。圖由seed從三個預設中挑一個：立方體（8個頂點，2色）、彼得森圖（10個頂點，3色）與五輻的輪圖（一個中心頂點接5個外圈頂點，4色）；每個圖用的色數都是該圖的色數（用最少的顏色著色）。Metallic與mortar為0。
+
+這是作者設計的示意：只有三個預設圖與預設的著色（不是由取樣器現場搜尋出來的）；頂點位置固定，沒有標示頂點編號；立方體畫成兩個同向的方形加四條連線（不是立體透視圖）；同一個亮度的兩個頂點不會相鄰，但不同亮度之間沒有順序意義。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`runlengthrows`（遊程編碼列）使目前目錄1068→1069種，含plain的gallery為1070項。每tile由上而下有五組：每組上面是一列20格的黑白格子（黑色是深色格、白色是淺灰格），格子由長度2到6的隨機遊程（連續同色的一段）交替組成（最後一段可能被列尾截短）；列的下方用點陣字寫出這一列的遊程編碼——每一段的長度後接字母W（白）或B（黑），例如「5W4B6W4B1W」。起始的顏色與各段長度由seed決定。Metallic與mortar為0。
+
+這是作者設計的示意：只有黑白兩色的一維遊程編碼，沒有其他壓縮法或解碼說明；段長只在2到6之間（最後一段除外），所以編碼最長約20個字元，長度剛好放得進tile；字母W與B的點陣是簡化字形，在小尺寸下W與B可能不易分辨。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`isbn10checks`（ISBN-10檢查碼）使目前目錄1069→1070種，含plain的gallery為1071項。每tile是11列的ISBN-10書號表：每列寫成「語區—出版者—書名—檢查碼」（1、3、5、1個字元，用「-」分隔，例如2-909-58056-3），前9位數字由seed決定，第10位（最右邊、底色較深的那一格）是檢查碼：使 10·d₁ + 9·d₂ + … + 1·d₁₀ 是11的倍數；檢查值為10時寫成X。奇偶列底色交替。Metallic與mortar為0。
+
+這是作者設計的示意：只有隨機產生的書號，不是真實的書；語區、出版者與書名的位數固定為1、3、5位（真實ISBN-10的出版者與書名欄位長度不固定）；沒有ISBN-13、條碼或換算。字符是3×5點陣字，X與連字號為簡化字形。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`projectilearcs`（拋體軌跡）使目前目錄1070→1071種，含plain的gallery為1072項。每tile由上而下重複兩個「噴泉」：同一速度的五發拋射體，仰角15°、30°、45°、60°、75°，從tile中線出發向左右兩側對稱飛行，畫成深色的拋物線（無空氣阻力）並落在淺灰色的地面線上；另有一條較淡的「安全拋物線」y = L/2 − x²/(2L)，與每一條軌跡相切、位於所有軌跡之上。其中 L = v²/g 是最大射程，由seed從0.4、0.44、0.48個tile寬中選一個；仰角45°的軌跡落在x = L，其他軌跡落在L·sin(2θ)。Metallic與mortar為0。
+
+這是作者設計的示意：理想的真空拋體，水平與垂直使用同一個長度單位（形狀沒有被拉伸）；沒有標註角度、數字或座標軸，也不是物理模擬；兩個噴泉完全一樣，只是沿垂直方向週期重複。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`sternbrocottree`（分數二元樹）使目前目錄1071→1072種，含plain的gallery為1073項。每tile由上而下畫四層分數：第0層1/1，第1層2個、第2層4個、第3層8個，每個分數用點陣字寫在它的位置（第n層共2ⁿ個，均勻排列在tile寬度上），並用直線把每個分數的下方連到它的兩個子節點上方。seed決定樹的種類：Stern–Brocot樹（每個節點是它所屬區間兩端分數的中項，例如第2層為1/3、2/3、3/2、3/1）或Calkin–Wilf樹（a/b的子節點是a/(a+b)與(a+b)/b，第2層為1/3、3/2、2/3、3/1）。Metallic與mortar為0。
+
+這是作者設計的示意：只畫四層（葉子層沒有再向下的連線，因為再往下一層的分數是兩位數、會擠在一起）；分數都已約分，這兩棵樹都恰好列出每個正有理數一次，但這個材質只畫前四層，沒有標出完整性或與連分數的關係；點陣字的斜線「/」為簡化字形。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`cycloidcusps`（擺線尖點）使目前目錄1072→1073種，含plain的gallery為1074項。每tile分成3×3格，每格畫一條有k個尖點的曲線與它的固定圓（淡灰細線）：第一列是外擺線（圓在固定圓外側滾動）k = 1、2、3（心形線、腎形線…）；第二列是內擺線（圓在固定圓內側滾動）k = 3、4、5（三尖點線、星形線…）；第三列由seed決定畫外擺線k = 4、5、6或內擺線k = 6、7、8；每格的固定圓半徑是k倍的滾動圓半徑，尖點都落在固定圓上。seed另外從四個旋轉角中選一個整體旋轉所有曲線。Metallic與mortar為0。
+
+這是作者設計的示意：理想的曲線，各格以同一個「最遠點離格中心的距離」縮放，所以不同k的滾動圓半徑不同；沒有標註k值或公式；曲線以360段折線近似，並不是解析距離，在尖點處線條可能略有不同。預設0.9 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`zeckendorfrows`（Zeckendorf表示列）使目前目錄1073→1074種，含plain的gallery為1075項。每tile有兩欄、每欄12列，共24個連續整數：每列左邊是十進位數字，右邊是八位的Zeckendorf表示——以費氏數 34、21、13、8、5、3、2、1 為位值（最高位在左）的0與1，且任兩個相鄰位不會同時是1（例如 34 寫成 10000000、35 寫成 10000001、29 寫成 01010000）。起始數由seed從1到31選一個，所以最大的數不超過54（34 + 13 + 5 + 2）。奇數列有淡淡的底色條。Metallic與mortar為0。
+
+這是作者設計的示意：只有費氏位值的0與1，沒有列出位值的標題或加總式；點陣字是3×5字形，沒有零以外的前導零說明（Zeckendorf的位數固定為8位，所以數字前面可能有零）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`ferrersdiagrams`（費勒斯圖）使目前目錄1074→1075種，含plain的gallery為1076項。每tile是5×3格，每格畫7的一個整數分割（共15個分割）的費勒斯圖：每一列是一排灰色小方格（邊框為深色），列的長度依序是分割的各個部分，靠左對齊，每個圖依自己的寬與高置中在格內；例如[7]是一長排、[6, 1]是6格加下面1格。15個格依「反字典序」排列（[7]、[6, 1]、[5, 2]、[5, 1, 1]、…、[1, 1, 1, 1, 1, 1, 1]）。seed決定兩件事：用英式（最長列在上）還是法式（最長列在下）畫，以及整個圖是否轉置（把每列變成每行，即共軛分割，這會讓15個格依序換成轉置後的分割）。Metallic與mortar為0。
+
+這是作者設計的示意：只畫7的分割，沒有標註分割的數字或計數；格子是固定大小的方格，沒有Young表（沒有填入數字）；英式與法式只改變方向。預設0.7 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`pairingtables`（配對函數表）使目前目錄1075→1076種，含plain的gallery為1077項。每tile是8×8的數字表，每格寫出把「欄x與列y」配成一個自然數的結果，格子有淡淡的棋盤格底色。seed決定三種配對法之一：Cantor配對（沿斜對角線依序編號：π(x, y) = (x + y)(x + y + 1)/2 + y，最大105）、Szudzik配對（沿正方形外殼依序：x < y 時 y² + x，否則 x² + x + y，最大63）或Morton（Z階，把x與y的二進位位元交錯：y的位元在上，最大63），並決定是否把x與y對調（等於把表轉置）。Metallic與mortar為0。
+
+這是作者設計的示意：固定8×8、最多三位數；沒有標示欄列的座標與公式；Cantor的最大值是3位數，其他兩種最多2位數，所以字會有不同寬度（置中）；點陣字是3×5字形。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hexdumprows`（十六進位傾印列）使目前目錄1076→1077種，含plain的gallery為1078項。每tile有14列隨機位元組的傾印：每列是兩位十六進位的位移、六個位元組（各兩位十六進位）與同樣六個位元組對應的文字，例如「3C 51 45 12 58 0F 55 QE.X.U」；位移每列增加6（對256取餘），起始位移由seed決定且是6的倍數。可顯示的位元組取自 A–Z、0–9 與空白（ASCII 0x41–0x5A、0x30–0x39、0x20）；約14%的位元組是控制碼（0x00–0x1F），文字欄顯示為「.」。奇數列有淡淡的底色條。Metallic與mortar為0。
+
+這是作者設計的示意：位元組是隨機產生的，不是真實檔案；可顯示的只限大寫字母、數字與空白，沒有小寫字母或標點；位移固定為兩位十六進位（超過255會回繞）；點陣字是3×5字形，在小尺寸下0與O、8與B可能不易分辨。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`pythagoreantriples`（畢氏三元數表）使目前目錄1077→1078種，含plain的gallery為1079項。每tile是12列的本原畢氏三元數表：每列依序寫出歐幾里得公式的參數m、n（m > n，一奇一偶，互質）以及由它們算出的兩股a = m² − n²（奇數）、b = 2mn（偶數）與斜邊c = m² + n²，例如「3 2　5 12 13」；斜邊欄有較深的底色，奇數列有淡淡的底色條。m最多為9，這樣一共有18組合法的(m, n)，seed決定12組並依斜邊由小到大排列（斜邊相同時如65，順序由seed決定）。Metallic與mortar為0。
+
+這是作者設計的示意：只列本原三元數（三邊互質），不列倍數；沒有標題列或驗算式；a、b、c固定為3位寬、靠右對齊；點陣字是3×5字形。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`figuratenumbers`（形數點陣）使目前目錄1078→1079種，含plain的gallery為1080項。每tile是4列×5欄：每一欄是n = 1到5，每一列是一種形數的點陣圖，點是深色的小圓：三角形數（每行多一點，共n(n+1)/2個：1、3、6、10、15）、正方形數（n×n個：1、4、9、16、25）、長方形數（n×(n+1)個：2、6、12、20、30）與中心正方形數（以一個點為中心、菱形排列，共2n² − 2n + 1個：1、5、13、25、41）。seed用Fisher–Yates洗牌決定這四種形數從上到下的順序；偶數列有淡淡的底色條。Metallic與mortar為0。
+
+這是作者設計的示意：只畫n = 1到5；點的間距固定，每個圖依自己的大小置中在格內，沒有標註個數；三角形數的列距是點距的√3/2（等邊三角形格點），其他是正方形格點。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：只畫半長4的路徑，沒有標註步驟字母（U、D）或編號；路徑置中在格內、單位長度固定；不是對所有n的Dyck路徑通用。預設0.7 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：沒有畫螺線本身、座標軸或數字標示，只有質數的點；點是固定大小的圓點，質數很密的地方點會彼此靠近或重疊；沒有說明質數分布的任何結論。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`sierpinskipascal`（帕斯卡奇偶三角）使目前目錄1081→1082種，含plain的gallery為1083項。整張tile是2^d × 2^d個方格（d由seed從5、6、7選一個）：第i欄第j列的方格填成深色，當且僅當帕斯卡三角形的數C(i + j, i)是奇數（等價於i與j的二進位沒有共同的1），這就是Sierpiński三角形；另一個三角形是同一張圖轉半圈，所以兩個三角形在對角線上相接，組成整個方形。seed另外決定是否左右鏡像。Metallic與mortar為0。
+
+這是作者設計的示意：只有奇數／偶數兩種顏色，不標註數字；方格是硬邊的（深色方格沒有邊線，邊緣沒有抗鋸齒的色階，只有紋理的顆粒）；深度最多7（128×128個方格），更深在512像素以下會變成不到4像素；兩個三角形在tile邊緣與對角線處的深色格會相連、顯得較粗。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`cobwebplots`（蛛網圖）使目前目錄1082→1083種，含plain的gallery為1084項。整張tile畫一幅邏輯斯諦映射 f(x) = r·x·(1 − x) 的蛛網圖：一個細框方形座標、灰色的拋物線 y = f(x) 與對角線 y = x，以及深色的蛛網——從 (x₀, 0) 垂直走到拋物線，水平走到對角線，再垂直走到拋物線，如此反覆14次迭代。seed從r = 2.8、3.2、3.5、3.74、3.9中選一個、並從x₀ = 0.11、0.27、0.46、0.83中選一個（共20種組合）。Metallic與mortar為0。
+
+這是作者設計的示意：只畫14次迭代，沒有標註r、x₀或座標軸數字；座標軸是一個細方框；r較大時蛛網沒有收斂到不動點，14步之後仍在變動，不代表任何長期行為的結論。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`divisorcountbars`（因數個數長條）使目前目錄1083→1084種，含plain的gallery為1085項。整張tile是一幅長條圖：從seed決定的起點（1到400）開始的64個連續整數，每個整數一條，長條由「每個因數一個小方塊」堆疊而成，所以長條的高度（方塊數）就是該整數的正因數個數 d(n)；質數（d = 2）的方塊最深色、完全平方數（d 為奇數）最淺色、其他介於兩者之間；底下有一條灰色基準線，方塊之間有細縫。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標註整數與座標軸；方塊高度固定，64個整數的 d(n) 最大值在n < 465時不超過24，所以長條不會超出tile的上緣；深淺只表示質數、平方數與其他，不是數值；方塊是硬邊的。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`timestablecircles`（乘法表圓）使目前目錄1084→1085種，含plain的gallery為1086項。每tile是3×3格，每格有一個圓，圓上有72個等分點（從正上方起順時針編號0到71），並用細線把每個點i連到點 k·i（對72取餘）；每一格有不同的乘數k，由seed從2到20中洗牌取9個（k = 2時是心形線的包絡），所以九格的圖案都不同（有些k因與72有公因數而畫出方格或扇形）。每格還畫出圓環（淺灰）與72個深色圓點，棋盤格交錯底色。Metallic與mortar為0。
+
+這是作者設計的示意：點數固定為72；沒有標註k值；用線段而不是曲線，因此細節是由72條弦形成的包絡；k與72有公因數時有些弦重合或退化成點（i到自己）而不畫。預設0.9 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：沒有標出座標軸或數字；視窗固定為40×40；沒有畫出單位（±1、±i）與合成數。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`josephuscircle`（約瑟夫圓環）使目前目錄1086→1087種，含plain的gallery為1088項。整張tile是一個約瑟夫問題的示意：n個人站成一圈（編號從正上方起順時針），每數到第k個人就淘汰他；每個人用小圓盤表示，圓盤中寫出這個人被淘汰的順序（1是第一個被淘汰的），最後留下的倖存者（順序為n）用較深的灰色圓盤標出；圈中央用大點陣字寫出步數k。seed決定人數n（17、19、21、23或24）與步數k（2、3、4或5）。Metallic與mortar為0。
+
+這是作者設計的示意：圓盤上只寫淘汰順序，不標示原來的位置編號；中央的大字是k而不是人數；人數與步數限於這幾種，圓盤不重疊。預設0.9 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`periodictablecells`（週期表格）使目前目錄1087→1088種，含plain的gallery為1089項。整張tile畫週期表前四個週期（元素1到36）的版面：18欄、4列，每個元素一格，格內上方是原子序（小的點陣字）、下方是元素符號（大寫字母，例如HE、FE、CU），周期表中沒有元素的位置留白。每格有三種深淺的底色之一，seed決定這三種底色代表什麼：(0) 區塊（依欄別：第1–2族、第3–12族、第13–18族）、(1) 金屬、類金屬與非金屬，或 (2) 在25 °C下是固體、液體（溴）或氣體。Metallic與mortar為0。
+
+這是作者設計的示意：只畫前四個週期（沒有鑭系與錒系，也沒有第5週期以後）；元素符號為了簡化字形一律用大寫（He寫成HE），小尺寸時「MN」與「NA」等字樣可能不易分辨；分類採常見的教科書分法（類金屬為B、Si、Ge、As；非金屬含惰性氣體；氫算非金屬與氣體），不同教材對個別元素的分類可能不同；不標示圖例。資料是由作者依記憶輸入、再用測試檔另外手寫一份比對，沒有對照外部資料來源。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`circleoffifths`（五度圈）使目前目錄1088→1089種，含plain的gallery為1090項。整張tile是一幅五度圈：外圈依序（順時針）寫出12個大調主音（C、G、D、A、E、B、F#、Db、Ab、Eb、Bb、F，每一個比前一個高純五度），中圈寫出各自的關係小調（Am、Em、Bm、F#m、C#m、G#m、Ebm、Bbm、Fm、Cm、Gm、Dm），內圈寫出調號的升降記號數（0、1#到6#、5b到1b），12個扇形交錯淡淡的底色，三圈之間有細線。seed決定頭頂是哪一個調（12種），並決定五度是順時針還是逆時針遞增（逆時針時變成四度圈）。Metallic與mortar為0。
+
+這是作者設計的示意：只寫大調、關係小調與調號數，不畫譜號與音符；F#／Gb這一格只寫F#（6升）；音名用大寫字母加「#」「b」（升降記號用簡化的點陣符號，「#」畫成雙橫雙直的符號）與小寫的m，小尺寸時「b」與「B」、「#」與其他字可能不易分辨。調號與關係小調的資料是我依記憶輸入，測試檔用音高計算（五度＝7個半音、關係小調＝低三個半音、升降記號數＝(音高×7) mod 12）另外驗證，但沒有對照外部資料來源，也沒有驗證同音異名（如C#m與Dbm）的拼法選擇是否符合慣例。預設0.9 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`roulettewheel`（輪盤）使目前目錄1089→1090種，含plain的gallery為1091項。整張tile是一個歐式輪盤的37個口袋環形排列：口袋依輪盤的實際順序（0、32、15、19、4、21、2、25、17、34、6、27、13、36、11、30、8、23、10、5、24、16、33、1、20、14、31、9、22、18、29、7、28、12、35、3、26，繞一圈回到0）排成圓環，每個口袋寫出號碼（點陣字，直立不隨角度旋轉）；紅色口袋是中灰、黑色口袋是深色、0是淺色，號碼在紅黑口袋上用淺色字、在0上用深色字，口袋之間有細分隔線；中央有一個灰色圓盤。seed決定頭頂的是哪一個口袋（37種），並決定從頭頂順時針讀是依輪盤的順序還是反方向。Metallic與mortar為0。
+
+這是作者設計的示意：不畫輪盤的轉軸、小球、賠率桌或美式輪盤的00；紅黑只用明度區分（紅色是中灰、黑色是深色），不是色相；號碼與紅色名單是我依記憶輸入，並用「36個非零口袋紅黑交錯」這個已知特性在測試中交叉驗證，但沒有對照外部資料來源；兩位數號碼在口袋很窄處接近相鄰口袋的邊界。預設0.9 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`roundrobintable`（循環賽賽程表）使目前目錄1090→1091種，含plain的gallery為1092項。整張tile是一張循環賽賽程表：n支隊伍（n由seed選8或10）用圓圈法排出n − 1輪，每輪n/2場比賽——第一支隊伍固定，其餘隊伍每輪沿圓圈移動一格——每一列依序寫出輪次號碼（深色標籤）與該輪每場比賽「甲-乙」，這樣每支隊伍每輪恰好出賽一次、每一對隊伍整個賽程恰好交手一次。隊伍編號由seed用Fisher–Yates洗牌決定；奇數列有淡淡的底色條。Metallic與mortar為0。
+
+這是作者設計的示意：只有賽程，沒有隊名、場地或比分；n只用8與10（沒有輪空的奇數隊情形）；沒有區分主客場；點陣字是3×5字形，字高依n而定（n = 10時較小）。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`kaprekarsteps`（卡普雷卡爾步驟）使目前目錄1091→1092種，含plain的gallery為1093項。整張tile分成2欄×2個區塊，每個區塊是一條卡普雷卡爾常式（Kaprekar's routine）的演算鏈：從一個四位數（不是四位全相同，也不是6174）開始，把各位數字由大到小排成一個數、由小到大排成另一個數，兩者相減得到差，再對這個差（補零成四位）重複，直到得到6174為止；每一步寫成一行「大-小=差」（例如7641-1467=6174），差的四個字元有較深的底色，奇數行有淡淡的底色條。四個起點由seed決定。一條鏈最多7步（四位數的卡普雷卡爾常式最多7步）。Metallic與mortar為0。
+
+這是作者設計的示意：只處理四位數、只寫出每步的算式（起點本身由第一行的位數隱含，沒有另外寫出）；沒有標註步數或說明6174是不動點；有些鏈較短，區塊下半留白。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`lookandsayrows`（外觀數列）使目前目錄1092→1093種，含plain的gallery為1094項。整張tile由上而下列出外觀數列（look-and-say sequence）的各項：每一項是把上一項「唸出來」——數連續相同數字的個數，再寫出那個數字，例如1 → 11（一個1）→ 21（兩個1）→ 1211 → 111221 → 312211 …；每一列的第一個數字有較深的底色，奇數列有淡淡的底色條。第一項由seed從1到6中選一個；各項的位數成長很快，所以只列到下一項會超過26位為止（最多11列）。Metallic與mortar為0。
+
+這是作者設計的示意：只列出數列的項，沒有標註項次或說明外觀數列的規則；各項只用0到9的數字；位數限制26是版面寬度所決定的（不是數列的性質），因此不同起點的列數可能不同（實際預覽的起點6是9列）。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`happynumberchains`（快樂數鏈）使目前目錄1093→1094種，含plain的gallery為1095項。整張tile由上而下寫出12條「各位數字平方和」的演算鏈：從2到99中由seed選出的一個起點開始，每次取各位數字的平方和得到下一個數，用「>」連接，例如19>82>68>100>1；鏈到1為止（起點是快樂數），或到第一次出現4為止（其他所有數最後都會落進 4、16、37、58、89、145、42、20 的循環，所以在4停止）。到1結束的列，第一個數字下方有較深的底色。12條鏈的起點互不相同，字串寬度不超過34個字元的才會被採用（太長的起點會換下一個由seed產生的數）；奇數列有淡淡的底色條。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標註「快樂」或「不快樂」，也沒有標示循環的其他成員；起點限制在2到99且鏈的寬度不超過34個字元，所以像99這樣鏈很長的起點不會出現（實際預覽中的起點都是兩位數以內）；點陣字是3×5字形，「>」為簡化字形，字高較小，建議1024以上才清楚。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：沒有數字標示，也沒有標出某個數是第幾項；左側許多小弧線會重疊成密集的環帶，所以512以下難以分辨；項數四個選項只是在已有的圖上多畫或少畫弧線（40、50、60項的最大值同為114，所以縮放相同）。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`thuemorsegrid`（Thue–Morse格）使目前目錄1095→1096種，含plain的gallery為1097項。整張tile是正方形格子，第k格的顏色由Thue–Morse數列決定：k加上一個由seed決定的位移後，二進位中1的個數為奇數就是深色格、偶數是淺色格；格與格之間有一條較矮的中灰色溝縫。seed決定每邊的格數（8、16、32三種）、位移（0到255）與編號方向（沿列或沿欄）。Metallic與mortar為0。
+
+這是作者設計的示意：格子本身沒有數字；數列沒有被標出，也沒有圖例。圖案在整張tile內是一個網格，邊緣與對邊無縫相接（因為格數整除tile），但網格內的數列不會在邊界連續。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`digitalroottable`（數根表）使目前目錄1096→1097種，含plain的gallery為1098項。整張tile是方格表，列i與欄j從1開始數，格內是數根（把各位數字反覆相加直到只剩一位數，結果為1到9）：seed從三種表中挑一種——i×j、i＋j、i²＋j²——並決定每邊格數（9、12、18）。每格依數根上色（1最深、9最淺，線性色階），格內以3×5點陣字寫出該數根，字色與底色反相；格間有一條較矮的中灰溝縫。Metallic與mortar為0。
+
+這是作者設計的示意：沒有表頭（看不出i與j的值），也沒有圖例說明三種表的差別；字形是3×5點陣，在512以下的小格（18格）接近極限，建議1024以上。i²＋j²的表只出現部分數根（平方對9取餘只有0、1、4、7），因此色階有缺口。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`henonattractor`（埃農吸引子）使目前目錄1097→1098種，含plain的gallery為1099項。整張tile是埃農映射 x′＝1−a·x²＋y、y′＝b·x 迭代60萬次後的點密度圖：點數落在256×256的格子中，取對數後雙線性內插成墨色濃淡，淺色紙面上的深藍弧線就是吸引子的細密層次。seed從四組混沌參數（a,b）＝（1.4,0.3）、（1.35,0.3）、（1.4,0.25）、（1.2,0.3）中挑一組，並決定是否左右、上下鏡射；視窗固定為x∈[−1.35,1.35]、y∈[−0.45,0.45]，因此y方向相對x約拉長1.5倍；視窗四周有3%的留白，所以整張tile可無縫重複。Metallic與mortar為0。
+
+這是作者設計的示意：沒有座標軸、刻度或參數標示；y方向是拉長的，不是等比例；弧線很細，在512以下只有一兩個像素寬。四組參數是從我用腳本試過的組合中挑出會產生混沌（填滿多數格子）的幾組，沒有做數學證明。這次也試了a＝1.3、b＝0.3與a＝1.25、b＝0.3，但它們只占7個格子（是週期軌道），所以沒有被使用。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。每個取樣器建立時要迭代60萬次（512單次約111到160 ms，非效能認證）。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：沒有數字、也沒有標示距離；最長的尺是72單位，因此短尺（3、4個標記）只占左側一小段；這些尺的位置來自我記憶中的已發表最佳尺，沒有外部來源可對照，所以文件與測試只保證「沒有重複距離」，以及3到8個標記的長度用暴力搜尋確認是最短的，9到11個標記的長度（44、55、72）沒有被測試證明是最短。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bitwisetable`（位元運算表）使目前目錄1099→1100種，含plain的gallery為1101項。整張tile是方格表，列i與欄j從0數到邊長減1，格內是 i AND j、i OR j 或 i XOR j 的值：seed從三種運算中挑一種，並決定每邊格數（8、16、32）。每格依數值線性上色（0最深、邊長減1最淺），並用小方塊以二進位寫出該值（最高位元在左、方塊代表1，位元數為3、4、5），方塊的顏色與底色反相；格間有一條較矮的中灰溝縫。三種表在大尺度上分別呈現不同的分形格局（AND偏暗、OR偏亮、XOR對稱且對角線為0）。Metallic與mortar為0。
+
+這是作者設計的示意：沒有表頭、沒有運算符號；方塊很小——32格時每個位元在512貼圖上只有一兩個像素，建議1024以上；方塊只畫1，0的位元沒有標記。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：曲線沒有標示起點、終點或編號，只能靠漸層色調分辨方向；81格時一格只有約六個像素寬（以512計），因此建議1024以上。曲線的轉換規則由遞迴建構，並在測試中與另一種「以三進位數字互補」的公式比對。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`cliffordattractor`（克利福德吸引子）使目前目錄1101→1102種，含plain的gallery為1103項。整張tile是克利福德映射 x′＝sin(a·y)＋c·cos(a·x)、y′＝sin(b·x)＋d·cos(b·y) 迭代80萬次後的點密度圖：點數落在256×256的格子中，取對數後雙線性內插成墨色濃淡（深藍墨在淺色紙面上）。seed從五組參數（a,b,c,d）＝（−1.4,1.6,1,0.7）、（1.7,1.7,0.6,1.2）、（−1.7,1.3,−0.1,−1.2）、（−1.7,1.8,−1.9,−0.4）、（1.6,−0.6,−1.2,1.6）中挑一組並決定是否左右、上下鏡射；視窗等於映射的精確範圍（x在1＋|c|以內、y在1＋|d|以內），四周留3%空白，所以整張tile可無縫重複。Metallic與mortar為0。
+
+這是作者設計的示意：沒有座標軸或參數標示；五組參數是我試過八組（其中三組不用）之後挑的：一組只占76格（週期軌道）、兩組占約八成格子（過滿，不容易分辨），在我用的48×48小格統計中；這些「混沌」判斷只是格數統計，沒有數學證明；每個取樣器建立時要迭代80萬次（512單次約135到149 ms，非效能認證）。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：沒有編號或標示，色調只是隨機灰階；邊界寬度用「最近與次近距離之差的一半」近似到邊界的距離，所以在邊界的尖角處（三個細胞交會處）邊界會變得略寬；每個像素檢查周圍5×5格的站點（試過3×3在較早版本的測試中也通過，但我沒有證明3×3在抖動0.38時一定足夠）。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`euclidsquares`（歐幾里得方塊）使目前目錄1103→1104種，含plain的gallery為1105項。整張tile畫出歐幾里得輾轉相除法的方塊分割：長方形W×H先沿較長邊從左上角切出盡量多、邊長等於較短邊的正方形，再對剩下的長方形重複，直到沒有剩餘（最後的正方形邊長是gcd(W,H)）。seed從六個長方形（57×22、43×16、49×19、58×35、60×24、55×21）中挑一個，並決定是否轉置、左右鏡射、上下鏡射（共八種方向）；方塊依切出的順序由深（第一個）到淺（最後一個）上色，每個方塊有深色細邊界，外框也有，長方形置中、長邊占94%的tile。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標示數字、商數或gcd；60×24與55×21等會產生許多邊長相同的方塊，只靠色調的順序區分切出順序；長方形置中且四周留白，因此貼圖整體不是無縫連續花紋，只是重複排列。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`youngtableaux`（楊表）使目前目錄1104→1105種，含plain的gallery為1106項。整張tile是2×2個面板，每個面板畫一個10格的標準楊表：形狀是10的分拆（最多5個部分、每部分最多5），格內填入1到10各一次，沿每一列和每一欄嚴格遞增。seed從所有符合條件的形狀中洗牌挑出四個不同的形狀，並用「依序把1到10放進一個隨機的可加格（上方與左方的格子都已填入）」來填數，所以每個面板的填法都是有效的標準楊表（但不是在所有標準楊表上均勻抽樣）；seed另外決定使用英式（第一列在上）或法式（第一列在下）畫法，以及整體是否轉置（轉置後仍是有效的標準楊表）。格子依數字由深（1）到淺（10）上色，數字用3×5點陣字（10用兩位數），格間有深色細線。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標示形狀的分拆或鉤長；一個圖無法分辨它是否被轉置（轉置後仍是標準楊表）；寬度最多5格、點陣字小，512下需要靠像素邊緣讀字，建議1024以上。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`braiddiagram`（辮圖）使目前目錄1105→1106種，含plain的gallery為1107項。整張tile畫出數學上的辮圖：4、5或6條股線（由seed決定）從上到下，每一層（共3×股數層）有兩條相鄰的股線交叉、一條在上一條在下（被壓在下的股線被上面股線的深色外框擋住），同一對位置不會連續交叉兩次，左邊在上或右邊在上隨機；每條股線依起點位置固定一個灰階（最左最深、最右最淺），所以最下方各位置的灰階順序就是這個辮子所做出的置換。交叉處用S形曲線，股線寬度沿垂直於曲線的方向量測，斜的部分不會變細。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標示辮子字（σ₁、σ₂…）或置換；每層只有一個交叉，所以不會有同一層同時交叉兩處；灰階僅用亮度區分股線，與色相無關（材質只有一個由暗到亮的色階）；股線的外框會讓下方的股線在交叉處看起來被切斷，但這是畫法，不是三維繩結。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`countingrods`（算籌）使目前目錄1106→1107種，含plain的gallery為1108項。整張tile是八列，每列左邊用3×5點陣字寫出一個十進位數（2到5位數，由seed決定），右邊用中國算籌記數法再寫一次：每位數一個方形位置，個位在最右；1到5是對應根數的籌，6到9是一條橫槓（代表五）下面加1到4根籌，0是空位；位置交替擺放——個位、百位、萬位用縱式（籌直立、橫槓在上），十位、千位轉九十度用橫式（籌橫放、橫槓在左）。奇數列有淡色底帶。Metallic與mortar為0。
+
+這是作者設計的示意：算籌的零是空位，沒有圓圈符號；沒有負數（紅黑籌）、小數或乘除；只畫到五位數；右邊的算籌需要比對左邊的數字才有意義；3×5點陣字很小，建議1024以上。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`quadtreecells`（四叉樹格）使目前目錄1107→1108種，含plain的gallery為1109項。整張tile是自適應四叉樹：單位正方形先一律切成四個，再依規則一層一層繼續切——當形狀函數在一個方格的四個角與中心不是同一個正負號（形狀的邊緣穿過這個方格）時就再切四份，直到最大深度6（64×64的最細格）；至少一律切到深度2。形狀由seed從12個預設中挑一個：圓盤三個、圓環兩個、橢圓兩個、波浪線三個、斜線兩個。形狀內的格子較深色，越深的格子再略深一點，格子之間有深色細邊界，邊界半寬為`min(0.0025, 0.07×格邊長)`，所以小格的邊界較細。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標示深度或形狀名稱；切割規則只檢查四個角與中心，如果形狀的細部比格子小，可能漏掉（這12個形狀在目前的最大深度下沒有這個問題；另外我發現在這12個形狀上，拿掉「中心」這個取樣點也得到完全相同的結果，所以中心取樣在這些形狀上是多餘的，我保留它是為了萬一增加更細的形狀）；形狀只畫在一個tile內，不會跨tile邊界延伸，所以貼圖不是連續花紋；斜線的形狀會切到大部分格子，使整張都是細格。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`lsystemplant`（L-system植物）使目前目錄1108→1109種，含plain的gallery為1110項。整張tile畫出一棵由L-system（Lindenmayer系統）用海龜繪圖法畫出的分枝植物：F向前走一單位並畫線，+與−依角度轉向，［與］儲存與還原海龜的位置與方向。seed從四組文法中挑一組（公理與規則：X→F+[[X]-X]-F[-FX]+X、F→FF，25°；F→FF-[-F+F+F]+[+F-F-F]，22.5°；X→F[+X]F[-X]+X、F→FF，20°；X→F[+X][-X]FX、F→FF，25.7°）、其中兩個迭代次數之一（4或5、3或4、5或6、5或6），並決定是否左右鏡射；植物等比例縮放並置中，最長邊占tile的90%，線條依分枝深度由主幹的深色漸變成枝梢較淺的灰綠色。Metallic與mortar為0。
+
+這是作者設計的示意：植物是示意的線條畫，沒有葉子、花或粗細變化（所有線段寬度相同）；L-system文法是我記得的常見寫法（沒有外部來源可對照）；對稱的文法（第四組）鏡射後與原圖相同，所以seed的鏡射旗標對它沒有效果；植物只畫在一個tile內，不會跨tile邊界延伸。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`htreefractal`（H樹）使目前目錄1109→1110種，含plain的gallery為1111項。整張tile畫出H樹：一條線段（H的橫槓），在它的兩端各畫一條垂直於它、長度為它的1/√2的線段，這兩條再各自在兩端畫更短的垂直線段，如此一層層深入到seed挑的深度（6、7、8或9）。第0層的線段置中、半長0.25；seed另外決定整棵樹是否轉九十度。線段越深越細（線寬由0.0034每層乘0.88、下限0.00085），色調由最深的主幹（第0層）漸變成較淺的灰藍（最深的一層）。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標示層次；這棵樹不是空間填滿的（1/√2的比例在極限下才趨近填滿整個矩形），樹的外框沿一個方向約占tile的七成、沿另一個方向約占全部（哪個方向依是否轉九十度；我只看過轉了的那種預覽，另一種是由幾何推算），所以一個方向有空白而另一個方向接近相接；樹只畫在一個tile內（沒有周期性延伸）；渲染時每個像素會走訪樹的一部分節點（用範圍估計剪掉太遠的子樹），512單次取樣在這台機器上約134到184 ms（單次量測，不是效能認證），比大多數其他材質慢。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：這是「依邊色一致的方式隨機鋪滿」的圖案（先隨機決定每條邊的顏色，再讓兩側的磚取同一個顏色），不是從一組固定的王氏磚集合挑出磚來鋪，也沒有證明或標示這個磚集合的性質（例如是否能非週期鋪滿）；顏色只用亮度區分，不是色相。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`marchingsquares`（行進方塊等值線）使目前目錄1111→1112種，含plain的gallery為1113項。一個環繞tile邊界的metaball場（每顆球貢獻 半徑²／（距離²＋epsilon），距離環繞計算）在方格的角點取值，高於門檻（1）的角點畫深色小點、低於門檻的畫較淡的點；等值線則以經典marching squares（16種情形，兩個鞍點格用四角平均值決定）畫成穿過每個格子的直線段，端點由線性內插落在格邊上。seed決定十組球（每組5–7顆）之一與格數（16、24、32）。Metallic與mortar為0。
+
+這是作者設計的示意：球的位置與半徑是我用固定偏移的亂數產生器寫入preset的常數，不是外部資料；前八組在這三種格數下都沒有鞍點格，後兩組是我另外用隨機搜尋挑出「兩種鞍點（中心高於／低於門檻）都出現」的組合，目的是讓鞍點分支有真實資料可測。已知限制：線只畫在自己線段所在的格子內，貼著格邊平行走的線段在鄰格那一側的線寬會被格邊切掉（線端點與相鄰格的線段在格邊上相接，一般看不出來，我沒有量化這個現象）。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：輪廓寬度上限是方塊邊長的6%，因為第一版（輪廓固定寬、層數5–7）因T方塊碎形會幾乎鋪滿格子，小方塊的輪廓把整張圖畫成一片深色，所以改成上限縮小與層數4–6。不宣稱這是特定文獻中的T-square圖樣，沒有量測碎形維度。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`superformulacells`（超級公式格）使目前目錄1113→1114種，含plain的gallery為1115項。tile切成3乘3或4乘4個格子（seed決定），每個格子中央有一條封閉曲線 r(φ) = (|cos(mφ/4)|^n2 + |sin(mφ/4)|^n3)^(−1/n1)（a = b = 1的Gielis超級公式），縮放成最大半徑為0.9×半個格寬×該格的比例，填上一個色調並加細深色輪廓。每個格子各自由seed從十組參數列 [m, n1, n2, n3]、三種比例（0.7、0.85、1）與六種色調中各挑一個。Metallic與mortar為0。
+
+這是作者設計的示意：十組參數是我挑的常數，沒有取自任何文獻的圖表；奇數m只配n2 = n3，因為n2 ≠ n3時曲線在±π處不閉合。形狀以每個格子中心為原點、用角度（極座標）判斷內外，所以非星形的曲線不在範圍內；最大半徑由4096個角度取樣估計。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`paleygraphmatrix`（Paley圖鄰接矩陣）使目前目錄1114→1115種，含plain的gallery為1116項。tile是p×p個格子的矩陣：p是模4餘1的質數（13、17、29、37、41、53之一，由seed決定），頂點為0至p−1，當i−j除以p的餘數是非零平方數時i、j相連；第i欄第j列的格子顯示i−j（模p）是零（對角線，中間色）、平方數（有邊，深色）還是非平方數（沒有邊，淺色），格子之間有細深色線。Metallic與mortar為0。
+
+這是作者設計的示意：只畫鄰接矩陣，不畫圖本身，也沒有標示或證明Paley圖的性質（自補、強正則等）；p限定在列出的六個質數，每個都是模4餘1所以矩陣對稱。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`candlestickcharts`（K線圖）使目前目錄1115→1116種，含plain的gallery為1117項。三個上下堆疊的圖表面板，每個面板有16、24或32根蠟燭（seed決定根數）。每根蠟燭是一個從開盤到收盤的實體，上漲時為淺色、下跌時為深色，上下各有一條細影線到最高與最低價。每根的開盤價等於前一根的收盤價，整串首尾相接（環繞），所以每個面板是封閉的走勢：一半的步伐向上、一半向下且幅度兩兩相同（0.04–0.09），順序由seed洗牌，再把整條走勢拉伸到剛好佔滿面板的0.12至0.88高度；影線長度0.012–0.05。Metallic與mortar為0。
+
+這是作者設計的示意：價格是隨機走勢，不是任何市場資料，也不代表交易訊號；所謂「封閉」只是為了讓tile無縫。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`tetrominoes`（四格骨牌鋪面）使目前目錄1116→1117種，含plain的gallery為1118項。tile是8×8或12×12個格子（seed決定），由七種四格骨牌（I、O、T、S、Z、J、L，只轉不翻面，各四個方向）剛好鋪滿且環繞相接；seed洗牌後以深度優先搜尋找出一種鋪法（最多50次嘗試、每次至多20000步；若都失敗改用水平I形排滿，我量測的300個seed沒有出現過這種情形），每片依種類填上七種灰階之一，不同片之間的格邊有深色線。Metallic與mortar為0。
+
+這是作者設計的示意：七種色調只用亮度區分；不宣稱鋪法在統計上均勻（搜尋順序有偏）或每個seed都含全部七種骨牌。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意：六種核的權重是我憑記憶寫的，沒有查閱任何文獻確認，所以不宣稱與標準演算法逐字相同，只保證「同一份權重在取樣器與測試端的獨立實作一致」；誤差不傳回前面的格子，所以並非嚴格的環面誤差擴散。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`worleycells`（Worley細胞噪聲）使目前目錄1118→1119種，含plain的gallery為1120項。n×n個格子（n為6、8或10）每格一個特徵點，落在格子中央附近jitter×格寬（0.5、0.7或0.9）的範圍內，格子環繞tile邊界；F1與F2是到最近與第二近特徵點的距離（在周圍5×5個格子中找，距離環繞），可用三種距離（歐氏、曼哈頓、切比雪夫）之一。顏色是F1、F2、F2−F1、F1／F2四種函數之一的灰階（前三者以1.1個格寬為單位），高度是每個特徵點周圍的圓丘（0.8個格寬內由1降到0，點上為1，所以可從高度讀回特徵點）。格數、jitter、距離與函數都由seed決定。Metallic與mortar為0。
+
+這是作者設計的示意：不是Perlin／simplex噪聲，也不宣稱與任何標準Worley實作逐位相同；搜尋範圍從3×3擴大到5×5是因為第一版測試發現第二近的點可能在兩格以外；jitter上限0.9是為了避免兩個特徵點靠得太近、測試端無法從高度分辨。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`equalizerbars`（等化器LED柱）使目前目錄1119→1120種，含plain的gallery為1121項。tile是16、24或32個頻帶並排，每個頻帶是一柱16、20或24個LED段，從底部往上點亮到該頻帶的高度，再在上方隔1至3段處亮一段峰值段；段依高度分三個區間上色（下方60%、其後25%、其餘），未亮的段是暗色，段與段之間有暗縫。高度是兩個正弦（整數頻率，所以左右環繞相接）加隨機散布。頻帶數、段數與曲線由seed決定。Metallic與mortar為0。
+
+這是作者設計的示意：色調只用亮度區分，所謂「綠／黃／紅」分區是三個灰階；高度曲線是示意，不是任何音訊資料。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`intelhexrecords`（Intel HEX記錄）使目前目錄1120→1121種，含plain的gallery為1122項。27行資料記錄「:10AAAA00」＋16個資料位元組＋檢查碼，每行用3×5像素的字元寫成，最後一行是結束記錄「:00000001FF」。第一筆的位址AAAA由seed決定（16的倍數），之後每行加16；資料位元組是隨機的；檢查碼是記錄中所有位元組總和的二補數，所以整筆記錄（含檢查碼）的位元組相加模256為0。六個欄位（起始冒號、長度、位址、類型、資料、檢查碼）各用一種墨色。字元的像素格間有一小段柔化。Metallic與mortar為0。
+
+這是作者設計的示意：只實作資料記錄（類型00）與結束記錄（類型01），沒有擴充位址等其他類型；3×5字元是我自己畫的位圖。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`flagpatterns`（旗幟圖案）使目前目錄1121→1122種，含plain的gallery為1123項。3×3或4×4的格子，每格一面3:2的旗，圖案是簡單幾何：橫三色、直三色、橫二色、四分、北歐十字（內有較窄的十字）、斜十字、中央圓盤、七條橫紋加左上角方塊；底布是中間色調，旗周圍有一圈細深色外框。seed決定格數，以及每格的圖案與三個互不相同的色調（從六個色調中選）。Metallic與mortar為0。
+
+這是作者設計的幾何圖案，不代表任何真實的旗幟；只有色調（亮度）而沒有色相。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`gaugedials`（儀表圓盤）使目前目錄1122→1123種，含plain的gallery為1124項。2×2或3×3的格子，每格一個圓形類比儀表：外圈是bezel，淺色錶面，沿刻度弧有三段色調區（兩個交界由seed決定），11條長刻度之間各有4條短刻度，一根帶短尾的指針與中心圓。刻度從正上方起順時針−135°（0）到+135°（1），底部那四分之一圈沒有刻度與色調區。seed決定格數，以及每個儀表的指針位置與兩個色調區交界；底布是中間色調並有細微顆粒。Metallic與mortar為0。
+
+這是作者設計的示意，不是任何真實儀表的複製；只有色調（亮度）而沒有色相或數字。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`qrcodemodules`（QR碼模組）使目前目錄1123→1124種，含plain的gallery為1125項。一個邊長21、25或29個模組（版本1至3）的方形符號，四周各有4個模組寬的淺色靜區。三個定位圖案（7×7的外環與3×3的中心）與其淺色分隔線、沿第6列與第6行的時序圖案、暗模組，以及版本2與3的5×5對齊圖案，都放在QR標準規定的位置；其餘模組（包含格式資訊區）是隨機的。seed決定版本與隨機模組。模組邊緣有很小的柔化，只在鄰格色調不同處混合。Metallic與mortar為0。
+
+這看起來像QR碼，但不是可以讀取的QR碼：資料、錯誤更正、遮罩與格式資訊都沒有實作，我也沒有用任何QR讀取器驗證。標準規定的位置是我憑記憶寫的，並以測試端另外寫的位圖表檢查。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`mahjongdots`（麻將筒子牌）使目前目錄1124→1125種，含plain的gallery為1126項。3×3或4×4格、3:4的圓角牌放在布面上，每張牌有1到9個圓點，排列依常見的筒子牌（一個大點；兩點直排；三點斜排；四點在四角；五點加中央一點；六點兩行三列；七點為上方斜排三點加下方兩行兩列；八點兩行四列；九點三行三列）。每個圓點由外環、淺色間隙與中心組成；牌有一圈較暗的邊緣、圓角，底布是中間色調並有細微顆粒。seed決定格數，以及每張牌的點數與外環、中心的色調。Metallic與mortar為0。
+
+這是作者設計的示意：排列是我憑記憶寫的，沒有對照真實麻將牌，只有色調（亮度）而沒有色相。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`smithchart`（史密斯圖）使目前目錄1125→1126種，含plain的gallery為1127項。反射係數的單位圓盤上，有等電阻圓（0、0.2、0.5、1、2、5；圓心在軸上的r/(1+r)、半徑1/(1+r)）、等電抗弧（正負0.2、0.5、1、2、5；圓心(1, 1/x)、半徑1/|x|，只畫在單位圓內）與水平軸，都是細線；另有一個較深的等駐波比圓與圓上一點，點與圓心之間有一條線。seed決定圖轉幾個四分之一圈、深色圓的半徑（0.3、0.5或0.7）與點在圓上的位置。圖外是有細微顆粒的布面。Metallic與mortar為0。
+
+這是作者設計的示意：沒有數值標記與文字，只有色調（亮度），也不是工程用的圖。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`compassrose`（羅盤玫瑰）使目前目錄1126→1127種，含plain的gallery為1128項。中央是16個尖角的星（4個長角、4個中等、8個短角，每個是細長三角形，順時針的一半是深色，另一半是中間色調），中心有一個小圓環；外圍是刻度盤：一圈外環，每5°一條刻度，每45°的較長、每90°的最長，北在正上方。seed把星（不含刻度盤）轉5°的倍數（小於90°）。底是淺色紙面並有細微顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：沒有文字與方位字母，只有色調（亮度），也不是航海用的圖。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`windbarbs`（風標）使目前目錄1127→1128種，含plain的gallery為1129項。3×3或4×4格的氣象圖風標：每格一個測站圓環與一根指向風向的桿，桿的順時針一側從桿端往內，每50節一個三角旗、每10節一條長羽、5節一條短羽；單獨一條5節短羽放在離桿端一格處；靜風是兩層圓環、沒有桿。這裡的風速是0到65之間5的倍數，風向是10°的倍數，由seed對每一格決定。淺色紙面有細微顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：只畫風標，沒有氣壓、溫度等其他測站資料，也不是氣象作業用的圖。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`rankchevrons`（階級人字紋）使目前目錄1128→1129種，含plain的gallery為1130項。3×3或4×4格的圓形布章放在布面上，每個布章縫著1到4條人字紋（V形，尖端朝上）、人字紋下0到2條弧形橫條（rocker），以及可有可無的上方圓點，外有一圈細環。seed決定格數，以及每個布章的人字紋與弧條數和有無圓點。布章是深橄欖色，圖案是淺色，布面是中間色調並有細微顆粒。Metallic與mortar為0。
+
+這些是單純的幾何圖形，不代表任何真實的軍階或標誌，只有色調（亮度）而沒有色相。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`segmenttree`（線段樹）使目前目錄1129→1130種，含plain的gallery為1131項。由方格疊成的金字塔：頂端是根，底端是葉，每一層一列（第`level`層有2^level個方格），根之下有3、4或5層。葉的值由seed隨機決定（色調就是值），每個上層方格的值是兩個子方格的平均，所以它的色調是兩個子方格色調的平均。seed另外選一段葉的範圍，線段樹用來剛好蓋住該範圍的方格（數量最少、彼此不包含）畫上深色外框。方格之間是有細微顆粒的縫。Metallic與mortar為0。
+
+這是作者設計的示意：沒有數字或文字，只有色調（亮度）；用「平均」而不是常見的「總和」，是為了讓色調落在0到1之間。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+這是作者設計的示意，只有色調（亮度）而沒有色相。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`jacobisymbols`（雅可比符號表）使目前目錄1131→1132種，含plain的gallery為1133項。每邊N格（24或32）的表格：第r列、第c欄的格顯示雅可比符號 (a / b)，其中 a = 列起點＋r＋1、b = 2×(欄起點＋c)＋1（奇數）：+1是淺色、−1是深色、a與b有公因數時為0（中間色調）。seed決定N以及兩個起點（N的倍數、小於4N），所以視窗可以落在4N×4N的表格範圍內任何一處。格之間有一小段縫，縫有細微顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：只有色調（亮度），沒有數字。取樣器用二次互反律算符號，測試端另用質因數分解加歐拉判別法，兩者算法不同。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`fenwicktree`（樹狀數組）使目前目錄1132→1133種，含plain的gallery為1134項。橫向N（16或32）個位置、每個層級一列：索引i（1到N）有一條長條，涵蓋以i結尾的lowbit(i)個位置，畫在它的lowbit對應的那一列（單個位置在最底層，整個寬度在最上層），例如索引12（lowbit為4）涵蓋位置9到12。同一列的長條依層級上色。seed選一個查詢索引q與一個更新索引u：前綴查詢的路徑（q，再來q減lowbit(q)，直到0）上的長條畫深色外框，更新路徑（u，再來u加lowbit(u)，直到超過N）上的長條在其內側畫淺色外框。Metallic與mortar為0。
+
+這是作者設計的示意：沒有數字，只有色調（亮度）。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`semaphorefigures`（手旗信號人像）使目前目錄1133→1134種，含plain的gallery為1135項。3×3或4×4格的火柴人（頭與軀幹），每人雙手各持一面旗，手臂指向8個方向之一（從正上方順時針每45度；左右手方向不同）；旗是手臂末端外的正方形，沿對角線分成兩個色調。seed決定格數與每個人的兩個方向。不編碼任何字母。手臂各自從左右肩出發，內指的手臂會穿過軀幹與頭，不求解剖正確。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hofstadterq`（霍夫施塔特Q數列散點圖）使目前目錄1134→1135種，含plain的gallery為1136項。Q(1)=Q(2)=1、Q(n)=Q(n−Q(n−1))+Q(n−Q(n−2))，畫連續128項的散點圖，每欄一個點，高度縮放到視窗內最小項與最大項剛好落在上下邊界；seed決定視窗從第幾項開始（1、129、257、513、1025、2049）。另畫一條表示Q=n/2的細斜線與把圖分成8格的9條細橫線。這是作者設計的示意，色調（亮度）從左到右依欄位漸變。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`countertimings`（計數器時序圖）使目前目錄1135→1136種，含plain的gallery為1137項。上方一列是時脈（16個週期，每週期前半高、後半低），下面四列是4位元計數器的輸出Q0到Q3，在每個時脈上升緣一起改變；seed決定計數方式（二進位遞增、二進位遞減、格雷碼、約翰遜扭環、單熱環）與第一個週期的狀態，另有淡淡的垂直線標示時脈週期。五種計數的週期都能整除16，圖塊左右無縫。這是作者設計的示意：理想化的方波，沒有傳播延遲；色調（亮度）隨列變化。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`qamconstellation`（QAM星座圖）使目前目錄1136→1137種，含plain的gallery為1138項。2×2、4×4或8×8個符號（QPSK、16-QAM、64-QAM）的格子，每格有該符號的星座點，點下面兩列方塊是同相軸與正交軸的位元（實心方塊是1、只有外框是0，高位元在左）。seed決定大小，以及每軸的位元是格雷碼（相鄰符號只差一個位元）還是一般二進位（相鄰符號有時差多個位元）；2×2時兩種編碼的字相同，無法區分。同相軸的值往右增加，正交軸的值往上增加；四個象限的紙色略有不同，圖中間有兩條軸線。這是作者設計的示意，色調（亮度）表示不同元素。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱這些是唯一或最標準的按法，也不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`waterfallchart`（瀑布圖）使目前目錄1138→1139種，含plain的gallery為1140項。從零開始的起始長條，接著每一步是從目前累計值往上或往下浮動的一條長條，最後是從零到終點累計值的總計長條，累計值的位置有細連接線。縱軸從0到100，每步是3到18的整數、累計值保持在10到90之間；每10格一條淡格線，0處是較深的基準線。seed決定步數（6、10或14）與所有數值。這是作者設計的示意；色調（亮度）區分起訖長條、上升與下降的步驟。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`intervalpartition`（區間分組）使目前目錄1139→1140種，含plain的gallery為1141項。橫向64個時間單位，上方是最多28個區間，依貪婪規則（按起點排序、各放入第一個空著的那條，共6條車道）排成車道，同一車道內不重疊；下方是深度條，每個時間單位一欄，高度等於該時刻同時存在的區間數。貪婪分組用到的車道數等於最深的重疊，所以用到的車道數等於最高的那一欄；需要第七條車道的區間會被丟掉（圖上看不到）。seed決定各區間的起點與長度；每條車道有各自的色調，並有淡淡的每8單位導線與車道分隔線。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`ecdfplot`（經驗累積分布圖）使目前目錄1140→1141種，含plain的gallery為1142項。n（8、12、16或20）個資料點的階梯曲線，每個資料點處上升1/n：新水準處有實心點（曲線右連續）、舊水準處有空心圓；圖下方的刻度排（rug）標出資料點，並有四分位數處的淡導線。資料點是寬度的1/256的整數倍，大致均勻分布在寬度上並各有位移，相鄰至少隔4單位。seed決定n與位移。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`spanningtree`（最小生成樹）使目前目錄1141→1142種，含plain的gallery為1143項。24×24格點上的8、12或16個點，用Kruskal演算法接受的邊連起來（最短的邊先、會形成環的略過），每條邊依被接受的順序上色，第一條最深、最後一條最淺。seed決定點數與位置。這是作者設計的示意，色調（亮度）表示邊的接受順序。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`kdtreesplits`（k-d樹分割）使目前目錄1142→1143種，含plain的gallery為1144項。15或31個點，每一列與每一行恰有一個點，以交替的垂直與水平線在中位數處遞迴分割；每個區域的中位點決定通過它的分割線，線延伸到該區域的邊界。越深的分割線色調越淺、也越細。seed決定點數、點的位置（欄的洗牌）與第一刀是垂直還是水平。這是作者設計的示意；色調（亮度）表示分割的深度。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bsttreeorder`（二元搜尋樹）使目前目錄1143→1144種，含plain的gallery為1145項。二元搜尋樹畫成每個節點的橫向位置是它在中序中的順序、縱向位置是它的深度，所以每個節點的左子節點一定在它左邊、右子節點在它右邊。鍵是11、15或19個整數，依seed洗牌的順序逐一插入，插入順序以節點的色調表示，第一個插入的最深、最後一個最淺；若洗牌後的樹深度超過7層（根為第0層，最深第6層）就重洗。邊把每個節點連到它的父節點。這是作者設計的示意。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`karnaughmap`（卡諾圖）使目前目錄1144→1145種，含plain的gallery為1146項。3或4個變數的布林函數卡諾圖：2×4或4×4的格子，函數為1的格子填滿，格子上方與左側用格雷碼標示每行每列（實心方塊是1、只有外框是0），因此相鄰的格子只差一個變數。圖的右邊是同一個函數的真值表：每個最小項一個方塊，依編號排列，第一個變數是最高位。seed決定變數數與函數（至少3個1與3個0）。這是作者設計的示意；圖中同時有兩種表示，可以互相核對。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`nearesttour`（最近鄰路徑）使目前目錄1145→1146種，含plain的gallery為1147項。在24×24格點上有8、10或12個點（任三點不共線，也沒有點離不屬於它的路段太近），從其中一個點出發（外面圍一圈環），每一步都走到還沒走過的最近的點；每段路徑依走的先後上色（第一段最深、最後一段最淺），路徑不封閉。seed決定點數、位置與起點。這是作者設計的示意；每段路徑都可以回頭驗證是不是當時最近的點。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hashchains`（鏈結雜湊表）使目前目錄1147→1148種，含plain的gallery為1149項。拉鍊法的雜湊表：6、7或8個桶（每桶一列），依序插入10、14或18個7位元的鍵，每個鍵放進「鍵除以桶數的餘數」那個桶；每個桶從左邊的方塊向右接一串盒子，每個盒子是一個鍵，裡面用二進位（最高位在左，深色小方塊是1），外框的灰度表示插入的先後（最早最深、最晚最淺），所以每一串都是依插入順序排列；沒有一串超過5個。seed決定桶數、鍵數與鍵。這是作者設計的示意；每個鍵在哪一串可以用餘數重新算出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bodeplots`（波德圖）使目前目錄1149→1150種，含plain的gallery為1151項。濾波器的波德圖：上方是增益（分貝，−60到+20），下方是相位（度，−180到+180），橫軸是頻率1到1000的對數刻度（三個十倍頻，每個十倍頻一條格線）。濾波器是一階低通，或二階的低通、高通、帶通，轉折頻率為10的1、1.25、1.5、1.75或2次方，二階的再有品質因數0.5、0.707、1、2或4。seed決定這三項。這是作者設計的示意；曲線可以用複數運算（另一種算法）驗證。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`sankeyflows`（桑基圖）使目前目錄1150→1151種，含plain的gallery為1152項。三欄節點的桑基圖：左邊3個、中間3或4個、右邊3個，以S形的色帶相連。每個左節點對每個中間節點有1到3單位的色帶；每個中間節點把收到的總量分成三份（每份至少1單位）送到右邊三個節點，所以每個節點的高度都等於流過它的總量（每單位一個固定高度）。色帶依目標的順序離開節點、依來源的順序抵達節點，每條色帶有自己的灰度，欄與欄之間以平滑的S形過渡。seed決定中間節點數與所有流量。這是作者設計的示意；流量守恆與節點高度都可以回頭驗證。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`histogrambins`（直方圖）使目前目錄1151→1152種，含plain的gallery為1153項。直方圖加上原始資料：0到1之間的20、28或36個值，每個值是下方一排中的一條細刻線（彼此至少相隔兩格）；上方在基準線上有8、10或12個區間的長條，高度是區間內的值的個數（每個固定一個高度）；基準線下方在每個區間邊界有一小段標記，所以空的區間也看得出來。值偏向中間（兩次抽樣的平均）。seed決定值與區間的個數與值本身。這是作者設計的示意；長條的高度可以由下方的刻線重新數出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`lorenzcurve`（羅倫茲曲線）使目前目錄1153→1154種，含plain的gallery為1155項。下方是8、10或12筆收入（1到20）的長條，依由小到大的順序；上方是正方形的圖：橫軸是人口的累積比例，縱軸是收入的累積比例，每一步一個圓點、之間以折線連接，另有一條均等線（對角線），兩者之間的淺色區域面積是這些收入的吉尼係數的一半。seed決定筆數與收入（偏向小的）。這是作者設計的示意；曲線可以用長條重新算出，填色面積可以用吉尼係數驗證。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`ganttschedule`（甘特圖）使目前目錄1154→1155種，含plain的gallery為1156項。6、7或8個任務的甘特圖，每個任務一列，時間軸共16個單位。每個任務持續1到4個單位，依賴上方的零個、一個或兩個任務，並在它們全部完成後立刻開始（沒有依賴就從0開始）。依賴以連接線表示：從較早任務的結束處沿它的列走到較晚任務的開始時間，再往下連到較晚任務的那一列，連接線離開較早任務那一列的位置有一個圓點。seed決定任務數、持續時間與依賴。這是作者設計的示意；每個任務的開始時間可以從畫面上的依賴與結束時間重新算出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`quicksortsteps`（快速排序步驟）使目前目錄1155→1156種，含plain的gallery為1157項。一排8、9或10根長條（高度為1到n的亂序排列）的快速排序：第一列是起點，之後每一次分割各一列。分割以範圍的最後一根當基準（Lomuto：比基準矮的換到前面，再把基準放到它們後面），其下一列顯示分割的結果，列上有括弧標出被分割的範圍，並有一個圓點標出基準最後落的位置；範圍照左邊先、右邊後的順序處理。高度等於所在位置序號的長條（1在第一、2在第二……）顏色較深。seed決定長條數與亂序。這是作者設計的示意；每一列都可以從前一列、括弧範圍與基準重新算出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`binarysearchsteps`（二分搜尋步驟）使目前目錄1156→1157種，含plain的gallery為1158項。在一排12、14或16根由左到右遞增的長條（每根比前一根高1或2個單位）裡做二分搜尋。每一列左側有一小段刻度標出要找的高度，目標可能剛好是某根長條的高度，也可能落在兩根之間。每一列是一個步驟：還沒排除的長條比紙面深但比已排除的淺，其中間那一根最深並在上方有圓點，下一列只留下仍可能含有目標的那一半，直到中間那一根就是目標或已無長條可找。seed決定長條數、高度與目標。這是作者設計的示意；每一列的範圍都可以從前一列與目標重新算出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`dijkstragrid`（Dijkstra格子最短路徑）使目前目錄1157→1158種，含plain的gallery為1159項。7、8或9格見方的格子，每一格有一個成本：1到4，或（十格中有三格，最深的顏色）20，格子越深踏進去越貴。一條深色線連出從左上格（小圓點）到右下格（大圓點）最便宜的走法，可以往左右上下走，每進入一格就付那一格的成本，也就是Dijkstra演算法找到的路徑。seed決定大小與各格成本。這是作者設計的示意；路徑總成本可以從畫面上的格子顏色重新算出，且必須等於最小值。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`kmpfailure`（KMP失敗函數表）使目前目錄1158→1159種，含plain的gallery為1160項。三個由字母a與b組成、長度8、9或10的樣式（深色的格子是a，較淺的是b），每個樣式由2到4個字母重複而成、之後有一個字母被改成另一個；每一格下面有一根從橫線垂下的長條，長度是樣式到那個字母為止的最長邊界（border），也就是它的結尾與開頭共有的字母數（沒有時為0，也不會是整個前綴）。這就是Knuth-Morris-Pratt搜尋在不吻合時決定要退回多遠的表。seed決定長度、字母與被改的位置。這是作者設計的示意；每根長條都可以從格子的字母直接重新算出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`vernierscale`（游標尺讀數）使目前目錄1159→1160種，含plain的gallery為1161項。五組游標尺讀數：主尺共28格，每格一條刻度（每第五條較長），主尺下方是一塊游標板，上面有11條刻度，間距是主尺格距的十分之九，第一條停在距主尺起點「整數格加上幾個十分之一格」的位置。游標板上恰有一條刻度與主尺某條刻度對齊，它畫得較長、顏色較深，它的編號（1到9）就是十分之幾格的讀數。seed決定每組的整數格（1到17）與十分之幾格。這是作者設計的示意；每組讀數都可以從畫面上第一條游標刻度的位置獨立算出，且必須與被標出的那一條相符。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`paretochart`（柏拉圖）使目前目錄1160→1161種，含plain的gallery為1162項。柏拉圖：7、8或9根立在基準線上的長條，由高到低排序，上方有一條穿過各點的折線，每根長條上方一個點，高度是到該根為止的累計值占總和的比例（最後一點在圖的最上緣，也就是100％），另有一條橫越全圖的細線標出80％。長條高度是1到30的整數，多數偏小。seed決定長條數與各自的高度。這是作者設計的示意；每個點的位置都可以從畫面上的長條高度獨立算出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`radixsortpasses`（基數排序各回合）使目前目錄1161→1162種，含plain的gallery為1163項。對10、12或14個0到63的數字做由低位數開始的基數排序，數字畫成立在基準線上的長條，第一列是起點。三個回合各看一個4進位的位數（兩個位元），由右邊的位數開始：在它處理的那一列，每根長條依該位數染色，下一列是同樣的長條依該位數做穩定排序（位數0的先、再1、2、3，每一組維持原來的先後）。最後一回合之後長條已經排好，全部畫成最深的色調。seed決定個數與數字。這是作者設計的示意；每一列都可以從上一列與該回合的位數重新算出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`mergesortruns`（合併排序各層）使目前目錄1162→1163種，含plain的gallery為1164項。對13到16根長條（高度1到n的亂序）做由下而上的合併排序，一層一列。最上列每根長條各自是一段；每一列把上一列相鄰的兩段合併（第一段與第二段、第三段與第四段，依此類推，沒有伴的最後一段原封不動帶下來）成兩倍長且已排序的段。相鄰的段交替用淺色與深色著色；最後一次合併後整列是一段，用最深的色調。seed決定長條數與亂序。這是作者設計的示意；每一列都可以從上一列重新算出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bresenhamlines`（Bresenham畫線）使目前目錄1163→1164種，含plain的gallery為1165項。四塊面板，每塊是16×16格的格子，格子上有一條用Bresenham演算法在兩個格子之間畫出的線：被填滿的格子是深色（兩個端點格更深），兩個端點格中心之間的真正直線以細線畫在上面。線恰好在兩格正中間時取較前進的那一格，並由左邊的端點格開始畫。seed決定端點格（沿某個方向至少相隔8格）。這是作者設計的示意；被填滿的格子可以從兩個端點格用四捨五入的公式獨立算出，且必須完全相同。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bfswavefront`（BFS波前）使目前目錄1164→1165種，含plain的gallery為1166項。10、11或12格見方的格子，有一些牆（最深的格子）與一個起點格（上面有一個圓點），廣度優先搜尋從起點一步一步擴散到上下左右的格子（不穿過牆）。每個開放格依它離起點的步數著色：0到6步與7步以上共八種由深到淺的色調；被牆圍住、到不了的開放格是第九種較淡的色調。seed決定大小、牆與起點。這是作者設計的示意；每個格子的步數都可以從牆與起點用另一種方法獨立重新算出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`knapsacktable`（背包問題表）使目前目錄1165→1166種，含plain的gallery為1167項。兩個0/1背包問題，各畫成動態規劃的表。左邊每個物品一列：重量是同樣數目的小方塊（1到4個），價值是一根長條（1到6單位）。右邊每個物品一列格子，容量0到9各一格：格子裡的長條是「用到這一列為止的物品、在這個容量下」最多能裝的價值；若這一列的物品被放進最佳解（價值比上一列大），這一格顏色較深。最後一列最後一格（答案）有框。seed決定物品數（4或5）、重量與價值。這是作者設計的示意；每一格都可以從物品的重量與價值用另一種方式重新算出，答案也必須等於窮舉所有物品子集的最大值。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`prefixtrie`（前綴樹）使目前目錄1166→1167種，含plain的gallery為1168項。由6到8個長度2到4、字母為a、b、c的單字組成的前綴樹（trie）。根在左邊，每向右一步多一個字母，字母用進入該節點最後一段線的深淺表示（a最深、b中、c最淺）；開頭相同的單字共用路徑的前段；單字結束的節點在圓點外多一圈環。葉子由上而下依字母順序一格一格排列，其他節點在第一個與最後一個子節點的正中間。seed決定單字。這是作者設計的示意；樹的結構與每個節點的位置都可以從畫面上的單字集合獨立重新算出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`lrucachetrace`（LRU快取軌跡）使目前目錄1167→1168種，含plain的gallery為1169項。最久未使用（LRU）快取在一連串頁面請求下的軌跡：3或4個槽，14次對0到5號頁面的請求，每次請求一欄。最上面一列是請求，用頁面的深淺（頁面由深到淺）著色的小方塊；它下面是請求之後各槽的內容：頁面會留在它的槽直到被換出，新頁面放進第一個空槽，或放進最久未使用的那個頁面所在的槽；空槽是淺色的方塊，這次請求用到的槽有一個框。槽的下面，環表示頁面本來就在快取裡（命中），圓點表示不在（未命中）。seed決定槽數與請求（約半數請求會重複最近三次之一）。這是作者設計的示意；每一欄的內容、用到的槽與命中與否都可以用另一種方式（記錄使用順序）獨立重新模擬。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`funnelchart`（漏斗圖）使目前目錄1168→1169種，含plain的gallery為1170項。5或6個階段由上往下排成漏斗：每個階段是置中的橫條，寬度正比於還留下的人數；第一階段為滿寬，之後每個階段留下前一階段的45%到95%；階段之間以斜邊相連；每個階段右側有一條短橫條，長度是留下的比例（第一階段留下全部，是滿長），底下襯一條淡色的完整長度軌道。seed決定階段數與留下的比例。這是作者設計的示意；每個階段的寬度必須等於前一階段乘以右側橫條的長度，可由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`wordlefeedback`（猜字回饋）使目前目錄1169→1170種，含plain的gallery為1171項。一個猜字遊戲：祕密單字有5個字母（每個字母是6種之一，以小方塊的深淺表示，因此字母可以重複），下面是4到6次猜測，每次猜測每個位置有0.4機率沿用祕密單字的字母、否則隨機取字母，最後一次猜測有一半機率就是祕密單字。每個猜測方塊的底色是回饋：最深表示字母在正確位置，中間表示祕密單字別處有這個字母而且還沒被用掉，最淡表示沒有；祕密單字畫在猜測的下方。這是作者設計的示意；回饋必須符合標準規則（字母出現次數只算祕密單字裡有的份數），測試以另一種逐字母計數的方式重新算出每一列回饋並與畫面逐格比對。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`nimgame`（Nim遊戲）使目前目錄1170→1171種，含plain的gallery為1172項。一局取石子遊戲（Nim），每個狀態一欄：3或4堆（各佔一列），每堆畫成一條長條，高度是石子數（開始時1到7顆）。兩位玩家輪流從某一堆取走石子；先手能的時候取成讓各堆的互斥或（nim-sum）為0，否則隨機選一堆取隨機數量，後手一律隨機；到第5個狀態之後，隨機的一步一律取走整堆，使遊戲在欄數內結束；誰取走最後一顆誰贏。剛被取過的那堆長條用「移動色」，取走的石子以淡色的殘影畫在它上面；堆的下面是nim-sum的三個位元，1是實心圓點、0是圓環。這是作者設計的示意；每一步是否合法、先手是否取成nim-sum 0、nim-sum位元是否等於各堆的互斥或，都可以由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`gamblersruin`（賭徒破產）使目前目錄1171→1172種，含plain的gallery為1173項。賭徒破產問題：5位賭徒各佔一條橫帶，起始有1到7枚硬幣，每回合贏或輸一枚（贏的機率由該橫帶決定：0.4、0.5或0.6），直到沒有硬幣（破產）、到達8枚（贏光莊家）或打滿24回合。每回合畫一個圓點表示手上的硬幣數，一回合一欄，上下各有一條線標示0枚與8枚；橫帶左側的一、二或三個小方塊表示該橫帶的贏率是0.4、0.5或0.6。seed決定起始硬幣、贏率與每一回合的輸贏。這是作者設計的示意；每一步必須剛好差一枚、遊戲只在碰到0或8枚或打滿24回合時結束、結束後不再有圓點，且以大量橫帶統計時各贏率的實際上升比例接近小方塊所示的贏率。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`bloomfilter`（布隆過濾器）使目前目錄1172→1173種，含plain的gallery為1174項。布隆過濾器：最上面一列24個位元（設了的是深色方塊、沒設的是淡色方塊）；6個放進去的鍵，每個鍵的3個雜湊各指向一個位元，在該鍵自己的一列、對應位元的位置畫一個圓點；再來是6個查詢（其中2個是放進去過的鍵，4個不是），各有一列圓點，列的右端用圓環表示「它的位元全都設了」（可能在裡面）、用實心方塊表示「有位元沒設」（一定不在裡面）。沒放進去過的鍵也可能得到圓環（誤判）。seed決定每個雜湊指向的位元與哪些鍵被查詢。這是作者設計的示意；位元列必須剛好是所有放進去的鍵所指位元的聯集，每個查詢的圓環與方塊必須剛好等於「它的位元是否全都設了」，由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`linearprobing`（線性探測）使目前目錄1173→1174種，含plain的gallery為1175項。開放定址法的線性探測：16格的雜湊表排成一列，依序放入8、10或12個鍵，每放一個鍵就畫一列，顯示當時的表。每個鍵有一個「家」格（列上方的圓點），放進從家格開始往右第一個空格，超過最後一格就繞回第一格。空格是淡色；第n個放進去的鍵所在的格用第n深的色調，因此最後放的鍵最淡。seed決定鍵的個數與各鍵的家格。這是作者設計的示意；每一列必須剛好比上一列多一個格、那一格是從家格起第一個空格（含繞回）、其餘格不變，由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`unionfindmerges`（並查集合併）使目前目錄1174→1175種，含plain的gallery為1176項。並查集（union-find）：14個元素排成一列，第一列是開始時的狀態，之後10列各是一次合併請求之後的狀態。每個元素是一個方塊，色調代表它所在的集合（集合以其中最小的元素命名，集合0最深）；一次請求點名兩個元素，在該列的兩個元素上方各畫一個圓點；點名的兩個元素若本來就在同一集合，這一列與上一列相同。seed決定每次請求。這是作者設計的示意；每一列的集合必須等於把前面所有請求依序合併後的結果，由畫面獨立解出並用另一種方式（父節點森林）重新算出驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`fareysequence`（法里數列）使目前目錄1175→1176種，含plain的gallery為1177項。法里數列：第n列（n從1到7、8或9）在0到1之間，每個最簡分數a/b（b不超過n）的位置畫一條刻度（該列才新出現的，也就是b＝n的刻度，比上面列來的深）。每一列下方有一個圓點標出同一個被選中的分數（分母在11到23之間，所以絕不落在任何刻度上），列內有一條淡色的帶子，從被選中分數在該列的兩個鄰居（它之前最大的刻度與它之後最小的刻度）之間。seed決定列數與被選中的分數。這是作者設計的示意；每一列的刻度必須剛好是分母不超過n的最簡分數，帶子兩端必須是被選中分數的法里鄰居（兩端分數的交叉乘積為1），由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`lfsrstates`（LFSR狀態）使目前目錄1176→1177種，含plain的gallery為1178項。8位元的線性回饋移位暫存器（LFSR），每一列是它的一個狀態（16、20或24個，第一個由seed決定且不為0）。設為1的位元是深色方塊、為0的是淡色方塊，第7位元在左、第0位元在右。每一步暫存器向右移一位：第0位元移出（列右側的輸出小方塊），被選位元（taps）的互斥或從左端進入（輸出旁的回饋小方塊）。taps一定包含第0位元（因此暫存器不會變成0），畫成第一列上方的圓點，是seed選的三組之一。這是作者設計的示意；每一列必須是上一列右移後左端補上回饋位元，輸出必須等於第0位元，回饋必須等於被選位元的互斥或，由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`crcdivision`（CRC長除法）使目前目錄1177→1178種，含plain的gallery為1179項。CRC檢查碼的長除法：12位元的訊息（1是深色方塊、0是淡色方塊）後面接4個0，除以三個5位元多項式之一（位元的除法，沒有進位）。除數是最上面一列小方塊；第一列是被除數，之後每一列是一步，處理從左邊數來的下一位元：該位元為1時，把除數從它底下的位元減掉（互斥或），列左邊的圓點畫成實心；為0時什麼也不減，圓點是圓環。最後一列的後四位元（外面有框）是餘數，也就是檢查碼。seed決定訊息與除數。這是作者設計的示意；每一列必須是上一列依規則減（或不減）除數的結果，最後一列前12位元必須全為0，餘數必須等於另一種做法（移位暫存器）算出的結果，訊息接上餘數後必須能被除數整除，由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`kolakoskisequence`（Kolakoski數列）使目前目錄1178→1179種，含plain的gallery為1180項。Kolakoski數列是會描述自己的數列：它由兩個符號交替的連續段（run）組成（符號對是1與2、2與1、1與3或3與1，第一個符號就是數列的開頭），而第n個連續段的長度正是數列的第n個符號。上面4列放前64個符號，每個符號是一個方塊，色調代表符號（1最深、3最淡）；空一列後的3列依序放各連續段的長度（64個符號裡放得下完整連續段的那些），那其實就是同一個數列的開頭，畫法相同。seed決定符號對。這是作者設計的示意；連續段由畫面上的方塊獨立找出，每一段的長度必須等於數列對應位置的符號、連續段必須在兩個符號間交替、長度列必須等於這些完整連續段的長度，由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`slopegraph`（斜率圖）使目前目錄1179→1180種，含plain的gallery為1181項。斜率圖：6、8或10個項目，每個項目在左軸有一個圓點（之前的值）、在右軸有一個圓點（之後的值），兩點以直線相連。值是20個等距層級中的位置（圓點越高值越大），同一軸上沒有兩個項目共用同一層級；上升的線是深色、下降的線是中間色調、維持同一層級的線是淡色。seed決定項目數、各項目的層級與左右圓點的配對。這是作者設計的示意；每個左圓點必須剛好與一個右圓點相連（一對一配對）、連線必須是直線（沿線各處都在）、線的色調必須依上升或下降而定，由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`astroidladder`（星形線的滑動梯子）使目前目錄1180→1181種，含plain的gallery為1182項。星形線（astroid）的滑動梯子：一把長度固定的梯子靠在牆角，上端在一條軸上、腳在另一條軸上，往下滑時畫在14、18或22個位置（四個角落依兩軸鏡射都畫）。位置在四分之一圈上均勻排開，或依seed選的冪次偏向一端。每個梯子在兩條軸上各有一個端點圓點，以及它與所有梯子共同相切的曲線（星形線）相切處的一個較小圓點，那一點是(L cos³θ, L sin³θ)。seed決定梯子數、長度與位置的分佈。這是作者設計的示意；梯子數、長度與分佈冪次都可以只從畫面讀出（端點圓點的位置），每個端點對應的另一端必須落在長度為L的圓上（x²＋y²＝L²）、線的中點必須畫了線、相切點必須在梯子的線上，由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`eulerlinetriangle`（三角形的歐拉線）使目前目錄1181→1182種，含plain的gallery為1183項。銳角三角形的歐拉線：畫出三角形（三個角各有一個深色圓點）、外接圓、三條高（交於垂心H，一個小方塊）、外心O（一個小圓環，在外接圓的中心）、重心G（一個小圓點）以及穿過O、G、H的歐拉線，G在O到H的三分之一處。三個角在圓上，角度使每一段弧都小於半圈（所以是銳角三角形，H在三角形內），而且不會太接近正三角形（O與H相距約0.11以上）或等腰三角形（等腰時歐拉線會與一條高重合）。seed決定圓的半徑、弧長的差異與整體的轉向。這是作者設計的示意；測試端只從畫面讀圓的半徑與三個角（沿圓掃描、再用對分法精確定位），其餘由這三個角獨立算出：外心O、重心G（三角的平均）、垂心H（解兩條高的交點，不用取樣端的「角向量相加」公式），再驗證畫面上這些位置的標記、三條高、三邊、外接圓與歐拉線。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`arbelos`（阿基米德的鞋匠刀形）使目前目錄1182→1183種，含plain的gallery為1184項。阿基米德的鞋匠刀形（arbelos）：線段AB上有一個大半圓，裡面在AC與CB上各有一個較小的半圓（C在AB上的位置依seed而定，不會在中間附近，份額落在0.25到0.42之間，左右隨機），從C向上畫一條垂線到大半圓上的D，以及阿基米德的雙生圓：垂線兩側各一個圓，各自與垂線及它所在位置的兩個半圓相切，兩個圓的半徑相同，等於ab/(a+b)（a、b為AC與CB的一半）。A、B、C、D各有一個深色圓點。這是作者設計的示意；測試端只從畫面讀出線上的三個圓點（在線下方一小段、只有圓點的地方，用對分法找每個圓點兩邊的邊緣取中點），其餘獨立算出：a、b、大半圓半徑、D的高度（AC乘CB的平方根）、雙生圓的半徑與圓心（圓心用「與垂線相切且與大半圓內切」解出，不用取樣端的公式），並驗算它們同時與小半圓外切；再驗證畫面上每個圓、半圓、垂線、基線與圓點的位置、色調、高度、粗糙度與粗細。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`contributiongraph`（貢獻日曆圖）使目前目錄1183→1184種，含plain的gallery為1185項。貢獻日曆圖：把一年的每一天畫成一格、依當天做了多少事上五種深淺的顏色（一欄一週、一列一個星期幾，星期日在最上面）；上下疊五年，每一欄在換月份時前面多留一小段空隙，底下有五種深淺的圖例。第一年取自預設列出的年份之一（1990到2017年之間十二個），之後的年份依序接下去，閏年也包含在內；一月一日是星期幾、一年有幾天都是該年真實日曆的樣子。週末比平日安靜，有些週比別的週忙。這是作者設計的示意；測試端從畫面讀出每一格的深淺（五年各約五十三欄、每欄七列，沒有日期的格子是紙面），並用自己重新算過的真實日曆驗證：每一年的天數、一月一日是星期幾（由五年之間起始星期幾的差推算，在預設年份中恰好有一個年份吻合）、每週欄的位置（含換月份的空隙，以該週最上面一天的月份判斷，二月在閏年有二十九天），以及圖例的五種深淺；各深淺的比例與平均則由預設的數字（每週的忙碌程度與當天的隨機數、週末係數、深淺刻度）在測試中獨立推出並比對。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`pythagoreanproof`（畢氏定理圖）使目前目錄1184→1185種，含plain的gallery為1186項。畢氏定理的圖：一個直角三角形，三邊各向外畫一個正方形，每個正方形都畫上單位格線（邊上有幾個單位就切成幾格），可以數格子：兩條短邊上的正方形有a×a與b×b格，長邊上的正方形沿著自己的邊畫格線，有c×c格，而a²＋b²＝c²。邊長取自預設列出的畢氏三元數（3,4,5、6,8,10、5,12,13、8,15,17）之一；seed決定是哪一組、兩條短邊哪條在前，以及八種轉向／鏡射中的哪一種。三角形的三個頂點各有一個深色圓點。這是作者設計的示意；測試端從畫面讀出三個圓點（先粗掃整張圖，再取周圍深色像素的中心），在可能畫出的六十四種圖（四組三元數、兩種短邊順序、四個轉向、鏡射與否）中找出三個頂點與三個正方形的填色都吻合的那一種；再沿每個正方形的一邊走半個格子的位置數格線的色調，數出每個正方形的格數，驗證a×a＋b×b＝c×c、三條邊的長度與格數成同一比例、兩條短邊成直角，以及整張圖最大的寬或高等於預設的範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`keplerorbit`（克卜勒第二定律的軌道圖）使目前目錄1185→1186種，含plain的gallery為1187項。克卜勒第二定律：行星在橢圓軌道上、太陽在其中一個焦點，等間隔的時間（平近點角等間隔增加）標出行星的位置；從太陽到這些位置的線把軌道切成楔形，兩種交替的色調上色。所有楔形面積相同（這就是定律），儘管遠離太陽的楔形又細又長、靠近太陽的又短又寬。seed決定軌道的半長軸、離心率、楔形數（8、10或12）、軌道朝哪個方向，以及第一個位置的時間。這是作者設計的示意；測試端從畫面讀出太陽與行星的圓點位置（先粗掃整張圖找出圓點的精確色調，再取周圍同色調像素的中心），用最小平方法擬合1/r＝A＋B cosθ＋C sinθ（太陽在焦點的橢圓極座標式）得到半長軸、離心率與方向，驗證擬合值與預設吻合；再由各行星的位置算出真近點角、偏近點角、平近點角（克卜勒方程式），驗證它們等間隔；並在畫面上數每個楔形的像素（以色調判斷、以平近點角分楔形，加回線條與太陽佔掉的面積），驗證各楔形面積都等於橢圓面積除以楔形數（容許差3%）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`catalantriangulations`（卡特蘭三角剖分）使目前目錄1187→1188種，含plain的gallery為1189項。把凸多邊形用互不相交的對角線切成三角形的所有方法：五邊形5種、六邊形14種、七邊形42種（卡特蘭數），每一種畫在格子中的一格（五邊形用6格中的5格、六邊形用15格中的14格，七邊形剛好42格）。每個多邊形的邊是較粗的深線、對角線較細較淺、每個頂點一個圓點、多邊形內部淺灰填色；seed決定是哪種多邊形、各種剖分的排列順序（五邊形與六邊形還有哪一格空著）。這是作者設計的示意；測試端從畫面讀出多邊形的種類（三種版面中頂點圓點色調對得上的那一種）與每一格有哪些對角線（沿弦在三個位置都是對角線色調才算，避免剛好穿過弦的另一條對角線誤判），並以完全不同的方法（試遍所有大小為n−3的對角線子集、檢查互不相交）窮舉出所有剖分，驗證畫面上的剖分恰好就是這些、每一種出現一次、數量等於卡特蘭數C(n−2)（由公式C(2m,m)/(m+1)算出）、每一種恰有n−3條互不相交的對角線，且空格是紙面。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`binarynecklaces`（二元項鍊）使目前目錄1188→1189種，含plain的gallery為1190項。所有n顆珠子的二元項鍊（每顆珠子深色或淺色，兩條項鍊能互相轉動成同一條就算同一條）：6顆有14種、7顆20種、8顆36種。每一條畫在環上、放在格子中的一格（6顆時15格用14格，其他剛好填滿），每格依seed轉過不同的珠數，所以同一條項鍊不會以相同的樣子畫兩次；seed決定珠子數、各條項鍊的排列順序與空格。這是作者設計的示意；測試端從畫面讀出是哪一種版面（珠子位置上是珠子色調的那一種）、每格是否有項鍊與每顆珠子的深淺，並獨立驗證：畫面上的格子數等於項鍊數公式 (1/n)Σφ(d)2^(n/d)、任兩格轉動後都不相同、所有格子轉到最小的轉法之後恰好是「n顆珠子的全部2^n種圖樣各轉到最小」得到的集合、不少於四成的格子不是以最小的轉法呈現，以及（對於每種轉法都不同的項鍊）各個轉珠數出現的次數大致相同。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`baumsweetgrid`（鮑姆－斯威特方格）使目前目錄1189→1190種，含plain的gallery為1191項。Baum-Sweet數列b(n)：n的二進位表示中沒有長度為奇數的連續0時為1，否則為0（b(0)=1）。本材質把n依列排在64×64方格中（每列64格，從seed選的起點offset開始往下數），每格依「n的二進位中長度為奇數的0連續段有幾段」（0、1、2、3、4段以上）塗五階色調與高度：沒有奇數段（b=1）最深。八個起點offset之間彼此畫面不同。這是作者設計的示意；測試端從畫面讀出每一格的階，並用獨立的二進位字串（以正規表示式找出0的連續段）算出每格的值，驗證畫面恰好和八個offset中的一個吻合（只有一個吻合）、五階都出現、每個offset在60個seed中都被選到。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`rudinshapirogrid`（魯丁－夏皮羅方格）使目前目錄1190→1191種，含plain的gallery為1192項。Rudin-Shapiro數列r(n)=(−1)的「n的二進位中11出現（可重疊）次數」次方。本材質把n依列排在64×64方格中（每列64格，從seed選的起點offset開始往下數），每格依11出現的次數（0到5，超過5時只保留奇偶）塗六階色調與高度：次數為偶數（r=1）塗淺色系、奇數（r=−1）塗深色系，所以數列的正負一眼可見，次數再細分深淺。八個起點offset之間彼此畫面不同。這是作者設計的示意；測試端從畫面讀出每一格的階，並用獨立的二進位字串（以正規表示式數出重疊的11）算出每格的階，驗證畫面恰好和八個offset中的一個吻合（只有一個吻合）、六階都出現、每格的奇偶等於以r(2k)=r(k)、r(2k+1)=(−1)^k r(k)遞迴算出的數列值，以及每個offset在60個seed中都被選到。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`paperfoldingruler`（折紙尺數列方格）使目前目錄1191→1192種，含plain的gallery為1193項。把n依列排在61×61方格中（每列61格，從seed選的起點offset開始往下數；列長取質數61，因為取2的次方時每一列都一樣，只剩直條紋），畫兩個數列：尺數列（n能被2整除幾次，0到4次與5次以上，共六階）決定方格的色調與高度（整除次數越多越深）；正規折紙數列（n去掉所有2的因子後的奇數部分除以4餘1時為1，餘3時為0）只在值為1的格子裡畫一個較小的方塊，色調另有六階。八個起點offset之間彼此畫面不同。這是作者設計的示意；測試端從畫面讀出每一格的階（方格外圈的色調）與小方塊（中心色調是否為小方塊色），並用獨立的二進位字串（尾端0的個數；去掉尾端0之後以4除的餘數）算出，驗證畫面恰好和八個offset中的一個吻合（只有一個吻合）、六階各有有無小方塊的格子、每個offset在60個seed中都被選到。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`beattypartition`（貝蒂分割方格）使目前目錄1193→1194種，含plain的gallery為1195項。貝蒂定理（Beatty's theorem）：a為大於1的無理數、b=a/(a−1)（即1/a+1/b=1）時，floor(k·a)與floor(k·b)（k=1,2,3…）兩個數列把所有正整數恰好分成兩份，每個整數剛好屬於其中一個。本材質把n依列排在47×47方格中（每列47格，從seed選的起點offset開始往下數），第一個數列的數畫深色系、第二個畫淺色系，色調再依該數在自己數列中的名次k除以3的餘數分三階，共六階色調與高度；a由seed從黃金比例、√2、√3與e中選，offset由seed從四個值中選。這是作者設計的示意；測試端從畫面讀出每一格的階，並用獨立的方式（直接迭代k產生兩個數列，用k·a與k·b取整數，記錄每個數的名次）算出，驗證畫面恰好和十六組（a、offset）中的一組吻合（只有一組吻合）、每個數剛好屬於兩個數列中的一個（貝蒂定理）、六階都出現、第一個數列的比例接近1/a、60個seed中四個a與四個offset都被選到。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`cycliccellular`（循環細胞自動機）使目前目錄1194→1195種，含plain的gallery為1196項。20×20的環面（每條邊與對邊相接）上的循環細胞自動機：每格有0到states−1的狀態，狀態為s的格子在八個鄰格中至少有threshold個已經是s+1（超過最後一個狀態則回到0）時前進到s+1，否則不變；初始狀態由seed隨機，先跑burnIn步，四個面板（兩列兩欄）依序顯示第burnIn、burnIn+1、burnIn+2、burnIn+3步；狀態由深到淺塗色調與高度。規則由seed從三組（6狀態門檻2、8狀態門檻1、10狀態門檻1）中選；會很快凍結成不再變化的規則（例如8狀態門檻3、8狀態門檻2）沒有採用。這是作者設計的示意；測試端從畫面讀出四個面板每格的色調，並用獨立的實作（以環面取模計算八個鄰格）驗證：恰好一組規則吻合（各色調屬於該規則的階，且第二、三、四面板各為前一面板的一步），每個面板至少出現多種狀態、三次相鄰的面板都不相同，第一個面板的相鄰格相同的比例明顯高於均勻隨機，200個seed中三組規則都被選到而且沒有任何seed凍結。初始隨機狀態與burnIn的步數本身無法由畫面驗證。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`wireworldcircuit`（WireWorld電路）使目前目錄1195→1196種，含plain的gallery為1197項。WireWorld細胞自動機在22×22的場上：每格是空格、導線、電子頭或電子尾；每一步空格不變、頭變尾、尾變導線，導線在八個鄰格中恰好有一或兩個頭時變成頭，否則不變。場的邊緣一格永遠是空的，所以導線不會有場外的鄰格。seed從四個電路（單環、環加分支線、以連線相接的雙環、含較寬段落的環）中選一個，再從四個起始步數（0、7、13、22）中選一個；四個面板（兩列兩欄）顯示該起始步與之後連續三步，空格、導線、頭、尾各有色調與高度。這是作者設計的示意；測試端從畫面讀出四個面板每格的狀態，並用獨立的WireWorld實作（八個鄰格以位移表計算，場外視為空）驗證：第一個面板恰好等於「preset裡的電路圖跑到某一個起始步」（只有一組電路與起始步吻合），後面三個面板各為前一個的一步，每個面板都有電子頭而且導線配置與該電路相同；另外檢查每個電路的邊緣一格都是空的，且各電路在起始步內共出現過導線有0到4個頭鄰格的所有情形；60個seed中四個電路、四個起始步都被選到。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`duccirows`（杜奇迭代列）使目前目錄1196→1197種，含plain的gallery為1198項。環上n個整數的Ducci迭代：每個數變成它與環上下一個數的差的絕對值，(a, b, c … z) → (|a−b|, |b−c| … |z−a|)。畫面的每一列是上一列的一次迭代，共n列n欄（n由seed從23、29、31、37中選）；第一列是seed決定的0到99的隨機整數；數越大越深，色調與高度依數除以最大值的平方根（所以多數列後多半偏小的數仍看得見）。這是作者設計的示意；測試端從畫面讀出每格的數（取各階數方格中心唯一全部落在整數色調上的尺寸，色調對照99個整數），並獨立驗證：每一列恰好是上一列環狀差的絕對值、最大值不會增加、第一列分布在整個範圍（不是少數幾個值）、60個seed中四種尺寸都被選到、各seed的第一列都不同、第一列的數平均接近最大值的一半、0到99的每個整數都曾出現在第一列、第一列的頭尾兩格也隨seed變化。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`scrabbleboard`（Scrabble字母遊戲棋盤）使目前目錄1197→1198種，含plain的gallery為1199項。15×15的棋盤（旋轉或翻轉後外觀相同）：普通格、雙倍字母（24格）、三倍字母（12格）、雙倍單字（17格，含中央）、三倍單字（8格），各有色調與高度，並擺著一局進行中的遊戲：三種版面（各含五到七個交叉的單字，第一個單字經過中央格）之一的單字以字母磚擺出，磚的色調與高度依字母的分數（1、2、3、4、5、8、10共七階）。seed決定使用哪個版面，以及八種旋轉／翻轉方式之一。這是作者設計的示意；測試端從畫面讀出每格的特殊格種類（讀磚邊緣與格邊緣之間的棋盤色）與磚的分數階，並以獨立的知識驗證：特殊格數量為遊戲規則的8、17、12、24（共61），整張棋盤對轉置與兩個方向的翻轉都對稱，中央是雙倍單字，磚恰好吻合一個版面的一種旋轉／翻轉方式，並且每個磚的分數階等於以遊戲標準字母分數（獨立列在測試中，不取自preset）計算的結果；150個seed中三個版面、八種擺法都出現，且至少二十種組合。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`monopolyboard`（大富翁棋盤）使目前目錄1198→1199種，含plain的gallery為1200項。11×11方格外圈共40個空格，從右下角的起點（GO）向左沿底邊、向上沿左邊、向右沿上邊、向下沿右邊；空格種類（起點、監獄、免費停車、入獄、鐵路、公用事業、機會、命運、稅、街道）各有色調與高度，街道在靠棋盤中央的一側有該色組（八組：棕、淺藍、粉紅、橘、紅、黃、綠、深藍）的色帶；中央是一整塊方形。seed決定八種旋轉／翻轉之一。這是作者設計的示意，沒有文字或圖案；測試端從畫面讀出外圈每格的種類（中央的色調）與街道的色帶方向和色組（四個方向取樣中唯一的色帶色調），沿外圈從起點走向第一個街道，並以獨立列出的遊戲事實驗證：四十格依序恰好是遊戲的空格（四個角在0、10、20、30，鐵路在5、15、25、35，公用事業在12、28，機會在7、22、36，命運在2、17、33，稅在4、38，八個色組的街道依序為2、3、3、3、3、3、3、2格），每格色帶的方向都指向棋盤中央，四個角是外圈的四個角，八種旋轉／翻轉在60個seed中都出現。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`cribbageboard`（克里比奇計分板）使目前目錄1199→1200種，含plain的gallery為1201項。木紋的計分板：三條賽道，每條兩排各60個孔（第一排從左到右，第二排從右折回到左，共120個孔，編號從0起），孔五個一組、組與組之間間隔較寬；每條賽道有一對自己顏色的釘子，前釘在seed決定的孔（第1到119個孔），後釘在其後1到24個孔；釘子比孔大、孔比木頭深。這是作者設計的示意；測試端沿每一排以小步長掃描找出不是木頭色的區段，驗證：每排恰好60個孔、組內孔距相同、組間間距較寬（相差為一個組間隙）、整排置中；每條賽道恰好兩個釘子，後釘在前釘後面1到24個孔（第二排由右往左數）；400個seed中前釘在整條賽道的每個位置（包含兩端與轉彎處）、各個後距都出現且次數相近、後距與前釘的位置無關（相關係數接近0）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`xiangqiboard`（象棋棋盤）使目前目錄1200→1201種，含plain的gallery為1202項。中國象棋的棋盤：9條直線、10條橫線在90個交叉點相交，棋子站在交叉點上；楚河漢界（第五與第六條橫線之間）使內側的七條直線斷開、只有最外兩條直線貫穿；兩個九宮各有兩條對角線；棋子是圓盤，色調依陣營（黑在上、紅在下，黑深紅淺）與種類（將、士、象、馬、車、炮、兵）分開。seed從六個開局（初始局面，或紅方先走的一到兩步，加上黑方的回應）中選一個，並決定哪一方在上。這是作者設計的示意，沒有文字；測試端沿棋盤小步長掃描線條，驗證橫線10條（位置依交叉點間距）、直線在上下半部各9條且河上只有2條、九宮的四條對角線、每個交叉點上的棋子由色調讀出，並以獨立寫在測試裡的規則驗證：每方16子（將1、士2、象2、馬2、車2、炮2、兵5），盤面恰好等於「初始局面（由遊戲事實獨立列出：後排、炮在第三線、兵在第四線）套用preset開局的每一步」之一（上下旋轉或不旋轉，只有一種吻合），開局的每一步都合規則（先紅後黑，馬不蹩腿、象不塞眼不過河、炮與車沿直線通行無阻、兵直進一步），300個seed中紅方朝上約一半、各開局出現次數相近。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`chessopening`（西洋棋開局）使目前目錄1201→1202種，含plain的gallery為1203項。8×8的西洋棋盤（左下角的格子為深色）外加一圈深色框，擺著一個開局（初始局面，或魯伊·羅佩斯、義大利、西西里、后翼棄兵、法蘭西、印度防禦、斯堪地那維亞的前三到八步）之後的局面；棋子是圓盤，色調依陣營（白淺黑深）與種類（兵、馬、象、車、后、王）分開。seed選開局，並決定白方在下或在上（整個畫面轉半圈）。這是作者設計的示意，沒有文字；測試端從畫面讀出每格的棋子（中心色調）與每格的深淺（角落色調），並以獨立寫在測試裡的西洋棋規則重播preset的每一步（先白後黑，兵的單步、雙步與斜吃，馬走日，象、車、后沿線無阻，王一步；不含易位、吃過路兵與升變）驗證：格子深淺交替而且畫面左下角一定是深色、右下角一定是淺色（無論哪一方在上），盤面恰好等於「初始局面（由遊戲事實獨立列出）套用preset某個開局」的上下或轉半圈之一（只有一種吻合），每種棋子的數量不超過開局時的數量且雙方的王各一個，300個seed中白方在下與在上各約一半、各開局出現次數相近。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`ludoboard`（魯多棋盤）使目前目錄1202→1203種，含plain的gallery為1204項。15×15格的魯多棋盤：中間是三格寬的十字形四臂與3×3的中心，四個角落各有6×6的營地（內有淺色的4×4方塊、四個圓位，各圓位依機率有一枚深色棋子）；每種顏色有營地、沿一臂中線的五格家路、家路旁的起點格，以及中心朝向該家路的三角形；其餘為淺色的走道格，十字形的格與格之間、與營地之間有細線。四種顏色是四個色調，seed決定它們繞著棋盤轉幾個四分之一圈、是否反向（共八種排法）以及各圓位有沒有棋子（機率`fill`）。這是作者設計的示意，沒有文字；測試端以另外寫的棋盤事實（以左上角為起點、轉四分之一圈得到其他三個角的營地、家路與起點格；中心以方向最大者決定三角形）檢查225格每一格的色調、顏色的排列是預設色調的八種之一、300個seed中八種排法與棋子比例（0.7）與各圓位組合，並逐項檢查圓位與棋子的半徑與柔化、線的色調／寬度／柔化、棋盤四邊（含四個臂端）對框的柔化、框外為紙面。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`shogiboard`（將棋盤）使目前目錄1203→1204種，含plain的gallery為1205項。9×9格的將棋盤（含外框、棋盤邊緣的留白、十條縱橫線與四個星位），擺著一個開局（八個之一，以先手為準的走法清單）進行數手之後的局面；棋子是朝向對方的五角形，色調依種類（歩、香、桂、銀、金、角、飛、玉）分開，先手與後手只以朝向區別。seed選開局，並決定先手在下或在上（整個畫面轉半圈，棋子跟著轉）。這是作者設計的示意，沒有文字；測試端從畫面讀出每格的棋子（中心色調）與朝向（底部與頂部角落的兩個位置），並以獨立寫在測試裡的將棋規則重播每個開局（先手先走；歩前進一格、香直進、桂前進兩格橫一格、銀與金的走法、角走斜線、飛走直線、玉一格；不含升變與打入）驗證：盤面恰好等於「初始局面（由遊戲事實獨立列出）套用某個開局」的上下或轉半圈之一（只有一種吻合），每種棋子的數量不超過初始、雙方各一玉，300個seed中先手在下與在上各約一半、各開局出現次數相近，並逐項檢查十條線的色調／寬度／兩側、線端在外圈線內結束、四個星位、五角形每一邊內外0.0004處的色調、柔化（框、棋盤邊緣、線、星位、棋子每邊）、框與留白區沒有棋子、框外為紙面。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`carromboard`（卡倫盤）使目前目錄1204→1205種，含plain的gallery為1206項。木框內的方形台面，四個角各有一個袋口，中央有兩圈的圓，四邊各有一條底線（兩條平行線，兩端為圓頭）；開局的棋子依六角形緊密排列擺在中央：中心是皇后（紅子），六顆貼著它，外圈十二顆（六顆在正後方、六顆在縫隙），顏色（白與黑）沿每圈交替，各九顆，每顆依機率`fill`存在；另有一顆擊子在四條底線之一，位置在底線的任意處。seed決定格子轉十二分之一圈或不轉、黑白互換、哪些棋子存在，以及擊子在哪一邊與哪個位置。這是作者設計的示意，沒有文字；測試端以另外寫的六角形緊密排列事實（兩個半徑貼著、各鄰接的距離為兩個半徑，共42對）找出圖中適合的轉法與互換（只取棋子最多的一種，其他錯誤的轉法只有少數幾處恰好落在棋子上），並逐像素檢查中央區域：只有在棋子（在半徑內）才出現棋子色調，且每個存在的棋子的中心都是它的色調；300個seed中轉法、黑白互換各約一半，棋子存在比例接近`fill`，擊子在四邊的分佈約相等且涵蓋整條底線；並逐項檢查框、台面、四個袋口（色調、高度、半徑）、兩圈圓（色調、寬度與兩側）、四邊底線（兩條線的色調／高度／寬度、圓頭的端點與圓角、線間與線外的台面）、棋子與擊子（色調、高度、半徑）、各邊緣的柔化與框外為紙面。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`ninemensmorris`（九子棋盤）使目前目錄1205→1206種，含plain的gallery為1207項。木框內的九子棋盤：三個由內而外的正方形（半邊長為一、二、三個單位），四條連接內外正方形各邊中點的線（內正方形的中點連到外正方形同一邊的中點），24個點（各正方形的四個角與四個邊中點）都有小圓點；盤面處於佈子階段：seed決定盤上有幾顆子（從沒有到雙方共18顆），子放在哪些點（24點中不重複的任意點），顏色由先走的一方開始交替。這是作者設計的示意，沒有文字；測試端以另外寫的棋盤事實（三個正方形的角與邊中點共24點）檢查每個點的中心：有子就是白色或黑色，否則是點的色調；雙方子數各不超過9且相差不超過1、總數不超過18；300個seed涵蓋0到18的每個數目，平均約9，每個點被佔的比例接近一半的9/24，奇數顆時白方多的比例約一半；並逐項檢查框、棋盤與留白、三個正方形的四邊（色調、高度、寬度與兩側）、四條連線（色調、寬度、兩端以外與內正方形裡沒有線）、點與子的半徑與色調、框與留白區沒有線或子、各邊緣的柔化與框外為紙面。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`arnoldcatmap`（阿諾德貓映射）使目前目錄1206→1207種，含plain的gallery為1208項。由方格組成的圖：一張只有四個色階的小圖（字母F的矩形、同心圓環、或四個象限），經過阿諾德貓映射（把格子 (x, y) 搬到 (2x + y, x + y)，兩個座標都對格數取餘）若干次之後的樣子；seed選格數（32、40、48、60、64）、選哪張圖，並決定映射的次數（從0次到「所有格子都回到原位」的週期少一次）。次數少時圖被拉成斜向的條紋，次數多時變成雜訊，仍可由逆映射還原。這是作者設計的示意，沒有文字，沒有框與紙面，每個格子是一個平坦的方塊，格子之間是硬邊；測試端以另外寫的貓映射（用矩陣 [[2,1],[1,1]]，在測試裡直接搬動格子的值）從三張圖與0到週期少一次的每個次數找出吻合的組合；週期由測試自己數出的格子循環的最小公倍數，檢查為24、30、12、60、48，且經過一個週期後圖完全回到原樣；300個seed涵蓋每個格數與每張圖，次數可到各自週期少一，格子的色調、高度與粗糙度符合它的值，格子之間是硬邊（兩側0.00005處就是各自的值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`tablutboard`（塔布魯棋盤）使目前目錄1207→1208種，含plain的gallery為1209項。木框內的9×9塔布魯棋盤：格間有線、中心是王座、四個角有標記，四個攻方的營地（每邊中央三格加前面一格）以另一個色調標出；盤上是一個開局（八個之一，每個是從開始局面起的走法清單，攻方先走，每個子都像車一樣走，只有王能停在王座或角上）進行數手之後的局面：攻方為深色圓子、守方為淺色圓子、王為較大的中間色圓子；seed選開局並決定整個盤轉幾個四分之一圈。這是作者設計的示意，沒有文字；測試端以另外寫的棋盤事實（開始局面：王在王座、八個守方圍著他、十六個攻方在營地；營地就是攻方開始的格子）與車式走法規則（沿直線經過空格到空格，只有王能停在或經過王座與角）重播每個開局（攻方先走交替），驗證盤面恰好等於「開始局面套用某個開局」轉某個四分之一圈（只有一種吻合），每個格子的種類（一般、營地、王座與角的標記）符合事實，攻方16、守方8、王1；並檢查每個開局的圖轉四分之一或半圈後不同於原圖，300個seed中各開局與各轉法出現次數相近，十條縱橫線的色調／寬度／兩側與端點，三種格子與三種子的色調／高度／粗糙度／半徑（王較大），邊緣的柔化（框、棋盤、線、每種子的逐方向精確檢查），框與留白區沒有子或線，留白區是最近一格的顏色，框外為紙面。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`poolrack`（撞球桌排球）使目前目錄1208→1209種，含plain的gallery為1210項。長是寬兩倍的球桌：球檯呢面（球桌布）外有一圈邊框，四個角與兩條長邊中央各有一個袋口，邊框上有十八個菱形標記（每條長邊六個、每條短邊三個），距一端四分之一長處有一條開球線；十五顆球排成五列的三角形，頂點在另一端四分之一長處的置球點上，列往球桌的端邊方向排；8號球在三角形正中、後方兩角一顆實色球一顆花色球，其餘球隨意；花色球中間有一圈白帶；母球在開球線後方。seed決定三角形在哪一端、球的排列、哪一個後角是實色球，以及母球的位置。這是作者設計的示意，沒有文字；測試端以另外寫的圓盤緊密排列事實（頂點在置球點上、五列、列內球相切、列間錯開半個球，三十對相切）找出十五個位置，從每顆球中心與（花色球）上端的色調讀出號碼，驗證1到15各出現一次、8在第三列正中、後方兩角一個實色一個花色、母球在開球線後方的球桌布上；300個seed中三角形在兩端各約一半、實色在哪個後角各約一半、頂點球號碼涵蓋1到15中除8以外的14個且次數相近、後角的實色與花色號碼組合近乎所有49種（互相獨立）、母球位置涵蓋開球線後方的整個範圍；並逐項檢查邊框與球桌布的色調／高度／粗糙度與寬度、六個袋口的半徑、十八個菱形標記的位置與半徑（長邊中央與角落外沒有）、開球線的色調與寬度、每顆球的半徑、色調與白帶的寬度，邊緣的柔化與邊框外為紙面。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`playingcardpips`（撲克牌點數）使目前目錄1209→1210種，含plain的gallery為1211項。綠色桌面上的撲克牌，每列一種花色（方塊、紅心、黑桃、梅花，列的順序由seed洗牌），每列五張牌是連續的點數，從seed選的第一個點數（從A起至六）開始往後到十；牌依點數畫出該數的花色圖案（A是一個大圖案），位置是一般撲克牌的位置（左、中、右三欄與以固定的步長計的列，中線以下的圖案倒過來）；花色形狀由圓與凸多邊形組成（方塊是一個菱形，紅心是兩個圓加一個三角形，黑桃是倒過來的紅心加梗，梅花是三個圓加梗）。這是作者設計的示意，沒有文字與字母；測試端以另外寫的撲克牌事實（A一個、二與三沿中線、四在四角、五加中間、六兩欄各三、七是六加上方一個、八再加下方一個、九每欄四個加中間、十每欄四個加中間上下各一）從牌面讀出每張牌的點數與花色（每個位置在圖案裡一個固定點的色調），驗證四列是四種花色、每列的點數逐一加一，300個seed中第一個點數的六種與花色次序各約相同，再以另外寫的點在形狀內的判斷（圓與多邊形）逐點檢查每種花色的圖案（正立與倒立，避開邊緣）與A的大圖案（比例為preset的倍數）、牌的邊緣與輪廓線、牌與牌之間的桌面、每種花色與牌的邊緣的柔化（在覆蓋量精確處檢查）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`tenniscourt`（網球場）使目前目錄1210→1211種，含plain的gallery為1212項。從正上方看的網球場，依規則的尺寸（以英尺計）畫出：全場78×36、單打邊線間27、發球線離網21、中央發球線、底線上的中央標記（4英吋長）、中間的球網與網柱（在雙打邊線外3英尺）；四周是底線後21英尺與邊線外12英尺的緩衝區，再外是場地外的地面；每條線是三分之一英尺寬，畫在它所標示的邊的內側。seed選一種球場表面（場地、緩衝區與地面的色調，四種之一，三個色調再一起偏移不超過`toneShift`，模擬舊化），並決定球場長邊沿著畫面或橫過畫面。這是作者設計的示意，沒有文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：場地、緩衝區與地面的色調／高度／粗糙度，色調偏移一致（三個色調同量偏移，300個seed涵蓋整個範圍、平均近0），每一條線（兩條底線、雙打與單打的四條邊線、兩條發球線、中央發球線）的位置、寬度（兩側各0.0004英尺的位置）與色調／高度，線的端點與不越界，中央標記的長與寬，球網的位置與寬度和網柱的位置與半徑，300個seed中四種表面與兩種方向各約相同，以及各邊緣的柔化（以較緊的容許值檢查）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`badmintoncourt`（羽球場）使目前目錄1211→1212種，含plain的gallery為1213項。從正上方看的羽球場，依規則的尺寸（公尺）畫出：全場13.4×6.1（雙打）、單打邊線間5.18、離網1.98的短發球線、雙打長發球線（離底線內側0.76）、短發球線到底線之間的中線、底線與邊線、中間的球網，網柱在雙打邊線上；四周是底線後2公尺與邊線外1.5公尺的緩衝區，再外是地面；每條線寬0.04公尺，屬於它所界定的區域的一部分（短發球線在遠離網的一側，其他線在朝向場地中間的一側）。seed選一種球場表面（場地、緩衝區與地面的色調，四種之一，三個色調再一起偏移不超過`toneShift`）並決定球場沿著畫面或橫過畫面。這是作者設計的示意，沒有文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：三個區域的色調／高度／粗糙度，色調偏移一致且300個seed涵蓋整個範圍，十二段線（兩條底線、四條邊線、兩條短發球線、兩條長發球線、兩段中線）的位置、寬度（兩側各0.0004公尺的位置）與色調／高度，線的端點與不越界、中線止於短發球線，球網與網柱的位置與大小，300個seed中四種表面與兩種方向各約相同，以及各邊緣的柔化（容許值0.008）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`athleticstrack`（田徑場跑道）使目前目錄1212→1213種，含plain的gallery為1214項。從正上方看的400公尺標準跑道（與既有、只畫線條的`runningtrack`不同，這是整座跑道的平面圖）：兩條84.39公尺的直道接兩個半圓，第一道內緣半徑36.5公尺（在其外0.3公尺的量測線上長度剛好400公尺：2×84.39＋2π×36.8），八條各1.22公尺寬的跑道，每道外側有一條分道線，第一道內側有一條內緣線，直道末端（畫面下方那條）橫跨各道的終點線，內側是場地（infield），外圍2.4公尺的邊緣與其外的地面。分道線寬0.5公尺，是規則（0.05公尺）的十倍，才能在一塊貼圖中看得見。seed選一種表面（跑道、場地、邊緣與地面的色調，四種之一，再一起偏移不超過`toneShift`）並決定跑道沿著畫面或橫過畫面。這是作者設計的示意，沒有文字、起跑線與接力區；測試端以另外寫的規則尺寸（含「preset的數值使400公尺成立」的斷言）逐項檢查：八條跑道在直道與兩端彎道的色調／高度／粗糙度，場地、邊緣與地面，色調偏移一致，九條線（內緣線與八條分道線）在直道與彎道各位置的寬度（兩側各0.0004公尺）與色調／高度，兩條線之間的跑道乾淨，終點線只在畫面下方的直道末端、越過各道而不入場地與邊緣，300個seed中四種表面與兩種方向各約相同，以及各邊緣的柔化（以1e-4的緊容許值檢查）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`soccerpitch`（足球場）使目前目錄1213→1214種，含plain的gallery為1215項。從正上方看的足球場，依規則的尺寸（公尺）畫出：全場105×68、中線、半徑9.15的中圈與中點、兩端各一個禁區（深16.5、寬40.32）與球門區（深5.5、寬18.32）、離球門線11公尺的罰球點與以它為圓心、半徑9.15、只畫在禁區外的罰球弧、四個角落半徑1公尺的角球弧；四周是3公尺的邊緣與其外的地面；線屬於它所界定的區域。線寬0.3公尺（規則是0.12公尺的兩倍半）、點的半徑0.3公尺，才能在一塊貼圖中看得見；沒有球門與草皮割草條紋。seed選一種表面（球場、邊緣與地面的色調，四種之一，再一起偏移不超過`toneShift`）並決定球場沿著畫面或橫過畫面。這是作者設計的示意，沒有文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：對整張圖每隔0.37公尺的每一個位置（避開離任何邊0.07公尺以內），由另外寫的分類函式（地面／邊緣／場地／線）給出色調與高度，與取樣器逐一相同；各條線的每一個邊（各兩端與四個角落）在兩側各0.0004公尺處精確在線內或線外；罰球弧與禁區線的接合處；色調偏移一致且300個seed涵蓋整個範圍，300個seed中四種表面與兩種方向各約相同，以及各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hockeyrink`（冰球場）使目前目錄1214→1215種，含plain的gallery為1216項。從正上方看的冰球場，依NHL球場的尺寸（英尺）畫出：全場200×85、圓角半徑28、中線、兩條藍線（朝向中間的邊離底板75英尺、相距50英尺）、兩條球門線（離底板11英尺）、半徑15的中圈與中點、四個攻防區的爭球圈（半徑15，圓心離球門線20英尺、離中軸左右各22英尺）與爭球點、四個中立區的爭球點（離藍線5英尺、左右各22英尺）、兩個球門禁區（半徑6的弧，與離中軸4英尺、止於弧上的兩條線）；四周是欄板與地面。尺寸來源是網路上引用的NHL規則文字與Wikipedia，沒有直接讀NHL規則書原檔；藍線「邊緣朝向中間離底板75英尺」是我對「藍線離底板75英尺、兩條相距50英尺」的解讀。線寬是放大的：細線0.5英尺（規則是2英寸）、中線與藍線1.5英尺（規則是12英寸），點的半徑1英尺，才能在一塊貼圖中看得見；紅與藍只是兩個色調；沒有球門本身、爭球圈旁的短線、裁判區與梯形區。seed選一種表面（冰面、欄板與地面的色調，四種之一，再一起偏移不超過`toneShift`）並決定球場沿著畫面或橫過畫面。這是作者設計的示意，沒有文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：對整個球場及周圍每隔0.31英尺的每一個位置（避開離任何邊0.1英尺以內），由另外寫的分類函式（地面／欄板／冰面／紅／藍）給出色調與高度，與取樣器逐一相同；各個標線與圓、點、球門禁區的每一個邊在兩側各0.0004個貼圖單位處精確在內或在外，圓角與欄板的邊，色調偏移一致且300個seed涵蓋整個範圍，300個seed中四種表面與兩種方向各約相同，以及各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`basketballcourt`（籃球場）使目前目錄1215→1216種，含plain的gallery為1217項。從正上方看的籃球場，依NBA球場的尺寸（英尺）畫出：全場94×50、中線、半徑6的中圈與半徑2的內圈、兩端各一個禁區（寬16、離底線19）、以罰球線中央為圓心半徑6的罰球圈（只畫在遠離籃框的一側）、離底線4的籃板（寬6）、圓心離底線5.25的籃框（半徑0.75）與半徑4的合理衝撞區弧、半徑23.75的三分線與離邊線3英尺、止於弧上的兩條底角直線；四周是6英尺的邊緣與其外的地面；線屬於它所界定的區域。線寬0.4英尺（規則約0.17，即2英寸，放大2.5倍），才能在一塊貼圖中看得見；禁區沒有上色、罰球圈在禁區內的半圈沒有畫成虛線。尺寸來源是一次網路搜尋的摘要（引用NBA規則1的球場尺寸），與我原本的記憶一致，沒有直接讀NBA規則書原檔。seed選一種表面（球場、邊緣與地面的色調，四種之一，再一起偏移不超過`toneShift`）並決定球場沿著畫面或橫過畫面。這是作者設計的示意，沒有文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：對整張圖每隔0.29英尺的每一個位置（避開離任何邊0.1英尺以內），由另外寫的分類函式（地面／邊緣／場地／線）給出色調與高度，與取樣器逐一相同；各條線、圓與弧的每一個邊（兩端與兩側）在兩側各0.0004個貼圖單位處精確在線內或線外；三分線止於底角直線中央、不越過它；色調偏移一致且300個seed涵蓋整個範圍，300個seed中四種表面與兩種方向各約相同，以及各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`handballcourt`（手球場）使目前目錄1216→1217種，含plain的gallery為1218項。從正上方看的室內手球場，依IHF規則的尺寸（公尺）畫出：全場40×20、中線、直徑4的開球圈、兩端各一個球門（寬3）與球門線、6公尺球門區線（離球門線6、長3的直線，以兩個圓心在門柱後內角、半徑6的四分之一圓接到球門線）、9公尺自由球線（同樣的形狀，半徑9，畫成虛線，線段與間隔等長）、1公尺長的7公尺線、4公尺線；四周是球門線後2公尺、邊線外1公尺的安全區與其外的地面；距離量到線的外緣，線屬於它所界定的區域。線寬0.2公尺（規則0.05，四倍）、球門柱間的球門線0.32（0.08）、虛線的線段與間隔0.6（0.15）、4公尺線長0.6（0.15），都是規則的四倍，才能在一塊貼圖中看得見。尺寸來源是一次網路搜尋的摘要（引用IHF規則1），與我原本的記憶一致，沒有直接讀IHF規則書原檔；沒有換人區線與球門的立體。seed選一種表面（球場、安全區與地面的色調，四種之一，再一起偏移不超過`toneShift`）並決定球場沿著畫面或橫過畫面。這是作者設計的示意，沒有文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：對整張圖每隔0.1公尺的每一個位置（避開離任何邊或兩段線的接縫0.04公尺以內），由另外寫的分類函式（地面／邊緣／場地／線，含虛線的相位）給出色調與高度，與取樣器逐一相同；球門區線、自由球線（含每一段虛線的兩端與中央、直線與弧上）、7與4公尺線、球門線、中線與開球圈的每一個邊在兩側各0.0004個貼圖單位處精確在線內或線外；球門區的直線與弧的接縫沒有缺口；色調偏移一致且300個seed涵蓋整個範圍，300個seed中四種表面與兩種方向各約相同，以及各邊緣與虛線端點的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`highwaylanes`（四線道公路）使目前目錄1217→1218種，含plain的gallery為1219項。從正上方看的四線道公路（與既有、只畫一道磨損漆線的`roadmarking`不同，這是整條道路橫斷面與標線的平面圖），依美國統一交通管制設施手冊（MUTCD）的標線規則，單位是英尺：每個方向兩條各12英尺寬的車道（從雙黃線中間量到虛線中間，再量到外側邊線的內緣）、中間的雙黃線（兩條各6英寸寬、之間隔4英寸）、同方向兩條車道之間的白色虛線（線段10英尺、間隔30英尺，週期40英尺）、兩側的白色實線邊線（6英寸寬，在4到6英寸的範圍內）、外側8英尺的路肩與其外的路旁；貼圖是120英尺見方，剛好容納三個虛線週期，所以沿著道路方向無縫重複。線寬沒有放大；黃線與白線只是兩個色調。seed選一種表面（路面、路肩與路旁的色調，四種之一，再一起偏移不超過`toneShift`）並決定道路沿著畫面或橫過畫面。這是作者設計的示意，沒有文字、箭頭、人行道與路口。尺寸來源是一次網路搜尋的摘要（引用MUTCD第3A.04節等），與我原本的記憶一致，沒有直接讀MUTCD原文。測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」與「120英尺剛好三個週期」的斷言）逐項檢查：對整張圖的每一個位置（橫向每隔0.07英尺、沿路每隔0.93英尺，避開離任何邊0.1英尺以內），由另外寫的分類函式（路旁／路肩／路面／白線／黃線，含虛線的相位）給出色調與高度，與取樣器逐一相同；雙黃線兩條線與間隔、邊線、路肩與路旁的每一個邊，在兩側各0.0004個貼圖單位處精確在內或在外，兩側與每個虛線週期的虛線線段兩端與線寬的兩邊與間隔中央；色調偏移一致且300個seed涵蓋整個範圍，300個seed中四種表面與兩種方向各約相同，以及各邊緣與虛線端點的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`cricketground`（板球場）使目前目錄1218→1219種，含plain的gallery為1220項。從正上方看的板球場，單位是公尺：22碼（20.12）長、10英尺（3.05）寬的投球區，兩端的投球線（8英尺8英寸＝2.64，三柱門在其中央，三根柱子共寬9英寸）、離它4英尺（1.22）的擊球線（左右各標到6英尺＝1.83）、離中線4英尺4英寸（1.32）的回球線（從擊球線往後長8英尺＝2.44）、限制性賽制的30碼（27.432）內圈（兩個圓心在中柱的半圓，以平行於投球區的兩條直線連接）、外場的邊界繩與其外的地面；距離量到線的後緣，線屬於它所界定的區域。邊界繩半徑68公尺只是眾多場地大小之一（我自己定的）；線寬0.25公尺（規則5公分，五倍）、柱門的深度0.3公尺，才能在一塊貼圖中看得見；沒有割草條紋與球場草皮的「方塊」。回球線「從擊球線往後8英尺」是我對規則的解讀。seed選一種表面（外場、投球區與地面的色調，四種之一，再一起偏移不超過`toneShift`）並決定投球區沿著畫面或橫過畫面。這是作者設計的示意，沒有文字；尺寸來源是一次網路搜尋的摘要（引用MCC板球規則第6、7、8條與ICC比賽條件的內圈），與我原本的記憶一致，沒有直接讀規則原文。測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：投球區附近（28×12公尺，每隔0.05公尺）及整張圖（166公尺見方，每隔0.37公尺）的每一個位置（避開離任何邊或兩段線接縫0.05公尺以內），由另外寫的分類函式（地面／外場／投球區／線／柱門）給出色調與高度，與取樣器逐一相同；投球線、擊球線、回球線、內圈（兩個半圓與直線）、邊界繩與柱門的每一個邊在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且300個seed涵蓋整個範圍，300個seed中四種表面與兩種方向各約相同，以及各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`curlingrink`（冰壺場）使目前目錄1219→1220種，含plain的gallery為1221項。從正上方看的一排冰壺賽道，單位是公尺，貼圖47.5公尺見方、剛好是十條寬4.75的賽道並排（沿賽道方向重複時兩端是擋板）：每條賽道長45.72、兩條圓心線相距34.747（各離賽道中點17.3735）、每個圓心外的營壘（半徑1.829、1.219、0.610的三個圓與半徑0.152的圓心）、中線（從冰壺架到冰壺架，超出圓心線3.658）、後線（外緣離圓心線1.829，與營壘外圈相切）、前衛線（內緣離圓心線6.401、寬0.102）、冰壺架線（長0.457）與賽道之間的邊線，賽道兩端之外是擋板。細線寬0.1公尺（規則至多0.013），才能在一塊貼圖中看得見；營壘的兩種顏色與線的顏色只是幾個色調。尺寸來源是一次網路搜尋的摘要（引用世界冰壺總會規則R1），與我原本的記憶一致，沒有直接讀規則原文；沒有禮貌線與冰面的其他標示。seed選一種表面（冰面與擋板的色調，四種之一，再一起偏移不超過`toneShift`）並決定賽道沿著畫面或橫過畫面。這是作者設計的示意，沒有文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」與「十條賽道剛好是貼圖的寬」的斷言）逐項檢查：對整張圖的每一個位置（約兩條賽道與兩端每隔約0.1公尺，其餘每隔0.43公尺，避開離任何邊0.03公尺以內），由另外寫的分類函式（擋板／冰面／營壘三圈與圓心／線／前衛線）給出色調與高度，與取樣器逐一相同；在三條不同的賽道、兩端，圓心線、後線、前衛線（含高度）、冰壺架線、中線的終點、營壘的每一個圓、邊線與擋板的每一個邊在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且300個seed涵蓋整個範圍，300個seed中四種表面與兩種方向各約相同，以及各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`baseballdiamond`（棒球場）使目前目錄1220→1221種，含plain的gallery為1222項。從正上方看的棒球場，單位是英尺（本壘板尖端在原點、投手在軸線上；貼圖220英尺見方，中心在本壘板前55英尺）：從本壘板尖端出發成45度的界外線（線在界內）、90英尺見方的內野與15英寸的壘包（一壘與三壘在方形之內、二壘以角為中心）、本壘板（寬17英寸、側邊8.5英寸、後緣沿著界外線）、打擊區（4×6英尺、離本壘板6英寸）、捕手區（寬43英寸、深8英尺、在打擊區之後）、投手板（24×6英寸、前緣離本壘板尖端60.5英尺）與中心離本壘板59英尺、直徑18英尺的投手丘、內野的土（以投手板前緣為圓心、半徑95英尺、在界外線之內的圓，加上本壘板周圍半徑13英尺的圓，後者不是規則給的，是我自定的）、內野草地（在離壘線3英尺的壘間路之內）與外野草地；沒有圍牆與界外區的標示。粉線寬0.5英尺（規則約3英寸，約兩倍），所以本壘板的兩邊側緣落在界外線的寬度之內而看不出來（在規則的3英寸寬下才會看到）。尺寸來源是一次網路搜尋的摘要（引用官方棒球規則2.01到2.04），與我原本的記憶一致，沒有直接讀規則原文；壘包取15英寸（現行大聯盟是18英寸）。seed選一種表面（外野草、內野草與土的色調，四種之一，再一起偏移不超過`toneShift`）並把球場轉一個四分之一圈（四種之一；球場左右對稱，所以轉彎與鏡射是同一張圖）。這是作者設計的示意，沒有文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：本壘板與打擊區附近（24×24英尺，每隔0.07英尺）及整張圖（220×220英尺，每隔0.5英尺）的每一個位置（避開離任何邊或兩段粉線接縫0.06英尺以內），由另外寫的分類函式（草地／內野草／土／粉線，含各片的標籤）給出色調與高度，與取樣器逐一相同（在任一轉向下）；三個壘包的每一條邊、本壘板前緣、打擊區與捕手區的外緣與線寬內緣、投手板、投手丘、本壘板周圍的圓、半徑95英尺的圓、內野草地的四條邊與界外線在草地與土上的兩緣，在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且300個seed涵蓋整個範圍，300個seed中四種表面與四種轉向各約相同，以及各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`volleyballcourt`（排球場）使目前目錄1221→1222種，含plain的gallery為1223項。從正上方看的室內排球場，單位是公尺（場地長軸沿著圖的一軸，貼圖32公尺見方，場地置中）：場地18×9、中線（網下）、兩條進攻線（線的後緣離中線軸3公尺）、接在每條進攻線之外越過邊線的五條短線（規則為15公分長、間隔20公分、第一條離邊線20公分，共1.75公尺）、每個底線之後離底線20公分的兩個發球區標記（15公分長，延伸邊線並界定9公尺寬的發球區），場地周圍的自由區（底線之後6.5公尺、邊線之側5公尺，規則要求至少3公尺，我憑記憶取世界賽事的較大尺寸，沒有查證）與其外的地面。距離量到線的外緣，線算在它所界定的區域之內。線寬0.15公尺（規則0.05，三倍），短線、間隔與標記為0.3、0.4、0.3公尺（規則0.15、0.2、0.15，兩倍），這樣在貼圖中才看得見。seed選一種表面（場地、自由區與地面的色調，四種之一，再一起偏移不超過`toneShift`）並把球場沿著圖或橫過圖放（兩種之一）。尺寸來自一次網路搜尋的摘要（引用FIVB規則），沒有直接讀規則原文。這是作者設計的示意，沒有網、網柱或文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，線三倍、短線兩倍」的斷言）逐項檢查：整張圖（32×32公尺，每隔0.08公尺）的每一個位置（避開離任何邊或兩段線接縫0.02公尺以內），由另外寫的分類函式（地面／自由區／場地／線，含每片線的標籤）給出色調與高度，與取樣器逐一相同（兩種放法）；外框、中線、進攻線、五條短線的每一端與兩側（含「不是五條以上」）、發球區標記的每一端與兩側，在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且300個seed涵蓋整個範圍，四種表面與兩種放法大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值），含進攻線與邊線相接處邊線自身的柔化邊緣。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`pickleballcourt`（匹克球場）使目前目錄1222→1223種，含plain的gallery為1224項。從正上方看的匹克球場，單位是英尺（場地長軸沿著圖的一軸，貼圖64英尺見方，場地置中）：場地20×44、網（在中間，沒有畫：網不是場地標線）、離網每側7英尺的非截擊區（廚房）與它的線（廚房線，線算在廚房之內），以及每側從廚房線到底線的中線；場地周圍是建議的30×60英尺比賽區域（側邊5英尺、端邊8英尺）與其外的地面。距離量到線的外緣，線算在它所界定的區域之內。線寬0.5英尺（規則2英寸，三倍），這樣在貼圖中才看得見。廚房的色調另成一塊，邊界取在廚房線的中央，被線蓋住，因此廚房自己沒有可見的邊（邊線外側也不需要另外限制：邊線就在那裡，之外沒有場地）。seed選一種表面（廚房、場地其餘部分、比賽區域與地面的色調，四種之一，再一起偏移不超過`toneShift`）並把球場沿著圖或橫過圖放（兩種之一）。尺寸來自一次網路搜尋的摘要（引用USA Pickleball官方規則），沒有直接讀規則原文。這是作者設計的示意，沒有網、網柱或文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，線三倍，比賽區域是30×60」的斷言）逐項檢查：整張圖（64×64英尺，每隔0.15英尺）的每一個位置（避開離任何邊或兩段線接縫0.03英尺以內），由另外寫的分類函式（地面／比賽區域／場地／廚房／線，含每片線的標籤）給出色調與高度，與取樣器逐一相同（兩種放法）；外框、廚房線、中線（含它兩端與廚房線、底線相接處無缺口，以及廚房內與網上沒有線）的每一端與兩側，在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且300個seed涵蓋整個範圍，四種表面與兩種放法大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值），含廚房線與邊線兩側在廚房與場地上的柔化。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`squashcourt`（壁球場）使目前目錄1223→1224種，含plain的gallery為1225項。從正上方看的單打壁球場，單位是公尺（場地長軸沿著圖的一軸、前牆在一端，貼圖12公尺見方，場地置中）：場地9.75×6.4、短線（前緣離前牆5.44公尺）、從短線到後牆的半場線（置中）、後方兩個角落的發球區（淨空1.6×1.6公尺：以邊牆、短線、短線之後1.6公尺的一條線與離邊牆1.6公尺的一條線界定），場地周圍是牆（從上方看是一圈0.3公尺寬的帶，厚度是我自定的）與其外的地面。線寬0.1公尺（規則0.05，兩倍），這樣在貼圖中才看得見；牆比地板高（relief）。seed選一種表面（地板、牆與地面的色調，四種之一，再一起偏移不超過`toneShift`）並把球場沿著圖或橫過圖放（兩種之一）。尺寸來自一次網路搜尋的摘要（引用WSF場地規格），沒有直接讀規格原文；摘要對發球區的量法描述有些含糊，我取「淨空1.6」的解讀（線在淨空之外）。這是作者設計的示意，沒有前牆的標線（前牆上的線與場地的高度標示都看不到）或文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，線兩倍」的斷言）逐項檢查：整張圖（12×12公尺，每隔0.03公尺）的每一個位置（避開離任何邊或兩段線接縫0.01公尺以內），由另外寫的分類函式（地面／牆／場地／線，含每片線的標籤）給出色調與高度，與取樣器逐一相同（兩種放法）；短線、半場線與發球區兩條線的每一端與兩側（含線與線相接處無缺口、線在牆邊結束、短線之前與發球區之後沒有線），在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面與兩種放法大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`gridironfield`（美式足球場）使目前目錄1224→1225種，含plain的gallery為1226項。從正上方看的美式足球場，單位是英尺（場地長軸沿著圖的一軸，貼圖384英尺見方，場地置中）：兩條球門線之間100碼（300英尺）、每端之外10碼（30英尺）的達陣區、寬160英尺，每5碼（15英尺）橫過場地的碼線、每碼（3英尺）的雙排標記線（hash mark，與碼線平行的短線，兩排相距70英尺9英寸，是NFL的尺寸），球門線之間每隔5碼交替的草皮割草條紋、達陣區自己的色調，場地周圍的邊界（10英尺，我自定的）與其外的地面。線寬1.5英尺（規則4英寸，約4.5倍），標記線寬1英尺、長4英尺（規則4英寸×2英尺，寬三倍、長兩倍），這樣在貼圖中才看得見；線以碼為中心，外框在場地尺寸之內；沒有號碼、箭頭或標誌。割草條紋與達陣區的邊都取在碼線的中央，被線蓋住，所以沒有可見的邊；條紋在球門線之外不用另外限制（達陣區蓋過它）。這些尺寸全部是我憑記憶寫的，**這個材質沒有做網路搜尋，也沒有讀規則**。seed選一種表面（地面、邊界、場地、條紋與達陣區的色調，四種之一，再一起偏移不超過`toneShift`）並把球場沿著圖或橫過圖放（兩種之一）。這是作者設計的示意；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，線4.5倍、標記線寬3倍長2倍」的斷言）逐項檢查：整張圖（384×384英尺，每隔0.37英尺）的每一個位置（避開離任何邊或兩段線接縫0.1英尺以內），由另外寫的分類函式（地面／邊界／場地／條紋／達陣區／線，含每片線的標籤與條紋的編號）給出色調與高度，與取樣器逐一相同（兩種放法）；外框、七條碼線（含球門線與50碼線，橫過整個場地，球門線之外沒有）與六個標記線（兩排，兩側與兩端；兩排之間與球門線之外沒有）的每一端與兩側，在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面與兩種放法大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值），含條紋兩側的線邊緣各自在自己的條紋色調上。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`netballcourt`（籃網球場）使目前目錄1225→1226種，含plain的gallery為1227項。從正上方看的籃網球場，單位是公尺（場地長軸沿著圖的一軸，貼圖40公尺見方，場地置中）：場地30.5×15.25、把場地分成三等分的兩條橫線、直徑0.9公尺的中圈、每個球門區的球門圈（以球門線外緣中點為圓心、半徑4.9公尺的半圓），場地周圍3.05公尺的淨空區與其外的地面。距離量到線的外緣，線算在它所界定的區域之內。線寬0.15公尺（規則0.05，三倍），這樣在貼圖中才看得見。兩條橫線取在三等分的記號上、線以記號為中心，這是我的選擇（規則把線畫在分區之間）。seed選一種表面（場地、淨空區與地面的色調，四種之一，再一起偏移不超過`toneShift`）並把球場沿著圖或橫過圖放（兩種之一）。尺寸來自一次網路搜尋的摘要（引用World Netball規則），沒有直接讀規則原文。這是作者設計的示意，沒有球架或文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，線三倍」的斷言）逐項檢查：整張圖（40×40公尺，每隔0.06公尺）的每一個位置（避開離任何邊或兩段線接縫0.02公尺以內），由另外寫的分類函式（地面／淨空區／場地／線，含每片線的標籤）給出色調與高度，與取樣器逐一相同（兩種放法）；外框、橫線、中圈與球門圈（四個角度上的兩個邊緣、圓弧與球門線相接處、圓弧不越出場地）的每一端與兩側，在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面與兩種放法大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`snookertable`（司諾克球檯）使目前目錄1226→1227種，含plain的gallery為1228項。從正上方看的司諾克球檯，單位是公尺（球檯長軸沿著圖的一軸，貼圖4.4公尺見方，球檯置中）：庫邊內側的比賽區域3.569×1.778、離底邊庫0.737公尺的底線（baulk line）、以底線中點為圓心、半徑0.292公尺且在底邊庫那一側的半圓（D區）、六個擺球點（棕球在底線中點、綠球與黃球在D區兩端、藍球在球檯正中、粉球在藍球與頂邊庫的正中、黑球離頂邊庫0.324公尺），比賽區域外圍的庫邊（0.05）與木框（0.1）、六個袋口（四角各一個、兩條長邊的中間各一個），以及其外的地板。庫邊與木框的寬、袋口的半徑（角袋0.075、中袋0.055，中袋圓心在庫邊外0.02公尺）是我自定的（規則只給袋口的樣板，沒有數字）；底線寬0.012公尺、擺球點半徑0.02公尺，比真的球檯大得多，這樣在貼圖中才看得見。seed選一種表面（地板、木框、庫邊、檯呢與袋口的色調，四種之一，再一起偏移不超過`toneShift`）、哪一端是底線端（兩種之一）並把球檯沿著圖或橫過圖放（兩種之一）。尺寸來自一次網路搜尋的摘要（引用WPBSA規則），沒有直接讀規則原文。這是作者設計的示意，沒有球或球桿；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：整張圖（4.4公尺見方）粗取樣、球檯與木框（4×2.2公尺，每隔0.0053公尺）細取樣的每一個位置（避開離任何邊0.003公尺以內），由另外寫的分類函式（地板／木框／庫邊／檯呢／袋口／標記，含每片標記的標籤）給出色調與高度，與取樣器逐一相同（四種放法）；底線、D區（四個角度上的兩個邊緣）與五種擺球點（各角度上的邊緣）的每一端與兩側，檯呢、庫邊、木框與地板的邊（長邊與端邊），角袋與中袋的邊，在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面與兩種放法與兩種底線端大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`archerytarget`（射箭靶面）使目前目錄1227→1228種，含plain的gallery為1229項。從正面看的World Archery 122公分靶面，單位是公尺（貼圖2公尺見方，靶心在中央）：十個計分環、每環寬0.061，五種顏色各兩環（從中央起：金、紅、淺藍、黑、白）、金色裡面的內十環（X環，半徑0.0305）、每個環界上畫在高分環一側（線完全在高分環之內）的分隔線（淺藍與黑之間、黑與白之間沒有線，顏色直接相接）、靶面外緣的一條線、靶心的十字，靶面周圍釘靶的靶墊（半徑0.8，我自定的）與其後的地面。線寬0.008（規則最寬0.002，四倍），十字臂半長0.01、寬0.003（規則最長0.004、最寬0.001），這樣在貼圖中才看得見；線是深色的，兩個黑環之間的那一條是淺色的（我的選擇）。顏色只能用tone表現（程序材質的色階是一條單色漸層），所以五種顏色是五個不同的明暗，不是真的金、紅、藍。seed選一種表面（五種顏色、靶墊與地面的色調，四種之一，再一起偏移不超過`toneShift`）。尺寸來自一次網路搜尋的摘要（引用World Archery規則），沒有直接讀規則原文。這是作者設計的示意，沒有箭或箭孔；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，線四倍」的斷言）逐項檢查：整張圖（2公尺見方，每隔0.003公尺）的每一個位置（避開離任何邊0.0012公尺以內），由另外寫的分類函式（地面／靶墊／五種顏色／線／淺色線，含每條線的標籤）給出色調與高度，與取樣器逐一相同；每條分隔線與外緣線的兩緣（在四個角度上，外緣在環界上、線在高分環之內，兩側各自在自己的顏色上）、兩個黑環之間的淺色線、內十環與十字臂的兩緣與端點、淺藍與黑、黑與白相接處與靶墊的邊，在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`runwaymarkings`（跑道標線）使目前目錄1228→1229種，含plain的gallery為1230項。從正上方看的精確進場跑道的前780公尺，依ICAO Annex 14的標線，單位是公尺（沿跑道從跑道頭起算；貼圖820公尺見方：跑道頭之前40公尺是地面，其後是寬45公尺的跑道、兩側各7.5公尺的跑道肩，其外是地面）：跑道頭標線（12條寬1.8公尺、間隔1.8公尺、長30公尺、從跑道頭後6公尺起，對稱排在中線兩側；規則把中間的間隔留給設計者）、跑道中線（30公尺長的線與20公尺的間隔，這裡寬1.8公尺，規則在II與III類精確進場是0.9公尺，第一條從跑道頭後80公尺起，我自定，接在跑道號碼的位置之後）、瞄準點標線（兩條60公尺長、6公尺寬的線，內側相距18公尺，從跑道頭後400公尺起）、接地帶標線（22.5公尺長、3公尺寬的線，內側相距18公尺，每150公尺一對、從150公尺起；離瞄準點標線50公尺以內的一對省略）與跑道側線（寬1.8公尺，規則0.9公尺，外緣在跑道邊上）。沒有跑道號碼或箭頭。接地帶標線取規則的單線樣式（A式）、不是多線樣式，我沒有畫每對的線數遞減的樣式；貼圖到780公尺為止，所以第六對（900公尺）在貼圖之外，只有150、300、600與750公尺的四對（450公尺的一對被省略）看得見。seed選一種表面（地面、跑道肩與跑道的色調，四種之一，再一起偏移不超過`toneShift`）、哪一端是跑道頭（兩種之一）並把跑道沿著圖或橫過圖放（兩種之一）。尺寸來自一次網路搜尋的摘要（引用ICAO Annex 14），沒有直接讀Annex原文。這是作者設計的示意；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，中線與側線兩倍」的斷言）逐項檢查：整張圖（820公尺見方，不含最邊緣，那是下一張貼圖的邊）粗取樣、跑道與跑道肩（每隔0.6公尺）細取樣的每一個位置（避開離任何邊0.3公尺以內），由另外寫的分類函式（地面／跑道肩／跑道／標線，含每片標線的標籤）給出色調與高度，與取樣器逐一相同（四種放法）；跑道頭12條線、四條中線線段、瞄準點的兩條線、四對接地帶標線（與450公尺處沒有標線）、側線的每一端與兩側，跑道、跑道肩與地面的邊，在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面與兩種放法與兩個跑道頭大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`fieldhockeypitch`（曲棍球場，場地曲棍球）使目前目錄1229→1230種，含plain的gallery為1231項。從正上方看的場地曲棍球場，單位是公尺（球場長軸沿著圖的一軸，貼圖110公尺見方，球場置中）：場地91.40×55.00、中線、兩條23公尺線（遠邊離底線外緣22.90公尺）、每端的射門圈（寬3.66公尺的直線，遠邊離底線外緣14.63公尺，以兩條半徑14.63公尺、圓心在兩根門柱的四分之一圓接到底線；規則把圓心取在門柱內側前緣的底部，我把圓心放在底線外緣的門柱位置）、圈外5公尺的虛線（每段0.3公尺、間隔3公尺，第一段以直線的中點為中心）、罰球點（直徑0.15公尺，圓心離底線內緣6.40公尺）；場地周圍是建議的跑出區：端邊3公尺與側邊2公尺的球場草皮，其外端邊2公尺、側邊1公尺的另一種鋪面（共101.4×61.0），以及其外的地面。距離量到線的外緣，線算在它所界定的區域之內。線寬0.45公尺（規則0.075，六倍）、虛線每段0.9公尺（三倍）、罰球點直徑0.6公尺（四倍），這樣在貼圖中才看得見。沒有畫球門與側線外的16碼標記。seed選一種表面（球場、兩種跑出區與地面的色調，四種之一，再一起偏移不超過`toneShift`）並把球場沿著圖或橫過圖放（兩種之一）。**跑出區的尺寸是我讀了FIH Hockey Turf and Field Standards第2部分（2.2版）的第4.1節取得的；標線的尺寸來自一次網路搜尋的摘要（引用FIH曲棍球規則），我沒有讀到規則原文**（嘗試下載規則的PDF失敗），摘要對23公尺線同時給了22.85與22.90兩個數字，我取22.90。這是作者設計的示意；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，線六倍、虛線三倍、罰球點四倍」的斷言）逐項檢查：整張圖（110公尺見方）粗取樣、球場與跑出區細取樣的每一個位置（避開離任何邊0.05公尺以內），由另外寫的分類函式（地面／外跑出區／內跑出區／球場／線，含每片線的標籤）給出色調與高度，與取樣器逐一相同（兩種放法）；外框、中線、23公尺線、射門圈（直線與四個角度上的圓弧、相接處無缺口）、虛線（八段的每一端、段中與間隔中、直線與圓弧上）、罰球點與各跑出區的邊，在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面與兩種放法大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`futsalcourt`（五人制足球場）使目前目錄1230→1231種，含plain的gallery為1232項。從正上方看的五人制足球場，依FIFA五人制足球競賽規則2021/22的第1條（我讀了規則原文，取自AIFF網站的複本的第1條），單位是公尺（球場長軸沿著圖的一軸，貼圖48公尺見方，球場置中）：場地40×20（在國際比賽的38到42乘20到25之內）、中線、中點（半徑6公分）與半徑3公尺的中圈、每端的罰球區（以球門柱外側為圓心、半徑6公尺的兩個四分之一圓，以3.16公尺的直線相接，直線的外緣離球門線6公尺）、離球門線6公尺的罰球點與10公尺的第二罰球點（量到標記中心，從球門線的後緣起）、第二罰球點左右各5公尺的兩個標記、罰球區內離第二罰球點5公尺的40公分標線（近球門線的邊離第二罰球點5公尺）、半徑25公分的角球弧，以及場外離每個角球弧5公尺、離球門線5公分的標記（寬8公分、長40公分）與在一側邊線上標出替補區的線（替補區長5公尺、離中線5公尺，每條線80公分、一半在場內一半在場外）；場地周圍是3公尺的外圍（我自定的）與其外的地面。距離量到線的外緣，線算在它所界定的區域之內。線寬0.32公尺（規則8公分），其餘小的東西也全部放大四倍（中點與罰球點半徑0.24、第二罰球點兩旁標記半徑0.16、角球弧半徑1、場外標記長1.6、替補區的線長3.2），這樣在貼圖中才看得見。罰球區有自己的色調（規則沒有說，球場常這樣漆），它的邊取在罰球區的線的中央，被線蓋住。沒有畫技術區與球門。我解讀的地方：場外標記的位置取離角（邊線外緣）5公尺的中心，替補區的線取在離中線5與10公尺的近邊；罰球點在6公尺處正好落在罰球區的直線上（所以只看得見外側的一半）。seed選一種表面（球場、罰球區、外圍與地面的色調，四種之一，再一起偏移不超過`toneShift`）、替補區在哪一條邊線（兩種之一）並把球場沿著圖或橫過圖放（兩種之一）。這是作者設計的示意；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，線與小的東西四倍」的斷言）逐項檢查：整張圖（48公尺見方，每隔0.09公尺）的每一個位置（避開離任何邊0.02公尺以內），由另外寫的分類函式（地面／外圍／球場／罰球區／線，含每片線的標籤）給出色調與高度，與取樣器逐一相同（四種放法）；外框、中線、中圈與中點、罰球區（直線與四個角度上的圓弧、相接處無缺口）、罰球點、第二罰球點與兩旁的標記、罰球區內的40公分線、角球弧、場外標記與替補區的線（只在有替補區的邊線上）的每一端與兩側，在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面、兩種放法與兩條邊線大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`tabletennistable`（桌球桌）使目前目錄1231→1232種，含plain的gallery為1233項。從正上方看的桌球桌與球網，依桌球競賽規則（ITTF章程2026年版第2.1與2.2節；我讀了規則原文，取自一個英國桌球協會網站轉錄的條文）的尺寸，單位是公尺（貼圖4公尺見方，桌置中）：比賽面長2.74、寬1.525，一致的深色、霧面；沿每條長邊的白邊線、沿每條短邊的白端線（規則寬2公分）、沿長度的白中線（雙打用，規則寬3公釐）；橫過中間、平行於端線的球網，兩端超出邊線0.1525（立柱的外緣）；桌子周圍是地板。邊線與端線寬0.08（規則的四倍）、中線寬0.012（四倍），這樣在貼圖中才看得見；球網的寬度0.04是我自定的，畫成線的色調（球網頂端的白色網帶）與自己的高度（規則中球網高出桌面0.1525，這裡是球網自己的高度值）。沒有畫桌腳、桌框、立柱與球。seed選一種表面（地板與桌面的色調，四種之一，再一起偏移不超過`toneShift`）並把桌子沿著圖或橫過圖放（兩種之一）。這是作者設計的示意，結構很簡單；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，線寬四倍」的斷言）逐項檢查：整張圖（4公尺見方，每隔0.0173公尺）的每一個位置（避開離任何邊0.0015公尺以內），由另外寫的分類函式（地板／桌面／線／球網）給出色調與高度，與取樣器逐一相同（兩種放法）；邊線與端線的兩緣、中線的兩緣、球網的長邊與兩端（包括超出邊線、在地板上的部分），在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面與兩種放法大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`fencingpiste`（擊劍劍道）使目前目錄1232→1233種，含plain的gallery為1234項。從正上方看的擊劍劍道，依FIE技術規則（2026年8月版第t.17到t.19條；我讀了規則原文，取自FIE網站的PDF）的尺寸，單位是公尺（劍道的長軸沿著圖的一軸，貼圖20公尺見方）：戰鬥區長14、寬1.5；橫過整個寬度的中線（規則寫「斷線」）、中線兩側各2公尺的備戰線、離中線7公尺的兩條後界線，以及後界線之前的最後2公尺（規則寫「盡量用不同顏色的劍道」）用自己的色調標出；劍道周圍是地板。規則沒有給的東西是我自定的：線寬0.1、線以其距離為中心；斷線沿寬度分成十一段，其中六段是線段（所以兩側各有一段）；後界線之外的退讓區（t.18提到「runback」，但這份文字沒有給長度）每端1.5並有自己的色調。導電安全邊、計分機與其他東西都沒有畫。seed選一種表面（地板、劍道、最後2公尺與退讓區的色調，四種之一，再一起偏移不超過`toneShift`）並把劍道沿著圖或橫過圖放（兩種之一）。這是作者設計的示意；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：整張圖（20公尺見方，每隔0.0371公尺）的每一個位置（避開離任何邊0.008公尺以內），由另外寫的分類函式（地板／劍道／最後2公尺／退讓區／線）給出色調與高度，與取樣器逐一相同（兩種放法）；備戰線與後界線的兩緣及其在劍道邊緣的端點、中線的六段（每段的兩端與兩側，其餘五段是空隙）在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面與兩種放法大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值，含線段在劍道邊緣的端點）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`code128barcodes`（Code 128條碼）使目前目錄1233→1234種，含plain的gallery為1235項。數排Code 128條碼（ISO/IEC 15417），每排由seed決定的內容：起始符（104是code B、105是code C）、六個符號（code B：值0到95，從空白到DEL的字元；code C：值0到99，每個符號兩位數字）、檢查符（起始符的值加上每個值乘以它的位置〔從1起〕，除以103取餘數）、停止符（符號106加上一個2模組的末條）與兩側各十個模組的空白區，所以每排的寬度都是121個模組。107個符號的寬度表（每個符號的六段條與空的寬度，共11個模組）取自維基百科Code 128條目的表（我讀了該表的wiki原始碼，用程式解析，並核對每一項的二進位圖樣與寬度一致；**不是ISO標準的原文**，條目的表與標準的一致性我無法核對）。條以單位方塊排在橫向（最窄的條或空是一個模組），高度barHeight，在每排的正中。seed選標籤紙的表面（紙與墨的色調，四種之一，再一起偏移不超過`toneShift`）並把條碼沿著圖或橫過圖放（兩種之一）。測試端有另外寫的解碼器，像讀碼器一樣讀每一排的模組：空白區、起始符、每個符號（查表，且在各自編碼的範圍內）、檢查符（重新計算）、停止符；整張圖在兩種放法中恰有一種能整張解出來。表的檢查：測試端另外寫了一份寬度表並要求與preset一致，每一項是六個1到4的數字、總和11、彼此不同；維基百科條目給的幾個值（符號33即code B的A是111323、符號0與1是212222與222122、起始符B與C是211214與211232、停止符是2331112）以及條目的範例（[Start C] [FNC1] 42 18 40 20 50 [Code A] 16的檢查符是92）。1000個seed涵蓋code B的全部96個值與code C的全部100個值、兩種code各約一半、四種表面與兩種放法大致各佔相同比例、色調偏移涵蓋整個範圍；每個模組都是紙或墨（含高度與粗糙度），條在每排中間的上下緣有柔化邊（edgeSoft，1e-6的緊容許值），模組之間的邊是硬的。Metallic與mortar為0。
+
+預設1 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`isopapersizes`（ISO紙張尺寸）使目前目錄1234→1235種，含plain的gallery為1236項。經典的ISO 216 A系列紙張巢狀圖，單位是公釐（貼圖1400公釐見方，A0的841×1189在正中）：每個尺寸A(n+1)是An沿長邊中間切成一半，新的尺寸捨去到公釐（我讀了維基百科ISO 216條目：條目給的規則是長寬比為根號2、A0的面積是1平方公尺並四捨五入到公釐、每一級切半時向下取整、A(n+1)的長邊就是An的短邊，並給了A4是210×297、A5是148×210）。A1到A10都靠在A0被seed選定的那個角，所以像圖中那樣一個套一個：A1是A0的一半、A2是A1的一半，一直到A10（26×37）。每一級有自己的色調（是從A0的色調到A10的色調的一道漸層上的階梯），每個尺寸的邊內有寬度lineWidth的外框（畫成4公釐寬，這樣A10在貼圖中才看得見）；A0之外是地面。seed選一種表面（地面、A0與A10的色調，四種之一，中間各級是漸層的階梯，再一起偏移不超過`toneShift`）並用八種方式之一（轉動與鏡射）放這張圖。preset只存A0的尺寸與規則，其餘尺寸由取樣器依規則算出；測試端另外寫了完整的尺寸表（A0到A10）並要求規則的結果與表一致，且檢查各尺寸長寬比與根號2相差不到0.02、面積約為前一級的一半、每個尺寸都在前一個之內。這是作者設計的示意；測試端逐項檢查整張圖（1400公釐見方，每隔2.7公釐）的每一個位置（避開離任何邊0.6公釐以內），由另外寫的分類函式（地面／各級紙／線）給出色調、高度與粗糙度，與取樣器逐一相同；每個尺寸的四邊，在每邊上的三個位置、在外緣與外框內緣兩側各0.0004個貼圖單位處，與模型一致（六十個seed，涵蓋全部八種放法）；色調偏移一致且1000個seed涵蓋整個範圍，四種表面與八種放法大致各佔相同比例；A0的邊、外框內緣與A1的邊的柔化（1e-4的緊容許值，含高度與粗糙度在A0邊緣的混合）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`baudottape`（五位元紙帶）使目前目錄1235→1236種，含plain的gallery為1237項。從正上方看的數條五位元打孔紙帶（ITA2電傳打字機碼用的那種），單位是英寸（貼圖是63列乘0.1英寸＝6.3英寸見方）：尺寸取自維基百科「Punched tape」條目（我讀了）：五位元碼的紙帶寬11/16英寸、孔距在兩個方向都是0.1英寸、資料孔直徑0.072、進紙（sprocket）孔直徑0.046；進紙孔比較靠近一邊，窄的一邊的位元通常是最低位。條目沒給的是我自定的：六個孔欄（兩條資料軌、進紙孔、三條資料軌，各相距0.1）置中在紙帶上，進紙孔自成一欄所以不碰到資料孔，且在從窄邊數起的第二與第三條軌之間（這一點是我的記憶，沒有讀到來源）；八條紙帶並排，間隔0.1剛好填滿貼圖。每條紙帶是一則訊息，一列一個五位元字元，碼表是維基百科「Baudot code」條目的ITA2／US-TTY碼表（我讀了，且在測試端另外寫了一份）：開頭是空白列（NUL）的前導、seed決定的字母（約60%）、數字（約30%）與空白（約10%）以及狀態需要的換檔碼（FIGS、LTRS），最後是全孔的LTRS列（也補滿剩下的列）。seed選一種表面（紙與透過孔洞和間隔看到的地面的色調，四種之一，再一起偏移不超過`toneShift`）並用八種方式之一（轉動與鏡射：沿著或橫過圖、哪一邊是窄邊、哪一端是開頭）放這些紙帶。測試端有另外寫的解碼器，像讀帶機一樣讀每一條：每列都有進紙孔、前導是三列空白、本體只有字母、數字與空白且換檔碼恰好在需要時出現（FIGS後接數字、LTRS後接字母，沒有多餘的換檔）、結尾全是LTRS（至少三列）；八種放法中恰有一種能整張解出來。碼表的檢查：preset的字母組與數字組要等於測試端另外寫的那份；條目說E與T是單孔字母，換檔碼與空白倒過來還是同一個碼，CR與LF互為倒轉；尺寸等於條目的值、孔不相碰。每個孔的中心與周圍（半徑內外各0.0004個貼圖單位處，四到五個方向）、紙帶兩緣與間隔都精確；1000個seed中數字與空白的比例、每個字母與數字都出現、兩種換檔碼都出現、結尾LTRS列數恰為3或4、四種表面與八種放法大致各佔相同比例、色調偏移涵蓋整個範圍；孔與紙帶邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hassedivisors`（因數Hasse圖）使目前目錄1236→1237種，含plain的gallery為1238項。一個整數的因數格的Hasse圖：每個因數一個節點，依質因數個數（計重複，即rank）排成一列，1在最下面、整數本身在最上面，同一列的節點依大小排序、置中、相距nodeSpacing；d到e有一條邊，當e是d乘以一個質數（所以e覆蓋d，兩者之間沒有別的因數）。seed從12、24、30、36、48、60、72、120、180、210中選一個數、選一種表面（底色、邊、與從rank 0到最高rank的節點色調，是一道漸層上的階梯，四種之一，再一起偏移不超過`toneShift`），並用八種方式之一（轉動與鏡射）放這張圖。這是數學事實加上作者的版面設計（列高0.7、節點間距0.13、節點半徑0.035、邊半寬0.005）；沒有參考任何外部資料，因數格與覆蓋關係是數論的定義。數字集合是挑過的：12與18的圖互為鏡像、60與90也是同構的，所以只留一個，不然從圖上分不出是哪一個數。測試端有另外寫的模型：用暴力法找因數、rank、覆蓋關係（d整除e且之間沒有別的因數），並檢查節點數與邊數等於公式（各質數指數加一的連乘，以及指數乘以其餘各項加一連乘的和），取樣器的規則（邊到乘以質數的倍數）與覆蓋關係一致、各列節點不相碰且圖在貼圖之內。整張圖（每隔0.0037個貼圖單位）的每一個位置（避開離任何邊0.0008以內），由模型給出色調、高度與粗糙度，與取樣器逐一相同；每個節點邊緣的八個方向、每條邊兩側在三個位置，內外各0.0004個貼圖單位處精確（只檢查附近只有被探測的那一條邊界之處，因為兩條邊界在柔化寬度內會混合）；測試端由圖辨認出是哪個數、哪種放法與哪種表面：先看每個節點中心的色調，再看沿每條邊的三個位置與一個格點上的色調（邊很細，格點看不到，所以必須看沿邊的位置）；30、210（以及36）的圖本身就是鏡像對稱，這時無法分辨flipX，測試端承認這點並只在能分辨時統計flipX。1000個seed涵蓋每個數、每種表面與放法、色調偏移涵蓋整個範圍；節點與邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`dynkindiagrams`（Dynkin圖）使目前目錄1237→1238種，含plain的gallery為1239項。有限型根系的Dynkin圖，畫法依維基百科「Dynkin diagram」條目（我讀了該條目的wiki原始碼）：每個單根一個節點，相連的節點之間有一、二或三條平行線的鍵（重數是兩根長度平方的比），多重鍵上有朝向較短根的箭頭（畫成人字形；條目說有些作者把方向反過來），兩條鍵相接的節點是180度，D_n分岔的節點是120度，E_n分支離開的節點是90度。圖的種類是分類：A_n（n從2到8）、B_n與C_n（3到8）、D_n（4到8）、E_6、E_7、E_8、F_4、G_2共29種（B_2與C_2是同一個圖、A_1只是一個節點，所以不收）。**每個圖中哪個根是短根我是憑記憶**（沒有讀到來源）：B_n是最後一個、C_n的最後一個是長根、F_4的後兩個是短根、G_2的第一個。節點是外圍一圈環、中間填色，節點相距nodeSpacing，E_n的分支從鏈的第三個節點向下離開（鏈在E_6、E_7、E_8分別是5、6、7個節點）。seed選圖、選一種表面（底色、鍵與環的墨色、節點中心的色調，四種之一，再一起偏移不超過`toneShift`），並把圖沿著或橫過圖放。測試端另外寫了模型，並檢查分類：每個圖的節點數、鍵的重數、由箭頭推得的各根長度（較長的是較短的乘以重數）、Cartan矩陣的行列式（A_n是n+1、B_n與C_n是2、D_n是4、E_6是3、E_7是2、E_8是1、F_4是1、G_2是1）與所有首位主子式為正，箭頭指向較短的根，圖在貼圖之內。整張圖（每隔0.0029個貼圖單位）的每一個位置（避開離任何邊界0.0008以內），由模型給出色調、高度與粗糙度，與取樣器逐一相同；每個環的內外緣在八個方向、每條線與箭頭的臂在三個位置的兩側，內外各0.0004個貼圖單位處精確（只檢查附近只有被探測的那一條邊界之處）；測試端由圖辨認是哪個圖、哪種放法與哪種表面（先看節點中心，再看沿每條鍵與箭頭、鍵的線可能出現的位置，以及一個格點，因為小的圖是大的圖的一部分，且箭頭的臂要延伸到鍵的線之外才能分辨B_n與C_n）。1000個seed涵蓋29種圖、四種表面與兩種放法、色調偏移涵蓋整個範圍；環與鍵的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`uarttraces`（UART串列線的波形）使目前目錄1238→1239種，含plain的gallery為1240項。邏輯分析儀畫出的非同步串列線（UART）波形：每列8條波形，每條橫跨64個位元時間（bit time），線閒置時是高電位（邏輯1）；一個frame是一個起始位元（邏輯0）、八個資料位元（最低有效位元先送）、一個偶同位位元（使資料與同位位元中1的個數為偶數）、一個停止位元（邏輯1），frame之間有1或2個閒置位元；每列的第一個與最後一個位元都是閒置，所以波形週期無縫。每個frame裝seed決定的一個位元組，電位是一條線（高在列高的0.3、低在0.7處），電位改變處在位元時間的邊界畫一條垂直線，位元時間的邊界另有一條淡的細線。seed選：閒置畫在高處或低處（極性，像RS-232那樣另一種極性的線）、四種表面之一（底色、細線、波形的色調，再一起偏移不超過`toneShift`）、列沿著或橫過圖放。**來源**：維基百科UART條目的wiki原始碼（我讀了）：閒置是高電位、起始位元低、同位位元在所有資料位元之後、停止位元高、多數應用最低有效位元先送；**8E1這個設定是我的選擇**，「偶同位」的定義（使1的個數為偶數）與RS-232以另一種極性表示邏輯1（所以有「閒置在低處」的畫法）是我的記憶、沒有讀到來源。測試端另外寫了解碼器：由畫面讀出每一列每個位元時間的電位（看電位線畫在哪裡），再依上述框架解成frame，每一列都必須是有效的frame（起始位元低、同位位元正確、停止位元高、第一與最後一個位元閒置，frame之間有1或2個閒置位元，frame之間沒有塞得下另一個frame的空位）；兩種極性與兩種放法都由閒置位元辨認；由解碼出的電位建出模型，整張圖（每隔0.0021個貼圖單位，避開離任何邊界0.0008以內）的每一處，由模型給出的色調、高度與粗糙度與取樣器相同，電位線的上下緣、電位改變處垂直線的兩側與兩端、細線的兩側，內外各0.0004個貼圖單位處精確，並以四分之一柔化寬度檢查柔化。1000個seed中四種表面、兩種放法與兩種極性各佔約一半，色調偏移涵蓋整個範圍，且0到255的每個位元組值出現得差不多一樣多。Metallic與mortar為0。
+
+預設1 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`pigpencipher`（豬圈密碼）使目前目錄1239→1240種，含plain的gallery為1241項。一張豬圈（共濟會）密碼的紙：8×8格，每格是26個字母之一的符號或一個空格（seed從27種選）。金鑰用維基百科「Pigpen cipher」條目所說的常見順序（我讀了該條目的wiki原始碼：格、格、X、X；條目說另有格、X、格、X等順序，也有只用一個九宮格加一到三個點的羅薩克魯西安式）：A到I是井字格的九個位置，畫成該位置周圍井字格的線（第一排的位置上方沒有線，依此類推），J到R是同樣的符號加一點，S到V是X的四個位置（以圍住該位置的兩條線畫成），W到Z是同樣的符號加一點。**條目只給金鑰的圖，沒有用文字寫出每個字母在哪個位置**，所以井字格內A到I的位置（A左上、B上中、C右上、D左中、E中、F右中、G左下、H下中、I右下）與X內S上、T左、U右、V下的分配，以及點在X的位置內的哪裡，都是我憑記憶，沒有讀到來源；畫面上無法分辨用了哪個順序（金鑰固定）。符號半大小0.045個貼圖單位、線半寬0.0032、點半徑0.0085（放大讓格子看得清楚）。seed選每格的字母與四種表面之一（底色與墨色，色調再一起偏移不超過`toneShift`）。測試端另外寫了金鑰：由規則（格的位置推出哪幾條線）產生26個符號，檢查26個符號互不相同，然後由畫面解碼每一格（四條邊的中點、四條對角線的中點與點的位置，必須都是底色或墨色，格的符號與X的符號不能混在一起，空格什麼都沒有），每一格都必須解碼成功；以解碼出的字母建出模型，整張圖（每隔0.0021個貼圖單位，避開離任何線或點的邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；每條線的兩側（在中點）、每條線沒有與別的線共用的端點（圓頭）與每個點的邊緣，內外各0.0004個貼圖單位處精確，並以四分之一柔化寬度檢查格的線、對角線與點的柔化。1000個seed中27種字母（含空格）各出現的次數接近64000的27分之一（容許±250），四種表面約各四分之一，色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`ladderlogic`（階梯圖）使目前目錄1240→1241種，含plain的gallery為1242項。PLC的階梯圖（ladder logic）：兩條垂直的電源軌，每個貼圖六條梯級（rung），每條梯級由左軌經過接點到最右邊的一個線圈再到右軌；接點與線圈的符號與意思依維基百科「Ladder logic」條目（我讀了該條目的wiki原始碼）：常開接點（—[ ]—）、常閉接點（—[\]—，有一斜線）、一般線圈（—( )—）、常動線圈（—(\)—，有一斜線）、每條梯級通常在最右邊有一個線圈。**條目的符號是文字，所以接點畫成兩條直條（用直條代替方括號）、斜線的位置與線圈的兩個括號的畫法、電源軌的位置與一條梯級在路徑上有三個接點的位置、並聯分支的畫法都是我的畫法，不是條目的規定。** 每條梯級的路徑上有三個位置，各是導線、常開接點或常閉接點（至少一個接點）；可以有一條繞過其中一個位置、內含一個接點的並聯分支；線圈是一般或常動。seed選每條梯級的接點、分支與線圈與四種表面之一（底色與墨色，色調再一起偏移不超過`toneShift`）。線半寬0.0032個貼圖單位。測試端另外寫了解碼器：由畫面讀出每一條梯級的每個位置（接點的兩條直條都是墨色或都是底色、中間是否有導線或斜線）、並聯分支（兩條連接的垂直線與分支上的接點）與線圈（兩個括號上的四個點與中間的斜線），每個探針都必須是底色或墨色，每條梯級至少有一個接點；以解碼出的梯級由規則重建每條直線與括號弧線，整張圖（每隔0.0021個貼圖單位，避開離任何線的邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；每條線的兩側、離兩端0.0022處、括號弧線的兩側與弧線的兩端，內外各0.0004個貼圖單位處（只檢查附近沒有別的線的邊在柔化寬度以內之處）精確，並以四分之一柔化寬度檢查。1000個seed（6000條梯級）中每個位置的三種內容各約三分之一（第一個位置因為「沒有接點時補一個接點」而是27分之8、54分之19、54分之19），分支的有無、位置、接點種類與線圈種類各約一半或三分之一，四種表面約各四分之一，色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`sokobanlevels`（倉庫番關卡）使目前目錄1241→1242種，含plain的gallery為1243項。一個10×10格的倉庫番（Sokoban）關卡從上方看的樣子，規則依維基百科「Sokoban」條目（我讀了該條目的wiki原始碼）：由牆與地板格組成，地板格可以是空的、有玩家或有箱子，有些地板格是儲存位置，儲存位置的數目等於箱子的數目，目標是把所有箱子推到儲存位置；玩家一次走一格，推得動前方的箱子（推到再前面一個空的地板格），不能拉。貼圖最外圈是牆（所以重複時是牆隔開關卡），裡面每格有wallChance的機會是牆，與最大的連通地板不相連的地板也變成牆；每格是牆（略小於格的方塊，讓牆顯出格線）、儲存位置（一個圓點）、箱子（帶叉的方塊，在儲存位置上時用另一種色調）或玩家（一個圓盤，站在儲存位置上時外面多一個圓環）。**關卡的產生方法是我的，不是條目的**：先把箱子（2或3個）放在儲存位置上，再從那裡反向「拉」p.pulls＝40次（一次拉是把一次推倒過來播放：玩家站在箱子旁邊後退一步，把箱子帶過來），所以關卡一定可解；若結果每個箱子都在儲存位置上（箱子拉不動），用另外的儲存位置重做，最多16次。seed選關卡與三種表面之一（地板、牆、儲存位置、箱子、儲存位置上的箱子、玩家與叉／圓環的七種色調，再一起偏移不超過`toneShift`）。**圖形的畫法（叉、點、圓盤、圓環、牆的格線）是我的。** 測試端另外寫了：由畫面解碼每一格（中心、中心右邊0.025與圓環半徑處三個探針，必須都是七種色調之一）、檢查關卡的事實（最外圈是牆、一個玩家、儲存位置數等於箱子數且為2或3、所有非牆格相連、至少一個箱子不在儲存位置上，300個seed）、**一個獨立的廣度優先求解器**（以箱子位置與玩家所在區域的最小格為狀態、只推不拉，找出把所有箱子推到儲存位置的最少推數）：24個關卡都求得解（最少推數平均大於6、最多大於5），並把同一關卡的一個箱子換到不是儲存位置的死角（兩邊是牆的角落）後，求解器回答無解；由解碼出的關卡建出模型，整張圖（每隔0.0021個貼圖單位，避開離任何邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；牆、點、箱子、叉（兩條對角線的兩側與末端之外）、玩家與圓環的邊，內外各0.0004個貼圖單位處精確（60個seed，只檢查附近沒有別的邊在柔化寬度以內之處），並以四分之一柔化寬度檢查；地板、牆、點、箱子、叉、玩家與圓環各自的高度與粗糙度。1000個seed中2與3個箱子各約一半、三種表面各約三分之一、沒有一個關卡一開始就解好、一部分關卡一開始就有箱子在儲存位置上、每個內部格有7成到95%的時間是地板、最外圈從不是地板、玩家站在儲存位置上的關卡偶爾出現，1000個關卡幾乎全都不同，色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`starbattleboard`（星戰盤）使目前目錄1242→1243種，含plain的gallery為1244項。一張解好的單星「Star Battle」（又名Two Not Touch）盤：8×8格，每一列、每一行與每一個框出的區域各有恰好一顆星，任兩顆星不相碰、連角相碰也不行。**規則取自Cluewright的單星Star Battle教學頁面（我讀了該頁）**：每列、每行、每個框出的區域恰好一顆星，星不能相碰、對角也不行；**「Two Not Touch」這個別名只來自搜尋結果的摘要（我沒有讀那一頁），沒有維基百科條目可讀。** 盤是這樣做的（**是我的方法，不是來源的**，也不保證解唯一）：先放星，一列一列、每列從隨機順序的行裡選一個沒用過、且與上一列的星相距兩行以上的，然後從星向外長出區域：每次取還沒有區域、但鄰格有區域的格中隨機數最小的一格，讓它取鄰格的區域，直到整張盤分完。方格間的線是細線（半寬0.0012、方形端點），區域交界與整個貼圖的外框是粗線（半寬0.0035）；星是五角星（外半徑0.047、內半徑為其0.4、一角朝上），在方格中央。seed選盤與三種表面之一（底色、細線、粗線與星的色調，再一起偏移不超過`toneShift`）。測試端另外寫了：由畫面讀出每一條線的粗細（在線的中點的色調是細線或粗線的色調）與每一格有沒有星，檢查盤的規則（外框是粗線；一條線是粗的，恰好當兩邊的格在不同區域；每行一顆星、每列一顆星、任兩顆星不相碰；由細線相連的格恰好分成八個區域，每個區域一顆星；150個seed）、並用一個獨立的回溯計數器數出每一盤在這些區域下共有幾種合規的放法（至少一種，並不是每盤都只有一種）；由解碼出的盤建出模型，整張圖（每隔0.0021個貼圖單位，避開離任何邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；細線、粗線（含緊靠外框的線端）與星的邊，內外各0.0004個貼圖單位處精確（只檢查附近沒有別的邊在柔化寬度以內之處），並以四分之一柔化寬度檢查。1000個seed中三種表面各約三分之一、每個方格有星的盤約佔八分之一（50到220之間）、盤幾乎全都不同、最大的區域可超過12格、色調偏移涵蓋整個範圍。Metallic與mortar為0。**每盤的解有幾種、有多少盤的解是唯一的，我沒有量；這個材質只是一張合規的解好的盤，不宣稱是有唯一解的謎題。**
+
+預設1 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`debruijnstrips`（de Bruijn序列條）使目前目錄1243→1244種，含plain的gallery為1245項。32列二進位的de Bruijn序列：每列是32個格組成的環，每格開或關，任何連續5格的窗口（從列尾繞回列首也算）各不相同，所以5格的32種圖案各恰好出現一次——這是維基百科「De Bruijn sequence」條目對de Bruijn序列的定義（**我讀了該條目的wiki原始碼**：每個長度n的字串在環狀序列中恰好出現一次；可由de Bruijn圖的Euler迴路構成）。每一列這樣做（**我的方法**）：在de Bruijn圖（節點是4格的圖案，邊是5格的圖案）上，從全0的節點開始，每個節點的兩條出邊依seed的隨機順序走，走出一條經過全部32條邊的封閉路徑（Hierholzer法），邊所加的位元（取走完的順序，也就是路徑的反序——反序也是de Bruijn序列，因為它的窗口是反過來的窗口）就是這一列，再轉動隨機的格數。開的格是格中邊半長0.0144的方塊。seed選每一列、四種表面之一（底色與開格的色調，再一起偏移不超過`toneShift`）與列沿著或橫過圖放。測試端另外寫了判斷：列是不是de Bruijn序列（五格窗口收集成集合，繞過列尾，必須有32種）、並由畫面解碼（每一格的色調必須是底色或開格的色調，另外沿著或橫過圖放兩種都試，只有正確的一種每一列都是de Bruijn序列）：100個seed每一列都是、每列恰好16格開（平衡）、全0窗口與全1窗口都出現、32列不全相同，把一格翻過來的列判斷器會說不是；由解碼出的列建出模型，整張圖（每隔0.0021個貼圖單位，避開離格邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；開格的四邊，內外各0.0004個貼圖單位處精確（只檢查旁邊的格是關的那一邊），並以四分之一柔化寬度檢查。1000個seed（32000列）中四種表面與兩種放法各約一半或四分之一，列的不同序列（轉動後相同的算同一個）超過1000種（5階的de Bruijn序列共有2048種），全0窗口在列中的起點散佈在32個位置（每個1000±150），色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`redblacktrees`（紅黑樹）使目前目錄1244→1245種，含plain的gallery為1246項。一棵有31個鍵的紅黑樹從根往下畫：性質依維基百科「Red–black tree」條目（**我讀了該條目的wiki原始碼**）：每個節點不是紅就是黑、紅節點沒有紅的子節點、從一個節點到任何空子節點的每條路徑經過同樣多的黑節點；根是黑的是有些作者（如Cormen等）的第五條要求，也有作者（Mehlhorn與Sanders、Sedgewick與Wayne）不要求——**這裡的樹照前者，根是黑的**。這棵樹是二元搜尋樹，鍵1到31：把鍵以seed決定的隨機順序一個一個插入，照一般的插入（新節點是紅的，紅的父節點用重新著色與旋轉修補）；**插入的演算法是我憑記憶寫的標準做法，條目的相關段落我沒有對照讀；條目沒有說怎麼畫樹，畫法是我的**。節點是半徑0.0245的圓盤，左右位置依鍵的大小（鍵分布在貼圖寬度扣掉兩邊0.05的邊界之間），上下位置依深度（每層0.15，樹太高放不下時縮小到放得下，從上邊界0.06起），圓盤外有寬0.004的邊框（外面一個邊框色的圓盤、裡面一個較小的節點色圓盤），紅節點用較淺的色調、黑節點用較深的色調（貼圖的一個像素只有一個色調，所以用深淺表示紅黑），從每個節點向父節點有一條半寬0.0022的線，在圓盤後面。seed選樹與三種表面之一（底色、線、紅節點、黑節點、邊框的色調，再一起偏移不超過`toneShift`）。測試端另外寫了：由畫面解碼（每個鍵的那一欄由上往下掃，節點的圓盤是紅或黑色調的一段，段的中間就是節點位置；節點依距上緣多遠分成層；每個節點的父節點是上一層中、沿兩者連線上（不被別的圓盤蓋住的）點都是線的色調的那一個，必須恰好一個）；以獨立寫的紅黑樹性質檢查：恰好一個根且是黑的、二元搜尋樹性質（中序走訪正好是1到31）、紅節點沒有紅子節點、每條到空子節點的路徑黑節點數相同、樹的高度等於層數且不超過2·log2(n+1)；150個seed全部通過，而且把一個紅節點改成黑的後檢查器會報錯；由解碼出的樹建出模型，整張圖（每隔0.0021個貼圖單位，避開離任何邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；圓盤的外緣與內緣、每條線的兩側，內外各0.0004個貼圖單位處精確（只檢查附近沒有別的邊在柔化寬度以內之處），並以四分之一柔化寬度檢查（圓盤外緣、內緣與線的兩側）。1000個seed中三種表面各約三分之一、1000棵樹幾乎全都不同、高度在5到10層之間且不只一種、每一棵都是紅黑樹、色調偏移涵蓋整個範圍。平均每棵約15個紅節點（約一半）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`i2ctransactions`（I²C匯流排的傳輸）使目前目錄1245→1246種，含plain的gallery為1247項。每一列畫I²C匯流排的兩條線：上半是SCL（時脈）、下半是SDA（資料），像邏輯分析儀那樣畫。規則取自維基百科「I²C」條目（**我讀了該條目的wiki原始碼**相關段落）：兩條線閒置時是高；START是SCL為高時SDA由高變低；接著是7位元的目標位址加一個讀寫位元（0寫、1讀），目標回一個ACK位元（0）；之後是一或兩個資料位元組，每個位元組之後一個ACK位元（寫入由目標回0；讀取由控制器回0，**最後一個位元組不回，是1（NACK）**）；位址與資料都是最高位元在前；一個位元是SCL的一個脈衝（先低半個時脈再高半個時脈），SDA在SCL脈衝期間保持不變，SDA其他的變化發生在SCL為低時；STOP是SCL為高時SDA由低變高。位址取非保留的8到119（條目說兩組各8個位址保留、其餘112個；**保留的是0到7與120到127，這是我依「剩下112個」推得，我沒有讀條目的位址表**）；每個位元組由seed決定。**畫法是我的**：一列有64個格子（每格半個時脈），第一格閒置、訊息從第二格起，所以每列首尾閒置、可週期重複；訊息可在每列內從第2格開始到STOP落在最後一格之間的任何位置（一個資料位元組的訊息有24種位置、兩個位元組的有6種）；SDA在SCL下降的那一刻變化，畫成同一個格子邊界的垂直線，這是時序圖理想化的畫法，不是上升／下降時間與保持時間；沒有畫時脈延展、重複START與10位元位址。每個時脈邊緣有一條細線，位準是半寬0.0032的水平線（高在列高的0.1／0.6、低在0.4／0.9），變化處有垂直線，seed決定高位準畫在上或下、整體沿畫面或垂直畫面（列沿著或橫過畫面）、四種表面之一（底色、細線、SCL與SDA的色調，再一起偏移不超過`toneShift`）。SCL與SDA的色調不同，所以可以由畫面分辨。測試端另外寫了：由畫面解碼（讀出方向、極性、表面與兩條線每一格的位準，再檢查細線與垂直線）與依維基百科寫的I²C解碼器（START／STOP條件、SCL上升時取位元、位址與資料最高位元在前、ACK、STOP前最後那個脈衝不是位元；一列恰好一個訊息；寫入時每個位元組都ACK、讀取時最後一個位元組回1）；60個seed的每一列都解碼成功、位址在8到119之間、一或兩個位元組、START到STOP的格數正確；解碼器會對壞掉的訊息報錯（位址沒有ACK、SDA在時脈為高時變動、沒有STOP、讀取最後一個位元組的ACK反過來）；整張圖（避開離任何邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；水平線的上下緣、垂直線的兩側與兩端、細線的兩側在內外各0.0004個貼圖單位處精確，並以四分之一柔化寬度檢查；1000個seed中四種表面、兩種方向、兩種極性各約一半或四分之一、位址分布、讀寫、一或兩個位元組、資料每個位元約一半為1、訊息的起點涵蓋全部位置、0到255每個位元組值都出現、色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`hamiltoniancycles`（哈密頓迴圈）使目前目錄1246→1247種，含plain的gallery為1248項。方格頂點上的一條封閉線，沿格線走過每個頂點恰好一次（哈密頓迴圈）。**構造法是我憑記憶寫的常見做法，沒有對照任何來源讀過；正確性由測試端獨立的檢查器保證，不靠來源**：把格子切成2×2頂點的區塊，每個區塊本身是四條邊的迴圈；對區塊做隨機生成樹（Kruskal，邊依seed的雜湊排序），每條樹邊把兩區塊面對面的兩條邊換成兩區塊之間的兩條邊，兩個迴圈就併成一個；所有樹邊處理完後得到穿過每個頂點的一條迴圈。方格需要每邊頂點數為偶數（方格圖是二分圖，這是我的數學常識，沒有查來源）。seed選一邊12、16或20個頂點，頂點間距1／邊數、頂點在(i+0.5)個間距處，所以迴圈不會與四周重複的貼圖相連；頂點是半徑0.27個間距的圓珠、邊是半寬0.21個間距的線（畫在珠子底下），seed選迴圈、大小與四種表面之一（底色、線、珠子的色調，再一起偏移不超過`toneShift`）。測試端另外寫了：由畫面解碼（貼圖角是底色、頂點處是珠子色調、每兩個相鄰頂點中點是線色調或底色決定邊、每個方格中心與跨貼圖的位置是底色；三種大小各試，必須恰好一種合法）與依定義寫的檢查器（每個頂點恰好兩條邊、從角上頂點出發走一圈長度正好是頂點數，所以是單一迴圈）；150個seed都是單一迴圈、邊數等於頂點數、三種大小都出現、150個迴圈各不相同；檢查器會對少一條邊的圖與「每個2×2區塊各自成迴圈」的圖報錯（後者每個頂點也有兩條邊，但不是單一迴圈）；整張圖（避開離任何邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；珠子的圓與線的兩側在內外各0.0004個貼圖單位處精確，並以四分之一柔化寬度檢查；1000個seed中三種大小與四種表面各約均勻、1000個迴圈全都不同、對最小的格子，60對相鄰區塊每一對都在30%到85%的迴圈中被接起（生成樹60條邊中取35條，約58%）、色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`postnetbarcodes`（POSTNET郵遞條碼）使目前目錄1247→1248種，含plain的gallery為1249項。每列畫一個POSTNET條碼，也就是美國郵政以前印在信件上的條碼。規則取自維基百科「POSTNET」條目（**我讀了該條目的wiki原始碼**）：條碼起訖各一根全高的框條；每個數字是五根條，其中兩根全高、其餘半高（二取五碼），五個位置的權重由左到右是7、4、2、1、0，全高的位置權重相加就是數字，零的權重相加是11；數字之後有檢查碼，使所有數字（含檢查碼）的和是10的倍數；條目的格式有5位（A碼，32根條）、6位（B碼，37根）、9位（C碼，52根）、11位（送達點DPBC，62根），都含檢查碼。條目的數字表（0到9的條形）逐一寫在`codes`，**範例55555-1237的檢查碼是2**也寫成測試。**我自己決定的**：每列64個槽（條中心間距1／64個貼圖單位），每列隨機選四種格式之一、數字由seed決定，在第一與最後一個槽留空的前提下隨機決定起點；條半寬0.0031、全高與半高條的高度比5比2（這是我記得的真實條碼比例，約0.125與0.05吋；條目沒有給尺寸，所以高度是我的選擇）；seed選方向（列沿著或橫過畫面）、條從基線往上長或往下掛、四種表面之一（紙與墨的色調，再一起偏移不超過`toneShift`）。測試端另外寫了：由畫面解碼（每個槽沿條的中點與頂端以上、基線以下探測，必須恰好是墨或底色；條分成無／半高／全高）與依條目寫的讀碼器（框條、每五根條恰好兩根全高、權重7／4／2／1／0（11為0）、數字和為10的倍數）；100個seed每一列都成功解碼且格式四種都出現；讀碼器會對壞掉的條碼報錯（一個數字有三根全高、檢查碼被改、框條變成半高）；整張圖（避開離任何邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；條的兩側、頂端與基線在內外各0.0004個貼圖單位處精確，並以四分之一柔化寬度檢查色調、高度與粗糙度；1000個seed中四種表面、兩種方向、兩種基線各約均勻，四種格式各約四分之一，數字0到9各約十分之一，每種格式的起點涵蓋所有有空間的位置，色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`itfbarcodes`（交錯二五碼）使目前目錄1248→1249種，含plain的gallery為1250項。每列畫一個Interleaved 2 of 5（ITF）條碼，也就是紙箱上常見的那種。規則取自維基百科「Interleaved 2 of 5」條目（**我讀了該條目的wiki原始碼**）：數字兩個一組，一組的第一個數字由五根條（黑線）編碼，第二個數字由夾在條之間的五個空白編碼；每個數字是五條窄或寬的線，其中兩條是寬的（二取五碼），五個位置的權重是1、2、4、7、0，寬線的權重相加是數字，11代表0；開頭是四條窄線（窄條、窄空白、窄條、窄空白）的起始碼，結尾是寬條、窄空白、窄條的結束碼；寬線是窄線的2.0到3.0倍；數字個數必須是偶數。條目的數字表（0到9的窄／寬排列）逐一寫在`patterns`，條目圖中的範例（數字對12：條WnnnW與空白nWnnW；數字對95：條nWnWn與空白WnWnn）寫成測試。**我自己決定的**：沒有加檢查碼（條目說可選）；每列2到6對（4到12位數）、數字由seed決定，一條窄線寬0.0072個貼圖單位，條碼從整數個窄線寬處起，兩側各至少10條窄線寬的空白區（一列是1／0.0072＝138.9條窄線寬，所以貼圖可重複）；seed選寬線是窄線的2、2.5或3倍（條目只給範圍，這三個值是我的選擇）、四種表面之一（紙與墨的色調，再一起偏移不超過`toneShift`）、列沿著或橫過畫面；條在每列高度的0.14到0.86。測試端另外寫了：由畫面解碼（沿每列中線每四分之一窄線寬取一個點，必須恰好是墨或紙，再由連續的墨／紙長度求出每條線的寬度）與依條目寫的讀碼器（窄與寬兩種寬度且寬是2、2.5或3倍、起始碼、每十條線分成五條條與五個空白、每五條恰好兩條寬、權重1／2／4／7／0、結束碼；數字個數為偶數）；100個seed每一列都成功解碼、2到6對與三種寬度比都出現；讀碼器會對壞掉的條碼報錯（起始碼有寬線、結束碼不是寬條、一個數字有三條寬線、寬度不是窄也不是寬、線條數為奇數）；整張圖（避開離任何邊0.0008以內）的每一處由模型（依解碼出的數字與條目的數字表另外算出每條線的邊）給出的色調、高度、粗糙度與遮蔽度與取樣器相同；前十六條邊與最後一條邊在內外各0.0004個貼圖單位處精確，條的頂端與底端同，並以四分之一柔化寬度檢查色調、高度與粗糙度；1000個seed中四種表面、兩種方向各約均勻，三種寬度比各約三分之一、五種對數各約五分之一，數字0到9各約十分之一，六對的條碼（空間最少）的起點涵蓋所有有空間的位置，色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`codabarbarcodes`（Codabar條碼）使目前目錄1249→1250種，含plain的gallery為1251項。每列畫一個Codabar條碼，圖書館、血庫與包裹常用的那種。規則取自維基百科「Codabar」條目（**我讀了該條目的wiki原始碼**）：一個字元是7條線（4根條、3個空白），每條線是窄或寬，字元與字元之間隔一個窄空白；數字0到9、破折號與$各有一根寬條和一個寬空白；符號`:`、`/`、`.`、`+`有三根寬條、沒有寬空白；起訖字元A、B、C、D各有一根寬條和兩個相鄰的寬空白；寬線是窄線的2.25到3倍；條目說多數標準沒有定義檢查碼。條目的字元表（以三個空白的寬窄為列、四根條的寬窄為欄）完整寫在測試端，`symbols`／`patterns`的20個字元逐一與它比對。**我自己決定的**：本體只用數字與六個符號`- $ : / . +`（條目說依規格不同，有的只允許數字）；每列一個起始字元、4到10個本體字元（由seed決定）、一個結束字元（起訖各自由A到D選）；不加檢查碼；寬度比固定整列相同（條目稱這種為rationalized Codabar），seed從2.25、2.5、3三個值選一個；一條窄線寬0.005個貼圖單位，條碼從整數個窄線寬處起，兩側各至少10條窄線寬的空白區（一列是200條窄線寬，所以貼圖可重複）；seed選四種表面之一（紙與墨的色調，再一起偏移不超過`toneShift`）、列沿著或橫過畫面；條在每列高度的0.14到0.86。測試端另外寫了：由畫面解碼（沿每列中線每四分之一窄線寬取一個點，必須恰好是墨或紙，再由連續長度求出每條線寬度）與依條目寫的讀碼器（窄與寬兩種寬度且寬是2.25、2.5或3倍、每八條線是七條線的字元加一個窄空白、字元由條目的表以條與空白的寬窄查出、起訖是A到D而本體不是）；100個seed每一列都成功解碼，長度6到12、三種寬度比、20個字元全部出現；讀碼器會對壞掉的條碼報錯（沒有起始字元、數字當結束字元、本體有起始字元、字元間隔是寬空白、寬度不是窄也不是寬、少一條線）；整張圖（避開離任何邊0.0008以內）的每一處由模型（依解碼出的字元與條目的表另外算出每條線的邊）給出的色調、高度、粗糙度與遮蔽度與取樣器相同；前十六條邊與最後一條邊在內外各0.0004個貼圖單位處精確，條的頂端與底端同，並以四分之一柔化寬度檢查色調、高度與粗糙度；1000個seed中四種表面、兩種方向各約均勻，三種寬度比各約三分之一、七種本體長度各約七分之一，本體的16個字元各約十六分之一，起訖字元A到D各約四分之一且起與訖在約四分之三的列不同，每個條碼的起點都在它留下的空間內且空間的兩端都出現，色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`rm4sccbarcodes`（RM4SCC四態條碼）使目前目錄1250→1251種，含plain的gallery為1252項。每列畫一個英國皇家郵政的RM4SCC條碼。規則取自維基百科「RM4SCC」條目（**我讀了該條目的wiki原始碼**）：一根條可以是短的、向上延伸、向下延伸或兩邊都延伸（四態）；一個字元是四根條；上半四根條中有兩根延伸、下半也是兩根，有6種組合，6×6＝36個字元就是0到9與A到Z，順序照條目的表（上半的樣式為列、下半為欄，樣式依序是0011、0101、0110、1001、1010、1100）；條碼是單根的起始字元、郵遞區號、兩個字元的送達點尾碼（1A到9T）、檢查字元、單根的結束字元；檢查字元的算法：上半與下半的延伸各以權重4、2、1、0計值，每個字元的值為權重和除以6的餘數（條目表中1100記作6），把所有字元的上半值加總、下半值加總，各自除以6的餘數，再從表查出對應的字元。條目的範例（BX1 1LT加尾碼1A，上半值2、6、1、1、4、5、1、2合計22餘4，下半值6、4、2、2、4、6、2、5合計31餘1，檢查字元是I）寫成測試。**條目沒有以文字說明起始與結束條的形狀（只有圖），所以起始條向上延伸、結束條兩邊都延伸是我憑記憶**。**我自己決定的**：郵遞區號用六種格式之一（A是字母、9是數字，後接9AA；這是我對英國郵遞區號格式的近似，字母與數字由seed決定，不保證那個郵遞區號真的存在）、尾碼的數字1到9與字母A到T由seed決定；一列64個槽，條碼34到42根條，第一與最後一個槽留空，起點隨機；條半寬0.0034個貼圖單位，短條是只有中間的軌道（列高的0.4到0.6），向上延伸加上昇部（從0.12起）、向下延伸加下降部（到0.88止）；seed選四種表面之一（紙與墨的色調，再一起偏移不超過`toneShift`）、列沿著或橫過畫面。測試端另外寫了：由畫面解碼（每個槽沿中軌道、上昇部、下降部探測，必須恰好是墨或紙；條分成短／向上／向下／兩邊）與依條目寫的讀碼器（起始條向上、結束條兩邊、每四根條查表、檢查字元以權重和重算、尾碼是1A到9T）；100個seed每一列都成功解碼、六種格式都出現；讀碼器會對壞掉的條碼報錯（另一個檢查字元、起始條是短的、結束條是短的、上半有四根延伸的條、尾碼是0A）；整張圖（避開離任何邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；條的兩側、頂端與底端（四種條）在內外各0.0004個貼圖單位處精確，並以四分之一柔化寬度檢查色調、高度與粗糙度；1000個seed中四種表面、兩種方向各約均勻，六種格式各約六分之一，26個字母、10個數字、尾碼數字1到9與字母A到T各約均勻，每種長度的條碼起點涵蓋所有有空間的位置，色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`spitransfers`（SPI傳輸）使目前目錄1251→1252種，含plain的gallery為1253項。三個區塊，每塊畫一次序列周邊介面（SPI）傳輸的四條線：從機選擇（SS，低態有效）、時脈（SCLK）、MOSI、MISO，像邏輯分析儀那樣畫。規則取自維基百科「Serial Peripheral Interface」條目（**我讀了該條目的wiki原始碼**相關段落）：主機把SS拉低開始通訊；每個時脈週期各方向傳一個位元；資料通常最高位元在前；CPOL是時脈閒置的位準；CPHA為0時，第一個位元在SS啟動時就輸出，之後的位元在SCLK回到閒置位準時輸出、在SCLK離開閒置位準時取樣；CPHA為1時，第一個位元在SS啟動後的第一個時脈邊緣輸出，之後的位元在SCLK離開閒置位準時輸出、在SCLK回到閒置位準時取樣；模式號是2×CPOL＋CPHA（條目的模式表）。**畫法是我的**：一塊64個格子（每格半個時脈），一次傳輸8或16個位元（兩個方向各自的位元組由seed決定），SS由第一個時脈的第一格低到最後一個時脈之後一格，時脈在其前後都在閒置位準；不傳資料時資料線畫成低位準（條目畫成高阻抗Z）；在邊緣輸出的位元從該邊緣起畫，CPHA為1時最後一個位元維持到SS升高；一個位準是半寬0.003個貼圖單位的水平線，位準變化是格邊界的垂直線；seed選模式（三塊相同）、四種表面之一（底色與四條線的色調，再一起偏移不超過`toneShift`）、區塊沿著或橫過畫面。測試端另外寫了：由畫面解碼（每條線每格以高與低位置探測，必須恰好是該線色調或底色，再檢查格邊界的垂直線與線間的空白）與依條目寫的讀碼器（SS低的期間、時脈閒置位準、領先邊緣與後隨邊緣、依CPHA在領先或後隨邊緣取樣、資料只可在輸出的邊緣變動、取樣處必須穩定、位元數8或16、最高位元在前）；另外在測試端依條目的文字為四種模式各產生一個波形，確認讀碼器讀回相同的位元組、換成另一個相位就被拒絕、在取樣邊緣改動資料被拒絕、SS低兩次、時脈閒置位準不一致、傳輸9個位元也被拒絕；100個seed每一塊都成功解碼，四種模式、8與16位元都出現；整張圖（避開離任何邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；水平線的上下緣、垂直線的兩側與兩端在內外各0.0004個貼圖單位處精確，並以四分之一柔化寬度檢查色調、高度與粗糙度；1000個seed中四種表面、兩種方向、四種模式各約均勻，8與16位元各約一半，0到255每個位元組值都出現，16位元的兩個位元組各自選擇，傳輸的起點涵蓋所有可能位置，色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`linecodes`（線路碼）使目前目錄1252→1253種，含plain的gallery為1254項。一個30位元的字用七種線路碼各畫一列，上下排列，像教科書的線路碼對照圖。規則取自維基百科的四篇條目（**我讀了「Non-return-to-zero」「Manchester code」「Differential Manchester encoding」與「Bipolar encoding」（AMI連到該條目）的wiki原始碼**）：NRZ-L（1為高、0為低）；NRZ-M（1是位元開始處的位準變化、0不變）；NRZ-S（0是變化、1不變）；曼徹斯特碼依G. E. Thomas的慣例（0是低再高、1是高再低）與依IEEE 802.3的慣例（相反）；差動曼徹斯特碼（條目說每個位元有位元中間有無位準變化，並有強制的位準變化；圖中的變體是0為變化、1不變）；AMI（0是零位準、1交替為正位準與負位準）。**我自己決定／解讀的**：差動曼徹斯特碼我讀成「每個位元開始處一定變化，位元中間在資料為0時變化」（條目的句子把順序說成「中間的有無變化，接著是開頭的強制變化」，我的解讀是那個強制變化屬於下一個位元的開頭）；AMI畫成歸零碼，1只在位元前半有正或負位準、後半為零，第一個1為正；一列64格（每格半個位元）：開頭兩格是第一個位元前的位準（低，AMI是零；起始位準是我的選擇）、30個位元各兩格、結尾兩格維持最後的位準；seed選字、七列的順序（洗牌）、四種表面之一（底色、位元邊界細線與波形的色調，再一起偏移不超過`toneShift`）、列沿著或橫過畫面；位準是半寬0.003個貼圖單位的水平線，位準變化是格邊界的垂直線。**畫面上沒有標示哪一列是哪種碼，所以交換兩種碼的慣例（例如NRZ-M與NRZ-S、Thomas與802.3）從畫面看不出差別。**測試端另外寫了：由畫面解碼（每格以高、零、低三個位置探測，必須恰好一個是波形色調、另外兩個是底色，再檢查格邊界的垂直線、位元邊界的細線與奇數邊界的空白）、七種碼各自的讀碼器（依上述條目），並要求七列各由不同的碼讀成同一個字（所以畫面的七列、順序與字一起被唯一決定）；另依條目的文字在測試端對每種碼直接產生波形，確認讀碼器讀回同一個字、其他碼的讀碼器拒絕不屬於它的列（曼徹斯特拒絕NRZ、NRZ拒絕曼徹斯特、AMI拒絕沒有零位準的列）、AMI兩個同極性的1被拒絕、差動曼徹斯特少一個起頭變化被拒絕、結尾沒有維持位準被拒絕，並確認同一個波形讀成NRZ-M與NRZ-S得到的字剛好每位元相反；100個seed每一張都唯一解碼、七種碼各出現一次、字都不同；整張圖（避開離任何邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；水平線的上下緣、垂直線的兩側與兩端、位元邊界的細線在內外各0.0004個貼圖單位處精確（包含AMI通過零位準的垂直線），並以四分之一柔化寬度檢查色調、高度與粗糙度；1000個seed中四種表面、兩種方向各約均勻，每種碼出現在每一列各約七分之一，字的位元約一半為1、幾乎每個字都不同，色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
+`octaneisomers`（辛烷異構物）使目前目錄1253→1254種，含plain的gallery為1255項。辛烷（C8H18）的18種結構異構物各畫成一張骨架式（skeletal formula，省略氫）圖，排成3欄×6列，像化學課本的異構物對照表：每個異構物是一條主鏈加上甲基（1個碳）或乙基（2個碳）支鏈，原子是圓盤、鍵是細線。**異構物的名單取自維基百科「Alkane」條目的wiki原始碼（我讀了）**：C8有18種，由octane、三種methylheptane、六種dimethylhexane／ethylhexane、四種trimethylpentane、兩種ethylmethylpentane到2,2,3,3-tetramethylbutane；骨架式省略氫的畫法是我憑一般化學常識記得的，沒有查；**圖的畫法是我自己定的**（主鏈120度鋸齒、偶數位原子的支鏈朝上、奇數位朝下、同一原子兩支鏈各偏45度、乙基第二個碳選較寬鬆的一側轉60度）。18個格子的對應（洗牌）、每格左右與上下鏡像、與四種表面之一由seed決定（色調再一起偏移不超過`toneShift`）；Metallic／mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
