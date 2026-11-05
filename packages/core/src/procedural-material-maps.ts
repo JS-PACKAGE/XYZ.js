@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'hassedivisors',
   'baudottape',
   'isopapersizes',
   'code128barcodes',
@@ -51763,6 +51764,117 @@ export function createSurfaceSampler(
           );
           roughness = clamp(
             p.groundRoughness + (p.paperRoughness - p.groundRoughness) * paper,
+          );
+          occlusion = 1;
+        };
+      }
+      case 'hassedivisors': {
+        const p = proceduralMaterialPresets.hassedivisors,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(130, 1, seed ^ 0x2a0001) * p.surfaces.length)
+            ],
+          number =
+            p.numbers[
+              Math.floor(hash(130, 2, seed ^ 0x2a0002) * p.numbers.length)
+            ],
+          swap = hash(130, 3, seed ^ 0x2a0003) < 0.5,
+          flipX = hash(130, 4, seed ^ 0x2a0004) < 0.5,
+          flipY = hash(130, 5, seed ^ 0x2a0005) < 0.5,
+          shift = (hash(130, 6, seed ^ 0x2a0006) * 2 - 1) * p.toneShift,
+          // The number of prime factors of d, counted with multiplicity (the rank of d), and whether d is a prime.
+          omega = (d: number): number => {
+            let count = 0;
+            for (let factor = 2, rest = d; rest > 1; factor++)
+              while (rest % factor === 0) {
+                rest /= factor;
+                count++;
+              }
+            return count;
+          },
+          top = omega(number),
+          divisors: number[] = [],
+          ranks: number[] = [],
+          nodeX: number[] = [],
+          nodeY: number[] = [],
+          reach = p.edgeHalf + p.edgeSoft,
+          perRank: number[] = new Array(top + 1).fill(0),
+          placed: number[] = new Array(top + 1).fill(0);
+        for (let d = 1; d <= number; d++)
+          if (number % d === 0) {
+            divisors.push(d);
+            ranks.push(omega(d));
+            perRank[omega(d)]++;
+          }
+        // The nodes of a row in order of their value, centred on the middle; the rows from rank 0 at the bottom.
+        for (let i = 0; i < divisors.length; i++) {
+          const rank = ranks[i];
+          nodeX.push(
+            (placed[rank]++ - (perRank[rank] - 1) / 2) * p.nodeSpacing,
+          );
+          nodeY.push((rank / top - 0.5) * p.height);
+        }
+        // An edge from d to e = d times a prime.
+        const edges: number[][] = [];
+        for (let i = 0; i < divisors.length; i++)
+          for (let j = i + 1; j < divisors.length; j++)
+            if (
+              divisors[j] % divisors[i] === 0 &&
+              omega(divisors[j]) === omega(divisors[i]) + 1
+            )
+              edges.push([nodeX[i], nodeY[i], nodeX[j], nodeY[j]]);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            ax = (swap ? fv : fu) - 0.5,
+            ay = (swap ? fu : fv) - 0.5,
+            x = flipX ? -ax : ax,
+            y = flipY ? -ay : ay;
+          let inEdge = -1,
+            shade = surface.ground + shift,
+            node = 0;
+          for (const [x0, y0, x1, y1] of edges) {
+            const dx = x1 - x0,
+              dy = y1 - y0,
+              t = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy),
+                ),
+              );
+            // Edges that are farther than the softened width from the place cover nothing: the square of the distance tells.
+            const away = (x - x0 - t * dx) ** 2 + (y - y0 - t * dy) ** 2;
+            if (away < reach * reach)
+              inEdge = Math.max(inEdge, p.edgeHalf - Math.sqrt(away));
+          }
+          const line = cover(inEdge);
+          shade += (surface.line + shift - shade) * line;
+          for (let i = 0; i < divisors.length; i++) {
+            const near = Math.hypot(x - nodeX[i], y - nodeY[i]);
+            if (near > p.nodeRadius + p.edgeSoft) continue;
+            const here = cover(p.nodeRadius - near);
+            if (here > 0)
+              shade +=
+                (surface.low +
+                  (surface.high - surface.low) * (ranks[i] / top) +
+                  shift -
+                  shade) *
+                here;
+            node = Math.max(node, here);
+          }
+          // The nodes are over the edges, which are over the ground.
+          let elevation = p.groundHeight;
+          elevation += (p.lineHeight - elevation) * line;
+          elevation += (p.nodeHeight - elevation) * node;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(
+            p.groundRoughness +
+              (p.inkRoughness - p.groundRoughness) * Math.max(line, node),
           );
           occlusion = 1;
         };

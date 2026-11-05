@@ -18492,6 +18492,35 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     groundRoughness: 0.6,
   }),
+  hassedivisors: Object.freeze({
+    dark: [24, 30, 52] as const,
+    light: [240, 238, 226] as const,
+    roughness: 0.6,
+    relief: 0.004,
+    // The Hasse diagram of the divisors of a number, in tile units from the middle of the tile (x across, y up): a node for each divisor, in rows by the number of prime factors counted with multiplicity (the
+    // rank; 1 at the bottom, the number at the top, rows height apart from the first to the last), the nodes of a row nodeSpacing apart in order of their value and centred; an edge from d to e where e is d
+    // times a prime (so e covers d: no divisor lies between them). The seed picks the number from numbers, a surface (the tones of the ground, of the edges, and of the nodes from rank 0 to the top rank, in
+    // steps, all shifted together a little) and one of eight ways of laying the diagram (turned and mirrored).
+    numbers: Object.freeze([12, 24, 30, 36, 48, 60, 72, 120, 180, 210]),
+    height: 0.7,
+    nodeSpacing: 0.13,
+    nodeRadius: 0.035,
+    edgeHalf: 0.005,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.9, line: 0.35, low: 0.55, high: 0.15 }),
+      Object.freeze({ ground: 0.15, line: 0.6, low: 0.35, high: 0.9 }),
+      Object.freeze({ ground: 0.7, line: 0.1, low: 0.9, high: 0.3 }),
+      Object.freeze({ ground: 0.3, line: 0.85, low: 0.5, high: 0.65 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    lineHeight: 0.35,
+    nodeHeight: 0.5,
+    groundRoughness: 0.72,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24984,6 +25013,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  hassedivisors: 1,
   baudottape: 1,
   isopapersizes: 1,
   code128barcodes: 1,

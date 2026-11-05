@@ -79482,3 +79482,523 @@ describe('baudottape: strips of five-level punched tape that decode as ITA2 mess
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('hassedivisors: the Hasse diagram of the divisors of a number (a node for each divisor, an edge from d to each multiple of d by a prime), laid in one of eight ways by the seed', () => {
+  const p = proceduralMaterialPresets.hassedivisors,
+    out = empty();
+  type Way = { swap: boolean; flipX: boolean; flipY: boolean };
+  const toneAt = (sample: Sampler, x: number, y: number, way: Way): number => {
+    // A place in tile units from the middle of the tile, in the diagram as it is drawn (1 at the bottom) before it is turned and mirrored, as a place on the picture.
+    const ax = way.flipX ? -x : x,
+      ay = way.flipY ? -y : y;
+    sample(0.5 + (way.swap ? ay : ax), 0.5 + (way.swap ? ax : ay), out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The model of the diagram, written out again here: the divisors by brute force, their ranks (the prime factors counted with multiplicity), the cover relation by brute force (d divides e, with no divisor strictly between), and the places.
+  const omega = (d: number): number => {
+    let count = 0;
+    for (let factor = 2, rest = d; rest > 1; factor++)
+      while (rest % factor === 0) {
+        rest /= factor;
+        count++;
+      }
+    return count;
+  };
+  type Node = { value: number; rank: number; x: number; y: number };
+  type Model = { top: number; nodes: Node[]; edges: [Node, Node][] };
+  const models = new Map<number, Model>(),
+    model = (number: number): Model => {
+      const known = models.get(number);
+      if (known) return known;
+      const values: number[] = [];
+      for (let d = 1; d <= number; d++) if (number % d === 0) values.push(d);
+      const top = omega(number),
+        counts = new Map<number, number>();
+      for (const value of values)
+        counts.set(omega(value), (counts.get(omega(value)) ?? 0) + 1);
+      const seen = new Map<number, number>(),
+        nodes = values.map((value): Node => {
+          const rank = omega(value),
+            index = seen.get(rank) ?? 0;
+          seen.set(rank, index + 1);
+          return {
+            value,
+            rank,
+            x: (index - ((counts.get(rank) ?? 1) - 1) / 2) * p.nodeSpacing,
+            y: (rank / top - 0.5) * p.height,
+          };
+        }),
+        edges: [Node, Node][] = [];
+      for (const low of nodes)
+        for (const high of nodes)
+          if (
+            low.value < high.value &&
+            high.value % low.value === 0 &&
+            !values.some(
+              (f) =>
+                f !== low.value &&
+                f !== high.value &&
+                f % low.value === 0 &&
+                high.value % f === 0,
+            )
+          )
+            edges.push([low, high]);
+      const result = { top, nodes, edges };
+      models.set(number, result);
+      return result;
+    };
+  const distanceToSegment = (
+    x: number,
+    y: number,
+    [a, b]: [Node, Node],
+  ): number => {
+    const dx = b.x - a.x,
+      dy = b.y - a.y,
+      t = Math.max(
+        0,
+        Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - a.x - t * dx, y - a.y - t * dy);
+  };
+  // The piece of the picture a place is in: a node of a rank, an edge, or the ground.
+  const piece = (m: Model, x: number, y: number): string => {
+    for (const node of m.nodes)
+      if (Math.hypot(x - node.x, y - node.y) <= p.nodeRadius)
+        return `node ${node.rank}`;
+    return m.edges.some((edge) => distanceToSegment(x, y, edge) <= p.edgeHalf)
+      ? 'edge'
+      : 'ground';
+  };
+  const ways: Way[] = [];
+  for (const swap of [false, true])
+    for (const flipX of [false, true])
+      for (const flipY of [false, true]) ways.push({ swap, flipX, flipY });
+  type Surface = {
+    number: number;
+    way: Way;
+    surface: number;
+    shift: number;
+    tones: { ground: number; line: number; low: number; high: number };
+    // More than one way of laying the diagram gives the same picture when the diagram is its own mirror image (the Boolean lattices of 30 and 210): then flipX cannot be told.
+    mirrorSame: boolean;
+  };
+  // The tone of the picture at a place by the model: the ground, the edges and the nodes of each rank.
+  const predict = (
+    m: Model,
+    tones: Surface['tones'],
+    x: number,
+    y: number,
+  ): number => {
+    const label = piece(m, x, y);
+    return label === 'ground'
+      ? tones.ground
+      : label === 'edge'
+        ? tones.line
+        : tones.low +
+          ((tones.high - tones.low) * Number(label.slice(5))) / m.top;
+  };
+  // Finds the number, the way and the surface that the picture is: the tone of the ground in a corner gives the shift for each surface, the tones at the centres of all the nodes must be those of that number, way and surface, and then the model must give the tone of the picture at a grid of places (away from the edges).
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const number of p.numbers) {
+      const m = model(number);
+      for (const way of ways) {
+        const ground = toneAt(sample, 0.48, 0.48, way),
+          nodeTones = m.nodes.map((node) =>
+            toneAt(sample, node.x, node.y, way),
+          );
+        p.surfaces.forEach((surface, index) => {
+          const shift = ground - surface.ground;
+          if (
+            Math.abs(shift) > p.toneShift + 1e-9 ||
+            !m.nodes.every(
+              (node, i) =>
+                Math.abs(
+                  nodeTones[i] -
+                    (surface.low +
+                      ((surface.high - surface.low) * node.rank) / m.top +
+                      shift),
+                ) < 1e-6,
+            )
+          )
+            return;
+          const tones = {
+            ground,
+            line: surface.line + shift,
+            low: surface.low + shift,
+            high: surface.high + shift,
+          };
+          // The edges are thin, so a grid does not see them: the model must also give the tone of the picture along every edge (at three places).
+          for (const [low, high] of m.edges)
+            for (const f of [0.3, 0.5, 0.7]) {
+              const x = low.x + (high.x - low.x) * f,
+                y = low.y + (high.y - low.y) * f;
+              if (
+                Math.abs(toneAt(sample, x, y, way) - predict(m, tones, x, y)) >
+                1e-6
+              )
+                return;
+            }
+          for (let i = 0; i < 40; i++)
+            for (let j = 0; j < 40; j++) {
+              const x = -0.49 + (0.98 * i) / 39,
+                y = -0.49 + (0.98 * j) / 39,
+                nearEdge =
+                  m.nodes.some(
+                    (node) =>
+                      Math.abs(
+                        Math.hypot(x - node.x, y - node.y) - p.nodeRadius,
+                      ) < 0.004,
+                  ) ||
+                  m.edges.some(
+                    (edge) =>
+                      Math.abs(distanceToSegment(x, y, edge) - p.edgeHalf) <
+                      0.004,
+                  );
+              if (
+                !nearEdge &&
+                Math.abs(toneAt(sample, x, y, way) - predict(m, tones, x, y)) >
+                  1e-6
+              )
+                return;
+            }
+          options.push({
+            number,
+            way,
+            surface: index,
+            shift,
+            tones,
+            mirrorSame: false,
+          });
+        });
+      }
+    }
+    expect(options.length).toBeGreaterThan(0);
+    // Whatever survives is one number and one surface, and the ways differ only in flipX (when the picture is the same mirrored).
+    for (const option of options) {
+      expect(option.number).toBe(options[0].number);
+      expect(option.surface).toBe(options[0].surface);
+      expect(option.way.swap).toBe(options[0].way.swap);
+      expect(option.way.flipY).toBe(options[0].way.flipY);
+    }
+    expect(options.length).toBeLessThanOrEqual(2);
+    return { ...options[0], mirrorSame: options.length === 2 };
+  };
+
+  it('has the model right: the number of divisors, ranks and edges of each number (the edges by the formula for the sum of a_i times the product of the others plus one), and the rule of the sampler (an edge to a multiple by a prime)', () => {
+    for (const number of p.numbers) {
+      const m = model(number);
+      // The exponents of the prime factorisation.
+      const exponents: number[] = [];
+      for (let factor = 2, rest = number; rest > 1; factor++) {
+        let a = 0;
+        while (rest % factor === 0) {
+          rest /= factor;
+          a++;
+        }
+        if (a > 0) exponents.push(a);
+      }
+      expect(m.nodes.length).toBe(
+        exponents.reduce((product, a) => product * (a + 1), 1),
+      );
+      expect(m.top).toBe(exponents.reduce((total, a) => total + a, 0));
+      expect(m.edges.length).toBe(
+        exponents.reduce(
+          (total, a, i) =>
+            total +
+            a *
+              exponents.reduce(
+                (product, b, j) => (j === i ? product : product * (b + 1)),
+                1,
+              ),
+          0,
+        ),
+      );
+      // Every edge joins consecutive ranks and is a multiple by a prime; every such pair is an edge.
+      for (const [low, high] of m.edges) {
+        expect(high.rank).toBe(low.rank + 1);
+        expect(omega(high.value / low.value)).toBe(1);
+      }
+      let pairs = 0;
+      for (const low of m.nodes)
+        for (const high of m.nodes)
+          if (
+            high.value % low.value === 0 &&
+            high.value > low.value &&
+            omega(high.value / low.value) === 1
+          )
+            pairs++;
+      expect(pairs).toBe(m.edges.length);
+      // The nodes of a row are apart by nodeSpacing and none touch; the diagram is inside the tile.
+      for (const a of m.nodes) {
+        expect(Math.abs(a.x) + p.nodeRadius).toBeLessThan(0.5);
+        expect(Math.abs(a.y) + p.nodeRadius).toBeLessThan(0.5);
+        for (const b of m.nodes)
+          if (a !== b)
+            expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(
+              2 * p.nodeRadius,
+            );
+      }
+    }
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the diagram says, with its tone, height and roughness (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('hassedivisors', seed),
+        { number, way, tones } = readSurface(sample),
+        m = model(number),
+        counts = new Map<string, number>(),
+        step = 0.0037,
+        clear = 0.0008;
+      // Every place of the picture (the places within 0.0008 of a change in the picture are skipped: the softened edges are checked below, exactly).
+      for (let x = -0.4995; x <= 0.4995; x += step)
+        for (let y = -0.4995; y <= 0.4995; y += step) {
+          const label = piece(m, x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(m, x + dx, y + dy) !== label)
+          )
+            continue;
+          counts.set(label, (counts.get(label) ?? 0) + 1);
+          const tone = toneAt(sample, x, y, way);
+          if (label === 'ground') {
+            expect(tone).toBeCloseTo(tones.ground, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.groundHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.groundRoughness, 6);
+          } else if (label === 'edge') {
+            expect(tone).toBeCloseTo(tones.line, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          } else {
+            const rank = Number(label.slice(5));
+            expect(tone).toBeCloseTo(
+              tones.low + ((tones.high - tones.low) * rank) / m.top,
+              6,
+            );
+            expect(out.height / p.relief).toBeCloseTo(p.nodeHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          }
+        }
+      expect(counts.get('ground') ?? 0).toBeGreaterThan(50000);
+      expect(counts.get('edge') ?? 0).toBeGreaterThan(300);
+      for (let rank = 0; rank <= m.top; rank++)
+        expect(counts.get(`node ${rank}`) ?? 0).toBeGreaterThan(50);
+    },
+  );
+
+  it(
+    'uses every number, every surface and all eight ways over 1000 seeds, about equally often, with the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const numbers = new Map<number, number>(),
+        surfaces = new Map<number, number>(),
+        shifts: number[] = [],
+        each = [0, 0, 0],
+        combos = new Set<string>();
+      let mirrorKnown = 0,
+        mirrorFlips = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const { number, way, surface, shift, mirrorSame } = readSurface(
+          createSurfaceSampler('hassedivisors', seed * 7 + 1),
+        );
+        shifts.push(shift);
+        numbers.set(number, (numbers.get(number) ?? 0) + 1);
+        surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+        each[0] += Number(way.swap);
+        // flipX cannot be told from the picture of a diagram that is its own mirror image (30 and 210).
+        if (!mirrorSame) {
+          mirrorKnown++;
+          mirrorFlips += Number(way.flipX);
+        }
+        each[2] += Number(way.flipY);
+        combos.add(`${way.swap} ${way.flipX} ${way.flipY}`);
+      }
+      expect(numbers.size).toBe(p.numbers.length);
+      for (const count of numbers.values())
+        expect(Math.abs(count - 1000 / p.numbers.length)).toBeLessThan(45);
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+      expect(Math.abs(each[0] / 1000 - 0.5)).toBeLessThan(0.05);
+      expect(Math.abs(each[2] / 1000 - 0.5)).toBeLessThan(0.05);
+      expect(mirrorKnown).toBeGreaterThan(600);
+      expect(Math.abs(mirrorFlips / mirrorKnown - 0.5)).toBeLessThan(0.05);
+      expect(combos.size).toBe(8);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('puts the edge of every node and both edges of every edge of the diagram where the model puts them: just inside and just outside by 0.0004 of a tile, exactly, in all eight ways', () => {
+    const delta = 0.0004,
+      seen = new Set<string>();
+    let inside = 0,
+      outside = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('hassedivisors', seed),
+        { number, way, tones } = readSurface(sample),
+        m = model(number),
+        expectedTone = (label: string): number =>
+          label === 'ground'
+            ? tones.ground
+            : label === 'edge'
+              ? tones.line
+              : tones.low +
+                ((tones.high - tones.low) * Number(label.slice(5))) / m.top,
+        // A probe is checked where only the boundary that it is a probe of is near (a second boundary within the softened width would blend the tones).
+        boundariesNear = (x: number, y: number): number =>
+          m.nodes.filter(
+            (node) =>
+              Math.abs(Math.hypot(x - node.x, y - node.y) - p.nodeRadius) <
+              0.0009,
+          ).length +
+          m.edges.filter(
+            (edge) =>
+              Math.abs(distanceToSegment(x, y, edge) - p.edgeHalf) < 0.0009,
+          ).length,
+        check = (x: number, y: number): void => {
+          if (boundariesNear(x, y) !== 1) return;
+          const label = piece(m, x, y);
+          expect(toneAt(sample, x, y, way)).toBeCloseTo(expectedTone(label), 6);
+          if (label === 'ground') outside++;
+          else inside++;
+        };
+      seen.add(`${way.swap} ${way.flipX} ${way.flipY}`);
+      // The edge of each node, in eight directions, inside and outside.
+      for (const node of m.nodes)
+        for (let k = 0; k < 8; k++) {
+          const angle = (k * Math.PI) / 4 + 0.2;
+          for (const radius of [p.nodeRadius - delta, p.nodeRadius + delta])
+            check(
+              node.x + radius * Math.cos(angle),
+              node.y + radius * Math.sin(angle),
+            );
+        }
+      // Both edges of each edge, at three places along it, across it: just inside the edge and just outside.
+      for (const [low, high] of m.edges) {
+        const length = Math.hypot(high.x - low.x, high.y - low.y),
+          nx = -(high.y - low.y) / length,
+          ny = (high.x - low.x) / length;
+        for (const t of [0.35, 0.5, 0.65]) {
+          const cx = low.x + (high.x - low.x) * t,
+            cy = low.y + (high.y - low.y) * t;
+          for (const side of [-1, 1])
+            for (const offset of [p.edgeHalf - delta, p.edgeHalf + delta])
+              check(cx + side * offset * nx, cy + side * offset * ny);
+        }
+      }
+    }
+    expect(inside).toBeGreaterThan(3000);
+    expect(outside).toBeGreaterThan(3000);
+    expect(seen.size).toBe(8);
+  });
+
+  it('softens the edge of a node and of an edge over edgeSoft', () => {
+    const sample = createSurfaceSampler('hassedivisors', 2),
+      { number, way, tones } = readSurface(sample),
+      m = model(number),
+      quarter = 0.25 * p.edgeSoft,
+      tone = (x: number, y: number): number => toneAt(sample, x, y, way),
+      topNode = m.nodes[m.nodes.length - 1],
+      one = m.nodes[0],
+      two = m.nodes[1],
+      mx = (one.x + two.x) / 2,
+      my = (one.y + two.y) / 2,
+      length = Math.hypot(two.x - one.x, two.y - one.y),
+      nx = -(two.y - one.y) / length,
+      ny = (two.x - one.x) / length;
+    // The top node has nothing above it: its edge over the ground, straight up from its middle.
+    expect(piece(m, topNode.x, topNode.y + p.nodeRadius + 0.02)).toBe('ground');
+    close(
+      tone(topNode.x, topNode.y + p.nodeRadius - quarter),
+      blend(tones.ground, tones.high, 0.75),
+    );
+    close(
+      tone(topNode.x, topNode.y + p.nodeRadius + quarter),
+      blend(tones.ground, tones.high, 0.25),
+    );
+    // The edge between the nodes 1 and its first neighbour, at its middle (nothing else is near).
+    expect(piece(m, mx + 0.02 * nx, my + 0.02 * ny)).toBe('ground');
+    expect(piece(m, mx - 0.02 * nx, my - 0.02 * ny)).toBe('ground');
+    close(
+      tone(mx + (p.edgeHalf - quarter) * nx, my + (p.edgeHalf - quarter) * ny),
+      blend(tones.ground, tones.line, 0.75),
+    );
+    close(
+      tone(mx + (p.edgeHalf + quarter) * nx, my + (p.edgeHalf + quarter) * ny),
+      blend(tones.ground, tones.line, 0.25),
+    );
+    close(
+      tone(mx - (p.edgeHalf - quarter) * nx, my - (p.edgeHalf - quarter) * ny),
+      blend(tones.ground, tones.line, 0.75),
+    );
+    close(
+      tone(mx - (p.edgeHalf + quarter) * nx, my - (p.edgeHalf + quarter) * ny),
+      blend(tones.ground, tones.line, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('hassedivisors', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('hassedivisors', 0),
+      b = createSurfaceSampler('hassedivisors', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

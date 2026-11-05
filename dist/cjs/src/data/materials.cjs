@@ -28708,6 +28708,69 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		groundRoughness: .6
 	}),
+	hassedivisors: Object.freeze({
+		dark: [
+			24,
+			30,
+			52
+		],
+		light: [
+			240,
+			238,
+			226
+		],
+		roughness: .6,
+		relief: .004,
+		numbers: Object.freeze([
+			12,
+			24,
+			30,
+			36,
+			48,
+			60,
+			72,
+			120,
+			180,
+			210
+		]),
+		height: .7,
+		nodeSpacing: .13,
+		nodeRadius: .035,
+		edgeHalf: .005,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .9,
+				line: .35,
+				low: .55,
+				high: .15
+			}),
+			Object.freeze({
+				ground: .15,
+				line: .6,
+				low: .35,
+				high: .9
+			}),
+			Object.freeze({
+				ground: .7,
+				line: .1,
+				low: .9,
+				high: .3
+			}),
+			Object.freeze({
+				ground: .3,
+				line: .85,
+				low: .5,
+				high: .65
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		lineHeight: .35,
+		nodeHeight: .5,
+		groundRoughness: .72,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37389,6 +37452,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	hassedivisors: 1,
 	baudottape: 1,
 	isopapersizes: 1,
 	code128barcodes: 1,

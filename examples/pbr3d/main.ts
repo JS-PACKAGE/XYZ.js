@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'hassedivisors',
     'baudottape',
     'isopapersizes',
     'code128barcodes',
