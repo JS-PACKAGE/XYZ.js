@@ -265,19 +265,17 @@ export class BitmapFontLoader {
         (glyph.chnl !== undefined && glyph.chnl !== 15)
       )
         throw new AssetError('Channel-packed bitmap glyphs are unsupported.');
-      const result = Object.fromEntries(
-        [
-          'id',
-          'page',
-          'x',
-          'y',
-          'width',
-          'height',
-          'xoffset',
-          'yoffset',
-          'xadvance',
-        ].map((key) => [key, glyph[key]]),
-      ) as unknown as BitmapGlyph;
+      const result: BitmapGlyph = {
+        id: glyph.id as number,
+        page: glyph.page as number,
+        x: glyph.x as number,
+        y: glyph.y as number,
+        width: glyph.width as number,
+        height: glyph.height as number,
+        xoffset: glyph.xoffset as number,
+        yoffset: glyph.yoffset as number,
+        xadvance: glyph.xadvance as number,
+      };
       if (!Object.values(result).every(Number.isSafeInteger))
         throw new AssetError('AngelCode metrics must be integer values.');
       return result;
