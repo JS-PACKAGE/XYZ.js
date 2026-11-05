@@ -20,7 +20,8 @@ export declare class Raycaster {
     private readonly world;
     private readonly localOrigin;
     private readonly localDirection;
-    private readonly visited;
+    private visited;
+    private visit;
     private readonly bounds;
     setFromCamera(x: number, y: number, camera: Camera3D, aspect: number): this;
     /** Replaces out's contents; flat scene registration and recursive roots never duplicate a mesh. */

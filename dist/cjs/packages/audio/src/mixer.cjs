@@ -187,7 +187,7 @@ var AudioMixer = class {
 						if (t.target !== o) continue;
 						d = Math.max(d, t.release ?? require_audio.audioDefaults.duckRelease);
 						let i = !1;
-						for (let e of this.activities) if (e.enabled && e.channel === t.source && e.start <= n && e.end > n) {
+						for (let e of this.activities) if (e.end > n && e.start <= n && e.enabled && e.channel === t.source) {
 							i = !0;
 							break;
 						}

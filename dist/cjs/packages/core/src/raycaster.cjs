@@ -21,7 +21,8 @@ var Raycaster = class {
 	world = new require_math3d.Matrix4();
 	localOrigin = new require_math3d.Vector3();
 	localDirection = new require_math3d.Vector3();
-	visited = /* @__PURE__ */ new Set();
+	visited = /* @__PURE__ */ new WeakMap();
+	visit = 0;
 	bounds = {
 		x: 0,
 		y: 0,
@@ -39,11 +40,11 @@ var Raycaster = class {
 			for (let r of e) r instanceof require_object3d.Object3D && this.intersectObject(r, t, n);
 			return n.sort(nearestFirst), n;
 		} finally {
-			this.visited.clear();
+			++this.visit === 2 ** 53 - 1 && (this.visited = /* @__PURE__ */ new WeakMap(), this.visit = 0);
 		}
 	}
 	intersectObject(e, t, i) {
-		if (this.visited.has(e) || (this.visited.add(e), e.destroyed || !e.worldVisible)) return;
+		if (this.visited.get(e) === this.visit || (this.visited.set(e, this.visit), e.destroyed || !e.worldVisible)) return;
 		if (e instanceof require_mesh.Mesh) {
 			e.updateDeformation();
 			let t = e.updateWorldMatrix();
