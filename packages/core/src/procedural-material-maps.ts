@@ -57937,6 +57937,82 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'crctables': {
+        const p = proceduralMaterialPresets.crctables,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.polys.length,
+          group = Math.floor(unsigned / p.polys.length),
+          later = 1 + (group % 5),
+          n = 16,
+          reverse = (byte: number): number => {
+            let result = 0;
+            for (let bit = 0; bit < 8; bit++)
+              result |= ((byte >> bit) & 1) << (7 - bit);
+            return result;
+          },
+          // The two tables of a polynomial: the entry of the byte i is the byte shifted through 8 bits, the polynomial XORed in whenever a 1 leaves.
+          tablesOf = (poly: number): Uint8Array[] => {
+            const left = new Uint8Array(256),
+              right = new Uint8Array(256),
+              reversed = reverse(poly);
+            for (let i = 0; i < 256; i++) {
+              let a = i,
+                b = i;
+              for (let bit = 0; bit < 8; bit++) {
+                a = a & 0x80 ? ((a << 1) ^ poly) & 0xff : a << 1;
+                b = b & 1 ? (b >> 1) ^ reversed : b >> 1;
+              }
+              left[i] = a;
+              right[i] = b;
+            }
+            return [left, right];
+          },
+          rows = [variant, (variant + later) % p.polys.length].map((index) =>
+            tablesOf(p.polys[index]),
+          ),
+          total = 2 * n;
+        return () => {
+          const x = fract(u) * total,
+            y = fract(v) * total,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            column = Math.floor(i / n),
+            row = Math.floor(j / n),
+            px = i % n,
+            py = j % n,
+            value = rows[row][column][py * n + px],
+            // The gaps on the four sides of the cell: wider at the edge of a panel.
+            left = px === 0 ? p.gapPanel : p.gap,
+            right = px === n - 1 ? p.gapPanel : p.gap,
+            top = py === 0 ? p.gapPanel : p.gap,
+            bottom = py === n - 1 ? p.gapPanel : p.gap,
+            hx = (1 - left - right) / 2,
+            hy = (1 - top - bottom) / 2,
+            qx = Math.abs(x - i - (1 + left - right) / 2) - (hx - p.corner),
+            qy = Math.abs(y - j - (1 + top - bottom) / 2) - (hy - p.corner),
+            // The distance to the rounded rectangle of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            level = value / 255,
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -66922,6 +66998,7 @@ export function createSurfaceSampler(
     kind === 'huffmancodes' ||
     kind === 'friezegroups' ||
     kind === 'robinsonschensted' ||
+    kind === 'crctables' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

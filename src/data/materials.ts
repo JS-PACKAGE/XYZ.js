@@ -19970,6 +19970,30 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.7,
     gapOcclusion: 0.5,
   }),
+  crctables: Object.freeze({
+    dark: [4, 10, 24] as const,
+    light: [120, 200, 255] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x7c41,
+    // Two 8-bit CRC lookup tables of 256 entries each, one for each of two generator polynomials x^8 + poly, in two rows of two panels: on the left the table that shifts the bits to the left (the most significant first) and on the right the table that shifts them to the right (the least significant first, with the bit-reversed polynomial). The cell in the column c and the row r of a panel holds the entry for the byte 16 r + c, toned and raised by its value divided by 255. polys[variant] are the low 8 bits of the generator polynomials: 0x07, 0x31, 0x1d, 0x9b, 0xd5 and 0x2f. The seed is split in two: seed % 6 picks the polynomial of the top row and floor(seed / 6) the group, whose value mod 5 plus 1 is how many polynomials later the bottom row's is (1 to 5).
+    polys: [0x07, 0x31, 0x1d, 0x9b, 0xd5, 0x2f] as const,
+    // The gap on each side of a cell inside a panel and at the edge of a panel, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.06,
+    gapPanel: 0.3,
+    corner: 0.14,
+    edgeSoft: 0.07,
+    grainCells: 128,
+    toneGround: 0.03,
+    toneMin: 0.15,
+    toneMax: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of a cell is cellHeight times (heightBase + heightSwing times its value divided by 255).
+    heightBase: 0.2,
+    heightSwing: 0.8,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21816,6 +21840,7 @@ export const proceduralTileMeters = Object.freeze({
   huffmancodes: 0.5,
   friezegroups: 0.5,
   robinsonschensted: 0.5,
+  crctables: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

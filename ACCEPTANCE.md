@@ -14825,3 +14825,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：7項（色調範圍、排列與兩個標準楊表、對應與定理、逐點比對、不同類型與群組與決定性、C1與UV週期、maps），`-t "Robinson-Schensted as"`7項通過。
 - gates（工具實跑）：build、strict typecheck、對改動檔的eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、`check-distribution`皆通過，`-t "Robinson-Schensted as|robinsonschensted|kinds|catalog|distinct|periodic"`定向測試**2674項通過／4856項未選**，輸出`GATES-OK`。
 - 未驗證：friezegroups與robinsonschensted的完整suite（最近一次在`cb595626d`：11,474項全部通過）與瀏覽器gallery（最近一次到huffmancodes）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-06 新增材質：CRC查表（crctables）
+
+- 範圍：新增`crctables`（目前目錄1182→1183種，含plain的gallery 1184項）：深藍底上的天藍色圓角方塊，兩個8位元生成多項式（x⁸＋低8位元：0x07、0x31、0x1d、0x9b、0xd5、0x2f）的256項CRC查表，兩列各兩個面板：左邊往左移位（最高位元先）的表、右邊往右移位（最低位元先、位元反轉多項式）的表；16×16格，第r列第c欄放位元組16r＋c的表項，色調0.15到0.95與height（0.2加0.8倍）依值／255；seed % 6選上列多項式，⌊seed/6⌋ mod 5加1是下列多項式晚幾個；格間隙0.06格（面板邊上0.3格）、圓角0.14格、邊緣平滑0.07格；roughness 0.45、AO最低0.5、metallic 0；完全週期圖樣（C1）。表的建法、六個多項式與「XOR線性、是排列」憑記憶寫，沒對照它們的名稱或標準，測試實際驗證了性質。
+- 新增前的存在性檢查（`absent.sh`實跑，在寫程式之前）：crc、redundancy、checksum＝0／0（cyclic＝1／9是別的東西）。我讀了`xortable`、`nimproduct`、`walshmatrix`、`hadamardmatrix`條目的前段（各約200個字）：也是GF(2)上的8位元表，與這個概念上有重疊，但這裡是CRC的移位除法表與其左右版本，畫面不同。
+- 過程紀錄（誠實紀錄）：(1)第一版測試我寫成「T[0x80]＝多項式」，是**測試寫錯**（T[1]才是多項式），改正後通過；(2)第一版的XOR線性檢查每對一次`expect`，區塊7.9 s，改成數不相符的對數再一次`expect`後降到0.3 s；(3)逐點比對的比較點每個seed 4668個（9個seed取樣點相同），下限放4600；(4)變異檢查做了21次：20次被抓到、1次沒被抓到：往左移位時最高位元未設時的`& 0xff`換`& 0x1ff`（值小於0x80，左移不會超過8位元，等價，**已把那個多餘的遮罩從程式刪掉**）；(5)預覽我看了seed 0、1、2的拼貼，沒有放大；(6)這次commit只含原始碼與文件，build輸出的`dist/`在commit前丟掉。
+- 實測（工具實跑）：測試從畫面讀回（在每個格子正中央由height解出0到255的值）：60個seed的兩列：每一項等於i·x⁸除以x⁸＋多項式的餘式（16位元長除法另算）；右移表是左移表的索引與值位元反轉（R[rev(i)]＝rev(T[i])）；T[0]＝0、T[1]＝多項式；XOR線性T[a⊕b]＝T[a]⊕T[b]對所有a、b成立（每張表32,896對）；256個值互不相同；逐點比對：occlusion、height（12位）、色調（誤差在grain的一半以內）皆符合理想判斷式；seed 0與seed 1、6、12、24的亮格不同比例0.316650390625、0.164886474609375、0.1671295166015625、0.163909912109375。統計（256²，seed 0／1／0xffffffff，亮＝色調>0.5）：亮比例0.32593／0.32642／0.32632，最大色調0.9615／0.9609／0.9621，最小0.01589／0.01586／0.01567，平均0.40368／0.40355／0.40364，height最大0.8；512² seed 7的baseColor平均(49.94, 85.26, 115.49)、最大傾斜0.1035；maps測試的occlusion下限125（實測最小128）。C1掃描通過（沒有另外印出數值）。單執行緒512² maps生成三次：crctables 99、99、92 ms，同環境talbotcarpet 160、146、150 ms；瀏覽器Worker耗時沒有量測。
+- 測試：6項（色調範圍、CRC表性質、逐點比對、不同多項式與群組與決定性、C1與UV週期、maps），`-t "CRC tables as"`6項通過。
+- gates（工具實跑）：build、strict typecheck、對改動檔的eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、`check-distribution`皆通過，`-t "CRC tables as|crctables|kinds|catalog|distinct|periodic"`定向測試**2675項通過／4862項未選**，輸出`GATES-OK`。
+- 未驗證：friezegroups、robinsonschensted與crctables的完整suite（最近一次在`cb595626d`：11,474項全部通過）與瀏覽器gallery（最近一次到huffmancodes）、跨瀏覽器與跨GPU；不push。

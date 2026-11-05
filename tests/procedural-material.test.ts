@@ -1209,6 +1209,7 @@ const kinds: ProceduralMaterialKind[] = [
   'huffmancodes',
   'friezegroups',
   'robinsonschensted',
+  'crctables',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -217313,6 +217314,292 @@ describe('Robinson-Schensted as permutations and their pairs of tableaux', () =>
     expect(blue / (512 * 512)).toBeLessThan(36.9);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1071);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('CRC tables as the 8-bit lookup tables of two generator polynomials', () => {
+  const p = proceduralMaterialPresets.crctables;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = 16;
+  /** The low 8 bits of the six generator polynomials, written out again. */
+  const polys = [0x07, 0x31, 0x1d, 0x9b, 0xd5, 0x2f];
+  /** The two polynomials of a seed's rows. */
+  const polysOf = (seed: number): number[] => [
+    polys[seed % 6],
+    polys[(seed + 1 + (Math.floor(seed / 6) % 5)) % 6],
+  ];
+  /** The byte with its 8 bits in the opposite order. */
+  const reverse8 = (byte: number): number =>
+    parseInt(byte.toString(2).padStart(8, '0').split('').reverse().join(''), 2);
+  /** The remainder of i x^8 divided by x^8 + poly over GF(2), by long division on 16-bit numbers (not the sampler's byte-by-byte shifting). */
+  const remainder = (i: number, poly: number): number => {
+    let value = i << 8;
+    const divisor = 0x100 | poly;
+    for (let bit = 15; bit >= 8; bit--)
+      if ((value >> bit) & 1) value ^= divisor << (bit - 8);
+    return value;
+  };
+  /** The four tables of a seed read back from the picture at the middle of every cell (the height gives the value): [row][column] with the column 0 the table that shifts left and 1 the one that shifts right, each as table[16 r + c]. */
+  const readTables = (seed: number): number[][][] => {
+    const sample = createSurfaceSampler('crctables', seed),
+      out = empty();
+    return [0, 1].map((row) =>
+      [0, 1].map((column) =>
+        Array.from({ length: 256 }, (_, index) => {
+          sample(
+            (column * n + (index % n) + 0.5) / (2 * n),
+            (row * n + Math.floor(index / n) + 0.5) / (2 * n),
+            out,
+          );
+          const level =
+              (out.height / p.relief / p.cellHeight - p.heightBase) /
+              p.heightSwing,
+            value = Math.round(level * 255);
+          expect(Math.abs(level * 255 - value)).toBeLessThan(1e-9);
+          return value;
+        }),
+      ),
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('crctables', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.01589, high: 0.9615, lit: 0.32593, mean: 0.40368 }],
+      [1, { low: 0.01586, high: 0.9609, lit: 0.32642, mean: 0.40355 }],
+      [0xffffffff, { low: 0.01567, high: 0.9621, lit: 0.32632, mean: 0.40364 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('crctables', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('shows the CRC tables of the polynomials, read back from the picture: every entry is the remainder of i x^8 by long division, and the tables are linear over XOR, never repeat a value, and the shifting-right table is the shifting-left one with the bits of the index and of the value reversed', () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const tables = readTables(seed);
+      polysOf(seed).forEach((poly, row) => {
+        const [left, right] = tables[row];
+        for (let i = 0; i < 256; i++) {
+          expect(left[i]).toBe(remainder(i, poly));
+          // The shifting-right table: reverse the bits of the index and of the value.
+          expect(right[reverse8(i)]).toBe(reverse8(left[i]));
+        }
+        expect(left[0]).toBe(0);
+        // The entry of the byte 0x01 is x^8 reduced, which is the polynomial itself.
+        expect(left[0x01]).toBe(poly);
+        // Linear: the entry of a XOR b is the XOR of the entries; and a permutation of 0 to 255.
+        let unlinear = 0;
+        for (let a = 0; a < 256; a++)
+          for (let b = a; b < 256; b++)
+            unlinear += Number(left[a ^ b] !== (left[a] ^ left[b]));
+        expect(unlinear).toBe(0);
+        expect(new Set(left).size).toBe(256);
+        expect(new Set(right).size).toBe(256);
+      });
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const cells = 2 * n,
+        tables = readTables(seed),
+        sample = createSurfaceSampler('crctables', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * cells,
+          y = v * cells,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          // The gaps on the four sides of the cell: wider at the edge of a panel.
+          left = i % n === 0 ? p.gapPanel : p.gap,
+          right = i % n === n - 1 ? p.gapPanel : p.gap,
+          top = j % n === 0 ? p.gapPanel : p.gap,
+          bottom = j % n === n - 1 ? p.gapPanel : p.gap,
+          dx = Math.abs(x - i - (1 + left - right) / 2),
+          dy = Math.abs(y - j - (1 + top - bottom) / 2),
+          hx = (1 - left - right) / 2,
+          hy = (1 - top - bottom) / 2,
+          innerX = hx - p.corner,
+          innerY = hy - p.corner,
+          // The distance to the rounded rectangle, by the straight sides or by the corner circle.
+          distance =
+            dx <= innerX || dy <= innerY
+              ? Math.max(dx - hx, dy - hy)
+              : Math.hypot(dx - innerX, dy - innerY) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const value =
+            tables[Math.floor(j / n)][Math.floor(i / n)][(j % n) * n + (i % n)],
+          ink = distance < 0 ? 1 : 0,
+          level = value / 255,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per polynomial and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.316650390625, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.164886474609375, 8);
+    expect(unlike(first, litGrid(12))).toBeCloseTo(0.1671295166015625, 8);
+    expect(unlike(first, litGrid(24))).toBeCloseTo(0.163909912109375, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('crctables', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 sky CRC table maps on dark navy with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('crctables', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(49.9);
+    expect(red / (512 * 512)).toBeLessThan(50.0);
+    expect(green / (512 * 512)).toBeGreaterThan(85.2);
+    expect(green / (512 * 512)).toBeLessThan(85.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(115.4);
+    expect(blue / (512 * 512)).toBeLessThan(115.6);
+    expect(maxTilt).toBeGreaterThan(0.1034);
+    expect(maxTilt).toBeLessThan(0.1036);
     expect(invalid).toBe(0);
   });
 });

@@ -1183,6 +1183,7 @@ export type ProceduralMaterialKind =
   | 'huffmancodes'
   | 'friezegroups'
   | 'robinsonschensted'
+  | 'crctables'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2614,6 +2615,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'huffmancodes',
   'friezegroups',
   'robinsonschensted',
+  'crctables',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

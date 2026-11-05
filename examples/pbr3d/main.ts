@@ -1246,6 +1246,7 @@ try {
     'huffmancodes',
     'friezegroups',
     'robinsonschensted',
+    'crctables',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
