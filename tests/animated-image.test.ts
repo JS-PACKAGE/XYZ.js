@@ -86,6 +86,35 @@ describe('animated image simulation timing', () => {
     clock.play();
     expect(clock.ended).toBe(false);
   });
+  it('keeps sequential subtraction semantics across long fractional frame tables', () => {
+    const durations = Array.from(
+      { length: 256 },
+      (_, index) => ((index % 7) + 1) / 100,
+    );
+    const clock = new AnimatedImageTimeline(durations);
+    expect(Object.isFrozen(clock.durations)).toBe(true);
+    expect(clock.durations).toEqual(durations);
+    durations.fill(1);
+    let elapsed = 0;
+    for (let step = 0; step < 4000; step++) {
+      const delta = step % 31 === 0 ? clock.duration : 0.017;
+      const remainder = delta % clock.duration;
+      const untilWrap = clock.duration - elapsed;
+      elapsed =
+        remainder >= untilWrap ? remainder - untilWrap : elapsed + remainder;
+      let local = elapsed % clock.duration;
+      let frame = 0;
+      while (
+        frame < clock.durations.length - 1 &&
+        local >= clock.durations[frame]!
+      ) {
+        local -= clock.durations[frame]!;
+        frame++;
+      }
+      expect(clock.update(delta)).toBe(frame);
+    }
+  });
+
   it('reduces huge deltas without iterating loops and validates timing', () => {
     const clock = new AnimatedImageTimeline([0.125, 0.375]);
     expect(clock.update(Number.MAX_VALUE)).toBe(0);

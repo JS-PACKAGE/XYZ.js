@@ -60,6 +60,7 @@ export class AnimatedImageTimeline {
   readonly durations: readonly number[];
   readonly duration: number;
   readonly plays: number;
+  private readonly frameDurations: Float64Array;
   private elapsed = 0;
   private index = 0;
   private active = true;
@@ -82,6 +83,8 @@ export class AnimatedImageTimeline {
     )
       throw new RangeError('Animated image duration overflow.');
     this.plays = plays;
+    // Scan packed doubles while preserving the frozen public array and subtraction order.
+    this.frameDurations = Float64Array.from(this.durations);
   }
   get frame(): number {
     return this.index;
@@ -129,15 +132,14 @@ export class AnimatedImageTimeline {
       this.elapsed += deltaSeconds;
     }
     let local = this.elapsed % this.duration;
-    this.index = 0;
-    while (
-      this.index < this.durations.length - 1 &&
-      local >= this.durations[this.index]!
-    ) {
-      local -= this.durations[this.index]!;
-      this.index++;
+    const durations = this.frameDurations;
+    let index = 0;
+    while (index < durations.length - 1 && local >= durations[index]!) {
+      local -= durations[index]!;
+      index++;
     }
-    return this.index;
+    this.index = index;
+    return index;
   }
 }
 
