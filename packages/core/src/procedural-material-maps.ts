@@ -50393,6 +50393,10 @@ export function createSurfaceSampler(
           inverseSoft = 1 / p.edgeSoft,
           fluxReach = (p.alphaHalf * fluxHalf) / plot,
           energyEdge = (p.energyEdge * energyHalf) / plot,
+          potentials: Float64Array[][] = Array.from(
+            { length: largest + 1 },
+            () => [],
+          ),
           greatestCommonDivisor = (first: number, second: number): number => {
             while (second) [first, second] = [second, first % second];
             return first;
@@ -50413,6 +50417,15 @@ export function createSurfaceSampler(
               greatestCommonDivisor(numerator, q) !== 1
             )
               continue;
+            // The magnetic potential depends on the rational flux, not the energy.
+            let potential = potentials[q][numerator];
+            if (!potential) {
+              potential = new Float64Array(q + 1);
+              for (let n = 1; n <= q; n++)
+                potential[n] =
+                  2 * Math.cos((TAU * numerator * n) / q + Math.PI / (2 * q));
+              potentials[q][numerator] = potential;
+            }
             // The trace of the product of the q transfer matrices [[E - 2 cos(2 pi p n / q + ky), -1], [1, 0]] and its derivative in E, at ky = pi / (2q).
             let a = 1,
               b = 0,
@@ -50423,9 +50436,7 @@ export function createSurfaceSampler(
               dc = 0,
               dd = 0;
             for (let n = 1; n <= q; n++) {
-              const value =
-                energy -
-                2 * Math.cos((TAU * numerator * n) / q + Math.PI / (2 * q));
+              const value = energy - potential[n];
               [a, b, c, d, da, db, dc, dd] = [
                 value * a - c,
                 value * b - d,
