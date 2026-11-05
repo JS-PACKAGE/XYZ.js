@@ -135,10 +135,12 @@ export class TiledContent extends Group2D {
     if (asset.scope.destroyed)
       throw new TiledError('asset', 'resource owner has been released');
     try {
+      // Index source layers once; resolving every parent by scanning is quadratic.
+      const sourceLayers = new Map(
+        asset.data.layers.map((layer) => [layer.id, layer]),
+      );
       for (const [depth, layer] of asset.data.layers.entries()) {
-        const parentLayer = asset.data.layers.find(
-          (l) => l.id === layer.parentId,
-        );
+        const parentLayer = sourceLayers.get(layer.parentId!);
         const group = new TiledLayerGroup(
           layer,
           asset,
