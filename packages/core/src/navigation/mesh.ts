@@ -497,6 +497,15 @@ export class NavigationMesh3D {
       candidate = 0,
       check = 0;
     let successful = false;
+    let nextLink = 0;
+    const resetCandidate = (): void => {
+      if (nextLink <= anchor) {
+        nextLink = anchor + 1;
+        while (nextLink < raw.length && !raw[nextLink]!.link) nextLink++;
+      }
+      // A special link is a hard barrier; no farther shortcut can be valid.
+      candidate = nextLink - 1;
+    };
     const publish = (): NavigationMeshPath3D => {
       const path: NavigationMeshPath3D = Object.freeze({
         status: successful ? 'found' : 'unreachable',
@@ -643,7 +652,7 @@ export class NavigationMesh3D {
             waypointPolygons.push(corridor.length - 1);
             output.push(raw[0]!);
             anchor = 0;
-            candidate = raw.length - 1;
+            resetCandidate();
             check = waypointPolygons[0]!;
             phase = 'smooth';
           }
@@ -656,13 +665,13 @@ export class NavigationMesh3D {
           // Links are hard barriers to shortcutting and are retained with their handler contract.
           if (raw[anchor + 1]!.link) {
             output.push(raw[++anchor]!);
-            candidate = raw.length - 1;
+            resetCandidate();
             check = waypointPolygons[anchor]!;
             return undefined;
           }
           if (candidate <= anchor + 1) {
             output.push(raw[++anchor]!);
-            candidate = raw.length - 1;
+            resetCandidate();
             check = waypointPolygons[anchor]!;
             return undefined;
           }
@@ -750,7 +759,7 @@ export class NavigationMesh3D {
           } else if (++check > lastPolygon) {
             output.push(raw[candidate]!);
             anchor = candidate;
-            candidate = raw.length - 1;
+            resetCandidate();
             check = waypointPolygons[anchor]!;
           }
         } else return publish();
