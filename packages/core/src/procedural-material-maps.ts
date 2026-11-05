@@ -58401,6 +58401,94 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'busybeavers': {
+        const p = proceduralMaterialPresets.busybeavers,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          rotation = unsigned % 4,
+          group = Math.floor(unsigned / 4),
+          mirrored = group % 2 === 1,
+          offset = ((Math.floor(group / 2) * 5) % 9) - 4,
+          n = 32,
+          origin = 1024,
+          // The panel of a machine as the levels 0 to 3 of every cell, panel[row * n + column]: 0 a blank cell, 1 a cell holding a 1, 2 the head over a 0 and 3 the head over a 1.
+          panelOf = (index: number): Uint8Array => {
+            // The transitions as [symbol to write, direction, next state] for each state and symbol; the halting state is -1.
+            const table = p.machines[index].split('_').map((state) =>
+              [0, 1].map((symbol) => {
+                const word = state.slice(3 * symbol, 3 * symbol + 3);
+                return [
+                  Number(word[0]),
+                  (word[1] === 'R' ? 1 : -1) * (mirrored ? -1 : 1),
+                  word[2] === 'H' ? -1 : word.charCodeAt(2) - 65,
+                ];
+              }),
+            );
+            const stride = p.strides[index],
+              tape = new Uint8Array(2 * origin),
+              panel = new Uint8Array(n * n);
+            let head = origin,
+              state = 0;
+            for (let step = 0; step <= (n - 1) * stride; step++) {
+              if (step % stride === 0)
+                for (let column = 0; column < n; column++) {
+                  // The tape cell x in [-16, 16) with x = column - 16 - offset modulo 32.
+                  const x = ((((column - offset) % n) + n) % n) - n / 2,
+                    cell = origin + x;
+                  panel[(step / stride) * n + column] =
+                    tape[cell] + (cell === head ? 2 : 0);
+                }
+              if (state >= 0) {
+                const [write, direction, next] = table[state][tape[head]];
+                tape[head] = write;
+                head += direction;
+                state = next;
+              }
+            }
+            return panel;
+          },
+          panels = p.machines.map((_, index) => panelOf(index)),
+          total = 2 * n;
+        return () => {
+          const x = fract(u) * total,
+            y = fract(v) * total,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            column = Math.floor(i / n),
+            row = Math.floor(j / n),
+            px = i % n,
+            py = j % n,
+            level = panels[(2 * row + column + rotation) % 4][py * n + px] / 3,
+            // The gaps on the four sides of the cell: wider at the edge of a panel.
+            left = px === 0 ? p.gapPanel : p.gap,
+            right = px === n - 1 ? p.gapPanel : p.gap,
+            top = py === 0 ? p.gapPanel : p.gap,
+            bottom = py === n - 1 ? p.gapPanel : p.gap,
+            hx = (1 - left - right) / 2,
+            hy = (1 - top - bottom) / 2,
+            qx = Math.abs(x - i - (1 + left - right) / 2) - (hx - p.corner),
+            qy = Math.abs(y - j - (1 + top - bottom) / 2) - (hy - p.corner),
+            // The distance to the rounded rectangle of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -67391,6 +67479,7 @@ export function createSurfaceSampler(
     kind === 'selfreferentialsequences' ||
     kind === 'numbertriangles' ||
     kind === 'adjacencymatrices' ||
+    kind === 'busybeavers' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

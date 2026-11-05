@@ -1214,6 +1214,7 @@ const kinds: ProceduralMaterialKind[] = [
   'selfreferentialsequences',
   'numbertriangles',
   'adjacencymatrices',
+  'busybeavers',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -219000,6 +219001,382 @@ describe('Adjacency matrices as four graphs on 16 vertices', () => {
     expect(blue / (512 * 512)).toBeLessThan(93.2);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1072);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Busy beavers as space-time diagrams of the champion Turing machines', () => {
+  const p = proceduralMaterialPresets.busybeavers;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = 32;
+  /** The four machines as the transitions of each state (for the symbol 0, then 1), typed again here: symbol to write, move, next state. */
+  const machines = [
+    [
+      ['1RB', '1LB'],
+      ['1LA', '1RH'],
+    ],
+    [
+      ['1RB', '1RH'],
+      ['0RC', '1RB'],
+      ['1LC', '1LA'],
+    ],
+    [
+      ['1RB', '1LB'],
+      ['1LA', '0LC'],
+      ['1RH', '1LD'],
+      ['1RD', '0RA'],
+    ],
+    [
+      ['1RB', '1LC'],
+      ['1RC', '1RB'],
+      ['1RD', '0LE'],
+      ['1LA', '1LD'],
+      ['1RH', '0LA'],
+    ],
+  ];
+  const strides = [1, 1, 4, 1];
+  /** Runs a machine on a blank tape for at most `limit` steps (an independent simulator, with a tape of 40,000 cells around the origin 20,000): the tape after every step listed in `watch` (as the symbols, the head position and whether it has halted) and the totals at the end. */
+  const run = (index: number, limit: number, watch: Set<number>) => {
+    const tape = new Uint8Array(40000),
+      shots = new Map<number, { tape: Uint8Array; head: number }>(),
+      rules = machines[index];
+    let head = 20000,
+      state = 0,
+      steps = 0;
+    for (;;) {
+      if (watch.has(steps))
+        shots.set(steps, {
+          tape: tape.slice(19900, 20100),
+          head: head - 20000,
+        });
+      if (state < 0 || steps >= limit) {
+        shots.set(-1, { tape: tape.slice(19900, 20100), head: head - 20000 });
+        break;
+      }
+      const rule = rules[state][tape[head]];
+      tape[head] = Number(rule[0]);
+      head += rule[1] === 'R' ? 1 : -1;
+      state = rule[2] === 'H' ? -1 : rule[2].charCodeAt(0) - 65;
+      steps++;
+    }
+    return {
+      shots,
+      steps,
+      ones: tape.reduce((a, b) => a + b, 0),
+      halted: state < 0,
+    };
+  };
+  /** The four panels of a seed expected from the simulator: panels[machine][row][column] with the levels 0 to 3 (blank, one, head over 0, head over 1). */
+  const expectedPanels = (seed: number): number[][][] => {
+    const group = Math.floor(seed / 4),
+      mirrored = group % 2 === 1,
+      offset = ((Math.floor(group / 2) * 5) % 9) - 4;
+    return [0, 1, 2, 3].map((index) => {
+      const watch = new Set(
+          Array.from({ length: n }, (_, r) => r * strides[index]),
+        ),
+        { shots } = run(index, (n - 1) * strides[index], watch);
+      return Array.from({ length: n }, (_, row) => {
+        // After the machine has halted the picture stays the same, so the final tape serves for the later rows.
+        const shot = shots.get(row * strides[index]) ?? shots.get(-1)!;
+        return Array.from({ length: n }, (_, column) => {
+          const x = ((((column - offset) % n) + n) % n) - n / 2,
+            at = mirrored ? -x : x,
+            symbol = shot.tape[100 + at],
+            head = shot.head === at;
+          return symbol + (head ? 2 : 0);
+        });
+      });
+    });
+  };
+  /** The four panels read back from the picture at the middle of every cell: levels[panel][row][column] with the levels 0 to 3. */
+  const readPanels = (seed: number): number[][][] => {
+    const sample = createSurfaceSampler('busybeavers', seed),
+      out = empty();
+    return [0, 1, 2, 3].map((panel) =>
+      Array.from({ length: n }, (_, r) =>
+        Array.from({ length: n }, (_, c) => {
+          sample(
+            (n * (panel % 2) + c + 0.5) / (2 * n),
+            (n * Math.floor(panel / 2) + r + 0.5) / (2 * n),
+            out,
+          );
+          const level =
+              (out.height / p.relief / p.cellHeight - p.heightBase) /
+              p.heightSwing,
+            value = Math.round(level * 3);
+          expect(Math.abs(level * 3 - value)).toBeLessThan(1e-9);
+          return value;
+        }),
+      ),
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('busybeavers', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.01641, high: 0.9635, lit: 0.03076, mean: 0.20766 }],
+      [1, { low: 0.01692, high: 0.9633, lit: 0.03076, mean: 0.20777 }],
+      [2, { low: 0.01598, high: 0.9632, lit: 0.03076, mean: 0.20772 }],
+      [6, { low: 0.01561, high: 0.9634, lit: 0.03076, mean: 0.20765 }],
+      [0xffffffff, { low: 0.01665, high: 0.9639, lit: 0.03076, mean: 0.20758 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('busybeavers', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('knows the busy-beaver champions: the independent simulator halts BB-2, BB-3 and BB-4 after 6, 14 and 107 steps leaving 4, 6 and 13 ones, and the BB-5 champion after 47,176,870 steps leaving 4,098 ones', () => {
+    const results = [0, 1, 2, 3].map((index) => run(index, 5e7, new Set()));
+    expect(results.map((r) => [r.halted, r.steps, r.ones])).toEqual([
+      [true, 6, 4],
+      [true, 14, 6],
+      [true, 107, 13],
+      [true, 47176870, 4098],
+    ]);
+  });
+  it('draws the space-time diagrams read back from the picture: equal to the independent simulator for the 72 distinct seeds (rotation, mirroring, shift)', () => {
+    for (let seed = 0; seed < 72; seed++) {
+      const panels = readPanels(seed),
+        expected = expectedPanels(seed);
+      for (let panel = 0; panel < 4; panel++)
+        expect(panels[panel]).toEqual(expected[(panel + (seed % 4)) % 4]);
+    }
+  });
+  it('shows the rules on the picture alone: one head in every row, only the cell under the head changes while it moves by one cell, and the final rows hold the known numbers of ones', () => {
+    for (const seed of [0, 1, 2, 3, 4, 5, 8, 13, 22, 27, 40, 71]) {
+      const panels = readPanels(seed),
+        rotation = seed % 4;
+      panels.forEach((panel, position) => {
+        const index = (position + rotation) % 4,
+          heads = panel.map((row) =>
+            row.flatMap((v, c) => (v >= 2 ? [c] : [])),
+          ),
+          ones = (row: number[]) =>
+            row.filter((v) => v === 1 || v === 3).length;
+        for (const row of heads) expect(row.length).toBe(1);
+        if (strides[index] === 1)
+          for (let r = 0; r + 1 < n; r++) {
+            const [now] = heads[r],
+              [next] = heads[r + 1];
+            // Before halting the head moves by one cell (mod 32); after halting nothing changes.
+            if (now !== next)
+              expect([1, n - 1]).toContain((next - now + n) % n);
+            for (let c = 0; c < n; c++)
+              if (c !== now && c !== next)
+                expect(panel[r + 1][c] % 2).toBe(panel[r][c] % 2);
+          }
+        // The totals after halting: 4, 6 and 13 ones for BB-2, BB-3 and BB-4, and the rows from the halting row on are all the same.
+        const halting = [6, 14, 27][index];
+        if (halting)
+          for (let r = halting; r < n; r++)
+            expect(panel[r]).toEqual(panel[halting]);
+        const finalOnes = ones(panel[n - 1]);
+        if (index < 3) expect(finalOnes).toBe([4, 6, 13][index]);
+        expect(ones(panel[0])).toBe(0);
+      });
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const cells = 2 * n,
+        panels = readPanels(seed),
+        sample = createSurfaceSampler('busybeavers', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * cells,
+          y = v * cells,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          // The gaps on the four sides of the cell: wider at the edge of a panel.
+          left = i % n === 0 ? p.gapPanel : p.gap,
+          right = i % n === n - 1 ? p.gapPanel : p.gap,
+          top = j % n === 0 ? p.gapPanel : p.gap,
+          bottom = j % n === n - 1 ? p.gapPanel : p.gap,
+          dx = Math.abs(x - i - (1 + left - right) / 2),
+          dy = Math.abs(y - j - (1 + top - bottom) / 2),
+          hx = (1 - left - right) / 2,
+          hy = (1 - top - bottom) / 2,
+          innerX = hx - p.corner,
+          innerY = hy - p.corner,
+          // The distance to the rounded rectangle, by the straight sides or by the corner circle.
+          distance =
+            dx <= innerX || dy <= innerY
+              ? Math.max(dx - hx, dy - hy)
+              : Math.hypot(dx - innerX, dy - innerY) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const level =
+            panels[2 * Math.floor(j / n) + Math.floor(i / n)][j % n][i % n] / 3,
+          ink = distance < 0 ? 1 : 0,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4500);
+  });
+  it('draws a different view per rotation, mirroring and shift and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.05419921875, 8);
+    expect(unlike(first, litGrid(2))).toBeCloseTo(0.05322265625, 8);
+    expect(unlike(first, litGrid(4))).toBeCloseTo(0.0421142578125, 8);
+    expect(unlike(first, litGrid(8))).toBeCloseTo(0.0615234375, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('busybeavers', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 busy beaver maps on dark green with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('busybeavers', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(19.9);
+    expect(red / (512 * 512)).toBeLessThan(20.1);
+    expect(green / (512 * 512)).toBeGreaterThan(59.0);
+    expect(green / (512 * 512)).toBeLessThan(59.2);
+    expect(blue / (512 * 512)).toBeGreaterThan(38.2);
+    expect(blue / (512 * 512)).toBeLessThan(38.4);
+    expect(maxTilt).toBeGreaterThan(0.0846);
+    expect(maxTilt).toBeLessThan(0.0848);
     expect(invalid).toBe(0);
   });
 });

@@ -1251,6 +1251,7 @@ try {
     'selfreferentialsequences',
     'numbertriangles',
     'adjacencymatrices',
+    'busybeavers',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

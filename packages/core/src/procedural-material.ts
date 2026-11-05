@@ -1188,6 +1188,7 @@ export type ProceduralMaterialKind =
   | 'selfreferentialsequences'
   | 'numbertriangles'
   | 'adjacencymatrices'
+  | 'busybeavers'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2624,6 +2625,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'selfreferentialsequences',
   'numbertriangles',
   'adjacencymatrices',
+  'busybeavers',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
