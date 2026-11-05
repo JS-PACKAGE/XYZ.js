@@ -14703,3 +14703,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：6項（色調範圍、有效的解完棋盤、不同群組與決定性、逐點比對、C1與UV週期、maps），`-t "Minesweeper boards as"`6項通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Minesweeper boards as|minesweeperboards|kinds|catalog|distinct|periodic"`定向測試**2659項通過／4815項未選**，輸出`GATES-OK`。
 - 未驗證：diophantinegrid、beattysequences與minesweeperboards的完整suite（最近一次在`392010ee0`：11,397項裡11,396項通過、1項既有的washer rims C1測試逾時）、三者的瀏覽器gallery（最近一次到transformbasis）、跨瀏覽器與跨GPU；不push。
+- 第十五波（依目錄分區掃描 core a–z、math／ecs／assets／audio／input 與 graphics CPU 純函式；Node CPU time，interleaved min-of-N，輸出hash前後相同；不是FPS）：
+  - `2577e65db` Material2D uniforms 驗證改索引迴圈：40 萬次 24.98→7.46 ms（startup +14 B）。
+  - `4e7bd01af` RangeReader 直接建立成員索引，移除暫存 entry 陣列：4,000 成員 333.8→130.7 µs（fetch 用 stub 模擬 HTTP 206）。
+  - `5357e8582` Meshopt EXPONENTIAL 重用 256 個精確指數倍率：65,536 頂點 2.885→1.763 ms；1,200 組輸入 SHA-256 相同。
+  - 量過未保留：OrbitControls 重用距離計算（約 1.4%）、Tiled parser Map 改寫（7–9%）。camera lookAt、debug overlay、autosave、factories、Transition、SeededRandom、PhysicsForce、NativeTexture layout、InputContexts 量到的是線性成長，沒有不改運算順序就能消除的成本。
+  - 驗證：startup gzip 213,473 B（上限 214,168 B，餘量約 695 B）；`pnpm build`、四項 `check:*`、`tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 通過；各 commit 的 targeted tests 通過，**沒有重跑完整 Vitest**。至此 core、graphics CPU 純函式、assets、audio、input、math、ecs 的主要模組都至少量測過一次；各輪的預期收益已降到個位數百分比或雜訊內。
