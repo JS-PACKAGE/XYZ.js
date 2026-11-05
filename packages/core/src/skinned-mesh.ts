@@ -199,7 +199,23 @@ export class SkinnedMesh extends Mesh {
         const weight = this.weights[index];
         if (weight === 0) continue;
         const joint = this.matrices[this.jointIndices[index]].elements;
-        for (let k = 0; k < 16; k++) e[k] += weight * joint[k];
+        // Fixed palette width avoids a counted loop for every vertex influence.
+        e[0] += weight * joint[0];
+        e[1] += weight * joint[1];
+        e[2] += weight * joint[2];
+        e[3] += weight * joint[3];
+        e[4] += weight * joint[4];
+        e[5] += weight * joint[5];
+        e[6] += weight * joint[6];
+        e[7] += weight * joint[7];
+        e[8] += weight * joint[8];
+        e[9] += weight * joint[9];
+        e[10] += weight * joint[10];
+        e[11] += weight * joint[11];
+        e[12] += weight * joint[12];
+        e[13] += weight * joint[13];
+        e[14] += weight * joint[14];
+        e[15] += weight * joint[15];
       }
       const offset = i * 8,
         x = source[offset],
