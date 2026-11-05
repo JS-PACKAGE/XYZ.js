@@ -18692,6 +18692,74 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  sokobanlevels: Object.freeze({
+    dark: [38, 34, 30] as const,
+    light: [214, 204, 188] as const,
+    roughness: 0.65,
+    relief: 0.004,
+    // A Sokoban level as a tile of cells x cells squares, drawn from above as the Wikipedia article on Sokoban describes the game (read for this): walls and floor squares, a floor square empty, with the player or with a box, some floor
+    // squares storage locations, as many storage locations as boxes. The outer ring of the tile is wall (so the picture repeats as a wall between levels), the inside has walls of the chance wallChance for each place, the
+    // places that cannot be reached are walls too, and each cell holds a wall (a square of the half size wallHalf, a little smaller than the cell so that the walls show the cell grid), a storage location (a dot of the radius
+    // goalRadius), a box (a square of the half size boxHalf with a cross of the half width crossWidth reaching crossHalf from the middle, in the tone of a box on a storage location when it stands on one) or the player (a
+    // disc of the radius playerRadius, with a ring of the radius ringRadius and the half width ringHalf around it when the player stands on a storage location). The level is made so that it can be solved: the boxes are put on
+    // the storage locations (2 to 2 + boxChoices - 1 of them) and then pulls are made backwards from there, pulls times (a pull is a push played in reverse: the player stands next to a box and steps back, taking the box
+    // with it), which is my method and not from the article, and the player ends where the last pull left it. The seed picks the level and a surface (the seven tones of the ground, the walls, a storage location, a box, a
+    // box on a storage location, the player and the marks on the boxes and the ring, shifted together a little).
+    cells: 10,
+    wallChance: 0.12,
+    boxChoices: 2,
+    pulls: 40,
+    wallHalf: 0.048,
+    goalRadius: 0.018,
+    boxHalf: 0.04,
+    crossHalf: 0.032,
+    crossWidth: 0.004,
+    playerRadius: 0.03,
+    ringRadius: 0.042,
+    ringHalf: 0.0035,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({
+        ground: 0.86,
+        wall: 0.28,
+        goal: 0.64,
+        box: 0.5,
+        boxGoal: 0.72,
+        player: 0.15,
+        mark: 0.07,
+      }),
+      Object.freeze({
+        ground: 0.14,
+        wall: 0.55,
+        goal: 0.35,
+        box: 0.7,
+        boxGoal: 0.84,
+        player: 0.3,
+        mark: 0.9,
+      }),
+      Object.freeze({
+        ground: 0.55,
+        wall: 0.12,
+        goal: 0.8,
+        box: 0.33,
+        boxGoal: 0.66,
+        player: 0.9,
+        mark: 0.22,
+      }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    wallHeight: 0.6,
+    goalHeight: 0.2,
+    boxHeight: 0.45,
+    boxGoalHeight: 0.5,
+    playerHeight: 0.4,
+    markHeight: 0.5,
+    groundRoughness: 0.7,
+    wallRoughness: 0.8,
+    pieceRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25184,6 +25252,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  sokobanlevels: 1,
   ladderlogic: 1,
   pigpencipher: 1,
   uarttraces: 1,

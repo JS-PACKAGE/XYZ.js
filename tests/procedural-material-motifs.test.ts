@@ -82123,3 +82123,635 @@ describe('ladderlogic: a ladder diagram of rungs of normally open and normally c
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('sokobanlevels: a Sokoban level (walls, storage locations, boxes, the player) that can be solved, with a surface chosen by the seed', () => {
+  const p = proceduralMaterialPresets.sokobanlevels,
+    out = empty(),
+    n = p.cells;
+  const toneAt = (sample: Sampler, x: number, y: number): number => {
+    sample(x, y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // What a cell holds, as the Wikipedia article on Sokoban has it: floor, wall, storage location, box, box on a storage location, player, player on a storage location.
+  const [FLOOR, WALL, STORAGE, BOX, BOX_STORED, PLAYER, PLAYER_STORED] = [
+    0, 1, 2, 3, 4, 5, 6,
+  ];
+  type Tones = {
+    ground: number;
+    wall: number;
+    goal: number;
+    box: number;
+    boxGoal: number;
+    player: number;
+    mark: number;
+  };
+  type Level = {
+    kinds: number[];
+    surface: number;
+    shift: number;
+    tones: Tones;
+  };
+  const centre = (cell: number): [number, number] => [
+    ((cell % n) + 0.5) / n,
+    (Math.floor(cell / n) + 0.5) / n,
+  ];
+  // Decodes a cell from the picture with three probes (the middle, 0.025 to the right of it, and at the radius of the ring): floor has the ground at all three, a wall the wall tone at the first two, a storage location the dot tone in the middle only, a box the tone of the marks in the middle (where the cross is) and the tone of a box or of a box on a storage location beside it, the player the tone of the player at the first two and the ground (or the tone of the marks, for the ring) at the third.
+  const decodeCell = (
+    sample: Sampler,
+    cell: number,
+    tones: Tones,
+  ): number | null => {
+    const [cx, cy] = centre(cell),
+      at = (offset: number): number | null => {
+        const tone = toneAt(sample, cx + offset, cy);
+        for (const [name, value] of Object.entries(tones))
+          if (Math.abs(tone - value) < 1e-6)
+            return Object.keys(tones).indexOf(name);
+        return null;
+      },
+      [middle, side, ring] = [at(0), at(0.025), at(p.ringRadius)],
+      names = Object.keys(tones),
+      is = (index: number | null, name: keyof Tones): boolean =>
+        index !== null && names[index] === name;
+    if (middle === null || side === null || ring === null) return null;
+    if (is(middle, 'wall') && is(side, 'wall') && is(ring, 'wall')) return WALL;
+    if (is(middle, 'ground') && is(side, 'ground') && is(ring, 'ground'))
+      return FLOOR;
+    if (is(middle, 'goal') && is(side, 'ground') && is(ring, 'ground'))
+      return STORAGE;
+    if (is(middle, 'mark') && is(ring, 'ground')) {
+      if (is(side, 'box')) return BOX;
+      if (is(side, 'boxGoal')) return BOX_STORED;
+    }
+    if (is(middle, 'player') && is(side, 'player')) {
+      if (is(ring, 'ground')) return PLAYER;
+      if (is(ring, 'mark')) return PLAYER_STORED;
+    }
+    return null;
+  };
+  const readings = (sample: Sampler): Level[] => {
+    const options: Level[] = [],
+      ground = toneAt(sample, 0, 0);
+    p.surfaces.forEach((surface, index) => {
+      const shift = ground - surface.ground;
+      if (Math.abs(shift) > p.toneShift + 1e-9) return;
+      const tones = Object.fromEntries(
+          Object.entries(surface).map(([name, value]) => [name, value + shift]),
+        ) as Tones,
+        kinds: number[] = [];
+      for (let cell = 0; cell < n * n; cell++) {
+        const kind = decodeCell(sample, cell, tones);
+        if (kind === null) return;
+        kinds.push(kind);
+      }
+      options.push({ kinds, surface: index, shift, tones });
+    });
+    return options;
+  };
+  const readSurface = (sample: Sampler): Level => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  // The puzzle of a level: the walls, the storage locations, the boxes and the player.
+  type Puzzle = {
+    wall: boolean[];
+    storage: boolean[];
+    boxes: number[];
+    player: number;
+  };
+  const puzzleOf = (kinds: number[]): Puzzle => ({
+    wall: kinds.map((kind) => kind === WALL),
+    storage: kinds.map(
+      (kind) =>
+        kind === STORAGE || kind === BOX_STORED || kind === PLAYER_STORED,
+    ),
+    boxes: kinds.flatMap((kind, cell) =>
+      kind === BOX || kind === BOX_STORED ? [cell] : [],
+    ),
+    player: kinds.findIndex(
+      (kind) => kind === PLAYER || kind === PLAYER_STORED,
+    ),
+  });
+  const steps = [1, -1, n, -n];
+  // An independent solver (breadth first over the pushes): the fewest pushes that put all boxes on storage locations, or null when there are none. A state is the boxes and the cell of the region of the player with the smallest number; the player moves onto empty floor and pushes a box to the empty floor beyond it, never pulls.
+  const solve = (puzzle: Puzzle): number | null => {
+    const { wall, storage } = puzzle;
+    const region = (boxes: Set<number>, from: number): number[] => {
+      const seen = new Set<number>([from]),
+        queue = [from];
+      for (let head = 0; head < queue.length; head++)
+        for (const step of steps) {
+          const next = queue[head] + step;
+          if (!wall[next] && !seen.has(next) && !boxes.has(next)) {
+            seen.add(next);
+            queue.push(next);
+          }
+        }
+      return queue;
+    };
+    const key = (boxes: number[], low: number): number =>
+      boxes.reduce((total, cell) => total * 128 + cell, low);
+    const start = puzzle.boxes.slice().sort((a, b) => a - b),
+      first = region(new Set(start), puzzle.player),
+      visited = new Set<number>([key(start, Math.min(...first))]);
+    let layer: [number[], number][] = [[start, puzzle.player]];
+    for (let pushes = 0; layer.length > 0; pushes++) {
+      const next: [number[], number][] = [];
+      for (const [boxes, player] of layer) {
+        if (boxes.every((cell) => storage[cell])) return pushes;
+        const set = new Set(boxes),
+          reach = new Set(region(set, player));
+        for (const box of boxes)
+          for (const step of steps) {
+            const behind = box - step,
+              target = box + step;
+            if (!reach.has(behind) || wall[target] || set.has(target)) continue;
+            const moved = boxes
+                .map((cell) => (cell === box ? target : cell))
+                .sort((a, b) => a - b),
+              low = Math.min(...region(new Set(moved), box)),
+              id = key(moved, low);
+            if (visited.has(id)) continue;
+            visited.add(id);
+            next.push([moved, box]);
+          }
+      }
+      layer = next;
+    }
+    return null;
+  };
+
+  it('has the facts of a Sokoban level: a wall around the tile, one player, as many storage locations as boxes (2 to 4), all floor connected, and at least one box off its storage location', () => {
+    for (let seed = 0; seed < 300; seed++) {
+      const { kinds } = readSurface(
+          createSurfaceSampler('sokobanlevels', seed * 13 + 5),
+        ),
+        puzzle = puzzleOf(kinds);
+      for (let cell = 0; cell < n * n; cell++) {
+        const x = cell % n,
+          y = (cell - x) / n;
+        if (x === 0 || y === 0 || x === n - 1 || y === n - 1)
+          expect(kinds[cell]).toBe(WALL);
+      }
+      expect(
+        kinds.filter((kind) => kind === PLAYER || kind === PLAYER_STORED)
+          .length,
+      ).toBe(1);
+      expect(puzzle.boxes.length).toBeGreaterThanOrEqual(2);
+      expect(puzzle.boxes.length).toBeLessThanOrEqual(1 + p.boxChoices);
+      expect(puzzle.storage.filter(Boolean).length).toBe(puzzle.boxes.length);
+      expect(puzzle.boxes.some((cell) => !puzzle.storage[cell])).toBe(true);
+      // Every cell that is not a wall can be reached from the player over the cells that are not walls.
+      const seen = new Set<number>([puzzle.player]),
+        queue = [puzzle.player];
+      for (let head = 0; head < queue.length; head++)
+        for (const step of steps) {
+          const next = queue[head] + step;
+          if (!puzzle.wall[next] && !seen.has(next)) {
+            seen.add(next);
+            queue.push(next);
+          }
+        }
+      expect(seen.size).toBe(puzzle.wall.filter((wall) => !wall).length);
+    }
+  });
+
+  it(
+    'can be solved: an independent breadth-first solver finds the pushes for every level tried, and says no for the same level with a box in a dead corner',
+    { timeout: 120000 },
+    () => {
+      let solved = 0,
+        longest = 0,
+        total = 0;
+      for (let seed = 1; seed <= 24; seed++) {
+        const { kinds } = readSurface(
+            createSurfaceSampler('sokobanlevels', seed),
+          ),
+          puzzle = puzzleOf(kinds),
+          pushes = solve(puzzle);
+        expect(pushes).not.toBeNull();
+        expect(pushes as number).toBeGreaterThanOrEqual(1);
+        solved++;
+        longest = Math.max(longest, pushes as number);
+        total += pushes as number;
+        // A box in a corner of the walls that is not a storage location can never leave it, so no box count can be solved with it.
+        const dead = puzzle.wall.findIndex(
+          (wall, cell) =>
+            !wall &&
+            !puzzle.storage[cell] &&
+            !puzzle.boxes.includes(cell) &&
+            cell !== puzzle.player &&
+            (puzzle.wall[cell - 1] || puzzle.wall[cell + 1]) &&
+            (puzzle.wall[cell - n] || puzzle.wall[cell + n]),
+        );
+        if (dead >= 0) {
+          const stuck = { ...puzzle, boxes: [dead, ...puzzle.boxes.slice(1)] };
+          expect(solve(stuck)).toBeNull();
+        }
+      }
+      expect(solved).toBe(24);
+      // Not all the levels are one push from done.
+      expect(longest).toBeGreaterThan(5);
+      expect(total / 24).toBeGreaterThan(6);
+    },
+  );
+
+  // The model of the picture, written out again here: what is at a place (in tile units) in its cell, from the kind of the cell.
+  type Label = { fill: keyof Tones; mark: boolean };
+  const crossDistance = (lx: number, ly: number): number => {
+    const reach = p.crossHalf,
+      first = Math.max(-reach, Math.min(reach, (lx + ly) / 2)),
+      second = Math.max(-reach, Math.min(reach, (lx - ly) / 2));
+    return Math.min(
+      Math.hypot(lx - first, ly - first),
+      Math.hypot(lx - second, ly + second),
+    );
+  };
+  // The place relative to the middle of its cell and the kind of its cell.
+  const local = (level: Level, x: number, y: number) => {
+    const cx = Math.floor(x * n),
+      cy = Math.floor(y * n);
+    return {
+      kind: level.kinds[cy * n + cx],
+      lx: x - (cx + 0.5) / n,
+      ly: y - (cy + 0.5) / n,
+    };
+  };
+  const labelAt = (level: Level, x: number, y: number): Label => {
+    const { kind, lx, ly } = local(level, x, y),
+      radius = Math.hypot(lx, ly),
+      square = Math.max(Math.abs(lx), Math.abs(ly));
+    if (kind === WALL && square <= p.wallHalf)
+      return { fill: 'wall', mark: false };
+    if (kind === STORAGE && radius <= p.goalRadius)
+      return { fill: 'goal', mark: false };
+    if ((kind === BOX || kind === BOX_STORED) && square <= p.boxHalf)
+      return {
+        fill: kind === BOX ? 'box' : 'boxGoal',
+        mark: crossDistance(lx, ly) <= p.crossWidth,
+      };
+    if ((kind === PLAYER || kind === PLAYER_STORED) && radius <= p.playerRadius)
+      return { fill: 'player', mark: false };
+    if (kind === PLAYER_STORED && Math.abs(radius - p.ringRadius) <= p.ringHalf)
+      return { fill: 'ground', mark: true };
+    return { fill: 'ground', mark: false };
+  };
+  // How far a place is from the nearest edge of what is drawn in its cell.
+  const edgeDistance = (level: Level, x: number, y: number): number => {
+    const { kind, lx, ly } = local(level, x, y),
+      radius = Math.hypot(lx, ly),
+      square = Math.max(Math.abs(lx), Math.abs(ly));
+    if (kind === WALL) return Math.abs(square - p.wallHalf);
+    if (kind === STORAGE) return Math.abs(radius - p.goalRadius);
+    if (kind === BOX || kind === BOX_STORED)
+      return Math.min(
+        Math.abs(square - p.boxHalf),
+        Math.abs(crossDistance(lx, ly) - p.crossWidth),
+      );
+    if (kind === PLAYER || kind === PLAYER_STORED)
+      return Math.min(
+        Math.abs(radius - p.playerRadius),
+        kind === PLAYER_STORED
+          ? Math.abs(Math.abs(radius - p.ringRadius) - p.ringHalf)
+          : Infinity,
+      );
+    return Infinity;
+  };
+  const toneOf = (level: Level, label: Label): number =>
+      label.mark ? level.tones.mark : level.tones[label.fill],
+    heightOf = (label: Label): number =>
+      label.mark
+        ? p.markHeight
+        : {
+            ground: p.groundHeight,
+            wall: p.wallHeight,
+            goal: p.goalHeight,
+            box: p.boxHeight,
+            boxGoal: p.boxGoalHeight,
+            player: p.playerHeight,
+            mark: p.markHeight,
+          }[label.fill],
+    roughnessOf = (label: Label): number =>
+      label.mark
+        ? p.pieceRoughness
+        : label.fill === 'ground'
+          ? p.groundRoughness
+          : label.fill === 'wall'
+            ? p.wallRoughness
+            : p.pieceRoughness;
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model at every place of the picture away from the edges, for several seeds',
+    { timeout: 120000 },
+    () => {
+      const o = empty();
+      for (const seed of [1, 2, 3, 4, 5, 6]) {
+        const sample = createSurfaceSampler('sokobanlevels', seed),
+          level = readSurface(sample);
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (edgeDistance(level, x, y) < 0.0008) continue;
+            sample(x, y, o);
+            const label = labelAt(level, x, y);
+            expect(o.color).toBeCloseTo(toneOf(level, label), 6);
+            expect(o.height / p.relief).toBeCloseTo(heightOf(label), 6);
+            expect(o.roughness).toBeCloseTo(roughnessOf(label), 6);
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(150000);
+      }
+    },
+  );
+
+  it('puts the edges of the walls, the dots, the boxes, their crosses, the players and the rings where the model puts them: just inside and just outside by 0.0004 of a tile, exactly', () => {
+    const delta = 0.0004,
+      counts = new Map<string, number>();
+    for (let seed = 1; seed <= 60; seed++) {
+      const sample = createSurfaceSampler('sokobanlevels', seed),
+        level = readSurface(sample);
+      level.kinds.forEach((kind, cell) => {
+        const [cx, cy] = centre(cell),
+          check = (what: string, dx: number, dy: number): void => {
+            const x = cx + dx,
+              y = cy + dy;
+            if (edgeDistance(level, x, y) < 0.0003) return;
+            close(toneAt(sample, x, y), toneOf(level, labelAt(level, x, y)));
+            counts.set(what, (counts.get(what) ?? 0) + 1);
+          },
+          both = (
+            what: string,
+            radius: number,
+            along: (r: number) => [number, number],
+          ): void => {
+            for (const r of [radius - delta, radius + delta]) {
+              const [dx, dy] = along(r);
+              check(what, dx, dy);
+              check(what, -dx, -dy);
+            }
+          };
+        if (kind === WALL) {
+          both('wall', p.wallHalf, (r) => [r, 0.013]);
+          both('wall', p.wallHalf, (r) => [0.013, r]);
+        } else if (kind === STORAGE) {
+          both('dot', p.goalRadius, (r) => [r, 0]);
+          both('dot', p.goalRadius, (r) => [0, r]);
+        } else if (kind === BOX || kind === BOX_STORED) {
+          both('box', p.boxHalf, (r) => [r, 0.0123]);
+          both('box', p.boxHalf, (r) => [0.0123, r]);
+          // The sides of a diagonal of the cross at its middle, and beyond its end.
+          for (const r of [p.crossWidth - delta, p.crossWidth + delta]) {
+            const m = p.crossHalf / 2,
+              k = r * Math.SQRT1_2,
+              end = p.crossHalf + k;
+            check('cross', m + k, m - k);
+            check('cross', m - k, m + k);
+            check('cross', -m - k, m + k);
+            check('cross', end, end);
+            check('cross', -end, end);
+          }
+        } else if (kind === PLAYER || kind === PLAYER_STORED) {
+          both('player', p.playerRadius, (r) => [r, 0]);
+          both('player', p.playerRadius, (r) => [0, r]);
+          if (kind === PLAYER_STORED)
+            for (const r of [
+              p.ringRadius - p.ringHalf - delta,
+              p.ringRadius - p.ringHalf + delta,
+              p.ringRadius + p.ringHalf - delta,
+              p.ringRadius + p.ringHalf + delta,
+            ])
+              check('ring', r, 0);
+        }
+      });
+    }
+    for (const what of ['wall', 'dot', 'box', 'cross', 'player', 'ring'])
+      expect(counts.get(what) ?? 0).toBeGreaterThan(8);
+  });
+
+  it('softens the edge of a wall, a dot, a box, a cross, a player and a ring over edgeSoft', () => {
+    const quarter = 0.25 * p.edgeSoft,
+      found = new Set<string>();
+    for (let seed = 1; seed < 40 && found.size < 6; seed++) {
+      const sample = createSurfaceSampler('sokobanlevels', seed),
+        level = readSurface(sample),
+        { tones } = level;
+      level.kinds.forEach((kind, cell) => {
+        const [cx, cy] = centre(cell),
+          tone = (dx: number, dy: number): number =>
+            toneAt(sample, cx + dx, cy + dy),
+          pair = (
+            what: string,
+            from: number,
+            to: number,
+            radius: number,
+            at: (r: number) => [number, number],
+          ): void => {
+            if (found.has(what)) return;
+            const [ix, iy] = at(radius - quarter),
+              [ox, oy] = at(radius + quarter);
+            close(tone(ix, iy), blend(from, to, 0.75));
+            close(tone(ox, oy), blend(from, to, 0.25));
+            found.add(what);
+          };
+        if (kind === WALL)
+          pair('wall', tones.ground, tones.wall, p.wallHalf, (r) => [r, 0.013]);
+        if (kind === STORAGE)
+          pair('dot', tones.ground, tones.goal, p.goalRadius, (r) => [r, 0]);
+        if (kind === BOX)
+          pair('box', tones.ground, tones.box, p.boxHalf, (r) => [r, 0.0123]);
+        if (kind === BOX_STORED)
+          pair('box', tones.ground, tones.boxGoal, p.boxHalf, (r) => [
+            r,
+            0.0123,
+          ]);
+        if (kind === BOX || kind === BOX_STORED) {
+          const m = p.crossHalf / 2,
+            fill = kind === BOX ? tones.box : tones.boxGoal;
+          pair('cross', fill, tones.mark, p.crossWidth, (r) => [
+            m + r * Math.SQRT1_2,
+            m - r * Math.SQRT1_2,
+          ]);
+        }
+        if (kind === PLAYER || kind === PLAYER_STORED)
+          pair('player', tones.ground, tones.player, p.playerRadius, (r) => [
+            r,
+            0,
+          ]);
+        if (kind === PLAYER_STORED)
+          pair('ring', tones.ground, tones.mark, p.ringHalf, (r) => [
+            p.ringRadius + r,
+            0,
+          ]);
+      });
+    }
+    expect(found.size).toBe(6);
+  });
+
+  it('gives the floor, the walls, the dots, the boxes, the crosses, the players and the rings their heights and roughnesses', () => {
+    const seen = new Set<string>();
+    for (let seed = 1; seed <= 60; seed++) {
+      const sample = createSurfaceSampler('sokobanlevels', seed),
+        level = readSurface(sample);
+      level.kinds.forEach((kind, cell) => {
+        const [cx, cy] = centre(cell),
+          read = (
+            what: string,
+            dx: number,
+            dy: number,
+            height: number,
+            roughness: number,
+          ): void => {
+            sample(cx + dx, cy + dy, out);
+            expect(out.height / p.relief).toBeCloseTo(height, 6);
+            expect(out.roughness).toBeCloseTo(roughness, 6);
+            expect(out.occlusion).toBe(1);
+            seen.add(what);
+          };
+        if (kind === FLOOR)
+          read('floor', 0, 0, p.groundHeight, p.groundRoughness);
+        if (kind === WALL) read('wall', 0, 0, p.wallHeight, p.wallRoughness);
+        if (kind === STORAGE) read('dot', 0, 0, p.goalHeight, p.pieceRoughness);
+        if (kind === BOX) read('box', 0.025, 0, p.boxHeight, p.pieceRoughness);
+        if (kind === BOX_STORED)
+          read('stored box', 0.025, 0, p.boxGoalHeight, p.pieceRoughness);
+        if (kind === BOX || kind === BOX_STORED)
+          read('cross', 0, 0, p.markHeight, p.pieceRoughness);
+        if (kind === PLAYER || kind === PLAYER_STORED)
+          read('player', 0.01, 0, p.playerHeight, p.pieceRoughness);
+        if (kind === PLAYER_STORED)
+          read('ring', p.ringRadius, 0, p.markHeight, p.pieceRoughness);
+      });
+    }
+    expect([...seen].sort()).toEqual(
+      [
+        'box',
+        'cross',
+        'dot',
+        'floor',
+        'player',
+        'ring',
+        'stored box',
+        'wall',
+      ].sort(),
+    );
+  });
+
+  it(
+    'uses 2 and 3 boxes about equally often, every surface, a player on a storage location now and then, and different levels, over 1000 seeds, with the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const boxCounts = new Map<number, number>(),
+        surfaces = new Map<number, number>(),
+        levels = new Set<string>(),
+        shifts: number[] = [];
+      const floorSeen = new Array<number>(n * n).fill(0);
+      let stored = 0,
+        walls = 0,
+        done = 0,
+        partly = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const level = readSurface(
+            createSurfaceSampler('sokobanlevels', seed * 7 + 1),
+          ),
+          puzzle = puzzleOf(level.kinds);
+        shifts.push(level.shift);
+        surfaces.set(level.surface, (surfaces.get(level.surface) ?? 0) + 1);
+        boxCounts.set(
+          puzzle.boxes.length,
+          (boxCounts.get(puzzle.boxes.length) ?? 0) + 1,
+        );
+        levels.add(level.kinds.join(''));
+        stored += Number(level.kinds.includes(PLAYER_STORED));
+        done += Number(puzzle.boxes.every((cell) => puzzle.storage[cell]));
+        partly += Number(puzzle.boxes.some((cell) => puzzle.storage[cell]));
+        puzzle.wall.forEach((wall, cell) => (floorSeen[cell] += Number(!wall)));
+        walls += puzzle.wall.filter(Boolean).length;
+      }
+      expect([...boxCounts.keys()].sort()).toEqual([2, 3]);
+      for (const count of boxCounts.values())
+        expect(Math.abs(count - 500)).toBeLessThan(60);
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(60);
+      expect(levels.size).toBeGreaterThan(995);
+      expect(stored).toBeGreaterThan(20);
+      // No level is solved to begin with, and some have a box on a storage location already (as the boxes the pulls leave there).
+      expect(done).toBe(0);
+      expect(partly).toBeGreaterThan(40);
+      // The inside of the tile is floor most of the time (the chance of a wall is 0.12, and unreachable floor is a wall), the ring around it never.
+      floorSeen.forEach((count, cell) => {
+        const x = cell % n,
+          y = (cell - x) / n;
+        if (x === 0 || y === 0 || x === n - 1 || y === n - 1)
+          expect(count).toBe(0);
+        else {
+          expect(count).toBeGreaterThan(700);
+          expect(count).toBeLessThan(950);
+        }
+      });
+      // The share of walls (the ring of 36 cells and the chance wallChance inside, and the unreachable floor): between 0.4 and 0.6.
+      expect(walls / 1000 / (n * n)).toBeGreaterThan(0.4);
+      expect(walls / 1000 / (n * n)).toBeLessThan(0.6);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('sokobanlevels', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('sokobanlevels', 0),
+      b = createSurfaceSampler('sokobanlevels', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

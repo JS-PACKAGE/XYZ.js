@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'sokobanlevels',
   'ladderlogic',
   'pigpencipher',
   'uarttraces',
@@ -52400,6 +52401,205 @@ export function createSurfaceSampler(
           roughness = clamp(
             p.groundRoughness + (p.inkRoughness - p.groundRoughness) * ink,
           );
+          occlusion = 1;
+        };
+      }
+      case 'sokobanlevels': {
+        const p = proceduralMaterialPresets.sokobanlevels,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(135, 1, seed ^ 0x2f0001) * p.surfaces.length)
+            ],
+          shift = (hash(135, 2, seed ^ 0x2f0002) * 2 - 1) * p.toneShift,
+          n = p.cells,
+          count = n * n,
+          steps = [1, -1, n, -n],
+          wall = new Uint8Array(count),
+          goal = new Uint8Array(count),
+          // What each cell holds: 0 floor, 1 wall, 2 storage location, 3 box, 4 box on a storage location, 5 player, 6 player on a storage location.
+          kinds = new Uint8Array(count),
+          random = (a: number, b: number): number =>
+            hash(a, b, seed ^ 0x2f0003);
+        for (let i = 0; i < count; i++) {
+          const x = i % n,
+            y = (i - x) / n;
+          wall[i] =
+            x === 0 ||
+            y === 0 ||
+            x === n - 1 ||
+            y === n - 1 ||
+            random(i, 0) < p.wallChance
+              ? 1
+              : 0;
+        }
+        // Only the largest connected part of the floor stays floor: the rest becomes wall.
+        const part = new Uint8Array(count);
+        let best = 0,
+          bestSize = 0,
+          parts = 0;
+        for (let i = 0; i < count; i++) {
+          if (wall[i] || part[i]) continue;
+          const stack = [i];
+          let size = 0;
+          part[i] = ++parts;
+          while (stack.length > 0) {
+            const at = stack.pop() as number;
+            size++;
+            for (const step of steps)
+              if (!wall[at + step] && !part[at + step]) {
+                part[at + step] = parts;
+                stack.push(at + step);
+              }
+          }
+          if (size > bestSize) {
+            best = parts;
+            bestSize = size;
+          }
+        }
+        for (let i = 0; i < count; i++) if (part[i] !== best) wall[i] = 1;
+        const floor: number[] = [];
+        for (let i = 0; i < count; i++) if (!wall[i]) floor.push(i);
+        // The storage locations (at least 2 and at most a sixth of the floor), the boxes on them and the player on another floor cell, then the pulls: each takes a box one cell towards the player, who steps back from the cell next to the box that he could reach. A try that leaves every box on a storage location (the boxes could not be pulled far) is made again with other storage locations, up to 16 times.
+        const generate = (
+          attempt: number,
+        ): { boxes: number[]; player: number } => {
+          const boxCount = Math.min(
+              2 +
+                Math.min(
+                  p.boxChoices - 1,
+                  Math.floor(random(0, 1) * p.boxChoices),
+                ),
+              Math.floor(floor.length / 6),
+            ),
+            shuffled = floor
+              .slice()
+              .sort(
+                (a, b) =>
+                  random(a, 1000 * attempt + 2) - random(b, 1000 * attempt + 2),
+              ),
+            goals = shuffled.slice(0, boxCount),
+            boxes = goals.slice();
+          let player = shuffled[boxCount];
+          goal.fill(0);
+          for (const at of goals) goal[at] = 1;
+          for (let pull = 0; pull < p.pulls; pull++) {
+            const region = new Uint8Array(count),
+              queue = [player],
+              options: number[][] = [];
+            region[player] = 1;
+            for (let head = 0; head < queue.length; head++)
+              for (const step of steps) {
+                const at = queue[head] + step;
+                if (!wall[at] && !region[at] && !boxes.includes(at)) {
+                  region[at] = 1;
+                  queue.push(at);
+                }
+              }
+            boxes.forEach((box, index) => {
+              for (const step of steps)
+                if (
+                  region[box - step] &&
+                  !wall[box - 2 * step] &&
+                  !boxes.includes(box - 2 * step)
+                )
+                  options.push([index, step]);
+            });
+            if (options.length === 0) break;
+            const [index, step] =
+              options[
+                Math.min(
+                  options.length - 1,
+                  Math.floor(random(pull, 1000 * attempt + 3) * options.length),
+                )
+              ];
+            player = boxes[index] - 2 * step;
+            boxes[index] -= step;
+          }
+          return { boxes, player };
+        };
+        let made = generate(0);
+        for (
+          let attempt = 1;
+          attempt < 16 && made.boxes.every((at) => goal[at] === 1);
+          attempt++
+        )
+          made = generate(attempt);
+        const { boxes, player } = made;
+        for (let i = 0; i < count; i++)
+          kinds[i] = wall[i] ? 1 : goal[i] ? 2 : 0;
+        for (const at of boxes) kinds[at] = goal[at] ? 4 : 3;
+        kinds[player] = goal[player] ? 6 : 5;
+        const fills = [
+            surface.ground,
+            surface.wall,
+            surface.goal,
+            surface.box,
+            surface.boxGoal,
+            surface.player,
+            surface.player,
+          ],
+          fillHeights = [
+            p.groundHeight,
+            p.wallHeight,
+            p.goalHeight,
+            p.boxHeight,
+            p.boxGoalHeight,
+            p.playerHeight,
+            p.playerHeight,
+          ];
+        return () => {
+          const x = (u - Math.floor(u)) * n,
+            y = (v - Math.floor(v)) * n,
+            cx = Math.floor(x),
+            cy = Math.floor(y),
+            lx = (x - cx - 0.5) / n,
+            ly = (y - cy - 0.5) / n,
+            kind = kinds[cy * n + cx],
+            radius = Math.hypot(lx, ly),
+            square = Math.max(Math.abs(lx), Math.abs(ly));
+          let fill = 0,
+            mark = 0;
+          if (kind === 1) fill = cover(p.wallHalf - square);
+          else if (kind === 2) fill = cover(p.goalRadius - radius);
+          else if (kind === 3 || kind === 4) {
+            fill = cover(p.boxHalf - square);
+            // The cross: the distance to the nearer of its two diagonals, which end crossHalf from the middle on each axis.
+            const first = Math.max(
+                -p.crossHalf,
+                Math.min(p.crossHalf, (lx + ly) / 2),
+              ),
+              second = Math.max(
+                -p.crossHalf,
+                Math.min(p.crossHalf, (lx - ly) / 2),
+              );
+            mark = cover(
+              p.crossWidth -
+                Math.min(
+                  Math.hypot(lx - first, ly - first),
+                  Math.hypot(lx - second, ly + second),
+                ),
+            );
+          } else if (kind >= 5) {
+            fill = cover(p.playerRadius - radius);
+            if (kind === 6)
+              mark = cover(p.ringHalf - Math.abs(radius - p.ringRadius));
+          }
+          const ground = surface.ground + shift,
+            tone = fills[kind] + shift,
+            base = ground + (tone - ground) * fill;
+          color = clamp(base + (surface.mark + shift - base) * mark);
+          const level =
+            p.groundHeight + (fillHeights[kind] - p.groundHeight) * fill;
+          height = clamp(level + (p.markHeight - level) * mark);
+          const rough =
+            p.groundRoughness +
+            ((kind === 1 ? p.wallRoughness : p.pieceRoughness) -
+              p.groundRoughness) *
+              fill;
+          roughness = clamp(rough + (p.pieceRoughness - rough) * mark);
           occlusion = 1;
         };
       }

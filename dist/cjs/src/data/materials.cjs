@@ -28973,6 +28973,73 @@ var proceduralMaterialPresets = Object.freeze({
 		groundRoughness: .7,
 		inkRoughness: .4
 	}),
+	sokobanlevels: Object.freeze({
+		dark: [
+			38,
+			34,
+			30
+		],
+		light: [
+			214,
+			204,
+			188
+		],
+		roughness: .65,
+		relief: .004,
+		cells: 10,
+		wallChance: .12,
+		boxChoices: 2,
+		pulls: 40,
+		wallHalf: .048,
+		goalRadius: .018,
+		boxHalf: .04,
+		crossHalf: .032,
+		crossWidth: .004,
+		playerRadius: .03,
+		ringRadius: .042,
+		ringHalf: .0035,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .86,
+				wall: .28,
+				goal: .64,
+				box: .5,
+				boxGoal: .72,
+				player: .15,
+				mark: .07
+			}),
+			Object.freeze({
+				ground: .14,
+				wall: .55,
+				goal: .35,
+				box: .7,
+				boxGoal: .84,
+				player: .3,
+				mark: .9
+			}),
+			Object.freeze({
+				ground: .55,
+				wall: .12,
+				goal: .8,
+				box: .33,
+				boxGoal: .66,
+				player: .9,
+				mark: .22
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		wallHeight: .6,
+		goalHeight: .2,
+		boxHeight: .45,
+		boxGoalHeight: .5,
+		playerHeight: .4,
+		markHeight: .5,
+		groundRoughness: .7,
+		wallRoughness: .8,
+		pieceRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37654,6 +37721,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	sokobanlevels: 1,
 	ladderlogic: 1,
 	pigpencipher: 1,
 	uarttraces: 1,

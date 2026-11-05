@@ -17058,6 +17058,61 @@ export declare const proceduralMaterialPresets: Readonly<{
         groundRoughness: 0.7;
         inkRoughness: 0.4;
     }>;
+    sokobanlevels: Readonly<{
+        dark: readonly [38, 34, 30];
+        light: readonly [214, 204, 188];
+        roughness: 0.65;
+        relief: 0.004;
+        cells: 10;
+        wallChance: 0.12;
+        boxChoices: 2;
+        pulls: 40;
+        wallHalf: 0.048;
+        goalRadius: 0.018;
+        boxHalf: 0.04;
+        crossHalf: 0.032;
+        crossWidth: 0.004;
+        playerRadius: 0.03;
+        ringRadius: 0.042;
+        ringHalf: 0.0035;
+        edgeSoft: 0.0006;
+        surfaces: readonly (Readonly<{
+            ground: 0.86;
+            wall: 0.28;
+            goal: 0.64;
+            box: 0.5;
+            boxGoal: 0.72;
+            player: 0.15;
+            mark: 0.07;
+        }> | Readonly<{
+            ground: 0.14;
+            wall: 0.55;
+            goal: 0.35;
+            box: 0.7;
+            boxGoal: 0.84;
+            player: 0.3;
+            mark: 0.9;
+        }> | Readonly<{
+            ground: 0.55;
+            wall: 0.12;
+            goal: 0.8;
+            box: 0.33;
+            boxGoal: 0.66;
+            player: 0.9;
+            mark: 0.22;
+        }>)[];
+        toneShift: 0.04;
+        groundHeight: 0.15;
+        wallHeight: 0.6;
+        goalHeight: 0.2;
+        boxHeight: 0.45;
+        boxGoalHeight: 0.5;
+        playerHeight: 0.4;
+        markHeight: 0.5;
+        groundRoughness: 0.7;
+        wallRoughness: 0.8;
+        pieceRoughness: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23543,6 +23598,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    sokobanlevels: 1;
     ladderlogic: 1;
     pigpencipher: 1;
     uarttraces: 1;
