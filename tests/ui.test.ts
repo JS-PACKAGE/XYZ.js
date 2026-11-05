@@ -135,6 +135,32 @@ describe('retained UI layout boundaries', () => {
 });
 
 describe('UI focus and widget transitions', () => {
+  it('detects additions below leaves, non-UI reparenting and direct child-set order changes', async () => {
+    const root = new UIRoot(undefined, { direction: 'overlay' });
+    const branch = root.add(new GameObject());
+    const first = branch.add(await UIButton.create('First'));
+    const second = root.add(await UIButton.create('Second'));
+    const leaf = branch.add(new GameObject());
+    root.reflow(300, 300);
+    first.reflow(100, 40);
+    expect(root.focus.move(1)).toBe(true);
+    expect(root.focus.focused).toBe(first);
+    const third = leaf.add(await UIButton.create('Third'));
+    third.reflow(100, 40);
+    root.focus.move(1);
+    expect(root.focus.focused).toBe(third);
+    root.add(leaf);
+    root.focus.focus(first);
+    root.focus.move(1);
+    expect(root.focus.focused).toBe(second);
+    const children = root.children as Set<GameObject>;
+    children.delete(branch);
+    children.add(branch);
+    root.focus.focus(third);
+    root.focus.move(1);
+    expect(root.focus.focused).toBe(first);
+    root.destroy();
+  });
   it('cycles ordered eligible nodes, traps modal focus and restores the prior generation', async () => {
     const root = new UIRoot(undefined, { direction: 'column', gap: 4 });
     const first = root.add(await UIButton.create('First'));

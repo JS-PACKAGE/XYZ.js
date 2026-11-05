@@ -619,16 +619,25 @@ export class UIFocusManager {
   private order(container: GameObject): FocusOrder {
     const previous = this.orders.get(container);
     let cursor = 0;
-    const matches = (node: GameObject): boolean => {
-      if (previous!.tree[cursor++] !== node) return false;
-      const children = node.existingChildren;
+    const matches = (
+      children: ReadonlySet<GameObject> | undefined,
+    ): boolean => {
       if (children)
-        for (const child of children) if (!matches(child)) return false;
+        for (const child of children) {
+          if (previous!.tree[cursor++] !== child) return false;
+          const descendants = child.existingChildren;
+          if (descendants && !matches(descendants)) return false;
+        }
       return true;
     };
     // Non-UI descendants can be reparented without a UI layout invalidation.
     // Check identity/order only; eligibility stays live, including direct visibility edits.
-    if (previous && matches(container) && cursor === previous.tree.length)
+    if (
+      previous &&
+      previous.tree[cursor++] === container &&
+      matches(container.existingChildren) &&
+      cursor === previous.tree.length
+    )
       return previous;
     const order: FocusOrder = { tree: [], nodes: [], indices: new Map() };
     const visit = (node: GameObject): void => {
