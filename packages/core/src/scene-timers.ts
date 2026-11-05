@@ -27,7 +27,6 @@ class TimerTask implements TimerHandle {
 export class SceneTimers {
   private readonly tasks = new Set<TimerTask>();
   private time = 0;
-  private nextDue = Infinity;
   private nextId = 0;
   private disposed = false;
   private updating = false;
@@ -55,33 +54,22 @@ export class SceneTimers {
     )
       throw new RangeError('Timer delta must be finite and nonnegative.');
     this.time += deltaTime;
-    if (this.time < this.nextDue) return;
-    this.nextDue = Infinity;
     const lastId = this.nextId;
     this.updating = true;
     try {
       for (const task of this.tasks) {
         // Set iteration can see appended entries: defer those to the next tick.
         if (task.id > lastId) break;
-        if (task.due > this.time) {
-          this.nextDue = Math.min(this.nextDue, task.due);
-          continue;
-        }
+        if (task.due > this.time) continue;
         const callback = task.callback!;
         if (task.interval === 0) task.cancel();
-        else {
+        else
           task.due =
             this.time +
             task.interval -
             ((this.time - task.due) % task.interval);
-          this.nextDue = Math.min(this.nextDue, task.due);
-        }
         callback();
       }
-    } catch (error) {
-      // Unvisited tasks may still be due after a callback throws.
-      this.nextDue = -Infinity;
-      throw error;
     } finally {
       this.updating = false;
     }
@@ -116,7 +104,6 @@ export class SceneTimers {
       this.tasks,
     );
     this.tasks.add(task);
-    this.nextDue = Math.min(this.nextDue, task.due);
     return task;
   }
 }

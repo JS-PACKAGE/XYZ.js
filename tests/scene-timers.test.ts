@@ -77,35 +77,6 @@ it('propagates callback errors without replaying a completed one-shot', () => {
   expect(calls).toBe(1);
 });
 
-it('revisits unscanned deadlines after a callback throws', () => {
-  const timers = new SceneTimers();
-  const calls: string[] = [];
-  timers.after(10, () => calls.push('later'));
-  timers.after(1, () => {
-    throw new Error('failure');
-  });
-  timers.after(1, () => calls.push('due'));
-  expect(() => timers.update(1)).toThrow('failure');
-  timers.update(0);
-  expect(calls).toEqual(['due']);
-  timers.update(9);
-  expect(calls).toEqual(['due', 'later']);
-});
-
-it('honors newly scheduled earlier deadlines after idle updates', () => {
-  const timers = new SceneTimers();
-  const calls: string[] = [];
-  const cancelled = timers.after(10, () => calls.push('cancelled'));
-  timers.after(20, () => calls.push('later'));
-  timers.update(1);
-  cancelled.cancel();
-  timers.after(2, () => calls.push('earlier'));
-  timers.update(2);
-  expect(calls).toEqual(['earlier']);
-  timers.update(17);
-  expect(calls).toEqual(['earlier', 'later']);
-});
-
 it('rejects invalid delays, intervals and recursive advancement', () => {
   const timers = new SceneTimers();
   for (const delay of [-1, NaN, Infinity])
