@@ -65011,7 +65011,9 @@ export function createSurfaceSampler(
   };
   const body = pick();
   // Constant for the sampler: which noise layers the preset's own field does not replace.
-  const needsDetail = !(
+  // `kind` is widened to string inside the predicate: narrowing the literal union through
+  // hundreds of `===` terms made type-checking this one expression take over a minute.
+  const needsDetail = !((kind: string): boolean =>
     architectural ||
     kind === 'flutedwood' ||
     kind === 'subwaytiles' ||
@@ -65838,8 +65840,7 @@ export function createSurfaceSampler(
     animalSkin ||
     municipal ||
     fungal ||
-    rind
-  );
+    rind)(kind);
   const detailSeed = seed ^ 0xa3c59ac3,
     fineSeed = seed ^ 0x7f4a7c15;
   return (x: number, y: number, out: SurfaceSample): void => {
