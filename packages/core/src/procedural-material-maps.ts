@@ -49763,7 +49763,7 @@ export function createSurfaceSampler(
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade));
           let ink = 0;
-          if (here && east && west && north && south) {
+          if (inside > 0 && here && east && west && north && south) {
             const [latitude, longitude] = here,
               // The gradients of latitude and longitude with respect to the plane (the longitude one wrapped), in tile units per radian.
               latitudeSlope = hypot2(
