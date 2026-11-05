@@ -1180,6 +1180,7 @@ export type ProceduralMaterialKind =
   | 'pseudoprimeliars'
   | 'lightsoutpuzzles'
   | 'burrowswheeler'
+  | 'huffmancodes'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2608,6 +2609,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pseudoprimeliars',
   'lightsoutpuzzles',
   'burrowswheeler',
+  'huffmancodes',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

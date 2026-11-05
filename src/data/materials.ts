@@ -19871,6 +19871,46 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.7,
     gapOcclusion: 0.5,
   }),
+  huffmancodes: Object.freeze({
+    dark: [20, 10, 4] as const,
+    light: [240, 185, 125] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x61e3,
+    // Two prefix codes of 16 symbols for the same weights, in two rows of two panels (the Huffman code on the left, the Shannon-Fano code on the right; each row of a panel is a symbol, from the heaviest down, and its code is written from the left, a 0 as a dimmer and a 1 as a brighter cell, with nothing after its end). weights[variant] are the 16 weights: 0 the approximate frequencies in thousandths of the 16 commonest English letters, 1 Zipf (27720 / k), 2 Fibonacci numbers, 3 powers of 2, 4 all equal, 5 squares. The Huffman code merges the two lightest nodes again and again (the first taken gets the bit 0); the Shannon-Fano code splits the symbols from the heaviest down into two runs of weights as equal as possible and recurses. The seed is split in two: seed % 6 picks the weights of the top row and floor(seed / 6) the group, whose value mod 5 plus 1 is how many weight sets later the bottom row's are (1 to 5).
+    weights: [
+      [127, 91, 82, 75, 70, 67, 63, 61, 60, 43, 40, 28, 28, 24, 24, 22],
+      [
+        27720, 13860, 9240, 6930, 5544, 4620, 3960, 3465, 3080, 2772, 2520,
+        2310, 2132, 1980, 1848, 1732,
+      ],
+      [987, 610, 377, 233, 144, 89, 55, 34, 21, 13, 8, 5, 3, 2, 1, 1],
+      [
+        32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32, 16, 8, 4,
+        2, 1,
+      ],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [256, 225, 196, 169, 144, 121, 100, 81, 64, 49, 36, 25, 16, 9, 4, 1],
+    ] as const,
+    // The gap on each side of a cell inside a panel and at the edge of a panel, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.06,
+    gapPanel: 0.3,
+    corner: 0.14,
+    edgeSoft: 0.07,
+    grainCells: 128,
+    toneGround: 0.03,
+    // The tone of a cell after the end of the code, of a bit 0 and of a bit 1.
+    toneNone: 0.12,
+    toneZero: 0.45,
+    toneOne: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The heights of those three kinds of cell as fractions of cellHeight.
+    heightNone: 0.15,
+    heightZero: 0.5,
+    heightOne: 1,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21714,6 +21754,7 @@ export const proceduralTileMeters = Object.freeze({
   pseudoprimeliars: 0.5,
   lightsoutpuzzles: 0.5,
   burrowswheeler: 0.5,
+  huffmancodes: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

@@ -1243,6 +1243,7 @@ try {
     'pseudoprimeliars',
     'lightsoutpuzzles',
     'burrowswheeler',
+    'huffmancodes',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

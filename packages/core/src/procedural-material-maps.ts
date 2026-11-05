@@ -57584,6 +57584,121 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'huffmancodes': {
+        const p = proceduralMaterialPresets.huffmancodes,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.weights.length,
+          group = Math.floor(unsigned / p.weights.length),
+          later = 1 + (group % 5),
+          n = 16,
+          // The Huffman code of the weights (the symbols are 0 to n - 1, the heaviest first): the two lightest nodes are merged again and again, the first taken gets the bit 0.
+          huffman = (weights: readonly number[]): string[] => {
+            const nodes = weights.map((weight, symbol) => ({
+              weight,
+              symbols: [symbol],
+            }));
+            const codes = weights.map(() => '');
+            let live = nodes.slice();
+            while (live.length > 1) {
+              // A stable sort keeps equal weights in the order they came.
+              live.sort((a, b) => a.weight - b.weight);
+              const [first, second, ...rest] = live;
+              for (const symbol of first.symbols)
+                codes[symbol] = '0' + codes[symbol];
+              for (const symbol of second.symbols)
+                codes[symbol] = '1' + codes[symbol];
+              live = [
+                ...rest,
+                {
+                  weight: first.weight + second.weight,
+                  symbols: [...first.symbols, ...second.symbols],
+                },
+              ];
+            }
+            return codes;
+          },
+          // The Shannon-Fano code: the symbols from the heaviest down are split into two runs of weights as equal as possible (the first best split), the left run gets a 0 and the right one a 1, and each is split again.
+          shannonFano = (weights: readonly number[]): string[] => {
+            const codes = weights.map(() => '');
+            const split = (low: number, high: number) => {
+              if (high - low < 2) return;
+              let total = 0;
+              for (let k = low; k < high; k++) total += weights[k];
+              let best = low + 1,
+                bestGap = Infinity,
+                running = 0;
+              for (let k = low + 1; k < high; k++) {
+                running += weights[k - 1];
+                const gap = Math.abs(2 * running - total);
+                if (gap < bestGap) {
+                  bestGap = gap;
+                  best = k;
+                }
+              }
+              for (let k = low; k < high; k++) codes[k] += k < best ? '0' : '1';
+              split(low, best);
+              split(best, high);
+            };
+            split(0, weights.length);
+            return codes;
+          },
+          // The cell kinds of the two panels of a weight set: grid[symbol * n + place], 0 after the end of the code, 1 a bit 0, 2 a bit 1.
+          panelsOf = (weights: readonly number[]): Uint8Array[] =>
+            [huffman(weights), shannonFano(weights)].map((codes) => {
+              const grid = new Uint8Array(n * n);
+              codes.forEach((code, symbol) => {
+                [...code].forEach((bit, place) => {
+                  grid[symbol * n + place] = bit === '1' ? 2 : 1;
+                });
+              });
+              return grid;
+            }),
+          rows = [variant, (variant + later) % p.weights.length].map((set) =>
+            panelsOf(p.weights[set]),
+          ),
+          total = 2 * n;
+        return () => {
+          const x = fract(u) * total,
+            y = fract(v) * total,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            column = Math.floor(i / n),
+            row = Math.floor(j / n),
+            px = i % n,
+            py = j % n,
+            kind = rows[row][column][py * n + px],
+            // The gaps on the four sides of the cell: wider at the edge of a panel.
+            left = px === 0 ? p.gapPanel : p.gap,
+            right = px === n - 1 ? p.gapPanel : p.gap,
+            top = py === 0 ? p.gapPanel : p.gap,
+            bottom = py === n - 1 ? p.gapPanel : p.gap,
+            hx = (1 - left - right) / 2,
+            hy = (1 - top - bottom) / 2,
+            qx = Math.abs(x - i - (1 + left - right) / 2) - (hx - p.corner),
+            qy = Math.abs(y - j - (1 + top - bottom) / 2) - (hy - p.corner),
+            // The distance to the rounded rectangle of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            tone = [p.toneNone, p.toneZero, p.toneOne][kind],
+            lift = [p.heightNone, p.heightZero, p.heightOne][kind],
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * lift;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -66566,6 +66681,7 @@ export function createSurfaceSampler(
     kind === 'pseudoprimeliars' ||
     kind === 'lightsoutpuzzles' ||
     kind === 'burrowswheeler' ||
+    kind === 'huffmancodes' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

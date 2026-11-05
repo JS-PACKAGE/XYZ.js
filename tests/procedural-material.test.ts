@@ -1206,6 +1206,7 @@ const kinds: ProceduralMaterialKind[] = [
   'pseudoprimeliars',
   'lightsoutpuzzles',
   'burrowswheeler',
+  'huffmancodes',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -216317,6 +216318,325 @@ describe('Burrows-Wheeler as the rotations of a text and its sorted rotations', 
     expect(blue / (512 * 512)).toBeLessThan(101);
     expect(maxTilt).toBeGreaterThan(0.0568);
     expect(maxTilt).toBeLessThan(0.0569);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Huffman codes as Huffman and Shannon-Fano prefix codes', () => {
+  const p = proceduralMaterialPresets.huffmancodes;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = 16;
+  /** The code of every symbol of a panel read back from the picture at the middle of every cell: 0 after the end, the height gives a 0 bit or a 1 bit; the code must be bits and then nothing. */
+  const readCodes = (seed: number): string[][][] => {
+    const sample = createSurfaceSampler('huffmancodes', seed),
+      out = empty();
+    return [0, 1].map((row) =>
+      [0, 1].map((column) =>
+        Array.from({ length: n }, (_, symbol) => {
+          let code = '',
+            ended = false;
+          for (let place = 0; place < n; place++) {
+            sample(
+              (column * n + place + 0.5) / (2 * n),
+              (row * n + symbol + 0.5) / (2 * n),
+              out,
+            );
+            const high = out.height / p.relief / p.cellHeight;
+            const kind = [p.heightNone, p.heightZero, p.heightOne].findIndex(
+              (h) => Math.abs(h - high) < 1e-9,
+            );
+            expect(kind).toBeGreaterThanOrEqual(0);
+            if (kind === 0) ended = true;
+            else {
+              expect(ended).toBe(false);
+              code += kind === 2 ? '1' : '0';
+            }
+          }
+          return code;
+        }),
+      ),
+    );
+  };
+  /** The least possible total of weight times code length: the sum of the weights of all merges when the two lightest are merged again and again (a sorted list rather than the sampler's nodes). */
+  const optimalCost = (weights: readonly number[]): number => {
+    const list = [...weights].sort((a, b) => a - b);
+    let cost = 0;
+    while (list.length > 1) {
+      const merged = list[0] + list[1];
+      cost += merged;
+      list.splice(0, 2);
+      const at = list.findIndex((w) => w >= merged);
+      list.splice(at < 0 ? list.length : at, 0, merged);
+    }
+    return cost;
+  };
+  /** The weight sets of a seed's two rows. */
+  const setsOf = (seed: number): number[] => [
+    seed % 6,
+    (seed + 1 + (Math.floor(seed / 6) % 5)) % 6,
+  ];
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('huffmancodes', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.01583, high: 0.9644, lit: 0.1333, mean: 0.21154 }],
+      [1, { low: 0.01562, high: 0.9642, lit: 0.27564, mean: 0.30262 }],
+      [0xffffffff, { low: 0.01593, high: 0.9635, lit: 0.17877, mean: 0.26084 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('huffmancodes', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('shows two prefix codes for each weight set, read back from the picture: no code is the start of another, the lengths fill the code tree exactly (the Kraft sum is 1), the Huffman code has the least possible total of weight times length and lies within one bit of the entropy, a heavier symbol never has a longer Huffman code, and the Shannon-Fano code costs no less than the Huffman one', () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const codes = readCodes(seed);
+      setsOf(seed).forEach((set, row) => {
+        const weights: readonly number[] = p.weights[set],
+          total = weights.reduce((a, b) => a + b, 0),
+          costs = codes[row].map((panel) => {
+            // Prefix-free and complete.
+            panel.forEach((code, a) => {
+              expect(code.length).toBeGreaterThan(0);
+              panel.forEach((other, b) => {
+                if (a !== b) expect(other.startsWith(code)).toBe(false);
+              });
+            });
+            expect(
+              panel.reduce((sum, code) => sum + 2 ** -code.length, 0),
+            ).toBe(1);
+            return panel.reduce(
+              (sum, code, symbol) => sum + weights[symbol] * code.length,
+              0,
+            );
+          }),
+          huffman = codes[row][0],
+          entropy = -weights.reduce(
+            (sum, w) => sum + (w / total) * Math.log2(w / total),
+            0,
+          );
+        expect(costs[0]).toBe(optimalCost(weights));
+        expect(costs[1]).toBeGreaterThanOrEqual(costs[0]);
+        expect(costs[0] / total).toBeGreaterThanOrEqual(entropy - 1e-9);
+        expect(costs[0] / total).toBeLessThan(entropy + 1);
+        weights.forEach((a, i) =>
+          weights.forEach((b, j) => {
+            if (a > b)
+              expect(huffman[i].length).toBeLessThanOrEqual(huffman[j].length);
+          }),
+        );
+      });
+    }
+  });
+  it('shows the known shapes: equal weights give 4 bits to all 16 symbols in both codes, and Fibonacci weights and powers of 2 give the lengths 1, 2, 3 to 14 and 15 twice', () => {
+    const lengths = (seed: number, row: number, panel: number) =>
+      readCodes(seed)[row][panel].map((code) => code.length);
+    // Seed 4 has the equal weights (set 4) on the top row, seed 2 the Fibonacci weights, seed 3 the powers of 2.
+    expect(lengths(4, 0, 0)).toEqual(new Array(16).fill(4));
+    expect(lengths(4, 0, 1)).toEqual(new Array(16).fill(4));
+    const staircase = [...Array.from({ length: 14 }, (_, k) => k + 1), 15, 15];
+    expect(lengths(2, 0, 0)).toEqual(staircase);
+    expect(lengths(3, 0, 0)).toEqual(staircase);
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const cells = 2 * n,
+        codes = readCodes(seed),
+        sample = createSurfaceSampler('huffmancodes', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * cells,
+          y = v * cells,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          // The gaps on the four sides of the cell: wider at the edge of a panel.
+          left = i % n === 0 ? p.gapPanel : p.gap,
+          right = i % n === n - 1 ? p.gapPanel : p.gap,
+          top = j % n === 0 ? p.gapPanel : p.gap,
+          bottom = j % n === n - 1 ? p.gapPanel : p.gap,
+          dx = Math.abs(x - i - (1 + left - right) / 2),
+          dy = Math.abs(y - j - (1 + top - bottom) / 2),
+          hx = (1 - left - right) / 2,
+          hy = (1 - top - bottom) / 2,
+          innerX = hx - p.corner,
+          innerY = hy - p.corner,
+          // The distance to the rounded rectangle, by the straight sides or by the corner circle.
+          distance =
+            dx <= innerX || dy <= innerY
+              ? Math.max(dx - hx, dy - hy)
+              : Math.hypot(dx - innerX, dy - innerY) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const code = codes[Math.floor(j / n)][Math.floor(i / n)][j % n],
+          place = i % n,
+          kind = place >= code.length ? 0 : code[place] === '1' ? 2 : 1,
+          ink = distance < 0 ? 1 : 0,
+          tone = [p.toneNone, p.toneZero, p.toneOne][kind],
+          lift = [p.heightNone, p.heightZero, p.heightOne][kind];
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * lift,
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per weight set and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.191650390625, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.14306640625, 8);
+    expect(unlike(first, litGrid(12))).toBeCloseTo(0.11212158203125, 8);
+    expect(unlike(first, litGrid(24))).toBeCloseTo(0.0528564453125, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('huffmancodes', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 bronze Huffman code maps on dark brown with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('huffmancodes', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(76.9);
+    expect(red / (512 * 512)).toBeLessThan(78);
+    expect(green / (512 * 512)).toBeGreaterThan(55.2);
+    expect(green / (512 * 512)).toBeLessThan(56.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(35.1);
+    expect(blue / (512 * 512)).toBeLessThan(36.2);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1071);
     expect(invalid).toBe(0);
   });
 });
