@@ -1059,7 +1059,8 @@ export class PhysicsWorld3D {
           : this.pairKeys);
       for (let i = 0; i < pairs; i++)
         keys[i] = (lows[i]!.order * span + highs[i]!.order) * pairs + i;
-      keys.subarray(0, pairs).sort();
+      // Nonnegative finite doubles have the same bitwise and numeric order.
+      new BigUint64Array(keys.buffer, 0, pairs).sort();
       for (let i = 0; i < pairs; i++) sequence[i] = keys[i]! % pairs;
     } else sequence.sort(this.comparePairs);
     for (const pair of sequence) {
