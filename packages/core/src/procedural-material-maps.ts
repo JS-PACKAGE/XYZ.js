@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'uarttraces',
   'dynkindiagrams',
   'hassedivisors',
   'baudottape',
@@ -52049,6 +52050,102 @@ export function createSurfaceSampler(
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
+      case 'uarttraces': {
+        const p = proceduralMaterialPresets.uarttraces,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(132, 1, seed ^ 0x2c0001) * p.surfaces.length)
+            ],
+          across = hash(132, 2, seed ^ 0x2c0002) < 0.5,
+          inverted = hash(132, 3, seed ^ 0x2c0003) < 0.5,
+          shift = (hash(132, 4, seed ^ 0x2c0004) * 2 - 1) * p.toneShift,
+          rows = p.rows,
+          bits = p.bits,
+          // The logic level of each bit time of each row: idle (1), then frames of a start bit (0), eight data bits (least significant first), an even parity bit and a stop bit (1), with 1 or 2 idle bits between.
+          levels = new Uint8Array(rows * bits).fill(1);
+        for (let row = 0; row < rows; row++) {
+          let position = 1 + Math.floor(hash(row, 0, seed ^ 0x2c0005) * 2);
+          for (let frame = 0; position + p.frameBits <= bits; frame++) {
+            const byte = Math.floor(
+                hash(row, frame * 2 + 1, seed ^ 0x2c0005) * 256,
+              ),
+              at = row * bits + position;
+            let ones = 0;
+            levels[at] = 0;
+            for (let bit = 0; bit < 8; bit++) {
+              levels[at + 1 + bit] = (byte >> bit) & 1;
+              ones += (byte >> bit) & 1;
+            }
+            levels[at + 9] = ones % 2;
+            levels[at + 10] = 1;
+            position +=
+              p.frameBits +
+              1 +
+              Math.floor(hash(row, frame * 2 + 2, seed ^ 0x2c0005) * 2);
+          }
+        }
+        // The share of the height of a row at which the level of a bit time is drawn.
+        const lineAt = (row: number, bit: number): number =>
+          (levels[row * bits + ((bit + bits) % bits)] === 1) !== inverted
+            ? p.highAt
+            : p.lowAt;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            x = across ? fv : fu,
+            gy = (across ? fu : fv) * rows,
+            row = Math.floor(gy),
+            along = gy - row,
+            bit = Math.floor(x * bits),
+            // The level line of this bit time, and the vertical lines at its two edges where the level changes.
+            level = cover(
+              p.traceHalf - Math.abs(along - lineAt(row, bit)) / rows,
+            );
+          let trace = level;
+          for (const edge of [bit, bit + 1])
+            if (lineAt(row, edge - 1) !== lineAt(row, edge))
+              trace = Math.max(
+                trace,
+                cover(
+                  Math.min(
+                    p.traceHalf - Math.abs(x - edge / bits),
+                    (along - p.highAt) / rows + p.traceHalf,
+                    (p.lowAt - along) / rows + p.traceHalf,
+                  ),
+                ),
+              );
+          // The thin lines at the edges of the bit times, under the trace.
+          const grid = cover(
+              p.gridHalf - Math.abs(x * bits - Math.round(x * bits)) / bits,
+            ),
+            ground = surface.ground + shift;
+          color = clamp(
+            ground +
+              (surface.grid + shift - ground) * grid +
+              (surface.trace +
+                shift -
+                ground -
+                (surface.grid + shift - ground) * grid) *
+                trace,
+          );
+          height = clamp(
+            p.groundHeight +
+              (p.gridHeight - p.groundHeight) * grid +
+              (p.traceHeight -
+                p.groundHeight -
+                (p.gridHeight - p.groundHeight) * grid) *
+                trace,
+          );
+          roughness = clamp(
+            p.groundRoughness +
+              (p.inkRoughness - p.groundRoughness) * Math.max(grid, trace),
+          );
           occlusion = 1;
         };
       }

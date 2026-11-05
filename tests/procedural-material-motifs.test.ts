@@ -80583,3 +80583,504 @@ describe('dynkindiagrams: the Dynkin diagrams of the finite-type root systems (A
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('uarttraces: the traces of an asynchronous serial line (UART, 8E1) with a byte in each frame, along or across the picture by the seed', () => {
+  const p = proceduralMaterialPresets.uarttraces,
+    out = empty(),
+    rows = p.rows,
+    bits = p.bits,
+    half = p.traceHalf;
+  const toneAt = (
+    sample: Sampler,
+    x: number,
+    y: number,
+    across: boolean,
+  ): number => {
+    // A place in tile units in the picture as it is drawn (the bit times along x, the rows along y), as a place on the picture.
+    sample(across ? y : x, across ? x : y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  type Frame = { start: number; byte: number };
+  type Framing = { frames: Frame[]; leading: number; trailing: number };
+  // The decoder of a row of logic levels, written out here from the framing of the Wikipedia article on the UART: idle high, a start bit low, eight data bits with the least significant first, an even parity bit
+  // (the number of ones in the data and the parity bit is even), a stop bit high. It gives null where a row breaks that.
+  const framing = (levels: number[]): Framing | null => {
+    const frames: Frame[] = [];
+    let position = 0;
+    if (levels[0] !== 1 || levels[bits - 1] !== 1) return null;
+    while (position < bits) {
+      if (levels[position] === 1) {
+        position++;
+        continue;
+      }
+      if (position + p.frameBits > bits) return null;
+      let byte = 0,
+        ones = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        byte |= levels[position + 1 + bit] << bit;
+        ones += levels[position + 1 + bit];
+      }
+      if ((ones + levels[position + 9]) % 2 !== 0) return null;
+      if (levels[position + 10] !== 1) return null;
+      frames.push({ start: position, byte });
+      position += p.frameBits;
+    }
+    if (frames.length === 0) return null;
+    const last = frames[frames.length - 1];
+    return {
+      frames,
+      leading: frames[0].start,
+      trailing: bits - (last.start + p.frameBits),
+    };
+  };
+  // The share of the height of a row at which a logic level is drawn.
+  const lineAt = (level: number, inverted: boolean): number =>
+    (level === 1) !== inverted ? p.highAt : p.lowAt;
+  type Reading = {
+    across: boolean;
+    inverted: boolean;
+    surface: number;
+    shift: number;
+    tones: { ground: number; grid: number; trace: number };
+    levels: number[][];
+  };
+  // Finds the way, the polarity, the surface and the levels from the picture: the ground, the line of a bit time and the first bit of the first row (always idle) give them, and the levels read from where a level is drawn must be valid frames in every row.
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [];
+    for (const across of [false, true]) {
+      const tone = (x: number, y: number): number =>
+          toneAt(sample, x, y, across),
+        ground = tone(0.5 / bits, 0),
+        grid = tone(1 / bits, 0),
+        top = tone(0.5 / bits, p.highAt / rows),
+        bottom = tone(0.5 / bits, p.lowAt / rows);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground,
+          trace = surface.trace + shift;
+        if (Math.abs(shift) > p.toneShift + 1e-9) return;
+        if (Math.abs(grid - (surface.grid + shift)) > 1e-6) return;
+        for (const inverted of [false, true]) {
+          const idle = inverted ? bottom : top,
+            other = inverted ? top : bottom;
+          if (Math.abs(idle - trace) > 1e-6 || Math.abs(other - ground) > 1e-6)
+            continue;
+          const levels: number[][] = [];
+          let valid = true;
+          for (let row = 0; row < rows && valid; row++) {
+            const line: number[] = [];
+            for (let bit = 0; bit < bits && valid; bit++) {
+              const x = (bit + 0.5) / bits,
+                high = tone(x, (row + p.highAt) / rows),
+                low = tone(x, (row + p.lowAt) / rows),
+                drawnHigh = Math.abs(high - trace) < 1e-6,
+                drawnLow = Math.abs(low - trace) < 1e-6;
+              if (
+                drawnHigh === drawnLow ||
+                Math.abs((drawnHigh ? low : high) - ground) > 1e-6
+              )
+                valid = false;
+              line.push(drawnHigh !== inverted ? 1 : 0);
+            }
+            if (framing(line) === null) valid = false;
+            levels.push(line);
+          }
+          if (!valid) continue;
+          // The middle of every row has the ground between the bit times, and the edge of a bit time has the trace where the level changes and the line of the bit time where it does not.
+          for (let row = 0; row < rows && valid; row++)
+            for (let bit = 0; bit < bits && valid; bit++) {
+              const y = (row + 0.5) / rows,
+                before = levels[row][(bit + bits - 1) % bits],
+                here = levels[row][bit];
+              if (Math.abs(tone((bit + 0.5) / bits, y) - ground) > 1e-6)
+                valid = false;
+              const expected = before !== here ? trace : (grid as number);
+              if (Math.abs(tone(bit / bits, y) - expected) > 1e-6)
+                valid = false;
+            }
+          if (valid)
+            options.push({
+              across,
+              inverted,
+              surface: index,
+              shift,
+              tones: { ground, grid, trace },
+              levels,
+            });
+        }
+      });
+    }
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  type Piece = 'ground' | 'grid' | 'trace';
+  // The model of the picture: the piece that a place (in tile units, x along the bit times) is in, from the levels of the rows.
+  const piece = (r: Reading, x: number, y: number): Piece => {
+    const gy = y * rows,
+      row = Math.floor(gy),
+      along = gy - row,
+      bit = Math.floor(x * bits),
+      at = (b: number): number =>
+        lineAt(r.levels[row][(b + bits) % bits], r.inverted);
+    if (Math.abs(along - at(bit)) / rows <= half) return 'trace';
+    for (const edge of [bit, bit + 1])
+      if (
+        at(edge - 1) !== at(edge) &&
+        Math.abs(x - edge / bits) <= half &&
+        along >= p.highAt - half * rows &&
+        along <= p.lowAt + half * rows
+      )
+        return 'trace';
+    if (Math.abs(x - Math.round(x * bits) / bits) <= p.gridHalf) return 'grid';
+    return 'ground';
+  };
+  const toneOf = (r: Reading, label: Piece): number => r.tones[label],
+    heightOf = (label: Piece): number =>
+      label === 'trace'
+        ? p.traceHeight
+        : label === 'grid'
+          ? p.gridHeight
+          : p.groundHeight,
+    roughnessOf = (label: Piece): number =>
+      label === 'ground' ? p.groundRoughness : p.inkRoughness;
+  // Whether a place is within a distance of any edge of the drawing (the edges of the level lines, of the vertical lines and their ends, of the thin lines, and the places where lines end).
+  const nearEdge = (x: number, y: number, within: number): boolean => {
+    const gy = y * rows,
+      along = gy - Math.floor(gy),
+      dx = Math.abs(x - Math.round(x * bits) / bits);
+    for (const level of [p.highAt, p.lowAt])
+      if (Math.abs(Math.abs(along - level) / rows - half) < within) return true;
+    return (
+      dx < within ||
+      Math.abs(dx - half) < within ||
+      Math.abs(dx - p.gridHalf) < within ||
+      Math.abs((along - p.highAt) / rows + half) < within ||
+      Math.abs((p.lowAt - along) / rows + half) < within
+    );
+  };
+
+  it('draws frames of a start bit, eight data bits (least significant first), an even parity bit and a stop bit in every row, with 1 or 2 idle bits between them, and the first and the last bit idle', () => {
+    let odd = 0,
+      even = 0,
+      frames = 0,
+      shortGaps = 0,
+      longGaps = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const reading = readSurface(
+        createSurfaceSampler('uarttraces', seed * 13 + 5),
+      );
+      for (const row of reading.levels) {
+        const f = framing(row);
+        expect(f).not.toBeNull();
+        const { frames: list, leading, trailing } = f!;
+        expect(leading).toBeGreaterThanOrEqual(1);
+        expect(leading).toBeLessThanOrEqual(2);
+        expect(trailing).toBeGreaterThanOrEqual(0);
+        expect(trailing).toBeLessThanOrEqual(12);
+        for (let i = 1; i < list.length; i++) {
+          const gap = list[i].start - (list[i - 1].start + p.frameBits);
+          expect(gap).toBeGreaterThanOrEqual(1);
+          expect(gap).toBeLessThanOrEqual(2);
+          if (gap === 1) shortGaps++;
+          else longGaps++;
+        }
+        for (const { byte } of list) {
+          let ones = 0;
+          for (let bit = 0; bit < 8; bit++) ones += (byte >> bit) & 1;
+          if (ones % 2 === 1) odd++;
+          else even++;
+          frames++;
+        }
+      }
+    }
+    // Both parities of data turn up, so the parity bit is both 0 and 1.
+    expect(shortGaps).toBeGreaterThan(frames * 0.3);
+    expect(longGaps).toBeGreaterThan(frames * 0.3);
+    expect(odd).toBeGreaterThan(frames * 0.35);
+    expect(even).toBeGreaterThan(frames * 0.35);
+  });
+
+  it(
+    'puts the tone, the height and the roughness of the model (ground, thin line of a bit time, trace) at every place of the picture away from the edges, for several seeds along and across',
+    { timeout: 120000 },
+    () => {
+      const seen = new Set<string>();
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        const sample = createSurfaceSampler('uarttraces', seed),
+          reading = readSurface(sample);
+        seen.add(`${reading.across}${reading.inverted}`);
+        const o = empty();
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (nearEdge(x, y, 0.0008)) continue;
+            sample(reading.across ? y : x, reading.across ? x : y, o);
+            const label = piece(reading, x, y);
+            expect(o.color).toBeCloseTo(toneOf(reading, label), 6);
+            expect(o.height / p.relief).toBeCloseTo(heightOf(label), 6);
+            expect(o.roughness).toBeCloseTo(roughnessOf(label), 6);
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(100000);
+      }
+      expect(seen.size).toBe(4);
+    },
+  );
+
+  it('puts the edges of the level lines, of the vertical lines at a change of level (the sides and both ends) and of the thin lines of the bit times where the model puts them: just inside and just outside by 0.0004 of a tile, exactly', () => {
+    const delta = 0.0004;
+    let vertical = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const sample = createSurfaceSampler('uarttraces', seed),
+        reading = readSurface(sample),
+        { across, tones, levels, inverted } = reading,
+        tone = (x: number, y: number): number => toneAt(sample, x, y, across);
+      for (let row = 0; row < rows; row++) {
+        const level = levels[row],
+          at = (b: number): number =>
+            lineAt(level[(b + bits) % bits], inverted);
+        // The level line of a few bit times.
+        for (const bit of [2, 17, 40]) {
+          const x = (bit + 0.5) / bits,
+            centre = (row + at(bit)) / rows;
+          close(tone(x, centre + half - delta), tones.trace);
+          close(tone(x, centre + half + delta), tones.ground);
+          close(tone(x, centre - half + delta), tones.trace);
+          close(tone(x, centre - half - delta), tones.ground);
+        }
+        // The thin lines at the edges of a few bit times (at the boundary of the rows, where nothing else is drawn).
+        for (const edge of [1, 9, 33]) {
+          const x = edge / bits;
+          close(tone(x + p.gridHalf - delta, row / rows), tones.grid);
+          close(tone(x + p.gridHalf + delta, row / rows), tones.ground);
+          close(tone(x - p.gridHalf + delta, row / rows), tones.grid);
+          close(tone(x - p.gridHalf - delta, row / rows), tones.ground);
+        }
+        // The vertical lines at the first three changes of level: the sides in the middle, and the two ends on the side of the bit time where the end is not covered by the level line.
+        let changes = 0;
+        for (let edge = 1; edge < bits && changes < 3; edge++) {
+          if (at(edge - 1) === at(edge)) continue;
+          changes++;
+          vertical++;
+          const x = edge / bits,
+            middle = (row + 0.5) / rows,
+            lowSide = at(edge) === p.lowAt ? 1 : -1;
+          close(tone(x + half - delta, middle), tones.trace);
+          close(tone(x + half + delta, middle), tones.ground);
+          close(tone(x - half + delta, middle), tones.trace);
+          close(tone(x - half - delta, middle), tones.ground);
+          const topEnd = (row + p.highAt) / rows - half,
+            bottomEnd = (row + p.lowAt) / rows + half;
+          close(tone(x + lowSide * 0.002, topEnd + delta), tones.trace);
+          close(tone(x + lowSide * 0.002, topEnd - delta), tones.ground);
+          close(tone(x - lowSide * 0.002, bottomEnd - delta), tones.trace);
+          close(tone(x - lowSide * 0.002, bottomEnd + delta), tones.ground);
+        }
+      }
+    }
+    expect(vertical).toBeGreaterThan(100);
+  });
+
+  it('gives the ground, the thin lines of the bit times and the trace their heights and roughnesses, and full occlusion', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('uarttraces', seed),
+        { across, levels, inverted } = readSurface(sample),
+        read = (x: number, y: number): [number, number, number] => {
+          sample(across ? y : x, across ? x : y, out);
+          return [out.height / p.relief, out.roughness, out.occlusion];
+        };
+      const row = 2,
+        bit = 12,
+        centre = (row + lineAt(levels[row][bit], inverted)) / rows;
+      // Over the ground (the middle of the row between two bit times), over a thin line (at the boundary of the rows) and over the level line.
+      const [groundHeight, groundRoughness, groundOcclusion] = read(
+          (bit + 0.5) / bits,
+          (row + 0.5) / rows,
+        ),
+        [gridHeight, gridRoughness, gridOcclusion] = read(5 / bits, row / rows),
+        [traceHeight, traceRoughness, traceOcclusion] = read(
+          (bit + 0.5) / bits,
+          centre,
+        );
+      expect(groundHeight).toBeCloseTo(p.groundHeight, 6);
+      expect(gridHeight).toBeCloseTo(p.gridHeight, 6);
+      expect(traceHeight).toBeCloseTo(p.traceHeight, 6);
+      expect(groundRoughness).toBeCloseTo(p.groundRoughness, 6);
+      expect(gridRoughness).toBeCloseTo(p.inkRoughness, 6);
+      expect(traceRoughness).toBeCloseTo(p.inkRoughness, 6);
+      expect([groundOcclusion, gridOcclusion, traceOcclusion]).toEqual([
+        1, 1, 1,
+      ]);
+    }
+  });
+
+  it('softens the level lines, the vertical lines and the thin lines of the bit times over edgeSoft', () => {
+    let tested = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('uarttraces', seed),
+        { across, tones, levels, inverted } = readSurface(sample),
+        tone = (x: number, y: number): number => toneAt(sample, x, y, across),
+        quarter = 0.25 * p.edgeSoft,
+        row = 3,
+        level = levels[row],
+        at = (b: number): number => lineAt(level[b], inverted);
+      // The upper and lower edge of the level line of a bit time, and the left and right edge of a thin line.
+      const x = 20.5 / bits,
+        centre = (row + at(20)) / rows;
+      close(
+        tone(x, centre + half - quarter),
+        blend(tones.ground, tones.trace, 0.75),
+      );
+      close(
+        tone(x, centre + half + quarter),
+        blend(tones.ground, tones.trace, 0.25),
+      );
+      close(
+        tone(x, centre - half + quarter),
+        blend(tones.ground, tones.trace, 0.75),
+      );
+      close(
+        tone(x, centre - half - quarter),
+        blend(tones.ground, tones.trace, 0.25),
+      );
+      const edge = 5 / bits;
+      close(
+        tone(edge + p.gridHalf - quarter, row / rows),
+        blend(tones.ground, tones.grid, 0.75),
+      );
+      close(
+        tone(edge + p.gridHalf + quarter, row / rows),
+        blend(tones.ground, tones.grid, 0.25),
+      );
+      close(
+        tone(edge - p.gridHalf + quarter, row / rows),
+        blend(tones.ground, tones.grid, 0.75),
+      );
+      close(
+        tone(edge - p.gridHalf - quarter, row / rows),
+        blend(tones.ground, tones.grid, 0.25),
+      );
+      // The side of a vertical line at the first change of level in the row.
+      let first = 1;
+      while (at(first - 1) === at(first)) first++;
+      const middle = (row + 0.5) / rows;
+      close(
+        tone(first / bits + half - quarter, middle),
+        blend(tones.ground, tones.trace, 0.75),
+      );
+      close(
+        tone(first / bits + half + quarter, middle),
+        blend(tones.ground, tones.trace, 0.25),
+      );
+      close(
+        tone(first / bits - half + quarter, middle),
+        blend(tones.ground, tones.trace, 0.75),
+      );
+      close(
+        tone(first / bits - half - quarter, middle),
+        blend(tones.ground, tones.trace, 0.25),
+      );
+      tested++;
+    }
+    expect(tested).toBe(6);
+  });
+
+  it(
+    'uses every surface, both ways round and both polarities over 1000 seeds, about equally often, with the tones shifted over the whole range and the bytes spread over 0 to 255',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        shifts: number[] = [],
+        bytes = new Array<number>(256).fill(0);
+      let acrossCount = 0,
+        invertedCount = 0,
+        frames = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('uarttraces', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        acrossCount += Number(reading.across);
+        invertedCount += Number(reading.inverted);
+        for (const row of reading.levels)
+          for (const { byte } of framing(row)!.frames) {
+            bytes[byte]++;
+            frames++;
+          }
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+      expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+      expect(Math.abs(invertedCount / 1000 - 0.5)).toBeLessThan(0.05);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+      // Every byte value turns up about equally often (the frames are about 40 000 over 256 values).
+      for (const count of bytes)
+        expect(Math.abs(count - frames / 256)).toBeLessThan(
+          0.5 * (frames / 256),
+        );
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('uarttraces', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('uarttraces', 0),
+      b = createSurfaceSampler('uarttraces', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

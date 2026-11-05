@@ -18587,6 +18587,39 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.72,
     inkRoughness: 0.45,
   }),
+  uarttraces: Object.freeze({
+    dark: [12, 24, 20] as const,
+    light: [214, 236, 208] as const,
+    roughness: 0.5,
+    relief: 0.003,
+    // Rows of the trace of an asynchronous serial line (UART), as a logic analyser draws it: the line is idle high (logic 1); a frame is a start bit (logic 0), eight data bits least significant first, an even parity
+    // bit (the bit that makes the number of ones in the data and the parity bit even) and a stop bit (logic 1); frames follow after idle bits (the framing of the Wikipedia article on the UART, read for this; the
+    // line of 8E1 is my choice of its configuration). A row has bits bit times across the tile (the first and the last bit are idle, so the trace wraps), each frame holds a byte of the seed, and the bit times
+    // are marked by thin lines. A level is a line at highAt or lowAt (the share of the height of the row) with the half width traceHalf (of the tile), and a change of level is a vertical line at the edge of
+    // the bit time. The seed picks whether the idle level is drawn high or low (as a line of the other polarity, such as RS-232, has it), a surface (the tones of the ground, of the bit-time lines and of the trace,
+    // all shifted together a little) and lays the rows along the picture or across it.
+    rows: 8,
+    bits: 64,
+    frameBits: 11,
+    highAt: 0.3,
+    lowAt: 0.7,
+    traceHalf: 0.0032,
+    gridHalf: 0.0007,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.1, grid: 0.22, trace: 0.88 }),
+      Object.freeze({ ground: 0.9, grid: 0.72, trace: 0.15 }),
+      Object.freeze({ ground: 0.18, grid: 0.34, trace: 0.62 }),
+      Object.freeze({ ground: 0.75, grid: 0.55, trace: 0.3 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    gridHeight: 0.22,
+    traceHeight: 0.4,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25079,6 +25112,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  uarttraces: 1,
   dynkindiagrams: 1,
   hassedivisors: 1,
   baudottape: 1,
