@@ -19027,6 +19027,63 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  codabarbarcodes: Object.freeze({
+    dark: [28, 24, 30] as const,
+    light: [238, 230, 212] as const,
+    roughness: 0.55,
+    relief: 0.003,
+    // Rows of Codabar barcodes, the barcode of libraries, blood banks and parcels (the Wikipedia article on Codabar, read for this: a character is 7 lines, 4 bars and 3 spaces, each narrow or wide, separated from the next
+    // character by a narrow space; the digits and the dash and dollar sign have one wide bar and one wide space, the symbols : / . + three wide bars, the start and stop characters A, B, C and D one wide bar and two
+    // adjacent wide spaces; the wide lines are 2.25 to 3 times the narrow ones). symbols lists the characters with patterns the lines of each, bar first (1 wide), as the table of the article gives them. A row has a start character
+    // (A to D), 4 to 10 characters of the digits and the symbols - $ : / . + of the seed, and a stop character (A to D); there is no check digit (the article says most standards define none). A narrow line is module of the
+    // tile wide, the barcode starts a whole number of modules from the start of the row, with a quiet zone of at least quiet modules on both sides (the row is as wide as 1 / module modules, so the picture repeats).
+    // The wide lines of a seed are all wide times the narrow one, one of wides (the article gives the range 2.25 to 3; the three values are my choice, with the same ratio for every character, which the article calls rationalized
+    // Codabar). The bars are from top to bottom of the share of a row, and the seed picks the surface (the tones of the paper and of the ink, shifted together a little) and whether the rows run along the picture or across it.
+    rows: 6,
+    module: 0.005,
+    quiet: 10,
+    minBody: 4,
+    maxBody: 10,
+    wides: Object.freeze([2.25, 2.5, 3]),
+    symbols: '0123456789-$:/.+ABCD',
+    patterns: Object.freeze([
+      '0000011',
+      '0000110',
+      '0001001',
+      '1100000',
+      '0010010',
+      '1000010',
+      '0100001',
+      '0100100',
+      '0110000',
+      '1001000',
+      '0001100',
+      '0011000',
+      '1000101',
+      '1010001',
+      '1010100',
+      '0010101',
+      '0011010',
+      '0101001',
+      '0001011',
+      '0001110',
+    ]),
+    top: 0.14,
+    bottom: 0.86,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.92, ink: 0.12 }),
+      Object.freeze({ ground: 0.12, ink: 0.9 }),
+      Object.freeze({ ground: 0.78, ink: 0.28 }),
+      Object.freeze({ ground: 0.22, ink: 0.7 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    inkHeight: 0.4,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25519,6 +25576,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  codabarbarcodes: 1,
   itfbarcodes: 1,
   postnetbarcodes: 1,
   hamiltoniancycles: 1,

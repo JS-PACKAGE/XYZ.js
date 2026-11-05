@@ -86309,3 +86309,525 @@ describe('itfbarcodes: rows of Interleaved 2 of 5 barcodes (a start code of four
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('codabarbarcodes: rows of Codabar barcodes (a start character A to D, four to ten characters of the digits and - $ : / . +, a stop character A to D, each character seven lines separated by a narrow space), with the wide lines 2.25, 2.5 or 3 times the narrow ones by the seed, along or across the picture', () => {
+  const p = proceduralMaterialPresets.codabarbarcodes,
+    out = empty(),
+    rows = p.rows,
+    module = p.module,
+    // Every line of the picture is a whole number of these (a quarter of a narrow line): the edges are at multiples of them.
+    quarter = module / 4,
+    quarters = Math.floor(1 / quarter);
+  const toneAt = (
+    sample: Sampler,
+    x: number,
+    y: number,
+    across: boolean,
+  ): number => {
+    // A place in tile units in the picture as it is drawn (the lines along x, the rows along y), as a place on the picture.
+    sample(across ? y : x, across ? x : y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The table of the article, as it is laid out there: for the three spaces (as 001, 010, 100 and for the start and stop characters 011 and 110) and the four bars (0001, 0010, 0100, 1000, and for the symbols : / . + 1110, 1101, 1011, 0111).
+  const article: Record<string, Record<string, string>> = {
+    '001': { '0001': '0', '0010': '1', '0100': '4', '1000': '5' },
+    '010': { '0001': '2', '0010': '-', '0100': '$', '1000': '9' },
+    '100': { '0001': '6', '0010': '7', '0100': '8', '1000': '3' },
+    '011': { '0001': 'C', '0010': 'D', '0100': 'A' },
+    '110': { '0001': 'B' },
+    '000': { '1110': '.', '1101': '/', '1011': ':', '0111': '+' },
+  };
+  // The character of seven lines (true wide, bar first: bar space bar space bar space bar), looked up in the table of the article.
+  const characterOf = (lines: boolean[]): string | null => {
+    const bars = [0, 2, 4, 6].map((i) => (lines[i] ? '1' : '0')).join(''),
+      spaces = [1, 3, 5].map((i) => (lines[i] ? '1' : '0')).join('');
+    return article[spaces]?.[bars] ?? null;
+  };
+  type Barcode = { text: string; wide: number; start: number };
+  // The reader of the lines of a barcode, written out here from the article on Codabar: the widths in units of a quarter of a narrow line, bar first. Narrow lines are 4 and wide lines 9, 10 or 12 (2.25, 2.5 or 3 times). Characters of seven lines
+  // with a narrow space between them, the first and the last of A to D, the ones between of the digits and the symbols - $ : / . +. It gives null where the lines break that.
+  const decode = (lengths: number[]): Barcode | null => {
+    const wideLength = Math.max(...lengths),
+      wide = wideLength / 4;
+    if (!p.wides.includes(wide)) return null;
+    if (lengths.some((length) => length !== 4 && length !== wideLength))
+      return null;
+    if ((lengths.length + 1) % 8 !== 0) return null;
+    const count = (lengths.length + 1) / 8;
+    if (count < 2 + p.minBody || count > 2 + p.maxBody) return null;
+    let text = '';
+    for (let k = 0; k < count; k++) {
+      if (k > 0 && lengths[8 * k - 1] !== 4) return null;
+      const character = characterOf(
+        lengths.slice(8 * k, 8 * k + 7).map((length) => length === wideLength),
+      );
+      if (character === null) return null;
+      const isStopOrStart = 'ABCD'.includes(character);
+      if (isStopOrStart !== (k === 0 || k === count - 1)) return null;
+      text += character;
+    }
+    return { text, wide, start: 0 };
+  };
+  type Reading = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { ground: number; ink: number };
+    codes: Barcode[];
+  };
+  // The edges (tile units) of the lines of a barcode, from the table of the article: the model of the picture, written from the characters, not from the sampler.
+  const edgesOf = (code: Barcode): number[] => {
+    const widths: number[] = [];
+    [...code.text].forEach((character, k) => {
+      if (k > 0) widths.push(1);
+      const index = p.symbols.indexOf(character);
+      for (const line of p.patterns[index])
+        widths.push(line === '1' ? code.wide : 1);
+    });
+    const edges = [code.start * module];
+    for (const width of widths)
+      edges.push(edges[edges.length - 1] + width * module);
+    return edges;
+  };
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [];
+    for (const across of [false, true]) {
+      const tone = (x: number, y: number): number =>
+          toneAt(sample, x, y, across),
+        ground = tone(0, 0);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground,
+          ink = surface.ink + shift;
+        if (Math.abs(shift) > p.toneShift + 1e-9) return;
+        const codes: Barcode[] = [];
+        for (let row = 0; row < rows; row++) {
+          // The tone at the middle of the quarters along the middle of the row: exactly paper or ink.
+          const inked: boolean[] = [];
+          for (let q = 0; q < quarters; q++) {
+            const value = tone((q + 0.5) * quarter, (row + 0.5) / rows);
+            if (Math.abs(value - ink) < 1e-6) inked.push(true);
+            else if (Math.abs(value - ground) < 1e-6) inked.push(false);
+            else return;
+          }
+          const first = inked.indexOf(true),
+            last = inked.lastIndexOf(true);
+          if (first < 4 * p.quiet) return;
+          const lengths: number[] = [];
+          let run = 1;
+          for (let q = first + 1; q <= last; q++)
+            if (inked[q] === inked[q - 1]) run++;
+            else {
+              lengths.push(run);
+              run = 1;
+            }
+          lengths.push(run);
+          const code = decode(lengths);
+          if (code === null) return;
+          // The quiet zones: at least quiet narrow lines before and after (the edge after the last bar is at (last + 1) quarters), and the start a whole number of narrow lines in.
+          if (
+            first % 4 !== 0 ||
+            (last + 1) * quarter > 1 - p.quiet * module + 1e-9
+          )
+            return;
+          code.start = first / 4;
+          codes.push(code);
+        }
+        options.push({
+          across,
+          surface: index,
+          shift,
+          tones: { ground, ink },
+          codes,
+        });
+      });
+    }
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  // The model of the picture: ink inside a bar between top and bottom (in tile units, x along the lines, y along the rows).
+  const inked = (r: Reading, x: number, y: number): boolean => {
+    const gy = y * rows,
+      row = Math.floor(gy),
+      along = gy - row,
+      edges = edgesOf(r.codes[row]);
+    if (along < p.top || along > p.bottom) return false;
+    for (let i = 0; i < edges.length - 1; i += 2)
+      if (x >= edges[i] && x <= edges[i + 1]) return true;
+    return false;
+  };
+  const nearEdge = (
+    r: Reading,
+    x: number,
+    y: number,
+    within: number,
+  ): boolean => {
+    const gy = y * rows,
+      row = Math.floor(gy),
+      along = gy - row;
+    if (
+      Math.abs(along - p.top) / rows < within ||
+      Math.abs(along - p.bottom) / rows < within
+    )
+      return true;
+    return edgesOf(r.codes[row]).some((edge) => Math.abs(x - edge) < within);
+  };
+
+  it('draws a start character, four to ten characters and a stop character in every row, with the wide lines 2.25, 2.5 and 3 times the narrow ones, every one of the 16 characters of the body and the 4 start and stop characters turning up, at least ten narrow lines of quiet zone on both sides', () => {
+    const lengths = new Set<number>(),
+      wides = new Set<number>(),
+      characters = new Set<string>(),
+      seen = new Set<string>();
+    for (let seed = 0; seed < 100; seed++) {
+      const reading = readSurface(
+        createSurfaceSampler('codabarbarcodes', seed * 13 + 5),
+      );
+      for (const code of reading.codes) {
+        expect(code.text.length).toBeGreaterThanOrEqual(2 + p.minBody);
+        expect(code.text.length).toBeLessThanOrEqual(2 + p.maxBody);
+        expect(code.start).toBeGreaterThanOrEqual(p.quiet);
+        lengths.add(code.text.length);
+        wides.add(code.wide);
+        for (const character of code.text) characters.add(character);
+        seen.add(`${code.wide} ${code.text}`);
+      }
+    }
+    expect([...lengths].sort((a, b) => a - b)).toEqual([
+      6, 7, 8, 9, 10, 11, 12,
+    ]);
+    expect([...wides].sort((a, b) => a - b)).toEqual([2.25, 2.5, 3]);
+    expect([...characters].sort().join('')).toBe(
+      [...'0123456789-$:/.+ABCD'].sort().join(''),
+    );
+    expect(seen.size).toBeGreaterThan(100 * rows * 0.99);
+  });
+
+  it('writes the characters as the table of the article has them (each of the 20 patterns found in the table by its bars and its spaces), and refuses a broken barcode', () => {
+    expect(p.symbols).toBe('0123456789-$:/.+ABCD');
+    [...p.symbols].forEach((character, index) => {
+      const lines = [...p.patterns[index]].map((line) => line === '1');
+      expect(characterOf(lines)).toBe(character);
+      // Digits, dash and dollar have one wide bar and one wide space, the symbols : / . + three wide bars, the start and stop characters one wide bar and two wide spaces.
+      const wideBars = [0, 2, 4, 6].filter((i) => lines[i]).length,
+        wideSpaces = [1, 3, 5].filter((i) => lines[i]).length;
+      if ('0123456789-$'.includes(character))
+        expect([wideBars, wideSpaces]).toEqual([1, 1]);
+      else if (':/.+'.includes(character))
+        expect([wideBars, wideSpaces]).toEqual([3, 0]);
+      else expect([wideBars, wideSpaces]).toEqual([1, 2]);
+    });
+    // The library barcode of the article starts with A and ends with B; here 'A1B' is not enough characters, so it is A 1 2 3 4 B with the wide lines 2.5 times (10 quarters).
+    const lengthsOf = (text: string): number[] =>
+      [...text].flatMap((character, k) => [
+        ...(k > 0 ? [4] : []),
+        ...[...p.patterns[p.symbols.indexOf(character)]].map((line) =>
+          line === '1' ? 10 : 4,
+        ),
+      ]);
+    expect(decode(lengthsOf('A1234B'))).toEqual({
+      text: 'A1234B',
+      wide: 2.5,
+      start: 0,
+    });
+    // Refused: no start character, a digit in place of the stop, a start character in the body, a wide space between characters, a width that is neither narrow nor wide, and a missing line.
+    expect(decode(lengthsOf('11234B'))).toBeNull();
+    expect(decode(lengthsOf('A12341'))).toBeNull();
+    expect(decode(lengthsOf('A12A4B'))).toBeNull();
+    const gap = lengthsOf('A1234B');
+    gap[7] = 10;
+    expect(decode(gap)).toBeNull();
+    const odd = lengthsOf('A1234B');
+    odd[3] = 6;
+    expect(decode(odd)).toBeNull();
+    expect(decode(lengthsOf('A1234B').slice(0, -1))).toBeNull();
+  });
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model (paper, ink) at every place of the picture away from the edges, for several seeds along and across',
+    { timeout: 120000 },
+    () => {
+      const seen = new Set<string>();
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        const sample = createSurfaceSampler('codabarbarcodes', seed),
+          reading = readSurface(sample);
+        seen.add(`${reading.across}`);
+        const o = empty();
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (nearEdge(reading, x, y, 0.0008)) continue;
+            sample(reading.across ? y : x, reading.across ? x : y, o);
+            const ink = inked(reading, x, y);
+            expect(o.color).toBeCloseTo(
+              ink ? reading.tones.ink : reading.tones.ground,
+              6,
+            );
+            expect(o.height / p.relief).toBeCloseTo(
+              ink ? p.inkHeight : p.groundHeight,
+              6,
+            );
+            expect(o.roughness).toBeCloseTo(
+              ink ? p.inkRoughness : p.groundRoughness,
+              6,
+            );
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(120000);
+      }
+      expect(seen.size).toBe(2);
+    },
+  );
+
+  it('puts the edges of the lines, and the top and the bottom of the bars, where the model puts them: just inside and just outside by 0.0004 of a tile, exactly, and softens them over edgeSoft (checked at a quarter of it, for the tone, the height and the roughness)', () => {
+    const delta = 0.0004,
+      soft = 0.25 * p.edgeSoft;
+    let tested = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('codabarbarcodes', seed),
+        reading = readSurface(sample),
+        { across, tones } = reading,
+        tone = (x: number, y: number): number => toneAt(sample, x, y, across);
+      for (let row = 0; row < rows; row++) {
+        const edges = edgesOf(reading.codes[row]),
+          middle = (row + 0.5) / rows;
+        // The first sixteen edges: a bar starts at an even edge and ends at an odd one.
+        for (let i = 0; i < 16; i++) {
+          const starts = i % 2 === 0,
+            [inside, outside] = starts ? [1, -1] : [-1, 1];
+          close(tone(edges[i] + inside * delta, middle), tones.ink);
+          close(tone(edges[i] + outside * delta, middle), tones.ground);
+          close(
+            tone(edges[i] + inside * soft, middle),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(edges[i] + outside * soft, middle),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          sample(
+            across ? middle : edges[i] + inside * soft,
+            across ? edges[i] + inside * soft : middle,
+            out,
+          );
+          expect(out.height / p.relief).toBeCloseTo(
+            blend(p.groundHeight, p.inkHeight, 0.75),
+            4,
+          );
+          expect(out.roughness).toBeCloseTo(
+            blend(p.groundRoughness, p.inkRoughness, 0.75),
+            4,
+          );
+          tested++;
+        }
+        // The last edge (the end of the stop character) the same way, which has no line after it.
+        const lastEdge = edges[edges.length - 1];
+        close(tone(lastEdge - delta, middle), tones.ink);
+        close(tone(lastEdge + delta, middle), tones.ground);
+        close(
+          tone(lastEdge - soft, middle),
+          blend(tones.ground, tones.ink, 0.75),
+        );
+        close(
+          tone(lastEdge + soft, middle),
+          blend(tones.ground, tones.ink, 0.25),
+        );
+        // The top and the bottom of a bar in the middle of its first line.
+        const x = (edges[0] + edges[1]) / 2;
+        close(tone(x, row / rows + p.top / rows + delta), tones.ink);
+        close(tone(x, row / rows + p.top / rows - delta), tones.ground);
+        close(tone(x, row / rows + p.bottom / rows - delta), tones.ink);
+        close(tone(x, row / rows + p.bottom / rows + delta), tones.ground);
+        close(
+          tone(x, row / rows + p.top / rows + soft),
+          blend(tones.ground, tones.ink, 0.75),
+        );
+        close(
+          tone(x, row / rows + p.top / rows - soft),
+          blend(tones.ground, tones.ink, 0.25),
+        );
+        close(
+          tone(x, row / rows + p.bottom / rows - soft),
+          blend(tones.ground, tones.ink, 0.75),
+        );
+        close(
+          tone(x, row / rows + p.bottom / rows + soft),
+          blend(tones.ground, tones.ink, 0.25),
+        );
+      }
+    }
+    expect(tested).toBe(6 * rows * 16);
+  });
+
+  it('gives the paper and the ink their heights and roughnesses, and full occlusion', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('codabarbarcodes', seed),
+        reading = readSurface(sample),
+        { across } = reading,
+        edges = edgesOf(reading.codes[2]),
+        value = (x: number, y: number): [number, number, number] => {
+          sample(across ? y : x, across ? x : y, out);
+          return [out.height / p.relief, out.roughness, out.occlusion];
+        },
+        [paperHeight, paperRoughness, paperOcclusion] = value(0, 2.5 / rows),
+        [inkHeight, inkRoughness, inkOcclusion] = value(
+          (edges[0] + edges[1]) / 2,
+          2.5 / rows,
+        );
+      expect(paperHeight).toBeCloseTo(p.groundHeight, 6);
+      expect(inkHeight).toBeCloseTo(p.inkHeight, 6);
+      expect(paperRoughness).toBeCloseTo(p.groundRoughness, 6);
+      expect(inkRoughness).toBeCloseTo(p.inkRoughness, 6);
+      expect([paperOcclusion, inkOcclusion]).toEqual([1, 1]);
+    }
+  });
+
+  it(
+    'uses every surface and both ways round over 1000 seeds about equally often, with the three wide ratios and the seven lengths about equally often, the characters spread, the start and stop characters A to D each about a quarter, the barcodes starting at every place there is room for, and the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        wides = new Map<number, number>(),
+        lengths = new Map<number, number>(),
+        body = new Map<string, number>(),
+        ends = new Map<string, number>(),
+        shifts: number[] = [];
+      let acrossCount = 0,
+        bodyTotal = 0,
+        outside = 0,
+        different = 0,
+        rowCount = 0,
+        atLeast = 0,
+        atMost = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('codabarbarcodes', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        acrossCount += Number(reading.across);
+        for (const code of reading.codes) {
+          wides.set(code.wide, (wides.get(code.wide) ?? 0) + 1);
+          lengths.set(
+            code.text.length,
+            (lengths.get(code.text.length) ?? 0) + 1,
+          );
+          const edges = edgesOf(code),
+            total = [...code.text].reduce(
+              (sum, character, k) =>
+                sum +
+                (k > 0 ? 1 : 0) +
+                [...p.patterns[p.symbols.indexOf(character)]].reduce(
+                  (width, line) => width + (line === '1' ? code.wide : 1),
+                  0,
+                ),
+              0,
+            ),
+            room = Math.floor(1 / module - total - 2 * p.quiet);
+          expect(
+            Math.abs((edges[edges.length - 1] - edges[0]) / module - total),
+          ).toBeLessThan(1e-9);
+          outside += Number(
+            code.start < p.quiet || code.start > p.quiet + room,
+          );
+          atLeast += Number(code.start === p.quiet);
+          atMost += Number(code.start === p.quiet + room);
+          different += Number(code.text[0] !== code.text[code.text.length - 1]);
+          rowCount++;
+          for (const end of [code.text[0], code.text[code.text.length - 1]])
+            ends.set(end, (ends.get(end) ?? 0) + 1);
+          for (const character of code.text.slice(1, -1)) {
+            body.set(character, (body.get(character) ?? 0) + 1);
+            bodyTotal++;
+          }
+        }
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 250)).toBeLessThan(50);
+      expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+      // 6000 rows: a third for every wide ratio and a seventh for every number of characters of the body.
+      expect(wides.size).toBe(3);
+      for (const count of wides.values())
+        expect(Math.abs(count - 2000)).toBeLessThan(150);
+      expect(lengths.size).toBe(7);
+      for (const count of lengths.values())
+        expect(Math.abs(count - 6000 / 7)).toBeLessThan(150);
+      // The 16 characters of the body each about a sixteenth, and A to D each about a quarter of the 12000 start and stop characters.
+      expect(body.size).toBe(16);
+      for (const count of body.values())
+        expect(Math.abs(count / bodyTotal - 1 / 16)).toBeLessThan(0.006);
+      expect([...ends.keys()].sort().join('')).toBe('ABCD');
+      // The start and the stop character are chosen separately: they differ in three quarters of the rows.
+      expect(Math.abs(different / rowCount - 0.75)).toBeLessThan(0.03);
+      for (const count of ends.values())
+        expect(Math.abs(count - 3000)).toBeLessThan(250);
+      // The start is inside the room the barcode leaves (a quiet zone of at least quiet narrow lines on both sides), and both ends of the room are reached.
+      expect(outside).toBe(0);
+      expect(atLeast).toBeGreaterThan(20);
+      expect(atMost).toBeGreaterThan(20);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarterOfRange = 0; quarterOfRange < 4; quarterOfRange++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) ===
+                quarterOfRange,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('codabarbarcodes', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('codabarbarcodes', 0),
+      b = createSurfaceSampler('codabarbarcodes', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

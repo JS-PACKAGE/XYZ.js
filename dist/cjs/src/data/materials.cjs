@@ -29412,6 +29412,79 @@ var proceduralMaterialPresets = Object.freeze({
 		groundRoughness: .7,
 		inkRoughness: .4
 	}),
+	codabarbarcodes: Object.freeze({
+		dark: [
+			28,
+			24,
+			30
+		],
+		light: [
+			238,
+			230,
+			212
+		],
+		roughness: .55,
+		relief: .003,
+		rows: 6,
+		module: .005,
+		quiet: 10,
+		minBody: 4,
+		maxBody: 10,
+		wides: Object.freeze([
+			2.25,
+			2.5,
+			3
+		]),
+		symbols: `0123456789-$:/.+ABCD`,
+		patterns: Object.freeze([
+			`0000011`,
+			`0000110`,
+			`0001001`,
+			`1100000`,
+			`0010010`,
+			`1000010`,
+			`0100001`,
+			`0100100`,
+			`0110000`,
+			`1001000`,
+			`0001100`,
+			`0011000`,
+			`1000101`,
+			`1010001`,
+			`1010100`,
+			`0010101`,
+			`0011010`,
+			`0101001`,
+			`0001011`,
+			`0001110`
+		]),
+		top: .14,
+		bottom: .86,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .92,
+				ink: .12
+			}),
+			Object.freeze({
+				ground: .12,
+				ink: .9
+			}),
+			Object.freeze({
+				ground: .78,
+				ink: .28
+			}),
+			Object.freeze({
+				ground: .22,
+				ink: .7
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		inkHeight: .4,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -38093,6 +38166,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	codabarbarcodes: 1,
 	itfbarcodes: 1,
 	postnetbarcodes: 1,
 	hamiltoniancycles: 1,

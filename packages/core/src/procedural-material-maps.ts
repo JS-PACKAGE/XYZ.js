@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'codabarbarcodes',
   'itfbarcodes',
   'postnetbarcodes',
   'hamiltoniancycles',
@@ -53386,6 +53387,124 @@ export function createSurfaceSampler(
             along = gy - r,
             n = counts[r];
           const start = edges[edgeAt(r, 0)],
+            end = edges[edgeAt(r, n)];
+          let inside = -1;
+          // Within a soft width of the barcode or inside it: the distance sideways from the nearer edge of the line the place is in (found by halving), a bar (even lines) inside and a space outside; before the first edge and after the last one, outside.
+          if (x >= start - p.edgeSoft && x < end + p.edgeSoft) {
+            let sideways: number;
+            if (x < start) sideways = x - start;
+            else if (x >= end) sideways = end - x;
+            else {
+              let low = 0,
+                high = n;
+              while (high - low > 1) {
+                const middle = (low + high) >> 1;
+                if (edges[edgeAt(r, middle)] <= x) low = middle;
+                else high = middle;
+              }
+              const distance = Math.min(
+                x - edges[edgeAt(r, low)],
+                edges[edgeAt(r, low + 1)] - x,
+              );
+              sideways = low % 2 === 0 ? distance : -distance;
+            }
+            inside = Math.min(
+              sideways,
+              (along - p.top) / rows,
+              (p.bottom - along) / rows,
+            );
+          }
+          const ink = cover(inside),
+            ground = surface.ground + shift;
+          color = clamp(ground + (surface.ink + shift - ground) * ink);
+          height = clamp(p.groundHeight + (p.inkHeight - p.groundHeight) * ink);
+          roughness = clamp(
+            p.groundRoughness + (p.inkRoughness - p.groundRoughness) * ink,
+          );
+          occlusion = 1;
+        };
+      }
+      case 'codabarbarcodes': {
+        const p = proceduralMaterialPresets.codabarbarcodes,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(143, 1, seed ^ 0x370001) * p.surfaces.length)
+            ],
+          across = hash(143, 2, seed ^ 0x370002) < 0.5,
+          shift = (hash(143, 3, seed ^ 0x370003) * 2 - 1) * p.toneShift,
+          wide =
+            p.wides[
+              Math.min(
+                p.wides.length - 1,
+                Math.floor(hash(143, 4, seed ^ 0x370004) * p.wides.length),
+              )
+            ],
+          rows = p.rows,
+          // The characters that are not the start and the stop (the first 16 of the symbols), the most lines of a barcode (7 for each of the characters and a narrow space between them) and the places of the edges of the lines of every row: from the first edge, a bar, a space, a bar and so on.
+          bodySymbols = p.symbols.length - 4,
+          most = 8 * (p.maxBody + 2) - 1,
+          edges = new Float64Array(rows * (most + 1)),
+          counts = new Uint8Array(rows),
+          edgeAt = (r: number, i: number): number => r * (most + 1) + i;
+        for (let r = 0; r < rows; r++) {
+          const body =
+              p.minBody +
+              Math.min(
+                p.maxBody - p.minBody,
+                Math.floor(
+                  hash(r, 0, seed ^ 0x370005) * (p.maxBody - p.minBody + 1),
+                ),
+              ),
+            // The start and the stop characters, and the characters of the body, as places in the symbols.
+            characters = [
+              bodySymbols +
+                Math.min(3, Math.floor(hash(r, 1, seed ^ 0x370005) * 4)),
+            ],
+            widths: number[] = [];
+          for (let i = 0; i < body; i++)
+            characters.push(
+              Math.min(
+                bodySymbols - 1,
+                Math.floor(hash(r, 2 + i, seed ^ 0x370005) * bodySymbols),
+              ),
+            );
+          characters.push(
+            bodySymbols +
+              Math.min(3, Math.floor(hash(r, 13, seed ^ 0x370005) * 4)),
+          );
+          characters.forEach((character, k) => {
+            if (k > 0) widths.push(1);
+            for (const line of p.patterns[character])
+              widths.push(line === '1' ? wide : 1);
+          });
+          const total = widths.reduce((sum, w) => sum + w, 0),
+            room = Math.floor(1 / p.module - total - 2 * p.quiet),
+            start =
+              p.quiet +
+              Math.min(
+                room,
+                Math.floor(hash(r, 20, seed ^ 0x370005) * (room + 1)),
+              );
+          let at = start * p.module;
+          edges[edgeAt(r, 0)] = at;
+          widths.forEach((w, i) => {
+            at += w * p.module;
+            edges[edgeAt(r, i + 1)] = at;
+          });
+          counts[r] = widths.length;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            x = across ? fv : fu,
+            gy = (across ? fu : fv) * rows,
+            r = Math.floor(gy),
+            along = gy - r,
+            n = counts[r],
+            start = edges[edgeAt(r, 0)],
             end = edges[edgeAt(r, n)];
           let inside = -1;
           // Within a soft width of the barcode or inside it: the distance sideways from the nearer edge of the line the place is in (found by halving), a bar (even lines) inside and a space outside; before the first edge and after the last one, outside.
