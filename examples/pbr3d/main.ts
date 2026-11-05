@@ -1236,6 +1236,7 @@ try {
     'euclideanrhythms',
     'hanoistates',
     'transformbasis',
+    'diophantinegrid',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

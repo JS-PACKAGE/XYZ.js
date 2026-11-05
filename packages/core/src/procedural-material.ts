@@ -1173,6 +1173,7 @@ export type ProceduralMaterialKind =
   | 'euclideanrhythms'
   | 'hanoistates'
   | 'transformbasis'
+  | 'diophantinegrid'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2594,6 +2595,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'euclideanrhythms',
   'hanoistates',
   'transformbasis',
+  'diophantinegrid',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

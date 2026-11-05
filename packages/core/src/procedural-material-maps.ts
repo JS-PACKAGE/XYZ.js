@@ -56881,6 +56881,78 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'diophantinegrid': {
+        const p = proceduralMaterialPresets.diophantinegrid,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.forms.length,
+          group = Math.floor(unsigned / p.forms.length),
+          n: number = p.size,
+          offset = (group % 8) * 32,
+          form: number = p.forms[variant],
+          gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b)),
+          isSquare = (value: number): boolean => {
+            const root = Math.round(Math.sqrt(value));
+            return value > 0 && root * root === value;
+          },
+          // The class of every cell: 0 not lit, 1 lit with a common factor, 2 lit and primitive.
+          classes = new Uint8Array(n * n);
+        for (let j = 0; j < n; j++)
+          for (let i = 0; i < n; i++) {
+            const a = offset + i + 1,
+              b = offset + j + 1;
+            let lit: boolean;
+            if (form === 0) lit = isSquare(a * a + b * b);
+            else if (form === 1) lit = isSquare(a * a + a * b + b * b);
+            else if (form === 2) lit = isSquare(a * a - a * b + b * b);
+            else if (form === 3)
+              lit = isSquare((a * a + b * b) / 2); // an odd sum gives a half, never a square
+            else if (form === 4) lit = isSquare(a * a + 3 * b * b);
+            else lit = isSquare(a * a - b * b);
+            classes[j * n + i] = lit ? (gcd(a, b) === 1 ? 2 : 1) : 0;
+          }
+        const half = 0.5 - p.gap,
+          inner = half - p.corner;
+        return () => {
+          const x = fract(u) * n,
+            y = fract(v) * n,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            qx = Math.abs(x - column - 0.5) - inner,
+            qy = Math.abs(y - row - 0.5) - inner,
+            // The distance to the rounded square of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            kind = classes[row * n + column],
+            tone =
+              kind === 0
+                ? p.toneRest
+                : kind === 1
+                  ? p.toneShared
+                  : p.tonePrimitive,
+            lift =
+              kind === 0
+                ? p.heightRest
+                : kind === 1
+                  ? p.heightShared
+                  : p.heightPrimitive,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * lift;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65856,6 +65928,7 @@ export function createSurfaceSampler(
     kind === 'euclideanrhythms' ||
     kind === 'hanoistates' ||
     kind === 'transformbasis' ||
+    kind === 'diophantinegrid' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

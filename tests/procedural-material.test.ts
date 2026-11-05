@@ -1199,6 +1199,7 @@ const kinds: ProceduralMaterialKind[] = [
   'euclideanrhythms',
   'hanoistates',
   'transformbasis',
+  'diophantinegrid',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -214005,6 +214006,317 @@ describe('Transform basis as the basis images of the cosine and Haar transforms'
     expect(blue / (512 * 512)).toBeLessThan(106.4);
     expect(maxTilt).toBeGreaterThan(0.0846);
     expect(maxTilt).toBeLessThan(0.0848);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Diophantine grid as the cells where a form is a square', () => {
+  const p = proceduralMaterialPresets.diophantinegrid;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The squares of the whole numbers up to 700, for asking whether a number is a square without a square root. */
+  const squares = new Set(Array.from({ length: 700 }, (_, k) => k * k));
+  /** The greatest common divisor, by repeated subtraction of the smaller from the greater. */
+  const commonDivisor = (a: number, b: number): number => {
+    while (a !== b) {
+      if (a > b) a -= b;
+      else b -= a;
+    }
+    return a;
+  };
+  /** Whether the form of a variant has a whole number square root at (a, b): 0 a^2 + b^2, 1 a^2 + a b + b^2, 2 a^2 - a b + b^2, 3 (a^2 + b^2) / 2, 4 a^2 + 3 b^2, 5 a^2 - b^2. */
+  const isLit = (form: number, a: number, b: number): boolean => {
+    switch (form) {
+      case 0:
+        return squares.has(a * a + b * b);
+      case 1:
+        return squares.has(a * a + a * b + b * b);
+      case 2:
+        return squares.has(a * a - a * b + b * b);
+      case 3:
+        return (a * a + b * b) % 2 === 0 && squares.has((a * a + b * b) / 2);
+      case 4:
+        return squares.has(a * a + 3 * b * b);
+      default:
+        return a > b && squares.has(a * a - b * b);
+    }
+  };
+  /** The classes the picture of a seed should show: 0 not lit, 1 lit with a common factor, 2 lit and primitive; the cell (i, j) is the pair (offset + i + 1, offset + j + 1) for the offset 32 times the group mod 8. */
+  const expectedClasses = (seed: number): number[][] => {
+    const variant = seed % p.forms.length,
+      offset = (Math.floor(seed / p.forms.length) % 8) * 32;
+    return Array.from({ length: p.size }, (_, j) =>
+      Array.from({ length: p.size }, (_, i) => {
+        const a = offset + i + 1,
+          b = offset + j + 1;
+        return isLit(variant, a, b) ? (commonDivisor(a, b) === 1 ? 2 : 1) : 0;
+      }),
+    );
+  };
+  /** The classes as the picture shows them, read back at the middle of every cell (the height gives it). */
+  const readClasses = (seed: number): number[][] => {
+    const sample = createSurfaceSampler('diophantinegrid', seed),
+      out = empty();
+    return Array.from({ length: p.size }, (_, j) =>
+      Array.from({ length: p.size }, (_, i) => {
+        sample((i + 0.5) / p.size, (j + 0.5) / p.size, out);
+        const high = out.height / p.relief / p.cellHeight,
+          kind = [p.heightRest, p.heightShared, p.heightPrimitive].findIndex(
+            (h) => Math.abs(h - high) < 1e-9,
+          );
+        expect(kind).toBeGreaterThanOrEqual(0);
+        return kind;
+      }),
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5 (the lit cells), for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('diophantinegrid', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.05588, high: 0.9628, lit: 0.01355, mean: 0.11632 }],
+      [1, { low: 0.05556, high: 0.9624, lit: 0.01245, mean: 0.11578 }],
+      [0xffffffff, { low: 0.05572, high: 0.9619, lit: 0.01318, mean: 0.1145 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('diophantinegrid', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      // At the corner where four cells meet there is no ink: the gap occlusion (the 256 grid never lands on a corner).
+      const corner = empty();
+      sample(5 / 64, 9 / 64, corner);
+      expect(corner.height).toBe(0);
+      expect(corner.occlusion).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('lights exactly the cells where the form is a square, with the primitive ones brighter, read back at the middle of every cell and equal to a separate test with a set of squares and a gcd by subtraction, for the eight windows of the group', () => {
+    for (let seed = 0; seed < 48; seed++)
+      expect(readClasses(seed)).toEqual(expectedClasses(seed));
+  });
+  it('shows what the forms are, read from the picture: Euclid formula gives every primitive Pythagorean pair, the pairs are closed under doubling, the forms a^2 + b^2, a^2 + a b + b^2, a^2 - a b + b^2 and (a^2 + b^2) / 2 are symmetric and a^2 - b^2 is lit only above the diagonal', () => {
+    for (let seed = 0; seed < 6; seed++) {
+      const classes = readClasses(seed),
+        lit = (i: number, j: number) => classes[j][i] > 0;
+      for (let j = 0; j < 64; j++)
+        for (let i = 0; i < 64; i++) {
+          if (lit(i, j) && 2 * i + 1 < 64 && 2 * j + 1 < 64)
+            // The pair (a, b) = (i + 1, j + 1) doubled is (2 i + 2, 2 j + 2): the cell (2 i + 1, 2 j + 1).
+            expect(lit(2 * i + 1, 2 * j + 1)).toBe(true);
+          if (seed <= 3) expect(lit(i, j)).toBe(lit(j, i));
+          if (seed === 5 && i <= j) expect(lit(i, j)).toBe(false);
+        }
+    }
+    // Euclid's formula: the primitive Pythagorean legs are (m^2 - n^2, 2 m n) for m above n, coprime and of different parity, in either order; the windows of the 8 groups.
+    for (let group = 0; group < 8; group++) {
+      const offset = group * 32,
+        classes = readClasses(6 * group),
+        found = new Set<string>(),
+        made = new Set<string>();
+      classes.forEach((row, j) =>
+        row.forEach((kind, i) => {
+          if (kind === 2) found.add(`${offset + i + 1},${offset + j + 1}`);
+        }),
+      );
+      for (let m = 2; m < 40; m++)
+        for (let n = 1; n < m; n++) {
+          if ((m - n) % 2 === 0 || commonDivisor(m, n) !== 1) continue;
+          const legs = [m * m - n * n, 2 * m * n];
+          for (const [a, b] of [legs, [legs[1], legs[0]]])
+            if (
+              a > offset &&
+              a <= offset + 64 &&
+              b > offset &&
+              b <= offset + 64
+            )
+              made.add(`${a},${b}`);
+        }
+      expect(found).toEqual(made);
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const classes = expectedClasses(seed),
+        sample = createSurfaceSampler('diophantinegrid', seed),
+        out = empty(),
+        half = 0.5 - p.gap,
+        inner = half - p.corner;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * p.size,
+          y = v * p.size,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          dx = Math.abs(x - column - 0.5),
+          dy = Math.abs(y - row - 0.5),
+          // The distance to the rounded square, by the straight sides or by the corner circle.
+          distance =
+            dx <= inner || dy <= inner
+              ? Math.max(dx, dy) - half
+              : Math.hypot(dx - inner, dy - inner) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          kind = classes[row][column],
+          tone = [p.toneRest, p.toneShared, p.tonePrimitive][kind],
+          lift = [p.heightRest, p.heightShared, p.heightPrimitive][kind];
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * lift,
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.0260009765625, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.0230712890625, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('diophantinegrid', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 silver Diophantine grid maps on dark charcoal with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('diophantinegrid', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(28.5);
+    expect(red / (512 * 512)).toBeLessThan(29.6);
+    expect(green / (512 * 512)).toBeGreaterThan(29);
+    expect(green / (512 * 512)).toBeLessThan(30);
+    expect(blue / (512 * 512)).toBeGreaterThan(33.9);
+    expect(blue / (512 * 512)).toBeLessThan(35);
+    expect(maxTilt).toBeGreaterThan(0.0999);
+    expect(maxTilt).toBeLessThan(0.1);
     expect(invalid).toBe(0);
   });
 });

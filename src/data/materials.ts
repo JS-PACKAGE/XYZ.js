@@ -19668,6 +19668,33 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.7,
     gapOcclusion: 0.5,
   }),
+  diophantinegrid: Object.freeze({
+    dark: [10, 10, 14] as const,
+    light: [225, 230, 245] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x2c19,
+    // A grid of size by size cells: the cell (i, j) stands for the pair (a, b) = (offset + i + 1, offset + j + 1) and holds a tile that is lit if the form of the variant is the square of a whole number c: forms[variant] 0 a^2 + b^2 (Pythagorean triples), 1 a^2 + a b + b^2, 2 a^2 - a b + b^2 (the triangles with an angle of 120 and 60 degrees), 3 (a^2 + b^2) / 2, 4 a^2 + 3 b^2 and 5 a^2 - b^2 (for a above b). A lit tile with a and b coprime (a primitive solution) is the brighter and higher one, a lit tile with a common factor the dimmer, and a cell that is not lit a faint low tile. The seed is split in two: seed % 6 picks the form and floor(seed / 6) the group, whose value mod 8 times 32 is the offset of the window, so seeds 0 to 5 are the six forms from (1, 1).
+    forms: [0, 1, 2, 3, 4, 5] as const,
+    size: 64,
+    // The gap on each side of a cell, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.08,
+    corner: 0.16,
+    edgeSoft: 0.07,
+    grainCells: 128,
+    toneGround: 0.03,
+    // The tone of a cell that is not lit, of a lit one with a common factor and of a primitive one.
+    toneRest: 0.12,
+    toneShared: 0.55,
+    tonePrimitive: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The heights of the three kinds of cell as fractions of cellHeight.
+    heightRest: 0.18,
+    heightShared: 0.6,
+    heightPrimitive: 1,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21504,6 +21531,7 @@ export const proceduralTileMeters = Object.freeze({
   euclideanrhythms: 0.5,
   hanoistates: 0.5,
   transformbasis: 0.5,
+  diophantinegrid: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,
