@@ -14845,3 +14845,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：7項（色調範圍、碼的結構與座標排列、距離／syndrome／解碼／權重、逐點比對、不同碼與群組與決定性、C1與UV週期、maps），`-t "Linear codes as"`7項通過。
 - gates（工具實跑）：build、strict typecheck、對改動檔的eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、`check-distribution`皆通過，`-t "Linear codes as|linearcodes|kinds|catalog|distinct|periodic"`定向測試**2678項通過／4867項未選**，輸出`GATES-OK`。
 - 未驗證：friezegroups、robinsonschensted、crctables與linearcodes的完整suite（最近一次在`cb595626d`：11,474項全部通過）與瀏覽器gallery（最近一次到huffmancodes）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-06 記錄：完整suite與瀏覽器gallery（到linearcodes）
+
+- 範圍：只記錄驗證，沒有改程式。對象是`771b981c9`（[P08] Add Linear Codes material），涵蓋此前尚未做過完整suite與gallery的四個材質：friezegroups、robinsonschensted、crctables、linearcodes。
+- 完整suite（工具實跑，獨立worktree、`vitest run`）：**181個檔案／11,505項測試全部通過**，耗時1643 s（開始時主機load約6）。這個數字接在上一次完整suite（`cb595626d`：11,474項）之後，差額31項是這之間新增的測試，我沒有逐檔核對。
+- 瀏覽器gallery（工具實跑，Chrome啟用WebGPU，Vite開發伺服器）：`/examples/pbr3d/`在WebGPU與`?renderer=webgl2`兩種後端都載入成功，狀態列顯示1,184種procedural material presets，下拉選單1,185個選項（含plain）；以`input`事件選取friezegroups、robinsonschensted、crctables、linearcodes，唯讀區在各後端都出現對應的`Material <kind> `字樣，`tab.errors()`為空。這只證明選取與初次生成沒有丟錯，我沒有逐一截圖檢視這四個在gallery內的樣子；預覽圖在各材質自己的紀錄中看過。
+- 環境註記：啟動dev server時發現5391埠已被先前殘留的vite占用（同一worktree、同一份檔案，我沿用它），所以本次沒有新開伺服器。
+- 未驗證：跨瀏覽器（只有一個Chrome）、跨GPU（只有這一台）、Canvas2D（本頁無3D能力）、完整`lint`全倉；不push。
