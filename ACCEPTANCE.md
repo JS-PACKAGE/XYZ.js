@@ -14799,3 +14799,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：7項（色調範圍、前綴碼與最優性、已知形狀、逐點比對、不同權重與群組與決定性、C1與UV週期、maps），`-t "Huffman codes as"`7項通過。
 - gates（工具實跑，重開後重寫的閘門腳本）：build（tsc＋minify＋copy-vendor＋build-cjs）、strict typecheck、對改動檔的eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、`check-distribution`皆通過，`-t "Huffman codes as|huffmancodes|kinds|catalog|distinct|periodic"`定向測試**2670項通過／4844項未選**，輸出`GATES-OK`（注意：eslint這次只跑了改動檔，先前幾次的閘門腳本也是對改動檔，我記憶中沒有跑全倉`eslint .`）。
 - 未驗證：完整suite（最近一次在`a2949bbf6`，24項既有C1測試逾時、沒有我的）、diophantinegrid到huffmancodes共九個kind的瀏覽器gallery（最近一次成功到transformbasis）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-06 完整測試與瀏覽器gallery複驗（至huffmancodes，`cb595626d`）：通過
+
+- 完整suite（工具實跑，`/private/tmp/xyz-ct-suite`在`cb595626d`的乾淨detached worktree，完整`vitest run`，主機重開後負載低（開始時`uptime`負載平均4.16））：**181個檔案、11,474項測試全部通過，耗時1770 s**。上一次（`a2949bbf6`，主機負載平均約96）有24項既有C1測試30 s逾時；這次沒有任何逾時，所以那些逾時確實是主機負載造成，不是測試本身壞掉（這是推論：我沒有在高負載下重現／分析各項的耗時）。
+- 瀏覽器gallery（工具實跑，Chrome，vite dev server在`/private/tmp/xyz-ct`的`cb595626d`，`http://127.0.0.1:5391/examples/pbr3d/`）：WebGPU（`navigator.gpu`存在，狀態列為「webgpu · 1180 procedural material presets…」）與`?renderer=webgl2`下，選單選項都是1181項（目錄1180種加plain）；diophantinegrid、beattysequences、minesweeperboards、finitefieldtables、pseudoprimeliars、lightsoutpuzzles、burrowswheeler、huffmancodes八個新kind逐一以`input`事件選取，readout在250 ms內都顯示`Material <kind> …`，`tab.errors()`皆空；我另截了一張WebGPU最後選取huffmancodes的畫面，看得到深色球體與橘色格紋，沒有逐個kind放大檢查外觀，也沒有逐像素比對兩個backend。注意：我第一次用`change`事件選取沒有反應（gallery聽的是`.controls`上的`input`事件），改用`input`後成功；這是我的檢查腳本的問題，不是gallery的問題。
+- 未驗證：Canvas2D fallback下的gallery、其他瀏覽器與GPU；不push。
