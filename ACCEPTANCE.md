@@ -14670,3 +14670,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：7項（色調範圍、類別與整數判斷式相等、Rayleigh定理、逐點比對、不同變體與群組與決定性、C1與UV週期、maps），`-t "Beatty sequences as"`7項通過（約18.6 s）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Beatty sequences as|beattysequences|kinds|catalog|distinct|periodic"`定向測試**2658項通過／4809項未選**，輸出`GATES-OK`。
 - 未驗證：diophantinegrid與beattysequences的完整suite（最近一次在`392010ee0`：11,397項裡11,396項通過、1項既有的washer rims C1測試逾時）、兩者的瀏覽器gallery（最近一次到transformbasis）、跨瀏覽器與跨GPU；不push。
+- 第十三波（再掃一批未優化模組，Node CPU time，interleaved min-of-N，輸出hash前後相同；不是FPS）：
+  - `7fdc2f5d1` 凸分解以共邊索引取代反覆全配對搜尋（小輸入與重複邊仍走完整搜尋，合併與頂點順序不變）：64 頂點 1.425→0.619 ms，256 頂點 82.0→10.6 ms；4,500 組輸入／錯誤結果 SHA-256 相同。
+  - `4149640ed` shader 區塊移除跳過已確認前綴（保留拼接邊界重新匹配）：320 次基本變體 GLSL 320.41→207.04 ms、WGSL 443.66→278.69 ms；160 組隨機變體 source hash 相同，另 20,000 組字串結果／例外比對一致。
+  - `71e3c341b` CPU skinning 展開固定 16 項累加（浮點順序不變）：999 頂點／4 influences 49.89→42.19 ms，3999／8 281.46→230.81 ms。
+  - `3f9c47460` GPU 粒子矩陣逐項複製，避免跨型別 `TypedArray.set`：1,000 粒子 47.48→38.06 ms。
+  - `a4555f718` manifest 單一別名不建立去重 Set：1,000 entries 18.42→16.18 ms。
+  - 量過未保留：所有小多邊形強制建索引（16 頂點慢約 11%）、shader 大括號 `indexOf` 掃描（約 1%）、IK 重用 quaternion 長度（−0.7%／3.3%）。其餘（角色、關節、CCD、Scene、Accessibility、Locomotion、OPM、XR、Game 幀迴圈、visibility、environment、blend tree、follower、bake）測得線性或已無可驗證候選。
+  - 驗證：startup gzip 213,437 B（上限 214,168 B）；`pnpm build`、四項 `check:*`、`tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 通過；各 commit 的相關 targeted tests 通過，**沒有重跑完整 Vitest**。音訊、video、XR、locomotion move 使用原生介面替身，只代表 CPU 包裝成本；Path2D 原生 flatten／stroke 與 canvas 像素操作沒有在 Node 驗證。
