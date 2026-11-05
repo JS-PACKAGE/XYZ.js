@@ -77,6 +77,30 @@ describe('KTX2 container', () => {
     expect(Array.from(container.levels[0]!.data)).toEqual(Array.from(rgba));
   });
 
+  it('reads all safe 64-bit lengths exactly and rejects unsafe high words', () => {
+    for (const length of [
+      0,
+      0xffffffff,
+      0x100000000,
+      0x100000001,
+      Number.MAX_SAFE_INTEGER,
+    ]) {
+      const file = ktx2(rgba, { uncompressedLength: length });
+      expect(parseKTX2(file).levels[0]!.uncompressedByteLength).toBe(length);
+    }
+    for (const offset of [64, 72, 80, 88, 96]) {
+      const file = ktx2(rgba);
+      new DataView(file.buffer).setBigUint64(
+        offset,
+        BigInt(Number.MAX_SAFE_INTEGER) + 1n,
+        true,
+      );
+      expect(() => parseKTX2(file)).toThrow(
+        'Invalid KTX2 container: offset is out of range',
+      );
+    }
+  });
+
   it('decodes uncompressed RGBA8, RGB8 and ZLIB-supercompressed levels', async () => {
     expect(Array.from((await decodeKTX2(ktx2(rgba))).data)).toEqual(
       Array.from(rgba),

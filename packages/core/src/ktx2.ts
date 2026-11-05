@@ -81,9 +81,11 @@ export function parseKTX2(bytes: Uint8Array): KTX2Container {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const u32 = (offset: number): number => view.getUint32(offset, true);
   const u64 = (offset: number): number => {
-    const value = view.getBigUint64(offset, true);
-    if (value > BigInt(Number.MAX_SAFE_INTEGER)) fail('offset is out of range');
-    return Number(value);
+    const low = view.getUint32(offset, true);
+    const high = view.getUint32(offset + 4, true);
+    // Every accepted 64-bit integer is exactly representable with at most 21 high bits.
+    if (high > 0x1fffff) fail('offset is out of range');
+    return high * 0x100000000 + low;
   };
   const vkFormat = u32(12);
   const width = u32(20);
