@@ -50059,7 +50059,7 @@ export function createSurfaceSampler(
             inside = smooth(clamp(-boxDistance / p.fade));
           let ink = 0;
           // The faded-out frame cannot contain ink, so it needs no circle-map orbit.
-          if (inside > 0) {
+          if (inside !== 0) {
             const omega = centre + (halfWidth * (fu - 0.5)) / plot,
               strength =
                 lowK + (highK - lowK) * (0.5 - (fv - 0.5) / (2 * plot)),
