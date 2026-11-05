@@ -200,7 +200,10 @@ var NavigationMesh3D = class {
 		let c = this.epoch, l = s.agentRadius ?? 0, u = new require_partition_search.PartitionSearch(), d = /* @__PURE__ */ new Map(), region = (e) => {
 			let t = d.get(e);
 			return t || (t = this.region(e, l), d.set(e, t)), t;
-		}, f = [this.candidates(t, s.maxDistance), this.candidates(i, s.maxDistance)], p = [], m = /* @__PURE__ */ new Map(), h = [], g = [], _ = [], v = [], y = [], b = [], x = `projection`, S = 0, C = 0, w = -1, T = 0, E = 0, D = 0, O = !1, publish = () => {
+		}, f = [this.candidates(t, s.maxDistance), this.candidates(i, s.maxDistance)], p = [], m = /* @__PURE__ */ new Map(), h = [], g = [], _ = [], v = [], y = [], b = [], x = `projection`, S = 0, C = 0, w = -1, T = 0, E = 0, D = 0, O = !1, k = 0, resetCandidate = () => {
+			if (k <= T) for (k = T + 1; k < _.length && !_[k].link;) k++;
+			E = k - 1;
+		}, publish = () => {
 			let e = Object.freeze({
 				status: O ? `found` : `unreachable`,
 				polygons: Object.freeze(y),
@@ -210,7 +213,7 @@ var NavigationMesh3D = class {
 				visited: u.distance.size
 			});
 			return this.paths.add(e), e;
-		}, k = new require_partition_search.PartitionNavigationJob(() => {
+		}, A = new require_partition_search.PartitionNavigationJob(() => {
 			if (x === `projection`) {
 				let e = f[S].next();
 				if (!e.done) {
@@ -269,18 +272,18 @@ var NavigationMesh3D = class {
 							_.push(Object.freeze({ position: Object.freeze(new require_math3d.Vector3((i[0].x + i[1].x) / 2, (i[0].y + i[1].y) / 2, (i[0].z + i[1].z) / 2)) })), v.push(g.length - 1);
 						}
 					}
-				} else _.push(Object.freeze({ position: Object.freeze(p[1].point) })), v.push(g.length - 1), b.push(_[0]), T = 0, E = _.length - 1, D = v[0], x = `smooth`;
+				} else _.push(Object.freeze({ position: Object.freeze(p[1].point) })), v.push(g.length - 1), b.push(_[0]), T = 0, resetCandidate(), D = v[0], x = `smooth`;
 			} else if (x === `smooth`) {
 				if (T === _.length - 1) {
 					O = !0, x = `publish`;
 					return;
 				}
 				if (_[T + 1].link) {
-					b.push(_[++T]), E = _.length - 1, D = v[T];
+					b.push(_[++T]), resetCandidate(), D = v[T];
 					return;
 				}
 				if (E <= T + 1) {
-					b.push(_[++T]), E = _.length - 1, D = v[T];
+					b.push(_[++T]), resetCandidate(), D = v[T];
 					return;
 				}
 				let e = _[T].position, t = _[E].position, n = v[T], r = v[E], i = g[D], a = this.geometry[i], s = !_[E].link;
@@ -311,10 +314,10 @@ var NavigationMesh3D = class {
 						}
 					}
 				}
-				s ? ++D > r && (b.push(_[E]), T = E, E = _.length - 1, D = v[T]) : (E--, D = n);
+				s ? ++D > r && (b.push(_[E]), T = E, resetCandidate(), D = v[T]) : (E--, D = n);
 			} else return publish();
-		}, () => !this.disposed && c === this.epoch, () => this.jobs.delete(k), (e) => e.status === `found`);
-		return this.jobs.add(k), k;
+		}, () => !this.disposed && c === this.epoch, () => this.jobs.delete(A), (e) => e.status === `found`);
+		return this.jobs.add(A), A;
 	}
 	destroy() {
 		if (!this.disposed) {

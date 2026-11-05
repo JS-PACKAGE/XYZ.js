@@ -18156,6 +18156,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         heightSwing: 0.65;
         gapOcclusion: 0.5;
     }>;
+    golombrulers: Readonly<{
+        dark: readonly [20, 14, 4];
+        light: readonly [255, 215, 120];
+        roughness: 0.45;
+        relief: 0.0012;
+        seedSalt: 27655;
+        marks: readonly [5, 6, 7, 8, 9, 10];
+        rulers: readonly [readonly [readonly [0, 1, 4, 9, 11], readonly [0, 2, 7, 8, 11], readonly [0, 2, 7, 10, 11], readonly [0, 3, 4, 9, 11]], readonly [readonly [0, 1, 4, 10, 12, 17], readonly [0, 1, 4, 10, 15, 17], readonly [0, 1, 8, 11, 13, 17], readonly [0, 1, 8, 12, 14, 17], readonly [0, 2, 7, 13, 16, 17], readonly [0, 3, 5, 9, 16, 17], readonly [0, 4, 6, 9, 16, 17], readonly [0, 5, 7, 13, 16, 17]], readonly [readonly [0, 1, 4, 10, 18, 23, 25], readonly [0, 1, 7, 11, 20, 23, 25], readonly [0, 1, 11, 16, 19, 23, 25], readonly [0, 2, 3, 10, 16, 21, 25], readonly [0, 2, 5, 14, 18, 24, 25], readonly [0, 2, 6, 9, 14, 24, 25], readonly [0, 2, 7, 13, 21, 22, 25], readonly [0, 2, 7, 15, 21, 24, 25], readonly [0, 3, 4, 12, 18, 23, 25], readonly [0, 4, 9, 15, 22, 23, 25]], readonly [readonly [0, 1, 4, 9, 15, 22, 32, 34], readonly [0, 2, 12, 19, 25, 30, 33, 34]], readonly [readonly [0, 1, 5, 12, 25, 27, 35, 41, 44], readonly [0, 3, 9, 17, 19, 32, 39, 43, 44]], readonly [readonly [0, 1, 6, 10, 23, 26, 34, 41, 53, 55], readonly [0, 2, 14, 21, 29, 32, 45, 49, 54, 55]]];
+        dotRadius: 0.45;
+        edgeSoft: 0.08;
+        grainCells: 128;
+        toneGround: 0.03;
+        toneMin: 0.25;
+        toneMax: 0.95;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        heightBase: 0.4;
+        heightSwing: 0.6;
+        gapOcclusion: 0.5;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -19985,6 +20005,7 @@ export declare const proceduralTileMeters: Readonly<{
     debruijntorus: 0.5;
     mondrianpartitions: 0.5;
     langfordpairings: 0.5;
+    golombrulers: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

@@ -229,7 +229,8 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 			throw e;
 		}
 		let t = this.hitPoint.x + this.anchor.x * this.width, n = this.hitPoint.y + this.anchor.y * this.height;
-		return this.displayedInstructions.some((e) => (e.alpha ?? 1) > 0 && (e.fill !== void 0 && e.path.containsPoint(t, n) || e.stroke !== void 0 && e.path.containsPoint(t, n, e.stroke)));
+		for (let e of this.displayedInstructions) if ((e.alpha ?? 1) > 0 && (e.fill !== void 0 && e.path.containsPoint(t, n) || e.stroke !== void 0 && e.path.containsPoint(t, n, e.stroke))) return !0;
+		return !1;
 	}
 	onDestroy() {
 		this.ownedTexture.destroy();

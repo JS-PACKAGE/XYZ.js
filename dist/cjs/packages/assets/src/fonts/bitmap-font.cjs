@@ -64,9 +64,9 @@ var BitmapFontLoader = class BitmapFontLoader {
 	static parse(n, r = `text`) {
 		if (typeof n != `string` || n.length > require_rendering2d.rendering2dLimits.fontBytes) throw new require_texture.AssetError(`Bitmap font descriptor exceeds its byte budget.`);
 		let i = 0;
-		for (let r of n) {
-			let n = r.codePointAt(0);
-			if (i += n <= 127 ? 1 : n <= 2047 ? 2 : n <= 65535 ? 3 : 4, i > require_rendering2d.rendering2dLimits.fontBytes) throw new require_texture.AssetError(`Bitmap font descriptor exceeds its byte budget.`);
+		for (let r = 0; r < n.length; r++) {
+			let a = n.codePointAt(r);
+			if (a > 65535 && r++, i += a <= 127 ? 1 : a <= 2047 ? 2 : a <= 65535 ? 3 : 4, i > require_rendering2d.rendering2dLimits.fontBytes) throw new require_texture.AssetError(`Bitmap font descriptor exceeds its byte budget.`);
 		}
 		let a;
 		if (r === `json`) try {
@@ -110,17 +110,17 @@ var BitmapFontLoader = class BitmapFontLoader {
 		if (c.some((e) => typeof e != `string` || !e.trim()) || Array.from({ length: c.length }, (e, t) => c[t]).some((e) => e === void 0) || s.pages !== c.length) throw new require_texture.AssetError(`Bitmap pages must be contiguous nonempty filenames.`);
 		let l = a.chars.map((e) => {
 			if (!e || typeof e != `object` || Array.isArray(e) || e.chnl !== void 0 && e.chnl !== 15) throw new require_texture.AssetError(`Channel-packed bitmap glyphs are unsupported.`);
-			let n = Object.fromEntries([
-				`id`,
-				`page`,
-				`x`,
-				`y`,
-				`width`,
-				`height`,
-				`xoffset`,
-				`yoffset`,
-				`xadvance`
-			].map((t) => [t, e[t]]));
+			let n = {
+				id: e.id,
+				page: e.page,
+				x: e.x,
+				y: e.y,
+				width: e.width,
+				height: e.height,
+				xoffset: e.xoffset,
+				yoffset: e.yoffset,
+				xadvance: e.xadvance
+			};
 			if (!Object.values(n).every(Number.isSafeInteger)) throw new require_texture.AssetError(`AngelCode metrics must be integer values.`);
 			return n;
 		}), u = (a.kernings ?? []).map((e) => {
