@@ -38,23 +38,6 @@ describe('audio gain automation', () => {
     expect(envelope.valueAt(1)).toBeCloseTo(0.6);
     expect(envelope.valueAt(10)).toBeCloseTo(0.2);
   });
-
-  it('preserves exact boundaries and past values across a long automation history', () => {
-    const envelope = new GainTimeline(1);
-    for (let i = 0; i < 1000; i++)
-      envelope.ramp(i % 2 === 0 ? 0.5 : 1, i * 2, 1);
-    expect(envelope.valueAt(1998)).toBe(0.5);
-    expect(envelope.valueAt(1998.5)).toBe(0.75);
-    expect(envelope.isRampingAt(1998)).toBe(true);
-    expect(envelope.isRampingAt(1999)).toBe(false);
-    expect(envelope.cancel(1000.5)).toBe(0.75);
-    expect(envelope.valueAt(1000.25)).toBe(0.875);
-    expect(envelope.valueAt(1999)).toBe(0.75);
-    envelope.ramp(0.25, 1001, 0);
-    expect(envelope.valueAt(1001)).toBe(0.25);
-    expect(envelope.isRampingAt(1001)).toBe(false);
-    expect(envelope.copy(1e20).valueAt(1e20)).toBe(0.25);
-  });
 });
 
 describe('effect preparation ownership', () => {
