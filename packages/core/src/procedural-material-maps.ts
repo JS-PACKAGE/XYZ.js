@@ -50057,38 +50057,44 @@ export function createSurfaceSampler(
         return () => {
           const fu = fract(u),
             fv = fract(v),
-            omega = centre + (halfWidth * (fu - 0.5)) / plot,
-            strength = lowK + (highK - lowK) * (0.5 - (fv - 0.5) / (2 * plot)),
-            step = strength / TAU;
-          // The angle is kept in [0, 1) and the whole turns are counted apart, so that the argument of the sine stays small and
-          // the rounding error does not grow with the number of turns.
-          let theta = 0,
-            turns = 0;
-          for (let i = 0; i < p.steps; i++) {
-            theta += omega - step * Math.sin(TAU * theta);
-            const whole = Math.floor(theta);
-            theta -= whole;
-            turns += whole;
-          }
-          const rotation = (turns + theta) / p.steps;
-          let lock = 0;
-          for (let q = 1; q <= p.maxDenominator; q++) {
-            const offset = rotation - Math.round(rotation * q) / q,
-              t = clamp(1 - (offset * offset) / lockSquared);
-            lock = Math.max(
-              lock,
-              Math.max(p.toneMin, 1 - p.toneStep * (q - 1)) * t * t,
-            );
-          }
-          const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
               hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
-            inside = smooth(clamp(-boxDistance / p.fade)),
-            background = p.backgroundTone * (1 - Math.abs(2 * rotation - 1)),
-            ink = clamp(inside * (1 - (1 - background) * (1 - lock))),
-            mask = smooth(clamp(ink * inverseSoft)),
+            inside = smooth(clamp(-boxDistance / p.fade));
+          let ink = 0;
+          // The faded-out frame cannot contain ink, so it needs no circle-map orbit.
+          if (inside > 0) {
+            const omega = centre + (halfWidth * (fu - 0.5)) / plot,
+              strength =
+                lowK + (highK - lowK) * (0.5 - (fv - 0.5) / (2 * plot)),
+              step = strength / TAU;
+            // The angle is kept in [0, 1) and the whole turns are counted apart, so that the argument of the sine stays small and
+            // the rounding error does not grow with the number of turns.
+            let theta = 0,
+              turns = 0;
+            for (let i = 0; i < p.steps; i++) {
+              theta += omega - step * Math.sin(TAU * theta);
+              const whole = Math.floor(theta);
+              theta -= whole;
+              turns += whole;
+            }
+            const rotation = (turns + theta) / p.steps;
+            let lock = 0;
+            for (let q = 1; q <= p.maxDenominator; q++) {
+              const offset = rotation - Math.round(rotation * q) / q,
+                t = clamp(1 - (offset * offset) / lockSquared);
+              lock = Math.max(
+                lock,
+                Math.max(p.toneMin, 1 - p.toneStep * (q - 1)) * t * t,
+              );
+            }
+            const background =
+              p.backgroundTone * (1 - Math.abs(2 * rotation - 1));
+            ink = clamp(inside * (1 - (1 - background) * (1 - lock)));
+          }
+          const mask = smooth(clamp(ink * inverseSoft)),
             grain = grainField(u, v);
           color =
             p.gapTone +
