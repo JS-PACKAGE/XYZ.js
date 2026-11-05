@@ -2,7 +2,7 @@ export const MAX_POINT_LIGHTS = 32;
 export const MAX_SPOT_LIGHTS = 32;
 
 /** CPU static-lighting work/storage quotas; caller requests can only lower hard caps. */
-export const bakedLightingLimits = Object.freeze({
+export const bakedLightingLimits = /* @__PURE__ */ Object.freeze({
   size: 128,
   maxSize: 1024,
   padding: 2,
@@ -19,7 +19,7 @@ export const bakedLightingLimits = Object.freeze({
 });
 
 /** Fixed native shader ABI and bounded authored source size. */
-export const nativeMaterial3DLimits = Object.freeze({
+export const nativeMaterial3DLimits = /* @__PURE__ */ Object.freeze({
   uniformFloats: 64,
   textures: 4,
   sourceCharacters: 65536,
@@ -30,10 +30,13 @@ export const nativeMaterial3DLimits = Object.freeze({
  * here, beside the other native material ABI values, so packing it does not pull the
  * procedural material presets into every startup bundle.
  */
-export const iridescenceFilmRange = Object.freeze({ minNm: 100, maxNm: 800 });
+export const iridescenceFilmRange = /* @__PURE__ */ Object.freeze({
+  minNm: 100,
+  maxNm: 800,
+});
 
 /** Bounded opt-in material anti-aliasing, shared by both native shaders. */
-export const materialQuality = Object.freeze({
+export const materialQuality = /* @__PURE__ */ Object.freeze({
   samples: 4,
   normalVarianceScale: 2,
   maxNormalVariance: 0.18,
@@ -42,7 +45,7 @@ export const materialQuality = Object.freeze({
 });
 
 /** Stable per-map UV uniform order: two vec4 values per affine coordinate mapping. */
-export const materialTextureSlots = Object.freeze([
+export const materialTextureSlots = /* @__PURE__ */ Object.freeze([
   'texture',
   'metallicRoughness',
   'normal',
@@ -76,13 +79,13 @@ export const ENVIRONMENT_FLOAT_COUNT = 40;
 export const REFLECTION_FLOAT_COUNT = (ENVIRONMENT_FLOAT_COUNT + 12) * 5;
 
 /** Bounded weights avoid rapidly overflowing half-float accumulation targets. */
-export const oitSettings = Object.freeze({
+export const oitSettings = /* @__PURE__ */ Object.freeze({
   scale: 100,
   minWeight: 0.01,
   maxWeight: 30,
 });
 
-export const environmentLimits = Object.freeze({
+export const environmentLimits = /* @__PURE__ */ Object.freeze({
   /** Equirect width cap; height is width / 2. */
   maxWidth: 2048,
   minHeight: 4,
@@ -95,14 +98,14 @@ export const environmentLimits = Object.freeze({
 });
 
 /** A lost WebGL2 context not restored within this window becomes a fatal GraphicsError. */
-export const graphicsRecoveryLimits = Object.freeze({
+export const graphicsRecoveryLimits = /* @__PURE__ */ Object.freeze({
   restoreTimeoutMs: 10000,
 });
 
 /** Fog block shared by both graphics backends: color.rgb/mode, near/far/density/0. */
 export const FOG_FLOAT_COUNT = 8;
 
-export const shadowLimits = Object.freeze({
+export const shadowLimits = /* @__PURE__ */ Object.freeze({
   cascades: 4,
   pointLights: 8,
   spotLights: 8,
@@ -120,7 +123,7 @@ export const shadowLimits = Object.freeze({
 /** Shadow atlas header (12 vec4), matrices, then quality controls (one vec4). */
 export const SHADOW_FLOAT_COUNT = 48 + shadowLimits.maps * 16 + 4;
 
-export const fxaaDefaults = Object.freeze({
+export const fxaaDefaults = /* @__PURE__ */ Object.freeze({
   enabled: false,
   minimumContrast: 0.0312,
   relativeContrast: 0.125,
@@ -129,7 +132,7 @@ export const fxaaDefaults = Object.freeze({
   maximumSpan: 8,
 });
 
-export const depthPostDefaults = Object.freeze({
+export const depthPostDefaults = /* @__PURE__ */ Object.freeze({
   ssao: false,
   ssaoRadius: 0.75,
   ssaoStrength: 1,
@@ -152,7 +155,7 @@ export const transmissionBlurFraction = 0.04;
 export const decalNormalOffset = 0.001;
 
 /** Bounded temporal/ray-march work and dynamic capture memory. */
-export const advancedPostDefaults = Object.freeze({
+export const advancedPostDefaults = /* @__PURE__ */ Object.freeze({
   taaHistoryWeight: 0.9,
   taaDepthThreshold: 0.01,
   taaCameraCutDistance: 5,
@@ -163,7 +166,7 @@ export const advancedPostDefaults = Object.freeze({
   ssrStrength: 1,
   maximumSSRSteps: 128,
 });
-export const reflectionCaptureLimits = Object.freeze({
+export const reflectionCaptureLimits = /* @__PURE__ */ Object.freeze({
   size: 64,
   maximumSize: 512,
   maximumBytes: 64 * 1024 * 1024,
@@ -171,13 +174,13 @@ export const reflectionCaptureLimits = Object.freeze({
 });
 
 /** Bound driver program residency and protect the inexpensive default PBR source. */
-export const meshShaderVariantLimits = Object.freeze({
+export const meshShaderVariantLimits = /* @__PURE__ */ Object.freeze({
   maxEntries: 64,
   plainFragmentMaxBytes: 40000,
 });
 
 /** Bound single-view scene readback and automatic caller-driven update pacing. */
-export const planarReflectionLimits = Object.freeze({
+export const planarReflectionLimits = /* @__PURE__ */ Object.freeze({
   size: 128,
   maximumSize: 512,
   interval: 0.1,
@@ -185,7 +188,7 @@ export const planarReflectionLimits = Object.freeze({
   clipBias: 0.001,
 });
 
-export const volumetricPostDefaults = Object.freeze({
+export const volumetricPostDefaults = /* @__PURE__ */ Object.freeze({
   density: 0.025,
   heightFalloff: 0.15,
   maxDistance: 200,
@@ -195,7 +198,7 @@ export const volumetricPostDefaults = Object.freeze({
   maximumSamples: 64,
 });
 
-export const lensFlareDefaults = Object.freeze({
+export const lensFlareDefaults = /* @__PURE__ */ Object.freeze({
   strength: 0.15,
   threshold: 1,
   ghosts: 4,
@@ -205,7 +208,7 @@ export const lensFlareDefaults = Object.freeze({
   haloWidth: 0.15,
 });
 
-export const motionBlurDefaults = Object.freeze({
+export const motionBlurDefaults = /* @__PURE__ */ Object.freeze({
   perObject: false,
   velocityDepthTolerance: 0.00001,
   strength: 1,
