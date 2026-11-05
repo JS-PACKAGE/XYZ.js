@@ -428,13 +428,11 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'wireworldcircuit',
   'cycliccellular',
   'beattypartition',
-  'walshmatrix',
   'paperfoldingruler',
   'rudinshapirogrid',
   'baumsweetgrid',
   'binarynecklaces',
   'catalantriangulations',
-  'eisensteinprimes',
   'keplerorbit',
   'pythagoreanproof',
   'contributiongraph',
@@ -467,13 +465,10 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'quicksortsteps',
   'ganttschedule',
   'lorenzcurve',
-  'zordercurve',
   'histogrambins',
   'sankeyflows',
   'bodeplots',
-  'huffmancodes',
   'hashchains',
-  'editdistance',
   'nearesttour',
   'karnaughmap',
   'bsttreeorder',
@@ -482,14 +477,12 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'ecdfplot',
   'intervalpartition',
   'waterfallchart',
-  'chorddiagrams',
   'qamconstellation',
   'countertimings',
   'hofstadterq',
   'semaphorefigures',
   'fenwicktree',
   'jacobisymbols',
-  'vicsekfractal',
   'segmenttree',
   'rankchevrons',
   'windbarbs',
@@ -502,14 +495,11 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'intelhexrecords',
   'equalizerbars',
   'worleycells',
-  'errordiffusion',
   'tetrominoes',
   'candlestickcharts',
   'paleygraphmatrix',
   'superformulacells',
-  'tsquarefractal',
   'marchingsquares',
-  'wangtiles',
   'htreefractal',
   'lsystemplant',
   'quadtreecells',
@@ -517,15 +507,11 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'braiddiagram',
   'youngtableaux',
   'euclidsquares',
-  'voronoicells',
   'cliffordattractor',
-  'peanocurve',
   'bitwisetable',
-  'golombrulers',
   'henonattractor',
   'digitalroottable',
   'thuemorsegrid',
-  'recamanarcs',
   'happynumberchains',
   'lookandsayrows',
   'kaprekarsteps',
@@ -534,13 +520,10 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'circleoffifths',
   'periodictablecells',
   'josephuscircle',
-  'gaussianprimes',
   'timestablecircles',
   'divisorcountbars',
   'cobwebplots',
   'sierpinskipascal',
-  'sacksspiral',
-  'dyckpaths',
   'figuratenumbers',
   'pythagoreantriples',
   'hexdumprows',
@@ -563,7 +546,6 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'numberwords',
   'dipolefieldlines',
   'mobiusgrid',
-  'fordcircles',
   'vectorfieldarrows',
   'wordsquares',
   'caesarcipher',
@@ -571,10 +553,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'primefactors',
   'modularpowers',
   'burningship',
-  'logisticbifurcation',
   'bitwiselogic',
-  'gcdtable',
-  'percolationclusters',
   'abeliansandpile',
   'binaryaddition',
   'roundingmodes',
@@ -584,7 +563,6 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'bezierconstruction',
   'luhnnumbers',
   'twosourceripples',
-  'cassiniovals',
   'rosecurves',
   'conicsections',
   'cantorsetrows',
@@ -612,7 +590,6 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'draughtsposition',
   'colormapregions',
   'chinesecheckersboard',
-  'euclideanrhythms',
   'hidatochain',
   'mancalaboard',
   'rushhourjam',
@@ -640,23 +617,15 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'pianoroll',
   'skyscraperpuzzles',
   'knockoutbracket',
-  'primesieve',
   'sortingnetworks',
   'mayansums',
-  'latinsquares',
   'hanoitowers',
   'eightqueens',
-  'cantordust',
-  'dragoncurve',
   'pascalmodulo',
-  'gameoflife',
   'oghaminscription',
-  'kaleidoscope',
   'slidingpuzzle',
-  'magicsquares',
   'wordsearchgrid',
   'mastermindboard',
-  'elementaryautomata',
   'bluenoisemask',
   'fibonaccisquares',
   'doubleslitfringes',
@@ -673,7 +642,6 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'amidakuji',
   'code39barcodes',
   'graycodediscs',
-  'knightstour',
   'scrambledcubenet',
   'weavingdraft',
   'lightsoutboard',
@@ -691,18 +659,14 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'zoneplates',
   'lissajousgrid',
   'mondriancomposition',
-  'hilbertcurve',
   'battleshipgrid',
   'tetrisstack',
   'minesweeperboard',
   'flipdotdisplay',
-  'crosswordgrid',
   'fretboard',
   'calendarpage',
   'measuringtape',
   'sudokugrid',
-  'sheetmusic',
-  'ecgpaper',
   'datamatrixcodes',
   'frostpolygons',
   'sandripples',
@@ -711,7 +675,6 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'kilimflatweave',
   'tumblingblocks',
   'azulejotiles',
-  'moirefringes',
   'cinderblockwall',
   'dicefaces',
   'needlepoint',
@@ -731,7 +694,6 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'ammonitestone',
   'amberresin',
   'patchworkquilt',
-  'bayerdither',
   'turingpattern',
   'to220packagefaces',
   'ftypefemalefaces',
@@ -17465,63 +17427,6 @@ export function createSurfaceSampler(
           occlusion = 1 + patternAO * pattern;
         };
       }
-      case 'bayerdither': {
-        const p = proceduralMaterialPresets.bayerdither,
-          // Recursive Bayer construction: B(2n) = [[4B, 4B+2], [4B+3, 4B+1]].
-          matrix = new Uint8Array(64),
-          jitter = new Float64Array(p.blocks * p.blocks),
-          levelField = cachedNoise(p.levelCells, p.levelCells, seed ^ 0x24301),
-          inverseBevel = 1 / p.bevel,
-          onTone = p.onTone - p.gapTone,
-          offTone = p.offTone - p.gapTone;
-        for (let size = 1; size < 8; size *= 2)
-          for (let y = size - 1; y >= 0; y--)
-            for (let x = size - 1; x >= 0; x--) {
-              const b = matrix[y * 8 + x] * 4;
-              matrix[y * 8 + x] = b;
-              matrix[y * 8 + x + size] = b + 2;
-              matrix[(y + size) * 8 + x] = b + 3;
-              matrix[(y + size) * 8 + x + size] = b + 1;
-            }
-        for (let y = 0; y < p.blocks; y++)
-          for (let x = 0; x < p.blocks; x++)
-            jitter[y * p.blocks + x] = hash(x, y, seed ^ 0x24303) - 0.5;
-        return () => {
-          // The quarter-block grid phase keeps sample lattices of power-of-two textures off the
-          // block edges, so a 32 px preview does not sample only grooves.
-          const bu = u * p.blocks + p.phase,
-            bv = v * p.blocks + p.phase,
-            ix = Math.floor(bu),
-            iy = Math.floor(bv),
-            fx = bu - ix,
-            fy = bv - iy,
-            // The ordered threshold reads the level at the block center, so each block is flat.
-            level = clamp(
-              0.5 +
-                p.contrast *
-                  (levelField((ix + 0.5) / p.blocks, (iy + 0.5) / p.blocks) -
-                    0.5),
-            ),
-            on = level > (matrix[(iy & 7) * 8 + (ix & 7)] + 0.5) / 64,
-            face = smooth(
-              clamp((Math.min(fx, 1 - fx, fy, 1 - fy) - p.gap) * inverseBevel),
-            );
-          color = clamp(
-            p.gapTone +
-              face *
-                ((on ? onTone : offTone) +
-                  p.jitter *
-                    jitter[(iy % p.blocks) * p.blocks + (ix % p.blocks)]),
-          );
-          height =
-            p.floorHeight +
-            face * ((on ? p.onHeight : p.offHeight) - p.floorHeight);
-          roughness =
-            p.gapRoughness +
-            face * ((on ? p.onRoughness : p.offRoughness) - p.gapRoughness);
-          occlusion = p.floorAO + face * ((on ? p.onAO : p.offAO) - p.floorAO);
-        };
-      }
       case 'patchworkquilt': {
         const p = proceduralMaterialPresets.patchworkquilt,
           inverseSeam = 1 / p.seamSoft,
@@ -18967,35 +18872,6 @@ export function createSurfaceSampler(
           mortar = joint;
         };
       }
-      case 'moirefringes': {
-        const p = proceduralMaterialPresets.moirefringes,
-          fiberField = cachedNoise(p.fiberCells, p.fiberCells, seed ^ 0x25701),
-          inverseSoft = 1 / p.edgeSoft,
-          // Integer wave vectors keep both gratings, and therefore their beat, periodic.
-          line = (phase: number): number => {
-            const t = Math.abs(fract(phase) - 0.5) * 2;
-            // t is 0 at the line center and 1 at the gap center; duty is the line fraction.
-            return smooth(clamp((p.duty - t) * inverseSoft + 0.5));
-          };
-        return () => {
-          const a = line(u * p.kx1 + v * p.ky1),
-            b = line(u * p.kx2 + v * p.ky2),
-            // Two transparent line sheets overlay: light passes only where neither has ink.
-            ink = 1 - (1 - a) * (1 - b),
-            fiber = fiberField(u, v) - 0.5;
-          color = clamp(
-            p.paperTone + p.fiberTone * fiber + (p.inkTone - p.paperTone) * ink,
-          );
-          height = clamp(
-            p.paperHeight +
-              (p.inkHeight - p.paperHeight) * ink +
-              p.fiberHeight * fiber,
-          );
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
-          occlusion = p.paperAO + (p.inkAO - p.paperAO) * ink;
-        };
-      }
       case 'azulejotiles': {
         const p = proceduralMaterialPresets.azulejotiles,
           brushField = cachedNoise(p.brushCells, p.brushCells, seed ^ 0x25801),
@@ -19664,166 +19540,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'ecgpaper': {
-        const p = proceduralMaterialPresets.ecgpaper,
-          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26001),
-          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x26003),
-          beats = Math.round(p.millimeters / p.beat),
-          rowMillimeters = p.millimeters / p.rows,
-          inverseSoft = 1 / p.lineSoft,
-          // Per-beat amplitude jitter so the beats are alike but not identical.
-          gains = new Float64Array(p.rows * beats);
-        for (let row = 0; row < p.rows; row++)
-          for (let beat = 0; beat < beats; beat++)
-            gains[row * beats + beat] =
-              1 +
-              p.amplitudeJitter * (hash(beat, row, seed ^ 0x26005) - 0.5) * 2;
-        // Distance (mm) from a grid line at integer multiples of "step", half width "half".
-        const gridLine = (
-          value: number,
-          step: number,
-          half: number,
-        ): number => {
-          const t = value / step,
-            off = Math.abs(t - Math.round(t)) * step;
-          return smooth(clamp((half - off) * inverseSoft + 0.5));
-        };
-        return () => {
-          const x = u * p.millimeters,
-            y = v * p.millimeters,
-            row = Math.min(p.rows - 1, Math.floor(y / rowMillimeters)),
-            baseline = (row + 0.5) * rowMillimeters,
-            beat = Math.min(beats - 1, Math.floor(x / p.beat)),
-            local = x - beat * p.beat,
-            gain = gains[row * beats + beat];
-          // ECG curve (mm above baseline) as a sum of Gaussian waves, with its slope.
-          let value = p.wanderAmplitude * Math.sin((TAU * x) / p.millimeters),
-            slope =
-              ((p.wanderAmplitude * TAU) / p.millimeters) *
-              Math.cos((TAU * x) / p.millimeters);
-          for (const [center, amplitude, width] of p.waves) {
-            const z = (local - center) / width,
-              g = amplitude * gain * Math.exp(-0.5 * z * z);
-            value += g;
-            slope += (-g * z) / width;
-          }
-          // Screen y grows downward, so the trace sits at baseline - value; first-order distance
-          // to the curve is the vertical offset divided by sqrt(1 + slope^2).
-          const offset =
-              Math.abs(y - (baseline - value)) / Math.sqrt(1 + slope * slope),
-            trace = smooth(
-              clamp((p.traceHalfWidth - offset) * inverseSoft + 0.5),
-            ),
-            minor = Math.max(
-              gridLine(x, 1, p.minorHalfWidth),
-              gridLine(y, 1, p.minorHalfWidth),
-            ),
-            major = Math.max(
-              gridLine(x, p.major, p.majorHalfWidth),
-              gridLine(y, p.major, p.majorHalfWidth),
-            ),
-            gainInk = inkField(u, v) - 0.5,
-            grain = paperField(u, v) - 0.5,
-            ruled =
-              p.paperTone +
-              p.paperGrain * grain +
-              (p.minorTone - p.paperTone) * minor,
-            paper = ruled + (p.majorTone - ruled) * major;
-          color = clamp(
-            paper + (p.inkTone + p.inkGain * gainInk - paper) * trace,
-          );
-          height = clamp(
-            p.paperHeight +
-              (p.lineHeight - p.paperHeight) *
-                Math.max(minor, major) *
-                (1 - trace) +
-              (p.inkHeight - p.paperHeight) * trace,
-          );
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * trace;
-          occlusion = 1;
-        };
-      }
-      case 'sheetmusic': {
-        const p = proceduralMaterialPresets.sheetmusic,
-          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26101),
-          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x26103),
-          positions = new Uint8Array(p.staves * p.beats),
-          hollow = new Uint8Array(p.staves * p.beats),
-          staffPitch = 1 / p.staves,
-          s = p.spacing,
-          inverseSoft = 1 / p.edgeSoft,
-          cosTilt = Math.cos(p.headTilt),
-          sinTilt = Math.sin(p.headTilt),
-          // Soft inside test: distance (in staff spacings) is negative inside the shape.
-          cover = (outside: number): number =>
-            smooth(clamp(0.5 - outside * inverseSoft));
-        for (let staff = 0; staff < p.staves; staff++)
-          for (let beat = 0; beat < p.beats; beat++) {
-            positions[staff * p.beats + beat] = Math.min(
-              p.maxPosition,
-              Math.floor(
-                hash(beat, staff, seed ^ 0x26105) * (p.maxPosition + 1),
-              ),
-            );
-            hollow[staff * p.beats + beat] =
-              hash(beat, staff, seed ^ 0x26107) < p.holeChance ? 1 : 0;
-          }
-        return () => {
-          const staff = Math.min(p.staves - 1, Math.floor(v * p.staves)),
-            // Bottom staff line sits two spacings below the row center; "position" counts half spacings up.
-            bottomV = (staff + 0.5) * staffPitch + 2 * s,
-            yUnits = (bottomV - v) / s,
-            beat = Math.min(p.beats - 1, Math.floor(u * p.beats)),
-            centerU = (beat + 0.5) / p.beats,
-            position = positions[staff * p.beats + beat],
-            dx = (u - centerU) / s,
-            dy = yUnits - position * 0.5;
-          // Staff lines: five lines, two position steps apart, within the staff's extent.
-          const lineIndex = Math.round(yUnits),
-            lineOffset = Math.abs(yUnits - lineIndex),
-            lines =
-              lineIndex >= 0 && lineIndex <= 4
-                ? cover(lineOffset - p.lineHalf)
-                : 0,
-            // Barlines span the staff at every measure boundary.
-            barU = u * (p.beats / p.barBeats),
-            barOffset =
-              (Math.abs(barU - Math.round(barU)) * (p.barBeats / p.beats)) / s,
-            bar =
-              yUnits >= -p.lineHalf && yUnits <= 4 + p.lineHalf
-                ? cover(barOffset - p.barHalf)
-                : 0,
-            // Notehead: tilted ellipse; half notes are rings.
-            rx = dx * cosTilt + dy * sinTilt,
-            ry = -dx * sinTilt + dy * cosTilt,
-            outer = Math.sqrt((rx / p.headA) ** 2 + (ry / p.headB) ** 2) - 1,
-            hole = Math.sqrt((rx / p.holeA) ** 2 + (ry / p.holeB) ** 2) - 1,
-            head = hollow[staff * p.beats + beat]
-              ? cover(outer * p.headB) * (1 - cover(hole * p.holeB))
-              : cover(outer * p.headB),
-            // Stem: up on the right of the head below the middle line, down on the left otherwise.
-            up = position < p.middlePosition,
-            stemX = up ? p.headA * 0.92 : -p.headA * 0.92,
-            stemAlong = up ? dy : -dy,
-            stem =
-              stemAlong >= 0 && stemAlong <= p.stemLength
-                ? cover(Math.abs(dx - stemX) - p.stemHalf)
-                : 0,
-            ink = Math.max(lines, bar, head, stem),
-            gain = inkField(u, v) - 0.5,
-            grain = paperField(u, v) - 0.5;
-          color = clamp(
-            p.paperTone +
-              p.paperGrain * grain +
-              (p.inkTone + p.inkGain * gain - p.paperTone) * ink,
-          );
-          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
-          occlusion = 1;
-        };
-      }
       case 'sudokugrid': {
         const p = proceduralMaterialPresets.sudokugrid,
           inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26201),
@@ -20179,168 +19895,6 @@ export function createSurfaceSampler(
                 ) *
                 (1 - fret),
           );
-        };
-      }
-      case 'crosswordgrid': {
-        const p = proceduralMaterialPresets.crosswordgrid,
-          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26601),
-          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x26603),
-          glyphs = [
-            '111101101101111',
-            '010110010010111',
-            '111001111100111',
-            '111001111001111',
-            '101101111001001',
-            '111100111001111',
-            '111100111101111',
-            '111001001010010',
-            '111101111101111',
-            '111101111001111',
-          ],
-          n = p.size,
-          black = new Uint8Array(n * n),
-          numbers = new Uint16Array(n * n),
-          at = (x: number, y: number): number =>
-            x < 0 || y < 0 || x >= n || y >= n ? 1 : black[y * n + x],
-          // Every maximal white run (across or down) must be at least minRun long and every white
-          // cell must be reachable from every other.
-          valid = (): boolean => {
-            for (let line = 0; line < n; line++)
-              for (const across of [true, false]) {
-                let run = 0;
-                for (let i = 0; i <= n; i++) {
-                  const dark =
-                    i === n ||
-                    (across ? black[line * n + i] : black[i * n + line]) === 1;
-                  if (dark) {
-                    if (run > 0 && run < p.minRun) return false;
-                    run = 0;
-                  } else run++;
-                }
-              }
-            let start = -1,
-              whites = 0;
-            for (let i = 0; i < n * n; i++)
-              if (!black[i]) {
-                whites++;
-                if (start < 0) start = i;
-              }
-            const seen = new Uint8Array(n * n),
-              stack = [start];
-            seen[start] = 1;
-            let reached = 0;
-            while (stack.length) {
-              const cell = stack.pop() as number,
-                x = cell % n,
-                y = Math.floor(cell / n);
-              reached++;
-              for (const [dx, dy] of [
-                [1, 0],
-                [-1, 0],
-                [0, 1],
-                [0, -1],
-              ]) {
-                const nx = x + dx,
-                  ny = y + dy;
-                if (!at(nx, ny) && !seen[ny * n + nx]) {
-                  seen[ny * n + nx] = 1;
-                  stack.push(ny * n + nx);
-                }
-              }
-            }
-            return reached === whites;
-          };
-        // Grow a 180-degree-symmetric pattern: add black pairs while the rules still hold.
-        let blackCells = 0;
-        for (
-          let attempt = 0;
-          attempt < p.attempts && blackCells < p.blackTarget * n * n;
-          attempt++
-        ) {
-          const x = Math.min(
-              n - 1,
-              Math.floor(hash(attempt, 1, seed ^ 0x26605) * n),
-            ),
-            y = Math.min(
-              n - 1,
-              Math.floor(hash(attempt, 2, seed ^ 0x26607) * n),
-            ),
-            a = y * n + x,
-            b = (n - 1 - y) * n + (n - 1 - x);
-          if (black[a]) continue;
-          black[a] = 1;
-          black[b] = 1;
-          if (valid()) blackCells += a === b ? 1 : 2;
-          else {
-            black[a] = 0;
-            black[b] = 0;
-          }
-        }
-        // Standard numbering: a white cell starts a word when its left or upper neighbor is
-        // black or off the grid and the next cell in that direction is white.
-        let next = 1;
-        for (let y = 0; y < n; y++)
-          for (let x = 0; x < n; x++) {
-            if (black[y * n + x]) continue;
-            const across = at(x - 1, y) === 1 && at(x + 1, y) === 0,
-              down = at(x, y - 1) === 1 && at(x, y + 1) === 0;
-            if (across || down) numbers[y * n + x] = next++;
-          }
-        const inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5));
-        return () => {
-          const gx = u * n,
-            gy = v * n,
-            col = Math.min(n - 1, Math.floor(gx)),
-            row = Math.min(n - 1, Math.floor(gy)),
-            fx = gx - col,
-            fy = gy - row,
-            grid = Math.max(
-              cover(p.lineHalf - Math.abs(gx - Math.round(gx))),
-              cover(p.lineHalf - Math.abs(gy - Math.round(gy))),
-            ),
-            filled = black[row * n + col],
-            number = numbers[row * n + col];
-          let digit = 0;
-          if (number > 0) {
-            const label = String(number),
-              column = Math.floor((fx - p.numberLeft) / p.pixel),
-              line = Math.floor((fy - p.numberTop) / p.pixel);
-            if (
-              line >= 0 &&
-              line < 5 &&
-              column >= 0 &&
-              column < 4 * label.length - 1
-            ) {
-              const inside = column % 4;
-              if (
-                inside < 3 &&
-                glyphs[Number(label[Math.floor(column / 4)])][
-                  line * 3 + inside
-                ] === '1'
-              )
-                digit = 1;
-            }
-          }
-          const gain = inkField(u, v) - 0.5,
-            grain = paperField(u, v) - 0.5,
-            paper = p.paperTone + p.paperGrain * grain,
-            mark = Math.max(grid, digit),
-            ink = Math.max(filled, mark);
-          color = clamp(
-            filled
-              ? p.blackTone + p.inkGain * gain
-              : paper +
-                  ((grid >= digit ? p.lineTone : p.digitTone) +
-                    p.inkGain * gain -
-                    paper) *
-                    mark,
-          );
-          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
-          occlusion = 1;
         };
       }
       case 'flipdotdisplay': {
@@ -20757,107 +20311,6 @@ export function createSurfaceSampler(
                 (p.hullRoughness - p.waterRoughness) * hull)) *
               peg;
           occlusion = clamp(1 - (1 - p.hullAO) * hull * (1 - peg));
-        };
-      }
-      case 'hilbertcurve': {
-        const p = proceduralMaterialPresets.hilbertcurve,
-          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26b01),
-          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x26b03),
-          n = 1 << p.order,
-          total = n * n,
-          // Position of each cell along the curve (the classic d -> (x, y) conversion).
-          order = new Int32Array(total),
-          cellAt = new Int32Array(total),
-          inverseSoft = 1 / p.edgeSoft;
-        for (let d = 0; d < total; d++) {
-          let x = 0,
-            y = 0,
-            t = d;
-          for (let s = 1; s < n; s *= 2) {
-            const rx = 1 & (t >> 1),
-              ry = 1 & (t ^ rx);
-            if (ry === 0) {
-              if (rx === 1) {
-                x = s - 1 - x;
-                y = s - 1 - y;
-              }
-              const swap = x;
-              x = y;
-              y = swap;
-            }
-            x += s * rx;
-            y += s * ry;
-            t >>= 2;
-          }
-          order[y * n + x] = d;
-          cellAt[d] = y * n + x;
-        }
-        // Distance (in cells) from a point to the segment a-b.
-        const segment = (
-          px: number,
-          py: number,
-          ax: number,
-          ay: number,
-          bx: number,
-          by: number,
-        ): number => {
-          const dx = bx - ax,
-            dy = by - ay,
-            along = clamp(
-              ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy),
-            ),
-            qx = ax + along * dx - px,
-            qy = ay + along * dy - py;
-          return Math.sqrt(qx * qx + qy * qy);
-        };
-        return () => {
-          const gx = u * n,
-            gy = v * n,
-            col = Math.min(n - 1, Math.floor(gx)),
-            row = Math.min(n - 1, Math.floor(gy)),
-            cell = row * n + col,
-            d = order[cell],
-            cx = col + 0.5,
-            cy = row + 0.5;
-          // Distance to the strokes leaving this cell's center toward its path neighbors; the first
-          // and last cells also reach out across the tile edge so repeated tiles join into one curve.
-          let distance = Math.sqrt((gx - cx) ** 2 + (gy - cy) ** 2);
-          const reach = (index: number): void => {
-            const other = cellAt[index],
-              ox = (other % n) + 0.5,
-              oy = Math.floor(other / n) + 0.5;
-            distance = Math.min(
-              distance,
-              segment(gx, gy, cx, cy, (cx + ox) / 2, (cy + oy) / 2),
-            );
-          };
-          if (d > 0) reach(d - 1);
-          else
-            distance = Math.min(
-              distance,
-              segment(gx, gy, cx, cy, cx - 0.5, cy),
-            );
-          if (d < total - 1) reach(d + 1);
-          else
-            distance = Math.min(
-              distance,
-              segment(gx, gy, cx, cy, cx + 0.5, cy),
-            );
-          const ink = smooth(
-              clamp((p.lineHalf - distance) * inverseSoft + 0.5),
-            ),
-            tone = p.startTone + ((p.endTone - p.startTone) * d) / (total - 1),
-            gain = inkField(u, v) - 0.5,
-            grain = paperField(u, v) - 0.5;
-          color = clamp(
-            p.paperTone +
-              p.paperGrain * grain +
-              (tone + p.inkGain * gain - p.paperTone) * ink,
-          );
-          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
-          occlusion = 1;
         };
       }
       case 'mondriancomposition': {
@@ -22382,194 +21835,6 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - 0.4 * (1 - sticker));
         };
       }
-      case 'knightstour': {
-        const p = proceduralMaterialPresets.knightstour,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27d01),
-          glyphs = [
-            '111101101101111',
-            '010110010010111',
-            '111001111100111',
-            '111001111001111',
-            '101101111001001',
-            '111100111001111',
-            '111100111101111',
-            '111001010010010',
-            '111101111101111',
-            '111101111001111',
-          ],
-          n = p.size,
-          total = n * n,
-          moves = [
-            [1, 2],
-            [2, 1],
-            [2, -1],
-            [1, -2],
-            [-1, -2],
-            [-2, -1],
-            [-2, 1],
-            [-1, 2],
-          ],
-          order = new Int16Array(total).fill(-1),
-          visited = new Uint8Array(total),
-          path: number[] = [],
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          degree = (square: number): number => {
-            let count = 0;
-            const x = square % n,
-              y = Math.floor(square / n);
-            for (const [dx, dy] of moves) {
-              const nx = x + dx,
-                ny = y + dy;
-              if (
-                nx >= 0 &&
-                nx < n &&
-                ny >= 0 &&
-                ny < n &&
-                !visited[ny * n + nx]
-              )
-                count++;
-            }
-            return count;
-          };
-        // Open knight's tour by depth-first search, trying the square with the fewest onward moves
-        // first (Warnsdorff's rule) and breaking ties by the seed; each attempt has a node budget.
-        let nodes = 0;
-        const extend = (square: number, attempt: number): boolean => {
-          visited[square] = 1;
-          path.push(square);
-          if (path.length === total) return true;
-          if (++nodes > p.nodeBudget) {
-            visited[square] = 0;
-            path.pop();
-            return false;
-          }
-          const x = square % n,
-            y = Math.floor(square / n),
-            next: { square: number; rank: number }[] = [];
-          for (const [dx, dy] of moves) {
-            const nx = x + dx,
-              ny = y + dy;
-            if (nx < 0 || nx >= n || ny < 0 || ny >= n || visited[ny * n + nx])
-              continue;
-            next.push({
-              square: ny * n + nx,
-              rank:
-                degree(ny * n + nx) +
-                0.5 *
-                  hash(ny * n + nx, path.length, seed ^ (0x27d03 + attempt)),
-            });
-          }
-          next.sort((a, b) => a.rank - b.rank);
-          for (const candidate of next)
-            if (extend(candidate.square, attempt)) return true;
-          visited[square] = 0;
-          path.pop();
-          return false;
-        };
-        for (let attempt = 0; attempt < p.attempts; attempt++) {
-          visited.fill(0);
-          path.length = 0;
-          nodes = 0;
-          const start = Math.min(
-            total - 1,
-            Math.floor(hash(attempt, 1, seed ^ 0x27d05) * total),
-          );
-          if (extend(start, attempt)) break;
-        }
-        for (let i = 0; i < path.length; i++) order[path[i]] = i + 1;
-        // Segments between consecutive centers, listed for every cell they come within a line
-        // half-width of, so a sample only tests the few segments near it.
-        const segments = new Float64Array(Math.max(0, path.length - 1) * 5),
-          cellSegments: number[][] = Array.from({ length: total }, () => []);
-        for (let i = 1; i < path.length; i++) {
-          const ax = ((path[i - 1] % n) + 0.5) / n,
-            ay = (Math.floor(path[i - 1] / n) + 0.5) / n,
-            bx = ((path[i] % n) + 0.5) / n,
-            by = (Math.floor(path[i] / n) + 0.5) / n,
-            steps = 200;
-          segments.set(
-            [ax, ay, bx - ax, by - ay, 1 / ((bx - ax) ** 2 + (by - ay) ** 2)],
-            (i - 1) * 5,
-          );
-          for (let k = 0; k <= steps; k++) {
-            const x = ax + ((bx - ax) * k) / steps,
-              y = ay + ((by - ay) * k) / steps;
-            for (const cx of [x - p.lineHalf, x + p.lineHalf])
-              for (const cy of [y - p.lineHalf, y + p.lineHalf]) {
-                const cell =
-                  Math.min(n - 1, Math.max(0, Math.floor(cy * n))) * n +
-                  Math.min(n - 1, Math.max(0, Math.floor(cx * n)));
-                if (!cellSegments[cell].includes(i - 1))
-                  cellSegments[cell].push(i - 1);
-              }
-          }
-        }
-        return () => {
-          const gx = u * n,
-            gy = v * n,
-            col = Math.min(n - 1, Math.floor(gx)),
-            row = Math.min(n - 1, Math.floor(gy)),
-            square = row * n + col,
-            dark = (col + row) % 2 === 1;
-          // Faint line along the tour: distance to the nearest nearby segment.
-          let near = 1;
-          for (const index of cellSegments[square]) {
-            const ax = segments[index * 5],
-              ay = segments[index * 5 + 1],
-              dx = segments[index * 5 + 2],
-              dy = segments[index * 5 + 3],
-              t = clamp(
-                ((u - ax) * dx + (v - ay) * dy) * segments[index * 5 + 4],
-              ),
-              d = Math.hypot(u - ax - t * dx, v - ay - t * dy);
-            if (d < near) near = d;
-          }
-          const line = cover(p.lineHalf - near);
-          // The step number: one or two 3x5 digits centered in the square.
-          const label = order[square],
-            digits = label >= 10 ? 2 : 1,
-            width = (digits * 3 + (digits - 1)) * p.digitPixel,
-            left = (col + 0.5) / n - width / 2,
-            top = (row + 0.5) / n - 2.5 * p.digitPixel,
-            x = Math.floor((u - left) / p.digitPixel),
-            y = Math.floor((v - top) / p.digitPixel);
-          let ink = 0;
-          if (
-            label > 0 &&
-            y >= 0 &&
-            y < 5 &&
-            x >= 0 &&
-            x < digits * 4 - 1 &&
-            x % 4 !== 3
-          ) {
-            const digit =
-              digits === 2
-                ? x < 3
-                  ? Math.floor(label / 10)
-                  : label % 10
-                : label;
-            if (glyphs[digit][y * 3 + (x % 4)] === '1') ink = 1;
-          }
-          const square0 = dark ? p.darkSquare : p.lightSquare,
-            base = square0 + (p.lineTone - square0) * line;
-          color = clamp(
-            base +
-              p.grainTone * (grainField(u, v) - 0.5) +
-              (p.inkTone - base) * ink,
-          );
-          height = clamp(
-            (dark ? p.darkSquareHeight : p.squareHeight) +
-              (p.lineHeight - (dark ? p.darkSquareHeight : p.squareHeight)) *
-                line +
-              (p.inkHeight - p.lineHeight) * ink,
-          );
-          roughness =
-            p.squareRoughness + (p.inkRoughness - p.squareRoughness) * ink;
-          occlusion = 1;
-        };
-      }
       case 'graycodediscs': {
         const p = proceduralMaterialPresets.graycodediscs,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27e01),
@@ -23932,65 +23197,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'elementaryautomata': {
-        const p = proceduralMaterialPresets.elementaryautomata,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28e01),
-          n = p.cells,
-          panels = p.rules.length,
-          // Four panels (2 x 2), each n x n cells: row 0 is a sparse random row plus the middle
-          // cell, and every next row applies the Wolfram rule to the previous one on a ring.
-          grid = new Uint8Array(panels * n * n),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          half = 0.5 - p.inset;
-        for (let panel = 0; panel < panels; panel++) {
-          const base = panel * n * n,
-            rule = p.rules[panel];
-          for (let x = 0; x < n; x++)
-            grid[base + x] =
-              x === n >> 1 || hash(x, panel, seed ^ 0x28e03) < p.seedDensity
-                ? 1
-                : 0;
-          for (let row = 1; row < n; row++)
-            for (let x = 0; x < n; x++) {
-              const left = grid[base + (row - 1) * n + ((x + n - 1) % n)],
-                middle = grid[base + (row - 1) * n + x],
-                right = grid[base + (row - 1) * n + ((x + 1) % n)];
-              grid[base + row * n + x] =
-                (rule >> (left * 4 + middle * 2 + right)) & 1;
-            }
-        }
-        return () => {
-          const panel = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
-            px = (u * 2) % 1,
-            py = (v * 2) % 1,
-            gx = px * n,
-            gy = py * n,
-            col = Math.min(n - 1, Math.floor(gx)),
-            row = Math.min(n - 1, Math.floor(gy)),
-            square =
-              cover(half - Math.abs(gx - col - 0.5)) *
-              cover(half - Math.abs(gy - row - 0.5)),
-            live = grid[panel * n * n + row * n + col] === 1,
-            panelEdge = Math.max(
-              cover(p.panelLine - Math.min(px, 1 - px) / 2),
-              cover(p.panelLine - Math.min(py, 1 - py) / 2),
-            ),
-            base = p.paperTone + (p.lineTone - p.paperTone) * panelEdge,
-            cell = base + ((live ? p.liveTone : p.deadTone) - base) * square;
-          color = clamp(cell + p.grainTone * (grainField(u, v) - 0.5));
-          height = clamp(
-            p.paperHeight +
-              (p.lineHeight - p.paperHeight) * panelEdge +
-              (p.liveHeight - p.paperHeight) * (live ? square : 0),
-          );
-          roughness =
-            p.paperRoughness +
-            (p.liveRoughness - p.paperRoughness) * (live ? square : 0);
-          occlusion = 1;
-        };
-      }
       case 'mastermindboard': {
         const p = proceduralMaterialPresets.mastermindboard,
           grainField = cachedNoise(
@@ -24214,153 +23420,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'magicsquares': {
-        const p = proceduralMaterialPresets.magicsquares,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29101),
-          jitterField = cachedNoise(
-            p.jitterCells,
-            p.jitterCells,
-            seed ^ 0x29103,
-          ),
-          glyphs = [
-            '111101101101111',
-            '010110010010111',
-            '111001111100111',
-            '111001111001111',
-            '101101111001001',
-            '111100111001111',
-            '111100111101111',
-            '111001010010010',
-            '111101111101111',
-            '111101111001111',
-          ],
-          side = 0.5 - 2 * p.margin,
-          squares: number[][] = [],
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          // Base magic squares: Lo Shu (order 3), Durer's (order 4) and the Siamese method for odd
-          // orders: start in the middle of the top row, move up and right (wrapping), and drop one
-          // row down when that cell is taken.
-          base = (order: number): number[] => {
-            if (order === 3) return [4, 9, 2, 3, 5, 7, 8, 1, 6];
-            if (order === 4)
-              return [16, 3, 2, 13, 5, 10, 11, 8, 9, 6, 7, 12, 4, 15, 14, 1];
-            const grid = new Array<number>(order * order).fill(0);
-            let x = order >> 1,
-              y = 0;
-            for (let value = 1; value <= order * order; value++) {
-              grid[y * order + x] = value;
-              const nextX = (x + 1) % order,
-                nextY = (y + order - 1) % order;
-              if (grid[nextY * order + nextX] !== 0) y = (y + 1) % order;
-              else {
-                x = nextX;
-                y = nextY;
-              }
-            }
-            return grid;
-          };
-        // Four squares, one per quadrant, each rotated and reflected at random by the seed (which
-        // keeps every row, column and diagonal sum at n (n^2 + 1) / 2).
-        for (let quadrant = 0; quadrant < p.orders.length; quadrant++) {
-          const order = p.orders[quadrant],
-            turns = Math.min(
-              3,
-              Math.floor(hash(quadrant, 1, seed ^ 0x29105) * 4),
-            ),
-            flip = hash(quadrant, 2, seed ^ 0x29107) < 0.5;
-          let grid = base(order);
-          for (let t = 0; t < turns; t++) {
-            const rotated = new Array<number>(order * order);
-            for (let row = 0; row < order; row++)
-              for (let col = 0; col < order; col++)
-                rotated[col * order + (order - 1 - row)] =
-                  grid[row * order + col];
-            grid = rotated;
-          }
-          if (flip) {
-            const mirrored = new Array<number>(order * order);
-            for (let row = 0; row < order; row++)
-              for (let col = 0; col < order; col++)
-                mirrored[row * order + (order - 1 - col)] =
-                  grid[row * order + col];
-            grid = mirrored;
-          }
-          squares.push(grid);
-        }
-        return () => {
-          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
-            order = p.orders[quadrant],
-            cell = side / order,
-            lx = u - (quadrant & 1) * 0.5 - p.margin,
-            ly = v - (quadrant >> 1) * 0.5 - p.margin;
-          let ink = 0,
-            rule = 0,
-            tone: number = p.paperTone;
-          if (
-            lx >= -p.outerHalf &&
-            lx <= side + p.outerHalf &&
-            ly >= -p.outerHalf &&
-            ly <= side + p.outerHalf
-          ) {
-            const col = Math.min(order - 1, Math.max(0, Math.floor(lx / cell))),
-              row = Math.min(order - 1, Math.max(0, Math.floor(ly / cell))),
-              value = squares[quadrant][row * order + col],
-              digits = value >= 10 ? 2 : 1,
-              pixel = cell * p.digitFraction,
-              left = (col + 0.5) * cell - ((digits * 4 - 1) / 2) * pixel,
-              top = (row + 0.5) * cell - 2.5 * pixel,
-              px = Math.floor((lx - left) / pixel),
-              py = Math.floor((ly - top) / pixel);
-            if (lx >= 0 && lx <= side && ly >= 0 && ly <= side) {
-              tone = p.cellTone;
-              if (
-                py >= 0 &&
-                py < 5 &&
-                px >= 0 &&
-                px < digits * 4 - 1 &&
-                px % 4 !== 3
-              ) {
-                const digit =
-                  digits === 2
-                    ? px < 3
-                      ? Math.floor(value / 10)
-                      : value % 10
-                    : value;
-                if (glyphs[digit][py * 3 + (px % 4)] === '1') ink = 1;
-              }
-            }
-            const edge = Math.min(
-                Math.min(lx - col * cell, (col + 1) * cell - lx),
-                Math.min(ly - row * cell, (row + 1) * cell - ly),
-              ),
-              outer = Math.min(
-                Math.min(lx, side - lx),
-                Math.min(ly, side - ly),
-              );
-            rule = Math.max(
-              cover(p.lineHalf - edge),
-              cover(p.outerHalf - outer),
-            );
-          }
-          const surface = tone + (p.lineTone - tone) * rule,
-            inkTone = p.inkTone + p.inkJitter * (jitterField(u, v) - 0.5);
-          color = clamp(
-            surface +
-              p.grainTone * (grainField(u, v) - 0.5) +
-              (inkTone - surface) * ink,
-          );
-          height = clamp(
-            p.paperHeight +
-              (p.lineHeight - p.paperHeight) * rule +
-              (p.inkHeight - p.lineHeight) * ink,
-          );
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
-          occlusion = 1;
-        };
-      }
       case 'slidingpuzzle': {
         const p = proceduralMaterialPresets.slidingpuzzle,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29201),
@@ -24478,73 +23537,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'kaleidoscope': {
-        const p = proceduralMaterialPresets.kaleidoscope,
-          cellCount = 2,
-          // One wedge of blobs per cell, in polar form: radius, angle inside the wedge (0 to 1), size and tone.
-          wedges = p.folds.map((fold, cell) => {
-            const list: { r: number; a: number; size: number; tone: number }[] =
-              [];
-            for (let i = 0; i < p.blobs; i++)
-              list.push({
-                r: 0.05 + 0.38 * hash(cell, i, seed ^ 0x29301),
-                a: hash(cell, i + 100, seed ^ 0x29303),
-                size: 0.025 + 0.06 * hash(cell, i + 200, seed ^ 0x29305),
-                tone: p.blobTones[
-                  Math.min(
-                    p.blobTones.length - 1,
-                    Math.floor(
-                      hash(cell, i + 300, seed ^ 0x29307) * p.blobTones.length,
-                    ),
-                  )
-                ],
-              });
-            return {
-              fold,
-              list,
-              phase: hash(cell, 400, seed ^ 0x29309) * Math.PI * 2,
-            };
-          });
-        return () => {
-          const cx = Math.min(cellCount - 1, Math.floor(u * cellCount)),
-            cy = Math.min(cellCount - 1, Math.floor(v * cellCount)),
-            cell = cy * cellCount + cx,
-            wedge = wedges[cell],
-            dx = u * cellCount - cx - 0.5,
-            dy = v * cellCount - cy - 0.5,
-            r = Math.hypot(dx, dy),
-            width = Math.PI / wedge.fold;
-          // Fold the angle into one wedge: rotate by 2 pi / n, then mirror about the wedge's edges.
-          let t = Math.atan2(dy, dx) % (2 * width);
-          if (t < 0) t += 2 * width;
-          if (t > width) t = 2 * width - t;
-          const fx = r * Math.cos(t),
-            fy = r * Math.sin(t);
-          let tone: number =
-              p.baseTone +
-              p.ringAmplitude *
-                Math.sin(r * p.ringFrequency * Math.PI * 2 + wedge.phase),
-            level: number = p.baseHeight,
-            rough: number = p.roughnessBase;
-          for (const blob of wedge.list) {
-            const bx = blob.r * Math.cos(blob.a * width),
-              by = blob.r * Math.sin(blob.a * width),
-              cover = smooth(
-                clamp(
-                  (blob.size - Math.hypot(fx - bx, fy - by)) / p.edgeSoft + 0.5,
-                ),
-              );
-            tone += (blob.tone - tone) * cover;
-            level += (p.blobHeight - level) * cover;
-            rough += (p.roughnessBlob - rough) * cover;
-          }
-          const rim = smooth(clamp((r - p.rimStart) / (p.rimEnd - p.rimStart)));
-          color = clamp(tone + (p.rimTone - tone) * rim);
-          height = clamp(level + (p.rimHeight - level) * rim);
-          roughness = rough;
-          occlusion = 1;
-        };
-      }
       case 'oghaminscription': {
         const p = proceduralMaterialPresets.oghaminscription,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29401),
@@ -24623,99 +23615,6 @@ export function createSurfaceSampler(
           roughness =
             p.stoneRoughness + (p.carveRoughness - p.stoneRoughness) * carve;
           occlusion = clamp(1 - 0.25 * carve);
-        };
-      }
-      case 'gameoflife': {
-        const p = proceduralMaterialPresets.gameoflife,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29501),
-          n = p.size,
-          side = 0.5 - 2 * p.margin,
-          cell = side / n,
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          boards: Uint8Array[] = [];
-        // A random soup on a torus, run for a burn-in, then four successive generations of Conway's
-        // rule (a live cell survives with 2 or 3 live neighbours, a dead cell is born with exactly 3)
-        // fill the four quadrants in reading order.
-        let current: Uint8Array = new Uint8Array(n * n);
-        for (let i = 0; i < n * n; i++)
-          current[i] =
-            hash(i % n, Math.floor(i / n), seed ^ 0x29503) < p.density ? 1 : 0;
-        const step = (from: Uint8Array): Uint8Array => {
-          const next = new Uint8Array(n * n);
-          for (let y = 0; y < n; y++)
-            for (let x = 0; x < n; x++) {
-              let alive = 0;
-              for (let dy = -1; dy <= 1; dy++)
-                for (let dx = -1; dx <= 1; dx++)
-                  if (dx !== 0 || dy !== 0)
-                    alive += from[((y + dy + n) % n) * n + ((x + dx + n) % n)];
-              next[y * n + x] =
-                alive === 3 || (alive === 2 && from[y * n + x] === 1) ? 1 : 0;
-            }
-          return next;
-        };
-        for (let i = 0; i < p.burnIn; i++) current = step(current);
-        for (let q = 0; q < 4; q++) {
-          boards.push(current);
-          current = step(current);
-        }
-        return () => {
-          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
-            lx = u - (quadrant & 1) * 0.5 - p.margin,
-            ly = v - (quadrant >> 1) * 0.5 - p.margin;
-          let tone: number = p.paperTone,
-            level: number = p.paperHeight,
-            rough: number = p.deadRoughness;
-          if (
-            lx >= -p.frameHalf &&
-            lx <= side + p.frameHalf &&
-            ly >= -p.frameHalf &&
-            ly <= side + p.frameHalf
-          ) {
-            const inside = lx >= 0 && lx < side && ly >= 0 && ly < side,
-              frame = cover(
-                p.frameHalf -
-                  Math.min(
-                    Math.min(Math.abs(lx), Math.abs(lx - side)),
-                    Math.min(Math.abs(ly), Math.abs(ly - side)),
-                  ),
-              );
-            if (inside) {
-              const col = Math.min(n - 1, Math.floor(lx / cell)),
-                row = Math.min(n - 1, Math.floor(ly / cell)),
-                fx = lx - col * cell,
-                fy = ly - row * cell,
-                line = cover(
-                  p.lineHalf -
-                    Math.min(Math.min(fx, cell - fx), Math.min(fy, cell - fy)),
-                ),
-                live =
-                  boards[quadrant][row * n + col] === 1
-                    ? Math.min(
-                        cover(Math.min(fx, cell - fx) - cell * p.inset),
-                        cover(Math.min(fy, cell - fy) - cell * p.inset),
-                      )
-                    : 0;
-              tone =
-                p.deadTone +
-                (p.lineTone - p.deadTone) * line +
-                (p.liveTone - p.deadTone) * live;
-              level =
-                p.deadHeight +
-                (p.lineHeight - p.deadHeight) * line +
-                (p.liveHeight - p.deadHeight) * live;
-              rough =
-                p.deadRoughness + (p.liveRoughness - p.deadRoughness) * live;
-            }
-            tone += (p.frameTone - tone) * frame;
-            level += (p.frameHeight - level) * frame;
-          }
-          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
-          height = clamp(level);
-          roughness = rough;
-          occlusion = 1;
         };
       }
       case 'pascalmodulo': {
@@ -24798,235 +23697,6 @@ export function createSurfaceSampler(
             }
             tone += (p.frameTone - tone) * frame;
             level += (p.frameHeight - level) * frame;
-          }
-          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
-          height = clamp(level);
-          roughness = rough;
-          occlusion = 1;
-        };
-      }
-      case 'dragoncurve': {
-        const p = proceduralMaterialPresets.dragoncurve,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29701),
-          segments = 2 ** p.order,
-          // Regular paper-folding turns: fold a strip n times and read the creases. Each round keeps
-          // the previous turns, adds one left turn and then the earlier turns reversed and swapped.
-          turns: number[] = [];
-        for (let round = 0; round < p.order; round++) {
-          const count = turns.length;
-          turns.push(1);
-          for (let i = count - 1; i >= 0; i--) turns.push(1 - turns[i]);
-        }
-        // Walk the unit lattice path (left turn = rotate 90 degrees one way) and apply the seed's
-        // rotation and mirroring.
-        const px = new Int32Array(segments + 1),
-          py = new Int32Array(segments + 1),
-          quarter = Math.min(3, Math.floor(hash(1, 1, seed ^ 0x29703) * 4)),
-          mirror = hash(2, 2, seed ^ 0x29705) < 0.5;
-        let dx = 1,
-          dy = 0;
-        for (let k = 0; k < segments; k++) {
-          px[k + 1] = px[k] + dx;
-          py[k + 1] = py[k] + dy;
-          if (k < segments - 1) {
-            const left = turns[k] === 1,
-              nx = left ? dy : -dy,
-              ny = left ? -dx : dx;
-            dx = nx;
-            dy = ny;
-          }
-        }
-        let minX = 0,
-          minY = 0,
-          maxX = 0,
-          maxY = 0;
-        for (let k = 0; k <= segments; k++) {
-          let x = px[k],
-            y = py[k];
-          for (let q = 0; q < quarter; q++) {
-            const t = x;
-            x = -y;
-            y = t;
-          }
-          if (mirror) x = -x;
-          px[k] = x;
-          py[k] = y;
-          minX = Math.min(minX, x);
-          maxX = Math.max(maxX, x);
-          minY = Math.min(minY, y);
-          maxY = Math.max(maxY, y);
-        }
-        const w = maxX - minX,
-          h = maxY - minY,
-          stride = w + 1,
-          // Per lattice edge the position along the path (1 / segments to 1), 0 where there is none.
-          across = new Float32Array((w + 1) * (h + 1)),
-          down = new Float32Array((w + 1) * (h + 1)),
-          cell = (1 - 2 * p.margin) / Math.max(w, h),
-          originX = 0.5 - (w * cell) / 2,
-          originY = 0.5 - (h * cell) / 2,
-          inverseSoft = 1 / p.edgeSoft;
-        for (let k = 0; k < segments; k++) {
-          const x0 = px[k] - minX,
-            y0 = py[k] - minY,
-            x1 = px[k + 1] - minX,
-            y1 = py[k + 1] - minY,
-            value = (k + 1) / segments;
-          if (y0 === y1) across[y0 * stride + Math.min(x0, x1)] = value;
-          else down[Math.min(y0, y1) * stride + x0] = value;
-        }
-        return () => {
-          const gx = (u - originX) / cell,
-            gy = (v - originY) / cell;
-          let along = 0;
-          if (gx > -1 && gx < w + 1 && gy > -1 && gy < h + 1) {
-            const ix = Math.floor(gx),
-              iy = Math.floor(gy);
-            let best = 0;
-            // The four lattice edges around this cell and the four corner joints.
-            for (let ey = iy; ey <= iy + 1; ey++)
-              for (let ex = ix; ex <= ix + 1; ex++) {
-                if (ex < 0 || ey < 0 || ex > w || ey > h) continue;
-                const index = ey * stride + ex;
-                if (ex === ix && ex < w && across[index] > 0) {
-                  const edge = smooth(
-                    clamp((p.lineHalf - Math.abs(gy - ey)) * inverseSoft + 0.5),
-                  );
-                  if (edge > best) {
-                    best = edge;
-                    along = across[index];
-                  }
-                }
-                if (ey === iy && ey < h && down[index] > 0) {
-                  const edge = smooth(
-                    clamp((p.lineHalf - Math.abs(gx - ex)) * inverseSoft + 0.5),
-                  );
-                  if (edge > best) {
-                    best = edge;
-                    along = down[index];
-                  }
-                }
-                // Joint: a square of the line width on every lattice vertex the path visits.
-                const joint = Math.max(
-                  across[index],
-                  down[index],
-                  ex > 0 ? across[index - 1] : 0,
-                  ey > 0 ? down[index - stride] : 0,
-                );
-                if (joint > 0) {
-                  const square = smooth(
-                    clamp(
-                      (p.lineHalf -
-                        Math.max(Math.abs(gx - ex), Math.abs(gy - ey))) *
-                        inverseSoft +
-                        0.5,
-                    ),
-                  );
-                  if (square > best) {
-                    best = square;
-                    along = joint;
-                  }
-                }
-              }
-            const tone = p.startTone + (p.endTone - p.startTone) * along;
-            color = clamp(
-              p.backgroundTone +
-                (tone - p.backgroundTone) * best +
-                p.grainTone * (grainField(u, v) - 0.5),
-            );
-            height = clamp(
-              p.backgroundHeight + (p.lineHeight - p.backgroundHeight) * best,
-            );
-            roughness =
-              p.backgroundRoughness +
-              (p.lineRoughness - p.backgroundRoughness) * best;
-          } else {
-            color = clamp(
-              p.backgroundTone + p.grainTone * (grainField(u, v) - 0.5),
-            );
-            height = p.backgroundHeight;
-            roughness = p.backgroundRoughness;
-          }
-          occlusion = 1;
-        };
-      }
-      case 'cantordust': {
-        const p = proceduralMaterialPresets.cantordust,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29801),
-          barCells = 3 ** p.barDigits,
-          dustCells = 3 ** p.dustDigits,
-          // The middle third (base-3 digit 1) is removed at every step.
-          removed = 1,
-          // Leading base-3 digits of the cell index, most significant first.
-          kept = (index: number, digits: number, count: number): boolean => {
-            let divisor = 3 ** (digits - 1);
-            for (let i = 0; i < count; i++) {
-              if (Math.floor(index / divisor) % 3 === removed) return false;
-              divisor /= 3;
-            }
-            return true;
-          },
-          barWidth = 1 - 2 * p.margin,
-          rowHeight = 0.5 / p.rows,
-          dustCell = p.dustSide / dustCells,
-          dustLeft = 0.5 - p.dustSide / 2,
-          dustTop = 0.5 + (0.5 - p.dustSide) / 2,
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5));
-        return () => {
-          let tone: number = p.backgroundTone,
-            level: number = p.backgroundHeight,
-            rough: number = p.backgroundRoughness;
-          if (v < 0.5) {
-            // Rows 0 to rows-1: the Cantor set after that many removal steps.
-            const row = Math.min(p.rows - 1, Math.floor(v / rowHeight)),
-              lx = u - p.margin,
-              inRow =
-                Math.abs(v - (row + 0.5) * rowHeight) <
-                (rowHeight * p.barFill) / 2;
-            if (lx >= 0 && lx < barWidth && inRow) {
-              const index = Math.min(
-                barCells - 1,
-                Math.floor((lx / barWidth) * barCells),
-              );
-              if (kept(index, p.barDigits, row)) {
-                tone =
-                  p.firstTone +
-                  ((p.lastTone - p.firstTone) * row) / (p.rows - 1);
-                level = p.barHeight;
-                rough = p.barRoughness;
-              } else {
-                tone = p.guideTone;
-                level = p.guideHeight;
-              }
-            }
-          } else {
-            const lx = u - dustLeft,
-              ly = v - dustTop;
-            if (lx >= 0 && lx < p.dustSide && ly >= 0 && ly < p.dustSide) {
-              const x = Math.min(dustCells - 1, Math.floor(lx / dustCell)),
-                y = Math.min(dustCells - 1, Math.floor(ly / dustCell)),
-                fx = lx - x * dustCell,
-                fy = ly - y * dustCell,
-                inner = Math.min(
-                  cover(Math.min(fx, dustCell - fx) - dustCell * 0.08),
-                  cover(Math.min(fy, dustCell - fy) - dustCell * 0.08),
-                );
-              if (
-                kept(x, p.dustDigits, p.dustDigits) &&
-                kept(y, p.dustDigits, p.dustDigits)
-              ) {
-                tone = p.guideTone + (p.dustTone - p.guideTone) * inner;
-                level = p.guideHeight + (p.barHeight - p.guideHeight) * inner;
-                rough =
-                  p.backgroundRoughness +
-                  (p.barRoughness - p.backgroundRoughness) * inner;
-              } else {
-                tone = p.guideTone;
-                level = p.guideHeight;
-              }
-            }
           }
           color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
           height = clamp(level);
@@ -25230,87 +23900,6 @@ export function createSurfaceSampler(
                   rough = p.diskRoughness;
                 }
               }
-            }
-            tone += (p.frameTone - tone) * frame;
-            level += (p.frameHeight - level) * frame;
-          }
-          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
-          height = clamp(level);
-          roughness = rough;
-          occlusion = 1;
-        };
-      }
-      case 'latinsquares': {
-        const p = proceduralMaterialPresets.latinsquares,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29b01),
-          side = 0.5 - 2 * p.margin,
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          shuffled = (n: number, quadrant: number, salt: number): number[] =>
-            Array.from({ length: n }, (_, i) => i).sort(
-              (a, b) =>
-                hash(a, quadrant * 8 + salt, seed ^ 0x29b03) -
-                hash(b, quadrant * 8 + salt, seed ^ 0x29b03),
-            ),
-          // The cyclic square (i + j) mod n with its rows, columns and symbols shuffled: every
-          // symbol occurs exactly once in each row and each column.
-          squares = p.orders.map((n, quadrant) => {
-            const rows = shuffled(n, quadrant, 1),
-              columns = shuffled(n, quadrant, 2),
-              symbols = shuffled(n, quadrant, 3);
-            return Array.from(
-              { length: n * n },
-              (_, index) =>
-                symbols[(rows[Math.floor(index / n)] + columns[index % n]) % n],
-            );
-          });
-        return () => {
-          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
-            n = p.orders[quadrant],
-            cell = side / n,
-            lx = u - (quadrant & 1) * 0.5 - p.margin,
-            ly = v - (quadrant >> 1) * 0.5 - p.margin;
-          let tone: number = p.paperTone,
-            level: number = p.paperHeight,
-            rough: number = p.paperRoughness;
-          if (
-            lx >= -p.frameHalf &&
-            lx <= side + p.frameHalf &&
-            ly >= -p.frameHalf &&
-            ly <= side + p.frameHalf
-          ) {
-            const frame = cover(
-              p.frameHalf -
-                Math.min(
-                  Math.min(Math.abs(lx), Math.abs(lx - side)),
-                  Math.min(Math.abs(ly), Math.abs(ly - side)),
-                ),
-            );
-            if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
-              const col = Math.min(n - 1, Math.floor(lx / cell)),
-                row = Math.min(n - 1, Math.floor(ly / cell)),
-                fx = lx - col * cell,
-                fy = ly - row * cell,
-                inner = cover(
-                  Math.min(Math.min(fx, cell - fx), Math.min(fy, cell - fy)) -
-                    p.gap,
-                ),
-                symbol = squares[quadrant][row * n + col];
-              tone =
-                p.paperTone +
-                (p.lowTone +
-                  ((p.highTone - p.lowTone) * symbol) / (n - 1) -
-                  p.paperTone) *
-                  inner;
-              level =
-                p.paperHeight +
-                (p.cellHeight -
-                  p.heightStep * (1 - symbol / (n - 1)) -
-                  p.paperHeight) *
-                  inner;
-              rough =
-                p.paperRoughness + (p.cellRoughness - p.paperRoughness) * inner;
             }
             tone += (p.frameTone - tone) * frame;
             level += (p.frameHeight - level) * frame;
@@ -25557,81 +24146,6 @@ export function createSurfaceSampler(
             }
             tone += (p.frameTone - tone) * frame;
             level += (p.frameHeight - level) * frame;
-          }
-          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
-          height = clamp(level);
-          roughness = rough;
-          occlusion = 1;
-        };
-      }
-      case 'primesieve': {
-        const p = proceduralMaterialPresets.primesieve,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29e01),
-          n = p.size,
-          cell = (1 - 2 * p.margin) / n,
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          first =
-            1 +
-            Math.min(
-              p.firstMax,
-              Math.floor(hash(5, 5, seed ^ 0x29e03) * (p.firstMax + 1)),
-            ),
-          // The smallest prime factor of every shown number: 0 for the number 1, the number itself for a
-          // prime. Composites are grouped by 2, 3, 5, 7 and "11 or more".
-          classes = Array.from({ length: n * n }, (_, i) => {
-            const value = first + i;
-            if (value === 1) return 0;
-            let factor = 2;
-            while (factor * factor <= value && value % factor !== 0) factor++;
-            if (factor * factor > value) return 1;
-            return factor === 2
-              ? 2
-              : factor === 3
-                ? 3
-                : factor === 5
-                  ? 4
-                  : factor === 7
-                    ? 5
-                    : 6;
-          });
-        return () => {
-          const lx = u - p.margin,
-            ly = v - p.margin;
-          let tone: number = p.gapTone,
-            level: number = p.gapHeight,
-            rough: number = p.otherRoughness;
-          if (lx >= 0 && lx < n * cell && ly >= 0 && ly < n * cell) {
-            const col = Math.min(n - 1, Math.floor(lx / cell)),
-              row = Math.min(n - 1, Math.floor(ly / cell)),
-              fx = lx - col * cell,
-              fy = ly - row * cell,
-              half = cell / 2 - p.gap,
-              // A rounded square: distance outside the corner-rounded box is negative.
-              qx = Math.abs(fx - cell / 2) - (half - p.cornerRadius),
-              qy = Math.abs(fy - cell / 2) - (half - p.cornerRadius),
-              inside =
-                p.cornerRadius -
-                (Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) +
-                  Math.min(Math.max(qx, qy), 0)),
-              shape = cover(inside),
-              kind = classes[row * n + col],
-              faceTone =
-                kind === 0
-                  ? p.oneTone
-                  : kind === 1
-                    ? p.primeTone
-                    : p.factorTones[kind - 2],
-              faceHeight =
-                kind === 0
-                  ? p.oneHeight
-                  : kind === 1
-                    ? p.primeHeight
-                    : p.compositeHeight;
-            tone += (faceTone - tone) * shape;
-            level += (faceHeight - level) * shape;
-            if (kind === 1) rough += (p.primeRoughness - rough) * shape;
           }
           color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
           height = clamp(level);
@@ -29609,76 +28123,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'euclideanrhythms': {
-        const p = proceduralMaterialPresets.euclideanrhythms,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ba01),
-          steps = p.steps,
-          tracks = p.tracks,
-          side = 1 - 2 * p.margin,
-          cell = side / steps,
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          // Euclidean rhythm: k pulses spread as evenly as possible over the steps (Bresenham), then rotated.
-          lit = new Uint8Array(steps * tracks);
-        for (let track = 0; track < tracks; track++) {
-          const pulses =
-              p.minPulses +
-              Math.min(
-                p.maxPulses - p.minPulses,
-                Math.floor(
-                  hash(track, 3, seed ^ 0x2ba03) *
-                    (p.maxPulses - p.minPulses + 1),
-                ),
-              ),
-            rotation = Math.min(
-              steps - 1,
-              Math.floor(hash(track, 5, seed ^ 0x2ba05) * steps),
-            );
-          for (let step = 0; step < steps; step++)
-            lit[track * steps + ((step + rotation) % steps)] = Number(
-              (step * pulses) % steps < pulses,
-            );
-        }
-        return () => {
-          const lx = u - p.margin,
-            ly = v - p.margin;
-          let tone: number = p.panelTone,
-            pad = 0,
-            on = 0;
-          if (lx >= 0 && ly >= 0 && lx < side && ly < side) {
-            const col = Math.min(steps - 1, Math.floor(lx / cell)),
-              row = Math.min(tracks - 1, Math.floor(ly / cell)),
-              fx = lx / cell - col,
-              fy = ly / cell - row,
-              qx = Math.abs(fx - 0.5) - (0.5 - p.padInset) + p.padCorner,
-              qy = Math.abs(fy - 0.5) - (0.5 - p.padInset) + p.padCorner,
-              distance =
-                Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) +
-                Math.min(Math.max(qx, qy), 0) -
-                p.padCorner;
-            pad = cover(-distance * cell);
-            on = lit[row * steps + col] * pad;
-            tone = col % 4 === 0 ? p.beatTone : p.padTone;
-          }
-          const base = p.panelTone + (tone - p.panelTone) * pad;
-          color = clamp(
-            base +
-              (p.litTone - base) * on +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(
-            p.panelHeight +
-              (p.padHeight - p.panelHeight) * pad +
-              (p.litHeight - p.padHeight) * on,
-          );
-          roughness =
-            p.panelRoughness +
-            (p.padRoughness - p.panelRoughness) * pad +
-            (p.litRoughness - p.padRoughness) * on;
-          occlusion = 1;
-        };
-      }
       case 'chinesecheckersboard': {
         const p = proceduralMaterialPresets.chinesecheckersboard,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2bb01),
@@ -32226,60 +30670,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'cassiniovals': {
-        const p = proceduralMaterialPresets.cassiniovals,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d601),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          half =
-            p.halfSeparations[
-              Math.min(
-                p.halfSeparations.length - 1,
-                Math.floor(
-                  hash(1, 1, seed ^ 0x2d602) * p.halfSeparations.length,
-                ),
-              )
-            ];
-        return () => {
-          // Cassini ovals are the curves on which the product of the distances to two foci is constant.
-          const dxLeft = u - (0.5 - half),
-            dxRight = u - (0.5 + half),
-            dy = v - 0.5,
-            r1 = Math.hypot(dxLeft, dy),
-            r2 = Math.hypot(dxRight, dy),
-            product = r1 * r2,
-            // Gradient of r1 r2 is r2 * (unit vector from focus 1) + r1 * (unit vector from focus 2).
-            gx = (r2 * dxLeft) / (r1 || 1) + (r1 * dxRight) / (r2 || 1),
-            gy = (r2 * dy) / (r1 || 1) + (r1 * dy) / (r2 || 1),
-            slope = Math.max(Math.hypot(gx, gy), 1e-6);
-          let curve = 0;
-          p.ratios.forEach((ratio) => {
-            const target = (ratio * half) ** 2,
-              width = ratio === 1 ? p.lemniscateHalf : p.curveHalf;
-            curve = Math.max(
-              curve,
-              cover(width - Math.abs(product - target) / slope),
-            );
-          });
-          curve = Math.max(
-            curve,
-            cover(p.focusRadius - r1),
-            cover(p.focusRadius - r2),
-          );
-          color = clamp(
-            p.paperTone +
-              (p.curveTone - p.paperTone) * curve +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(
-            p.paperHeight + (p.curveHeight - p.paperHeight) * curve,
-          );
-          roughness =
-            p.paperRoughness + (p.curveRoughness - p.paperRoughness) * curve;
-          occlusion = 1;
-        };
-      }
       case 'twosourceripples': {
         const p = proceduralMaterialPresets.twosourceripples,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d701),
@@ -33238,157 +31628,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'percolationclusters': {
-        const p = proceduralMaterialPresets.percolationclusters,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e001),
-          n = p.size,
-          opening =
-            p.openings[
-              Math.floor(hash(3, 4, seed ^ 0x2e002) * p.openings.length)
-            ],
-          open = new Uint8Array(n * n),
-          label = new Int32Array(n * n).fill(-1),
-          sizes: number[] = [];
-        for (let i = 0; i < n * n; i++)
-          open[i] = hash(i % n, (i / n) | 0, seed ^ 0x2e003) < opening ? 1 : 0;
-        // Label the clusters of open sites that touch along an edge.
-        for (let start = 0; start < n * n; start++) {
-          if (open[start] === 0 || label[start] >= 0) continue;
-          const id = sizes.length,
-            stack = [start];
-          let size = 0;
-          label[start] = id;
-          while (stack.length > 0) {
-            const index = stack.pop() as number,
-              x = index % n,
-              y = (index - x) / n;
-            size++;
-            for (const next of [
-              x > 0 ? index - 1 : -1,
-              x < n - 1 ? index + 1 : -1,
-              y > 0 ? index - n : -1,
-              y < n - 1 ? index + n : -1,
-            ])
-              if (next >= 0 && open[next] === 1 && label[next] < 0) {
-                label[next] = id;
-                stack.push(next);
-              }
-          }
-          sizes.push(size);
-        }
-        const largest = Math.max(0, ...sizes);
-        return () => {
-          const index =
-              Math.min(n - 1, Math.floor(v * n)) * n +
-              Math.min(n - 1, Math.floor(u * n)),
-            size = label[index] < 0 ? 0 : sizes[label[index]];
-          let tone: number = p.closedTone,
-            level: number = p.closedHeight;
-          if (size > 0)
-            if (size === largest) {
-              tone = p.largestTone;
-              level = p.largestHeight;
-            } else if (size >= p.mediumSize) {
-              tone = p.mediumTone;
-              level = p.mediumHeight;
-            } else {
-              tone = p.smallTone;
-              level = p.smallHeight;
-            }
-          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
-          height = clamp(level);
-          roughness = p.cellRoughness;
-          occlusion = 1;
-        };
-      }
-      case 'gcdtable': {
-        const p = proceduralMaterialPresets.gcdtable,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e101),
-          glyphs: Record<string, string> = {
-            '0': '111101101101111',
-            '1': '010110010010111',
-            '2': '111001111100111',
-            '3': '111001111001111',
-            '4': '101101111001001',
-            '5': '111100111001111',
-            '6': '111100111101111',
-            '7': '111001010010010',
-            '8': '111101111101111',
-            '9': '111101111001111',
-          },
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          gcd = (a: number, b: number): number => {
-            while (b !== 0) [a, b] = [b, a % b];
-            return a;
-          },
-          rowStart =
-            p.starts[Math.floor(hash(5, 6, seed ^ 0x2e102) * p.starts.length)],
-          columnStart =
-            p.starts[Math.floor(hash(7, 8, seed ^ 0x2e103) * p.starts.length)];
-        return () => {
-          const x = (u - p.left) / p.cell,
-            y = (v - p.top) / p.cell,
-            column = Math.floor(x),
-            row = Math.floor(y);
-          let tone: number = p.paperTone,
-            level: number = p.paperHeight,
-            rough: number = p.paperRoughness,
-            inkTone: number = p.inkTone,
-            line = 0,
-            glyph = 0;
-          if (column >= 0 && column <= p.size && row >= 0 && row <= p.size) {
-            const fx = x - column,
-              fy = y - row,
-              header = row === 0 || column === 0;
-            let value = 0;
-            if (row === 0 && column > 0) value = columnStart + column - 1;
-            else if (column === 0 && row > 0) value = rowStart + row - 1;
-            else if (row > 0)
-              value = gcd(rowStart + row - 1, columnStart + column - 1);
-            if (header) {
-              tone = p.headerTone;
-              level = p.headerHeight;
-              rough = p.headerRoughness;
-              inkTone = p.headerInkTone;
-            } else {
-              tone =
-                value === 1
-                  ? p.coprimeTone
-                  : p.divisorFloor + p.divisorRange / value;
-              level = value === 1 ? p.coprimeHeight : p.divisorHeight;
-              rough = p.cellRoughness;
-            }
-            line = cover(
-              p.lineHalf -
-                Math.min(Math.min(fx, 1 - fx), Math.min(fy, 1 - fy)) * p.cell,
-            );
-            if (value > 0) {
-              const text = String(value),
-                count = text.length,
-                first = -(2 * count - 1),
-                px = Math.floor(((fx - 0.5) * p.cell) / p.digitPixel + 0.5),
-                py = Math.floor(((fy - 0.5) * p.cell) / p.digitPixel + 2.5);
-              if (py >= 0 && py < 5)
-                for (let d = 0; d < count; d++) {
-                  const gx = px - (first + 4 * d);
-                  if (gx >= 0 && gx < 3 && glyphs[text[d]][py * 3 + gx] === '1')
-                    glyph = 1;
-                }
-            }
-          }
-          const base = tone + (p.lineTone - tone) * line;
-          color = clamp(
-            base +
-              (inkTone - base) * glyph +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(level - p.inkDepth * glyph);
-          roughness = rough + (p.inkRoughness - rough) * glyph;
-          occlusion = 1;
-        };
-      }
       case 'bitwiselogic': {
         const p = proceduralMaterialPresets.bitwiselogic,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e201),
@@ -33495,43 +31734,6 @@ export function createSurfaceSampler(
           );
           roughness =
             p.cellRoughness + (p.inkRoughness - p.cellRoughness) * glyph;
-          occlusion = 1;
-        };
-      }
-      case 'logisticbifurcation': {
-        const p = proceduralMaterialPresets.logisticbifurcation,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e301),
-          [rMin, rMax] =
-            p.windows[
-              Math.floor(hash(2, 5, seed ^ 0x2e302) * p.windows.length)
-            ],
-          counts = new Uint16Array(p.columns * p.rows);
-        // Iterate the logistic map at the middle of every column's range of r and count the values that land in each row.
-        for (let column = 0; column < p.columns; column++) {
-          const r = rMin + ((column + 0.5) / p.columns) * (rMax - rMin);
-          let x = p.start;
-          for (let step = 0; step < p.transient + p.recorded; step++) {
-            x = r * x * (1 - x);
-            if (step >= p.transient) {
-              const row = Math.min(p.rows - 1, Math.floor((1 - x) * p.rows));
-              counts[row * p.columns + column]++;
-            }
-          }
-        }
-        return () => {
-          const count =
-              counts[
-                Math.min(p.rows - 1, Math.floor(v * p.rows)) * p.columns +
-                  Math.min(p.columns - 1, Math.floor(u * p.columns))
-              ],
-            ink = Math.min(1, Math.log2(1 + count) / p.saturation);
-          color = clamp(
-            p.paperTone +
-              (p.inkTone - p.paperTone) * ink +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
-          roughness = p.cellRoughness;
           occlusion = 1;
         };
       }
@@ -34153,64 +32355,6 @@ export function createSurfaceSampler(
           );
           roughness =
             p.paperRoughness + (p.arrowRoughness - p.paperRoughness) * inside;
-          occlusion = 1;
-        };
-      }
-      case 'fordcircles': {
-        const p = proceduralMaterialPresets.fordcircles,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2eb01),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          gcd = (a: number, b: number): number => {
-            while (b !== 0) [a, b] = [b, a % b];
-            return a;
-          },
-          limit =
-            p.limits[Math.floor(hash(6, 7, seed ^ 0x2eb02) * p.limits.length)],
-          // The circle for p / q touches the axis at p / q, has diameter 1 / q^2 and is tangent to the circles of its Farey neighbours.
-          circles: { x: number; radius: number; denominator: number }[] = [];
-        for (let q = 1; q <= limit; q++)
-          for (let numerator = 0; numerator <= q; numerator++)
-            if (gcd(numerator, q) === 1)
-              circles.push({
-                x: numerator / q,
-                radius: 1 / (2 * q * q),
-                denominator: q,
-              });
-        return () => {
-          // y measured upwards from the axis, which runs along the bottom edge of the tile.
-          const y = 1 - v;
-          let fill = 0,
-            outline = 0,
-            tone: number = p.paperTone;
-          for (const circle of circles) {
-            const distance =
-              Math.hypot(u - circle.x, y - circle.radius) - circle.radius;
-            if (distance < 0) {
-              fill = 1;
-              tone = p.tones[circle.denominator - 1];
-            }
-            outline = Math.max(
-              outline,
-              cover(p.outlineHalf - Math.abs(distance)),
-            );
-          }
-          const axis = cover(p.axisHalf - Math.min(y, 1 - y)),
-            base = p.paperTone + (tone - p.paperTone) * fill,
-            ink = Math.max(outline, axis);
-          color = clamp(
-            base +
-              (p.outlineTone - base) * ink +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(
-            p.paperHeight +
-              (p.fillHeight - p.paperHeight) * fill +
-              (p.outlineHeight - p.fillHeight) * ink,
-          );
-          roughness =
-            p.paperRoughness + (p.fillRoughness - p.paperRoughness) * fill;
           occlusion = 1;
         };
       }
@@ -36288,149 +34432,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'dyckpaths': {
-        const p = proceduralMaterialPresets.dyckpaths,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30201),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          steps = 2 * p.semilength,
-          cellWidth = 1 / p.columns,
-          cellHeight = 1 / p.rows,
-          width = steps * p.unit,
-          paths: number[][] = [],
-          // Heights of the path at its nine points (0 at both ends), built by trying every step up or down.
-          walk = (heights: number[]): void => {
-            const last = heights[heights.length - 1],
-              remaining = steps - (heights.length - 1);
-            if (remaining === 0) {
-              if (last === 0) paths.push(heights);
-              return;
-            }
-            walk([...heights, last + 1]);
-            if (last > 0) walk([...heights, last - 1]);
-          };
-        walk([0]);
-        // The seed shuffles the order of the paths (Fisher-Yates).
-        for (let i = paths.length - 1; i > 0; i--) {
-          const j = Math.floor(hash(i, 7, seed ^ 0x30202) * (i + 1)),
-            swap = paths[i];
-          paths[i] = paths[j];
-          paths[j] = swap;
-        }
-        return () => {
-          const column = Math.min(p.columns - 1, Math.floor(u * p.columns)),
-            row = Math.min(p.rows - 1, Math.floor(v * p.rows)),
-            heights = paths[row * p.columns + column],
-            // The path starts at the left end of the baseline, which is centred across the cell and sits low in it; y goes up.
-            x = u - column * cellWidth - (cellWidth - width) / 2,
-            y = (row + 0.5) * cellHeight + (p.semilength * p.unit) / 2 - v;
-          let line = 0,
-            dots = 0;
-          for (let step = 0; step < steps; step++) {
-            const x0 = step * p.unit,
-              y0 = heights[step] * p.unit,
-              t = clamp((x - x0) / p.unit),
-              dx = x - x0 - t * p.unit,
-              dy = y - y0 - t * (heights[step + 1] - heights[step]) * p.unit;
-            line = Math.max(line, cover(p.lineHalf - Math.hypot(dx, dy)));
-            dots = Math.max(
-              dots,
-              cover(p.dotRadius - Math.hypot(x - x0, y - y0)),
-            );
-          }
-          dots = Math.max(dots, cover(p.dotRadius - Math.hypot(x - width, y)));
-          const base =
-              cover(p.baseHalf - Math.abs(y)) *
-              cover(p.unit * 0.5 + width / 2 - Math.abs(x - width / 2)),
-            band = row % 2,
-            paper = p.paperTone + (p.stripeTone - p.paperTone) * band,
-            level = p.paperHeight + (p.stripeHeight - p.paperHeight) * band,
-            ink = Math.max(line, dots),
-            ground = paper + (p.baseTone - paper) * base;
-          color = clamp(
-            ground +
-              (p.inkTone - ground) * ink +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(
-            level +
-              (p.baseHeight - level) * base +
-              (p.inkHeight - level - (p.baseHeight - level) * base) * ink,
-          );
-          roughness =
-            p.paperRoughness +
-            (p.inkRoughness - p.paperRoughness) * Math.max(ink, base);
-          occlusion = 1;
-        };
-      }
-      case 'sacksspiral': {
-        const p = proceduralMaterialPresets.sacksspiral,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30301),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          last =
-            p.lasts[Math.floor(hash(5, 2, seed ^ 0x30302) * p.lasts.length)],
-          // 0: every prime, 1: primes 4k + 1, 2: primes 4k + 3.
-          mode = Math.floor(hash(5, 3, seed ^ 0x30303) * 3),
-          scale = p.outerRadius / Math.sqrt(last),
-          composite = new Uint8Array(last + 1),
-          buckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          points: number[] = [];
-        for (let n = 2; n <= last; n++) {
-          if (composite[n] === 1) continue;
-          for (let multiple = n * n; multiple <= last; multiple += n)
-            composite[multiple] = 1;
-          if (mode === 1 && n % 4 !== 1) continue;
-          if (mode === 2 && n % 4 !== 3) continue;
-          const angle = 2 * Math.PI * Math.sqrt(n),
-            x = 0.5 + scale * Math.sqrt(n) * Math.cos(angle),
-            y = 0.5 + scale * Math.sqrt(n) * Math.sin(angle),
-            id = points.length / 2;
-          points.push(x, y);
-          // Every bucket that the dot (plus its soft edge) can reach.
-          const reach = p.dotRadius + p.edgeSoft;
-          for (
-            let by = Math.max(0, Math.floor((y - reach) * p.buckets));
-            by <= Math.min(p.buckets - 1, Math.floor((y + reach) * p.buckets));
-            by++
-          )
-            for (
-              let bx = Math.max(0, Math.floor((x - reach) * p.buckets));
-              bx <=
-              Math.min(p.buckets - 1, Math.floor((x + reach) * p.buckets));
-              bx++
-            )
-              buckets[by * p.buckets + bx].push(id);
-        }
-        return () => {
-          let dot = 0;
-          for (const id of buckets[
-            Math.min(p.buckets - 1, Math.floor(v * p.buckets)) * p.buckets +
-              Math.min(p.buckets - 1, Math.floor(u * p.buckets))
-          ])
-            dot = Math.max(
-              dot,
-              cover(
-                p.dotRadius -
-                  Math.hypot(u - points[2 * id], v - points[2 * id + 1]),
-              ),
-            );
-          color = clamp(
-            p.paperTone +
-              (p.inkTone - p.paperTone) * dot +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * dot);
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * dot;
-          occlusion = 1;
-        };
-      }
       case 'sierpinskipascal': {
         const p = proceduralMaterialPresets.sierpinskipascal,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30401),
@@ -36744,69 +34745,6 @@ export function createSurfaceSampler(
           roughness =
             p.paperRoughness +
             (p.inkRoughness - p.paperRoughness) * Math.max(ring, chord, dots);
-          occlusion = 1;
-        };
-      }
-      case 'gaussianprimes': {
-        const p = proceduralMaterialPresets.gaussianprimes,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30801),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          corner =
-            p.corners[
-              Math.floor(hash(9, 1, seed ^ 0x30802) * p.corners.length)
-            ],
-          cell = 1 / p.size,
-          // The largest norm a^2 + b^2 any window can reach, and a sieve of Eratosthenes up to it.
-          farthest =
-            Math.max(...p.corners.flat().map((value) => Math.abs(value))) +
-            p.size,
-          limit = 2 * farthest * farthest,
-          composite = new Uint8Array(limit + 1);
-        composite[0] = 1;
-        composite[1] = 1;
-        for (let n = 2; n * n <= limit; n++)
-          if (composite[n] === 0)
-            for (let multiple = n * n; multiple <= limit; multiple += n)
-              composite[multiple] = 1;
-        // a + b i is a Gaussian prime when its norm a^2 + b^2 is a prime, or when one of a, b is zero and the other is, up to
-        // sign, a prime of the form 4k + 3.
-        const gaussianPrime = (a: number, b: number): boolean => {
-          if (a === 0 || b === 0) {
-            const n = Math.abs(a + b);
-            return n % 4 === 3 && composite[n] === 0;
-          }
-          return composite[a * a + b * b] === 0;
-        };
-        return () => {
-          const column = Math.min(p.size - 1, Math.floor(u * p.size)),
-            row = Math.min(p.size - 1, Math.floor(v * p.size)),
-            // Rows go down the picture while b goes up.
-            prime = gaussianPrime(
-              corner[0] + column,
-              corner[1] + (p.size - 1 - row),
-            ),
-            dot = prime
-              ? cover(
-                  p.dotRadius -
-                    Math.hypot(
-                      u - (column + 0.5) * cell,
-                      v - (row + 0.5) * cell,
-                    ),
-                )
-              : 0,
-            band = (column + row) % 2,
-            paper = p.paperTone + (p.stripeTone - p.paperTone) * band,
-            level = p.paperHeight + (p.stripeHeight - p.paperHeight) * band;
-          color = clamp(
-            paper +
-              (p.dotTone - paper) * dot +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(level + (p.dotHeight - level) * dot);
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * dot;
           occlusion = 1;
         };
       }
@@ -37652,80 +35590,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'recamanarcs': {
-        const p = proceduralMaterialPresets.recamanarcs,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31201),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          count =
-            p.counts[Math.floor(hash(17, 1, seed ^ 0x31202) * p.counts.length)],
-          terms = [0],
-          seen = new Set([0]);
-        for (let n = 1; n < count; n++) {
-          const down = terms[n - 1] - n,
-            value = down > 0 && !seen.has(down) ? down : terms[n - 1] + n;
-          terms.push(value);
-          seen.add(value);
-        }
-        const peak = Math.max(...terms),
-          scale = p.width / peak,
-          // How far (in sequence units) a line or a dot reaches beyond its centre line, for skipping the ones that are far away.
-          lineReach = (p.lineHalf + p.edgeSoft) / scale,
-          dotReach = (p.dotRadius + p.edgeSoft) / scale;
-        return () => {
-          const x = (u - p.left) / scale,
-            y = (p.axis - v) / scale;
-          let arc = 0,
-            dot = 0;
-          for (let n = 1; n < count; n++) {
-            // Odd steps are the half above the line (y >= 0), even steps the half below it.
-            if ((n % 2 === 1) !== y >= 0) continue;
-            const centre = (terms[n] + terms[n - 1]) / 2,
-              radius = Math.abs(terms[n] - terms[n - 1]) / 2;
-            if (
-              Math.abs(x - centre) > radius + lineReach ||
-              Math.abs(y) > radius + lineReach
-            )
-              continue;
-            arc = Math.max(
-              arc,
-              cover(
-                p.lineHalf -
-                  Math.abs(Math.hypot(x - centre, y) - radius) * scale,
-              ),
-            );
-          }
-          if (Math.abs(y) < dotReach)
-            for (const term of terms)
-              if (Math.abs(x - term) < dotReach)
-                dot = Math.max(
-                  dot,
-                  cover(p.dotRadius - Math.hypot(x - term, y) * scale),
-                );
-          const axis =
-              x > -1 && x < peak + 1
-                ? cover(p.axisHalf - Math.abs(y) * scale)
-                : 0,
-            base = p.paperTone + (p.axisTone - p.paperTone) * axis,
-            ink = Math.max(arc, dot);
-          color = clamp(
-            base +
-              (p.arcTone - base) * ink +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(
-            Math.max(
-              p.paperHeight + (p.axisHeight - p.paperHeight) * axis,
-              p.paperHeight + (p.arcHeight - p.paperHeight) * ink,
-            ),
-          );
-          roughness =
-            p.paperRoughness +
-            (p.inkRoughness - p.paperRoughness) * Math.max(ink, axis);
-          occlusion = 1;
-        };
-      }
       case 'thuemorsegrid': {
         const p = proceduralMaterialPresets.thuemorsegrid,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31301),
@@ -37911,66 +35775,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'golombrulers': {
-        const p = proceduralMaterialPresets.golombrulers,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31601),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          longestRuler = p.rulers[p.rulers.length - 1],
-          scale = p.width / longestRuler[longestRuler.length - 1],
-          mirrored = p.rulers.map(
-            (_, row) => hash(row, 1, seed ^ 0x31602) < 0.5,
-          );
-        return () => {
-          const fv = v - Math.floor(v),
-            row = Math.floor((fv - p.top) / p.rowPitch);
-          let bar = 0,
-            unit = 0,
-            mark = 0;
-          if (row >= 0 && row < p.rulers.length) {
-            const marks = p.rulers[row],
-              length = marks[marks.length - 1],
-              dy = fv - (p.top + (row + 0.5) * p.rowPitch),
-              x = (u - Math.floor(u) - p.left) / scale,
-              within = cover(x * scale) * cover((length - x) * scale);
-            bar = cover(p.barHalf - Math.abs(dy)) * within;
-            if (dy > p.barHalf && dy < p.unitReach)
-              unit =
-                cover(p.unitHalf - Math.abs(x - Math.round(x)) * scale) *
-                within;
-            for (const m of marks) {
-              const distance =
-                Math.abs(x - (mirrored[row] ? length - m : m)) * scale;
-              if (distance < p.markHalf + p.edgeSoft)
-                mark = Math.max(
-                  mark,
-                  cover(p.markHalf - distance) *
-                    cover(p.markReach - Math.abs(dy)),
-                );
-            }
-          }
-          const base = p.paperTone + (p.barTone - p.paperTone) * bar,
-            withUnit = base + (p.unitTone - base) * unit;
-          color = clamp(
-            withUnit +
-              (p.markTone - withUnit) * mark +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(
-            Math.max(
-              p.paperHeight + (p.barHeight - p.paperHeight) * bar,
-              p.paperHeight + (p.unitHeight - p.paperHeight) * unit,
-              p.paperHeight + (p.markHeight - p.paperHeight) * mark,
-            ),
-          );
-          roughness =
-            p.paperRoughness +
-            (p.inkRoughness - p.paperRoughness) *
-              Math.max(bar * 0.5, unit, mark);
-          occlusion = 1;
-        };
-      }
       case 'bitwisetable': {
         const p = proceduralMaterialPresets.bitwisetable,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31701),
@@ -38030,98 +35834,6 @@ export function createSurfaceSampler(
             (p.faceRoughness - p.groutRoughness) * face +
             (p.inkRoughness - p.faceRoughness) * ink;
           occlusion = clamp(0.8 + 0.2 * face);
-        };
-      }
-      case 'peanocurve': {
-        const p = proceduralMaterialPresets.peanocurve,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31801),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          order =
-            p.orders[Math.floor(hash(3, 1, seed ^ 0x31802) * p.orders.length)],
-          swap = hash(5, 2, seed ^ 0x31803) < 0.5,
-          flipX = hash(7, 3, seed ^ 0x31804) < 0.5,
-          flipY = hash(11, 4, seed ^ 0x31805) < 0.5,
-          side = 3 ** order,
-          total = side * side,
-          span = 1 - 2 * p.margin,
-          cellSize = span / side,
-          pathX = new Uint16Array(total),
-          pathY = new Uint16Array(total),
-          indexAt = new Int32Array(total);
-        // The curve by recursion: nine copies of the previous order in a serpentine of three columns of three, each mirrored so that
-        // it starts where the previous one ended.
-        pathX[0] = 0;
-        pathY[0] = 0;
-        for (let level = 1, count = 1; level <= order; level++) {
-          const s = 3 ** (level - 1),
-            blocks = [
-              [0, 0],
-              [0, 1],
-              [0, 2],
-              [1, 2],
-              [1, 1],
-              [1, 0],
-              [2, 0],
-              [2, 1],
-              [2, 2],
-            ];
-          // Fill from the back so that the copies read the previous order's points before they are overwritten.
-          for (let block = 8; block >= 0; block--) {
-            const [bx, by] = blocks[block],
-              mirrorX = by % 2 === 1,
-              mirrorY = bx % 2 === 1;
-            for (let k = count - 1; k >= 0; k--) {
-              const x = pathX[k],
-                y = pathY[k];
-              pathX[block * count + k] = bx * s + (mirrorX ? s - 1 - x : x);
-              pathY[block * count + k] = by * s + (mirrorY ? s - 1 - y : y);
-            }
-          }
-          count *= 9;
-        }
-        for (let k = 0; k < total; k++) {
-          const x = swap ? pathY[k] : pathX[k],
-            y = swap ? pathX[k] : pathY[k];
-          pathX[k] = flipX ? side - 1 - x : x;
-          pathY[k] = flipY ? side - 1 - y : y;
-          indexAt[pathY[k] * side + pathX[k]] = k;
-        }
-        return () => {
-          const x = (u - Math.floor(u) - p.margin) / cellSize,
-            y = (v - Math.floor(v) - p.margin) / cellSize;
-          let ink = 0,
-            tone = p.startTone;
-          if (x >= 0 && x < side && y >= 0 && y < side) {
-            const column = Math.floor(x),
-              row = Math.floor(y),
-              k = indexAt[row * side + column],
-              px = x - column - 0.5,
-              py = y - row - 0.5;
-            let nearest = Infinity;
-            // The curve inside this cell: the segments from its centre to the previous and the next cell.
-            for (const other of [k - 1, k + 1]) {
-              if (other < 0 || other >= total) continue;
-              const dx = pathX[other] - column,
-                dy = pathY[other] - row,
-                along = Math.min(1, Math.max(0, px * dx + py * dy)),
-                distance = Math.hypot(px - dx * along, py - dy * along);
-              nearest = Math.min(nearest, distance);
-            }
-            if (nearest === Infinity) nearest = Math.hypot(px, py);
-            ink = cover((p.lineHalf - nearest) * cellSize);
-            tone = p.startTone + ((p.endTone - p.startTone) * k) / (total - 1);
-          }
-          color = clamp(
-            p.paperTone +
-              (tone - p.paperTone) * ink +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
-          occlusion = 1;
         };
       }
       case 'cliffordattractor': {
@@ -38186,87 +35898,6 @@ export function createSurfaceSampler(
           roughness =
             p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
           occlusion = 1;
-        };
-      }
-      case 'voronoicells': {
-        const p = proceduralMaterialPresets.voronoicells,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31a01),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          count =
-            p.counts[Math.floor(hash(3, 1, seed ^ 0x31a02) * p.counts.length)],
-          jitter =
-            p.jitters[
-              Math.floor(hash(5, 2, seed ^ 0x31a03) * p.jitters.length)
-            ],
-          siteX = new Float32Array(count * count),
-          siteY = new Float32Array(count * count),
-          siteTone = new Float32Array(count * count);
-        for (let row = 0; row < count; row++)
-          for (let column = 0; column < count; column++) {
-            const k = row * count + column;
-            siteX[k] =
-              (column +
-                0.5 +
-                (hash(column, row, seed ^ 0x31a04) - 0.5) * 2 * jitter) /
-              count;
-            siteY[k] =
-              (row +
-                0.5 +
-                (hash(column, row, seed ^ 0x31a05) - 0.5) * 2 * jitter) /
-              count;
-            siteTone[k] =
-              p.lowestTone +
-              (p.highestTone - p.lowestTone) *
-                hash(column, row, seed ^ 0x31a06);
-          }
-        return () => {
-          const fu = u - Math.floor(u),
-            fv = v - Math.floor(v),
-            column = Math.min(count - 1, Math.floor(fu * count)),
-            row = Math.min(count - 1, Math.floor(fv * count));
-          let nearest = Infinity,
-            second = Infinity,
-            tone: number = p.lowestTone;
-          // The sites of the 5 x 5 grid cells around this one (the grid wraps around the tile).
-          for (let dy = -2; dy <= 2; dy++)
-            for (let dx = -2; dx <= 2; dx++) {
-              const wrappedColumn = (column + dx + count * 2) % count,
-                wrappedRow = (row + dy + count * 2) % count,
-                k = wrappedRow * count + wrappedColumn,
-                shiftX = Math.floor((column + dx) / count),
-                shiftY = Math.floor((row + dy) / count),
-                distance = Math.hypot(
-                  fu - (siteX[k] + shiftX),
-                  fv - (siteY[k] + shiftY),
-                );
-              if (distance < nearest) {
-                second = nearest;
-                nearest = distance;
-                tone = siteTone[k];
-              } else if (distance < second) second = distance;
-            }
-          // Half the gap between the two nearest distances is about the distance to the border between the two cells.
-          const border = cover(p.borderHalf - (second - nearest) / 2),
-            dot = cover(p.dotRadius - nearest),
-            face = tone,
-            base = face + (p.borderTone - face) * border;
-          color = clamp(
-            base +
-              (p.dotTone - base) * dot +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(
-            p.faceHeight +
-              (p.borderHeight - p.faceHeight) * border +
-              (p.dotHeight - p.faceHeight) * dot,
-          );
-          roughness =
-            p.faceRoughness +
-            (p.borderRoughness - p.faceRoughness) * border +
-            (p.dotRoughness - p.faceRoughness) * dot;
-          occlusion = 1 - 0.2 * border;
         };
       }
       case 'euclidsquares': {
@@ -39000,70 +36631,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'wangtiles': {
-        const p = proceduralMaterialPresets.wangtiles,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32201),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          count =
-            p.counts[Math.floor(hash(3, 1, seed ^ 0x32202) * p.counts.length)],
-          colours =
-            p.colourCounts[
-              Math.floor(hash(5, 2, seed ^ 0x32203) * p.colourCounts.length)
-            ],
-          // The colour of every edge: horizontal[row][column] is the edge above the tile at (row, column), vertical[row][column] the
-          // edge on its left; the tile below uses the same horizontal edge as its top, the tile to the right the same vertical edge as
-          // its left (wrapping around), so every pair of touching sides matches.
-          horizontal = Array.from({ length: count * count }, (_, k) =>
-            Math.floor(
-              hash(k % count, Math.floor(k / count), seed ^ 0x32204) * colours,
-            ),
-          ),
-          vertical = Array.from({ length: count * count }, (_, k) =>
-            Math.floor(
-              hash(k % count, Math.floor(k / count), seed ^ 0x32205) * colours,
-            ),
-          ),
-          toneOf = (colour: number): number =>
-            p.lowTone + ((p.highTone - p.lowTone) * colour) / (colours - 1);
-        return () => {
-          const x = (u - Math.floor(u)) * count,
-            y = (v - Math.floor(v)) * count,
-            column = Math.min(count - 1, Math.floor(x)),
-            row = Math.min(count - 1, Math.floor(y)),
-            lx = x - column,
-            ly = y - row,
-            below = (row + 1) % count,
-            right = (column + 1) % count,
-            // Which side's triangle the point is in: the four triangles meet at the middle of the tile.
-            upper = ly < lx,
-            lower = ly < 1 - lx,
-            colour =
-              upper && lower
-                ? horizontal[row * count + column]
-                : !upper && !lower
-                  ? horizontal[below * count + column]
-                  : !upper && lower
-                    ? vertical[row * count + column]
-                    : vertical[row * count + right],
-            // Distance to the nearest line (a tile edge or a diagonal), in tile widths.
-            edge = Math.min(lx, 1 - lx, ly, 1 - ly),
-            diagonal =
-              Math.min(Math.abs(lx - ly), Math.abs(lx + ly - 1)) / Math.SQRT2,
-            line = cover(p.lineHalf - Math.min(edge, diagonal) / count),
-            tone = toneOf(colour);
-          color = clamp(
-            tone +
-              (p.lineTone - tone) * line +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(p.faceHeight + (p.lineHeight - p.faceHeight) * line);
-          roughness =
-            p.faceRoughness + (p.lineRoughness - p.faceRoughness) * line;
-          occlusion = 1 - 0.2 * line;
-        };
-      }
       case 'marchingsquares': {
         const p = proceduralMaterialPresets.marchingsquares,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32301),
@@ -39198,59 +36765,6 @@ export function createSurfaceSampler(
           roughness =
             p.paperRoughness +
             (p.lineRoughness - p.paperRoughness) * Math.max(line, dot);
-          occlusion = 1;
-        };
-      }
-      case 'tsquarefractal': {
-        const p = proceduralMaterialPresets.tsquarefractal,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32401),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          count =
-            p.counts[Math.floor(hash(3, 1, seed ^ 0x32402) * p.counts.length)],
-          depth =
-            p.depths[Math.floor(hash(5, 2, seed ^ 0x32403) * p.depths.length)],
-          lighterDeeper = hash(7, 3, seed ^ 0x32404) < 0.5,
-          cell = 1 / count;
-        return () => {
-          // The point in cell widths from the cell middle.
-          const x = u * count - Math.floor(u * count) - 0.5,
-            y = v * count - Math.floor(v * count) - 0.5;
-          let colour: number = p.paperTone,
-            elevation: number = p.paperHeight,
-            rough: number = p.paperRoughness,
-            cx = 0,
-            cy = 0,
-            side = p.bigSide;
-          for (let level = 0; level < depth; level++) {
-            const along = level / (depth - 1),
-              rank = lighterDeeper ? along : 1 - along,
-              // How far inside the square the point is (negative outside), in uv.
-              inside =
-                (side / 2 - Math.max(Math.abs(x - cx), Math.abs(y - cy))) *
-                cell,
-              fill = cover(inside),
-              outline = cover(
-                Math.min(p.outlineHalf, side * cell * p.outlineShare) -
-                  Math.abs(inside),
-              );
-            colour +=
-              (p.lowTone + (p.highTone - p.lowTone) * rank - colour) * fill;
-            elevation +=
-              (p.lowHeight + (p.highHeight - p.lowHeight) * rank - elevation) *
-              fill;
-            rough += (p.squareRoughness - rough) * fill;
-            colour += (p.outlineTone - colour) * outline;
-            elevation += (p.outlineHeight - elevation) * outline;
-            // Step to the corner of this square nearest the point; the next square is centred there.
-            cx += (x >= cx ? 1 : -1) * (side / 2);
-            cy += (y >= cy ? 1 : -1) * (side / 2);
-            side /= 2;
-          }
-          color = clamp(colour + p.grainTone * (grainField(u, v) - 0.5));
-          height = clamp(elevation);
-          roughness = rough;
           occlusion = 1;
         };
       }
@@ -39570,82 +37084,6 @@ export function createSurfaceSampler(
           height = clamp(elevation + (p.lineHeight - elevation) * line);
           roughness =
             p.pieceRoughness + (p.lineRoughness - p.pieceRoughness) * line;
-          occlusion = 1;
-        };
-      }
-      case 'errordiffusion': {
-        const p = proceduralMaterialPresets.errordiffusion,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32901),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          size =
-            p.sizes[Math.floor(hash(3, 1, seed ^ 0x32902) * p.sizes.length)],
-          kernel =
-            p.kernels[
-              Math.floor(hash(5, 2, seed ^ 0x32903) * p.kernels.length)
-            ],
-          picture =
-            p.pictures[
-              Math.floor(hash(7, 3, seed ^ 0x32904) * p.pictures.length)
-            ],
-          cells = size * size,
-          // The value still to be rounded at each cell, then its bit.
-          pending = new Float64Array(cells),
-          bits = new Uint8Array(cells);
-        for (let i = 0; i < cells; i++) {
-          const x = ((i % size) + 0.5) / size,
-            y = (Math.floor(i / size) + 0.5) / size;
-          pending[i] =
-            0.5 +
-            picture[4] * Math.sin(TAU * (picture[0] * x + picture[2])) +
-            picture[5] * Math.sin(TAU * (picture[1] * y + picture[3])) +
-            picture[6] * Math.sin(TAU * (picture[0] * x + picture[1] * y));
-        }
-        for (let i = 0; i < cells; i++) {
-          const bit = pending[i] >= 0.5 ? 1 : 0,
-            error = pending[i] - bit,
-            column = i % size,
-            row = Math.floor(i / size);
-          bits[i] = bit;
-          for (const [dx, dy, weight] of kernel.taps) {
-            const target =
-              ((row + dy) % size) * size + ((column + dx + size) % size);
-            if (target > i)
-              pending[target] += (error * weight) / kernel.divisor;
-          }
-        }
-        return () => {
-          const fx = (u - Math.floor(u)) * size,
-            fy = (v - Math.floor(v)) * size,
-            column = Math.floor(fx),
-            row = Math.floor(fy),
-            here = row * size + column,
-            // The nearest cell edge and the cell beyond it, in uv.
-            toLeft = fx - column,
-            toRight = column + 1 - fx,
-            toTop = fy - row,
-            toBottom = row + 1 - fy,
-            nearest = Math.min(toLeft, toRight, toTop, toBottom),
-            beyond =
-              nearest === toLeft
-                ? row * size + ((column + size - 1) % size)
-                : nearest === toRight
-                  ? row * size + ((column + 1) % size)
-                  : nearest === toTop
-                    ? ((row + size - 1) % size) * size + column
-                    : ((row + 1) % size) * size + column,
-            own = cover(nearest / size),
-            ownBit = bits[here],
-            otherBit = bits[beyond],
-            on = otherBit + (ownBit - otherBit) * own;
-          color = clamp(
-            p.offTone +
-              (p.onTone - p.offTone) * on +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(p.offHeight + (p.onHeight - p.offHeight) * on);
-          roughness = p.offRoughness + (p.onRoughness - p.offRoughness) * on;
           occlusion = 1;
         };
       }
@@ -40764,69 +38202,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'vicsekfractal': {
-        const p = proceduralMaterialPresets.vicsekfractal,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x3cc01),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          depth =
-            p.depths[Math.floor(hash(11, 4, seed ^ 0x3cc02) * p.depths.length)],
-          cross = hash(12, 4, seed ^ 0x3cc03) < 0.5,
-          size = 3 ** depth,
-          // For every cell: -1 when it is not in the fractal, else how many of its digit pairs are the middle one.
-          centres = new Int8Array(size * size);
-        for (let row = 0; row < size; row++)
-          for (let column = 0; column < size; column++) {
-            let x = column,
-              y = row,
-              middles = 0,
-              inside = true;
-            for (let level = 0; level < depth; level++) {
-              const dx = x % 3,
-                dy = y % 3,
-                middle = dx === 1 && dy === 1;
-              if (
-                !(cross
-                  ? middle || (dx !== 1 && dy !== 1)
-                  : dx === 1 || dy === 1)
-              ) {
-                inside = false;
-                break;
-              }
-              if (middle) middles++;
-              x = (x - dx) / 3;
-              y = (y - dy) / 3;
-            }
-            centres[row * size + column] = inside ? middles : -1;
-          }
-        return () => {
-          const fx = (u - Math.floor(u)) * size,
-            fy = (v - Math.floor(v)) * size,
-            column = Math.min(size - 1, Math.floor(fx)),
-            row = Math.min(size - 1, Math.floor(fy)),
-            middles = centres[row * size + column];
-          let ink = 0,
-            tone = p.cellLight;
-          if (middles >= 0) {
-            const edge =
-              Math.min(fx - column, column + 1 - fx, fy - row, row + 1 - fy) -
-              p.inset / 2;
-            ink = cover(edge / size);
-            tone = p.cellLight + (p.cellDark - p.cellLight) * (middles / depth);
-          }
-          color = clamp(
-            p.paperTone +
-              (tone - p.paperTone) * ink +
-              p.grainTone * (grainField(u, v) - 0.5) * (1 - ink),
-          );
-          height = clamp(p.paperHeight + (p.cellHeight - p.paperHeight) * ink);
-          roughness = clamp(
-            p.paperRoughness + (p.cellRoughness - p.paperRoughness) * ink,
-          );
-          occlusion = 1;
-        };
-      }
       case 'jacobisymbols': {
         const p = proceduralMaterialPresets.jacobisymbols,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x3dd01),
@@ -41275,99 +38650,6 @@ export function createSurfaceSampler(
                   : solid * (1 - cover(inside - p.frameWidth * cell)),
                 p.bitTone,
                 p.bitHeight,
-              );
-            }
-          }
-          color = clamp(
-            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
-          );
-          height = clamp(elevation);
-          roughness = clamp(rough);
-          occlusion = 1;
-        };
-      }
-      case 'chorddiagrams': {
-        const p = proceduralMaterialPresets.chorddiagrams,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x44e01),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          grid =
-            p.grids[Math.floor(hash(24, 14, seed ^ 0x44e02) * p.grids.length)],
-          cell = 1 / grid,
-          // The chords shown, all different: a seeded shuffle of the list, then the first of them.
-          order = Array.from({ length: p.chords.length }, (_, i) => i),
-          boxBottom = p.boxTop + p.frets * p.fretSpacing,
-          right = p.stringLeft + (p.strings - 1) * p.stringSpacing;
-        for (let i = order.length - 1; i > 0; i--) {
-          const j = Math.floor(hash(i, 15, seed ^ 0x44e03) * (i + 1)),
-            held = order[i];
-          order[i] = order[j];
-          order[j] = held;
-        }
-        return () => {
-          const fu = u - Math.floor(u),
-            fv = v - Math.floor(v),
-            column = Math.min(grid - 1, Math.floor(fu * grid)),
-            row = Math.min(grid - 1, Math.floor(fv * grid)),
-            shape = p.chords[order[row * grid + column]],
-            x = fu * grid - column,
-            y = fv * grid - row;
-          let shade = p.paperTone,
-            elevation = p.paperHeight,
-            rough = p.paperRoughness,
-            mask = 0;
-          const paint = (inside: number, tone: number, level: number): void => {
-            const amount = cover(inside * cell);
-            shade += (tone - shade) * amount;
-            elevation += (level - elevation) * amount;
-            rough += (p.inkRoughness - rough) * amount;
-            mask = Math.max(mask, amount);
-          };
-          // The frets and the nut across the strings, then the strings along the frets.
-          if (x > p.stringLeft - p.stringHalf && x < right + p.stringHalf) {
-            for (let f = 1; f <= p.frets; f++)
-              paint(
-                p.fretHalf - Math.abs(y - (p.boxTop + f * p.fretSpacing)),
-                p.lineTone,
-                p.lineHeight,
-              );
-            paint(p.nutHalf - Math.abs(y - p.boxTop), p.nutTone, p.nutHeight);
-          }
-          for (let s = 0; s < p.strings; s++) {
-            const sx = p.stringLeft + s * p.stringSpacing,
-              dx = x - sx,
-              fret = shape[s];
-            if (y > p.boxTop - p.nutHalf && y < boxBottom + p.fretHalf)
-              paint(p.stringHalf - Math.abs(dx), p.lineTone, p.lineHeight);
-            if (fret < 0) {
-              // A cross: two diagonals through the marker's middle.
-              const dy = y - p.markerY,
-                reach = p.markerRadius - Math.max(Math.abs(dx), Math.abs(dy));
-              paint(
-                Math.min(
-                  reach,
-                  p.markerHalf -
-                    Math.min(Math.abs(dx - dy), Math.abs(dx + dy)) *
-                      Math.SQRT1_2,
-                ),
-                p.markerTone,
-                p.markerHeight,
-              );
-            } else if (fret === 0) {
-              // A ring round the marker's middle.
-              paint(
-                p.markerHalf -
-                  Math.abs(Math.hypot(dx, y - p.markerY) - p.markerRadius),
-                p.markerTone,
-                p.markerHeight,
-              );
-            } else {
-              paint(
-                p.dotRadius -
-                  Math.hypot(dx, y - (p.boxTop + (fret - 0.5) * p.fretSpacing)),
-                p.dotTone,
-                p.dotHeight,
               );
             }
           }
@@ -42364,120 +39646,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'editdistance': {
-        const p = proceduralMaterialPresets.editdistance,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4ed01),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          m =
-            p.lengths[
-              Math.floor(hash(35, 1, seed ^ 0x4ed02) * p.lengths.length)
-            ],
-          n =
-            p.lengths[
-              Math.floor(hash(35, 2, seed ^ 0x4ed03) * p.lengths.length)
-            ],
-          // Symbols 1..alphabet of the two strings (index 1..m and 1..n), and the table of distances d[i * (n + 1) + j].
-          first = new Uint8Array(m + 1),
-          second = new Uint8Array(n + 1),
-          table = new Uint8Array((m + 1) * (n + 1)),
-          onPath = new Uint8Array((m + 1) * (n + 1)),
-          width = n + 1;
-        for (let i = 1; i <= m; i++)
-          first[i] = 1 + Math.floor(hash(i, 3, seed ^ 0x4ed04) * p.alphabet);
-        for (let j = 1; j <= n; j++)
-          second[j] = 1 + Math.floor(hash(j, 4, seed ^ 0x4ed05) * p.alphabet);
-        for (let i = 0; i <= m; i++)
-          for (let j = 0; j <= n; j++)
-            table[i * width + j] =
-              i === 0
-                ? j
-                : j === 0
-                  ? i
-                  : Math.min(
-                      table[(i - 1) * width + j] + 1,
-                      table[i * width + j - 1] + 1,
-                      table[(i - 1) * width + j - 1] +
-                        (first[i] === second[j] ? 0 : 1),
-                    );
-        // The way back from the last cell: diagonal if that is optimal, otherwise up, otherwise left.
-        for (let i = m, j = n; ;) {
-          onPath[i * width + j] = 1;
-          if (i === 0 && j === 0) break;
-          const here = table[i * width + j];
-          if (
-            i > 0 &&
-            j > 0 &&
-            here ===
-              table[(i - 1) * width + j - 1] + (first[i] === second[j] ? 0 : 1)
-          ) {
-            i--;
-            j--;
-          } else if (i > 0 && here === table[(i - 1) * width + j] + 1) i--;
-          else j--;
-        }
-        return () => {
-          const fu = u - Math.floor(u),
-            fv = v - Math.floor(v),
-            gx = (fu - p.origin) / p.cell,
-            gy = (fv - p.origin) / p.cell,
-            c = Math.floor(gx),
-            r = Math.floor(gy);
-          let shade = p.paperTone,
-            elevation = p.paperHeight,
-            rough = p.paperRoughness,
-            mask = 0;
-          if (c >= 0 && c <= n + 1 && r >= 0 && r <= m + 1) {
-            const lx = (gx - c - 0.5) * p.cell,
-              ly = (gy - r - 0.5) * p.cell;
-            if (r >= 1 && c >= 1) {
-              // A table cell: its value as a tone, and a frame when it is on the way back.
-              const i = r - 1,
-                j = c - 1,
-                fill = cover(p.fillHalf - Math.max(Math.abs(lx), Math.abs(ly))),
-                frame =
-                  onPath[i * width + j] === 1
-                    ? cover(
-                        p.frameHalf -
-                          Math.abs(
-                            Math.max(Math.abs(lx), Math.abs(ly)) -
-                              p.frameRadius,
-                          ),
-                      )
-                    : 0;
-              shade +=
-                (p.valueLightest - p.valueStep * table[i * width + j] - shade) *
-                fill;
-              elevation += (p.fillHeight - elevation) * fill;
-              rough += (p.inkRoughness - rough) * fill;
-              shade += (p.frameTone - shade) * frame;
-              elevation += (p.frameHeight - elevation) * frame;
-              rough += (p.inkRoughness - rough) * frame;
-              // The frame lies inside the fill, so the fill alone masks the grain.
-              mask = fill;
-            } else if ((r === 0 && c >= 2) || (c === 0 && r >= 2)) {
-              // A symbol of one of the strings: one to three dots in a row.
-              const symbol = r === 0 ? second[c - 1] : first[r - 1];
-              for (let k = 0; k < symbol; k++) {
-                const dot = cover(
-                  p.dotRadius - Math.hypot(lx - (k - 1) * p.dotPitch, ly),
-                );
-                shade += (p.dotTone - shade) * dot;
-                elevation += (p.dotHeight - elevation) * dot;
-                rough += (p.inkRoughness - rough) * dot;
-                mask = Math.max(mask, dot);
-              }
-            }
-          }
-          color = clamp(
-            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
-          );
-          height = clamp(elevation);
-          roughness = clamp(rough);
-          occlusion = 1;
-        };
-      }
       case 'hashchains': {
         const p = proceduralMaterialPresets.hashchains,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4ec01),
@@ -42598,106 +39766,6 @@ export function createSurfaceSampler(
               elevation += (p.bitHeight - elevation) * cell;
               rough += (p.inkRoughness - rough) * cell;
               mask = Math.max(mask, frame, cell);
-            }
-          }
-          color = clamp(
-            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
-          );
-          height = clamp(elevation);
-          roughness = clamp(rough);
-          occlusion = 1;
-        };
-      }
-      case 'huffmancodes': {
-        const p = proceduralMaterialPresets.huffmancodes,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4ef01),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          n =
-            p.counts[Math.floor(hash(37, 1, seed ^ 0x4ef02) * p.counts.length)],
-          order = Array.from({ length: n }, (_, i) => i),
-          frequency = new Int32Array(n),
-          // Rows by frequency, the most frequent first: the frequency, and the code with its length and bits (first bit most significant).
-          rowFrequency = new Int32Array(n),
-          codeLength = new Int32Array(n),
-          codeBits = new Int32Array(n),
-          // The trees: weight, the two parts (-1 for a leaf), whether it is still free to join.
-          weight = new Int32Array(2 * n - 1),
-          left = new Int32Array(2 * n - 1).fill(-1),
-          right = new Int32Array(2 * n - 1).fill(-1),
-          free = new Uint8Array(2 * n - 1);
-        for (let i = 0; i < n; i++)
-          frequency[i] =
-            1 + Math.floor(hash(i, 5, seed ^ 0x4ef03) ** 2 * p.maxFrequency);
-        order.sort((a, b) => frequency[b] - frequency[a] || a - b);
-        for (let r = 0; r < n; r++) {
-          rowFrequency[r] = frequency[order[r]];
-          weight[r] = rowFrequency[r];
-          free[r] = 1;
-        }
-        // Join the two lightest free trees (the lower number first among equals) until one is left; the first one joined is the left part.
-        for (let node = n; node < 2 * n - 1; node++) {
-          const picked: number[] = [];
-          for (let k = 0; k < 2; k++) {
-            let best = -1;
-            for (let t = 0; t < node; t++)
-              if (free[t] === 1 && (best < 0 || weight[t] < weight[best]))
-                best = t;
-            free[best] = 0;
-            picked.push(best);
-          }
-          left[node] = picked[0];
-          right[node] = picked[1];
-          weight[node] = weight[picked[0]] + weight[picked[1]];
-          free[node] = 1;
-        }
-        // Walk down from the root, a 0 to the left and a 1 to the right, to give each leaf its code.
-        const walk = (node: number, length: number, bits: number): void => {
-          if (left[node] < 0) {
-            codeLength[node] = length;
-            codeBits[node] = bits;
-            return;
-          }
-          walk(left[node], length + 1, bits * 2);
-          walk(right[node], length + 1, bits * 2 + 1);
-        };
-        walk(2 * n - 2, 0, 0);
-        return () => {
-          const fu = u - Math.floor(u),
-            fv = v - Math.floor(v),
-            row = Math.floor((fv - p.top) / p.rowPitch);
-          let shade = p.paperTone,
-            elevation = p.paperHeight,
-            rough = p.paperRoughness,
-            mask = 0;
-          if (row >= 0 && row < n) {
-            const ly = fv - (p.top + (row + 0.5) * p.rowPitch),
-              barEnd = p.barX + rowFrequency[row] * p.unit,
-              bar = cover(
-                Math.min(fu - p.barX, barEnd - fu, p.barHalf - Math.abs(ly)),
-              ),
-              place = Math.floor((fu - p.bitX) / p.bitPitch + 0.5),
-              bx = fu - p.bitX - place * p.bitPitch;
-            shade += (p.barTone - shade) * bar;
-            elevation += (p.barHeight - elevation) * bar;
-            rough += (p.inkRoughness - rough) * bar;
-            mask = bar;
-            if (place >= 0 && place < codeLength[row]) {
-              const inside = p.bitHalf - Math.max(Math.abs(bx), Math.abs(ly)),
-                on = (codeBits[row] >> (codeLength[row] - 1 - place)) & 1,
-                square = cover(inside),
-                amount =
-                  on === 1
-                    ? square
-                    : square * (1 - cover(inside - p.ringWidth));
-              shade += ((on === 1 ? p.bitOnTone : p.ringTone) - shade) * amount;
-              elevation +=
-                ((on === 1 ? p.bitOnHeight : p.ringHeight) - elevation) *
-                amount;
-              rough += (p.inkRoughness - rough) * amount;
-              // The squares are right of the longest bar, so the bar does not touch them.
-              mask = amount;
             }
           }
           color = clamp(
@@ -43105,91 +40173,6 @@ export function createSurfaceSampler(
           }
           color = clamp(
             shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
-          );
-          height = clamp(elevation);
-          roughness = clamp(rough);
-          occlusion = 1;
-        };
-      }
-      case 'zordercurve': {
-        const p = proceduralMaterialPresets.zordercurve,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4f301),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          size =
-            p.sizes[Math.floor(hash(41, 1, seed ^ 0x4f302) * p.sizes.length)],
-          variant = Math.floor(hash(41, 2, seed ^ 0x4f303) * p.variants),
-          cells = size * size,
-          pitch = p.span / size,
-          // The centre of each cell in order of its number.
-          cx = new Float64Array(cells),
-          cy = new Float64Array(cells);
-        for (let m = 0; m < cells; m++) {
-          // Take the even bits of m for the column and the odd bits for the row.
-          let column = 0,
-            row = 0;
-          for (let bit = 0; 1 << (2 * bit) < cells; bit++) {
-            column |= ((m >> (2 * bit)) & 1) << bit;
-            row |= ((m >> (2 * bit + 1)) & 1) << bit;
-          }
-          if ((variant & 1) === 1) [column, row] = [row, column];
-          if ((variant & 2) === 2) column = size - 1 - column;
-          if ((variant & 4) === 4) row = size - 1 - row;
-          cx[m] = p.origin + (column + 0.5) * pitch;
-          cy[m] = p.origin + (row + 0.5) * pitch;
-        }
-        // Each segment's vector and the inverse of its squared length.
-        const sx = new Float64Array(cells),
-          sy = new Float64Array(cells),
-          inverse = new Float64Array(cells);
-        for (let m = 0; m < cells - 1; m++) {
-          sx[m] = cx[m + 1] - cx[m];
-          sy[m] = cy[m + 1] - cy[m];
-          inverse[m] = 1 / (sx[m] * sx[m] + sy[m] * sy[m]);
-        }
-        return () => {
-          const fu = u - Math.floor(u),
-            fv = v - Math.floor(v);
-          // Squared distances, to avoid a root for every segment: the nearest segment, and the nearest cell centre.
-          let nearest = Infinity,
-            which = 0,
-            node = Infinity;
-          for (let m = 0; m < cells; m++) {
-            const dx = fu - cx[m],
-              dy = fv - cy[m];
-            node = Math.min(node, dx * dx + dy * dy);
-            if (m === cells - 1) break;
-            const t = Math.max(
-                0,
-                Math.min(1, (dx * sx[m] + dy * sy[m]) * inverse[m]),
-              ),
-              ex = dx - t * sx[m],
-              ey = dy - t * sy[m],
-              d = ex * ex + ey * ey;
-            if (d < nearest) {
-              nearest = d;
-              which = m;
-            }
-          }
-          const segment = cover(p.segmentHalf - Math.sqrt(nearest)),
-            dot = cover(p.nodeRadius - Math.sqrt(node)),
-            tone =
-              p.rampFirst + ((p.rampLast - p.rampFirst) * which) / (cells - 2);
-          let shade = p.paperTone,
-            elevation = p.paperHeight,
-            rough = p.paperRoughness;
-          shade += (tone - shade) * segment;
-          elevation += (p.segmentHeight - elevation) * segment;
-          rough += (p.inkRoughness - rough) * segment;
-          shade += (p.nodeTone - shade) * dot;
-          elevation += (p.nodeHeight - elevation) * dot;
-          rough += (p.inkRoughness - rough) * dot;
-          color = clamp(
-            shade +
-              p.grainTone *
-                (grainField(u, v) - 0.5) *
-                (1 - Math.max(segment, dot)),
           );
           height = clamp(elevation);
           roughness = clamp(rough);
@@ -47059,79 +44042,6 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
-      case 'eisensteinprimes': {
-        const p = proceduralMaterialPresets.eisensteinprimes,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x57001),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          size = p.size,
-          origin =
-            p.origins[
-              Math.floor(hash(80, 1, seed ^ 0x57002) * p.origins.length)
-            ],
-          // Whether a number a + b w is prime (norm a^2 - a b + b^2): the norm is a prime, or the number is a unit times a prime q of the integers with q = 2 (mod 3), whose
-          // norm is q^2.
-          isPrime = (n: number): boolean => {
-            if (n < 2) return false;
-            for (let d = 2; d * d <= n; d++) if (n % d === 0) return false;
-            return true;
-          },
-          classOf = (a: number, b: number): number => {
-            if (a === 0 && b === 0) return 2;
-            const norm = a * a - a * b + b * b;
-            if (isPrime(norm)) return 1;
-            // A norm q^2 with q a prime of the integers, q = 2 (mod 3), is the norm of just the six numbers q times a unit.
-            const q = Math.round(Math.sqrt(norm));
-            return q * q === norm && isPrime(q) && q % 3 === 2 ? 1 : 0;
-          },
-          // The class of every point, row by row (0 an ordinary number, 1 prime, 2 the origin).
-          classes = new Uint8Array(size * size);
-        for (let b = 0; b < size; b++)
-          for (let a = 0; a < size; a++)
-            classes[b * size + a] = classOf(a - origin[0], b - origin[1]);
-        return () => {
-          const fu = u - Math.floor(u),
-            fv = v - Math.floor(v);
-          let shade = p.paperTone,
-            elevation = p.paperHeight,
-            rough = p.paperRoughness,
-            mask = 0;
-          const paint = (amount: number, tone: number, level: number): void => {
-            if (amount <= 0) return;
-            shade += (tone - shade) * amount;
-            elevation += (level - elevation) * amount;
-            rough += (p.inkRoughness - rough) * amount;
-            mask = Math.max(mask, amount);
-          };
-          // The nearest point: in this row of the lattice, along the row (a dot is smaller than half a row, so no dot of another row reaches here).
-          // The points of row r are at (a + r / 2 + 1 / 4) / size across and (r + 1 / 2) / size down.
-          const row = Math.min(size - 1, Math.max(0, Math.floor(fv * size))),
-            along = fu * size - row / 2 - 0.25,
-            nearest = Math.round(along),
-            best = Math.hypot(
-              (along - nearest) / size,
-              fv - (row + 0.5) / size,
-            ),
-            kind = classes[row * size + (((nearest % size) + size) % size)];
-          if (kind === 1)
-            paint(cover(p.primeRadius - best), p.primeTone, p.primeHeight);
-          else if (kind === 2) {
-            paint(
-              cover(p.ringHalf - Math.abs(best - p.ringRadius)),
-              p.ringTone,
-              p.ringHeight,
-            );
-            paint(cover(p.originRadius - best), p.originTone, p.originHeight);
-          } else paint(cover(p.plainRadius - best), p.plainTone, p.plainHeight);
-          color = clamp(
-            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
-          );
-          height = clamp(elevation);
-          roughness = clamp(rough);
-          occlusion = 1;
-        };
-      }
       case 'catalantriangulations': {
         const p = proceduralMaterialPresets.catalantriangulations,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x58001),
@@ -47514,70 +44424,6 @@ export function createSurfaceSampler(
               shade += (p.innerTones[step] - shade) * inner;
               elevation += (p.heights[step] + p.innerLift - elevation) * inner;
             }
-          }
-          color = clamp(
-            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
-          );
-          height = clamp(elevation);
-          roughness = clamp(rough);
-          occlusion = 1;
-        };
-      }
-      case 'walshmatrix': {
-        const p = proceduralMaterialPresets.walshmatrix,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x5d001),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          order =
-            p.sizes[Math.floor(hash(86, 1, seed ^ 0x5d002) * p.sizes.length)],
-          walsh = hash(86, 2, seed ^ 0x5d003) < 0.5,
-          turned = hash(86, 3, seed ^ 0x5d004) < 0.5,
-          cell = p.extent / order,
-          left = 0.5 - p.extent / 2,
-          // The sign of each cell: 1 where the binary i AND j has an odd number of 1s (the sign -1), turned if the seed says so.
-          minus = new Uint8Array(order * order),
-          // The natural row that stands in each row: the same, or by the number of changes of sign along the natural rows.
-          rows = Array.from({ length: order }, (_, row) => row);
-        const parity = (bits: number): number => {
-          let count = 0;
-          for (let rest = bits; rest > 0; rest >>= 1) count += rest & 1;
-          return count & 1;
-        };
-        if (walsh) {
-          const changes = (row: number): number => {
-            let count = 0;
-            for (let column = 1; column < order; column++)
-              count += parity(row & column) ^ parity(row & (column - 1));
-            return count;
-          };
-          rows.sort((a, b) => changes(a) - changes(b));
-        }
-        for (let row = 0; row < order; row++)
-          for (let column = 0; column < order; column++)
-            minus[row * order + column] =
-              parity(rows[row] & column) ^ Number(turned);
-        return () => {
-          const fu = u - Math.floor(u),
-            fv = v - Math.floor(v),
-            column = Math.floor((fu - left) / cell),
-            row = Math.floor((fv - left) / cell);
-          let shade = p.paperTone,
-            elevation = p.paperHeight,
-            rough = p.paperRoughness,
-            mask = 0;
-          if (column >= 0 && column < order && row >= 0 && row < order) {
-            const x = fu - left - (column + 0.5) * cell,
-              y = fv - left - (row + 0.5) * cell,
-              amount = cover(
-                cell / 2 - p.gapHalf - Math.max(Math.abs(x), Math.abs(y)),
-              ),
-              negative = minus[row * order + column];
-            shade += ((negative ? p.minusTone : p.plusTone) - shade) * amount;
-            elevation +=
-              ((negative ? p.minusHeight : p.plusHeight) - elevation) * amount;
-            rough += (p.inkRoughness - rough) * amount;
-            mask = amount;
           }
           color = clamp(
             shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),

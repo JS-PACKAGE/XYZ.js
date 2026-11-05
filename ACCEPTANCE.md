@@ -11432,13 +11432,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`十三項（含本材質新增四項：三seed頻譜／覆蓋率／區塊對比／色斑較高與wrap／seed差異）全過；原型量測128²取樣的非DC功率落在9–18週期環帶比例0.42–0.53（白雜訊約0.05）、深色覆蓋率0.27–0.36、8×8區塊覆蓋率最大差≥0.37、色斑／底高度≈0.55／0.23 relief單位。`tests/procedural-material.test.ts`以`-t "turingpattern|every preset"`定向跑3項通過（本材質通用週期測試與「每個preset基色不同」）；沒有重跑該檔其餘5508項。strict typecheck、eslint（變更source／test）、build（tsc／minify／vendor／cjs）、API structural compatibility與distribution已實際執行。
 - 真實dev server的pbr3d頁（WebGPU）選取`turingpattern`後option為889、status為888 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無可見接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-01 程序材質：Bayer有序抖動像素方磚（bayerdither）
-
-- 目錄888→889，含plain的gallery為890項。每tile 64×64方塊，依緩變亮度場（levelCells3、contrast1.5）與8×8 Bayer門檻矩陣決定亮／暗；亮塊奶油白較高光滑，暗塊深藍黑較低粗糙，方塊間有倒角凹縫與微幅色調抖動。Metallic／mortar為0，預設tile0.32 m、0.0036 UV-relative relief、metallic factor 0；作者設計的像素風表面，不取自任何圖片或遊戲素材。仍在獨立worktree分支`materials/more-textures`作業。
-- 過程中實際抓到的缺陷：第一版對`tests/procedural-material.test.ts`的通用週期測試`bayerdither is deterministic, seeded, distinct...`失敗——32×32取樣點剛好落在64方塊的邊界（每個樣本都是凹縫），不同seed輸出相同。已加入preset `phase: 0.25`（四分之一方塊的格線相位，仍週期），使2的冪貼圖取樣點落在方塊面內；修正後該測試通過。同時把亮度場由levelCells6／contrast1.9調為3／1.5，因為量測顯示原場在單一8×8 tile內變化太大，看不出有序抖動（中等亮度tile內相鄰亮塊對平均19，修正後約5–11，隨機約28）。
-- 實測：`tests/procedural-material-motifs.test.ts`二十一項（本材質八項：三seed範圍、三seed的Bayer順序與棋盤、方塊內平坦＋凹縫、wrap／seed差異）全過；Bayer順序檢查用獨立的bit-interleave公式（sampler用遞迴建構），相鄰亮暗不同的方塊對中亮塊排序較低者約0.79（隨機約0.5，門檻0.7），中等亮度（26–38亮）tile平均相鄰亮塊對<14。`tests/procedural-material.test.ts`以`-t "bayerdither|every preset"`定向跑3項通過，沒有重跑該檔其餘5509項。strict typecheck、eslint（變更source／test）、build（tsc／minify／vendor／cjs）、API structural compatibility與distribution已實際通過。
-- 真實dev server的pbr3d頁（WebGPU）在修正phase後重新選取`bayerdither`：option 890個、status為889 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼為連續的有序抖動方磚。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：拼布被面（patchworkquilt）
 
 - 目錄889→890，含plain的gallery為891項。4×4塊布片，每片依hash選素色（含印花小圓點）、對角三角、同心方環或三條布帶；拼縫凹縫、每片中央填棉隆起、沿片界內縮0.07的虛線縫線（每邊6段、佔空比0.62）；底層96×96平紋織。Metallic／mortar為0，預設tile0.8 m、0.0042 UV-relative relief、metallic factor 0。作者設計的簡化被面，不取自圖片或特定傳統區塊。仍在獨立worktree分支`materials/more-textures`作業。
@@ -11570,13 +11563,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`一百四十六項（本材質七項）全過。三seed每一皮沿u掃描16384點取mortar>0.5連續區：每皮恰4條縫、縫寬為0.0095±0.003、縫間距為1/4±0.002；相隔一皮的偏移相同、相鄰皮偏移半塊±0.003；沿u=0.07垂直掃描恰8條橫縫、位於k/8±0.003。三seed 1024²以連通區計氣孔（AO＜0.65且非灰縫）為每tile 909–930個，測試期望值為56²×0.3＝941的0.8–1.1倍；所有通道範圍、metallic 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "cinderblockwall|every preset"`定向跑3項通過，沒有重跑該檔其餘5529項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`cinderblockwall`：option 909個、status為908 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的錯縫、灰縫與氣孔可辨且無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：疊紋條紋（moirefringes）
-
-- 目錄908→909，含plain的gallery為910項。兩張整數波向量(24, 3)與(24, −3)的細線格柵疊合（線占比0.26，兩者皆無墨處才透光）；頻差(0, 6)形成每tile 6條水平疊紋帶，頻和(48, 0)形成較細條紋；紙面有256×256低振幅纖維起伏。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。數學乘積示意，不模擬觀察者或相機取樣；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 調整記錄：第一版線占比算式寫反（`1 − duty − t`），預覽幾乎全黑、只剩細長亮菱形；修正為`duty − t`後預覽正確，並把占比由0.34降到0.26以保留疊紋的明暗對比。
-- 實測：`tests/procedural-material-motifs.test.ts`一百五十項（本材質四項）全過。三seed在256²格上以DFT直接量測指定整數頻率的振幅：兩格柵(24, 3)與(24, −3)約0.319（相等±2%，下限0.25）、頻差(0, 6)與頻和(48, 0)約0.0997（相等±3%，下限0.07）；相鄰頻率(0, 5)、(0, 7)、(1, 6)與無關頻率(11, 5)、(17, −2)、(30, 3)振幅都低於0.01（實測約0.0001），表示能量只在晶格頻率；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "moirefringes|every preset"`定向跑3項通過，沒有重跑該檔其餘5530項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`moirefringes`：option 910個、status為909 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的菱形疊紋帶可辨且無接縫。球面縮小時貼圖自身會有額外混疊，未量化。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：葡萄牙式彩繪瓷磚（azulejotiles）
 
 - 目錄909→910，含plain的gallery為911項。每tile 4×4片相同的鈷藍白釉方磚，凹陷灰縫0.012 tile寬並使用既有`mortar`通道；每片有四瓣中央花、細環與磚角四分之一圓盤，具完整正方形對稱，藍色有筆刷明暗、釉面有細微龜裂與倒角。Metallic為0，預設tile0.8 m、0.0022 UV-relative relief、metallic factor 0。非特定歷史圖樣，各磚完全相同；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
@@ -11632,21 +11618,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`一百八十六項（本材質四項）全過。三seed對9個符號、在模組中心取樣：左欄與底列18個模組全為深色；上列為偶數欄深、奇數欄淺；右欄由底往上偶數步為深（上右角為淺）；資料區深色比例與0.5相差＜0.12；9個符號的資料位元圖樣互不相同；符號四周的空白區全為淺色；通道範圍、metallic／mortar 0、wrap與seed差異。只驗證結構，沒有掃描器或解碼函式庫，也不宣稱資料可解碼。`tests/procedural-material.test.ts`以`-t "datamatrixcodes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`datamatrixcodes`：option 918個、status為917 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的符號與接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：心電圖記錄紙（ecgpaper）
-
-- 目錄917→918，含plain的gallery為919項。每tile 80 mm見方粉紅紙面：1 mm細格線與每5 mm粗格線，4行描線，每行4個心搏（P、Q、R、S、T高斯波，每搏振幅±6%抖動，另有基線漂移）。Metallic／mortar為0，預設tile0.08 m、0.0012 UV-relative relief、metallic factor 0。作者設計的示意，非真實心電資料；仍在獨立worktree分支`materials/more-textures`作業。
-- 已知限制：墨線寬度以一階近似（垂直偏移÷√(1＋斜率²)）計算，R波這種極陡尖峰處墨跡在垂直方向偏粗（實測R波墨跡頂端比基線高約8.3 mm，設定振幅為7 mm）；測試的R波高度範圍（6.5–10 mm）已包含這個偏差，並如實註明，而非把振幅假稱為精準量測。
-- 測試修正：第一版橫向格線檢查寫得不對（在垂直線上取樣、比較邏輯錯誤），三個seed都失敗（有效列數只有3）；改成在每搏起點（x=0.5 mm）避開基線±2 mm，比較整數毫米線與半毫米處、及整5 mm的粗線與下一條細線，才反映真實的格線結構。
-- 實測：`tests/procedural-material-motifs.test.ts`一百九十項（本材質四項）全過。三seed：垂直格線在0–79 mm每條細線都比兩線之間暗0.05以上（80/80）、每5 mm粗線比相鄰細線暗0.05以上（16/16）；橫向細／粗線同理；以每mm 8個樣本掃描4行：每行4個心搏，每搏R波頂端高出基線6.5–10 mm、位置與設定的8.4 mm相差＜0.5、S波低於基線1.2–3.2 mm、位置與9.3 mm相差＜0.7、T波高1.1–2.8 mm、位置與14.5 mm相差＜0.8；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "ecgpaper|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`ecgpaper`：option 919個、status為918 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的格線與心搏連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：樂譜（sheetmusic）
-
-- 目錄918→919，含plain的gallery為920項。每tile 8行五線譜（線距1/64 tile）、每行16拍、每4拍一條小節線，每拍一個音符（9個半線距位置、傾斜橢圓符頭、約30%空心），符桿依記譜規則：位置＜4（低於第三線）向上畫在符頭右側，其餘向下畫在左側，長3.5線距。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。不含譜號、拍號、符尾、連桁、休止符，不可演奏；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 調整記錄：預覽中五線譜線太細太淡（半寬0.04線距），調到0.07。測試第一版在小節線上方4.5–9線距掃描「應無墨」時失敗：掃描範圍夠到上一行五線譜（行距8線距）的線，是測試範圍錯，不是材質問題；範圍縮為−3.5至7線距，亦避免把相鄰行的符桿誤認為本行的符桿。
-- 實測：`tests/procedural-material-motifs.test.ts`一百九十四項（本材質四項）全過。三seed、8行×16拍：兩個音符之間的欄位恰有5條線段，中心在0、1、2、3、4線距±0.06、單條粗度＜0.35線距；每個小節線欄位只有一段連續墨跡，涵蓋整個五線譜高度（−0.05至4.05線距以外），上方4.5–7線距無墨；每個音符恰有一支符桿（右或左側長墨跡＞3線距，且只在一側），由符桿末端扣除3.5線距得到的符頭中心落在半線距格點上（±0.2個半線距）、範圍0–8；符桿方向符合規則（位置＜4時向上、其餘向下），每seed向上與向下的音符都各超過20個，且至少用到7種不同位置；符頭遠離符桿的一側（距中心0.55線距）一律有墨。通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "sheetmusic|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`sheetmusic`：option 920個、status為919 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的五線譜與音符連續無接縫（512下符桿偏淡，已在文件註明建議1024）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：數獨格（sudokugrid）
 
 - 目錄919→920，含plain的gallery為921項。每tile一個9×9數獨盤面：細線分格（半寬0.018格）、粗線分3×3宮（半寬0.04格），每格約42%機率顯示3×5點陣字型的提示數字。提示取自以標準樣式經數字重排、宮帶與宮內列／行置換產生的隱藏完整解，因此提示不會在任何列、行、宮內重複。不保證唯一解或難度。Metallic／mortar為0，預設tile0.25 m、0.0014 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
@@ -11676,13 +11647,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`二百二十四項（本材質四項）全過。三seed：在兩弦之間沿u掃描，細亮線（寬＜0.012）恰12條（品0–11；第12品與下個琴枕重合），各品位置與公式相差＜0.003（含跨tile接縫的環狀距離），連續品距比與2^(−1/12)≈0.944相差＜0.01；沿v在第0到第1品之間掃描恰6條亮線，中心在(i+0.5)/6±0.003、寬度與設定的2×半寬相差＜0.002、且由高音到低音嚴格遞增；中線上的寬亮段（＞0.02）恰4個，分別位於第3／5／7／9品的品間中點（±0.003）、直徑與2×半徑相差＜0.004；第12品中點上下各一個亮點、中線上無點；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "fretboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`fretboard`：option 924個、status為923 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的品絲、琴弦與圓點連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：填字遊戲格（crosswordgrid）
-
-- 目錄923→924，含plain的gallery為925項。每tile一個15×15填字格：約17%黑格、180°旋轉對稱，每個橫向／縱向白格連續段至少3格且所有白格相連，起始單字的格子依閱讀順序標示標準編號（3×5點陣字型）。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。空格無答案與提示；規則只在單一tile內成立，tile重複後跨邊界的白格連續段不再符合規則；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 設計記錄：sampler建立時（非每個取樣點）以雜湊驅動的隨機增補黑格對，每次檢查規則後才接受；規則檢查包含整行／整列的白格連續段長度與白格連通性（洪水填充）。另外整理了第一版尾段重複的ink／base算式。
-- 實測：`tests/procedural-material-motifs.test.ts`二百三十三項（本材質九項）全過。八個seed（0、7、4294967295、1、2、3、4、5）：在格中心取樣分出黑白格，黑格比例在0.10與目標0.17＋0.06之間；每格都與其180°對點同色（15×15全檢）；每個橫向與縱向白格連續段≥3；白格洪水填充後全部相連；標號以測試端獨立寫出的字型解碼，起始單字（左或上為黑／邊界、右或下為白）的白格依閱讀順序恰為1、2、3…，其餘白格無號碼；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "crosswordgrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`crosswordgrid`：option 925個、status為924 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的黑格、編號與格線連續。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：翻轉點陣顯示器（flipdotdisplay）
 
 - 目錄924→925，含plain的gallery為926項。每tile 48×48個黑底圓盤（半徑0.42格），亮起黃色（較光滑、略凸、有高光與軸點）、熄滅深灰黑，組成12欄×8列由seed決定的0–9數字（3×5點陣字型，右側與下側各留一點空白）。Metallic／mortar為0，預設tile0.5 m、0.003 UV-relative relief、metallic factor 0。無翻轉動畫與雙穩態機構，數字為隨機序列；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
@@ -11709,12 +11673,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試記錄：第一版測試對命中數的註解寫成「命中只在船格上（由上方的構造保證）」——這其實是同義反覆（命中的定義就是船格上的暗釘），所以已刪掉該句，只保留有意義的檢查（兩種圓釘皆出現、射擊比例接近設定值）。
 - 實測：`tests/procedural-material-motifs.test.ts`二百六十項（本材質九項）全過。八個seed（0、7、4294967295、1、2、3、4、5）：在格中心取樣，色調＜0.45為船、＞0.9為落空圓釘、其餘為水面；船格以8連通分組恰為5組（所以不相接，含角落）；每組是無間隙的直線（寬或高為1、另一邊等於格數），長度排序後恰為2、3、3、4、5；命中與落空兩種圓釘皆出現、被射擊的比例與0.32相差＜0.15；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "battleshipgrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`battleshipgrid`：option 929個、status為928 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的船體、圓釘與格線。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：希爾伯特曲線（hilbertcurve）
-
-- 目錄928→929，含plain的gallery為930項。每tile一條4階希爾伯特空間填充曲線，穿過16×16個格子中心（左上起、右上終），相鄰索引的格子以線相連，色調沿索引由深靛漸變到灰；起終點向tile邊緣外伸半格，水平重複時接成連續曲線，垂直方向不相連；接縫處色調由淺跳回深（刻意保留）。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
-- 實測：`tests/procedural-material-motifs.test.ts`二百六十四項（本材質四項）全過。三seed：測試端以標準的Hilbert索引轉座標演算法獨立算出每個索引的格子位置，對16×16個格子：每個格中心都有墨；相鄰兩個格中心的中點有墨，若且唯若兩格索引相差1（水平與垂直共480對全檢），索引相鄰的連接數恰為255；曲線起點在左上格、終點在右上格，兩端各有向tile邊緣外伸的線段（0.25格處有墨），其他邊緣格的外側半格皆無墨；格中心色調與索引的相關係數＞0.95；通道範圍、metallic／mortar 0、wrap與seed差異。第一版測試中有一個恆為假的條件（`i === 0`，迴圈從1開始），已改為直接斷言false。`tests/procedural-material.test.ts`以`-t "hilbertcurve|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`hilbertcurve`：option 930個、status為929 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的曲線與水平方向接合處。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：蒙德里安式構圖（mondriancomposition）
 
@@ -11846,13 +11804,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`四百零五項（本材質十二項）全過，第一次執行即通過。十一個seed（0、7、4294967295、1至6、8、9）：每個貼紙色調與最近的六個亮度相差＜0.04；各色恰9顆；中心貼紙等於其面；錯位貼紙數＞20；十字外的格子是紙面（＞0.85）；12個邊塊與8個角塊各出現一次，手性正確；通道範圍、metallic／mortar 0、wrap與seed差異。注意：合法性檢查是必要條件，不是充分條件（沒有檢查邊塊翻轉總和、角塊扭轉總和與排列奇偶性）。`tests/procedural-material.test.ts`以`-t "scrambledcubenet|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`scrambledcubenet`：option 947個、status為946 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的展開圖。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：騎士巡邏（knightstour）
-
-- 目錄946→947，含plain的gallery為948項。每tile一張8×8西洋棋盤，格子以3×5點陣數字1至64標出一條開放的騎士路線，並以淡線連接相鄰編號；路線在建立取樣器時以Warnsdorff規則排序的深度優先搜尋產生（節點預算40000、最多60次嘗試，隨seed而異）。Metallic／mortar為0，預設tile0.4 m、0.0022 UV-relative relief、metallic factor 0。只畫開放路線；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 真實缺陷與修正：（1）第一版每個像素都要對全部63條線段求距離，512×512單次一次性本機量測約319 ms（同時另有完整測試在背景跑，數字偏高）；改為建立時為每格列出靠近它的線段，每個取樣只測這幾條，同一量測降到約51 ms。第一次改版時線段用陣列解構，會在每個取樣配置暫時陣列，改為一個扁平Float64Array。（2）第一版淡線色調0.34與近黑數字太接近，預覽中線與數字交疊難以閱讀，改為0.52。（3）測試端：第一版對所有格子要求色調在0.4至0.7之間，但淺色格是0.88，是測試寫錯，改為依奇偶性比對0.6／0.88（容許0.08）；第一版的「起點隨seed而異」測試寫得太繞，改為直接以數字解碼找出編號1的位置；改版時還誤留了每格都新建取樣器（每次都重新搜尋路線）造成不必要的慢，改為每個seed只建一次。
-- 實測：`tests/procedural-material-motifs.test.ts`四百一十九項（本材質十四項）全過。十一個seed（0、7、4294967295、1至6、8、9）：以7×5的視窗與測試端獨立寫的0至9字型解碼每格的數字（單位數以中央欄有墨判斷，兩位數留中央欄空白），64個編號恰為1至64各一次，且相鄰編號的格子位置差為（1,2）或（2,1）；棋盤淺深色交錯（0.6／0.88）；不同seed的起點至少有4種；通道範圍、metallic／mortar 0、wrap與seed差異。另以拋棄式腳本在600個seed（`seed×7919+3`）上檢查每個格子都有編號（即完整64步）：全部成功，單次建立最久約49 ms——這是一次性本機量測，不證明任何seed必定成功，也不是基準。`tests/procedural-material.test.ts`以`-t "knightstour|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`knightstour`：option 948個、status為947 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的棋盤、數字與淡線。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：格雷碼編碼盤（graycodediscs）
 
 - 目錄947→948，含plain的gallery為949項。每tile四個象限各一片光學編碼盤，有3、4、5、6條同心軌道（8、16、32、64個扇區）；扇區從+u方向起朝+v方向編號，第k條軌道（由外往內數）在扇區格雷碼 s XOR (s >> 1) 的第k位元為1時是亮色透光槽、否則為暗色遮光塊；外緣有扇區刻線、中央有暗色軸孔、盤外為中灰墊面。Metallic／mortar為0，預設tile0.35 m、0.0028 UV-relative relief、metallic factor 0。軌道數固定，seed只影響墊面顆粒；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
@@ -11970,14 +11921,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`五百五十一項（本材質七項）全過。三seed（0、7、4294967295）：64×64個名次互不相同、最小0、最大4095（直方圖完全平坦）；功率譜相對白雜訊，低頻（半徑1至5）平均＜0.1、高頻（半徑24至31）＞1.2；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "bluenoisemask|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`bluenoisemask`：option 964個、status為963 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼（每texel 8×8 px方塊）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：一維基本細胞自動機（elementaryautomata）
-
-- 目錄963→964，含plain的gallery為965項。每tile 2×2個31×31格的面板，由上而下演化Wolfram規則90（左上）、110（右上）、150（左下）、184（右下），第0列是中央一格加約12%依seed隨機的點，31格環狀邊界；活格近黑、死格淺灰。Metallic／mortar為0，預設tile0.4 m、0.0014 UV-relative relief、metallic factor 0。固定四種規則；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 設計修正：第一版格數是32，預覽中規則90（左上）在幾步之後全部歸零，下半面板是一整片空白（在2的冪次格數的環上，規則90從任何初始列都會歸零，是已知性質，我事先沒有想到）；改為31格。第一版草稿也留有`*0`的無效項與`void`暫存變數，寫入前重寫。
-- 實測：`tests/procedural-material-motifs.test.ts`五百六十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）×四個面板：每一格以色調判斷活／死（＜0.4為活），第0列的中央格為活、其餘活格數在1至12之間，且從第1列起，每一列的每一格都等於「以測試端獨立的算術（取規則數的第 4左＋2中＋右 位元）從上一列算出」的結果，錯誤數為0（環狀邊界）；最後一列仍有活格（在這些seed上觀察到，不是證明）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "elementaryautomata|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 完整測試的補記：對sundialplate提交（`1b1cfddcf`）以`git archive`匯出的乾淨副本（`/private/tmp/xyz-suite`）跑完整的`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`：`2 passed`、**6116項全過**（約1283 s）。這是繼`9ee096f9a`（6064項）之後的第二次對確定commit的完整驗證；其後新增的doubleslitfringes、fibonaccisquares、bluenoisemask與本材質仍只做了定向測試。
-- 真實dev server的pbr3d頁（WebGPU）選取`elementaryautomata`：option 965個、status為964 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的自動機面板。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：Mastermind棋盤（mastermindboard）
 
 - 目錄964→965，含plain的gallery為966項。每tile 6欄×9列：最上列為公開密碼（4顆，6種顏色，以六個亮度0.34至0.9表示），其下8列為隨機猜測，右側兩欄的2×2回饋釘孔依規則計分（準確釘＝亮0.98、部分釘＝暗0.04，依左右、上下順序先填準確再填部分，其餘為空孔）。Metallic／mortar為0，預設tile0.35 m、0.004 UV-relative relief、metallic factor 0。猜測是隨機的、不是推理；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
@@ -11992,26 +11935,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`五百八十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：每個格子以測試端的字型逐像素解碼成12個字母之一（解碼不到的格子會使測試失敗），在8個方向搜尋全部15個單字，清單中至少5個單字能在格內以直線找到，且格內出現的字母種類不超過12個；通道範圍、metallic／mortar 0、wrap與seed差異。注意：「至少5個」是下限（填充字母可能意外多拼出別的單字）；也沒有測試「恰好是哪5個」，因為取樣器內的挑選與放置不對外公開。`tests/procedural-material.test.ts`以`-t "wordsearchgrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`wordsearchgrid`：option 967個、status為966 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的字母方格（我把點陣像素由0.0125放大到0.0135，使字母更清楚）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：幻方（magicsquares）
-
-- 目錄966→967，含plain的gallery為968項。每tile四個象限各放一個幻方：3階洛書、4階杜勒、5階與7階（暹羅法），各由seed隨機旋轉0至3次並可能鏡射。Metallic／mortar為0，預設tile0.4 m、0.0014 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
-- 資料來源：洛書與杜勒幻方的數字是照記憶輸入的，沒有對照外部資料；正確性靠測試的「1至n²各一次、每列每欄兩條對角線和相等」條件驗證（杜勒幻方的角落、中央2×2也為34等其他性質未測試）。5階與7階由暹羅法演算法生成。
-- 實測與一個測試端錯誤：`tests/procedural-material-motifs.test.ts`五百九十一項（本材質十項）全過。第一次寫的位數判斷（以頂列中央像素是否有墨判斷是否單位數）是錯的：數字4的頂列中央沒有墨，被誤判為雙位數而讀成負數，九個seed中的九項解碼測試失敗；取樣器本身沒錯。改成「以單一字形讀取，若成功就是單位數；雙位數的窗口中央欄是空白，沒有任何數字的中央欄全空，所以單一讀取必失敗」後全部通過。九個seed（0、7、4294967295、1至6）× 四個象限：逐格解碼數字，驗證為1至n²各一次，每列、每欄、兩條對角線的和等於n(n²+1)/2；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "magicsquares|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`magicsquares`：option 968個、status為967 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的四個幻方（7階2位數字在512 px下點陣只有約4 px）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：滑塊拼圖（slidingpuzzle）
 
 - 目錄967→968，含plain的gallery為969項。每tile一個4×4盤面：15塊1至15點陣數字的方塊與一個下陷空格，由完成狀態經240步seed隨機的合法滑動（空格與鄰格交換、不立即回頭）得到，必可解回。Metallic／mortar為0，預設tile0.3 m、0.004 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
 - 設計記錄：數字原本佔格寬約0.84（`digitFraction` 0.12），兩位數幾乎頂到方塊邊，看圖後改成0.1。
 - 實測：`tests/procedural-material-motifs.test.ts`六百零一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：由左上角的亮度判斷空格（暗＜0.2），其他格以測試端的點陣字型解碼（沿用前一個材質修正後的「單一字形讀取成功即單位數」判斷）；解碼後必須恰為0至15各一次；以獨立的可解性準則驗證（4×4盤面可解 ⇔ 逆序數＋空格由下往上的列號為奇數），九個seed全部可解；且在原位的方塊不超過6塊（確認有被打亂）。通道範圍、metallic／mortar 0、wrap與seed差異。可解性是「由合法滑動構造」的必然結果，測試只是獨立確認這個性質，並不證明盤面隨機性有多好。`tests/procedural-material.test.ts`以`-t "slidingpuzzle|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`slidingpuzzle`：option 969個、status為968 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：萬花筒（kaleidoscope）
-
-- 目錄968→969，含plain的gallery為970項。每tile 2×2個圓形玫瑰紋，分別為6、8、5、12重二面體對稱；每個圓盤是楔形（角度π/n）內9個seed隨機圓點加同心環，取樣時把角度折疊進楔形，因此旋轉與鏡射對稱是精確成立的。Metallic／mortar為0，預設tile0.4 m、0.002 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
-- 實測：`tests/procedural-material-motifs.test.ts`六百一十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四個圓盤 × 400個準隨機探測點（避開楔形邊緣）：旋轉2π/n與鏡射（角度取負）後的亮度與原位置相同（6位小數）；旋轉半個楔形角π/n後超過5%的點亮度改變＞0.02（不是單純的放射狀圖案）；探測中存在與底色相差＞0.2的點；通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：把折疊的鏡射`t = 2w - t`改成`t = t - w`（破壞鏡射連續性）後九個對稱測試全部失敗，改回後全過；`tests/procedural-material.test.ts`以`-t "kaleidoscope|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 效能：512×512單次建立約174 ms（每像素含atan2、cos、sin與9個圓點），比多數材質慢（brick約18 ms、knightstour約51 ms），未做最佳化；這只是單機、單次、Bun的量測，不代表瀏覽器或Worker下的表現。
-- 真實dev server的pbr3d頁（WebGPU）選取`kaleidoscope`：option 970個、status為969 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的圓盤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：歐甘文刻石（oghaminscription）
 
@@ -12021,33 +11950,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`六百二十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 8行：沿主幹線上下0.025與0.0075的水平線計算暗段數，由「只在下方／只在上方／上下等數／僅主幹線上有槽」分辨四組，再由暗段數1至5決定字母；每行解出的單字都必須在測試端的16字清單中，且8行至少出現3個不同的單字；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "oghaminscription|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`oghaminscription`：option 971個、status為970 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的刻石。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：生命遊戲（gameoflife）
-
-- 目錄970→971，含plain的gallery為972項。每tile 2×2個20×20環面細胞盤面，依閱讀順序是康威生命遊戲連續四個世代（密度0.36的隨機初始狀態先運行10代）。Metallic／mortar為0，預設tile0.4 m、0.004 UV-relative relief、metallic factor 0。初始狀態為隨機湯，沒有特意放置的結構；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 真實缺陷與調整：（1）第一版burn-in為24代，測試第一次執行失敗：seed 0的盤面只剩8個活細胞（測試要求＞5%即20個），生命遊戲的隨機湯確實會衰退；改為10代。（2）送交verify時strict typecheck報錯：`let current = new Uint8Array(...)`被推論為`Uint8Array<ArrayBuffer>`，與`step`回傳的`Uint8Array<ArrayBufferLike>`不相容，改標`: Uint8Array`。（3）看圖發現seed 7的初始狀態有大片空白：原因是我用`hash(i, 7, seed)`的一維索引產生初始格子，分布不夠均勻；改用`hash(x, y, seed)`二維後均勻許多。這個更換使先前的數字失效，所以重新在14個seed（0、7、4294967295、1至6、8至12）上計數：burn-in 24代時活細胞數最少21、burn-in 10代時為59至121（共400格），因此保留10代。文件中的數字就是這次重量的結果。
-- 實測：`tests/procedural-material-motifs.test.ts`六百三十一項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：以格中心亮度（＞0.6為活）讀出四個盤面，測試端另寫一份規則（數3×3區塊內含自身的活細胞數，等於3，或等於4且自身為活）在環面上推進，要求盤面2、3、4各自恰為前一盤面的下一代；每個盤面的活細胞數介於5%與50%之間，且連續世代不相同；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "gameoflife|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`gameoflife`：option 972個、status為971 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：巴斯卡三角形同餘（pascalmodulo）
 
 - 目錄971→972，含plain的gallery為973項。每tile 2×2個32列左對齊的巴斯卡三角形，四個象限分別是模2、3、4、5的餘數方塊（亮度0.2至0.94等距表示餘數），哪個模數在哪個象限由seed決定。Metallic／mortar為0，預設tile0.4 m、0.003 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
 - 實測：`tests/procedural-material-motifs.test.ts`六百四十一項（本材質十項）全過。測試第一次失敗九項，原因是測試端：`Math.round`對略小於0的值回傳`-0`，而`toBe(0)`以`Object.is`比較會把`-0`與`0`當成不同；取樣器沒有問題，在測試端加上`+ 0`後通過。九個seed（0、7、4294967295、1至6）× 四個象限：對角線右上方的格子必須是空白底色；以排序後的亮度聚類（間距＞0.05）數出每個象限有幾種餘數＝模數，四個象限的模數排序後必須恰為[2, 3, 4, 5]；把亮度換算回餘數後，第0列為1，其餘每格必須等於上一列左上與正上兩格之和對模數取餘（各象限496格＋第0列一格）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "pascalmodulo|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 完整套件：在`git archive`匯出的`021c6ba08`（slidingpuzzle狀態）上單獨跑`procedural-material`與`procedural-material-motifs`兩檔，6193項全過（1398 s）；之後的kaleidoscope、oghaminscription、gameoflife與本材質只有定向測試加typecheck／eslint／build／API相容／distribution。
 - 真實dev server的pbr3d頁（WebGPU）選取`pascalmodulo`：option 973個、status為972 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的三角形。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：龍形曲線（dragoncurve）
-
-- 目錄972→973，含plain的gallery為974項。每tile一條11階Heighway龍形曲線（2048條格線線段，轉彎為正規紙條對折序列），亮度沿路徑由暗橘漸變到亮橘，旋轉與鏡射由seed決定；曲線置中、四周為平坦背景。Metallic／mortar為0，預設tile0.5 m、0.003 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
-- 實測：`tests/procedural-material-motifs.test.ts`六百五十一項（本材質十項）全過，第一次執行即通過。測試端以另一種公式重新產生曲線（第k個轉彎：把k寫成2^j·m，m為奇數，m mod 4 = 1則左轉），因此不依賴取樣器的倍增遞迴；對八種方向（四個旋轉×鏡射，也涵蓋了左右手定義的差別）逐一檢查：曲線的2048條邊的中點都必須有墨（亮度＞0.25），且包圍盒內其餘所有格線邊的中點都必須是背景，恰好有一種方向全部吻合；吻合時起點邊亮度＜0.5、終點邊＞0.9。九個seed（0、7、4294967295、1至6）都通過。另有通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "dragoncurve|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 效能：512×512單次建立約109 ms（Bun、單次量測；每像素只檢查周圍四條格線邊與四個接點，路徑資料在建立取樣器時一次產生），不代表瀏覽器或Worker下的表現。
-- 真實dev server的pbr3d頁（WebGPU）選取`dragoncurve`：option 974個、status為973 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的曲線。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：康托爾塵（cantordust）
-
-- 目錄973→974，含plain的gallery為975項。上半六列康托爾集（第k列保留243格中三進位前k位不含1者，亮度逐列漸變），下半三步康托爾塵（27×27格中行列三進位數字都不含1的64格亮起）。Metallic／mortar為0，預設tile0.5 m、0.003 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
-- 設計記錄：第一版讓seed決定去掉哪個三進位數字（0、1或2）。看圖發現seed 7選到去掉2，康托爾塵的亮格全縮在左上角，畫面幾乎空；同時四步的康托爾塵單點只有約3 px。改為固定去掉1（經典的中間三分之一，此時seed只改變顆粒），並把塵降為三步（27×27）使每個亮點約8 px；也因此「seed改變結構」的功能被取消，不再宣稱。
-- 實測：`tests/procedural-material-motifs.test.ts`六百六十一項（本材質十項）全過。測試中的一處累贅式（`4 ** n === 256 ? 256 : …`）在送交verify前已簡化為`(2 ** n) ** 2`。九個seed（0、7、4294967295、1至6）：六列各243格逐格讀取，保留與否必須恰等於「三進位前k位不含1」（以`toString(3)`字串判斷，與取樣器的除法／取餘寫法不同），每列保留的格數為2^k·3^(5−k)；27×27的塵逐格讀取，必須恰等於行列都不含1，亮格數為64；通道範圍、metallic／mortar 0、wrap與seed差異（差異只來自顆粒）。`tests/procedural-material.test.ts`以`-t "cantordust|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`cantordust`：option 975個、status為974 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：八皇后（eightqueens）
 
@@ -12061,12 +11969,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄975→976，含plain的gallery為977項。每tile 2×2個木框面板，各有三根立柱與六個圓盤，依閱讀順序是最佳解法（左柱搬到右柱共63步）進行到第0、21、42、63步的狀態；圓盤越大越寬越亮。Metallic／mortar為0，預設tile0.4 m、0.006 UV-relative relief、metallic factor 0。解法與步數固定，seed只改木紋；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
 - 實測：`tests/procedural-material-motifs.test.ts`六百八十一項（本材質十項）全過。第一次執行時九項解碼測試失敗，原因是測試端：圓盤寬度略小於理論值時`Math.round`回傳`-0`，`toEqual`以`Object.is`比較視`-0`與`0`不同（與前一個巴斯卡材質同類錯誤），取樣器沒有問題；加上`+ 0`後通過。測試端以經典的遞迴解法（`solve(n, from, to, via)`產生63步，逐步套用）作為獨立參考，取樣器則用迭代法（最小盤依固定方向循環、其餘每步只有一個合法移動）；對九個seed（0、7、4294967295、1至6）× 四個面板 × 三根柱，由底往上在每個圓盤的中心高度偵測有無圓盤（避開比最小圓盤更細的立柱），再向左右掃描量出寬度並換算為圓盤編號，堆疊必須與參考解法在對應步數的狀態完全相同；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "hanoitowers|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`hanoitowers`：option 977個、status為976 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的面板（對比偏低，圓盤亮度不大）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：拉丁方陣（latinsquares）
-
-- 目錄976→977，含plain的gallery為978項。每tile 2×2個方陣（5、6、7、8階），每格一個亮度等級（0.16至0.96等距），每個等級在每列每欄恰出現一次；方陣是循環拉丁方經seed打亂列、欄、符號所得。Metallic／mortar為0，預設tile0.4 m、0.003 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
-- 實測：`tests/procedural-material-motifs.test.ts`六百九十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四個方陣：由格中心亮度換算回等級（沿用前兩個材質發現的`-0`問題，換算後加`+ 0`），每一列、每一欄排序後必須恰為0至n−1；這就是拉丁方的定義，與取樣器的「循環方陣加置換」是不同的寫法。我本來還加了一個「n種亮度各出現」的檢查，但那是列檢查的必然結果（重言式），送交verify前已刪除。通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "latinsquares|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`latinsquares`：option 978個、status為977 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的方陣。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：馬雅數字加法（mayansums）
 
@@ -12082,12 +11984,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 真實缺陷：測試端第一版的讀取法錯了：我假設每一欄只有兩個亮點，但一條比較器的亮色線段會穿過兩端之間的導線，使中間導線在該欄的位置也是亮的，於是讀取失敗（`no comparator network could be read`）；取樣器本身沒有問題。改為「亮的導線必須從第一條連續到最後一條，比較器連接首尾兩條」後通過。
 - 實測：`tests/procedural-material-motifs.test.ts`七百零三項（本材質兩項）全過。對seed 0至11 × 四個象限，測試端從畫面讀回比較器（試19與24兩種欄數，每欄必須恰有連續亮起的導線，且線段連續），再對全部256個二進位輸入依序執行比較器，要求每個輸出由上到下遞增（0-1原理：能排序全部二進位輸入的網路能排序任意輸入）；且兩種網路都出現（19與24）。另有通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：把雙調排序第一層的鏡像配對改錯後，網路讀取失敗（測試失敗），還原後全過；但這個突變只驗證到「讀不出網路」，沒有驗證到「讀出但不能排序」的情況。`tests/procedural-material.test.ts`以`-t "sortingnetworks|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`sortingnetworks`：option 980個、status為979 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的網路圖（seed 7的四個象限剛好都是奇偶合併排序；雙調排序只由測試的其他seed讀取確認）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：質數篩（primesieve）
-
-- 目錄979→980，含plain的gallery為981項。每tile一個16×16圓角方格盤面，列出256個連續整數（起點由seed在1至745挑選）；質數最亮且凸起，合成數依最小質因數（2、3、5、7、11以上）分五級，數字1最暗。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。畫面無數字；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 實測：`tests/procedural-material-motifs.test.ts`七百一十三項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端以另一種演算法（埃拉托斯特尼篩）算出1至1000之間每個數的最小質因數並分級，取樣器則用試除法；由格中心亮度判定每格的等級（與最近的預期亮度相差＜0.04），再對所有起點1至745逐一比對256格的等級序列，必須恰有一個起點完全吻合；質數格數在25與75之間；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "primesieve|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`primesieve`：option 981個、status為980 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：淘汰賽對戰表（knockoutbracket）
 
@@ -12283,12 +12179,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`九百八十四項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端以格子角落的明度當作該格自己的底色，再把格中央7×5點的像素與底色差大於0.4者視為墨（所以起點終點的反白數字也能讀）；中間欄有墨則為單位數、否則為兩位數並讀左右兩個字形；讀出的49個數字排序後必須恰為1至49；對每個k，k與k+1的位置必須是國王走法相鄰（切比雪夫距離為1）；深色底的格子恰好兩格，且就是1與49；通道範圍、metallic／mortar 0、wrap與seed差異。另以暫時的測試檔對300個額外seed（100至399）重複同一規則檢查，全部通過（已刪除）。突變檢查：把取樣器某些下一步的編號多加1（`step + (other % 7 === 3 ? 2 : 1)`）後，九個seed中的九項失敗，還原後全過。我沒有檢查「給定」格（底色稍暗者）的分布，那只是裝飾。`tests/procedural-material.test.ts`以`-t "hidatochain|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`hidatochain`：嚴格斷言的檢查（option為1008個、status含「1007 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：歐幾里得節奏（euclideanrhythms）
-
-- 目錄1007→1008，含plain的gallery為1009項。每tile一個16步×16軌的步進音序器面板，每軌放入1至8個盡可能均勻分佈並隨機旋轉的亮起按鍵，每4步的按鍵底色稍亮標示拍點。靜態圖案、沒有音訊。Metallic／mortar為0，預設tile0.4 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 實測：`tests/procedural-material-motifs.test.ts`九百九十四項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端在每個按鍵中心取樣，要求要嘛亮（大於0.7）要嘛暗（小於0.5）；每軌亮點數必須在1至8之間；把亮點位置排成圓環後，相鄰脈衝的間隔（含繞回）必須只有⌊16/k⌋或⌈16/k⌉，總和為16，且較大間隔的個數恰為16 mod k（整除時為0）；16軌中至少出現3種不同的脈衝數；通道範圍、metallic／mortar 0、wrap與seed差異。這裡的規則是以「最大均勻性」這個性質獨立檢查，不是重算取樣器用的Bresenham公式。突變檢查：把取樣器的亮起條件`(step*pulses)%steps<pulses`換成`(step*step)%steps<pulses`後，九個seed中的九項失敗，還原後全過。我沒有做300個額外seed的暫時性檢查，也沒有證明「Bresenham分佈等價於Bjorklund演算法的節奏」（文件已註明未證明）。`tests/procedural-material.test.ts`以`-t "euclideanrhythms|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`euclideanrhythms`：嚴格斷言的檢查（option為1009個、status含「1008 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：中國跳棋（chinesecheckersboard）
 
 - 目錄1008→1009，含plain的gallery為1010項。每tile一個木質星形棋盤：121個圓孔組成的六角星，六種明度的彈珠各10顆（六個星角起始各一種、再隨機搬動14顆到空孔）。Metallic／mortar為0，預設tile0.6 m、0.006 UV-relative relief、metallic factor 0。六種彈珠只靠明度區分、不是合法走法；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
@@ -12482,15 +12372,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`一千二百六十九項（本材質十項）全過，`tsc`、eslint通過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端在每個面板的格點上取暗像素，對九個候選k值各自用測試自己的參數式（θ在0到2π×分母間取點，r = R cos(kθ)，轉成x、y）算出曲線點，計算暗像素距最近曲線點小於0.0055的比例；最佳候選必須超過97%、第二名必須低於90%；並且反向要求取樣器在該候選曲線的每個參數點（至少97%）上是暗的（曲線完整畫出）；九個面板必須恰好各是不同的k值。這是以**參數式**驗證，取樣器用的是極座標隱函數的距離估計，兩者是不同的做法。通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：(1)把半圈數從2×分母改成分母，九個seed中的九項失敗（分數k的曲線畫不完整）；(2)把負半徑那一半的正負號去掉，九個seed中的九項失敗；都已還原並確認`git diff --stat`只含本材質的53行。內容只有九條曲線的排列，沒有做300個額外seed的暫時性測試。`tests/procedural-material.test.ts`以`-t "rosecurves|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`rosecurves`：嚴格斷言的檢查（option為1036個、status含「1035 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7的預覽（九條玫瑰線都畫出，k=1的圓、5/3等重疊曲線也正確閉合）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：卡西尼卵形線（cassiniovals）
-
-- 目錄1035→1036，含plain的gallery為1037項。每tile以兩個焦點為中心的一族卡西尼卵形線（到兩焦點距離之積為常數，比例0.4到1.6，比例1為伯努利雙紐線），焦距由seed從0.13、0.18、0.23 UV挑一種，焦點以圓點標出。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：在`git archive`乾淨匯出的`34c39de3e`（目錄1035種，本材質之前）執行`procedural-material`與`procedural-material-motifs`兩個測試檔，**6928項通過、0失敗**（約995秒，無其他重負載並行）。本材質自身之後只跑定向測試。
-- 調整：第一版焦距取0.10、0.13、0.16 UV，圖樣只佔tile的一小塊，改成0.13、0.18、0.23後最外層曲線約佔tile寬度的八成六（0.23×√(1+1.6²)≈0.434，未碰到tile邊緣）。這次預覽PNG第一次讀取仍是舊圖，第二次讀取才是更新後的圖（預覽檔在指令結束後才寫完）。
-- 取樣器真實缺陷：兩個焦點的中點（雙紐線的自交點）是距離積的鞍點，梯度為零；我原本的距離估計`|f|/|∇f|`在那裡除以接近0的數，若恰好取樣在中點，f只有浮點誤差卻除以極小的梯度，整個中點像素會變成亮的（不是深色）。實際預覽中的像素中心不會恰好落在0.5，所以肉眼看不到，是測試取樣`(0.5, 0.5)`時四個seed失敗才發現（奇數邊長的貼圖才會有像素中心恰在0.5）。修正：把梯度大小的下限設為1e-6（原本只有在恰為0時才回退為1）。我特地用舊版本再跑一次確認：舊版四個seed失敗、新版全過。
-- 實測：`tests/procedural-material-motifs.test.ts`一千二百八十項（本材質十一項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端在400×400格點上收集暗像素，對三種候選焦距各自計算每個暗像素到兩焦點的距離r₁、r₂，檢查幾何平均數√(r₁r₂)是否貼近「比例×a」的七個值之一，容許量隨梯度放大（0.0035×(r₁+r₂)/(2√(r₁r₂)) + 0.001，焦點0.014內不測）；最佳候選吻合率必須大於98%、第二名低於70%；中點（雙紐線自交點）、右焦點必須是深色；比例大於等於1的曲線在軸線上的位置a√(1+比例²)必須是深色；另一項測試確認多個seed出現不同的焦距；通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：把距離積的其中一個距離加0.01，九個seed中的九項失敗；已還原並確認`git diff --stat`只含本材質的55行。`tests/procedural-material.test.ts`以`-t "cassiniovals|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`cassiniovals`：嚴格斷言的檢查（option為1037個、status含「1036 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7（我先前寫成焦距0.13是沒有查證的錯誤；預覽中最外層曲線約佔tile寬度的0.68，對應焦距0.18）2×2拼貼的盤面；我沒有逐一看其他兩種焦距的預覽，只由測試的「三種焦距候選」判別驗證。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：雙波源漣漪（twosourceripples）
 
 - 目錄1036→1037，含plain的gallery為1038項。每tile是兩個等振幅圓形波源（水平相隔0.22或0.32 UV、波長0.04／0.052／0.07 UV，由seed決定）的干涉圖樣，亮度為cos(k·r₁) + cos(k·r₂)，節線是r₁−r₂為半波長奇數倍的雙曲線，座標經三角波折疊使邊緣連續。Metallic／mortar為0，預設tile0.5 m、0.006 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
@@ -12565,20 +12446,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 效能：預覽腳本印出512²單次約224毫秒（Bun，含第一次模擬；非正式效能量測，沒有量Worker或瀏覽器端）。
 - 真實dev server的pbr3d頁（WebGPU）選取`abeliansandpile`：嚴格斷言的檢查（option為1046個、status含「1045 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：滲流群集（percolationclusters）
-
-- 目錄1045→1046，含plain的gallery為1047項。每tile一個48×48格的位點滲流：每格以機率p（0.56、0.5927、0.63，由seed選）打開，沿邊相連的打開格形成群集，最大群集最深、至少8格的次深、更小的較淺，未打開的格為底色；群集不跨tile邊界相連（預覽拼貼的接縫處可見斷開）。Metallic／mortar為0，預設tile0.6 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：在`git archive`乾淨匯出的`10b0cebd5`（目錄1041種）執行`procedural-material`與`procedural-material-motifs`兩個測試檔，**6997項通過、0失敗**（約1098秒）。此後五個材質（鐘形曲線、取整方式、二進位加法、阿貝爾沙堆與本材質）只跑定向測試，尚未再跑完整套件。
-- 實測：`tests/procedural-material-motifs.test.ts`一千三百八十五項（本材質十一項）全過，`tsc`、eslint通過，測試第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端讀取每格色調（找最近的四個預設色調之一）得到「未打開／小群集／中群集／最大群集」，再用自己寫的union-find（只連右與下鄰格，不繞回）重新找群集及大小，驗證每個打開格的等級等於「大小等於最大者 → 最大、至少8格 → 中、其他 → 小」，最大群集大於8格，打開比例落在某個預設p的0.047內（約4.5個標準差，2304格）。另一項測試在24個seed中確認最低與最高的p（0.56、0.63）都出現（以打開比例找最近的p；中間的0.5927與0.56只差0.033，約3個標準差，所以不要求辨認）；以及通道範圍／wrap／seed差異。突變檢查：(1)取消右鄰格的連接，九項失敗；(2)把「中群集至少8格」的`>=`改成`>`，十一項中的六項失敗（九個seed中有六個含剛好8格的群集）；都已還原並確認`git diff --stat`只含本材質的64行。沒有做300個額外seed的暫時性測試，也沒有量測打開比例的實際偏差。`tests/procedural-material.test.ts`以`-t "percolationclusters|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`percolationclusters`：嚴格斷言的檢查（option為1047個、status含「1046 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：最大公因數表（gcdtable）
-
-- 目錄1046→1047，含plain的gallery為1048項。每tile一張12×12的最大公因數表：表頭列與欄各是從1、5、13或25開始（由seed分別挑）的12個連續整數，表身印出每格的最大公因數，互質（1）最淺（0.94），其餘亮度為0.5＋0.44÷公因數。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：在`git archive`乾淨匯出的`10b0cebd5`（目錄1041種）執行`procedural-material`與`procedural-material-motifs`兩個測試檔，**6997項通過、0失敗**（約1098秒）。此後六個材質（鐘形曲線、取整方式、二進位加法、阿貝爾沙堆、滲流群集與本材質）只跑定向測試，尚未再跑完整套件。
-- 實測：`tests/procedural-material-motifs.test.ts`一千三百九十五項（本材質十項）全過，`tsc`、eslint通過，測試第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端從取樣結果讀出表頭與表身所有數字（含兩位數），並檢查：列起點與欄起點都在預設的1、5、13、25中、兩個表頭都逐格加1；每格的值等於「試遍每個候選因數，找出同時整除兩數的最大者」（不是歐幾里得演算法）；每格色調（容許0.05）符合互質0.94或0.5＋0.44÷公因數；互質格的數量介於全部格數的40%到80%之間（互質密度約6/π²≈0.61的粗略檢查，不是精確值）。突變檢查：(1)把歐幾里得迴圈條件`b !== 0`改成`b > 1`（遇到餘1就停在錯誤的值），九項失敗；(2)把表身的欄數少算1，九項失敗；都已還原並確認`git diff --stat`只含本材質的89行。我沒有測量過不同seed選到哪些起點的分佈，也沒有做300個額外seed的暫時性測試，只說明九個seed通過。`tests/procedural-material.test.ts`以`-t "gcdtable|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`gcdtable`：嚴格斷言的檢查（option為1048個、status含「1047 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：位元邏輯運算（bitwiselogic）
 
 - 目錄1047→1048，含plain的gallery為1049項。每tile四個區塊，各把兩個隨機8位元數A、B逐位元做AND、OR、XOR或NAND（四種各一次，順序由seed決定），運算名稱標在B列左邊，結果列在橫線下方，1的位元有較深的底色。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
@@ -12586,13 +12453,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計修正與測試端錯誤：(1)預覽第一版把「N」的點陣字形畫成像「M」的樣子（`101 111 111 101 101`），標籤顯示成「AMD」「MAND」，改成`110 101 101 101 101`（像小寫n）後才讀成「AND」「NAND」；(2)測試解碼器：空白的標籤格沒有墨跡時`reach`是0，我用`(reach+1)/2`得到0.5而不是0，整數檢查失敗，加上無墨跡時回傳空字串；(3)字母「O」與數字「0」的點陣相同，解碼表先找到「0」，所以「OR」被讀成「0R」，標籤的解碼結果改為把「0」換成「O」（標籤不含數字）。這三個都是字形或測試端的問題，不是邏輯運算本身。
 - 實測：`tests/procedural-material-motifs.test.ts`一千四百零六項（本材質十一項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端讀出每個區塊的標籤（必須是四種運算之一，四個區塊各出現一次）、A、B與結果各8個位元，並依測試自己寫出的真值表（不是`&`、`|`、`^`）檢查每位元的結果；A列與結果列的標籤格必須是空的；結果列的1位元底色較暗、0位元較亮。另一項測試以標籤格的墨跡量當作粗略指紋，在12個seed中確認區塊順序出現不只兩種排列（這是弱檢查，沒有逐個還原排列）；以及通道範圍／wrap／seed差異。突變檢查：(1)把XOR改成OR，九項失敗；(2)把NAND的`a & b`改成`a | b`（變成NOR），九項失敗；都已還原並確認`git diff --stat`只含本材質的110行。位元由seed決定，沒有做300個額外seed的暫時性測試。`tests/procedural-material.test.ts`以`-t "bitwiselogic|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`bitwiselogic`：嚴格斷言的檢查（option為1049個、status含「1048 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：邏輯斯蒂分岔圖（logisticbifurcation）
-
-- 目錄1048→1049，含plain的gallery為1050項。每tile一張x → r·x·(1−x)的分岔圖：橫軸成長率r（範圍由seed從2.5到4、3.4到4、3.55到3.95挑選）、縱軸長期值x（0到1），256×256格依落入的記錄值個數深淺表示（丟掉前300步暫態，記錄500步，起始值0.4）。Metallic／mortar為0，預設tile0.6 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`9711eff6f`（目錄1047種）執行兩個測試檔，**7066項通過、0失敗**（約1099秒）。此後的位元邏輯運算與本材質只跑定向測試，尚未再跑完整套件。
-- 實測：`tests/procedural-material-motifs.test.ts`一千四百一十七項（本材質十一項）全過，`tsc`、eslint通過，測試第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端從取樣結果讀出256×256的有墨跡格，先用「混沌區的最高值是r/4」辨識使用哪一個r範圍（正確率超過95%）；r小於3.56的欄位（固定點與前幾次週期倍增）有墨跡的格必須和用不同公式（`r*x - r*x*x`而不是`r*x*(1-x)`）算出的週期點所在格完全相同（至少97%的欄位）；r在3.835到3.84之間（週期3窗口）必須恰好是三格且與公式相同；r在3.7以上的混沌欄位，最低的墨跡格必須在`r²(4−r)/16`（也就是f(r/4)）所在格的±1格內（至少90%的欄位）。混沌區裡每格的個別點分布取決於浮點運算細節，所以只檢查邊界，不逐格比對。另一項測試在24個seed中確認三個r範圍都出現；以及通道範圍／wrap／seed差異。突變檢查：(1)把映射改成`r*x*(1.002 - x)`，九項失敗；(2)把列的計算加1格，九項失敗；都已還原並確認`git diff --stat`只含本材質的38行。沒有做300個額外seed的暫時性測試，也沒有量測混沌區邊界落在±1格內的實際比例，只是門檻通過。`tests/procedural-material.test.ts`以`-t "logisticbifurcation|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`logisticbifurcation`：嚴格斷言的檢查（option為1050個、status含「1049 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面（看得到週期倍增、混沌帶與週期3窗口；該預覽的r範圍從3.4開始，沒有包含固定點那一段，固定點只出現在從2.5開始的範圍，我沒有另外目視確認那個範圍）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：燃燒船碎形（burningship）
 
@@ -12648,14 +12508,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 取樣器的小缺陷與測試端錯誤：(1)箭頭的頭固定長0.02，但最短的箭頭只有0.03長，頭的底邊（頸部）位置會跑到尾端之外，使短箭頭實際比設定的長；改成頭長取`min(0.02, 0.6 ×箭頭長度)`，頭寬按比例縮小。這是我讀程式碼時發現的，不是被測試抓到的。(2)測試第一版用「超過一半的墨跡像素在軸的哪一側」判斷箭頭的方向，九個seed中有三個（seed 3、5、7）在某些箭頭上只有92%符合（第一個斷言要求95%）；我寫了暫時的除錯測試，列出不符合的節點：全是方向差剛好π的，原因是頭那一半與尾那一半的像素數相同（60對60）或差一兩個，二值化後分不出來。改成用墨跡的亮度權重（紙面色調減去該點色調）加權，並把取樣從40×40提高到80×80，三個seed都通過；「在24個seed中確認四個場都出現」的測試只需要軸的方向（不分正負），維持32×32的取樣。(3)verify腳本第一次跑時，無關的`amberresin`測試（seed 7的通道範圍）失敗，那個測試先前也出現過逾時（約2.5秒對5秒上限）；我只重跑了`procedural-material-motifs.test.ts`整個檔案，**一千四百九十三項全過（約69秒）**，並單獨跑`amberresin`十項通過（約8.4秒），判斷是負載造成的逾時，不是本次修改造成；但那次失敗並沒有被重現，我沒有調查更深。
 - 實測：九個seed（0、7、4294967295、1至6）：測試端對10×10＝100個節點各自量出箭頭方向（墨跡的主軸，朝向較重的那一半）與長度（墨跡沿軸的範圍），四個預設場中恰好一個讓至少95%的節點方向誤差小於0.15弧度（其餘場低於70%），且其中至少95%的節點箭頭長度與`格寬 × (0.3 + 0.58 ×強度比例)`相差小於10%格寬。另一項測試在24個seed中確認四個場都出現，且最長的箭頭比最短的深；以及通道範圍／wrap／seed差異。突變檢查：(1)把沿箭頭的座標反號（箭頭反向），十一項中的十項失敗；(2)把長度比例改成平方根，十一項中的九項失敗；都已還原並確認`git diff --stat`只含本材質的64行。沒有做300個額外seed的暫時性測試。`tests/procedural-material.test.ts`以`-t "vectorfieldarrows|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`vectorfieldarrows`：嚴格斷言的檢查（option為1057個、status含「1056 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面（螺旋場）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：福特圓（fordcircles）
-
-- 目錄1056→1057，含plain的gallery為1058項。每tile對每個最簡分數p/q（0到1，分母不超過4、6或8，由seed選）在數線（tile底邊）的p/q處畫一個直徑1/q²的相切圓，Farey相鄰分數的圓彼此相切；依分母用亮度填色並描細邊。Metallic／mortar為0，預設tile0.6 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`1f35b9f0c`（目錄1053種）執行兩個測試檔，**7136項通過、0失敗**（約1381秒）。此後的凱薩密碼、對稱字方陣、向量場箭頭與本材質只跑定向測試，尚未再跑完整套件。
-- 測試端的錯誤（取樣器沒有問題）：(1)我原本用「整張圖上每個候選上限的符合率」來判斷是哪個上限，並預期次佳的符合率低於0.99；實測次佳是0.9979（及某些seed差距只有0.00008到0），因為上限6與8、4與6之間差的只有幾個很小的圓，只占tile面積的千分之幾；先把門檻調成「最佳與次佳相差0.001」仍有三個seed失敗；(2)最後改成：以所有分母不超過8的圓的圓心取樣——該上限內的圓心必須是填色、上限外的圓心必須是紙面——這恰好讓一個上限符合，再對該上限做整張圖比對（排除輪廓附近的點後至少99.95%符合）。
-- 實測：`tests/procedural-material-motifs.test.ts`一千五百零四項（本材質十一項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：上述的上限辨識與整張圖比對（測試自己寫了最簡分數的列舉與距離判斷）；對所選上限中每一對Farey相鄰分數（`|p·q′ − p′·q| = 1`），兩圓圓心距離等於半徑和（12位數內），而且兩圓的切點（半徑加權的位置）上取樣器的亮度必須低於0.3（深色輪廓通過切點）；至少超過5對。另一項測試在30個seed中確認三個上限都出現（以1/8與1/5的圓心判斷）；以及通道範圍／wrap／seed差異。突變檢查：(1)把「最簡分數」判斷`gcd === 1`改成`gcd >= 1`（加入2/4等重複的圓），九項失敗；(2)把半徑的分母乘2.2，九項失敗；都已還原並確認`git diff --stat`只含本材質的59行。沒有做300個額外seed的暫時性測試。`tests/procedural-material.test.ts`以`-t "fordcircles|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`fordcircles`：嚴格斷言的檢查（option為1058個、status含「1057 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面（兩個大圓，其間有分母2、3、4的圓而看不到分母5以上的圓，所以目視判斷是上限4；這是目視，沒有量測）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：莫比烏斯格網（mobiusgrid）
 
@@ -12831,22 +12683,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`一千七百四十五項（本材質十一項）全過，`tsc`、eslint通過，測試第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端對每一格以0.002的細網格取樣，用4鄰接的連通區域計算深色點的個數，必須等於這一列的形數序列之一——三角形數1、3、6、10、15，正方形數1、4、9、16、25，長方形數2、6、12、20、30，中心正方形數1、5、13、25、41——並且四列恰好對應四種；每格圖形的外框寬高等於「該種形數的間距數×點距＋兩倍點半徑」（容許到小數點後兩位），外框中心在格中心。另一項測試在40個seed中確認四種形數的上下順序至少有13種不同組合（四種共24種排列）。實際預覽seed 7由上到下依序是長方形數、正方形數、三角形數、中心正方形數。突變檢查：(1)把菱形的條件`> n - 1`改成`> n`，九項失敗；(2)把長方形的寬改成`n + 2`，九項失敗；(3)把三角形每行的置中偏移`line / 2`改成`line`，九項失敗；都已還原並確認`git diff --stat`只含本材質的87行。沒有做300個額外seed的暫時性測試。`tests/procedural-material.test.ts`以`-t "figuratenumbers|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`figuratenumbers`：嚴格斷言的檢查（option為1080個、status含「1079 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：Dyck路徑（dyckpaths）
-
-- 目錄1079→1080，含plain的gallery為1081項。每tile 2欄×7列共14格，每格一條半長4的Dyck路徑（8步、不低於基準線、回到基準線，共C₄ = 14條且各不相同），折線加頂點圓點與灰色基準線；seed洗牌決定順序，奇數列有淡淡底色。Metallic／mortar為0，預設tile0.7 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`31d879f7a`（目錄1078種）執行兩個測試檔，**7436項通過、0失敗**（約1115秒）。此後的形數點陣與本材質只跑定向測試，尚未再跑完整套件。
-- 開發中的處理：第一版單位長度0.033，半長4的最高路徑（4個單位）頂端離上一列基準線太近，預覽中兩者幾乎相碰、看起來像交叉，改為0.028後上下相鄰兩列之間有明顯的空隙。
-- 實測：`tests/procedural-material-motifs.test.ts`一千七百五十六項（本材質十一項）全過，`tsc`、eslint通過，測試第一次執行即通過。取樣器每個像素只考慮自己格內的8條線段，單次512²（Bun）約95到106毫秒。九個seed（0、7、4294967295、1至6）：測試端對每一格的8步，在每一步的中點取該欄上所有深色點的平均高度，用它判斷這一步是上還是下（高度必須在該步起點上下半個單位的0.1以內），重建出8個U／D字母；14格重建出的字串必須互不相同，並且每一條都屬於測試自己用「列舉全部2⁸個上下序列、保留任一前綴總和都不為負且總和為0」得到的集合（恰好14個）。另一項測試在30個seed中確認14格的順序至少有26種不同排列。實際預覽seed 7的第一格是4個小山峰的鋸齒（UDUDUDUD）。突變檢查：(1)允許路徑走到基準線以下（`last > -1`），九項失敗；(2)拿掉「結束在基準線」的條件，十項失敗；(3)把線段的斜率縮成0.8倍，十項失敗；都已還原並確認`git diff --stat`只含本材質的77行。沒有做300個額外seed的暫時性測試。`tests/procedural-material.test.ts`以`-t "dyckpaths|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`dyckpaths`：嚴格斷言的檢查（option為1081個、status含「1080 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：薩克斯螺線（sacksspiral）
-
-- 目錄1080→1081，含plain的gallery為1082項。整張tile把自然數n放在半徑 c·√n、角度 2π·√n 處，只把質數畫成深色圓點；seed決定最後一個數（900、1200或1600）以及畫全部質數、只畫4k + 1的質數或只畫4k + 3的質數。Metallic／mortar為0，預設tile1 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`31d879f7a`（目錄1078種）執行兩個測試檔，**7436項通過、0失敗**（約1115秒）。此後的形數點陣、Dyck路徑與本材質只跑定向測試，尚未再跑完整套件（下一個材質之後再跑）。
-- 開發中的處理：第一版預覽（點半徑0.0036）在512像素下點很小很淡，把點半徑加大到0.0055。我原先在提交時誤以為預覽的seed 7是只畫一種（4k + 1或4k + 3）質數，事後用暫時性測試檢查（所有質數的位置是否都畫了點）發現seed 0與seed 7都畫「全部質數」、最後一個數是1200（暫時性測試檔已刪除，沒有提交）；預覽稀疏是因為1200以內只有196個質數。
-- 實測：`tests/procedural-material-motifs.test.ts`一千七百六十七項（本材質十一項）全過，`tsc`、eslint通過，測試第一次執行即通過。取樣器用40×40的桶格加速，單次512²（Bun）約62毫秒（點半徑改大前的量測）。九個seed（0、7、4294967295、1至6）：測試端用試除法判斷質數、用極座標公式（半徑 c·√n、角度 2π·√n）算出9種組合（最後一個數3種×質數種類3種）的所有點；對每個seed，必須恰好有一種組合同時滿足「所有點的中心都是深色」與「80×80網格中離所有點都超過0.012的位置（至少3000個）都是紙面」。另一項測試在40個seed中確認三種最後一個數與三種質數種類都出現過。突變檢查：(1)把角度改成 π·√n，十項失敗；(2)把縮放改成0.95倍，十項失敗；(3)把「4k + 1」的條件改成「4k + 3」，**只有一項失敗**（確認三種質數種類都出現的那一項）——逐seed的測試是用獨立算出的集合去比對，不知道取樣器內部用的是哪一個分支，所以這個突變只讓「模式1」與「模式2」畫出同一組點，逐seed的測試仍恰好找到一個符合的組合，只有覆蓋率測試能抓到。都已還原並確認`git diff --stat`只含本材質的68行。沒有做300個額外seed的暫時性測試。`tests/procedural-material.test.ts`以`-t "sacksspiral|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`sacksspiral`：嚴格斷言的檢查（option為1082個、status含「1081 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染（點加大後沒有再看512預覽圖，球面上的點很小）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：帕斯卡奇偶三角（sierpinskipascal）
 
 - 目錄1081→1082，含plain的gallery為1083項。整張tile是2^d × 2^d個方格（d = 5、6或7由seed決定），第i欄第j列在C(i + j, i)為奇數時填深色（Sierpiński三角形），再疊上轉半圈的另一個三角形；seed另決定是否左右鏡像。Metallic／mortar為0，預設tile0.8 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
@@ -12878,14 +12714,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 開發中發現的問題：(1)第一版取樣器對每個像素逐一計算所在格的72條弦與72個點，單次512²（Bun）約723毫秒，遠高於其他材質，改成預先把弦與點放進96×96的桶格後約96毫秒，輸出的預覽圖與改前肉眼一致（沒有做逐像素比對）；(2)測試第一版只檢查「該乘數的所有弦中點都是深色」，結果許多格有多個符合的乘數（如[7, 10, 15, 19]：這些弦的中點也剛好落在別的弦上），失敗七項；補上「不在該乘數弦上的任意兩點連線中點必須是紙面（扣掉靠近圓環與靠近該乘數弦的位置）」後恰好剩一個，再補上排除圓環附近後通過。這些是測試的識別方法問題，取樣器的輸出沒有改。另外，測試中有一行與內容不符的註解（寫的是弦中心的位置）已在提交前改正。
 - 實測：`tests/procedural-material-motifs.test.ts`一千八百二十一項（本材質十二項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端對每一格從2到20逐一試乘數，要求該乘數所有弦的中點是深色且沒有多餘的弦，每格恰好符合一個乘數，九格的乘數互不相同且在2到20內；另一項測試確認72個點都是深色圓點，圓環外側（距離0.02）是紙面；另一項在20個seed中確認2到20的19個乘數都出現過。突變檢查：(1)把目標點改成`(k·i + 1) mod 72`，十項失敗；(2)把點的角度起點旋轉（去掉`− π/2`），十一項失敗；(3)讓九格只使用兩種乘數（`multipliers[cell % 2]`），十項失敗；都已還原並確認`git diff --stat`只含本材質的137行。沒有做300個額外seed的暫時性測試。`tests/procedural-material.test.ts`以`-t "timestablecircles|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`timestablecircles`：嚴格斷言的檢查（option為1086個、status含「1085 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面（有方格狀、扇形與一般花紋三類圖案）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：高斯質數（gaussianprimes）
-
-- 目錄1085→1086，含plain的gallery為1087項。整張tile是高斯整數 a + bi 的40×40視窗，高斯質數的格子畫深色圓點（a、b皆非0時範數為質數；有一個為0時另一個的絕對值為4k + 3型質數），棋盤格交錯底色；視窗左下角由seed從6種中選一。Metallic／mortar為0，預設tile0.8 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`589c04741`（目錄1083種）執行兩個測試檔，**7505項通過、0失敗**（約1222秒）。此後的因數個數長條、乘法表圓與本材質只跑定向測試，尚未再跑完整套件（累積三個，下一個材質之後再跑）。
-- 開發中的處理：(1)第一版取樣器草稿多帶了沒用到的`axisHalf`／`axisTone`預設鍵，且篩法上界的算式寫得複雜，註冊前整理後才進入提交；(2)文件第一稿寫了「視窗含原點時圖案對稱」，但左下角在[0, 0]的視窗只涵蓋第一象限、並不對稱，也沒有逐一驗證其他視窗，所以刪掉這個說法。
-- 實測：`tests/procedural-material-motifs.test.ts`一千八百三十三項（本材質十二項）全過，`tsc`、eslint通過，測試第一次執行即通過。先用一項測試驗證規則本身：對−9到9的高斯整數，「範數為質數，或一個為0且另一個絕對值是4k + 3型質數」的判斷必須等於「找不到範數大於1的兩個高斯整數因子」的暴力因式分解結果；九個seed（0、7、4294967295、1至6）：對六個視窗逐一比對1600格中心的顏色是否等於該格是否為高斯質數，每個seed恰好一個視窗完全吻合。另一項測試在40個seed中確認六個視窗都出現。突變檢查：(1)把4k + 3型改成4k + 1型，十項失敗；(2)把範數`a² + b²`改成`a² + b`，十項失敗；(3)把縱向翻轉拿掉，十項失敗；都已還原並確認`git diff --stat`只含本材質的64行。沒有做300個額外seed的暫時性測試。`tests/procedural-material.test.ts`以`-t "gaussianprimes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`gaussianprimes`：嚴格斷言的檢查（option為1087個、status含「1086 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：約瑟夫圓環（josephuscircle）
 
@@ -12954,14 +12782,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`一千九百三十二項（本材質十一項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端用3×5點陣字讀出12列文字（數字與「>」），每個相鄰數字等於前一個數的各位平方和（測試自己用`reduce`算）；1與4只出現在鏈的最後；鏈以1或4結束；以1結束若且唯若起點是快樂數（測試自己用「最多迭代200次是否到1」判斷）；以1結束的列（不含起點就是1的單項鏈）第一個數字下方的底色比0.86深、其他列比0.86淺；12個起點互不相同且在2到99之間；字串寬度不超過34。另一項測試在20個seed共240列中確認至少有41種不同的鏈。實際預覽seed 7的第一列為59>106>37>58>89>145>42>20>4。突變檢查：(1)把平方改成立方，十一項失敗；(2)把停止條件的4改成16（第一次因行號錯誤沒有套用，重跑後有效），九項失敗；(3)把長度限制放寬6個字元，六項失敗；都已還原並確認`git diff --stat`只含本材質的91行。沒有做300個額外seed的暫時性測試。`tests/procedural-material.test.ts`以`-t "happynumberchains|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`happynumberchains`：嚴格斷言的檢查（option為1095個、status含「1094 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：雷卡曼數列弧線（recamanarcs）
-
-- 目錄1094→1095，含plain的gallery為1096項。整張tile把雷卡曼數列的每一步畫成兩數之間的半圓（奇數步在水平線上方、偶數步在下方，每個數一個小圓點），seed從40、50、60、70項中挑一種，整體縮放使最大的數貼近右側。Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`9824caa5a`（目錄1091種）執行兩個測試檔，**7614項通過、0失敗**（約1123秒）。此後的卡普雷卡爾步驟、外觀數列、快樂數鏈與本材質只跑定向測試，尚未再跑完整套件（累積四個，下一個材質之後再跑）。
-- 開發中發現的問題：(1)第一版取樣器每個像素都跑完全部弧線與圓點、並重複計算最大值，512單次約329 ms；加上半徑範圍的快速排除並把最大值移到外面後約73 ms（單次量測，Bun，非效能認證），預覽圖看起來沒有改變（先看到的一張是同名舊檔，等檔案寫完再看一次）；(2)測試端：第一版用「所有半圓上七個點都是深色」挑出唯一的項數，但40、50、60項的最大值相同（114），縮放一樣，較小項數的弧線是較大項數的子集，同時有多個候選成立，七個seed失敗；改成取最大的成立項數，並另外檢查「最後一條之後的那一步」沒有被畫出；(3)第一版寫的那條「第二步上方是紙面」的斷言沒有依據（隨手猜的位置），已刪除；(4)第一版的「最後一條之後的弧線」測試把頂點附近0.015內有其他弧線的點都排除，結果23個取樣點全被排除、實際檢查0個（雷卡曼的弧線在中央非常密集），測試因為「至少檢查20個」失敗；改成沿弧線取23個角度、排除門檻0.004，每個項數約20個點可檢查。
-- 實測：`tests/procedural-material-motifs.test.ts`一千九百四十四項（本材質十二項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端用陣列與`includes`獨立計算雷卡曼數列（取樣器用`Set`），對每個候選項數在每一步的半圓上取七個點（奇數步在上、偶數步在下）必須都是深色，取成立的最大項數；該項數必須是40、50、60、70之一；右端之外是紙面；30個seed內的最後一條之後的弧線沒有被畫出（沿弧線取點、排除附近有其他弧線或太靠近水平線的點，至少檢查21個點）；30個seed涵蓋四種項數。突變檢查：(1)拿掉「必須為正」條件，十二項失敗；(2)把奇偶方向反過來，十一項失敗；(3)少畫最後一條弧線，七項失敗；都已還原並確認`git diff --stat`只含本材質的75行。`tests/procedural-material.test.ts`以`-t "recamanarcs|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`recamanarcs`：嚴格斷言的檢查（option為1096個、status含「1095 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面：中間偏左有一個密集環帶、右側有一個大圓，水平線上有一條細線。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：Thue–Morse格（thuemorsegrid）
 
 - 目錄1095→1096，含plain的gallery為1097項。整張tile是方格，第k格依「k加位移後二進位中1的個數是奇數或偶數」塗成深色或淺色，格間有較矮的中灰溝縫；seed決定每邊格數（8、16、32）、位移（0到255）與編號方向（沿列或沿欄）。Metallic／mortar為0，預設tile 1 m、0.005 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
@@ -12986,14 +12806,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`一千九百七十八項（本材質十一項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端用另寫的迭代（從0.1,0.1出發、略過200點、取3000點，取樣器是從原點出發迭代60萬次）計算軌道，對四組參數×四種鏡射共16種組合算「軌道點落在有墨色像素的比例」，必須有一種超過0.98，且高於0.7的只有一種（我先用暫時性測試量過，所有seed的最佳組合都是1.000、次佳最高0.646）；另用3萬點軌道在64×64格視窗中找出自己與八鄰格都沒有軌道點的格子，其中心必須是紙面（至少檢查500格）；視窗邊緣的留白必須是紙面。另有兩項：40個seed涵蓋16種組合（取樣器建立約0.1秒，測試設定逾時30秒）；通道範圍、無縫重複、seed不同——最後一項的「seed不同」其實也被兩個seed的紙面顆粒雜訊不同所滿足，吸引子本身的差異由逐seed的組合辨識測試承擔。突變檢查：(1)常數1改成1.01，九項失敗；(2)b乘0.98，十項失敗；(3)格座標偏0.02，十項失敗；(4)內插偏一格，九項失敗；(5)反轉上下鏡射條件，十一項全過（等價突變）；都已還原並確認`git diff --stat`只含本材質的64行。`tests/procedural-material.test.ts`以`-t "henonattractor|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約111至160 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`henonattractor`：嚴格斷言的檢查（option為1099個、status含「1098 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面：淺色紙面上有一道向右開口的深藍弧線與幾條細的分支。25球畫面中球面幾乎全是淺色紙面、曲線在球上只剩零星暗點（線條細，球面只取到貼圖的一部分），所以這個材質在gallery縮圖上不容易辨認；我也試過把格數降到128讓線條變粗，結果線條呈鋸齒、細節消失，所以保持256。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：Golomb尺（golombrulers）
-
-- 目錄1098→1099，含plain的gallery為1100項。整張tile由上而下畫九把標記數3到11的最佳Golomb尺（任兩個標記的距離都不重複，同一個比例，最長72單位），每把有尺身、每單位一個小刻度與高的標記線，seed隨機決定每把是否鏡射。Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計；標記位置是從記憶打出的已發表最佳尺，沒有外部來源可對照。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`eacc25948`（目錄1095種）執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**7663項通過、0失敗**（約1041秒）。此後的Thue–Morse格、數根表、埃農吸引子與本材質只跑定向測試，尚未再跑完整套件（累積四個，下一個材質之後再跑）。
-- 開發中發現的問題：(1)第一版取樣器草稿的尺身運算式有一個「乘0再加」的殘留項，註冊前已改寫乾淨；(2)測試端：第一版以`Math.round`取標記位置，位置0的深色段中心略為負值，`Math.round`得到`-0`，`toBe(0)`以`Object.is`比較而失敗（九個seed都失敗），改成`Math.round(…) + 0`；(3)第一版測試沒有檢查刻度，所以我補了「每個單位下方一個小刻度、半個單位處與尺端之外是紙面」的測試後，把刻度間距、刻度範圍與尺端的突變才被抓到。
-- 實測：`tests/procedural-material-motifs.test.ts`一千九百九十一項（本材質十三項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端在每把尺標記上方的線（只有高的標記線會碰到）上以0.04單位為間隔讀出深色段，每個段中心取整數作為標記位置；每列的標記數為3到11、第一個標記在0、距離沒有重複（測試自己用兩兩差值判斷），且位置必須等於表內的尺或其鏡像。另一項用暴力搜尋確認3到8個標記的長度（3、6、11、17、25、34）確實是最短的，9到11個標記的長度（44、55、72）**沒有被證明是最短**，只確認沒有重複距離；一項在20個seed中確認每一列都出現過鏡射與未鏡射；一項在seed 7確認每個單位下方有小刻度、半單位處與尺端之外是紙面；另有通道範圍、無縫重複、seed不同。突變檢查：(1)把鏡射位置多移一個單位，十一項失敗；(2)把刻度範圍縮成0.6倍，一項失敗；(3)把刻度間距改成2單位，一項失敗；(4)把「鏡射」條件改成永遠成立，**只有**「每列都出現過鏡射與未鏡射」那項失敗（一項）；(5)把尺端的軟邊延長五個單位，一項失敗；都已還原並確認`git diff --stat`只含本材質的61行。`tests/procedural-material.test.ts`以`-t "golombrulers|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約180 ms（Bun單次量測，非效能認證；我沒有確認當時有沒有其他負載）。
-- 真實dev server的pbr3d頁（WebGPU）選取`golombrulers`：嚴格斷言的檢查（option為1100個、status含「1099 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面：九把由短到長的尺、每把有高的深色標記線與下方的小刻度，三角形外觀。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：位元運算表（bitwisetable）
 
 - 目錄1099→1100，含plain的gallery為1101項。整張tile是方格表，格內是 i AND j、i OR j 或 i XOR j（seed從三種挑一，i與j從0數起）的值，依數值線性上色（0最深、邊長減1最淺）並以小方塊寫出二進位（1畫方塊，位元數3、4、5），每邊格數為8、16或32；格間有較矮的中灰溝縫。Metallic／mortar為0，預設tile 1 m、0.005 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
@@ -13002,14 +12814,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`兩千零二項（本材質十一項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端用位元運算`&`、`|`、`^`獨立算出表，從每格中心上方0.3格處取底色、再沿水平線在每個位元槽位的中心讀出方塊（與底色差超過0.3算1），對8、16、32三種格數與三種運算比對，必須恰好一種組合完全相符；每格的底色必須貼近線性色階（誤差小於0.02），0與邊長減1都必須出現（三種運算的表都含這兩個值）。另有三項：40個seed涵蓋三種格數與三種運算；通道範圍、無縫重複、seed不同。突變檢查：(1)改XOR的算式，一項失敗（只有一個seed用到XOR）；(2)把位元順序反過來，十項失敗；(3)把色階分母改成邊長，九項失敗；(4)把方塊的垂直位置偏移，十項失敗；(5)把OR改成加法，四項失敗；都已還原並確認`git diff --stat`只含本材質的62行。`tests/procedural-material.test.ts`以`-t "bitwisetable|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約61至91 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`bitwisetable`：嚴格斷言的檢查（option為1101個、status含「1100 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面：32格的AND表（左上深、右下淺），位元方塊小到只剩一兩個像素的點。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：皮亞諾曲線（peanocurve）
-
-- 目錄1100→1101，含plain的gallery為1102項。整張tile畫出皮亞諾空間填充曲線穿過方格中心（階數由seed從2、3、4中挑一種，每邊9、27、81格），色調由起點最深漸變成終點較淺的藍灰，並隨機選八種鏡射／轉置之一；寬度約半格、四周留4%空白。Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：在`git archive`乾淨匯出的`d43b404ed`（目錄1099種）執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**7714項通過、0失敗**（約1004秒）。此後的位元運算表與本材質只跑定向測試，尚未再跑完整套件。
-- 開發中發現的事：(1)曲線的遞迴構造是我自己推導的（九個區塊的蛇形排列，鏡射規則為「列數為奇數則左右鏡射、欄數為奇數則上下鏡射」），所以先用一個暫時的Node腳本與另一個「以三進位數字互補」的公式比對，階數1到3完全吻合、相鄰格皆相接、起點(0,0)、終點(邊長−1,邊長−1)，之後才寫取樣器；測試中使用的是後一個公式；(2)曲線對半轉對稱（轉半圈就是倒過來走），所以只看連接關係會有兩種方向同時吻合；測試必須結合色調漸層才能唯一確定方向（測試明文要求恰好兩種連接吻合、其中一種色調吻合）；(3)突變檢查中「把色調漸層倒過來」與「把水平鏡射旗標的條件反過來」兩個突變，測試全過——它們是**等價突變**（方向與鏡射旗標都由seed隨機決定，倒過來只改變seed到方向的對應，所有圖的集合不變），不是測試缺口；(4)突變「線寬減半」一開始也沒有被抓到（所有檢查點都在線的正中央或格邊中點），因此補上「直線段上離中線0.2格是墨色、0.33格是紙面」的測試後，減半與放大1.4倍各有一項失敗。
-- 實測：`tests/procedural-material-motifs.test.ts`兩千零十四項（本材質十二項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端先從畫面讀出所有相鄰格之間的邊界中點是否有墨色，得到「曲線的連接圖」，再與用三進位數字公式算出的八種鏡射／轉置各自的連接圖比對（先排除階數不同的組合）；必須恰好有兩種吻合（半轉對稱），其中只有一種的每一格中心色調也符合「由最深漸變到較淺」（誤差小於0.03）。另有四項：直線段的線寬（seed 0、7、4294967295各60個直線格）；40個seed涵蓋三種階數與全部八種方向（取樣器建立最高階約0.1秒，測試逾時設30秒）；通道範圍、無縫重複、seed不同。突變檢查：(1)把區塊鏡射條件反過來，十項失敗；(2)只畫「下一格」的線段，十項失敗；(3)把線寬減半、(4)把線寬放大1.4倍，補上線寬測試之後各一項失敗；(5)把色調漸層倒過來與(6)把水平鏡射旗標反過來，全過（等價突變）；都已還原並確認`git diff --stat`只含本材質的93行。`tests/procedural-material.test.ts`以`-t "peanocurve|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約117 ms（Bun單次量測，非效能認證）。
-- 真實dev server的pbr3d頁（WebGPU）選取`peanocurve`：嚴格斷言的檢查（option為1102個、status含「1101 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面：細密的曲線，上方偏淺藍灰、下方偏深藍，四周有空白；我沒有逐格數出這張是哪一階。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：克利福德吸引子（cliffordattractor）
 
 - 目錄1101→1102，含plain的gallery為1103項。整張tile是克利福德映射（x′＝sin(a·y)＋c·cos(a·x)、y′＝sin(b·x)＋d·cos(b·y)）迭代80萬次的點密度圖（256×256格、取對數、雙線性內插），seed從五組參數挑一組並決定是否左右／上下鏡射；視窗為映射的精確範圍、四周留3%空白。Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計；參數組是我記得的常見組合再用腳本篩過。仍在獨立worktree分支`materials/more-textures`作業。
@@ -13017,14 +12821,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 開發中發現的事：(1)參數組先用腳本在48×48小格上統計占用格數（八組：占76、512、977、1078、1352、1403、1879、1985格，共2304格）：我挑了五組（977、1078、1352、1403、512），沒選占76格（週期軌道）與占約八成以上（1879、1985）的組別；512格那組在seed 2的預覽看起來是筆畫狀的細曲線；(2)測試端的錯誤：(a)第一版的「空格周圍是紙面」門檻0.85，在兩個seed失敗（0.844與0.850），原因是取樣器的80萬點會落到測試用4萬點沒碰到的稀疏位置、微量墨色；改成測試也用20萬點、門檻0.8；(b)第一版以50個seed要求涵蓋全部20種組合（5組×4種鏡射）只涵蓋17種，不是取樣器問題而是隨機覆蓋不足，改成120個seed（逾時120秒）；(3)密度測試本來沒有，所以「把墨色密度減半」的突變一開始沒有被抓到，補上「每個至少有3個點的格子的期望濃度平均要和取樣器一致」後，減半的突變九項失敗；基準誤差實測為0.018到0.036，容許值設0.05；(4)突變「把密度放大1.15倍」與「放大1.4倍」**沒有被抓到**（兩者在大多數格子上都飽和到1，期望值也被截到1），這是測試的限制，不是等價突變。
 - 實測：`tests/procedural-material-motifs.test.ts`兩千零二十五項（本材質十一項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端用另寫的迭代（從0.3,0.2出發）計算軌道，對五組參數×四種鏡射共20種組合算「軌道點落在有墨色像素的比例」，必須有一種超過0.99、且超過0.97的只有一種（先用暫時性測試量過：每個seed的最佳都是1.00，次佳最高0.93）；用20萬點軌道在64×64格視窗中找出自己與八鄰格都沒有軌道點的格子，其中心必須是紙面（至少檢查100格）；視窗邊緣留白必須是紙面；每格的墨色濃度與期望值平均相符；120個seed涵蓋20種組合；通道範圍與無縫重複。突變檢查：(1)c係數乘0.99，六項失敗；(2)第二個式子的cos引數改成x，十項失敗；(3)視窗寬度改成1.05＋|c|，十項失敗；(4)密度減半，補上密度測試後九項失敗；(5)內插偏兩格，九項失敗；(6)密度放大1.15與1.4倍沒有被抓到；已還原並確認`git diff --stat`只含本材質的65行。`tests/procedural-material.test.ts`以`-t "cliffordattractor|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約135至149 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`cliffordattractor`：嚴格斷言的檢查（option為1103個、status含「1102 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，另外實看了seed 7、0、2的256預覽：seed 7是一個魚形的深色團塊、seed 0是大面積的渦旋形密集曲線、seed 2是筆畫狀的細曲線。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：Voronoi細胞（voronoicells）
-
-- 目錄1102→1103，含plain的gallery為1104項。整張tile是Voronoi分割：每個方格有一個抖動的站點（每邊5、7、9個，抖動0.25、0.32、0.38個格寬，由seed決定，網格環繞所以無縫），每個點取最近站點的隨機灰階，兩個最近站點距離差很小處畫深色細邊界，每個站點中央有深色小圓點。Metallic／mortar為0，預設tile 1 m、0.005 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`d43b404ed`（目錄1099種）執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**7714項通過、0失敗**（約1004秒）。此後的位元運算表、皮亞諾曲線、克利福德吸引子與本材質只跑定向測試，尚未再跑完整套件（累積四個，下一個材質之後再跑）。
-- 開發中發現的問題：(1)strict typecheck第一次失敗：`let tone = p.lowestTone`被推論成字面量型別0.38，之後指派一般數字出錯，改成明確的`: number`（vitest/esbuild不做型別檢查，是`tsc`抓到的），這代表第一輪`verify.sh`只跑到typecheck就中止；(2)測試端：(a)第一版把暗點分群時每個點只加入「第一個附近的群」，不會把後來才接在一起的群合併，seed 17讀出26個站點（其中一個站點被拆成大小為1與其他的兩群），改成每個點加入所有附近的群並合併；(b)第一版要求4000個隨機點至少保留2500個（扣掉靠近邊界與圓點的點），在seed 4294967295只有2353個，改成至少1500個；(c)第一版的覆蓋測試沒有給逾時，30個seed的暗點分群很重，加上60秒逾時；(d)突變檢查先發現三個沒被抓到：抖動只縮小x軸、邊界寬度少算一半、邊界寬度放大兩倍——因此補上「沿站點連線穿越邊界時，離邊界0.0018處仍是邊界、離0.0042處已是細胞面」、「孤立站點的圓點在0.0045處是暗的、在0.0095處不暗」以及「x與y兩個軸的最大偏移相近（差小於0.05）」；補上後三個都有一項失敗。
-- 實測：`tests/procedural-material-motifs.test.ts`兩千零三十七項（本材質十二項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端從畫面讀出所有暗圓點（比任何細胞色或邊界都暗）、合併連在一起的暗點得到站點，站點數必須是5²、7²或9²，每個網格格內恰好一個、偏離格中心不超過最大抖動＋0.02；用環繞（toroidal）距離對4000個隨機點找最近站點，扣掉距邊界0.01以內與圓點0.012以內的點之後（至少保留1500個），同一個站點的細胞內所有點的色調差必須小於0.05（只剩紙面顆粒），這同時檢驗了細胞分割與環繞。另有三項：seed 7中所有相鄰且間隔足夠的站點對的中垂線中點必須是邊界、跨邊界的兩個寬度點如上、孤立站點的圓點大小如上；30個seed涵蓋三種格數且81站點時三種抖動都出現、x與y偏移相近；通道範圍、無縫重複、seed不同。突變檢查：(1)只縮小x軸抖動，補上兩軸偏移相近的測試後一項失敗；(2)把環繞位移改成0，十項失敗；(3)把圓點半徑加倍，九項失敗；(4)去掉邊界寬度的「除以2」與(5)把邊界半寬加倍，補上穿越邊界的取樣點後各一項失敗；(6)把細胞色調改成取下一個站點的色調，全過——這是**等價突變**（色調是每個站點的隨機標籤，換成另一個站點的標籤只是重排，分割與細胞內色調一致性都不變）；(7)把5×5搜尋改成3×3，在較早版本的測試中全過（我沒有在補上新測試之後重跑，也沒有證明3×3在抖動0.38時一定足夠，所以保留5×5）；都已還原並確認`git diff --stat`只含本材質的82行。`tests/procedural-material.test.ts`以`-t "voronoicells|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約115 ms（Bun單次量測，非效能認證）。
-- 真實dev server的pbr3d頁（WebGPU）選取`voronoicells`：嚴格斷言的檢查（option為1104個、status含「1103 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面：中等大小的灰階多邊形細胞、細邊界與站點小圓點，2×2接縫處沒有可見的斷裂；細看時有幾處三個細胞交會的尖角邊界略寬（與文件說明一致）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：歐幾里得方塊（euclidsquares）
 
@@ -13082,14 +12878,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`兩千一百一十八項（本材質十二項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端用廣度優先另寫H樹（與取樣器的遞迴不同），對4個深度×兩種方向共8個變體，要求最完整的變體每條線段四分之三處的點都有墨色、且其他變體的線段（離這棵樹超過0.01的，至少五百個點）都是紙面；線段寬度（兩側與積分）與色調等於它所在層次的值（誤差小於0.05，每層取最多4條）。另有兩項：40個seed涵蓋全部8個變體；通道範圍、無縫重複、seed不同。突變檢查：(1)子線段長度乘0.75，十一項失敗；(2)深度少一層，五項失敗；(3)色調的分母多加一，一項失敗；(4)轉九十度的條件反過來，十一項失敗；(5)剪枝範圍減半，十一項失敗；(6)寬度的深度衰減少一層與(7)起始寬度乘0.9，補上寬度積分測試後各一項失敗；都已還原並確認`git diff --stat`只含本材質的68行。`tests/procedural-material.test.ts`以`-t "htreefractal|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約134至184 ms（Bun單次量測，非效能認證，是目前材質裡偏慢的）；剪枝範圍收緊之前量到的是195與305 ms（同一台機器的單次量測）。
 - 真實dev server的pbr3d頁（WebGPU）選取`htreefractal`：嚴格斷言的檢查（option為1111個、status含「1110 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試遇到瀏覽器分頁關閉的協定錯誤（Target closed），重試一次後符合；25球渲染，但球面幾乎是一片淺色紙面、只有零星暗線（單棵樹只占貼圖的一部分），所以這個材質在gallery縮圖上不容易辨認；另外實看了512 seed 0的預覽：一棵轉成直立的H樹，粗的主幹深色、細枝淺灰，左右各有空白、上下接近相接（每個tile一棵）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：王氏磁磚（wangtiles）
-
-- 目錄1110→1111，含plain的gallery為1112項。整張tile是方磚陣列，每片磚四邊各有一種灰階顏色並以對角線分成四個三角形，相接的邊顏色一定相同（含跨tile邊界）；seed決定每邊磚數（6、8、10）、顏色數（3或4）與各邊顏色。Metallic／mortar為0，預設tile 1 m、0.005 UV-relative relief、metallic factor 0。作者設計（隨機決定每條邊的顏色再讓兩側的磚取同色，不是從固定的王氏磚集合挑磚）。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`1dff61314`（目錄1107種）執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**7813項通過、0失敗**（約1116秒）。此後的四叉樹格、L-system植物、H樹與本材質只跑定向測試，尚未再跑完整套件（累積四個，下一個材質之後再跑）。
-- 開發中發現的問題（測試端）：突變檢查中「把兩條對角線之一的位置偏移0.05」第一次完全沒被抓到：我第一版的三角形測試取的點離對角線有0.06個磚寬，而偏移0.05（垂直方向，等於垂直於線的0.035）還碰不到這些點；改成離對角線0.03個磚寬的點之後，兩個方向的偏移各一項失敗。
-- 實測：`tests/procedural-material-motifs.test.ts`兩千一百三十一項（本材質十三項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端在每片磚的上下左右各取離中心0.2個磚寬的點，把色調對應到3色或4色的色階（誤差小於0.04），對每種邊數×顏色數組合檢查「所有邊色都落在色階上，且上下相鄰與左右相鄰（含環繞）的邊顏色一致」，必須恰好一種組合符合；所有顏色都用到、磚的種類不少（超過總數的三成或12種）。另有三項：每個三角形到對角線兩側0.03個磚寬處都是該邊的顏色；磚邊與對角線上是深色細線、離邊0.0012仍是線、離邊0.0035已是格面（每個seed取20片）；30個seed涵蓋三種邊數與兩種顏色數；通道範圍、無縫重複、seed不同。突變檢查：(1)把右鄰的欄索引改成自己所在的欄、(2)把下鄰的列索引改成自己所在的列（兩者都等於失去相鄰關係與環繞）、(3)把右邊的取色改成左邊、(4)把下邊的取色改成上邊，各十一項失敗；(5)色階的分母改成顏色數，十項失敗；(6)與(7)把兩條對角線之一偏移0.05，補上0.03磚寬的三角形測試之後各一項失敗；都已還原並確認`git diff --stat`只含本材質的65行。`tests/procedural-material.test.ts`以`-t "wangtiles|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約70 ms（Bun單次量測，非效能認證）。
-- 真實dev server的pbr3d頁（WebGPU）選取`wangtiles`：嚴格斷言的檢查（option為1112個、status含「1111 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的預覽盤面：8×8（我沒有逐格數）的方磚由對角線分成三角形，深中淺三種灰，相鄰三角形顏色相同而形成菱形與長條的圖案。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：行進方塊等值線（marchingsquares）
 
 - 目錄1111→1112，含plain的gallery為1113項。環繞tile的metaball場在方格角點取值，高於門檻的角點畫深點、低的畫淡點，等值線以經典marching squares（含鞍點）畫成格內直線段；seed決定十組球之一與格數（16、24、32）。Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計；球的位置與半徑是我以固定種子亂數寫入的常數，不是外部資料。仍在獨立worktree分支`materials/more-textures`作業。
@@ -13097,14 +12885,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 開發中發現的問題：(1) 實作端：第一版的八組球在三種格數下**完全沒有鞍點格**，鞍點分支從沒被執行；突變檢查把鞍點判斷反過來，十二項測試全過，因此才用隨機搜尋挑出兩組有兩種鞍點的球加進preset（變成十組），並新增專門測鞍點的測試。(2) 測試端：第一版的角點辨識得到零個候選——角點若被等值線穿過，線蓋住小點，我沒有排除這些角點；排除後又出現兩個候選：格數16的角點是格數32角點的一半，真正是32時16也會全部符合，改成取最大格數並要求其餘符合者只能是同一組球的整除格數；線寬測試第一版在離線段0.0023處讀到0.308，原因是附近有另一條線段或小點，我沒有逐一查證，只是把這類探測點排除；另有貼格邊的線段，其鄰格那一側線寬被切掉（上面「已知限制」），測試也排除了這類線段。(3) 過程上我有一次用python而非編輯工具修改測試檔，結果正確，但不符合工具規範。
 - 實測：`tests/procedural-material-motifs.test.ts`兩千一百四十五項（本材質十四項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端用獨立實作的metaball場與查表式marching squares，對三十組（十組球×三種格數）候選比對每個角點的點色（深／淡），取最大且唯一的組合；每條線段的中點必須是線色、沒有線段的格子中心必須是紙色；另有線寬（中點兩側0.0011處是線、0.0023處是紙）、角點小點半徑（0.0026處是點色、0.0046處是紙）、鞍點專用（80個seed，兩種鞍點都出現，兩條線段的中點都在線上）、80個seed涵蓋十組球與三種格數、通道範圍、無縫重複、seed不同。突變檢查：線性內插的門檻改成0.9倍（十三項失敗）、改成取中點（十一項失敗）、鞍點判斷反向（六項失敗）、線半寬1.5倍與0.7倍（各一項失敗）、點半徑1.6倍與0.6倍（各一項失敗）、右鄰／下鄰索引不環繞各十項失敗、點的內外色反過來十一項失敗、epsilon乘50十一項失敗、場的距離不環繞十一項失敗、角點取錯鄰格十項失敗；都已還原並確認`git diff --stat`只含本材質的138行。（未補的限制：第一個「線性內插」突變實際沒改到程式、不算數，已改用其他兩種突變。）`tests/procedural-material.test.ts`以`-t "marchingsquares|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約110 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`marchingsquares`：嚴格斷言的檢查（option為1113個、status含「1112 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，gallery球上主要看到細小的點，線細到不容易辨認；實看512 seed7預覽圖為單一個圓角多邊形狀的等值線包住密集的深點，外側是淡點。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：T方塊碎形（tsquarefractal）
-
-- 目錄1112→1113，含plain的gallery為1114項。tile切成2或3乘2或3個格子，每格中央一個半格寬的方塊、每個角再放半寬的方塊，遞迴4至6層，深層畫在上面、色調依層次遞進並有細輪廓；seed決定格數、層數與深層較亮或較暗。Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計，不宣稱重現特定文獻圖樣，沒有量測碎形維度。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`7243cfabf`（目錄1112種）執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**7881項通過、0失敗**（約943秒）。本材質只跑定向測試，尚未再跑完整套件。
-- 開發中發現的問題：(1) 實作端：第一版預覽整張幾乎都是深色——T方塊碎形會幾乎鋪滿格子，固定寬度的輪廓把小方塊全部蓋成輪廓色；改成輪廓半寬上限為方塊邊長的6%並把層數改為4至6（原5至7）後預覽才呈現層次。(2) 測試端（耗時最多）：第一版用240×240光柵逐像素比對，一開始我懷疑取樣器的「取最近角」規則漏掉方塊，但在紙上證明（每層的符號判斷與上一層一致）後發現問題在輪廓：相鄰的同層方塊在共用邊上也畫輪廓，光柵看不到。改成「只比對離所有可見邊0.002以上的點」之後，又因為碎形太密、隨機點幾乎都不合格而得到零個合格點（所有候選都「符合」），最後加入各方塊的中心點作為探測點並讓被更深方塊蓋住的邊不算數，才得到唯一的候選；(3) 測試端：Vitest 4已移除`it(name, fn, {timeout})`的簽名，第一次執行整個測試檔載入失敗；(4) 測試端：色調容差0.05讓深度5與6的色階（差0.03）混在一起，改為0.025；(5) 過程上我有兩次依行號的`sed`範圍刪除因為prettier改變了行數而守衛失敗（沒有改到檔案），另一次編輯工具套用錯誤範圍造成語法錯誤，立刻修正。
-- 實測：`tests/procedural-material-motifs.test.ts`兩千一百五十九項（本材質十四項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端用「列舉全部方塊（深度6時5461個）」的暴力法，對12個候選（格數2／3×層數4／5／6×深層較亮／較暗）以2500個固定偽隨機點加上每第5個方塊的中心點，逐一比對最深覆蓋層次的色調（容差0.025）、高度（容差0.03）與粗糙度（容差0.03），必須恰好一個候選符合，並且比較過紙面與全部層次；另有：每個格子的四角與各邊中點是紙色、最大方塊左邊緣兩側的輪廓寬度與高度、最小方塊在輪廓外側維持填色（輪廓上限6%）、40個seed涵蓋格數／層數／明暗方向、通道範圍、無縫重複、seed不同。突變檢查：取最近角的x符號與y符號反過來（各十三項失敗）、角的位移改成邊長×0.4（十三項失敗）、層次比例的分母改成層數（十三項失敗）、輪廓上限乘3（一項失敗）、去掉上限（一項失敗）、輪廓寬乘1.4（十三項失敗）、輪廓色改紙色（一項失敗）；粗糙度突變原本全過（沒有檢查粗糙度），補上粗糙度與高度比對後十三項失敗；輪廓高度突變原本也全過，補上邊緣高度檢查後一項失敗；深層明暗方向的翻轉是等價突變（seed選擇的旗標，十四項全過，不能由測試分辨）；把x座標加0.0的突變沒有改變行為，不算數。都已還原並確認`git diff --stat`只含本材質的54行。`tests/procedural-material.test.ts`以`-t "tsquarefractal|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約50–68 ms（Bun單次量測，非效能認證）。
-- 真實dev server的pbr3d頁（WebGPU）選取`tsquarefractal`：嚴格斷言的檢查（option為1114個、status含「1113 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，球面上可見細密的格狀／方塊紋；實看512 seed7（密集的十字形小方塊與淺色縫，格數與層數我沒有從圖上數）與seed1（有較暗的深層區塊）的預覽圖。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：超級公式格（superformulacells）
 
@@ -13137,14 +12917,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 開發中發現的問題（實作端，測試抓到）：第一版放置骨牌時的欄位取餘數沒有先加上格數，負的偏移（例如S、J、L需要向左一格的格子）在第0欄會變成負的索引，落到上一列的最後一格，結果骨牌形狀被扭曲但仍然鋪滿整張圖；我第一次看預覽時沒有發現（圖看起來像正常的鋪面），是測試把每片讀出後發現「形狀是Z卻是T的色調」才查出來，改成先加格數再取餘數。另外：這個失敗讓我發現測試中「相鄰格的右邊與下邊」突變一開始沒被抓到——我原本只檢查右側邊且只在邊的正中間取樣，而錯誤的線只會畫在左邊那格裡；補上兩個方向與兩側偏移的取樣後才抓到。
 - 實測：`tests/procedural-material-motifs.test.ts`兩千兩百零八項（本材質十九項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端只從圖解碼，不用雜湊或搜尋結果：讀出每格中央的色調種類與每條格邊中央是否有深色線，把沒有線隔開的格子（環繞時展開座標）分成一片一片，每片必須恰有四格、轉正後是七種四格骨牌之一（用自己算的四種轉向鍵值，S與Z、J與L因不翻面而不同）、而且四格的色調都是該骨牌類型的色調，整張必須剛好分成格數²／4片，且只有真正的格數（8或12）能這樣讀出；另有：30個seed涵蓋兩種格數與七種骨牌、每格中央的色調與高度與粗糙度、兩個方向的格邊上不同片之間是線（0、±0.0011是線，離邊0.0024是各自的色調）、同片之間沒有線（0、±0.0008）、通道範圍、無縫重複、seed不同。突變檢查：四分之一轉改成轉置或點對稱（各十一項失敗）、不加格數的取餘數（九項失敗，即上述缺陷）、左邊與上邊鄰格偏2（各十一項失敗）、右邊與下邊鄰格偏2（原本全過，補測後各一項失敗）、四邊線距離偏0.1（左與上各十一項、右一項、下原本全過補測後一項失敗）、線半寬1.5倍與0.7倍（各一項失敗）、色調比例的分母（一項）、線高度（一項）、搜尋步數上限降為3（十項失敗，改走後備的I形排列）；都已還原並確認`git diff --stat`只含本材質的120行。後備的水平I形排列只在上述降低步數的突變下被走到，沒有獨立測試，300個seed的量測中從未使用（建立取樣器最久63 ms）。`tests/procedural-material.test.ts`以`-t "tetrominoes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約60–69 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`tetrominoes`：嚴格斷言的檢查（option為1118個、status含「1117 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512 seed7的預覽圖（修正後）：不同灰階的I、O、T、S、Z、J、L片以細線分隔、整張鋪滿。25球的gallery畫面中球面上看得到不同灰階的方塊狀色塊。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：誤差擴散抖色（errordiffusion）
-
-- 目錄1117→1118，含plain的gallery為1119項。平滑的週期灰階圖取成48、64或96格見方，逐列四捨五入成亮／暗，用六種核之一把誤差分給之後的格子；seed決定格數、核與圖（共72種組合）。Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計；六種核的權重憑記憶寫成、沒有查閱文獻。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`72a8599cd`（目錄1116種）執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**7936項通過、0失敗**（約1019秒）。此後的四格骨牌與本材質只跑定向測試，尚未再跑完整套件。
-- 開發中發現的問題：(1) 測試端：第一版「每個8×8區塊的亮格比例接近圖的平均值」性質的容差0.1，有一個seed（6）超過（約0.116），我放寬為0.2並註明Atkinson只分出四分之三的誤差、誤差不傳回前面的格子；這個性質本身只是合理性檢查，不是重點，逐格比對才是主要驗證。(2) 測試端：格邊柔化的突變（把距離乘2）原本全過——我的取樣離邊0.0008已經是完全不混色，補上離邊0.0002的取樣後才抓到。
-- 實測：`tests/procedural-material-motifs.test.ts`兩千兩百二十項（本材質十二項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端獨立重寫圖與抖色演算法（二維陣列、不同的迴圈結構、同樣的運算順序），對72種組合（三種格數×六種核×四幅圖）逐格比對格子中央的亮／暗，必須恰好一種組合每一格都一致；另有：40個seed涵蓋三種格數、六種核與四幅圖；每格中央的色調、高度與粗糙度；右邊緣的中點是兩色平均（兩側0.0008是各自的色調、0.0002處依smoothstep混合）；通道範圍、無縫重複、seed不同。突變檢查：閾值改成0.51（十一項失敗）、誤差乘0.9（十一項失敗）、只傳給掃描順序晚兩格以後的格子（十一項失敗）、水平偏移不先加格數就取餘數、負的偏移變成負索引（十一項失敗）、除數加1（十一項失敗）、圖的相位索引或對角項換成別的（各十一項與三項失敗）、柔化距離乘2（補測後一項失敗）、亮格高度與粗糙度改成暗格的（各一項失敗）；等價突變（不能由輸出分辨）：閾值取「>」而非「>=」（只差剛好等於0.5）、傳給「掃描順序不早於自己」而非「晚於自己」（目標格不可能是自己）、垂直方向的取餘數去掉（環繞到的格子本來就在掃描順序之前、不會被傳到；十二項全過）；都已還原並確認`git diff --stat`只含本材質的77行。`tests/procedural-material.test.ts`以`-t "errordiffusion|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約61–92 ms（Bun單次量測，非效能認證）。
-- 真實dev server的pbr3d頁（WebGPU）選取`errordiffusion`：嚴格斷言的檢查（option為1119個、status含「1118 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512 seed7的預覽圖：深色的圓團向外漸層成亮色，由方格組成的抖色圖樣。25球的gallery畫面中球面是細碎的明暗點狀紋理，圖的漸層不易看出。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：Worley細胞噪聲（worleycells）
 
@@ -13242,14 +13014,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`兩千四百零五項（本材質二十二項）全過，`tsc`、eslint通過。測試端對3、4、5層各試一次：每個內部方格的色調必須等於兩個子方格色調的平均（誤差0.003），層與層之間的縫是縫的色調；必須恰有一種層數全部成立。九個seed（0、7、4294967295、1至6）：葉值在0.1到0.9之間、差距超過0.3且幾乎都不同、根等於所有葉的平均；被框方格由方格左邊框內側的色調判讀，必須首尾相接、長度至少3，且與「由下而上的標準區間查詢」（另一種演算法）得到的方格集合完全相同；方格邊緣位置（gapX、gapY）、1/4過渡寬柔化、外框寬度（四邊）；方格、縫與外框的高度與粗糙度、方格內無顆粒而縫有顆粒；60個seed的通道範圍；無縫重複；seed不同。突變檢查（確認基準通過後，每個確認套用且測試失敗）：平均改成其他式子或取最大值、葉往上算的起點、區間判斷的各個比較、分割中點、左右子節點順序、起點與終點與最短長度的選擇範圍、葉值範圍、層數選擇範圍、列索引上限、縫寬（左、上）、右邊緣偏移、外框寬度、被框與否的判斷、色調與高度、方格柔化（加倍與減半）；沒有未抓到的等價突變。`tests/procedural-material.test.ts`以`-t "segmenttree|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約43–54 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`segmenttree`：嚴格斷言的檢查（option為1131個、status含「1130 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512 seed7的預覽圖：2×2平鋪的5列方格（16片葉），最下列的葉雜亂、上面幾列愈來愈接近中間灰，有深色框的方格有一片葉、一個4葉、一個4葉、一個2葉與一片葉（這個seed的範圍是第3到第14片葉）；25球的gallery畫面中球面是灰色，看不出方格結構。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：維切克碎形（vicsekfractal）
-
-- 目錄1130→1131，含plain的gallery為1132項。每邊27或81格的「加號」或「叉號」維切克碎形，碎形內的格依（中間、中間）數字對的組數上色，格間留縫；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計，只有色調。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`f25f8a054`（目錄1130種）執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**8159項通過、0失敗**（約1022秒）。此後只有本材質，只跑定向測試。（上一段羅盤玫瑰、風標、階級人字紋、線段樹四段寫「尚未再跑完整套件」是當時狀態；這次完整套件已包含它們。）
-- 開發中發現的問題：(1) 實作端：第一版的格色調（淺0.85、深0.12）與紙面（0.94）太接近，預覽圖上碎形很淡；我把淺端改成0.5、深端改成0.06、縫從0.06縮到0.05（改了之後我另外看了一張叉號圖樣seed 2的預覽，對比明顯；加號圖樣seed 7的預覽圖我沒有留意是否真的變深，因此不宣稱）。(2) 測試端：第一版的邊緣柔化測試假設「縫外一格以外是紙」，但相鄰兩格都在碎形內時，縫外就是鄰格；改成只在鄰格不在碎形內的那一側檢查紙色。(3) 測試端：我用格子(0,0)當紙面取高度，但叉號圖樣下(0,0)在碎形內，所以叉號seed失敗；改成找碎形外的格。(4) 我又犯了老毛病：第一輪突變檢查是在基準測試已失敗（上一項）的情況下跑的，結果全不可信；這次我改寫了突變腳本（`/tmp/mutrun.sh`），基準失敗就拒絕突變，重跑所有突變。(5) 測試端：「涵蓋度」測試原本把每個層數的所有組數直接加進集合（不看圖上到底有沒有），所以恆真；改成從圖上讀回每個格子的色調確認每種組數都出現，並以60個seed檢查叉號與深層各約一半（20到40個）。(6) 突變「叉號機率0.5改0.3」與「層數選擇範圍」原本存活，補上(5)的分布檢查後被抓到。(7) 另一個工具問題：先前在持續的shell裡設了`set -e`，造成一個有`grep -c`（無符合時回傳1）的指令串在第一步就中止，我看到沒有輸出後才發現，已取消。
-- 實測：`tests/procedural-material-motifs.test.ts`兩千四百一十七項（本材質十二項）全過，`tsc`、eslint通過。測試端另寫以「由細到粗讀每個三進位數字」的成員判斷，對層數3與4、加號與叉號共四種候選，逐一讀出所有格中心的色調（最多6561格），要求碎形內的格等於依數字對組數算出的色調（誤差0.01）、碎形外的格等於紙色；必須恰有一種候選全部成立；碎形內的格數必須是5^depth。九個seed（0、7、4294967295、1至6）通過；60個seed涵蓋四種組合、各種數字對組數（層數3的0到3、層數4的0到4）、叉號與深層各20到40個；格邊（四邊）的inset與1/4過渡寬柔化；紙面有顆粒、格內沒有；高度與粗糙度；60個seed的通道範圍；無縫重複；seed不同。突變檢查（確認基準通過後，每個確認套用且測試失敗）：叉號與加號的判斷式、數字取法（欄與列）、取下一位、數字對組數的計算、層數迴圈、色調分母、叉號機率、層數選擇、inset、柔化寬度、紙面顆粒遮罩、高度、格邊距離計算；沒有未抓到的等價突變。`tests/procedural-material.test.ts`以`-t "vicsekfractal|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約48–59 ms（Bun單次量測，非效能認證）。
-- 真實dev server的pbr3d頁（WebGPU）選取`vicsekfractal`：嚴格斷言的檢查（option為1132個、status含「1131 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512 seed2的預覽圖：叉號圖樣，由小方塊組成的斜十字層層相套，中心較深；25球的gallery畫面中球面是淺色底上的細小十字形深色記號。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：雅可比符號表（jacobisymbols）
 
 - 目錄1131→1132，含plain的gallery為1133項。每邊24或32格的雅可比符號 (a / b) 表（+1淺、−1深、0中間色調），視窗位置由seed決定；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計，只有色調，沒有數字。仍在獨立worktree分支`materials/more-textures`作業。
@@ -13297,14 +13061,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 開發中發現的問題：取樣端沒有發現缺陷。測試端：(1) 草稿的「框內緣柔化」區塊寫錯（期望值是`0.25 * 0 + 1`這種無意義運算，斷言方向也不對），重寫為對格子(0, 0)（其位元全為0，所以是空框）在框內緣兩側的四分之一柔化寬度取樣。(2) 突變檢查第一輪的存活者：格線寬度加倍、以及格子「下方與右方」的邊界項被拿掉的突變存活——在圖塊內部這些項確實多餘（相鄰格的另一側項會畫出同一條線），但在圖塊的右邊與下邊（接縫處）拿掉會讓最後一格少畫半條線，而原先的無縫測試只比較u與u+1，抓不到；補上接縫兩側（1 - 0.0006處）仍是格線色調的取樣、以及格線與軸線左側在四分之一柔化寬度的內外過渡後，四種拿掉某一項的突變與寬度突變都被抓到。(3) 我第一次的一個突變錨點（`Math.abs(fv - 0.5),`）沒有套用，改用另一個錨點重做後被抓到。
 - 實測：`tests/procedural-material-motifs.test.ts`兩千五百零一項（本材質十三項）全過，`tsc`、eslint通過。測試端對2、4、8三種大小各試一次：每格要有星座點（色調誤差0.02）、且每個位元方塊的外框左緣都是墨色，必須恰有一種大小全部成立；從中心色調讀出每格的位元，要求同相軸的字在同一欄內相同、正交軸的字在同一列內相同，且各軸的字要嘛全等於格雷碼`level ^ (level >> 1)`、要嘛全等於一般二進位（同相軸往右遞增、正交軸往上遞增）；格雷碼時相鄰符號恰差一位元。九個seed（0、7、4294967295、1至6）通過；60個seed涵蓋2、4、8三種大小與4、8時的兩種編碼；星座點、實心與空的位元方塊、象限紙色（含顆粒範圍）、各格線與中間軸線的色調／高度／粗糙度；星座點、位元方塊外緣與內緣、格線與軸線的柔化過渡；60個seed的通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（確認基準通過後，每個確認套用）：大小與編碼的選擇、格雷碼公式、正交軸的方向、象限判斷、位元順序與位置、同相與正交列的位置、方塊與框線的大小、格線與軸線的位置與寬度（含接縫）、星座點位置與半徑、各色調高度粗糙度、顆粒遮罩，全部被抓到。2×2的格雷碼與一般二進位相同，所以對編碼的任何改動在該大小無法觀察，這是設計上的限制，不算漏網的突變。`tests/procedural-material.test.ts`以`-t "qamconstellation|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約59–68 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`qamconstellation`：嚴格斷言的檢查（option為1138個、status含「1137 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）符合；截圖第一次嘗試出現瀏覽器「Target closed」錯誤（工具端，非頁面錯誤），第二次成功並符合。實看512預覽圖：seed7是2×2（每格一個點加上兩個單位元方塊），seed5是4×4（每格兩列各兩個方塊），seed3是8×8（每格兩列各三個方塊），象限的紙色深淺不同、中間有較粗的軸線；25球的gallery畫面中球面上只看得到零星的深色小塊。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：吉他和弦圖（chorddiagrams）
-
-- 目錄1137→1138，含plain的gallery為1139項。2×2或3×3格的和弦框（6弦、琴枕、5格；按弦的實心點、空弦的圓圈、悶音的叉號），十個第一把位和弦，seed決定格數與顯示的和弦（全部不同）；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計的示意；和弦按法是我憑記憶寫的。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`8cd5f54b4`（目錄1134種）執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**8216項通過、0失敗**（約1073秒）。此後的霍夫施塔特Q數列、計數器時序圖、QAM星座圖與本材質只跑定向測試，尚未再跑完整套件（累積四個）。
-- 開發中發現的問題：(1) 取樣端：`verify.sh`裡的eslint抓到我留在取樣器的未使用變數`cells`（`@typescript-eslint/no-unused-vars`），已刪除並重跑verify；這個錯誤在我先前只跑測試與tsc時不會出現。(2) 測試端：第一次執行有一項失敗，我把叉號手臂末端的探測點（0.9倍半徑的對角線上）誤當成「應該是紙面」，其實它還在手臂內；改為在手臂內與剛超出半徑處分別取樣。草稿裡留了沒用到的`void shapes`與解構變數，已刪除。(3) 突變檢查的存活者暴露測試缺口：框線與琴枕往右越過最外弦的突變（原本只測左側）、弦的高度、叉號手臂沿對角線的寬度（把`Math.SQRT1_2`換成1）、手臂末端用最小值而不是最大值判斷長度，都先存活；補上對應的取樣後被抓到。(4) 我第一次的手動「改和弦」突變腳本有兩個因為`node -e`把以`-1`開頭的參數當成選項而根本沒有改到檔案、也沒跑測試（這是我的腳本錯誤，不是測試結果），加上`--`後重做。
-- 實測：`tests/procedural-material-motifs.test.ts`兩千五百一十五項（本材質十四項）全過，`tsc`、eslint通過。測試端對2與3兩種格數各試一次：每格每條弦，叉號中心為墨色就是悶音、否則圓圈右側一點為墨色就是空弦、否則在五個琴格的中心恰有一個墨色圓點；必須恰有一種格數整張都能判讀。再用標準調弦（MIDI 40、45、50、55、59、64）算出每個和弦各發聲弦的音名，要求恰有三個不同音名、構成某個大三和弦或小三和弦（根音、三度、五度）、且最低音是根音（根音位置）；每張圖內的和弦各不相同。九個seed（0、7、4294967295、1至6）通過；60個seed兩種格數與十個和弦（C、G、D、A、E、F大三和弦與A、E、D、B小三和弦）都出現過，且同一個和弦不論出現在哪裡按法都相同；琴枕（色調、高度）、五條琴格線、六條弦（含空弦與悶音處）、框線與琴枕不超出最外弦（左右兩側）、弦不超出琴枕與最後一格；實心點（色調、高度、粗糙度、半徑）、空弦圓圈、叉號（對角線、手臂寬度與末端、中心、高度）；點、弦與琴枕、琴格線在四分之一柔化寬度的內外過渡；60個seed的通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（確認基準通過後，每個確認套用）：格數選擇、框線與弦的範圍與寬度、琴格數、叉號與圓圈與點的幾何與位置與半徑、弦間距、各色調高度粗糙度、顆粒遮罩、座標縮放；另外手動改preset裡C、G、F、Bm四個和弦的一個弦位，各使三和弦測試失敗（分別7、8、9、6項失敗）。洗牌與格子索引（哪個和弦出現在哪一格）我沒有做突變，因為任何排列都是合法的輸出；測試只要求各格和弦互不相同。測試只驗證各弦發出正確的三和弦音名、且為根音位置，不驗證這是否為最標準的按法。`tests/procedural-material.test.ts`以`-t "chorddiagrams|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。512單次取樣約89–102 ms（Bun單次量測，非效能認證）。
-- 真實dev server的pbr3d頁（WebGPU）選取`chorddiagrams`：嚴格斷言的檢查（option為1139個、status含「1138 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512 seed7與seed3的預覽圖（新檔名）：seed7是3×3、seed3是3×3的和弦框，可看到琴枕粗線、琴格、黑色按弦點、空弦圓圈與悶音叉號；F與Bm的橫按只畫出各弦上的點，沒有畫橫按的長條。25球的gallery畫面中球面上只看得到零星的小黑點與細線。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：瀑布圖（waterfallchart）
 
@@ -13370,14 +13126,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`兩千六百二十八項（本材質十三項）全過，`tsc`、eslint通過。測試端從畫面獨立解碼：節點（四個方向各探一點，個數必須是8、10或12之一）、起點（外圈四個方向的環的色調，恰好一個）、路徑（每一對點，在避開兩端、其他節點與起點環的線段上取樣，若全部同為路徑色調就算一段，相鄰一格的兩點只取中點）；要求恰好n−1段，依色調排序後每段由上一段結束的點接續、不重複造訪、色調等於「依順序的第k段」的預期值（第一段最深、最後一段最淺，中間均分），且每一步的距離（格點整數平方）不大於當時任何一個未訪問點的距離（容許同距離）；因此全部要走完恰好n個點。九個seed（0、7、4294967295、1至6）通過；60個seed三種點數都出現、點離邊界至少margin、任三點不共線、其他點離路段至少clearance；節點的色調／高度／粗糙度與半徑、起點環與紙面、路徑兩側的色調／高度／粗糙度與寬度；路徑、節點、環的邊緣在四分之一柔化寬度的內外過渡；60個seed的通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（確認基準通過後，每個確認套用）：格點範圍、共線判定、距離公式（歐氏改曼哈頓）、clearance、各段的色調順序、色調分母、路徑與環與節點的半寬、節點用錯距離、顆粒遮罩、各色調高度粗糙度、起點是否標記為已訪問、點數選擇、座標置中、最後一段不畫，全部被抓到（除上述等價者與沒套用的那一項）。`tests/procedural-material.test.ts`以`-t "nearesttour|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`nearesttour`：嚴格斷言的檢查（option為1147個、status含「1146 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512 seed7（12個點）與seed3（10個點）的預覽圖（新檔名）：圓點之間以細線連成一條折線，一個點外圍有一圈環，線的灰度從深到淺；25球的gallery畫面中球面上只看得到零星的暗色點與短線。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：編輯距離表（editdistance）
-
-- 目錄1146→1147，含plain的gallery為1148項。兩個4到7個符號的短字串與Levenshtein編輯距離表，最便宜的回溯路徑上的格子有外框；seed決定兩個字串；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計的示意。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：在`git archive`乾淨匯出的`8826cb1cf`（目錄1146種，即最近鄰路徑材質提交）執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**8398項通過、0失敗**（約1293秒；同時還有其他測試與突變工作在跑，這個時間不是效能數據）。本材質只跑定向測試，尚未再跑完整套件。
-- 開發中發現的問題：取樣端沒有發現缺陷。測試端：(1) 邊緣柔化測試中我把「路徑上的框數」下限寫成大於7，但字串長度最短是4，路徑最短只要5格，第一次執行失敗；改成至少「較長字串的長度加1」。(2) 突變檢查找到兩個測試缺口：第二個字串的長度選擇（改成只會選前三種長度）原本存活，因為我把兩個字串的長度併在同一個集合檢查；改成分開檢查。回溯路徑「上」與「左」的優先順序（改成先左後上）原本存活，因為九個seed裡剛好沒有出現上與左同時最佳而對角不是的格子；補上60個seed的檢查，要求路徑上至少出現一次這種格子，並且每個seed的框都等於以獨立重建的路徑，之後被抓到。(3) 兩個突變讓取樣迴圈永遠不結束：邊界欄的值改成0與改成i+1，回溯路徑到邊界時找不到下一步（我自己的突變腳本因此卡了兩次、各到3000秒的上限，前兩次執行沒有任何輸出；第一次殺掉程序並把來源檔從備份還原後確認與備份一致，改突變後第二次又卡住，才在腳本加入每次執行180秒的逾時並印出TIMEOUT）。這兩個突變算被「逾時」抓到，不是被斷言抓到。(4) 一個等價突變：框完全在填色範圍內，所以`mask = Math.max(fill, frame)`與`mask = fill`輸出相同，我把取樣端改成後者並加註解，再重跑相關突變。(5) 未突變：標題格的`c >= 2`、`r >= 2`邊界——`c === 1`時符號為0，沒有點，所以放寬為`>= 1`會是等價突變；這個邊界保留是為了避開`second[-1]`這類越界讀取。(6) 效能：512單次取樣約97–106 ms（Bun單次量測，非效能認證）。
-- 實測：`tests/procedural-material-motifs.test.ts`兩千六百四十一項（本材質十三項）全過，`tsc`、eslint通過。測試端從畫面獨立解碼：表格大小（沿第一列與第一欄數有色的格子，兩個長度都必須在4到7）、兩個字串（每個標題格三個位置是否為點，點必須從左邊填起、一到三個）、每格的值（色調必須落在某一個值的色調附近）、每格是否有外框（四個方向探針全有或全無）；以記憶化遞迴（與取樣端依序填表不同）重算每一對前綴的編輯距離逐格比對；以獨立重建的回溯路徑（先對角、再上、再左）逐格比對框。九個seed（0、7、4294967295、1至6）通過；60個seed兩個字串都出現過四種長度、三種符號的比例各在0.25到0.42之間、路徑從最後一格到第一格且格數介於較長字串長度加1與兩長度和加1之間、終點距離不超過較長字串長度、至少一次上與左同為最佳的格子；格子的色調／高度／粗糙度與填色範圍、框的色調／高度／粗糙度與寬度與內外、點的色調／高度／粗糙度與半徑、空白格與格子外的紙面；格子、框（內外兩側）、點的邊緣在四分之一柔化寬度的內外過渡；60個seed的通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（確認基準通過後，每個確認套用；上述缺口補強後重跑相關突變，全部被抓到）：兩個長度的選擇、兩個字母表、邊界列與欄、三種步驟的代價、替換代價、對角的來源、路徑的規則與優先順序、格子範圍的四個邊界、標題格的欄列範圍、標題字串的取用與點的位置與形狀、填色與框的形狀（以一個方向取代最大值）、框的有無、值的色調、各色調高度粗糙度、顆粒遮罩。`tests/procedural-material.test.ts`以`-t "editdistance|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`editdistance`：嚴格斷言的檢查（option為1148個、status含「1147 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512 seed7的預覽圖（新檔名；第一個字串7個符號、第二個6個）：上緣與左緣是一到三個點的符號，中間是8列7欄的灰色方格，左上最淺、右下最深，有黑色外框的格子沿著大致的對角線排列；25球的gallery畫面中球面上看得出方格紋理，但太小讀不出值。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：鏈結雜湊表（hashchains）
 
 - 目錄1147→1148，含plain的gallery為1149項。6到8個桶、10到18個7位元的鍵，每個鍵在「餘數」那個桶的鏈裡，盒子內是二進位的鍵，外框灰度表示插入先後，每串至多5個；seed決定桶數、鍵數與鍵；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計的示意。仍在獨立worktree分支`materials/more-textures`作業。
@@ -13385,14 +13133,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 開發中發現的問題：(1) 取樣端缺陷：第一版盒子寬0.112、七個位元方塊從盒子邊緣起每0.016一個，最左的位元方塊（半寬0.0058）與外框（寬0.004）重疊；測試第一次執行有十二項失敗（例如框色調與預期差0.01以上，且解碼不出框而把盒子當成不存在）；加上內縮`bitInset`（0.008）並把盒寬改成0.128，使方塊與框之間留出空隙。(2) 取樣端缺陷：每個盒子所在的格子從盒子左緣開始，所以盒子左緣外側的點落在前一個格子，盒子的外側柔化邊只有右、上、下三側有，左側是硬邊；邊緣柔化測試以左緣外四分之一柔化寬度取樣，與預期差0.094而失敗；改成讓盒子在格子中置中（格子起點往左移半個間距），之後通過，並重新看了預覽圖。(3) 測試端的錯誤：槽方塊上緣的柔化取樣我第一版把內側四分之一的預期混合量寫成0.25（應為0.75），另外有兩個永遠成立的斷言（`|| chain.length > 0`與`toBeGreaterThan(-1)`）已刪除。(4) 突變檢查第一輪有六個錨點沒套用（Prettier斷行後找不到），改用格式化後的行重跑，全部套用並被抓到，唯一的存活是位元索引的夾限（`Math.min(keyBits-1, Math.max(0, …))`）：鍵小於128，夾限外的索引（−1與7）對應的移位結果恆為0，所以拿掉夾限輸出不變，是等價突變，我保留夾限以免依賴移位的細節。(5) 沒有突變：把鏈結終點往後延伸到最後一個盒子之內——我推論這會被盒子擋住而輸出相同，但沒有實際跑。(6) 效能：512單次取樣約51–68 ms（Bun單次量測，非效能認證）。
 - 實測：`tests/procedural-material-motifs.test.ts`兩千六百五十四項（本材質十三項）全過，`tsc`、eslint通過。測試端從畫面獨立解碼：桶數（沿槽的一欄數有槽色調的列，必須是6到8）、每列的盒子（盒子左框的色調落在框色調範圍內才算有盒子，第一個沒有盒子的位置之後到上限都不能再有）、每個盒子的鍵（七個位元位置的深淺，最高位在左）與插入順序（框色調換算成名次）。要求鍵互不相同、名次恰是0到n−1各一次、每串不超過5個、n是10／14／18之一；再把所有鍵依名次順序重新插入、每個放進「鍵除以桶數的餘數」那個桶的尾端，必須得到與畫面上完全相同的每一串。九個seed（0、7、4294967295、1至6）通過；60個seed三種桶數與三種鍵數都出現、每個位元在鍵中是1的比例在0.4到0.6之間、最長的鏈恰好是上限、有空的桶；槽、鏈結、盒子框、位元的色調／高度／粗糙度與大小（框寬、鏈結寬、位元半寬、槽半寬）、空桶沒有鏈結與盒子、盒子內部（框與位元之間、鏈結被擋住的地方）是紙面；槽、鏈結、框內外兩側與左緣、位元的邊緣在四分之一柔化寬度的內外過渡；60個seed的通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（確認基準通過後，每個確認套用）：桶數與鍵數選擇、鍵範圍、取餘數、鍵重複的判斷、鏈長上限、插入名次、名次色調的分母、位元順序與內縮與大小與對錯、列範圍、盒子範圍（包含負的格子編號與多一格）、盒子形狀與框寬、鏈結終點與起點與粗細、鏈結被盒子遮住、各色調高度粗糙度、顆粒遮罩與其組成，全部被抓到（除上述等價者）。`tests/procedural-material.test.ts`以`-t "hashchains|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`hashchains`：嚴格斷言的檢查（option為1149個、status含「1148 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512 seed7（修正位元方塊與框重疊之前的第一版；6個桶，兩個桶是空的）與修正後的seed3（6個桶，一個空桶、一串4個盒子）的預覽圖（新檔名）：左邊一欄灰色方塊，每個方塊右邊接細線與一串帶外框的盒子，盒內有小的深色方塊，較早插入的外框較深；畫面下方約三分之一是空白紙面；25球的gallery畫面中球面上看得到零星的小方框與短線，細節太小讀不出鍵。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：霍夫曼編碼（huffmancodes）
-
-- 目錄1148→1149，含plain的gallery為1150項。5到7個符號的霍夫曼編碼：每列一條長度等於頻率（1到30）的橫條與其編碼（深色方塊1、空框0），頻率高的在上；seed決定符號數與頻率；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計的示意。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`8826cb1cf`（目錄1146種）執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**8398項通過、0失敗**（約1293秒，同時有其他工作在跑）。此後的編輯距離表、鏈結雜湊表與本材質只跑定向測試，尚未再跑完整套件（累積三個）。
-- 開發中發現的問題：取樣端沒有發現缺陷，測試第一次執行即全過，所以我只靠突變檢查找測試的缺口與無用程式碼：(1) 我在跑突變之前就預期「在第一位之前、長條與編碼之間也要是紙面」這個檢查會被漏掉（拿掉`place >= 0`的突變），先補了這個探針，所以那個突變是被補上的探針抓到，不是原有測試抓到的。(2) 無用程式碼：編碼方塊一律在最長橫條的右側，兩者不會重疊，所以`mask = Math.max(mask, amount)`的`Math.max`沒有作用，改成`mask = amount`並加註解。(3) 我沒有對下列我推論為等價的變動做突變（沒有實際跑，所以不是「被證明等價」）：合併時左右兩部分互換（0與1對調，仍是同樣成本的前綴碼）、頻率相同時的排序與選取先後（相同頻率的列外觀相同，相同重量的樹先合併哪一棵得到的成本相同）。(4) 效能：512單次取樣約61–76 ms（Bun單次量測，非效能認證）。
-- 實測：`tests/procedural-material-motifs.test.ts`兩千六百六十七項（本材質十三項）全過，`tsc`、eslint通過。測試端從畫面獨立解碼：每列的橫條長度（沿列的中線數連續的橫條色調格子，必須在1到30）與編碼（每個位置中心深色為1、中心紙面且外框有框色調為0，兩者都不是就是編碼結束，之後三個位置必須是紙面）；要求符號數為5、6、7之一，每個編碼長度至少1、至多符號數減1，頻率由高到低排列、頻率較高的符號編碼不會比較長，任兩個編碼都不是另一個的開頭，各編碼的`2^-長度`相加恰為1（完整），且總成本（頻率乘長度的和）等於另一種算法（每次排序後合併最輕的兩個重量，成本為各次合併的和）算出的最佳成本。九個seed（0、7、4294967295、1至6）通過；60個seed三種符號數都出現、頻率最小為1而最大超過24、頻率不超過4的比例在0.28到0.45、編碼長度從1到至少5都出現；橫條與方塊的色調／高度／粗糙度、橫條範圍（起點、終點、半高）、深色方塊的範圍、空框的框寬與內外、編碼之外（最後一位之後、第一位之前、最後一列之後、頂端之上）是紙面；橫條端點與上緣、方塊、空框內外兩側在四分之一柔化寬度的內外過渡；60個seed的通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（確認基準通過後，每個確認套用，全部被抓到）：符號數與頻率的選擇與分佈與範圍、列順序、取最輕或最重、合併後的重量、合併時標記為已用、位元賦值、編碼長度、列範圍、橫條的形狀與長度、方塊的位置（含置中）與範圍（含負的位置與多一個位置）與形狀、位元順序與對錯、框寬、各色調高度粗糙度、顆粒遮罩。`tests/procedural-material.test.ts`以`-t "huffmancodes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`huffmancodes`：嚴格斷言的檢查（option為1150個、status含「1149 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512 seed7的預覽圖（新檔名；6個符號，編碼為11、01、00、101、1001、1000）：左邊是由長到短的灰色橫條，右邊每列是深色方塊與空框組成的位元；每個重複單位的下方約四分之一是空白紙面；25球的gallery畫面中球面上看得出成疊的橫條，細節太小讀不出編碼。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：波德圖（bodeplots）
 
@@ -13417,14 +13157,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 開發中發現的問題：(1) 我在看預覽圖時發現註解與實作不一致：註解說刻線「至少相隔兩格」，實作用`< minGap + 1`會要求相隔至少三格，改成`< minGap`；這是在寫測試之前發現的，後續測試以相隔至少`minGap`為準。(2) 取樣端的設計問題（由測試發現）：基準線的左右端點只往外延伸一個線寬（0.0014），而區間邊界的標記半寬0.0012，所以基準線兩端被標記蓋住；測試在基準線左端探測得到0.525而不是0.55（標記的色調混入）而失敗。加入`baselineOverhang`（0.006）讓基準線兩端往外多伸出一截。(3) 測試檔中有一個殘留的無意義運算式（`middle > 0 ? top + 0.01 : 0`），已改成`top + 0.01`。(4) 突變檢查：所有突變都被抓到；沒有突變的是兩個我推論為等價的地方（沒有實際跑）：區間範圍的上界`bin < bins`（超出時讀到型別陣列範圍外得`undefined`，`undefined > 0`為假，所以不畫）與`tally[bin] > 0`（改成`>= 0`時，空區間的長條高度為零，只剩被基準線蓋住的一條極細線）。(5) 效能：512單次取樣約58–72 ms（Bun單次量測，非效能認證）。
 - 實測：`tests/procedural-material-motifs.test.ts`兩千七百零七項（本材質十三項）全過，`tsc`、eslint通過。測試端從畫面獨立解碼：區間邊界標記（沿標記中段取樣，相鄰標記數減一即區間數，必須是8、10、12之一，標記位置必須等距）、下方一排刻線（每條的位置換算成格位，個數必須是20、28、36之一，位置與格位中心相差不到0.0007）與每個區間的長條高度（沿區間中線由基準線向上取樣到色調改變）；以整數運算（`floor((2*格位+1)*區間數/(2*格數))`，與取樣端的分數算法不同）把刻線分進區間，必須與解出的長條高度完全一致；要求刻線互不相同、相隔至少`minGap`格、離區間邊界至少一格半，總數等於長條高度的和。九個seed（0、7、4294967295、1至6）通過；60個seed三種值的個數與三種區間數都出現、有空的區間、值落在中間三分之一的比例在0.45到0.62之間（兩次抽樣的平均約0.556，均勻分佈則是0.333）；長條的色調／高度／粗糙度與範圍（左右各縮進barGap、上緣、基準線）、基準線的色調／高度／粗糙度與厚度與兩端、區間邊界標記的色調與寬度與長度、刻線的色調／高度／粗糙度與寬度與上下端、沒有值的格位與圖上方與左右是紙面；長條四邊、基準線下緣、標記的側邊與下端、刻線的側邊與兩端在四分之一柔化寬度的內外過渡；60個seed的通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（確認基準通過後，每個確認套用，全部被抓到）：值與區間數的選擇、偏向中間的抽樣、離邊界的要求、最小間隔、格位中心、長條的縮進與高度與底端、基準線的粗細與兩端、標記的有無與位置（含最後一個）與寬度與長度、刻線的位置與寬度與上下端與色調高度、各色調高度粗糙度、顆粒遮罩。`tests/procedural-material.test.ts`以`-t "histogrambins|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`histogrambins`：嚴格斷言的檢查（option為1153個、status含「1152 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512 seed7的預覽圖（新檔名；10個區間，其中最左與最右各有一個空的）：灰色的長條排在基準線上，邊界有向下的小標記，下方一排細黑刻線，圖的上方與四周是空白紙面；25球的gallery畫面中球面上只看得到一小塊深色，讀不出內容。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：Z階曲線（zordercurve）
-
-- 目錄1152→1153，含plain的gallery為1154項。4×4或8×8格子的Z階（莫頓）曲線，灰度由深到淺，格子中心有圓點；seed決定大小與八種轉向／翻轉之一；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計的示意。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：最近一次在`git archive`乾淨匯出的`f41b65c44`（目錄1150種）執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**8454項通過、0失敗**（約1220秒，同時有其他工作在跑）。此後的桑基圖、直方圖與本材質只跑定向測試，尚未再跑完整套件（累積三個）。
-- 開發中發現的問題：取樣端沒有發現缺陷，但第一版取樣太慢：每個像素對每個線段與格點各呼叫一次`Math.hypot`，512單次取樣seed 7（8×8）約393 ms、seed 3與5約151–154 ms；改成預先算好每段的向量與長度平方的倒數、以平方距離比較、最後才開根號，seed 7約117 ms、seed 3約74 ms（Bun單次量測，沒有分離其他影響，非效能認證）。測試端的錯誤：(1) 整張圖比對的「靠近邊緣就略過」容許值我寫成0.004，大於線段半寬0.0035，所以線段中線上的每個探針都被當成靠近邊緣而略過，等於完全沒有檢查線段的色調，結果有幾個seed同時符合兩個候選（例如互為反向的兩條曲線，只差色調的順序）；改成0.0015並在每個候選曲線的每一段上加四分之一、二分之一、四分之三處的探針，之後每個seed恰好符合一個候選。(2) 覆蓋測試我原本取60個seed，但16種組合（兩種大小乘八種變化）在60個seed裡漏掉至少一種的機率約三成，第一次執行就漏了一種（15種）；改成最多150個seed、集齊16種就停止。(3) 刪掉一段繞來繞去的殘留跳過條件。(4) 突變檢查有兩個存活，我判斷是等價突變：把`(variant & 1)`的判斷反過來，只是改變了seed對應到哪個變化，所有可能的圖形集合不變；把最後一段的`break`條件改成`m === cells`，最後多出的是長度為零的線段，被最後一個圓點完全蓋住。沒有改程式。
-- 實測：`tests/procedural-material-motifs.test.ts`兩千七百二十項（本材質十三項）全過，`tsc`、eslint通過。測試端用遞迴切成四個象限（左上、右上、左下、右下）的方式產生Z階順序（取樣端用編號的位元），套上八種轉向／翻轉，對兩種大小共十六條候選曲線逐一和畫面比對：在整個圖塊的格點與每條候選線段上的點，預期每一點是圓點色調、某一段的灰度、或紙面（靠近邊緣或兩段相近的點不判斷）；每個seed必須恰好符合一條候選。九個seed（0、7、4294967295、1至6）通過；150個seed內兩種大小與八種變化全部出現；圓點的色調／高度／粗糙度與半徑、線段中點的灰度／高度／粗糙度與寬度（兩側）、圖形外是紙面；線段兩側、圓點邊緣在四分之一柔化寬度的內外過渡；60個seed的通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（確認基準通過後，每個確認套用，除上述兩個等價者外全部被抓到）：大小與變化的選擇、位元取法、轉向與翻轉的公式、格子中心、間距、線段長度倒數、線段端點夾限、距離比較、線段寬度、圓點大小、灰度分母、各色調高度粗糙度、顆粒遮罩。`tests/procedural-material.test.ts`以`-t "zordercurve|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
-- 真實dev server的pbr3d頁（WebGPU）選取`zordercurve`：嚴格斷言的檢查（option為1154個、status含「1153 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512 seed7的預覽圖（新檔名；8×8，最深的線段在下方）：格子中心是深色圓點，一個個小「Z」以細線連接，再由較長的斜線連到下一個象限，灰度由下往上變淺；25球的gallery畫面中球面上看得到規則排列的小點，讀不出線段。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：羅倫茲曲線（lorenzcurve）
 
@@ -13690,14 +13422,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`三千一百五十二項（本材質十三項）全過，`tsc`、eslint通過。測試端的解碼與驗證如上：擬合得到的半長軸與離心率與預設相差小於0.004、中心在磚中央（相差小於0.002）、行星數在預設列表中；各行星的平均近點角等間隔（容許差0.006弧度）；各楔形中央的色調交替；各楔形像素面積加回線條損失後與橢圓面積／楔形數相差小於3%；最長與最短的太陽到行星距離比大於1.3。逐項的繪製：軌道線（在兩個相鄰位置的時間中點、沿橢圓外法線量：外緣與內緣的中點的色調、高度、粗糙度，兩邊緣的間距得到半寬，容許差0.00005，柔化過渡的四分之一到四分之三處為edgeSoft的0.3473倍）、太陽到行星的線（同樣量法，兩邊的楔形色調不同）、行星圓點（沿軌道切線兩側的邊緣得到半徑，容許差0.00005，向外的柔化過渡）、太陽（沿最寬楔形的中線量半徑與柔化）。60個seed：三種半長軸、三種離心率、三種楔形數都出現，朝向落在八個八分之一圈中、各至少2個；通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（基準通過後，約55個突變全部確認套用）：半長軸、離心率、楔形數、朝向、第一個位置的時間、短軸與焦點與步長的算式、克卜勒方程式的符號、行星座標（交換xy）、旋轉的符號、早退出的各邊界、橢圓內側距離（含一階近似的斜率）、平近點角的計算（真近點角、偏近點角、方程式）、楔形的奇偶與色調與高度、射線的端點與半寬與色調與高度、行星與太陽的半徑與位置與色調與高度、粗糙度、柔化偏移；除了「楔形奇偶整個反過來」（第一個位置的時間在整圈內任意，絕對奇偶看不出來，等價）、「楔形填色向外多0.001」（被軌道線的半寬0.002蓋住，等價）與`mask = Math.max(mask, amount)`改成`mask = amount`（與先前材質相同，沒有測試保護）外全部被抓到。`tests/procedural-material.test.ts`以`-t "keplerorbit|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。效能：512單次取樣約117到151 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`keplerorbit`：嚴格斷言的檢查（option為1187個、status含「1186 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512預覽圖（第一版seed 7、改離心率後的seed 3與最終的seed 14，各一張）：灰藍色細線的橢圓軌道，內部由太陽（大深色圓點，在焦點）放射出的線分成兩種淺灰色交替的楔形，軌道上有一圈小深色圓點，離太陽近的一側楔形短而寬、遠處細而長；每塊磚四個重複，圖案佔磚面約八成；25球的gallery畫面中球面上只看得到細小的弧線與點，讀不出內容。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
-## 2026-11-02 程序材質：艾森斯坦質數（eisensteinprimes）
-
-- 目錄1186→1187，含plain的gallery為1188項。a＋b·ω構成的28×28三角格點，質數畫成大深色圓點、其他數為小淺色圓點、原點為中等圓點加一圈環；原點位置（八個預設之一）由seed決定；質數在轉六分之一圈下相同；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計的示意。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：在`git archive`乾淨匯出的`9b9a49101`（目錄1182種）上跑`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**8906項通過、0失敗**（約1430秒）；之後的貢獻日曆圖、畢氏定理圖、克卜勒軌道圖與本材質只跑定向測試，尚未再跑完整套件（另在`be3d4ee47`上起了一次完整套件，本段寫作時尚未回報結果，所以不引用）。
-- 開發中發現的問題：(1) **取樣端真實缺陷（測試抓到）**：原本原點外環的半徑0.0185大於格點間距的一半（0.0178），環跨過了鄰近格點之間的分界（最近格點分類在分界處換成鄰居），在環上讀到紙面色調（測試量到0.9676，預期0.44）；環半徑改為0.0145、半寬0.0015，使環的外緣（0.016加柔化）在分界內。(2) 突變檢查找出取樣端的多餘程式：質數判斷中「範數為q²時是否為q的結合元」的檢查多餘（q為模3餘2的質數時，範數q²只有六個單位倍的解），刪除；找最近格點時比對上下相鄰列也多餘（圓點半徑0.012小於半列距0.0179，別列的圓點不會到達這個像素），改成只看本列並說明理由。(3) 測試端：「對稱比對的點對數大於500」這個門檻抓太高（有兩個seed只有390與450對），降為300；圓點半徑檢查原本只量六個斜向角度，沒量正上與正下，突變檢查（把列的取整偏移0.2）才發現圓點下緣被截掉而沒被抓到；補上90°與270°。
-- 實測：`tests/procedural-material-motifs.test.ts`三千一百六十五項（本材質十三項）全過，`tsc`、eslint通過。測試端從畫面讀出28×28個格點中心的色調分出質數、其他與原點，並用完全不同的方法判斷質數（逐一試所有可能的因子c＋dω，用乘以共軛後兩個分量都被範數整除判斷整除），驗證所有格點的類別；再從畫面驗證轉六分之一圈與半圈（把每點移到旋轉後的位置，若仍在圖內，類別必須相同，每個seed比對數百對）。逐項的繪製：質數、其他數、原點的色調／高度／粗糙度與半徑（六至八個方向，內側0.0004是該色調、外側0.0004是紙面）、原點的環（色調、高度、兩側寬度、環與圓點之間與環外是紙面）；圓點邊緣與環兩緣的柔化過渡；60個seed：八個原點位置都出現且各介於2到15次之間；通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（基準通過後，40個突變全部確認套用）：原點的選擇、質數判斷（邊界、範數公式、3的特例、q的條件）、格點類別與原點的座標對應、列與沿列位置的公式、距離與縮放、列內索引的取模、各類圓點的半徑與色調與高度、環的半徑與半寬與色調與高度、原點圓點、粗糙度、柔化偏移；除了`mask = Math.max(mask, amount)`改成`mask = amount`（與先前材質相同，沒有測試保護）外全部被抓到。`tests/procedural-material.test.ts`以`-t "eisensteinprimes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。效能：512單次取樣約51到105 ms（Bun單次量測，非效能認證）。
-- 真實dev server的pbr3d頁（WebGPU）選取`eisensteinprimes`：嚴格斷言的檢查（option為1188個、status含「1187 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512預覽圖（seed 7第一版與修正環半徑後的seed 17，各一張）：滿版的三角格點，大的深藍色圓點（質數）疏密不均、在原點周圍形成六角對稱的圖樣，其他格點是小灰點，原點是一個帶細環的圓點，每塊磚四個重複；25球的gallery畫面中球面上只看得到細小的點，讀不出內容。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
 ## 2026-11-02 程序材質：卡特蘭三角剖分（catalantriangulations）
 
 - 目錄1187→1188，含plain的gallery為1189項。把凸多邊形用互不相交的對角線切成三角形的所有方法（五邊形5種、六邊形14種、七邊形42種），每種畫在格子的一格；由seed決定多邊形、排列順序與空格；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計的示意。仍在獨立worktree分支`materials/more-textures`作業。
@@ -13737,14 +13461,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 開發中發現的問題：第一版每列64格，實看預覽發現64是2的次方，每一列的尺數列都一樣，整張圖只剩直條紋，改成質數61；其餘沒有發現取樣器或測試端的真實缺陷。
 - 實測：`tests/procedural-material-motifs.test.ts`三千二百三十四項（本材質十四項）全過，`tsc`、eslint通過。測試端從畫面讀每格的階與小方塊（誤差小於1e-6），用獨立的二進位字串算出，驗證恰好一個offset吻合整個方格、六階各有有無小方塊的格子、60個seed八個offset都被選到；逐階的繪製：方格與小方塊的色調／高度／粗糙度、方格四邊與四個角的大小、小方塊四邊與四個角的大小（外側回到方格色）、首尾兩個角落的值與格外為紙面；兩層邊緣的柔化；紙面顆粒在格邊緣依覆蓋比例淡出；通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（基準通過後，41個突變全部確認套用）：全部被抓到；其中「`odd >>= 1`改成`odd >>= 2`」的結果是計算尾端0的迴圈在n除到0時無法結束（逾時被偵測，不是由斷言抓到）。`mask = amount`改成`mask = 1`或`0`都被顆粒淡出的測試抓到。`tests/procedural-material.test.ts`以`-t "paperfoldingruler|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。效能：512單次取樣約90到122 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`paperfoldingruler`：嚴格斷言的檢查（option為1193個、status含「1192 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512預覽圖（61格的最終版只看了seed 3；64格的舊版seed 3看過）：每塊磚61×61個方格，淺灰到深藍灰的六階，其中散布著小方塊，整體像細碎的斑點，四個重複；25球的gallery畫面中球面上只看得到細碎的斑點，讀不出內容。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-
-## 2026-11-02 程序材質：沃爾什矩陣（walshmatrix）
-
-- 目錄1192→1193，含plain的gallery為1194項。階數8、16或32的Hadamard矩陣（符號為(−1)的「二進位i AND j中1的個數」次方，+1深−1淺），列依自然順序或Walsh順序排列，符號可整個反轉；階數、排列與反轉由seed決定；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計的示意。仍在獨立worktree分支`materials/more-textures`作業。
-- 完整套件：在`git archive`乾淨匯出的`0bb8b8e6b`（目錄1192種，即折紙尺數列方格的commit）上跑`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`，**9050項通過、0失敗**（約1581秒，期間同時跑了本材質的測試與突變，所以比先前慢）；本材質只跑定向測試，尚未再跑完整套件。
-- 開發中發現的問題：測試端的錯誤：第一版以「所有格子中心都是符號色調的階數」判斷階數，粗格的中心也落在細格的方格內，所以階數8的畫面有三個階數都符合（十一項失敗），改成取最小的符合階數（較粗的格網中心落在較細畫面的間隙上，較細的格網中心則落在較粗畫面的方格內）；十二種組合在60個seed中有一個沒出現（機率約6%的巧合），改用150個seed。取樣器沒有真實缺陷。
-- 實測：`tests/procedural-material-motifs.test.ts`三千二百四十九項（本材質十五項）全過，`tsc`、eslint通過。測試端獨立驗證：任兩列與任兩欄正交、第一列單一符號、其餘列兩種符號各一半、恰好是自然順序或Walsh順序、十二種組合都出現、400個seed中Walsh順序與反轉各佔四成到六成；逐項的繪製：符號的色調／高度／粗糙度、方格四邊與四個角的大小、四個角落的值與格外為紙面（三種階數各一個seed）；邊緣柔化；紙面顆粒在格邊緣依覆蓋比例淡出；通道範圍；顆粒只在紙面；無縫重複；seed不同。突變檢查（基準通過後，44個突變全部確認套用）：第一輪有八個存活，其中「Walsh順序／反轉的機率0.5改成0.3」補上400個seed的比例測試後（機率改成0.3或0.7四個突變都被抓到）解決；其餘是等價的：計算符號改變次數時略過第一個或最後一個邊界，只改變計數但不改變排列結果（腳本逐一比對三種階數的排列相同）；奇偶計算中`rest & 1`改成`rest & 3`（只取奇偶，`& 3`多出的偶數部分不影響）；`Number(turned)`改成`Number(!turned)`（反轉機率為一半，互換等價）；把列與欄互換（`rows[column] & row`或`minus[column * order + row]`）（兩種排列的矩陣都對稱，所以看不出差別）。`tests/procedural-material.test.ts`以`-t "walshmatrix|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。效能：512單次取樣約90到112 ms（Bun單次量測，非效能認證）。
-- 真實dev server的pbr3d頁（WebGPU）選取`walshmatrix`：嚴格斷言的檢查（option為1194個、status含「1193 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512預覽圖（seed 1為8階、seed 3為32階、seed 5為16階且符號反轉）：深青與淺灰的方格矩陣，細白線間隙，每塊磚四個重複；25球的gallery畫面中球面上只看得到大塊的深淺色塊。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 
 ## 2026-11-02 程序材質：貝蒂分割方格（beattypartition）
 

@@ -709,13 +709,11 @@ export type ProceduralMaterialKind =
   | 'wireworldcircuit'
   | 'cycliccellular'
   | 'beattypartition'
-  | 'walshmatrix'
   | 'paperfoldingruler'
   | 'rudinshapirogrid'
   | 'baumsweetgrid'
   | 'binarynecklaces'
   | 'catalantriangulations'
-  | 'eisensteinprimes'
   | 'keplerorbit'
   | 'pythagoreanproof'
   | 'contributiongraph'
@@ -749,13 +747,10 @@ export type ProceduralMaterialKind =
   | 'quicksortsteps'
   | 'ganttschedule'
   | 'lorenzcurve'
-  | 'zordercurve'
   | 'histogrambins'
   | 'sankeyflows'
   | 'bodeplots'
-  | 'huffmancodes'
   | 'hashchains'
-  | 'editdistance'
   | 'nearesttour'
   | 'karnaughmap'
   | 'bsttreeorder'
@@ -764,14 +759,12 @@ export type ProceduralMaterialKind =
   | 'ecdfplot'
   | 'intervalpartition'
   | 'waterfallchart'
-  | 'chorddiagrams'
   | 'qamconstellation'
   | 'countertimings'
   | 'hofstadterq'
   | 'semaphorefigures'
   | 'fenwicktree'
   | 'jacobisymbols'
-  | 'vicsekfractal'
   | 'segmenttree'
   | 'rankchevrons'
   | 'windbarbs'
@@ -784,14 +777,11 @@ export type ProceduralMaterialKind =
   | 'intelhexrecords'
   | 'equalizerbars'
   | 'worleycells'
-  | 'errordiffusion'
   | 'tetrominoes'
   | 'candlestickcharts'
   | 'paleygraphmatrix'
   | 'superformulacells'
-  | 'tsquarefractal'
   | 'marchingsquares'
-  | 'wangtiles'
   | 'htreefractal'
   | 'lsystemplant'
   | 'quadtreecells'
@@ -799,15 +789,11 @@ export type ProceduralMaterialKind =
   | 'braiddiagram'
   | 'youngtableaux'
   | 'euclidsquares'
-  | 'voronoicells'
   | 'cliffordattractor'
-  | 'peanocurve'
   | 'bitwisetable'
-  | 'golombrulers'
   | 'henonattractor'
   | 'digitalroottable'
   | 'thuemorsegrid'
-  | 'recamanarcs'
   | 'happynumberchains'
   | 'lookandsayrows'
   | 'kaprekarsteps'
@@ -816,13 +802,10 @@ export type ProceduralMaterialKind =
   | 'circleoffifths'
   | 'periodictablecells'
   | 'josephuscircle'
-  | 'gaussianprimes'
   | 'timestablecircles'
   | 'divisorcountbars'
   | 'cobwebplots'
   | 'sierpinskipascal'
-  | 'sacksspiral'
-  | 'dyckpaths'
   | 'figuratenumbers'
   | 'pythagoreantriples'
   | 'hexdumprows'
@@ -845,7 +828,6 @@ export type ProceduralMaterialKind =
   | 'numberwords'
   | 'dipolefieldlines'
   | 'mobiusgrid'
-  | 'fordcircles'
   | 'vectorfieldarrows'
   | 'wordsquares'
   | 'caesarcipher'
@@ -853,10 +835,7 @@ export type ProceduralMaterialKind =
   | 'primefactors'
   | 'modularpowers'
   | 'burningship'
-  | 'logisticbifurcation'
   | 'bitwiselogic'
-  | 'gcdtable'
-  | 'percolationclusters'
   | 'abeliansandpile'
   | 'binaryaddition'
   | 'roundingmodes'
@@ -866,7 +845,6 @@ export type ProceduralMaterialKind =
   | 'bezierconstruction'
   | 'luhnnumbers'
   | 'twosourceripples'
-  | 'cassiniovals'
   | 'rosecurves'
   | 'conicsections'
   | 'cantorsetrows'
@@ -894,7 +872,6 @@ export type ProceduralMaterialKind =
   | 'draughtsposition'
   | 'colormapregions'
   | 'chinesecheckersboard'
-  | 'euclideanrhythms'
   | 'hidatochain'
   | 'mancalaboard'
   | 'rushhourjam'
@@ -922,23 +899,15 @@ export type ProceduralMaterialKind =
   | 'pianoroll'
   | 'skyscraperpuzzles'
   | 'knockoutbracket'
-  | 'primesieve'
   | 'sortingnetworks'
   | 'mayansums'
-  | 'latinsquares'
   | 'hanoitowers'
   | 'eightqueens'
-  | 'cantordust'
-  | 'dragoncurve'
   | 'pascalmodulo'
-  | 'gameoflife'
   | 'oghaminscription'
-  | 'kaleidoscope'
   | 'slidingpuzzle'
-  | 'magicsquares'
   | 'wordsearchgrid'
   | 'mastermindboard'
-  | 'elementaryautomata'
   | 'bluenoisemask'
   | 'fibonaccisquares'
   | 'doubleslitfringes'
@@ -955,7 +924,6 @@ export type ProceduralMaterialKind =
   | 'amidakuji'
   | 'code39barcodes'
   | 'graycodediscs'
-  | 'knightstour'
   | 'scrambledcubenet'
   | 'weavingdraft'
   | 'lightsoutboard'
@@ -973,18 +941,14 @@ export type ProceduralMaterialKind =
   | 'zoneplates'
   | 'lissajousgrid'
   | 'mondriancomposition'
-  | 'hilbertcurve'
   | 'battleshipgrid'
   | 'tetrisstack'
   | 'minesweeperboard'
   | 'flipdotdisplay'
-  | 'crosswordgrid'
   | 'fretboard'
   | 'calendarpage'
   | 'measuringtape'
   | 'sudokugrid'
-  | 'sheetmusic'
-  | 'ecgpaper'
   | 'datamatrixcodes'
   | 'frostpolygons'
   | 'sandripples'
@@ -993,7 +957,6 @@ export type ProceduralMaterialKind =
   | 'kilimflatweave'
   | 'tumblingblocks'
   | 'azulejotiles'
-  | 'moirefringes'
   | 'cinderblockwall'
   | 'dicefaces'
   | 'needlepoint'
@@ -1013,7 +976,6 @@ export type ProceduralMaterialKind =
   | 'ammonitestone'
   | 'amberresin'
   | 'patchworkquilt'
-  | 'bayerdither'
   | 'turingpattern'
   | 'mudcloth'
   | 'to220packagefaces'
@@ -2212,13 +2174,11 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'wireworldcircuit',
   'cycliccellular',
   'beattypartition',
-  'walshmatrix',
   'paperfoldingruler',
   'rudinshapirogrid',
   'baumsweetgrid',
   'binarynecklaces',
   'catalantriangulations',
-  'eisensteinprimes',
   'keplerorbit',
   'pythagoreanproof',
   'contributiongraph',
@@ -2252,13 +2212,10 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'quicksortsteps',
   'ganttschedule',
   'lorenzcurve',
-  'zordercurve',
   'histogrambins',
   'sankeyflows',
   'bodeplots',
-  'huffmancodes',
   'hashchains',
-  'editdistance',
   'nearesttour',
   'karnaughmap',
   'bsttreeorder',
@@ -2267,14 +2224,12 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'ecdfplot',
   'intervalpartition',
   'waterfallchart',
-  'chorddiagrams',
   'qamconstellation',
   'countertimings',
   'hofstadterq',
   'semaphorefigures',
   'fenwicktree',
   'jacobisymbols',
-  'vicsekfractal',
   'segmenttree',
   'rankchevrons',
   'windbarbs',
@@ -2287,14 +2242,11 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'intelhexrecords',
   'equalizerbars',
   'worleycells',
-  'errordiffusion',
   'tetrominoes',
   'candlestickcharts',
   'paleygraphmatrix',
   'superformulacells',
-  'tsquarefractal',
   'marchingsquares',
-  'wangtiles',
   'htreefractal',
   'lsystemplant',
   'quadtreecells',
@@ -2302,15 +2254,11 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'braiddiagram',
   'youngtableaux',
   'euclidsquares',
-  'voronoicells',
   'cliffordattractor',
-  'peanocurve',
   'bitwisetable',
-  'golombrulers',
   'henonattractor',
   'digitalroottable',
   'thuemorsegrid',
-  'recamanarcs',
   'happynumberchains',
   'lookandsayrows',
   'kaprekarsteps',
@@ -2319,13 +2267,10 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'circleoffifths',
   'periodictablecells',
   'josephuscircle',
-  'gaussianprimes',
   'timestablecircles',
   'divisorcountbars',
   'cobwebplots',
   'sierpinskipascal',
-  'sacksspiral',
-  'dyckpaths',
   'figuratenumbers',
   'pythagoreantriples',
   'hexdumprows',
@@ -2348,7 +2293,6 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'numberwords',
   'dipolefieldlines',
   'mobiusgrid',
-  'fordcircles',
   'vectorfieldarrows',
   'wordsquares',
   'caesarcipher',
@@ -2356,10 +2300,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'primefactors',
   'modularpowers',
   'burningship',
-  'logisticbifurcation',
   'bitwiselogic',
-  'gcdtable',
-  'percolationclusters',
   'abeliansandpile',
   'binaryaddition',
   'roundingmodes',
@@ -2369,7 +2310,6 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'bezierconstruction',
   'luhnnumbers',
   'twosourceripples',
-  'cassiniovals',
   'rosecurves',
   'conicsections',
   'cantorsetrows',
@@ -2397,7 +2337,6 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'draughtsposition',
   'colormapregions',
   'chinesecheckersboard',
-  'euclideanrhythms',
   'hidatochain',
   'mancalaboard',
   'rushhourjam',
@@ -2425,23 +2364,15 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pianoroll',
   'skyscraperpuzzles',
   'knockoutbracket',
-  'primesieve',
   'sortingnetworks',
   'mayansums',
-  'latinsquares',
   'hanoitowers',
   'eightqueens',
-  'cantordust',
-  'dragoncurve',
   'pascalmodulo',
-  'gameoflife',
   'oghaminscription',
-  'kaleidoscope',
   'slidingpuzzle',
-  'magicsquares',
   'wordsearchgrid',
   'mastermindboard',
-  'elementaryautomata',
   'bluenoisemask',
   'fibonaccisquares',
   'doubleslitfringes',
@@ -2458,7 +2389,6 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'amidakuji',
   'code39barcodes',
   'graycodediscs',
-  'knightstour',
   'scrambledcubenet',
   'weavingdraft',
   'lightsoutboard',
@@ -2476,18 +2406,14 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'zoneplates',
   'lissajousgrid',
   'mondriancomposition',
-  'hilbertcurve',
   'battleshipgrid',
   'tetrisstack',
   'minesweeperboard',
   'flipdotdisplay',
-  'crosswordgrid',
   'fretboard',
   'calendarpage',
   'measuringtape',
   'sudokugrid',
-  'sheetmusic',
-  'ecgpaper',
   'datamatrixcodes',
   'frostpolygons',
   'sandripples',
@@ -2496,7 +2422,6 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'kilimflatweave',
   'tumblingblocks',
   'azulejotiles',
-  'moirefringes',
   'cinderblockwall',
   'dicefaces',
   'needlepoint',
@@ -2516,7 +2441,6 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'ammonitestone',
   'amberresin',
   'patchworkquilt',
-  'bayerdither',
   'turingpattern',
   'mudcloth',
   'to220packagefaces',
