@@ -1190,6 +1190,7 @@ const kinds: ProceduralMaterialKind[] = [
   'hamiltonpaths',
   'lowdiscrepancy',
   'kneser',
+  'debruijntorus',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -210859,6 +210860,328 @@ describe('Kneser matrix as the shared elements of every pair of k-subsets drawn 
     expect(blue / (512 * 512)).toBeLessThan(64.9);
     expect(maxTilt).toBeGreaterThan(0.0573);
     expect(maxTilt).toBeLessThan(0.0574);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('De Bruijn torus as a perfect map of every window once', () => {
+  const p = proceduralMaterialPresets.debruijntorus;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The symbols of every cell of the tile as the sampler shows them, read back at the middle of every cell (the height gives the symbol). */
+  const readTile = (seed: number): number[][] => {
+    const variant = seed % p.grids.length,
+      cells: number = p.cells[variant],
+      symbols: number = p.symbols[variant],
+      sample = createSurfaceSampler('debruijntorus', seed),
+      out = empty(),
+      tile: number[][] = [];
+    for (let j = 0; j < cells; j++) {
+      const row: number[] = [];
+      for (let i = 0; i < cells; i++) {
+        sample((i + 0.5) / cells, (j + 0.5) / cells, out);
+        const level =
+          (out.height / p.relief / p.cellHeight - p.heightBase) / p.heightSwing;
+        const symbol = level * (symbols - 1);
+        expect(Math.abs(symbol - Math.round(symbol))).toBeLessThan(1e-6);
+        row.push(Math.abs(Math.round(symbol)));
+      }
+      tile.push(row);
+    }
+    return tile;
+  };
+  /** The grid of one period of a tile (its first rows and columns), and its sizes. */
+  const periodOf = (seed: number): number[][] => {
+    const variant = seed % p.grids.length,
+      rows = p.grids[variant].length,
+      columns = p.grids[variant][0].length;
+    return readTile(seed)
+      .slice(0, rows)
+      .map((row) => row.slice(0, columns));
+  };
+  /** How many times every window of a height by a width (wrapping round the edges) appears in a grid, as a map from the window written as text. */
+  const windowCounts = (
+    grid: number[][],
+    height: number,
+    width: number,
+  ): Map<string, number> => {
+    const counts = new Map<string, number>();
+    for (let r = 0; r < grid.length; r++)
+      for (let c = 0; c < grid[0].length; c++) {
+        let text = '';
+        for (let a = 0; a < height; a++)
+          for (let b = 0; b < width; b++)
+            text += grid[(r + a) % grid.length][(c + b) % grid[0].length];
+        counts.set(text, (counts.get(text) ?? 0) + 1);
+      }
+    return counts;
+  };
+  /** The grid of 256 by 256 colours above 0.75 (the cells of the last symbol), for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('debruijntorus', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.75));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.964, lit: 0.36719, mean: 0.44828 }],
+      [1, { high: 0.9644, lit: 0.36719, mean: 0.44847 }],
+      [0xffffffff, { high: 0.964, lit: 0.23831, mean: 0.44799 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('debruijntorus', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.75);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0155);
+      expect(low).toBeLessThan(0.0161);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('shows a perfect map in the picture: every window of the declared size appears exactly once, read back from the cells', () => {
+    for (let seed = 0; seed < 36; seed++) {
+      const variant = seed % p.grids.length,
+        q: number = p.symbols[variant],
+        height: number = p.windowRows[variant],
+        width: number = p.windowCols[variant],
+        cells: number = p.cells[variant],
+        tile = readTile(seed),
+        grid = periodOf(seed),
+        rows = grid.length,
+        columns = grid[0].length;
+      // The tile repeats the grid, which wraps round: the cells of the tile are the cells of the grid, again and again.
+      for (let j = 0; j < cells; j++)
+        for (let i = 0; i < cells; i++)
+          expect(tile[j][i]).toBe(grid[j % rows][i % columns]);
+      // The grid has q^(height width) cells and as many different windows of the declared size: every pattern of symbols once.
+      expect(rows * columns).toBe(q ** (height * width));
+      const whole = windowCounts(grid, height, width);
+      expect(whole.size).toBe(rows * columns);
+      // Smaller windows are therefore balanced: every pattern of a by b cells appears the same number of times.
+      for (let a = 1; a <= height; a++)
+        for (let b = 1; b <= width; b++) {
+          const part = windowCounts(grid, a, b);
+          expect(part.size).toBe(q ** (a * b));
+          for (const count of part.values())
+            expect(count).toBe((rows * columns) / q ** (a * b));
+        }
+    }
+  });
+  it('is a perfect map only for the declared shape: the same grid has repeated windows when the window is turned a quarter', () => {
+    const turned = new Map<number, number>();
+    for (const variant of [1, 2, 4]) {
+      const grid = periodOf(variant),
+        height: number = p.windowRows[variant],
+        width: number = p.windowCols[variant];
+      turned.set(variant, windowCounts(grid, width, height).size);
+    }
+    // 64 cells in each of the three grids; the turned windows of 3 by 2, 3 by 2 and 2 by 3 are not all different.
+    expect([...turned.values()]).toEqual([39, 41, 43]);
+  });
+  it('moves the grid by the group without changing its windows: rows by 3 times the group, columns by 5 times the group and every symbol on by the group', () => {
+    for (let variant = 0; variant < 6; variant++) {
+      const base = periodOf(variant),
+        rows = base.length,
+        columns = base[0].length,
+        q: number = p.symbols[variant];
+      for (const group of [1, 2, 3, 7]) {
+        const grid = periodOf(variant + 6 * group);
+        for (let j = 0; j < rows; j++)
+          for (let i = 0; i < columns; i++)
+            expect(grid[j][i]).toBe(
+              (base[(j + 3 * group) % rows][(i + 5 * group) % columns] +
+                group) %
+                q,
+            );
+      }
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 21]) {
+      const variant = seed % p.grids.length,
+        q: number = p.symbols[variant],
+        cells: number = p.cells[variant],
+        tile = readTile(seed),
+        sample = createSurfaceSampler('debruijntorus', seed),
+        out = empty(),
+        half = 0.5 - p.gap,
+        inner = half - p.corner;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * cells,
+          y = v * cells,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          dx = Math.abs(x - column - 0.5),
+          dy = Math.abs(y - row - 0.5),
+          // The distance to the rounded square, by the straight sides or by the corner circle.
+          distance =
+            dx <= inner || dy <= inner
+              ? Math.max(dx, dy) - half
+              : Math.hypot(dx - inner, dy - inner) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          level = tile[row][column] / (q - 1),
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4700);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.458984375, 6);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.3671875, 6);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('debruijntorus', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 lavender de Bruijn torus maps on dark violet with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('debruijntorus', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(101.3);
+    expect(red / (512 * 512)).toBeLessThan(102.3);
+    expect(green / (512 * 512)).toBeGreaterThan(84.5);
+    expect(green / (512 * 512)).toBeLessThan(85.6);
+    expect(blue / (512 * 512)).toBeGreaterThan(130.3);
+    expect(blue / (512 * 512)).toBeLessThan(131.3);
+    expect(maxTilt).toBeGreaterThan(0.0336);
+    expect(maxTilt).toBeLessThan(0.0337);
     expect(invalid).toBe(0);
   });
 });

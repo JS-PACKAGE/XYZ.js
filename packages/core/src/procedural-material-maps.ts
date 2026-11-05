@@ -56111,6 +56111,61 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'debruijntorus': {
+        const p = proceduralMaterialPresets.debruijntorus,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.grids.length,
+          group = Math.floor(unsigned / p.grids.length),
+          rows: readonly string[] = p.grids[variant],
+          size = rows.length,
+          width = rows[0].length,
+          symbols: number = p.symbols[variant],
+          cells: number = p.cells[variant],
+          rowShift = (3 * group) % size,
+          columnShift = (5 * group) % width,
+          // The symbol of every cell of the tile: the grid moved by the group, repeated to fill the tile.
+          grid = new Uint8Array(cells * cells);
+        for (let j = 0; j < cells; j++)
+          for (let i = 0; i < cells; i++)
+            grid[j * cells + i] =
+              (rows[(j + rowShift) % size].charCodeAt(
+                (i + columnShift) % width,
+              ) -
+                48 +
+                group) %
+              symbols;
+        const half = 0.5 - p.gap,
+          inner = half - p.corner;
+        return () => {
+          const x = fract(u) * cells,
+            y = fract(v) * cells,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            qx = Math.abs(x - i - 0.5) - inner,
+            qy = Math.abs(y - j - 0.5) - inner,
+            // The distance to the rounded square of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            level = grid[j * cells + i] / (symbols - 1),
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65075,6 +65130,7 @@ export function createSurfaceSampler(
     kind === 'hamiltonpaths' ||
     kind === 'lowdiscrepancy' ||
     kind === 'kneser' ||
+    kind === 'debruijntorus' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

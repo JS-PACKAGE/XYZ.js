@@ -1227,6 +1227,7 @@ try {
     'hamiltonpaths',
     'lowdiscrepancy',
     'kneser',
+    'debruijntorus',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
