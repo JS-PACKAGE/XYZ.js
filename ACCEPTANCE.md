@@ -14652,3 +14652,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：7項（色調範圍、類別與判斷式相等、式子的性質與歐幾里得公式、逐點比對、不同變體與群組與決定性、C1與UV週期、maps），`-t "Diophantine grid as"`7項通過（約16 s，大部分是載入與轉譯）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Diophantine grid as|diophantinegrid|kinds|catalog|distinct|periodic"`定向測試**2656項通過／4803項未選**，輸出`GATES-OK`。
 - 未驗證：diophantinegrid的完整suite（最近一次在`392010ee0`：11,397項裡11,396項通過、1項既有的washer rims C1測試逾時）、diophantinegrid的瀏覽器gallery（最近一次到transformbasis）、跨瀏覽器與跨GPU；不push。
+- 第十二波（未優化過的模組掃描，Node CPU time，interleaved min-of-N，輸出hash前後相同；不是FPS）：
+  - `0bd04c037` retarget 四元數分量直接寫入，10,000 keys 0.704→0.422 ms（−40%）。
+  - `2082c297a` glTF 匯出略過重複的 Float32 rounding，256 meshes：GLTF 80.15→63.35 ms、GLB 85.99→73.01 ms。
+  - `9f99da2d3` bundle 貼圖尺寸掃描去掉 callback，4,000 entries×2,000 次 350.89→112.78 ms。
+  - `0759c02c9` animated timeline 改用私有 Float64Array 掃描（保留減法順序），256 frames×50,000 次更新 104.97→8.83 ms；代價是每 frame 多 8 B、256 frame 建構約 3.42→10.04 µs。
+  - `6cf3edd91` `ResilientRenderer.resize()` 重用尺寸物件，40 萬次 9.01→7.05 ms。
+  - 量過未保留：meshopt 四位元組展開（8.9%，不穩定）、Set 工作佇列、手勢 reduce 改迴圈、typed-array constructor 取代 `.from`（反而慢 1–8%）等。Serializer／ResourceScope／raycast／decal／morph／pointer／IME 測得線性，沒有值得改的熱點。
+  - 驗證：startup gzip 213,426 B（上限 214,168 B）；`pnpm build`、`check:api-compatibility`／`distribution`／`package-hygiene`／`tree-shaking`、`tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 全部通過；各 commit 的相關 targeted tests 通過，**沒有重跑完整 Vitest**。Node 沒有 `ImageDecoder`，沒有量真實 codec 解碼；Text3D 與文字 caret layout 沒有在真實瀏覽器量。
