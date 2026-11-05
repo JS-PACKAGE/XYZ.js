@@ -30,27 +30,16 @@ interface ListenerRecord {
   wrapper: EventListener;
   signal?: AbortSignal;
   abort?: () => void;
-  previous?: ListenerRecord;
-  next?: ListenerRecord;
 }
 
 /** Native dispatch retains listener mutation, once, signal, and exception semantics. */
 export class InteractionListeners2D {
   private readonly capture = new EventTarget();
   private readonly bubble = new EventTarget();
-  private readonly captures = new Map<
-    string,
-    Map<EventListenerOrEventListenerObject, ListenerRecord>
-  >();
-  private readonly bubbles = new Map<
-    string,
-    Map<EventListenerOrEventListenerObject, ListenerRecord>
-  >();
-  /** Registration links retain reverse teardown order without scanning listener keys. */
-  private last?: ListenerRecord;
+  private readonly records: ListenerRecord[] = [];
   private guard: (() => boolean) | undefined;
   has(type: string): boolean {
-    return this.captures.has(type) || this.bubbles.has(type);
+    return this.records.some((record) => record.type === type);
   }
   add(
     type: string,
@@ -61,8 +50,15 @@ export class InteractionListeners2D {
       return;
     const capture =
       typeof options === 'boolean' ? options : (options?.capture ?? false);
-    const records = capture ? this.captures : this.bubbles;
-    if (records.get(type)?.has(callback)) return;
+    if (
+      this.records.some(
+        (record) =>
+          record.type === type &&
+          record.callback === callback &&
+          record.capture === capture,
+      )
+    )
+      return;
     const once = typeof options === 'object' && options.once;
     const record: ListenerRecord = {
       type,
@@ -84,12 +80,7 @@ export class InteractionListeners2D {
       record.abort = () => this.remove(type, callback, capture);
       options.signal.addEventListener('abort', record.abort, { once: true });
     }
-    let callbacks = records.get(type);
-    if (!callbacks) records.set(type, (callbacks = new Map()));
-    callbacks.set(callback, record);
-    record.previous = this.last;
-    if (this.last) this.last.next = record;
-    this.last = record;
+    this.records.push(record);
     (capture ? this.capture : this.bubble).addEventListener(
       type,
       record.wrapper,
@@ -103,16 +94,14 @@ export class InteractionListeners2D {
   ): void {
     const capture =
       typeof options === 'boolean' ? options : (options?.capture ?? false);
-    if (!callback) return;
-    const records = capture ? this.captures : this.bubbles;
-    const callbacks = records.get(type);
-    const record = callbacks?.get(callback);
-    if (!record) return;
-    callbacks!.delete(callback);
-    if (!callbacks!.size) records.delete(type);
-    if (record.previous) record.previous.next = record.next;
-    if (record.next) record.next.previous = record.previous;
-    else this.last = record.previous;
+    const index = this.records.findIndex(
+      (record) =>
+        record.type === type &&
+        record.callback === callback &&
+        record.capture === capture,
+    );
+    if (index < 0) return;
+    const [record] = this.records.splice(index, 1);
     (capture ? this.capture : this.bubble).removeEventListener(
       type,
       record.wrapper,
@@ -220,8 +209,8 @@ export class InteractionListeners2D {
     }
   }
   destroy(): void {
-    while (this.last) {
-      const record = this.last;
+    while (this.records.length) {
+      const record = this.records[this.records.length - 1];
       this.remove(record.type, record.callback, record.capture);
     }
   }
