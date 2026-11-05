@@ -14,7 +14,11 @@ export function packLighting2D(
   validateSpriteLighting2D(sprite);
   const profile = sprite.lighting!;
   out.fill(0, 24, 80);
-  out.set(profile.ambient, 24);
+  // Keep set()'s short-buffer error while avoiding its generic array conversion.
+  if (out.length < 27) out.set(profile.ambient, 24);
+  out[24] = profile.ambient[0];
+  out[25] = profile.ambient[1];
+  out[26] = profile.ambient[2];
   out[27] = sprite.normalTexture ? 1 : 0;
   out[70] = profile.roughness;
   out[84] = profile.emissive[0];
@@ -62,7 +66,10 @@ export function packLighting2D(
     out[o + 1] = light.position[1];
     out[o + 2] = light.height;
     out[o + 3] = light.radius;
-    out.set(light.color, o + 4);
+    if (out.length < o + 7) out.set(light.color, o + 4);
+    out[o + 4] = light.color[0];
+    out[o + 5] = light.color[1];
+    out[o + 6] = light.color[2];
     out[o + 7] = light.intensity;
   }
   const m = screenToWorld.elements;
