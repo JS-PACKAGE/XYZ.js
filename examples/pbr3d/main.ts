@@ -1248,6 +1248,7 @@ try {
     'robinsonschensted',
     'crctables',
     'linearcodes',
+    'selfreferentialsequences',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

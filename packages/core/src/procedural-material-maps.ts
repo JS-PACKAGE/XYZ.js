@@ -58136,6 +58136,93 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'selfreferentialsequences': {
+        const p = proceduralMaterialPresets.selfreferentialsequences,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.levelPower.length,
+          group = Math.floor(unsigned / p.levelPower.length),
+          n = p.columns,
+          start = (group * p.startStep) % p.startRange,
+          length = start + n * n,
+          // Terms 0 to length - 1 of the sequence of the variant (the one-based sequences are shifted by one place).
+          terms: number[] = [];
+        if (variant === 0) {
+          const lastSeen = new Map<number, number>();
+          let term = 0;
+          for (let index = 0; index < length; index++) {
+            terms.push(term);
+            const previous = lastSeen.get(term);
+            lastSeen.set(term, index);
+            term = previous === undefined ? 0 : index - previous;
+          }
+        } else if (variant === 1) {
+          terms.push(1);
+          while (terms.length < length) {
+            const m = terms.length;
+            let best = 1;
+            // Count the repetitions of the block of size L that ends the sequence.
+            for (let size = 1; size * (best + 1) <= m; size++) {
+              let count = 1;
+              while ((count + 1) * size <= m) {
+                let same = true;
+                for (let k = 1; k <= size && same; k++)
+                  same = terms[m - count * size - k] === terms[m - k];
+                if (!same) break;
+                count++;
+              }
+              if (count > best) best = count;
+            }
+            terms.push(best);
+          }
+        } else {
+          // One-based sequences in the array sequence[1..length].
+          const sequence = [0, 1, 1];
+          for (let index = 3; index <= length; index++)
+            sequence.push(
+              variant === 2
+                ? sequence[index - sequence[index - 1]] +
+                    sequence[index - sequence[index - 2]]
+                : sequence[sequence[index - 1]] +
+                    sequence[index - sequence[index - 1]],
+            );
+          for (let index = 1; index <= length; index++)
+            terms.push(2 * sequence[index] - index);
+        }
+        const shown = terms.slice(start, start + n * n),
+          low = Math.min(...shown),
+          high = Math.max(...shown);
+        return () => {
+          const x = fract(u) * n,
+            y = fract(v) * n,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            value = shown[j * n + i],
+            level = ((value - low) / (high - low)) ** p.levelPower[variant],
+            hx = (1 - 2 * p.gap) / 2,
+            qx = Math.abs(x - i - 0.5) - (hx - p.corner),
+            qy = Math.abs(y - j - 0.5) - (hx - p.corner),
+            // The distance to the rounded square of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -67123,6 +67210,7 @@ export function createSurfaceSampler(
     kind === 'robinsonschensted' ||
     kind === 'crctables' ||
     kind === 'linearcodes' ||
+    kind === 'selfreferentialsequences' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

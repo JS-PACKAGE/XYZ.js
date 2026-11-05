@@ -1211,6 +1211,7 @@ const kinds: ProceduralMaterialKind[] = [
   'robinsonschensted',
   'crctables',
   'linearcodes',
+  'selfreferentialsequences',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -217948,6 +217949,334 @@ describe('Linear codes as four binary codes of length 8', () => {
     expect(green / (512 * 512)).toBeLessThan(100.2);
     expect(blue / (512 * 512)).toBeGreaterThan(40.0);
     expect(blue / (512 * 512)).toBeLessThan(40.2);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1072);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Self-referential sequences as four integer sequences that describe themselves', () => {
+  const p = proceduralMaterialPresets.selfreferentialsequences;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = 48;
+  const total = n * n;
+  const powers = [0.5, 1, 1.5, 1];
+  /** The first `count` terms of a variant, from algorithms written separately from the sampler: Van Eck by scanning backwards, Gijswijt by tracking the length of the trailing run of each period, the Hofstadter sequences by memoised recursion (shown as 2 a(n) - n). */
+  const oracle = (variant: number, count: number): number[] => {
+    if (variant === 0) {
+      const a = [0];
+      for (let i = 0; i < count - 1; i++) {
+        let distance = 0;
+        for (let j = i - 1; j >= 0; j--)
+          if (a[j] === a[i]) {
+            distance = i - j;
+            break;
+          }
+        a.push(distance);
+      }
+      return a;
+    }
+    if (variant === 1) {
+      const g = [1],
+        run = new Array<number>(count + 1).fill(0);
+      while (g.length < count) {
+        const last = g.length - 1;
+        let best = 1;
+        for (let period = 1; period <= last; period++) {
+          run[period] = g[last - period] === g[last] ? run[period] + 1 : 0;
+          best = Math.max(best, Math.floor(run[period] / period) + 1);
+        }
+        g.push(best);
+      }
+      return g;
+    }
+    const memo = new Map<number, number>([
+      [1, 1],
+      [2, 1],
+    ]);
+    const next = (index: number): number => {
+      const known = memo.get(index);
+      if (known !== undefined) return known;
+      const value =
+        variant === 2
+          ? next(index - next(index - 1)) + next(index - next(index - 2))
+          : next(next(index - 1)) + next(index - next(index - 1));
+      memo.set(index, value);
+      return value;
+    };
+    return Array.from({ length: count }, (_, i) => 2 * next(i + 1) - (i + 1));
+  };
+  const longest = 1500 + total;
+  const full = [0, 1, 2, 3].map((variant) => oracle(variant, longest));
+  /** The window of a seed: the first term shown and the shown terms. */
+  const windowOf = (seed: number): { start: number; shown: number[] } => {
+    const start = (Math.floor(seed / 4) * 197) % 1500;
+    return { start, shown: full[seed % 4].slice(start, start + total) };
+  };
+  /** The 2,304 values of a seed read back from the picture at the middle of every cell, undoing the scaling with the extremes of the oracle window. */
+  const readValues = (seed: number): number[] => {
+    const sample = createSurfaceSampler('selfreferentialsequences', seed),
+      out = empty(),
+      { shown } = windowOf(seed),
+      low = Math.min(...shown),
+      high = Math.max(...shown);
+    return Array.from({ length: total }, (_, k) => {
+      sample(((k % n) + 0.5) / n, (Math.floor(k / n) + 0.5) / n, out);
+      const level =
+          (out.height / p.relief / p.cellHeight - p.heightBase) / p.heightSwing,
+        value = low + level ** (1 / powers[seed % 4]) * (high - low);
+      expect(Math.abs(value - Math.round(value))).toBeLessThan(1e-6);
+      return Math.round(value);
+    });
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('selfreferentialsequences', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.01602, high: 0.9572, lit: 0.05666, mean: 0.20446 }],
+      [1, { low: 0.01563, high: 0.9634, lit: 0.13507, mean: 0.30072 }],
+      [2, { low: 0.01629, high: 0.9606, lit: 0.13794, mean: 0.35358 }],
+      [0xffffffff, { low: 0.01582, high: 0.9635, lit: 0.53648, mean: 0.49722 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('selfreferentialsequences', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('shows the terms of the sequences read back from the picture: equal to the separately computed sequences for 60 seeds', () => {
+    for (let seed = 0; seed < 60; seed++)
+      expect(readValues(seed)).toEqual(windowOf(seed).shown);
+  });
+  it('follows the defining rules and known facts of each sequence, checked on the picture alone', () => {
+    // From memory of the OEIS entries, not looked up: the first terms of the sequences (A181391, A090822, A005185, A004001; the last two shown as 2 a(n) - n).
+    const prefixes = [
+      [0, 0, 1, 0, 2, 0, 2, 2, 1, 6, 0, 5, 0, 2, 6, 5, 4, 0, 5, 3],
+      [1, 1, 2, 1, 1, 2, 2, 2, 3, 1, 1, 2, 1, 1, 2, 2, 2, 3, 2, 1],
+      [1, 1, 2, 3, 3, 4, 5, 5, 6, 6, 6, 8, 8, 8, 10, 9, 10, 11, 11, 12],
+      [1, 1, 2, 2, 3, 4, 4, 4, 5, 6, 7, 7, 8, 8, 8, 8, 9, 10, 11, 12],
+    ];
+    for (let variant = 0; variant < 4; variant++) {
+      const values = readValues(variant),
+        expected =
+          variant < 2
+            ? prefixes[variant]
+            : prefixes[variant].map((a, i) => 2 * a - (i + 1));
+      expect(values.slice(0, 20)).toEqual(expected);
+    }
+    // Van Eck: the next term is the distance back to the previous equal term, or 0; inside a window an unseen term is followed by 0 or by a distance reaching back before the window.
+    for (const seed of [0, 4, 8, 20, 36]) {
+      const values = readValues(seed),
+        { start } = windowOf(seed);
+      let broken = 0;
+      for (let k = 0; k < total - 1; k++) {
+        const back = k === 0 ? -1 : values.lastIndexOf(values[k], k - 1);
+        if (back >= 0) broken += Number(values[k + 1] !== k - back);
+        else broken += Number(values[k + 1] !== 0 && values[k + 1] < k + 1);
+      }
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(broken).toBe(0);
+    }
+    // Gijswijt: every term is at least 1, and in the first window the first 4 is the 220th term.
+    for (const seed of [1, 5, 9, 41])
+      expect(Math.min(...readValues(seed))).toBeGreaterThanOrEqual(1);
+    expect(readValues(1).indexOf(4)).toBe(219);
+    // Hofstadter-Conway: a(2^k) = 2^(k - 1), that is 2 a(n) - n = 0 at n = 2^k (the term n is the cell n - 1 of the first window), and 2 a(n) - n is never negative there.
+    const conway = readValues(3);
+    for (let k = 1; 2 ** k <= total; k++) expect(conway[2 ** k - 1]).toBe(0);
+    expect(Math.min(...conway)).toBeGreaterThanOrEqual(0);
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const values = windowOf(seed).shown,
+        low = Math.min(...values),
+        high = Math.max(...values),
+        sample = createSurfaceSampler('selfreferentialsequences', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * n,
+          y = v * n,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          half = 0.5 - p.gap,
+          dx = Math.abs(x - i - 0.5),
+          dy = Math.abs(y - j - 0.5),
+          inner = half - p.corner,
+          // The distance to the rounded square, by the straight sides or by the corner circle.
+          distance =
+            dx <= inner || dy <= inner
+              ? Math.max(dx - half, dy - half)
+              : Math.hypot(dx - inner, dy - inner) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const level =
+            ((values[j * n + i] - low) / (high - low)) ** powers[seed % 4],
+          ink = distance < 0 ? 1 : 0,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4500);
+  });
+  it('draws a different view per sequence and per window and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.1742095947265625, 8);
+    expect(unlike(first, litGrid(4))).toBeCloseTo(0.106719970703125, 8);
+    expect(unlike(first, litGrid(8))).toBeCloseTo(0.113861083984375, 8);
+    expect(unlike(first, litGrid(24))).toBeCloseTo(0.1190643310546875, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('selfreferentialsequences', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 self-referential sequence maps on dark teal with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('selfreferentialsequences', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(34.5);
+    expect(red / (512 * 512)).toBeLessThan(34.8);
+    expect(green / (512 * 512)).toBeGreaterThan(97.1);
+    expect(green / (512 * 512)).toBeLessThan(97.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(95.9);
+    expect(blue / (512 * 512)).toBeLessThan(96.2);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1072);
     expect(invalid).toBe(0);

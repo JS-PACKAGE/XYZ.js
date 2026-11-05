@@ -1185,6 +1185,7 @@ export type ProceduralMaterialKind =
   | 'robinsonschensted'
   | 'crctables'
   | 'linearcodes'
+  | 'selfreferentialsequences'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2618,6 +2619,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'robinsonschensted',
   'crctables',
   'linearcodes',
+  'selfreferentialsequences',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
