@@ -124,6 +124,8 @@ class Contact3D {
   readonly tangentImpulses = new Float64Array(8);
   readonly targets = new Float64Array(8);
   readonly tangent = Array.from({ length: 8 }, () => new Vector3());
+  /** Contact-point offsets from each body's origin, fixed for the velocity solve phase. */
+  readonly arms = Array.from({ length: 16 }, () => new Vector3());
   /** Effective masses per point, valid while `massEpoch` matches the world's. */
   readonly normalMass = new Float64Array(8);
   /** NaN marks a degenerate tangent with no friction row. */
@@ -1280,6 +1282,8 @@ export class PhysicsWorld3D {
       const p = m.points[k],
         n = m.normals[k],
         t = c.tangent[k];
+      c.arms[k].copy(p).subtract(a?.owner?.position ?? p);
+      c.arms[k + 8].copy(p).subtract(b?.owner?.position ?? p);
       c.normalMass[k] =
         this.effective(a, p, n, this.crossA, this.inertiaA) +
         this.effective(b, p, n, this.crossB, this.inertiaB);
@@ -1291,7 +1295,7 @@ export class PhysicsWorld3D {
     }
     c.massEpoch = this.massEpoch;
   }
-  /** Body velocity at `point` (zero without an owner), as `velocityAt` computes it, in scalars. */
+  /** Body velocity at a cached contact arm (zero without an owner). */
   private velocityInto(
     body: RigidBody3D | undefined,
     point: Readonly<Vector3>,
@@ -1302,18 +1306,17 @@ export class PhysicsWorld3D {
       out[at] = out[at + 1] = out[at + 2] = 0;
       return;
     }
-    const p = body.owner.position,
-      w = body.angularVelocity,
-      x = point.x - p.x,
-      y = point.y - p.y,
-      z = point.z - p.z;
+    const w = body.angularVelocity,
+      x = point.x,
+      y = point.y,
+      z = point.z;
     out[at] = body.velocity.x + w.y * z - w.z * y;
     out[at + 1] = body.velocity.y + w.z * x - w.x * z;
     out[at + 2] = body.velocity.z + w.x * y - w.y * x;
   }
   /**
-   * Applies `solveImpulse` (signed by `sign`) at `point` to a dynamic awake body. The
-   * impulse and torque travel in vectors: doubles passed to calls V8 does not inline are
+   * Applies `solveImpulse` (signed by `sign`) at a cached contact arm to an awake body.
+   * The impulse and torque travel in vectors: doubles passed to calls V8 does not inline are
    * boxed, which allocated per impulse.
    */
   private applyImpulse(
@@ -1329,10 +1332,9 @@ export class PhysicsWorld3D {
     body.velocity.x += ix * body.inverseMass * sign;
     body.velocity.y += iy * body.inverseMass * sign;
     body.velocity.z += iz * body.inverseMass * sign;
-    const p = body.owner.position,
-      x = point.x - p.x,
-      y = point.y - p.y,
-      z = point.z - p.z;
+    const x = point.x,
+      y = point.y,
+      z = point.z;
     body.addInverseInertia(
       this.solveTorque.set(
         (y * iz - z * iy) * sign,
@@ -1347,12 +1349,13 @@ export class PhysicsWorld3D {
     const a = c.a.body,
       b = c.b.body,
       m = c.manifold,
-      p = m.points[k],
+      armA = c.arms[k],
+      armB = c.arms[k + 8],
       n = m.normals[k],
       v = this.contactVelocities;
     // Scalars instead of the shared Vector3 scratch: the same operations in the same order.
-    this.velocityInto(a, p, v, 0);
-    this.velocityInto(b, p, v, 3);
+    this.velocityInto(a, armA, v, 0);
+    this.velocityInto(b, armB, v, 3);
     let rx = v[0] - v[3],
       ry = v[1] - v[4],
       rz = v[2] - v[5];
@@ -1369,13 +1372,13 @@ export class PhysicsWorld3D {
       n.y * (next - previous),
       n.z * (next - previous),
     );
-    this.applyImpulse(a, p, 1);
-    this.applyImpulse(b, p, -1);
+    this.applyImpulse(a, armA, 1);
+    this.applyImpulse(b, armB, -1);
     const t = c.tangent[k],
       td = c.tangentMass[k]!;
     if (Number.isNaN(td)) return;
-    this.velocityInto(a, p, v, 0);
-    this.velocityInto(b, p, v, 3);
+    this.velocityInto(a, armA, v, 0);
+    this.velocityInto(b, armB, v, 3);
     rx = v[0] - v[3];
     ry = v[1] - v[4];
     rz = v[2] - v[5];
@@ -1394,8 +1397,8 @@ export class PhysicsWorld3D {
       t.y * (value - old),
       t.z * (value - old),
     );
-    this.applyImpulse(a, p, 1);
-    this.applyImpulse(b, p, -1);
+    this.applyImpulse(a, armA, 1);
+    this.applyImpulse(b, armB, -1);
   }
   /** `only`: the entries that alone can have moved since every pose was last refreshed. */
   private refreshIndex(only?: readonly Entry3D[], indirect?: Entry3D[]): void {
