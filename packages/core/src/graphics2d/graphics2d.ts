@@ -408,14 +408,16 @@ export class Graphics2D extends Sprite {
     }
     const x = this.hitPoint.x + this.anchor.x * this.width,
       y = this.hitPoint.y + this.anchor.y * this.height;
-    return this.displayedInstructions.some(
-      (instruction) =>
+    for (const instruction of this.displayedInstructions)
+      if (
         (instruction.alpha ?? 1) > 0 &&
         ((instruction.fill !== undefined &&
           instruction.path.containsPoint(x, y)) ||
           (instruction.stroke !== undefined &&
-            instruction.path.containsPoint(x, y, instruction.stroke))),
-    );
+            instruction.path.containsPoint(x, y, instruction.stroke)))
+      )
+        return true;
+    return false;
   }
   protected override onDestroy(): void {
     this.ownedTexture.destroy();
