@@ -19730,6 +19730,38 @@ export const proceduralMaterialPresets = Object.freeze({
     heightOther: 0.18,
     gapOcclusion: 0.5,
   }),
+  minesweeperboards: Object.freeze({
+    dark: [24, 6, 10] as const,
+    light: [255, 125, 120] as const,
+    roughness: 0.5,
+    relief: 0.0012,
+    seedSalt: 0x5e9a,
+    // A solved Minesweeper board of sizes[variant] by sizes[variant] cells with mines[variant] mines: every cell without a mine shows the number of mines among its (up to) 8 neighbours as that many pips of a 3 by 3 dice, filled along the ring clockwise from the top left corner (0 pips, up to 8 pips); a mine shows all 9 pips and a higher plate. The mines are the mines[variant] cells with the smallest hash keys. The seed is split in two: seed % 6 picks the variant and floor(seed / 6) the group, which changes the keys, so seeds 0 to 5 are the six boards of group 0.
+    sizes: [9, 9, 12, 12, 16, 8] as const,
+    mines: [10, 16, 24, 30, 40, 9] as const,
+    // The gap on each side of a cell plate and the rounding of its corners (fractions of a cell).
+    gap: 0.05,
+    corner: 0.12,
+    // The margin between the plate and its 3 by 3 pips, the gap on each side of a pip, the rounding of a pip (fractions of a cell and of a pip) and the smoothing of every edge (fractions of a cell).
+    padPlate: 0.14,
+    gapPip: 0.025,
+    cornerPip: 0.25,
+    edgeSoft: 0.05,
+    grainCells: 128,
+    toneGround: 0.03,
+    // The tone of a plate with a number, of a mine plate, of a pip that is lit and of one that is not.
+    tonePlate: 0.3,
+    toneMine: 0.55,
+    tonePip: 0.95,
+    toneSocket: 0.12,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of a numbered plate and of a mine plate as fractions of cellHeight, and the extra height of a lit pip.
+    heightPlate: 0.3,
+    heightMine: 0.55,
+    heightPip: 0.4,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21568,6 +21600,7 @@ export const proceduralTileMeters = Object.freeze({
   transformbasis: 0.5,
   diophantinegrid: 0.5,
   beattysequences: 0.5,
+  minesweeperboards: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

@@ -1238,6 +1238,7 @@ try {
     'transformbasis',
     'diophantinegrid',
     'beattysequences',
+    'minesweeperboards',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

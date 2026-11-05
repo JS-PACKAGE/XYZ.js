@@ -1175,6 +1175,7 @@ export type ProceduralMaterialKind =
   | 'transformbasis'
   | 'diophantinegrid'
   | 'beattysequences'
+  | 'minesweeperboards'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2598,6 +2599,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'transformbasis',
   'diophantinegrid',
   'beattysequences',
+  'minesweeperboards',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

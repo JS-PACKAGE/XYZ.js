@@ -1201,6 +1201,7 @@ const kinds: ProceduralMaterialKind[] = [
   'transformbasis',
   'diophantinegrid',
   'beattysequences',
+  'minesweeperboards',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -214622,6 +214623,330 @@ describe('Beatty sequences as the two complementary Beatty sequences', () => {
     expect(blue / (512 * 512)).toBeLessThan(137.7);
     expect(maxTilt).toBeGreaterThan(0.1034);
     expect(maxTilt).toBeLessThan(0.1036);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Minesweeper boards as solved Minesweeper boards with dice pips', () => {
+  const p = proceduralMaterialPresets.minesweeperboards;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The sizes and the mine counts of the six boards, written out again. */
+  const sizes = [9, 9, 12, 12, 16, 8],
+    mineCounts = [10, 16, 24, 30, 40, 9];
+  /** The place in the clockwise ring (from the top left) of the nine pips of a 3 by 3 dice, row by row; the middle one is in no ring. */
+  const ringPlace = [0, 1, 2, 7, 99, 3, 6, 5, 4];
+  const span = (1 - 2 * p.padPlate) / 3;
+  /** The middle of pip (px, py) in a cell, as fractions of the cell. */
+  const pipMiddle = (pip: number) => p.padPlate + (pip + 0.5) * span;
+  /** A board as the picture shows it, read back: for every cell the lifted plate (a mine plate is higher) and the lit pips, read at the middle of the margin between the plate edge and the pips and at the middle of every pip. */
+  const readBoard = (seed: number) => {
+    const n = sizes[seed % 6],
+      sample = createSurfaceSampler('minesweeperboards', seed),
+      out = empty();
+    const at = (column: number, row: number, fx: number, fy: number) => {
+      sample((column + fx) / n, (row + fy) / n, out);
+      return out;
+    };
+    const cells = Array.from({ length: n * n }, (_, index) => {
+      const column = index % n,
+        row = Math.floor(index / n),
+        plate =
+          at(column, row, (p.gap + p.padPlate) / 2, 0.5).height /
+          p.relief /
+          p.cellHeight,
+        pips = Array.from({ length: 9 }, (_, k) => {
+          const hit = at(
+            column,
+            row,
+            pipMiddle(k % 3),
+            pipMiddle(Math.floor(k / 3)),
+          );
+          return hit.color > 0.5;
+        });
+      return {
+        mine: Math.abs(plate - p.heightMine) < 1e-9,
+        plain: Math.abs(plate - p.heightPlate) < 1e-9,
+        pips,
+      };
+    });
+    return { n, cells };
+  };
+  /** The number of mines around every cell, counted from the list of mines (not by looking at the cells around each cell). */
+  const countAround = (n: number, mines: number[]): number[] => {
+    const around = new Array<number>(n * n).fill(0);
+    for (const m of mines) {
+      const mc = m % n,
+        mr = Math.floor(m / n);
+      for (let dr = -1; dr <= 1; dr++)
+        for (let dc = -1; dc <= 1; dc++) {
+          const c = mc + dc,
+            r = mr + dr;
+          if ((dr !== 0 || dc !== 0) && c >= 0 && c < n && r >= 0 && r < n)
+            around[r * n + c]++;
+        }
+    }
+    return around;
+  };
+  /** The grid of 256 by 256 colours above 0.5 (the lit pips and mine plates), for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('minesweeperboards', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.01637, high: 0.964, lit: 0.11581, mean: 0.25233 }],
+      [1, { low: 0.01567, high: 0.9641, lit: 0.18721, mean: 0.29274 }],
+      [0xffffffff, { low: 0.0158, high: 0.9648, lit: 0.20439, mean: 0.30383 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('minesweeperboards', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.76, 3);
+    }
+  });
+  it('shows a valid solved board: exactly the right number of mines, every other cell with as many pips (along the ring) as the mines around it counted from the mine list, and a mine as all nine pips on the higher plate', () => {
+    for (let seed = 0; seed < 36; seed++) {
+      const { n, cells } = readBoard(seed),
+        mines = cells.flatMap((cell, index) => (cell.mine ? [index] : [])),
+        around = countAround(n, mines);
+      expect(mines.length).toBe(mineCounts[seed % 6]);
+      cells.forEach((cell, index) => {
+        if (cell.mine) {
+          expect(cell.pips.every(Boolean)).toBe(true);
+          return;
+        }
+        expect(cell.plain).toBe(true);
+        // The lit pips are those of the first (number of mines around) places of the ring.
+        expect(cell.pips).toEqual(
+          ringPlace.map((place) => place < around[index]),
+        );
+      });
+    }
+  });
+  it('is a different board per group with the same number of mines and the same board for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.2441864013671875, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.18548583984375, 8);
+    expect(litGrid(0)).toEqual(first);
+    const mineSets = [0, 6, 12, 18].map((seed) =>
+      readBoard(seed)
+        .cells.map((cell, index) => (cell.mine ? index : -1))
+        .filter((index) => index >= 0)
+        .join(','),
+    );
+    expect(new Set(mineSets).size).toBe(4);
+  });
+  it('agrees with the ideal plates and pips away from their edges: tone, height and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const { n, cells } = readBoard(seed),
+        mines = cells.flatMap((cell, index) => (cell.mine ? [index] : [])),
+        around = countAround(n, mines),
+        sample = createSurfaceSampler('minesweeperboards', seed),
+        out = empty(),
+        half = 0.5 - p.gap,
+        pipHalf = span / 2 - p.gapPip,
+        pipCorner = p.cornerPip * pipHalf;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * n,
+          y = v * n,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          fx = x - column,
+          fy = y - row,
+          dx = Math.abs(fx - 0.5),
+          dy = Math.abs(fy - 0.5),
+          inner = half - p.corner,
+          // The distance to the rounded plate, by the straight sides or by the corner circle.
+          plateDistance =
+            dx <= inner || dy <= inner
+              ? Math.max(dx, dy) - half
+              : Math.hypot(dx - inner, dy - inner) - p.corner,
+          index = row * n + column,
+          mine = mines.includes(index);
+        // The distance to the nearest of the nine pips, tried one by one, and which one it is.
+        let pipDistance = Infinity,
+          nearest = 0;
+        for (let pip = 0; pip < 9; pip++) {
+          const rx = Math.abs(fx - pipMiddle(pip % 3)),
+            ry = Math.abs(fy - pipMiddle(Math.floor(pip / 3))),
+            reach = pipHalf - pipCorner,
+            distance =
+              rx <= reach || ry <= reach
+                ? Math.max(rx, ry) - pipHalf
+                : Math.hypot(rx - reach, ry - reach) - pipCorner;
+          if (distance < pipDistance) {
+            pipDistance = distance;
+            nearest = pip;
+          }
+        }
+        if (
+          Math.abs(plateDistance) < p.edgeSoft / 2 ||
+          Math.abs(pipDistance) < p.edgeSoft / 2
+        )
+          continue;
+        const ink = plateDistance < 0 ? 1 : 0,
+          inPip = ink === 1 && pipDistance < 0,
+          lit = mine || ringPlace[nearest] < around[index],
+          plateTone = mine ? p.toneMine : p.tonePlate,
+          tone = !ink
+            ? p.toneGround
+            : inPip
+              ? lit
+                ? p.tonePip
+                : p.toneSocket
+              : plateTone,
+          lift =
+            ink * (mine ? p.heightMine : p.heightPlate) +
+            (inPip && lit ? p.heightPip : 0);
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(p.relief * p.cellHeight * lift, 12);
+        expect(Math.abs(out.color - tone)).toBeLessThanOrEqual(
+          p.grainTone / 2 + 1e-9,
+        );
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(2900);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('minesweeperboards', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 coral Minesweeper board maps on dark maroon with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('minesweeperboards', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(92);
+    expect(red / (512 * 512)).toBeLessThan(93);
+    expect(green / (512 * 512)).toBeGreaterThan(40.8);
+    expect(green / (512 * 512)).toBeLessThan(41.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(42.2);
+    expect(blue / (512 * 512)).toBeLessThan(43.2);
+    expect(maxTilt).toBeGreaterThan(0.0177);
+    expect(maxTilt).toBeLessThan(0.0178);
     expect(invalid).toBe(0);
   });
 });

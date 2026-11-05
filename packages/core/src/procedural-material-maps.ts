@@ -57016,6 +57016,94 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'minesweeperboards': {
+        const p = proceduralMaterialPresets.minesweeperboards,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.sizes.length,
+          group = Math.floor(unsigned / p.sizes.length),
+          n: number = p.sizes[variant],
+          mineCount: number = p.mines[variant],
+          keySeed = (group * 0x9e3779b1) ^ seed ^ p.seedSalt,
+          // The mines are the cells with the smallest hash keys.
+          order = Array.from({ length: n * n }, (_, index) => index).sort(
+            (a, b) => hash(a, 3, keySeed) - hash(b, 3, keySeed) || a - b,
+          ),
+          mine = new Uint8Array(n * n),
+          // What every cell shows: the number of mines around it (counting the cell itself too, which only matters for a mine and a mine shows 9), or 9 for a mine.
+          shown = new Uint8Array(n * n);
+        for (let k = 0; k < mineCount; k++) mine[order[k]] = 1;
+        for (let j = 0; j < n; j++)
+          for (let i = 0; i < n; i++) {
+            let around = 0;
+            for (let dj = -1; dj <= 1; dj++)
+              for (let di = -1; di <= 1; di++) {
+                const a = i + di,
+                  b = j + dj;
+                if (a >= 0 && a < n && b >= 0 && b < n)
+                  around += mine[b * n + a];
+              }
+            shown[j * n + i] = mine[j * n + i] === 1 ? 9 : around;
+          }
+        // The place in the ring of the pips (clockwise from the top left) of every pip of the 3 by 3 dice, row by row; the middle one is only lit for a mine.
+        const ring = [0, 1, 2, 7, 99, 3, 6, 5, 4],
+          half = 0.5 - p.gap,
+          innerPlate = half - p.corner,
+          span = (1 - 2 * p.padPlate) / 3,
+          halfPip = span / 2 - p.gapPip,
+          innerPip = halfPip - p.cornerPip * halfPip;
+        return () => {
+          const x = fract(u) * n,
+            y = fract(v) * n,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            fx = x - column,
+            fy = y - row,
+            qx = Math.abs(fx - 0.5) - innerPlate,
+            qy = Math.abs(fy - 0.5) - innerPlate,
+            // The distance to the rounded square of the plate, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            what = shown[row * n + column],
+            // The pip nearest to this point and its distance (the same rounded square for every pip).
+            pipX = Math.min(
+              2,
+              Math.max(0, Math.floor((fx - p.padPlate) / span)),
+            ),
+            pipY = Math.min(
+              2,
+              Math.max(0, Math.floor((fy - p.padPlate) / span)),
+            ),
+            rx = Math.abs(fx - (p.padPlate + (pipX + 0.5) * span)) - innerPip,
+            ry = Math.abs(fy - (p.padPlate + (pipY + 0.5) * span)) - innerPip,
+            pipDistance =
+              hypot2(Math.max(rx, 0), Math.max(ry, 0)) +
+              Math.min(Math.max(rx, ry), 0) -
+              p.cornerPip * halfPip,
+            socket = smooth(clamp(0.5 - pipDistance / p.edgeSoft)),
+            lit = what === 9 || ring[pipY * 3 + pipX] < what ? 1 : 0,
+            plateTone = what === 9 ? p.toneMine : p.tonePlate,
+            plateLift = what === 9 ? p.heightMine : p.heightPlate,
+            pipTone = lit === 1 ? p.tonePip : p.toneSocket,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            plateTone * (mask - socket) +
+            pipTone * socket +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * (mask * plateLift + socket * lit * p.heightPip);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65993,6 +66081,7 @@ export function createSurfaceSampler(
     kind === 'transformbasis' ||
     kind === 'diophantinegrid' ||
     kind === 'beattysequences' ||
+    kind === 'minesweeperboards' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
