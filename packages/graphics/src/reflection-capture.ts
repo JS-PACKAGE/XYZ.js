@@ -104,6 +104,12 @@ export function encodeProbeFaces(
   }
 }
 
+// Readback decodes every captured pixel; binary16 has only 30 normal exponents.
+const halfFloatExponents = Float64Array.from(
+  { length: 31 },
+  (_, exponent) => 2 ** (exponent - 15),
+);
+
 export function halfFloat(value: number): number {
   const sign = value & 0x8000 ? -1 : 1,
     exponent = (value >> 10) & 31,
@@ -114,7 +120,7 @@ export function halfFloat(value: number): number {
       ? mantissa
         ? NaN
         : sign * Infinity
-      : sign * (1 + mantissa / 1024) * 2 ** (exponent - 15);
+      : sign * (1 + mantissa / 1024) * halfFloatExponents[exponent]!;
 }
 export function capturedEnvironment(
   size: number,
