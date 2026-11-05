@@ -1213,6 +1213,7 @@ const kinds: ProceduralMaterialKind[] = [
   'linearcodes',
   'selfreferentialsequences',
   'numbertriangles',
+  'adjacencymatrices',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -218618,6 +218619,387 @@ describe('Number triangles as four counting triangles modulo m', () => {
     expect(blue / (512 * 512)).toBeLessThan(29.4);
     expect(maxTilt).toBeGreaterThan(0.1034);
     expect(maxTilt).toBeLessThan(0.1036);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Adjacency matrices as four graphs on 16 vertices', () => {
+  const p = proceduralMaterialPresets.adjacencymatrices;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = 16;
+  type Graph = boolean[][];
+  const identity = (rule: (a: number, b: number) => boolean): Graph =>
+    Array.from({ length: n }, (_, a) =>
+      Array.from({ length: n }, (_, b) => rule(a, b)),
+    );
+  /** GF(16) multiplication modulo x^4 + x + 1. */
+  const gfMultiply = (a: number, b: number): number => {
+    let result = 0,
+      x = a;
+    for (let y = b; y; y >>= 1) {
+      if (y & 1) result ^= x;
+      x <<= 1;
+      if (x & 16) x ^= 0x13;
+    }
+    return result;
+  };
+  const cubes = new Set(
+    Array.from({ length: 15 }, (_, k) =>
+      gfMultiply(gfMultiply(k + 1, k + 1), k + 1),
+    ),
+  );
+  /** The four canonical graphs built in other ways than the sampler's rules: Clebsch as the graph of the nonzero cubes in GF(16), the rook's graph as the line graph of K(4,4), Shrikhande as a Cayley graph of Z4 x Z4, the 4-cube as a product of four edges. */
+  const canonical: Graph[] = [
+    identity((a, b) => cubes.has(a ^ b)),
+    identity((a, b) => {
+      const [ai, aj, bi, bj] = [a >> 2, a & 3, b >> 2, b & 3];
+      return (ai === bi) !== (aj === bj);
+    }),
+    identity((a, b) => {
+      const key =
+        (((a >> 2) - (b >> 2) + 4) % 4) * 4 + (((a & 3) - (b & 3) + 4) % 4);
+      return [4, 12, 1, 3, 5, 15].includes(key);
+    }),
+    identity((a, b) => {
+      let different = 0;
+      for (let bit = 0; bit < 4; bit++)
+        different += Number(((a >> bit) & 1) !== ((b >> bit) & 1));
+      return different === 1;
+    }),
+  ];
+  /** Whether a bijection of the vertices maps the edges of a exactly onto those of b, by backtracking in breadth-first order. */
+  const isomorphic = (a: Graph, b: Graph): boolean => {
+    const order = [0];
+    for (let k = 0; k < order.length; k++)
+      for (let w = 0; w < n; w++)
+        if (a[order[k]][w] && !order.includes(w)) order.push(w);
+    for (let w = 0; w < n; w++) if (!order.includes(w)) order.push(w);
+    const image = new Array<number>(n).fill(-1),
+      used = new Array<boolean>(n).fill(false);
+    const place = (k: number): boolean => {
+      if (k === n) return true;
+      const v = order[k];
+      for (let w = 0; w < n; w++) {
+        if (
+          used[w] ||
+          order.slice(0, k).some((u) => a[v][u] !== b[w][image[u]])
+        )
+          continue;
+        image[v] = w;
+        used[w] = true;
+        if (place(k + 1)) return true;
+        used[w] = false;
+      }
+      return false;
+    };
+    return place(0);
+  };
+  /** The four adjacency matrices read back from the picture at the middle of every cell (the level of a cell is 1 for an edge and 0 otherwise): panels[panel][row][column]. */
+  const readMatrices = (seed: number): Graph[] => {
+    const sample = createSurfaceSampler('adjacencymatrices', seed),
+      out = empty();
+    return [0, 1, 2, 3].map((panel) =>
+      Array.from({ length: n }, (_, r) =>
+        Array.from({ length: n }, (_, c) => {
+          sample(
+            (n * (panel % 2) + c + 0.5) / (2 * n),
+            (n * Math.floor(panel / 2) + r + 0.5) / (2 * n),
+            out,
+          );
+          const level =
+            (out.height / p.relief / p.cellHeight - p.heightBase) /
+            p.heightSwing;
+          expect(Math.min(Math.abs(level), Math.abs(level - 1))).toBeLessThan(
+            1e-9,
+          );
+          return level > 0.5;
+        }),
+      ),
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('adjacencymatrices', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.01612, high: 0.9642, lit: 0.28735, mean: 0.30477 }],
+      [1, { low: 0.0158, high: 0.9643, lit: 0.28735, mean: 0.30473 }],
+      [2, { low: 0.01624, high: 0.964, lit: 0.28735, mean: 0.30478 }],
+      [6, { low: 0.01574, high: 0.9641, lit: 0.28723, mean: 0.30481 }],
+      [0xffffffff, { low: 0.01581, high: 0.9645, lit: 0.28735, mean: 0.30478 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('adjacencymatrices', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('draws the four graphs as adjacency matrices read back from the picture: symmetric, loop-free, regular, strongly regular with the expected parameters, and isomorphic to the independently built graph of each panel', () => {
+    expect(cubes.size).toBe(5);
+    const degrees = [5, 6, 6, 4],
+      // The (lambda, mu) of the strongly regular graphs: Clebsch (16, 5, 0, 2), the rook's graph and Shrikhande (16, 6, 2, 2).
+      parameters = [[0, 2], [2, 2], [2, 2], null];
+    for (let seed = 0; seed < 64; seed++) {
+      const matrices = readMatrices(seed);
+      matrices.forEach((matrix, panel) => {
+        const graph = (panel + (seed % 4)) % 4;
+        for (let a = 0; a < n; a++) {
+          expect(matrix[a][a]).toBe(false);
+          expect(matrix[a].filter(Boolean).length).toBe(degrees[graph]);
+          for (let b = 0; b < n; b++) expect(matrix[a][b]).toBe(matrix[b][a]);
+        }
+        const wanted = parameters[graph];
+        if (wanted) {
+          let wrong = 0;
+          for (let a = 0; a < n; a++)
+            for (let b = 0; b < n; b++) {
+              if (a === b) continue;
+              const common = matrix[a].filter(
+                (x, k) => x && matrix[b][k],
+              ).length;
+              wrong += Number(common !== wanted[Number(!matrix[a][b])]);
+            }
+          expect(wrong).toBe(0);
+        }
+        expect(isomorphic(matrix, canonical[graph])).toBe(true);
+      });
+    }
+  });
+  it('tells the two (16, 6, 2, 2) graphs apart: the rook graph and the Shrikhande graph are not isomorphic, the neighbourhood of a vertex being two triangles in one and a hexagon in the other; and with the natural labelling the rook and cube panels are the rules written out', () => {
+    for (const seed of [0, 1, 2, 3, 5, 10, 27, 63]) {
+      const matrices = readMatrices(seed),
+        rook = matrices[(1 - (seed % 4) + 4) % 4],
+        shrikhande = matrices[(2 - (seed % 4) + 4) % 4],
+        components = (matrix: Graph): number => {
+          const around = matrix[0]
+              .map((x, k) => (x ? k : -1))
+              .filter((k) => k >= 0),
+            seen = new Set<number>();
+          let count = 0;
+          for (const start of around) {
+            if (seen.has(start)) continue;
+            count++;
+            const stack = [start];
+            while (stack.length) {
+              const v = stack.pop()!;
+              if (seen.has(v)) continue;
+              seen.add(v);
+              for (const w of around)
+                if (matrix[v][w] && !seen.has(w)) stack.push(w);
+            }
+          }
+          return count;
+        };
+      expect(isomorphic(rook, shrikhande)).toBe(false);
+      expect(isomorphic(shrikhande, rook)).toBe(false);
+      expect(components(rook)).toBe(2);
+      expect(components(shrikhande)).toBe(1);
+    }
+    for (let seed = 0; seed < 4; seed++) {
+      const matrices = readMatrices(seed);
+      expect(matrices[(1 - seed + 4) % 4]).toEqual(canonical[1]);
+      expect(matrices[(3 - seed + 4) % 4]).toEqual(canonical[3]);
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const cells = 2 * n,
+        matrices = readMatrices(seed),
+        sample = createSurfaceSampler('adjacencymatrices', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * cells,
+          y = v * cells,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          // The gaps on the four sides of the cell: wider at the edge of a panel.
+          left = i % n === 0 ? p.gapPanel : p.gap,
+          right = i % n === n - 1 ? p.gapPanel : p.gap,
+          top = j % n === 0 ? p.gapPanel : p.gap,
+          bottom = j % n === n - 1 ? p.gapPanel : p.gap,
+          dx = Math.abs(x - i - (1 + left - right) / 2),
+          dy = Math.abs(y - j - (1 + top - bottom) / 2),
+          hx = (1 - left - right) / 2,
+          hy = (1 - top - bottom) / 2,
+          innerX = hx - p.corner,
+          innerY = hy - p.corner,
+          // The distance to the rounded rectangle, by the straight sides or by the corner circle.
+          distance =
+            dx <= innerX || dy <= innerY
+              ? Math.max(dx - hx, dy - hy)
+              : Math.hypot(dx - innerX, dy - innerY) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const edge =
+            matrices[2 * Math.floor(j / n) + Math.floor(i / n)][j % n][i % n],
+          ink = distance < 0 ? 1 : 0,
+          level = Number(edge),
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per rotation and labelling and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.19189453125, 8);
+    expect(unlike(first, litGrid(2))).toBeCloseTo(0.220703125, 8);
+    expect(unlike(first, litGrid(4))).toBeCloseTo(0.3583984375, 8);
+    expect(unlike(first, litGrid(8))).toBeCloseTo(0.333984375, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('adjacencymatrices', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 adjacency matrix maps on dark indigo with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('adjacencymatrices', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(47.4);
+    expect(red / (512 * 512)).toBeLessThan(47.6);
+    expect(green / (512 * 512)).toBeGreaterThan(53.3);
+    expect(green / (512 * 512)).toBeLessThan(53.6);
+    expect(blue / (512 * 512)).toBeGreaterThan(93.0);
+    expect(blue / (512 * 512)).toBeLessThan(93.2);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1072);
     expect(invalid).toBe(0);
   });
 });

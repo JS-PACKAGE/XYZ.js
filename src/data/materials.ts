@@ -20073,6 +20073,29 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.8,
     gapOcclusion: 0.5,
   }),
+  adjacencymatrices: Object.freeze({
+    dark: [8, 8, 24] as const,
+    light: [140, 160, 255] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x4c37,
+    // The adjacency matrices of four graphs on 16 vertices in 2 x 2 panels of 16 x 16 cells (an edge is a bright raised cell, a non-edge or the diagonal a dark one): the Clebsch graph (strongly regular (16, 5, 0, 2)), the 4 x 4 rook's graph (strongly regular (16, 6, 2, 2)), the Shrikhande graph (the other strongly regular (16, 6, 2, 2) graph, not isomorphic to the rook's graph) and the 4-cube. The seed is split in two: seed % 4 rotates the four graphs through the four panels and floor(seed / 4) is the group: group 0 keeps the natural labelling of the vertices and any other group relabels the vertices of each panel by hash keys.
+    // The gap on each side of a cell inside a panel and at the edge of a panel, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.06,
+    gapPanel: 0.3,
+    corner: 0.14,
+    edgeSoft: 0.07,
+    grainCells: 128,
+    toneGround: 0.03,
+    toneMin: 0.15,
+    toneMax: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of a cell is cellHeight times (heightBase + heightSwing times its level), the level being 1 for an edge and 0 otherwise.
+    heightBase: 0.2,
+    heightSwing: 0.8,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21923,6 +21946,7 @@ export const proceduralTileMeters = Object.freeze({
   linearcodes: 0.5,
   selfreferentialsequences: 0.5,
   numbertriangles: 0.5,
+  adjacencymatrices: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

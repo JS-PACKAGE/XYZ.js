@@ -1250,6 +1250,7 @@ try {
     'linearcodes',
     'selfreferentialsequences',
     'numbertriangles',
+    'adjacencymatrices',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

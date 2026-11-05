@@ -58311,6 +58311,96 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'adjacencymatrices': {
+        const p = proceduralMaterialPresets.adjacencymatrices,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          rotation = unsigned % 4,
+          group = Math.floor(unsigned / 4),
+          n = 16,
+          weight = (x: number): number => {
+            let count = 0;
+            for (let rest = x; rest; rest &= rest - 1) count++;
+            return count;
+          },
+          // The four graphs by their rule for two vertices a and b (the rows and columns of the 4 x 4 grid for the vertices 4 i + j).
+          adjacent = [
+            // Clebsch: the bits differ in exactly one place or in all four.
+            (a: number, b: number) => weight(a ^ b) === 1 || (a ^ b) === 15,
+            // Rook's graph: same row or same column, not both.
+            (a: number, b: number) => {
+              const sameRow = a >> 2 === b >> 2;
+              return sameRow !== ((a & 3) === (b & 3));
+            },
+            // Shrikhande: the difference of the grid positions modulo 4 is one of (1, 0), (0, 1), (1, 1) or the negatives.
+            (a: number, b: number) => {
+              const di = ((a >> 2) - (b >> 2) + 4) % 4,
+                dj = ((a & 3) - (b & 3) + 4) % 4;
+              return (
+                (di === 0 && dj % 2 === 1) ||
+                (dj === 0 && di % 2 === 1) ||
+                (di === dj && di % 2 === 1)
+              );
+            },
+            // The 4-cube: the bits differ in exactly one place.
+            (a: number, b: number) => weight(a ^ b) === 1,
+          ],
+          // The labelling of each panel: the identity for group 0, else vertices ordered by hash keys.
+          labels = [0, 1, 2, 3].map((panel) =>
+            Array.from({ length: n }, (_, index) => index).sort((a, b) =>
+              group === 0
+                ? a - b
+                : hash(a, 40 + panel, group ^ p.seedSalt) -
+                  hash(b, 40 + panel, group ^ p.seedSalt),
+            ),
+          ),
+          total = 2 * n;
+        return () => {
+          const x = fract(u) * total,
+            y = fract(v) * total,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            column = Math.floor(i / n),
+            row = Math.floor(j / n),
+            px = i % n,
+            py = j % n,
+            panel = 2 * row + column,
+            level = adjacent[(panel + rotation) % 4](
+              labels[panel][py],
+              labels[panel][px],
+            )
+              ? 1
+              : 0,
+            // The gaps on the four sides of the cell: wider at the edge of a panel.
+            left = px === 0 ? p.gapPanel : p.gap,
+            right = px === n - 1 ? p.gapPanel : p.gap,
+            top = py === 0 ? p.gapPanel : p.gap,
+            bottom = py === n - 1 ? p.gapPanel : p.gap,
+            hx = (1 - left - right) / 2,
+            hy = (1 - top - bottom) / 2,
+            qx = Math.abs(x - i - (1 + left - right) / 2) - (hx - p.corner),
+            qy = Math.abs(y - j - (1 + top - bottom) / 2) - (hy - p.corner),
+            // The distance to the rounded rectangle of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -67300,6 +67390,7 @@ export function createSurfaceSampler(
     kind === 'linearcodes' ||
     kind === 'selfreferentialsequences' ||
     kind === 'numbertriangles' ||
+    kind === 'adjacencymatrices' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
