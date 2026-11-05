@@ -811,15 +811,12 @@ export class ActionMap {
 
   /** Plain JSON-safe copy for persisting player rebinding. */
   export(): Record<string, ActionBinding[]> {
-    const out: Record<string, ActionBinding[]> = {};
-    for (const [action, list] of this.map)
-      Object.defineProperty(out, action, {
-        value: list.map((binding) => ({ ...binding })),
-        enumerable: true,
-        configurable: true,
-        writable: true,
-      });
-    return out;
+    return Object.fromEntries(
+      Array.from(this.map, ([action, list]) => [
+        action,
+        list.map((binding) => ({ ...binding })),
+      ]),
+    );
   }
 
   /** Validation runs first, so invalid persisted data leaves current bindings untouched. */
