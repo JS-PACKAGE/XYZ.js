@@ -43,7 +43,7 @@ var World = class {
 		let i = 0;
 		if (r && r.size * 2 < this.entities.size) {
 			let e = [], n = !0;
-			for (let i of r.keys()) this.entities.has(i) && hasAll(t, i) && (e.length && i < e[e.length - 1] && (n = !1), e.push(i));
+			for (let i of r.keys()) hasAll(t, i) && (e.length && i < e[e.length - 1] && (n = !1), e.push(i));
 			n || e.sort((e, t) => e - t);
 			let a = this.revision;
 			for (let t = 0; t < e.length && this.revision === a; t++) i = e[t], yield i;
