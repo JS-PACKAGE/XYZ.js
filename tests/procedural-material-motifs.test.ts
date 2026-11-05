@@ -83627,3 +83627,513 @@ describe('debruijnstrips: rows of a binary de Bruijn sequence of order 5 as cell
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('redblacktrees: a red-black tree of 31 keys drawn from the root down, red nodes light and black nodes dark, with a surface chosen by the seed', () => {
+  const p = proceduralMaterialPresets.redblacktrees,
+    out = empty(),
+    n = p.nodes;
+  const toneAt = (sample: Sampler, x: number, y: number): number => {
+    sample(x, y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  type Tones = {
+    ground: number;
+    line: number;
+    red: number;
+    black: number;
+    rim: number;
+  };
+  // The tree as the picture shows it: for each key (1 to n) its level, whether it is red, and its parent (0 for the root).
+  type Tree = {
+    level: number[];
+    red: boolean[];
+    parent: number[];
+    levels: number;
+    surface: number;
+    shift: number;
+    tones: Tones;
+  };
+  const keyX = (key: number): number =>
+    p.marginX + ((1 - 2 * p.marginX) * (key - 0.5)) / n;
+  const gapFor = (levels: number): number =>
+    Math.min(p.levelGap, (1 - 2 * p.marginTop) / Math.max(1, levels - 1));
+  const keyY = (level: number, levels: number): number =>
+    p.marginTop + level * gapFor(levels);
+  // Decodes the picture: the discs (a run of the tone of a red or of a black node down the column of each key, whose middle is the node), the levels (the nodes grouped by how far down they are), and for each node the parent (the node one level up with the tone of a line at points along the line between them that are not under another disc).
+  const readings = (sample: Sampler): Tree[] => {
+    const options: Tree[] = [],
+      ground = toneAt(sample, 0, 0);
+    p.surfaces.forEach((surface, index) => {
+      const shift = ground - surface.ground;
+      if (Math.abs(shift) > p.toneShift + 1e-9) return;
+      const tones: Tones = {
+          ground,
+          line: surface.line + shift,
+          red: surface.red + shift,
+          black: surface.black + shift,
+          rim: surface.rim + shift,
+        },
+        is = (tone: number, value: number): boolean =>
+          Math.abs(tone - value) < 1e-6;
+      const found: { key: number; y: number; red: boolean }[] = [];
+      for (let key = 1; key <= n; key++) {
+        const runs: { from: number; to: number; red: boolean }[] = [];
+        let open: { from: number; to: number; red: boolean } | null = null;
+        for (let step = 0; step < 250; step++) {
+          const y = step * 0.004,
+            tone = toneAt(sample, keyX(key), y),
+            kind = is(tone, tones.red)
+              ? 'red'
+              : is(tone, tones.black)
+                ? 'black'
+                : null;
+          if (kind && open && open.red === (kind === 'red')) open.to = y;
+          else {
+            if (open) runs.push(open);
+            open = kind ? { from: y, to: y, red: kind === 'red' } : null;
+          }
+        }
+        if (open) runs.push(open);
+        if (runs.length !== 1) return;
+        found.push({
+          key,
+          y: (runs[0].from + runs[0].to) / 2,
+          red: runs[0].red,
+        });
+      }
+      // The levels: the nodes sorted by how far down they are, grouped where the gap is over a third of a level gap.
+      const ys = [...new Set(found.map((node) => node.y))].sort(
+          (a, b) => a - b,
+        ),
+        groups: number[] = [];
+      for (const y of ys)
+        if (groups.length === 0 || y - groups[groups.length - 1] > 0.02)
+          groups.push(y);
+      const level = found.map((node) => {
+        let best = 0;
+        groups.forEach((y, k) => {
+          if (Math.abs(y - node.y) < Math.abs(groups[best] - node.y)) best = k;
+        });
+        return best;
+      });
+      const levels = groups.length;
+      // The places must be those of the levels (the first level at the top margin, the others a level gap lower).
+      if (
+        found.some(
+          (node, k) => Math.abs(node.y - keyY(level[k], levels)) > 0.004,
+        )
+      )
+        return;
+      const parent = new Array<number>(n + 1).fill(0);
+      for (let key = 1; key <= n; key++) {
+        if (level[key - 1] === 0) continue;
+        const parents: number[] = [];
+        for (let candidate = 1; candidate <= n; candidate++) {
+          if (level[candidate - 1] !== level[key - 1] - 1) continue;
+          const ax = keyX(candidate),
+            ay = keyY(level[candidate - 1], levels),
+            bx = keyX(key),
+            by = keyY(level[key - 1], levels),
+            tones3: number[] = [];
+          for (const t of [0.3, 0.4, 0.5, 0.6, 0.7]) {
+            const x = ax + (bx - ax) * t,
+              y = ay + (by - ay) * t;
+            let covered = false;
+            for (let other = 1; other <= n; other++)
+              if (
+                Math.hypot(
+                  x - keyX(other),
+                  y - keyY(level[other - 1], levels),
+                ) <
+                p.nodeRadius + 0.004
+              )
+                covered = true;
+            if (!covered) tones3.push(toneAt(sample, x, y));
+          }
+          if (
+            tones3.length >= 2 &&
+            tones3.every((tone) => is(tone, tones.line))
+          )
+            parents.push(candidate);
+        }
+        if (parents.length !== 1) return;
+        parent[key] = parents[0];
+      }
+      options.push({
+        level,
+        red: found.map((node) => node.red),
+        parent,
+        levels,
+        surface: index,
+        shift,
+        tones,
+      });
+    });
+    return options;
+  };
+  const readSurface = (sample: Sampler): Tree => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  // The properties of a red-black tree, written out again here from the Wikipedia article: every node red or black, the root black, a red node has no red child, and every path from the root to an empty child has the same number of black nodes; and the tree is a binary search tree on the keys (in order: the keys of the left subtree are smaller, of the right larger).
+  const children = (tree: Tree, key: number): number[] =>
+    Array.from({ length: n }, (_, k) => k + 1).filter(
+      (child) => tree.parent[child] === key,
+    );
+  const check = (tree: Tree): { black: number; height: number } => {
+    const roots = Array.from({ length: n }, (_, k) => k + 1).filter(
+      (key) => tree.parent[key] === 0,
+    );
+    expect(roots.length).toBe(1);
+    expect(tree.red[roots[0] - 1]).toBe(false);
+    const order: number[] = [];
+    // The black height of a subtree (black nodes on any path to an empty child, empty child counting 0): -1 where two paths differ.
+    const walk = (
+      key: number | null,
+      parentRed: boolean,
+    ): { black: number; height: number } => {
+      if (key === null) return { black: 0, height: 0 };
+      const kids = children(tree, key),
+        left = kids.filter((child) => child < key),
+        right = kids.filter((child) => child > key);
+      expect(left.length).toBeLessThanOrEqual(1);
+      expect(right.length).toBeLessThanOrEqual(1);
+      expect(kids.length).toBe(left.length + right.length);
+      const isRed = tree.red[key - 1];
+      if (parentRed) expect(isRed).toBe(false);
+      const a = walk(left[0] ?? null, isRed);
+      order.push(key);
+      const b = walk(right[0] ?? null, isRed);
+      expect(a.black).toBe(b.black);
+      return {
+        black: a.black + (isRed ? 0 : 1),
+        height: 1 + Math.max(a.height, b.height),
+      };
+    };
+    const result = walk(roots[0], false);
+    expect(order).toEqual(Array.from({ length: n }, (_, k) => k + 1));
+    return result;
+  };
+
+  it('is a red-black tree: a binary search tree on the keys 1 to 31 read in order, the root black, no red node with a red child, the same number of black nodes on every path to an empty child, and not higher than 2 log2(n + 1)', () => {
+    let tall = 0,
+      red = 0;
+    for (let seed = 0; seed < 150; seed++) {
+      const tree = readSurface(
+          createSurfaceSampler('redblacktrees', seed * 13 + 5),
+        ),
+        { height } = check(tree);
+      expect(height).toBe(tree.levels);
+      expect(height).toBeLessThanOrEqual(2 * Math.log2(n + 1));
+      // A tree of 31 keys is at least 5 high and the levels are the depths of the nodes.
+      expect(height).toBeGreaterThanOrEqual(5);
+      tall = Math.max(tall, height);
+      red += tree.red.filter(Boolean).length;
+    }
+    expect(tall).toBeGreaterThanOrEqual(6);
+    // There are red nodes (about half of the nodes), not none and not all.
+    expect(red / 150).toBeGreaterThan(8);
+    expect(red / 150).toBeLessThan(23);
+    // The checker says no to a tree with a colour changed: the first red node made black unbalances the black heights, and a black node made red can give a red child of a red node.
+    const tree = readSurface(createSurfaceSampler('redblacktrees', 3)),
+      broken = {
+        ...tree,
+        red: tree.red.map((value, k) =>
+          k === tree.red.indexOf(true) ? false : value,
+        ),
+      };
+    expect(() => check(broken)).toThrow();
+  });
+
+  // The model of the picture, written out again here from the tree.
+  const centreOf = (tree: Tree, key: number): [number, number] => [
+    keyX(key),
+    keyY(tree.level[key - 1], tree.levels),
+  ];
+  const linesOf = (tree: Tree): [number, number, number, number][] =>
+    Array.from({ length: n }, (_, k) => k + 1)
+      .filter((key) => tree.parent[key] !== 0)
+      .map(
+        (key) =>
+          [...centreOf(tree, tree.parent[key]), ...centreOf(tree, key)] as [
+            number,
+            number,
+            number,
+            number,
+          ],
+      );
+  const distanceTo = (
+    x: number,
+    y: number,
+    [x0, y0, x1, y1]: [number, number, number, number],
+  ): number => {
+    const dx = x1 - x0,
+      dy = y1 - y0,
+      t = Math.max(
+        0,
+        Math.min(1, ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - x0 - t * dx, y - y0 - t * dy);
+  };
+  type Label = 'ground' | 'line' | 'rim' | 'red' | 'black';
+  const labelAt = (
+    tree: Tree,
+    lines: ReturnType<typeof linesOf>,
+    x: number,
+    y: number,
+  ): Label => {
+    for (let key = 1; key <= n; key++) {
+      const [cx, cy] = centreOf(tree, key),
+        away = Math.hypot(x - cx, y - cy);
+      if (away <= p.nodeRadius - p.rimWidth)
+        return tree.red[key - 1] ? 'red' : 'black';
+      if (away <= p.nodeRadius) return 'rim';
+    }
+    return lines.some((line) => distanceTo(x, y, line) <= p.edgeHalf)
+      ? 'line'
+      : 'ground';
+  };
+  // The distances from a place to each edge of the drawing (the outer and the inner edge of every disc and the two sides of every line): the ones within a distance.
+  const edgesNear = (
+    tree: Tree,
+    lines: ReturnType<typeof linesOf>,
+    x: number,
+    y: number,
+    within: number,
+  ): number[] => {
+    const near: number[] = [];
+    for (let key = 1; key <= n; key++) {
+      const [cx, cy] = centreOf(tree, key),
+        away = Math.hypot(x - cx, y - cy);
+      for (const radius of [p.nodeRadius, p.nodeRadius - p.rimWidth])
+        if (Math.abs(away - radius) < within)
+          near.push(Math.abs(away - radius));
+    }
+    for (const line of lines) {
+      const d = Math.abs(distanceTo(x, y, line) - p.edgeHalf);
+      if (d < within) near.push(d);
+    }
+    return near;
+  };
+  const toneOf = (tree: Tree, label: Label): number => tree.tones[label],
+    heightOf = (label: Label): number =>
+      ({
+        ground: p.groundHeight,
+        line: p.lineHeight,
+        rim: p.rimHeight,
+        red: p.redHeight,
+        black: p.blackHeight,
+      })[label],
+    roughnessOf = (label: Label): number =>
+      label === 'ground' ? p.groundRoughness : p.inkRoughness;
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model at every place of the picture away from the edges, for several seeds',
+    { timeout: 120000 },
+    () => {
+      const o = empty();
+      for (const seed of [1, 2, 3, 4, 5, 6]) {
+        const sample = createSurfaceSampler('redblacktrees', seed),
+          tree = readSurface(sample),
+          lines = linesOf(tree);
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (edgesNear(tree, lines, x, y, 0.0008).length > 0) continue;
+            sample(x, y, o);
+            const label = labelAt(tree, lines, x, y);
+            expect(o.color).toBeCloseTo(toneOf(tree, label), 6);
+            expect(o.height / p.relief).toBeCloseTo(heightOf(label), 6);
+            expect(o.roughness).toBeCloseTo(roughnessOf(label), 6);
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(150000);
+      }
+    },
+  );
+
+  it('puts the outer and inner edge of every disc and the two sides of every line where the model puts them: just inside and just outside by 0.0004 of a tile, exactly (where no other edge is within the softened width), and softens them over edgeSoft', () => {
+    const delta = 0.0004,
+      quarter = 0.25 * p.edgeSoft,
+      counts = {
+        disc: 0,
+        rim: 0,
+        line: 0,
+        softDisc: 0,
+        softRim: 0,
+        softLine: 0,
+      };
+    for (let seed = 1; seed <= 6; seed++) {
+      const sample = createSurfaceSampler('redblacktrees', seed),
+        tree = readSurface(sample),
+        lines = linesOf(tree),
+        { tones } = tree,
+        tone = (x: number, y: number): number => toneAt(sample, x, y);
+      for (let key = 1; key <= n; key++) {
+        const [cx, cy] = centreOf(tree, key);
+        for (const angle of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+          for (const [what, radius] of [
+            ['disc', p.nodeRadius],
+            ['rim', p.nodeRadius - p.rimWidth],
+          ] as const)
+            for (const d of [radius - delta, radius + delta]) {
+              const x = cx + d * Math.cos(angle),
+                y = cy + d * Math.sin(angle);
+              if (edgesNear(tree, lines, x, y, 0.0003).length > 0) continue;
+              close(tone(x, y), toneOf(tree, labelAt(tree, lines, x, y)));
+              counts[what]++;
+            }
+        }
+        // The quarter probes: on the side of a leaf away from its parent, where only the edges of its own disc are near.
+        const kids = children(tree, key);
+        if (kids.length === 0 && tree.parent[key] !== 0) {
+          const [ax, ay] = centreOf(tree, tree.parent[key]),
+            angle = Math.atan2(cy - ay, cx - ax),
+            fill = tree.red[key - 1] ? tones.red : tones.black,
+            at = (radius: number): [number, number] => [
+              cx + radius * Math.cos(angle),
+              cy + radius * Math.sin(angle),
+            ];
+          for (const [radius, from, to, inside] of [
+            [p.nodeRadius - quarter, tones.ground, tones.rim, 0.75],
+            [p.nodeRadius + quarter, tones.ground, tones.rim, 0.25],
+            [p.nodeRadius - p.rimWidth - quarter, tones.rim, fill, 0.75],
+            [p.nodeRadius - p.rimWidth + quarter, tones.rim, fill, 0.25],
+          ] as const) {
+            const [x, y] = at(radius);
+            if (edgesNear(tree, lines, x, y, 0.0009).length !== 1) continue;
+            close(tone(x, y), blend(from, to, inside));
+            counts[
+              radius > p.nodeRadius - p.rimWidth + 0.001
+                ? 'softDisc'
+                : 'softRim'
+            ]++;
+          }
+        }
+      }
+      for (const line of lines) {
+        const [x0, y0, x1, y1] = line,
+          length = Math.hypot(x1 - x0, y1 - y0),
+          ux = (x1 - x0) / length,
+          uy = (y1 - y0) / length;
+        for (const t of [0.35, 0.5, 0.65])
+          for (const side of [-1, 1]) {
+            const x = x0 + (x1 - x0) * t,
+              y = y0 + (y1 - y0) * t;
+            for (const d of [p.edgeHalf - delta, p.edgeHalf + delta]) {
+              const qx = x - uy * side * d,
+                qy = y + ux * side * d;
+              if (edgesNear(tree, lines, qx, qy, 0.0003).length > 0) continue;
+              close(tone(qx, qy), toneOf(tree, labelAt(tree, lines, qx, qy)));
+              counts.line++;
+            }
+            for (const [d, inside] of [
+              [p.edgeHalf - quarter, 0.75],
+              [p.edgeHalf + quarter, 0.25],
+            ] as const) {
+              const qx = x - uy * side * d,
+                qy = y + ux * side * d;
+              if (edgesNear(tree, lines, qx, qy, 0.0009).length !== 1) continue;
+              if (labelAt(tree, lines, qx, qy) === 'rim') continue;
+              close(tone(qx, qy), blend(tones.ground, tones.line, inside));
+              counts.softLine++;
+            }
+          }
+      }
+    }
+    expect(counts.disc).toBeGreaterThan(1000);
+    expect(counts.rim).toBeGreaterThan(1000);
+    expect(counts.line).toBeGreaterThan(1500);
+    expect(counts.softDisc).toBeGreaterThan(20);
+    expect(counts.softRim).toBeGreaterThan(20);
+    expect(counts.softLine).toBeGreaterThan(500);
+  });
+
+  it(
+    'uses every surface about equally often, makes different trees of different heights, keeps every one a red-black tree, and shifts the tones over the whole range, over 1000 seeds',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        trees = new Set<string>(),
+        heights = new Map<number, number>(),
+        shifts: number[] = [];
+      for (let seed = 0; seed < 1000; seed++) {
+        const tree = readSurface(
+            createSurfaceSampler('redblacktrees', seed * 7 + 1),
+          ),
+          { height } = check(tree);
+        shifts.push(tree.shift);
+        surfaces.set(tree.surface, (surfaces.get(tree.surface) ?? 0) + 1);
+        heights.set(height, (heights.get(height) ?? 0) + 1);
+        trees.add(tree.parent.join(',') + tree.red.join(''));
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(60);
+      expect(trees.size).toBeGreaterThan(995);
+      expect(Math.min(...heights.keys())).toBeGreaterThanOrEqual(5);
+      expect(Math.max(...heights.keys())).toBeLessThanOrEqual(10);
+      expect(heights.size).toBeGreaterThanOrEqual(2);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('redblacktrees', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('redblacktrees', 0),
+      b = createSurfaceSampler('redblacktrees', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

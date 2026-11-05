@@ -29129,6 +29129,59 @@ var proceduralMaterialPresets = Object.freeze({
 		groundRoughness: .7,
 		onRoughness: .4
 	}),
+	redblacktrees: Object.freeze({
+		dark: [
+			18,
+			20,
+			28
+		],
+		light: [
+			236,
+			232,
+			220
+		],
+		roughness: .55,
+		relief: .004,
+		nodes: 31,
+		marginX: .05,
+		marginTop: .06,
+		levelGap: .15,
+		nodeRadius: .0245,
+		rimWidth: .004,
+		edgeHalf: .0022,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .9,
+				line: .55,
+				red: .72,
+				black: .12,
+				rim: .3
+			}),
+			Object.freeze({
+				ground: .5,
+				line: .25,
+				red: .78,
+				black: .08,
+				rim: .15
+			}),
+			Object.freeze({
+				ground: .2,
+				line: .6,
+				red: .88,
+				black: .06,
+				rim: .45
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		lineHeight: .25,
+		redHeight: .45,
+		blackHeight: .4,
+		rimHeight: .55,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37810,6 +37863,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	redblacktrees: 1,
 	debruijnstrips: 1,
 	starbattleboard: 1,
 	sokobanlevels: 1,

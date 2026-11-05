@@ -18819,6 +18819,58 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     onRoughness: 0.4,
   }),
+  redblacktrees: Object.freeze({
+    dark: [18, 20, 28] as const,
+    light: [236, 232, 220] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // A red-black tree (the binary search tree that the Wikipedia article on red-black trees describes, read for this: every node red or black, the root black, no red node with a red child, and every path from the root to an
+    // empty child with the same number of black nodes) of the keys 1 to nodes, made by inserting the keys in a random order of the seed with the usual insertion (a new node is red, and a red parent is mended by recolouring
+    // and rotating); that is my way of getting a tree, and the article does not say how to draw one. The tree is drawn from the root down: a node is a disc of the radius nodeRadius at the place of its key from left to right
+    // (the keys spread over the width of the tile between the margins) and at its depth from top to bottom (levelGap apart, or closer when the tree is high, from the top margin), with a rim of the width rimWidth (a disc of the rim tone under the disc of the node), the inside light for a red node and dark for a black one
+    // (the colour of a pixel is one tone, so red is drawn as the lighter and black as the darker), and a line of the half width edgeHalf from each node to its parent behind the discs. The seed picks the tree and a surface
+    // (the tones of the ground, the lines, a red node, a black node and the rims, shifted together a little).
+    nodes: 31,
+    marginX: 0.05,
+    marginTop: 0.06,
+    levelGap: 0.15,
+    nodeRadius: 0.0245,
+    rimWidth: 0.004,
+    edgeHalf: 0.0022,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({
+        ground: 0.9,
+        line: 0.55,
+        red: 0.72,
+        black: 0.12,
+        rim: 0.3,
+      }),
+      Object.freeze({
+        ground: 0.5,
+        line: 0.25,
+        red: 0.78,
+        black: 0.08,
+        rim: 0.15,
+      }),
+      Object.freeze({
+        ground: 0.2,
+        line: 0.6,
+        red: 0.88,
+        black: 0.06,
+        rim: 0.45,
+      }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    lineHeight: 0.25,
+    redHeight: 0.45,
+    blackHeight: 0.4,
+    rimHeight: 0.55,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25311,6 +25363,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  redblacktrees: 1,
   debruijnstrips: 1,
   starbattleboard: 1,
   sokobanlevels: 1,

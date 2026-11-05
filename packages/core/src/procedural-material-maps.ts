@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'redblacktrees',
   'debruijnstrips',
   'starbattleboard',
   'sokobanlevels',
@@ -52824,6 +52825,168 @@ export function createSurfaceSampler(
           height = clamp(p.groundHeight + (p.onHeight - p.groundHeight) * on);
           roughness = clamp(
             p.groundRoughness + (p.onRoughness - p.groundRoughness) * on,
+          );
+          occlusion = 1;
+        };
+      }
+      case 'redblacktrees': {
+        const p = proceduralMaterialPresets.redblacktrees,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(138, 1, seed ^ 0x320001) * p.surfaces.length)
+            ],
+          shift = (hash(138, 2, seed ^ 0x320002) * 2 - 1) * p.toneShift,
+          n = p.nodes,
+          // The tree on the keys 1 to n (0 is the empty child): the children and parent of each key, whether it is red (1) or black (0), and the root.
+          left = new Uint8Array(n + 1),
+          right = new Uint8Array(n + 1),
+          parent = new Uint8Array(n + 1),
+          red = new Uint8Array(n + 1),
+          order = Array.from({ length: n }, (_, key) => key + 1).sort(
+            (a, b) => hash(a, 1, seed ^ 0x320003) - hash(b, 1, seed ^ 0x320003),
+          );
+        let root = 0;
+        const turn = (x: number, toLeft: boolean): void => {
+          // A rotation of x down to the left (toLeft) or to the right: its child on the other side takes its place.
+          const child = toLeft ? right[x] : left[x],
+            inner = toLeft ? left[child] : right[child];
+          if (toLeft) right[x] = inner;
+          else left[x] = inner;
+          if (inner) parent[inner] = x;
+          parent[child] = parent[x];
+          if (!parent[x]) root = child;
+          else if (x === left[parent[x]]) left[parent[x]] = child;
+          else right[parent[x]] = child;
+          if (toLeft) left[child] = x;
+          else right[child] = x;
+          parent[x] = child;
+        };
+        for (const key of order) {
+          let at = root,
+            above = 0;
+          while (at) {
+            above = at;
+            at = key < at ? left[at] : right[at];
+          }
+          parent[key] = above;
+          if (!above) root = key;
+          else if (key < above) left[above] = key;
+          else right[above] = key;
+          red[key] = 1;
+          // The mending: while the parent is red, a red uncle is recoloured with the parent and the grandparent is passed up, and a black uncle is turned away with one or two rotations.
+          let z = key;
+          while (parent[z] && red[parent[z]]) {
+            const grand = parent[parent[z]],
+              side = parent[z] === left[grand],
+              uncle = side ? right[grand] : left[grand];
+            if (red[uncle]) {
+              red[parent[z]] = 0;
+              red[uncle] = 0;
+              red[grand] = 1;
+              z = grand;
+            } else {
+              if (z === (side ? right[parent[z]] : left[parent[z]])) {
+                z = parent[z];
+                turn(z, side);
+              }
+              red[parent[z]] = 0;
+              red[parent[parent[z]]] = 1;
+              turn(parent[parent[z]], !side);
+            }
+          }
+          red[root] = 0;
+        }
+        // The depth of each key, and the keys at each depth, and the places of the discs and of the lines to the parents.
+        const levels: number[][] = [],
+          px = (key: number): number =>
+            p.marginX + ((1 - 2 * p.marginX) * (key - 0.5)) / n;
+        const walk = (key: number, level: number): void => {
+          if (!key) return;
+          (levels[level] ??= []).push(key);
+          walk(left[key], level + 1);
+          walk(right[key], level + 1);
+        };
+        walk(root, 0);
+        // The levels are levelGap apart, closer when the tree is so high that they would not fit between the margins.
+        const gap = Math.min(
+            p.levelGap,
+            (1 - 2 * p.marginTop) / Math.max(1, levels.length - 1),
+          ),
+          py = (level: number): number => p.marginTop + level * gap,
+          // The places of the nodes, and the line from each to its parent (from the parent: its place and the way to the node).
+          nodeX = new Float64Array(n + 1),
+          nodeY = new Float64Array(n + 1);
+        levels.forEach((keys, level) => {
+          for (const key of keys) {
+            nodeX[key] = px(key);
+            nodeY[key] = py(level);
+          }
+        });
+        return () => {
+          const x = u - Math.floor(u),
+            y = v - Math.floor(v),
+            near = Math.floor((y - p.marginTop) / gap);
+          let line = -1,
+            outer = -1,
+            inner = -1,
+            isRed = false;
+          // The place is between two levels (near and the next): the discs of the nodes of both, and the lines from the nodes of the lower to their parents (the line to the parent of a node of the upper level ends under its disc).
+          for (
+            let level = Math.max(0, near);
+            level <= Math.min(levels.length - 1, near + 1);
+            level++
+          )
+            for (const key of levels[level]) {
+              const away = Math.hypot(x - nodeX[key], y - nodeY[key]);
+              if (p.nodeRadius - away > outer) {
+                outer = p.nodeRadius - away;
+                inner = p.nodeRadius - p.rimWidth - away;
+                isRed = red[key] === 1;
+              }
+              if (level === near + 1 && parent[key]) {
+                const ax = nodeX[parent[key]],
+                  ay = nodeY[parent[key]],
+                  dx = nodeX[key] - ax,
+                  dy = nodeY[key] - ay,
+                  t = Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                    ),
+                  );
+                line = Math.max(
+                  line,
+                  p.edgeHalf - Math.hypot(x - ax - t * dx, y - ay - t * dy),
+                );
+              }
+            }
+          // The line behind a disc, the disc (the rim) over it, and the inside of the disc (red or black) over the rim.
+          const lineCover = cover(line),
+            outerCover = cover(outer),
+            innerCover = cover(inner),
+            ground = surface.ground + shift,
+            lined = ground + (surface.line + shift - ground) * lineCover,
+            rimmed = lined + (surface.rim + shift - lined) * outerCover;
+          color = clamp(
+            rimmed +
+              ((isRed ? surface.red : surface.black) + shift - rimmed) *
+                innerCover,
+          );
+          const lineHeight =
+              p.groundHeight + (p.lineHeight - p.groundHeight) * lineCover,
+            rimHeight = lineHeight + (p.rimHeight - lineHeight) * outerCover;
+          height = clamp(
+            rimHeight +
+              ((isRed ? p.redHeight : p.blackHeight) - rimHeight) * innerCover,
+          );
+          roughness = clamp(
+            p.groundRoughness +
+              (p.inkRoughness - p.groundRoughness) *
+                Math.max(lineCover, outerCover),
           );
           occlusion = 1;
         };
