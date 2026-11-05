@@ -1237,6 +1237,7 @@ try {
     'hanoistates',
     'transformbasis',
     'diophantinegrid',
+    'beattysequences',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

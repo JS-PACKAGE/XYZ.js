@@ -56953,6 +56953,69 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'beattysequences': {
+        const p = proceduralMaterialPresets.beattysequences,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.alphas.length,
+          group = Math.floor(unsigned / p.alphas.length),
+          n: number = p.widths[group % p.widths.length],
+          first = 1 + (Math.floor(group / p.widths.length) % 8) * p.offsetStep,
+          last = first + n * n - 1,
+          alpha: number = p.alphas[variant],
+          beta = alpha / (alpha - 1),
+          // Bit 1 of a whole number's class: in the first sequence, bit 2: in the second one.
+          marks = new Uint8Array(n * n);
+        for (let k = 1; Math.floor(k * alpha) <= last; k++) {
+          const m = Math.floor(k * alpha);
+          if (m >= first) marks[m - first] |= 1;
+        }
+        for (let k = 1; Math.floor(k * beta) <= last; k++) {
+          const m = Math.floor(k * beta);
+          if (m >= first) marks[m - first] |= 2;
+        }
+        const half = 0.5 - p.gap,
+          inner = half - p.corner;
+        return () => {
+          const x = fract(u) * n,
+            y = fract(v) * n,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            qx = Math.abs(x - column - 0.5) - inner,
+            qy = Math.abs(y - row - 0.5) - inner,
+            // The distance to the rounded square of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            kind = marks[row * n + column],
+            tone =
+              kind === 1
+                ? p.toneFirst
+                : kind === 2
+                  ? p.toneSecond
+                  : p.toneOther,
+            lift =
+              kind === 1
+                ? p.heightFirst
+                : kind === 2
+                  ? p.heightSecond
+                  : p.heightOther,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * lift;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65929,6 +65992,7 @@ export function createSurfaceSampler(
     kind === 'hanoistates' ||
     kind === 'transformbasis' ||
     kind === 'diophantinegrid' ||
+    kind === 'beattysequences' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

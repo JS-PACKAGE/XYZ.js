@@ -1174,6 +1174,7 @@ export type ProceduralMaterialKind =
   | 'hanoistates'
   | 'transformbasis'
   | 'diophantinegrid'
+  | 'beattysequences'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2596,6 +2597,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'hanoistates',
   'transformbasis',
   'diophantinegrid',
+  'beattysequences',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

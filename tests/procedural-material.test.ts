@@ -1200,6 +1200,7 @@ const kinds: ProceduralMaterialKind[] = [
   'hanoistates',
   'transformbasis',
   'diophantinegrid',
+  'beattysequences',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -214317,6 +214318,310 @@ describe('Diophantine grid as the cells where a form is a square', () => {
     expect(blue / (512 * 512)).toBeLessThan(35);
     expect(maxTilt).toBeGreaterThan(0.0999);
     expect(maxTilt).toBeLessThan(0.1);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Beatty sequences as the two complementary Beatty sequences', () => {
+  const p = proceduralMaterialPresets.beattysequences;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The integer square root, exact: the greatest r with r * r <= value. */
+  const isqrt = (value: number): number => {
+    let r = Math.floor(Math.sqrt(value));
+    while (r * r > value) r--;
+    while ((r + 1) * (r + 1) <= value) r++;
+    return r;
+  };
+  /** floor(k alpha) for the six alphas (golden ratio, sqrt 2, 1 + sqrt 2, sqrt 3, sqrt 5, 2 + sqrt 3) by whole-number arithmetic only. */
+  const lowerBeatty = (variant: number, k: number): number =>
+    [
+      Math.floor((k + isqrt(5 * k * k)) / 2),
+      isqrt(2 * k * k),
+      k + isqrt(2 * k * k),
+      isqrt(3 * k * k),
+      isqrt(5 * k * k),
+      2 * k + isqrt(3 * k * k),
+    ][variant];
+  /** floor(k beta) for the partner beta = alpha / (alpha - 1) written by hand: phi + 1, 2 + sqrt 2, 1 + sqrt 2 / 2, (3 + sqrt 3) / 2, (5 + sqrt 5) / 4 and (1 + sqrt 3) / 2. */
+  const upperBeatty = (variant: number, k: number): number =>
+    [
+      k + Math.floor((k + isqrt(5 * k * k)) / 2),
+      2 * k + isqrt(2 * k * k),
+      k + Math.floor(isqrt(2 * k * k) / 2),
+      Math.floor((3 * k + isqrt(3 * k * k)) / 2),
+      Math.floor((5 * k + isqrt(5 * k * k)) / 4),
+      Math.floor((k + isqrt(3 * k * k)) / 2),
+    ][variant];
+  /** The six alphas as real numbers, written out again. */
+  const alphas = [
+    (1 + Math.sqrt(5)) / 2,
+    Math.SQRT2,
+    1 + Math.SQRT2,
+    Math.sqrt(3),
+    Math.sqrt(5),
+    2 + Math.sqrt(3),
+  ];
+  /** The width, the first number of the window and the class of every cell as the picture of a seed should show it: 1 in the first sequence only, 2 in the second one only, 0 in neither or both. */
+  const expectedWindow = (seed: number) => {
+    const variant = seed % 6,
+      group = Math.floor(seed / 6),
+      width = [24, 32, 34, 40][group % 4],
+      first = 1 + (Math.floor(group / 4) % 8) * 997,
+      last = first + width * width - 1,
+      inFirst = new Set<number>(),
+      inSecond = new Set<number>();
+    for (let k = 1; lowerBeatty(variant, k) <= last; k++)
+      inFirst.add(lowerBeatty(variant, k));
+    for (let k = 1; upperBeatty(variant, k) <= last; k++)
+      inSecond.add(upperBeatty(variant, k));
+    const classes = Array.from({ length: width }, (_, j) =>
+      Array.from({ length: width }, (_, i) => {
+        const m = first + j * width + i;
+        return inFirst.has(m) && !inSecond.has(m)
+          ? 1
+          : inSecond.has(m) && !inFirst.has(m)
+            ? 2
+            : 0;
+      }),
+    );
+    return { width, first, classes };
+  };
+  /** The classes as the picture shows them, read back at the middle of every cell (the height gives it). */
+  const readClasses = (seed: number, width: number): number[][] => {
+    const sample = createSurfaceSampler('beattysequences', seed),
+      out = empty();
+    return Array.from({ length: width }, (_, j) =>
+      Array.from({ length: width }, (_, i) => {
+        sample((i + 0.5) / width, (j + 0.5) / width, out);
+        const high = out.height / p.relief / p.cellHeight,
+          kind = [p.heightOther, p.heightFirst, p.heightSecond].findIndex(
+            (h) => Math.abs(h - high) < 1e-9,
+          );
+        expect(kind).toBeGreaterThanOrEqual(0);
+        return kind;
+      }),
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5 (the first sequence), for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('beattysequences', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.01589, high: 0.9342, lit: 0.45392, mean: 0.52697 }],
+      [1, { low: 0.0158, high: 0.9343, lit: 0.52023, mean: 0.56076 }],
+      [0xffffffff, { low: 0.0157, high: 0.9343, lit: 0.4153, mean: 0.51346 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('beattysequences', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('draws the first Beatty sequence floor(k alpha) and the second floor(k beta) in the cells, read back at the middle of every cell and equal to whole-number arithmetic with integer square roots, for the six alphas, four widths and eight windows', () => {
+    for (let seed = 0; seed < 6 * 32; seed++) {
+      const { width, classes } = expectedWindow(seed);
+      expect(readClasses(seed, width)).toEqual(classes);
+    }
+  });
+  it('shows Rayleigh theorem on the picture: every whole number is in exactly one of the two sequences, and the first holds about 1 / alpha of the numbers', () => {
+    for (let seed = 0; seed < 6 * 32; seed += 5) {
+      const variant = seed % 6,
+        { width } = expectedWindow(seed),
+        classes = readClasses(seed, width).flat();
+      // No cell is in neither or in both, which the picture shows as the third class.
+      expect(classes.filter((kind) => kind === 0).length).toBe(0);
+      // A window of N consecutive numbers holds N / alpha numbers of the first sequence, give or take 1.
+      const count = classes.filter((kind) => kind === 1).length;
+      expect(Math.abs(count - (width * width) / alphas[variant])).toBeLessThan(
+        1,
+      );
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22, 100]) {
+      const { width, classes } = expectedWindow(seed),
+        sample = createSurfaceSampler('beattysequences', seed),
+        out = empty(),
+        half = 0.5 - p.gap,
+        inner = half - p.corner;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * width,
+          y = v * width,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          dx = Math.abs(x - column - 0.5),
+          dy = Math.abs(y - row - 0.5),
+          // The distance to the rounded square, by the straight sides or by the corner circle.
+          distance =
+            dx <= inner || dy <= inner
+              ? Math.max(dx, dy) - half
+              : Math.hypot(dx - inner, dy - inner) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          kind = classes[row][column],
+          tone = [p.toneOther, p.toneFirst, p.toneSecond][kind],
+          lift = [p.heightOther, p.heightFirst, p.heightSecond][kind];
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * lift,
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4700);
+  });
+  it('draws a different view per alpha and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.333892822265625, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.46435546875, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('beattysequences', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 aqua Beatty sequence maps on dark teal with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('beattysequences', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(70);
+    expect(red / (512 * 512)).toBeLessThan(71);
+    expect(green / (512 * 512)).toBeGreaterThan(144.4);
+    expect(green / (512 * 512)).toBeLessThan(145.4);
+    expect(blue / (512 * 512)).toBeGreaterThan(136.7);
+    expect(blue / (512 * 512)).toBeLessThan(137.7);
+    expect(maxTilt).toBeGreaterThan(0.1034);
+    expect(maxTilt).toBeLessThan(0.1036);
     expect(invalid).toBe(0);
   });
 });
