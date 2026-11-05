@@ -57104,6 +57104,113 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'finitefieldtables': {
+        const p = proceduralMaterialPresets.finitefieldtables,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.primes.length,
+          group = Math.floor(unsigned / p.primes.length),
+          prime: number = p.primes[variant],
+          degree: number = p.degrees[variant],
+          reduction: readonly number[] = p.reductions[variant],
+          q = prime ** degree,
+          digitsOf = (name: number): number[] =>
+            Array.from(
+              { length: degree },
+              (_, i) => Math.floor(name / prime ** i) % prime,
+            ),
+          nameOf = (digits: readonly number[]): number =>
+            digits.reduce((sum, digit, i) => sum + digit * prime ** i, 0),
+          add = (a: number, b: number): number => {
+            const x = digitsOf(a),
+              y = digitsOf(b);
+            return nameOf(x.map((digit, i) => (digit + y[i]) % prime));
+          },
+          multiply = (a: number, b: number): number => {
+            const x = digitsOf(a),
+              y = digitsOf(b),
+              product = new Array<number>(2 * degree - 1).fill(0);
+            for (let i = 0; i < degree; i++)
+              for (let j = 0; j < degree; j++)
+                product[i + j] = (product[i + j] + x[i] * y[j]) % prime;
+            // Reduce x^d for d from the top down to the degree by the right-hand side of x^degree.
+            for (let d = 2 * degree - 2; d >= degree; d--) {
+              const c = product[d];
+              product[d] = 0;
+              for (let i = 0; i < degree; i++)
+                product[d - degree + i] =
+                  (product[d - degree + i] + c * reduction[i]) % prime;
+            }
+            return nameOf(product.slice(0, degree));
+          },
+          // One naming of the elements: the names 0 and 1 stay and the names 2 to q - 1 are shuffled by hash keys; pi maps the polynomial's number to the name shown, back is its inverse.
+          naming = (keySeed: number) => {
+            const rest = Array.from({ length: q - 2 }, (_, t) => t + 2).sort(
+                (a, b) => hash(a, 5, keySeed) - hash(b, 5, keySeed) || a - b,
+              ),
+              pi = [0, 1, ...rest],
+              back = new Array<number>(q);
+            pi.forEach((shown, element) => {
+              back[shown] = element;
+            });
+            return { pi, back };
+          },
+          namings = [
+            naming((group * 0x9e3779b1) ^ seed ^ p.seedSalt),
+            naming(((group + 1) * 0x85ebca6b) ^ seed ^ p.seedSalt),
+          ],
+          // tables[row][column][a * q + b]: the name shown for a and b (names as shown), the column 0 the addition and 1 the multiplication.
+          tables = namings.map(({ pi, back }) =>
+            [add, multiply].map((operation) => {
+              const table = new Uint8Array(q * q);
+              for (let a = 0; a < q; a++)
+                for (let b = 0; b < q; b++)
+                  table[a * q + b] = pi[operation(back[a], back[b])];
+              return table;
+            }),
+          ),
+          cells = 2 * q;
+        return () => {
+          const x = fract(u) * cells,
+            y = fract(v) * cells,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            column = Math.floor(i / q),
+            row = Math.floor(j / q),
+            px = i % q,
+            py = j % q,
+            name = tables[row][column][px * q + py],
+            // The gaps on the four sides of the cell: wider at the edge of a panel.
+            left = px === 0 ? p.gapPanel : p.gap,
+            right = px === q - 1 ? p.gapPanel : p.gap,
+            top = py === 0 ? p.gapPanel : p.gap,
+            bottom = py === q - 1 ? p.gapPanel : p.gap,
+            hx = (1 - left - right) / 2,
+            hy = (1 - top - bottom) / 2,
+            qx = Math.abs(x - i - (1 + left - right) / 2) - (hx - p.corner),
+            qy = Math.abs(y - j - (1 + top - bottom) / 2) - (hy - p.corner),
+            // The distance to the rounded rectangle of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            level = name / (q - 1),
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -66082,6 +66189,7 @@ export function createSurfaceSampler(
     kind === 'diophantinegrid' ||
     kind === 'beattysequences' ||
     kind === 'minesweeperboards' ||
+    kind === 'finitefieldtables' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

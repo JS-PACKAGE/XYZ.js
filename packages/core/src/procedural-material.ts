@@ -1176,6 +1176,7 @@ export type ProceduralMaterialKind =
   | 'diophantinegrid'
   | 'beattysequences'
   | 'minesweeperboards'
+  | 'finitefieldtables'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2600,6 +2601,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'diophantinegrid',
   'beattysequences',
   'minesweeperboards',
+  'finitefieldtables',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

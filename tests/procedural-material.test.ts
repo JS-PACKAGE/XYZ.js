@@ -1202,6 +1202,7 @@ const kinds: ProceduralMaterialKind[] = [
   'diophantinegrid',
   'beattysequences',
   'minesweeperboards',
+  'finitefieldtables',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -214947,6 +214948,321 @@ describe('Minesweeper boards as solved Minesweeper boards with dice pips', () =>
     expect(blue / (512 * 512)).toBeLessThan(43.2);
     expect(maxTilt).toBeGreaterThan(0.0177);
     expect(maxTilt).toBeLessThan(0.0178);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Finite field tables as the addition and multiplication tables of a finite field', () => {
+  const p = proceduralMaterialPresets.finitefieldtables;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The prime and the order q of the six fields, written out again: GF(4), GF(8), GF(9), GF(16), GF(5), GF(7). */
+  const characteristics = [2, 2, 3, 2, 5, 7],
+    orders = [4, 8, 9, 16, 5, 7];
+  /** The four tables of a seed read back from the picture, at the middle of every cell (the height gives the name): [row][column] with the column 0 the addition and 1 the multiplication, each as table[a][b]. */
+  const readTables = (seed: number): number[][][][] => {
+    const q = orders[seed % 6],
+      sample = createSurfaceSampler('finitefieldtables', seed),
+      out = empty();
+    return [0, 1].map((row) =>
+      [0, 1].map((column) =>
+        Array.from({ length: q }, (_, a) =>
+          Array.from({ length: q }, (_, b) => {
+            sample(
+              (column * q + a + 0.5) / (2 * q),
+              (row * q + b + 0.5) / (2 * q),
+              out,
+            );
+            const level =
+              (out.height / p.relief / p.cellHeight - p.heightBase) /
+              p.heightSwing;
+            const name = Math.round(level * (q - 1));
+            expect(Math.abs(level * (q - 1) - name)).toBeLessThan(1e-9);
+            return name;
+          }),
+        ),
+      ),
+    );
+  };
+  /** The multiplicative order of an element of a multiplication table with the one at the name 1 (by repeated multiplication), 0 for the zero. */
+  const orderOf = (times: number[][], element: number): number => {
+    if (element === 0) return 0;
+    let power = element,
+      steps = 1;
+    while (power !== 1) {
+      power = times[power][element];
+      steps++;
+    }
+    return steps;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('finitefieldtables', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.01591, high: 0.9642, lit: 0.25244, mean: 0.31877 }],
+      [1, { low: 0.01596, high: 0.9641, lit: 0.38744, mean: 0.37794 }],
+      [0xffffffff, { low: 0.01626, high: 0.9635, lit: 0.34679, mean: 0.4173 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('finitefieldtables', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('shows a field in each of the two rows, read back from the picture: the field axioms on the two tables, the characteristic, and a multiplicative group that is cyclic of order q - 1', () => {
+    for (let seed = 0; seed < 36; seed++) {
+      const q = orders[seed % 6],
+        tables = readTables(seed),
+        histograms: string[] = [];
+      for (const [plus, times] of tables) {
+        const names = Array.from({ length: q }, (_, i) => i);
+        for (const a of names) {
+          // 0 is the zero and 1 the one; every table value is a name.
+          expect(plus[a][0]).toBe(a);
+          expect(plus[0][a]).toBe(a);
+          expect(times[a][1]).toBe(a);
+          expect(times[1][a]).toBe(a);
+          expect(times[a][0]).toBe(0);
+          // Every row and column of both tables holds each name once (the addition) or each name once among the non-zero ones (the multiplication): a Latin square, so there are inverses and no zero divisors.
+          expect(new Set(plus[a]).size).toBe(q);
+          expect(new Set(plus.map((row) => row[a])).size).toBe(q);
+          if (a > 0) {
+            expect(new Set(times[a]).size).toBe(q);
+            expect(new Set(times.map((row) => row[a])).size).toBe(q);
+          }
+          for (const b of names) {
+            expect(plus[a][b]).toBe(plus[b][a]);
+            expect(times[a][b]).toBe(times[b][a]);
+            for (const c of names) {
+              expect(plus[plus[a][b]][c]).toBe(plus[a][plus[b][c]]);
+              expect(times[times[a][b]][c]).toBe(times[a][times[b][c]]);
+              expect(times[a][plus[b][c]]).toBe(plus[times[a][b]][times[a][c]]);
+            }
+          }
+        }
+        // The characteristic: the first multiple of the one that is 0 is the prime-th.
+        let multiple = 1,
+          count = 1;
+        while (multiple !== 0) {
+          multiple = plus[multiple][1];
+          count++;
+        }
+        expect(count).toBe(characteristics[seed % 6]);
+        // The multiplicative group of a field is cyclic: an element of order q - 1 exists.
+        const orderCounts = new Map<number, number>();
+        for (let a = 1; a < q; a++) {
+          const order = orderOf(times, a);
+          orderCounts.set(order, (orderCounts.get(order) ?? 0) + 1);
+        }
+        expect(orderCounts.get(q - 1)).toBeGreaterThanOrEqual(1);
+        histograms.push([...orderCounts].sort((x, y) => x[0] - y[0]).join(';'));
+      }
+      // The two rows are the same field under two namings: the elements have the same multiplicative orders.
+      expect(histograms[0]).toBe(histograms[1]);
+    }
+  });
+  it('names the elements differently in the two rows and in every group, and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.3337249755859375, 8);
+    expect(unlike(litGrid(3), litGrid(9))).toBeCloseTo(0.2659454345703125, 8);
+    expect(litGrid(0)).toEqual(first);
+    // The two rows of one seed are not the same table (GF(16) has 14 names to shuffle).
+    const [top, bottom] = readTables(3);
+    expect(top[1]).not.toEqual(bottom[1]);
+    // The same seed gives the same four tables.
+    expect(readTables(3)).toEqual(readTables(3));
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const q = orders[seed % 6],
+        cells = 2 * q,
+        tables = readTables(seed),
+        sample = createSurfaceSampler('finitefieldtables', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * cells,
+          y = v * cells,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          // The gaps on the four sides of the cell: wider at the edge of a panel.
+          left = i % q === 0 ? p.gapPanel : p.gap,
+          right = i % q === q - 1 ? p.gapPanel : p.gap,
+          top = j % q === 0 ? p.gapPanel : p.gap,
+          bottom = j % q === q - 1 ? p.gapPanel : p.gap,
+          dx = Math.abs(x - i - (1 + left - right) / 2),
+          dy = Math.abs(y - j - (1 + top - bottom) / 2),
+          hx = (1 - left - right) / 2,
+          hy = (1 - top - bottom) / 2,
+          innerX = hx - p.corner,
+          innerY = hy - p.corner,
+          // The distance to the rounded rectangle, by the straight sides or by the corner circle.
+          distance =
+            dx <= innerX || dy <= innerY
+              ? Math.max(dx - hx, dy - hy)
+              : Math.hypot(dx - innerX, dy - innerY) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          name = tables[Math.floor(j / q)][Math.floor(i / q)][i % q][j % q],
+          level = name / (q - 1),
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4550);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('finitefieldtables', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold finite field table maps on dark navy with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('finitefieldtables', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(98.7);
+    expect(red / (512 * 512)).toBeLessThan(99.8);
+    expect(green / (512 * 512)).toBeGreaterThan(82.2);
+    expect(green / (512 * 512)).toBeLessThan(83.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(52.2);
+    expect(blue / (512 * 512)).toBeLessThan(53.3);
+    expect(maxTilt).toBeGreaterThan(0.0716);
+    expect(maxTilt).toBeLessThan(0.0717);
     expect(invalid).toBe(0);
   });
 });

@@ -1239,6 +1239,7 @@ try {
     'diophantinegrid',
     'beattysequences',
     'minesweeperboards',
+    'finitefieldtables',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
