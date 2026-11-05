@@ -9,7 +9,10 @@ export declare function isInteractionEvent2D(type: string): boolean;
 export declare class InteractionListeners2D {
     private readonly capture;
     private readonly bubble;
-    private readonly records;
+    private readonly captures;
+    private readonly bubbles;
+    /** Registration links retain reverse teardown order without scanning listener keys. */
+    private last?;
     private guard;
     has(type: string): boolean;
     add(type: string, callback: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions): void;

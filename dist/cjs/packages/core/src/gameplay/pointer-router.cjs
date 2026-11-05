@@ -170,7 +170,13 @@ var PointerRouter = class extends EventTarget {
 		let a = this.epoch, continuing = () => this.epoch === a && e.resetVersion === this.resetVersion && r() && !this.disposed && !this.scene.destroyed;
 		this.routing = !0;
 		try {
-			if (this.targets.length = 0, e.samples.length) {
+			this.targets.length = 0;
+			let r = !1;
+			for (let t of e.samples) if (t.kind !== `leave` && t.kind !== `cancel`) {
+				r = !0;
+				break;
+			}
+			if (r) {
 				for (let e of this.scene.objects) e instanceof require_game_object.GameObject && (e.pointerEnabled || e.draggable) && this.targets.push(e);
 				this.targets.sort(require_contracts.compareObjects2D);
 			}

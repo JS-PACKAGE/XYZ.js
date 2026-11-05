@@ -118,11 +118,13 @@ export declare class UIFocusManager {
     private requested?;
     private requestedGeneration?;
     private readonly modals;
+    private readonly orders;
     constructor(root: UIRoot);
     get focused(): Focusable | undefined;
     get modal(): UIElement | undefined;
     private eligible;
-    private collect;
+    private order;
+    private first;
     focus(node: Focusable | undefined): boolean;
     /** @internal Actual semantic focus events are the source of mounted focus visuals. */
     acceptNative(node: Focusable | undefined): void;

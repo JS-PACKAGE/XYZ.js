@@ -97,23 +97,24 @@ var Ribbon3D = class extends require_mesh.Mesh {
 	]) {
 		if (!Number.isFinite(e) || e < this.clock || t.length !== 3 || !t.every(Number.isFinite) || Math.hypot(...t) === 0) throw RangeError(`Ribbon update requires monotonic time and a finite nonzero view direction.`);
 		for (this.clock = e; this.count && e - this.points[this.start * 4 + 3] >= this.lifetime;) this.start = (this.start + 1) % this.maxPoints, this.count--;
-		let n = this.geometry.vertices, r = this.geometry.colors;
-		for (let a = 0; a < this.maxPoints; a++) {
-			let o = a < this.count, s = (this.start + Math.min(a, Math.max(0, this.count - 1))) % this.maxPoints * 4, c = (this.start + Math.max(0, a - 1)) % this.maxPoints * 4, l = (this.start + Math.min(this.count - 1, a + 1) + this.maxPoints) % this.maxPoints * 4, u = 1, d = 0, f = 0, p = 0, m = 1, h = 0, g = o ? Math.min(1, Math.max(0, (e - this.points[s + 3]) / this.lifetime)) : 1, _ = 1;
-			for (; _ < this.curve.length - 1 && g > this.curve[_].age;) _++;
-			let v = this.curve[_ - 1], y = this.curve[_], b = (g - v.age) / (y.age - v.age), x = o ? (v.width + (y.width - v.width) * b) * .5 : 0;
-			if (o && this.count > 1) {
-				let e = this.points[l] - this.points[c], n = this.points[l + 1] - this.points[c + 1], r = this.points[l + 2] - this.points[c + 2];
-				p = this.mode === `flat` ? 0 : t[0], m = this.mode === `flat` ? 1 : t[1], h = this.mode === `flat` ? 0 : t[2], u = n * h - r * m, d = r * p - e * h, f = e * m - n * p;
-				let a = require_hypot.hypot3(u, d, f);
-				a > 1e-12 ? (u /= a, d /= a, f /= a) : (u = 1, d = 0, f = 0);
-				let o = require_hypot.hypot3(p, m, h);
-				p /= o, m /= o, h /= o;
+		let n = this.geometry.vertices, r = this.geometry.colors, a = this.curve.length - 1;
+		for (let o = 0; o < this.maxPoints; o++) {
+			let s = o < this.count, c = (this.start + Math.min(o, Math.max(0, this.count - 1))) % this.maxPoints * 4, l = (this.start + Math.max(0, o - 1)) % this.maxPoints * 4, u = (this.start + Math.min(this.count - 1, o + 1) + this.maxPoints) % this.maxPoints * 4, d = 1, f = 0, p = 0, m = 0, h = 1, g = 0, _ = s ? Math.min(1, Math.max(0, (e - this.points[c + 3]) / this.lifetime)) : 1;
+			if (s) for (; a > 1 && _ <= this.curve[a - 1].age;) a--;
+			else a = this.curve.length - 1;
+			let v = this.curve[a - 1], y = this.curve[a], b = (_ - v.age) / (y.age - v.age), x = s ? (v.width + (y.width - v.width) * b) * .5 : 0;
+			if (s && this.count > 1) {
+				let e = this.points[u] - this.points[l], n = this.points[u + 1] - this.points[l + 1], r = this.points[u + 2] - this.points[l + 2];
+				m = this.mode === `flat` ? 0 : t[0], h = this.mode === `flat` ? 1 : t[1], g = this.mode === `flat` ? 0 : t[2], d = n * g - r * h, f = r * m - e * g, p = e * h - n * m;
+				let a = require_hypot.hypot3(d, f, p);
+				a > 1e-12 ? (d /= a, f /= a, p /= a) : (d = 1, f = 0, p = 0);
+				let o = require_hypot.hypot3(m, h, g);
+				m /= o, h /= o, g /= o;
 			}
 			for (let e = 0; e < 2; e++) {
-				let t = (a * 2 + e) * 8, i = e === 0 ? -1 : 1;
-				n[t] = this.count ? this.points[s] + u * x * i : 0, n[t + 1] = this.count ? this.points[s + 1] + d * x * i : 0, n[t + 2] = this.count ? this.points[s + 2] + f * x * i : 0, n[t + 3] = p, n[t + 4] = m, n[t + 5] = h, n[t + 6] = e, n[t + 7] = g;
-				for (let t = 0; t < 4; t++) r[(a * 2 + e) * 4 + t] = o ? v.color[t] + (y.color[t] - v.color[t]) * b : 0;
+				let t = (o * 2 + e) * 8, i = e === 0 ? -1 : 1;
+				n[t] = this.count ? this.points[c] + d * x * i : 0, n[t + 1] = this.count ? this.points[c + 1] + f * x * i : 0, n[t + 2] = this.count ? this.points[c + 2] + p * x * i : 0, n[t + 3] = m, n[t + 4] = h, n[t + 5] = g, n[t + 6] = e, n[t + 7] = _;
+				for (let t = 0; t < 4; t++) r[(o * 2 + e) * 4 + t] = s ? v.color[t] + (y.color[t] - v.color[t]) * b : 0;
 			}
 		}
 		this.visible = this.count >= 2, this.geometry.markUpdated();

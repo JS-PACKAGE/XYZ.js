@@ -700,9 +700,12 @@ var GLTFLoader = class {
 					}
 				}
 			}
+			let Y = new Uint16Array(M.length);
 			for (let t = 0; t < M.length; t++) {
 				let n = t, r = 0;
-				for (; J[n] !== -1;) if (n = J[n], ++r > require_models.modelLimits.hierarchyDepth || n === t) throw new require_texture.AssetError(`Node hierarchy has a cycle or exceeds depth budget.`);
+				for (; n !== -1 && Y[n] === 0;) if (n = J[n], ++r > require_models.modelLimits.hierarchyDepth + 1) throw new require_texture.AssetError(`Node hierarchy has a cycle or exceeds depth budget.`);
+				if (r += n === -1 ? 0 : Y[n], r > require_models.modelLimits.hierarchyDepth + 1) throw new require_texture.AssetError(`Node hierarchy has a cycle or exceeds depth budget.`);
+				for (n = t; n !== -1 && Y[n] === 0;) Y[n] = r--, n = J[n];
 			}
 			for (let e = 0; e < M.length; e++) J[e] !== -1 && M[J[e]].add(M[e]);
 			let me = ne.map((t) => {
@@ -744,7 +747,7 @@ var GLTFLoader = class {
 					tangents: l,
 					weights: r
 				});
-			}, Y = /* @__PURE__ */ new Map(), X = 0, he = 0;
+			}, X = /* @__PURE__ */ new Map(), Z = 0, he = 0;
 			for (let t = 0; t < M.length; t++) {
 				let n = B[t];
 				if (n.mesh === void 0) {
@@ -762,13 +765,13 @@ var GLTFLoader = class {
 				let m;
 				if (c) {
 					if (f !== void 0 && (!Array.isArray(f) || f.length !== c)) throw new require_texture.AssetError(`Morph weights must match the target count.`);
-					m = new require_morph.MorphWeights(f === void 0 ? Array(c).fill(0) : f.map((e) => number(e, `morph weight`))), Y.set(t, m);
+					m = new require_morph.MorphWeights(f === void 0 ? Array(c).fill(0) : f.map((e) => number(e, `morph weight`))), X.set(t, m);
 				}
 				for (let n of i) {
 					if (n.mode !== void 0 && n.mode !== 4) throw new require_texture.AssetError(`Only triangle primitives are supported.`);
 					let r = object(n.attributes, `primitive attributes`), i = readAccessor(r.POSITION);
 					if (i.type !== `VEC3` || i.component !== 5126) throw new require_texture.AssetError(`POSITION requires float VEC3.`);
-					if (X += i.count, X > require_models.modelLimits.vertices) throw new require_texture.AssetError(`Model exceeds vertex budget.`);
+					if (Z += i.count, Z > require_models.modelLimits.vertices) throw new require_texture.AssetError(`Model exceeds vertex budget.`);
 					let s = n.indices === void 0 ? void 0 : readAccessor(n.indices);
 					if (s && (s.type !== `SCALAR` || s.normalized || ![
 						5121,
@@ -824,7 +827,7 @@ var GLTFLoader = class {
 							convention: `gltf`,
 							texCoord: E
 						});
-						if (D = n.geometry, O = n.sourceVertices, X += O.length - i.count, X > require_models.modelLimits.vertices) throw new require_texture.AssetError(`Tangent seam splitting exceeds model vertex budget.`);
+						if (D = n.geometry, O = n.sourceVertices, Z += O.length - i.count, Z > require_models.modelLimits.vertices) throw new require_texture.AssetError(`Tangent seam splitting exceeds model vertex budget.`);
 					}
 					let k = m ? readMorph(n, i.count, m, O) : void 0, A;
 					if (o) {
@@ -873,45 +876,47 @@ var GLTFLoader = class {
 					a.add(l);
 					let u = readAccessor(i.input), d = readAccessor(i.output), f = i.interpolation ?? `LINEAR`;
 					if (f !== `LINEAR` && f !== `STEP` && f !== `CUBICSPLINE`) throw new require_texture.AssetError(`Unsupported animation interpolation.`);
-					if (u.type !== `SCALAR` || u.component !== 5126 || d.component !== 5126 || d.type !== (s === `weights` ? `SCALAR` : s === `rotation` ? `VEC4` : `VEC3`) || d.count !== u.count * (f === `CUBICSPLINE` ? 3 : 1) * (s === `weights` ? Y.get(o)?.count ?? 0 : 1)) throw new require_texture.AssetError(`Animation sampler counts or types do not match.`);
+					if (u.type !== `SCALAR` || u.component !== 5126 || d.component !== 5126 || d.type !== (s === `weights` ? `SCALAR` : s === `rotation` ? `VEC4` : `VEC3`) || d.count !== u.count * (f === `CUBICSPLINE` ? 3 : 1) * (s === `weights` ? X.get(o)?.count ?? 0 : 1)) throw new require_texture.AssetError(`Animation sampler counts or types do not match.`);
 					p.reserve(u.data.byteLength + d.data.byteLength);
-					let m = Y.get(o);
+					let m = X.get(o);
 					if (s === `weights` && !m) throw new require_texture.AssetError(`Weights animation requires morph targets.`);
 					return new require_animation.KeyframeTrack(s === `weights` ? m : reference(M, o, `animation node`), s, u.data, d.data, f);
 				});
 				return new require_animation.AnimationClip(typeof t.name == `string` ? t.name : `animation-${n}`, o);
 			});
 			E = new require_group.Group();
-			let _e = se.length ? reference(se, I.scene ?? 0, `scene`) : void 0, Z = _e?.nodes ?? (_e ? [] : M.map((e, t) => t).filter((e) => J[e] === -1));
-			if (!Array.isArray(Z) || Z.length > require_models.modelLimits.entries) throw new require_texture.AssetError(`Invalid scene roots.`);
+			let _e = se.length ? reference(se, I.scene ?? 0, `scene`) : void 0, Q = _e?.nodes ?? (_e ? [] : M.map((e, t) => t).filter((e) => J[e] === -1));
+			if (!Array.isArray(Q) || Q.length > require_models.modelLimits.entries) throw new require_texture.AssetError(`Invalid scene roots.`);
 			let ve = /* @__PURE__ */ new Set();
-			for (let t of Z) {
+			for (let t of Q) {
 				let n = integer(t, `scene root`);
 				if (J[n] !== -1 || ve.has(n)) throw new require_texture.AssetError(`Scene roots must be unique parentless nodes.`);
 				ve.add(n), E.add(reference(M, n, `scene root`));
 			}
 			p.signal.throwIfAborted();
-			let Q = E, ye = this.readLights(I, B, M), be = q.map((e, t) => ({
+			let ye = E, be = this.readLights(I, B, M), xe = q.map((e, t) => ({
 				name: e,
 				mappings: fe[t]
-			})), $ = !1, xe = {
-				variants: be,
+			})), $ = /* @__PURE__ */ new Map();
+			for (let e of xe) $.has(e.name) || $.set(e.name, e);
+			let Se = !1, Ce = {
+				variants: xe,
 				selectVariant: (t) => {
-					if ($) throw new require_texture.AssetError(`Cannot select a variant after dispose().`);
-					let n = t === void 0 ? void 0 : be.find((e) => e.name === t);
+					if (Se) throw new require_texture.AssetError(`Cannot select a variant after dispose().`);
+					let n = t === void 0 ? void 0 : $.get(t);
 					if (t !== void 0 && !n) throw new require_texture.AssetError(`Unknown material variant ${t}.`);
 					for (let [e, t] of pe) require_mesh_material.setMeshMaterial(e, t);
 					for (let e of n?.mappings ?? []) require_mesh_material.setMeshMaterial(e.mesh, e.material);
 				}
-			}, Se = {
-				scene: Q,
+			}, we = {
+				scene: ye,
 				animations: ge,
-				lights: ye,
+				lights: be,
 				dispose: () => {
-					if ($) return;
-					$ = !0;
+					if (Se) return;
+					Se = !0;
 					let e = [];
-					for (let t of [Q, ...M]) try {
+					for (let t of [ye, ...M]) try {
 						t.destroy();
 					} catch (t) {
 						e.push(t);
@@ -924,7 +929,7 @@ var GLTFLoader = class {
 					if (e.length) throw AggregateError(e, `glTF asset cleanup failed.`);
 				}
 			};
-			return require_gltf_variants.registerGLTFVariants(Se, xe), Se;
+			return require_gltf_variants.registerGLTFVariants(we, Ce), we;
 		} catch (t) {
 			for (let e of [E, ...M]) try {
 				e?.destroy();

@@ -5,16 +5,18 @@ function isInteractionEvent2D(e) {
 var InteractionListeners2D = class {
 	capture = new EventTarget();
 	bubble = new EventTarget();
-	records = [];
+	captures = /* @__PURE__ */ new Map();
+	bubbles = /* @__PURE__ */ new Map();
+	last;
 	guard;
 	has(e) {
-		return this.records.some((t) => t.type === e);
+		return this.captures.has(e) || this.bubbles.has(e);
 	}
 	add(e, t, n) {
 		if (!t || typeof n == `object` && n.signal?.aborted) return;
-		let r = typeof n == `boolean` ? n : n?.capture ?? !1;
-		if (this.records.some((n) => n.type === e && n.callback === t && n.capture === r)) return;
-		let i = typeof n == `object` && n.once, a = {
+		let r = typeof n == `boolean` ? n : n?.capture ?? !1, i = r ? this.captures : this.bubbles;
+		if (i.get(e)?.has(t)) return;
+		let a = typeof n == `object` && n.once, o = {
 			type: e,
 			callback: t,
 			capture: r,
@@ -23,16 +25,18 @@ var InteractionListeners2D = class {
 					n.stopImmediatePropagation();
 					return;
 				}
-				i && this.remove(e, t, r), typeof t == `function` ? t.call(n.currentTarget, n) : t.handleEvent(n);
+				a && this.remove(e, t, r), typeof t == `function` ? t.call(n.currentTarget, n) : t.handleEvent(n);
 			}
 		};
-		typeof n == `object` && n.signal && (a.signal = n.signal, a.abort = () => this.remove(e, t, r), n.signal.addEventListener(`abort`, a.abort, { once: !0 })), this.records.push(a), (r ? this.capture : this.bubble).addEventListener(e, a.wrapper, n);
+		typeof n == `object` && n.signal && (o.signal = n.signal, o.abort = () => this.remove(e, t, r), n.signal.addEventListener(`abort`, o.abort, { once: !0 }));
+		let s = i.get(e);
+		s || i.set(e, s = /* @__PURE__ */ new Map()), s.set(t, o), o.previous = this.last, this.last && (this.last.next = o), this.last = o, (r ? this.capture : this.bubble).addEventListener(e, o.wrapper, n);
 	}
 	remove(e, t, n) {
-		let r = typeof n == `boolean` ? n : n?.capture ?? !1, i = this.records.findIndex((n) => n.type === e && n.callback === t && n.capture === r);
-		if (i < 0) return;
-		let [a] = this.records.splice(i, 1);
-		(r ? this.capture : this.bubble).removeEventListener(e, a.wrapper, r), a.abort && a.signal?.removeEventListener(`abort`, a.abort);
+		let r = typeof n == `boolean` ? n : n?.capture ?? !1;
+		if (!t) return;
+		let i = r ? this.captures : this.bubbles, a = i.get(e), o = a?.get(t);
+		o && (a.delete(t), a.size || i.delete(e), o.previous && (o.previous.next = o.next), o.next ? o.next.previous = o.previous : this.last = o.previous, (r ? this.capture : this.bubble).removeEventListener(e, o.wrapper, r), o.abort && o.signal?.removeEventListener(`abort`, o.abort));
 	}
 	deliver(e, t, n, r, i, a) {
 		let o = this.guard, s = Object.getOwnPropertyDescriptor(e, `currentTarget`), c = Object.getOwnPropertyDescriptor(e, `eventPhase`);
@@ -81,8 +85,8 @@ var InteractionListeners2D = class {
 		}
 	}
 	destroy() {
-		for (; this.records.length;) {
-			let e = this.records[this.records.length - 1];
+		for (; this.last;) {
+			let e = this.last;
 			this.remove(e.type, e.callback, e.capture);
 		}
 	}

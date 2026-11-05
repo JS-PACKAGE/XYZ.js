@@ -392,6 +392,7 @@ var UIFocusManager = class {
 	requested;
 	requestedGeneration;
 	modals = [];
+	orders = /* @__PURE__ */ new WeakMap();
 	constructor(e) {
 		this.root = e;
 	}
@@ -406,9 +407,34 @@ var UIFocusManager = class {
 		for (let t = e; t; t = t.parent) if (t === (this.modal ?? this.root)) return rootOf(e) === this.root;
 		return !1;
 	}
-	collect(e, t) {
-		(e instanceof UIButton || e instanceof UICheckbox || e instanceof UISlider || e instanceof require_ui_text_input.UITextInput) && this.eligible(e) && t.push(e);
-		for (let n of e.children) this.collect(n, t);
+	order(e) {
+		let t = this.orders.get(e), n = 0, matches = (e) => {
+			if (t.tree[n++] !== e) return !1;
+			let r = e.existingChildren;
+			if (r) {
+				for (let e of r) if (!matches(e)) return !1;
+			}
+			return !0;
+		};
+		if (t && matches(e) && n === t.tree.length) return t;
+		let r = {
+			tree: [],
+			nodes: [],
+			indices: /* @__PURE__ */ new Map()
+		}, visit = (e) => {
+			r.tree.push(e), (e instanceof UIButton || e instanceof UICheckbox || e instanceof UISlider || e instanceof require_ui_text_input.UITextInput) && (r.indices.set(e, r.nodes.length), r.nodes.push(e));
+			let t = e.existingChildren;
+			if (t) for (let e of t) visit(e);
+		};
+		return visit(e), this.orders.set(e, r), r;
+	}
+	first(e) {
+		if ((e instanceof UIButton || e instanceof UICheckbox || e instanceof UISlider || e instanceof require_ui_text_input.UITextInput) && this.eligible(e)) return e;
+		let t = e.existingChildren;
+		if (t) for (let e of t) {
+			let t = this.first(e);
+			if (t) return t;
+		}
 	}
 	focus(e) {
 		if (e && (!e.layoutWidth || !e.layoutHeight) && this.root.reflow(), e && !this.eligible(e)) return !1;
@@ -429,23 +455,26 @@ var UIFocusManager = class {
 		this.current === e && this.acceptNative(void 0);
 	}
 	focusWithin(e, t) {
-		let n = [];
-		return this.collect(e, n), n.length > 0 && this.focus(n[t < 0 ? n.length - 1 : 0]);
+		if (t < 0) {
+			let { nodes: t } = this.order(e);
+			for (let e = t.length - 1; e >= 0; e--) if (this.eligible(t[e])) return this.focus(t[e]);
+			return !1;
+		}
+		let n = this.first(e);
+		return n !== void 0 && this.focus(n);
 	}
 	hasAdjacentWithin(e, t, n) {
-		let r = [];
-		this.collect(e, r);
-		let i = r.indexOf(t) + (n < 0 ? -1 : 1);
-		return i >= 0 && i < r.length;
+		let { nodes: r, indices: i } = this.order(e), a = n < 0 ? -1 : 1, o = i.get(t), s = o !== void 0 && this.eligible(r[o]) ? o : -1;
+		for (let e = s + a; e >= 0 && e < r.length; e += a) if (this.eligible(r[e])) return !0;
+		return !1;
 	}
 	move(e) {
 		if (this.current) {
 			for (let t = this.current.parent; t; t = t.parent) if (t instanceof require_ui_scroll.UIVirtualList && t.moveFocus(this.current, e)) return !0;
 		}
-		let t = [];
-		if (this.collect(this.modal ?? this.root, t), !t.length) return this.acceptNative(void 0), !1;
-		let n = this.current ? t.indexOf(this.current) : -1, r = n < 0 ? e < 0 ? t.length - 1 : 0 : (n + (e < 0 ? -1 : 1) + t.length) % t.length;
-		return this.focus(t[r]);
+		let { nodes: t, indices: n } = this.order(this.modal ?? this.root), r = e < 0 ? -1 : 1, i = this.current && n.get(this.current), a = i !== void 0 && this.current && this.eligible(this.current) ? i + r : r < 0 ? t.length - 1 : 0;
+		for (let e = 0; e < t.length; e++, a += r) if (a < 0 ? a = t.length - 1 : a === t.length && (a = 0), this.eligible(t[a])) return this.focus(t[a]);
+		return this.acceptNative(void 0), !1;
 	}
 	pushModal(e) {
 		if (e.destroyed || rootOf(e) !== this.root) throw Error(`Modal must belong to this UI root.`);

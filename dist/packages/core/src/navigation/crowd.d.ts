@@ -38,6 +38,8 @@ export declare class CrowdSolver {
     readonly neighborDistance: number;
     readonly timeHorizon: number;
     private readonly agents;
+    private readonly controllers;
+    private world3D;
     private readonly obstacles;
     private readonly ordered;
     /** Neighbor cells by column then row: numeric keys, where `${x},${z}` strings allocated. */
@@ -58,6 +60,7 @@ export declare class CrowdSolver {
     /** Top-down XY adapter only, not a platformer/navmesh equivalence. Radius must enclose collider. */
     register2D(controller: CharacterController2D, options: CrowdAgentOptions): CrowdRegistration;
     private register;
+    private removeAgent;
     addObstacle(id: number, center: Readonly<Vector3>, radius: number): () => void;
     update(deltaSeconds: number, epoch: number): void;
     private moveAgents;

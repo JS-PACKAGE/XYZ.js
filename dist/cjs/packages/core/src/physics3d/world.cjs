@@ -216,16 +216,16 @@ var PhysicsWorld3D = class {
 		return r || this.jointLinks.set(e.bodyA, r = []), r.push(e), e.bodyB && (r = this.jointLinks.get(e.bodyB), r || this.jointLinks.set(e.bodyB, r = []), r.push(e)), e;
 	}
 	removeJoint(e) {
-		let t = this.constraints.indexOf(e);
-		if (t < 0) return !1;
-		this.constraints.splice(t, 1);
+		let t = this.constraints.length - 1, n = t >= 0 && this.constraints[t] === e ? t : this.constraints.indexOf(e);
+		if (n < 0) return !1;
+		this.constraints.splice(n, 1);
 		for (let t = 0; t < 2; t++) {
 			let n = t === 0 ? e.bodyA : e.bodyB;
 			if (!n) continue;
 			let r = this.jointLinks.get(n);
 			if (!r) continue;
-			let i = r.indexOf(e);
-			i >= 0 && r.splice(i, 1), r.length === 0 && this.jointLinks.delete(n);
+			let i = r.length - 1, a = r[i] === e ? i : r.indexOf(e);
+			a >= 0 && r.splice(a, 1), r.length === 0 && this.jointLinks.delete(n);
 		}
 		return e.detach(), !0;
 	}

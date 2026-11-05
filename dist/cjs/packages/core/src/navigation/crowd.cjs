@@ -20,6 +20,8 @@ var CrowdSolver = class {
 	neighborDistance;
 	timeHorizon;
 	agents = /* @__PURE__ */ new Map();
+	controllers = /* @__PURE__ */ new Set();
+	world3D = !1;
 	obstacles = /* @__PURE__ */ new Map();
 	ordered = [];
 	grid = /* @__PURE__ */ new Map();
@@ -63,11 +65,10 @@ var CrowdSolver = class {
 		if (integer(i.id, `stable ID`, 2 ** 53 - 1), positive(i.radius, `radius`, this.neighborDistance / 2), positive(i.maxSpeed, `speed`, require_crowd.crowdLimits.speed), 2 * i.radius + 2 * i.maxSpeed * this.timeHorizon > this.neighborDistance) throw RangeError(`Neighbor distance must cover diameter plus twice speed times horizon.`);
 		if (this.agents.has(i.id) || this.obstacles.has(i.id)) throw Error(`Duplicate crowd ID.`);
 		if (this.agents.size >= this.maxAgents) throw RangeError(`Crowd agent budget exceeded.`);
-		for (let e of this.agents.values()) {
-			if (e.controller3D === t && t || e.controller2D === r && r) throw Error(`A controller may be registered only once.`);
-			if (!!e.controller3D != !!t) throw Error(`Use separate solvers for XY and XZ worlds.`);
-		}
-		let a = {
+		let a = t ?? r;
+		if (this.controllers.has(a)) throw Error(`A controller may be registered only once.`);
+		if (this.agents.size && this.world3D !== !!t) throw Error(`Use separate solvers for XY and XZ worlds.`);
+		let o = {
 			id: i.id,
 			radius: i.radius,
 			maxSpeed: i.maxSpeed,
@@ -82,10 +83,14 @@ var CrowdSolver = class {
 			next: new require_math3d.Vector3(),
 			remove: () => {
 				if (this.updating) throw Error(`Remove crowd registrations outside update callbacks.`);
-				a.state = `removed`, a.velocity.set(0, 0, 0), this.agents.delete(a.id);
+				o.state = `removed`, o.velocity.set(0, 0, 0), this.removeAgent(o.id);
 			}
 		};
-		return this.agents.set(a.id, a), a;
+		return this.agents.set(o.id, o), this.controllers.add(a), this.world3D = !!t, o;
+	}
+	removeAgent(e) {
+		let t = this.agents.get(e);
+		t && (this.controllers.delete(t.controller3D ?? t.controller2D), this.agents.delete(e));
 	}
 	addObstacle(e, t, n) {
 		if (this.disposed || this.updating) throw Error(`Crowd obstacle registration requires a live idle solver.`);
@@ -115,7 +120,7 @@ var CrowdSolver = class {
 				for (let t of this.agents.values()) {
 					let n = t.controller3D ?? t.controller2D;
 					if (n.destroyed || n.object.destroyed) {
-						t.state = `removed`, this.agents.delete(t.id);
+						t.state = `removed`, this.removeAgent(t.id);
 						continue;
 					}
 					let r = n.object.position;
@@ -226,7 +231,7 @@ var CrowdSolver = class {
 	destroy() {
 		if (this.updating) throw Error(`Destroy crowd outside update callbacks.`);
 		for (let e of this.agents.values()) e.state = `removed`, e.velocity.set(0, 0, 0);
-		this.agents.clear(), this.obstacles.clear(), this.grid.clear(), this.buckets.length = 0, this.ordered.length = 0, this.neighbors.length = 0, this.disposed = !0;
+		this.agents.clear(), this.controllers.clear(), this.obstacles.clear(), this.grid.clear(), this.buckets.length = 0, this.ordered.length = 0, this.neighbors.length = 0, this.disposed = !0;
 	}
 };
 //#endregion
