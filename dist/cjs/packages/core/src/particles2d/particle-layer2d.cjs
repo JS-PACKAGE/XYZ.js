@@ -187,7 +187,7 @@ var ParticleLayer2D = class extends require_game_object.GameObject {
 		if (super(), !Number.isSafeInteger(e.capacity) || e.capacity < 1 || e.capacity > require_rendering2d.rendering2dLimits.particleCapacity) throw RangeError(`capacity must be an integer between 1 and ${require_rendering2d.rendering2dLimits.particleCapacity}.`);
 		let t = e.dynamicAttributes ?? ParticleAttribute2D.Transform | ParticleAttribute2D.Tint;
 		if (!Number.isSafeInteger(t) || t < 0 || t > ParticleAttribute2D.All) throw RangeError(`Unknown particle dynamic attribute mask.`);
-		this.capacity = e.capacity, this.dynamicAttributes = t, this.occupied = new Uint8Array(this.capacity), this.active = new Int32Array(this.capacity), this.positions = new Int32Array(this.capacity), this.free = new Int32Array(this.capacity), this.freeCount = this.capacity, (e.texture || e.view || e.source) && (this.defaultSource = checkedSource(e));
+		this.capacity = e.capacity, this.dynamicAttributes = t, this.occupied = new Uint8Array(this.capacity), this.active = new Int32Array(this.capacity * 2), this.positions = new Int32Array(this.capacity), this.free = new Int32Array(this.capacity), this.freeCount = this.capacity, (e.texture || e.view || e.source) && (this.defaultSource = checkedSource(e));
 		let r = new Float64Array(this.capacity * 12);
 		for (let e = 0; e < this.capacity; e++) {
 			let t = new Slot(r.subarray(e * 12, (e + 1) * 12));
@@ -221,7 +221,7 @@ var ParticleLayer2D = class extends require_game_object.GameObject {
 		let r = t.transform ?? a, i = t.tint ?? o, c = t.anchor ?? n.view?.defaultAnchor ?? s;
 		if (validateTransform(r), validateTint(i), validateAnchor(c), this.freeCount === 0) return -1;
 		let l = this.free[--this.freeCount], u = this.slots[l];
-		return u.setSource(n.texture, n.view, n.source), u.transform(r), u.tint(i), u.anchor(c), u.activate(), this.occupied[l] = 1, this.end === this.capacity && this.compact(), this.positions[l] = this.end, this.active[this.end++] = l, this.count++, this.topologyVersion++, l;
+		return u.setSource(n.texture, n.view, n.source), u.transform(r), u.tint(i), u.anchor(c), u.activate(), this.occupied[l] = 1, this.end === this.active.length && this.compact(), this.positions[l] = this.end, this.active[this.end++] = l, this.count++, this.topologyVersion++, l;
 	}
 	removeSlot(e) {
 		this.requireSlot(e), this.active[this.positions[e]] = -1, this.count--, this.occupied[e] = 0, this.slots[e].release(), this.free[this.freeCount++] = e, this.topologyVersion++;

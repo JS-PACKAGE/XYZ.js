@@ -7,6 +7,7 @@ export declare class HitArea2D {
     readonly bounds: Readonly<Rect2D>;
     readonly points: readonly (readonly [number, number])[];
     private readonly radius;
+    private readonly coordinates;
     private constructor();
     static rectangle(rect: Rect2D): HitArea2D;
     static circle(x: number, y: number, radius: number): HitArea2D;

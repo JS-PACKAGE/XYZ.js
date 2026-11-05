@@ -14,11 +14,8 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 	collectedCount = 0;
 	boundaryMembers = /* @__PURE__ */ new Map();
 	memberLists = [];
-	sortSlots = /* @__PURE__ */ new Int32Array();
+	sortSlots = /* @__PURE__ */ new Float64Array();
 	sortOutput = [];
-	sortKeys = [];
-	sortRanks = new Int32Array(require_rendering2d.rendering2dLimits.sortBuckets);
-	sortStarts = new Int32Array(require_rendering2d.rendering2dLimits.sortBuckets);
 	clear() {
 		for (let e of this.items) {
 			let t = e;
@@ -62,45 +59,50 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 		return t.commands ??= new RenderCommandBuffer2D();
 	}
 	sort() {
-		let e = this.items, t = e.length, n = this.sortKeys;
-		this.sortSlots.length < t && (this.sortSlots = new Int32Array(Math.max(t, this.sortSlots.length * 2)));
-		let r = this.sortSlots;
-		n.length = 0;
-		let i = !0, o = -1, s;
-		for (let c = 0; c < t; c++) {
-			let t = e[c];
-			if (!Number.isFinite(t.z)) {
+		let e = this.items, t = e.length;
+		if (t < 2) return;
+		let n = 1 / 0, r = -1 / 0;
+		for (let i = 0; i < t; i++) {
+			let t = e[i].z;
+			if (!Number.isSafeInteger(t)) {
 				e.sort(compareCommands2D);
 				return;
 			}
-			if (i && s && comparePooled2D(s, t) > 0 && (i = !1), s = t, o < 0 || comparePooled2D(n[o], t) !== 0) {
-				for (o = 0; o < n.length && comparePooled2D(n[o], t) !== 0;) o++;
-				if (o === n.length) {
-					if (o === require_rendering2d.rendering2dLimits.sortBuckets) {
-						e.sort(compareCommands2D);
-						return;
-					}
-					n.push(t);
-				}
+			t < n && (n = t), t > r && (r = t);
+		}
+		let i = r - n + 1;
+		if (!Number.isSafeInteger(2 * i * t)) {
+			e.sort(compareCommands2D);
+			return;
+		}
+		this.sortSlots.length < t && (this.sortSlots = new Float64Array(Math.max(t, this.sortSlots.length * 2, 2 * require_rendering2d.rendering2dLimits.sortBuckets)));
+		let o = this.sortOutput;
+		for (; o.length < t;) o.push(e[0]);
+		if (i <= require_rendering2d.rendering2dLimits.sortBuckets) {
+			let r = this.sortSlots;
+			r.fill(0, 0, 2 * i);
+			for (let a = 0; a < t; a++) {
+				let t = e[a];
+				r[(t.screen ? i : 0) + (t.z - n)]++;
 			}
-			r[c] = o;
+			for (let e = 0, t = 0; e < 2 * i; e++) {
+				let n = r[e];
+				r[e] = t, t += n;
+			}
+			for (let a = 0; a < t; a++) {
+				let t = e[a];
+				o[r[(t.screen ? i : 0) + (t.z - n)]++] = e[a];
+			}
+			for (let n = 0; n < t; n++) e[n] = o[n];
+			return;
 		}
-		if (i) return;
-		let c = this.sortRanks, l = this.sortStarts, u = n.length;
-		for (let e = 0; e < u; e++) {
-			let t = 0;
-			for (let r = 0; r < u; r++) comparePooled2D(n[r], n[e]) < 0 && t++;
-			c[e] = t, l[t] = 0;
+		let s = this.sortSlots.subarray(0, t);
+		for (let r = 0; r < t; r++) {
+			let a = e[r];
+			s[r] = ((a.screen ? i : 0) + (a.z - n)) * t + r, o[r] = e[r];
 		}
-		for (let e = 0; e < t; e++) l[c[r[e]]]++;
-		for (let e = 0, t = 0; e < u; e++) {
-			let n = l[e];
-			l[e] = t, t += n;
-		}
-		let d = this.sortOutput;
-		for (; d.length < t;) d.push(e[0]);
-		for (let n = 0; n < t; n++) d[l[c[r[n]]]++] = e[n];
-		for (let n = 0; n < t; n++) e[n] = d[n];
+		s.sort();
+		for (let n = 0; n < t; n++) e[n] = o[s[n] % t];
 	}
 	collectDetachedObjects(e) {
 		this.traversal.length = 0;

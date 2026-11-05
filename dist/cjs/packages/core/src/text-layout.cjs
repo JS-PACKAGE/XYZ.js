@@ -120,26 +120,18 @@ var BrowserTextLayout = class {
 	hitTest(e) {
 		if (this.disposed) throw Error(`Cannot query destroyed text layout.`);
 		if (!Number.isFinite(e)) throw RangeError(`Invalid pointer coordinate.`);
-		let t = {
-			index: 0,
-			x: 0,
-			affinity: `downstream`
-		}, n = 1 / 0;
-		for (let r of this.clusters) {
-			let i = Math.abs(e - r.startX);
-			i < n && (n = i, t = {
-				index: r.start,
-				x: r.startX,
-				affinity: `downstream`
-			});
-			let a = Math.abs(e - r.endX);
-			a < n && (n = a, t = {
-				index: r.end,
-				x: r.endX,
-				affinity: `upstream`
-			});
+		let t = 0, n = 0, r = `downstream`, i = 1 / 0;
+		for (let a of this.clusters) {
+			let o = Math.abs(e - a.startX);
+			o < i && (i = o, t = a.start, n = a.startX, r = `downstream`);
+			let s = Math.abs(e - a.endX);
+			s < i && (i = s, t = a.end, n = a.endX, r = `upstream`);
 		}
-		return Object.freeze(t);
+		return Object.freeze({
+			index: t,
+			x: n,
+			affinity: r
+		});
 	}
 	selection(e, t) {
 		if (this.disposed) throw Error(`Cannot query destroyed text layout.`);

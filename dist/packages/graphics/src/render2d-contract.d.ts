@@ -59,12 +59,9 @@ export declare class RenderCommandBuffer2D {
     /** @internal Members of each isolation boundary, filled once per collection. */
     readonly boundaryMembers: Map<IsolatedGroup2D | undefined, MemberList2D>;
     private readonly memberLists;
-    /** Scratch for the stable bucketed sort; see sort(). */
+    /** Exact integer keys include insertion order so native numeric sort remains stable. */
     private sortSlots;
     private readonly sortOutput;
-    private readonly sortKeys;
-    private readonly sortRanks;
-    private readonly sortStarts;
     clear(): void;
     /**
      * @internal Like clear(), but keeps the item storage: emptying an array drops its backing
@@ -80,11 +77,8 @@ export declare class RenderCommandBuffer2D {
     appendParticles(object: ParticleLayer2D): void;
     appendLayer(object: IsolatedGroup2D): RenderCommandBuffer2D;
     /**
-     * Orders by the keys captured at append; callers sort right after collection.
-     * Scenes usually use a few layer depths, so a stable counting sort over the
-     * distinct keys replaces the comparison sort. With finite z the comparator is a
-     * total preorder, so any stable sort yields the identical order; other inputs
-     * keep Array#sort.
+     * Integer depths can pack space, depth and insertion order into exact numeric keys.
+     * Other depths retain the comparison sort, including its ordering of non-finite values.
      */
     sort(): void;
     /** @internal Detached target collection borrows descendants without Scene.add side effects. */

@@ -5,8 +5,14 @@ var HitArea2D = class HitArea2D {
 	bounds;
 	points;
 	radius;
+	coordinates;
 	constructor(e, t, n, r = 0) {
-		this.kind = e, this.bounds = Object.freeze(t), this.points = Object.freeze(n), this.radius = r, Object.freeze(this);
+		if (this.kind = e, this.bounds = Object.freeze(t), this.points = Object.freeze(n), this.radius = r, e === `polygon`) {
+			let e = new Float64Array(n.length * 2);
+			for (let t = 0; t < n.length; t++) e[t * 2] = n[t][0], e[t * 2 + 1] = n[t][1];
+			this.coordinates = e;
+		}
+		Object.freeze(this);
 	}
 	static rectangle(t) {
 		if (![
@@ -56,11 +62,11 @@ var HitArea2D = class HitArea2D {
 		if (!Number.isFinite(t) || !Number.isFinite(n) || t < r.x || n < r.y || t > r.x + r.width || n > r.y + r.height) return !1;
 		if (this.kind === `rectangle`) return r.width > 0 && r.height > 0;
 		if (this.kind === `circle`) return this.radius > 0 && (t - r.x - this.radius) ** 2 + (n - r.y - this.radius) ** 2 <= this.radius ** 2;
-		let i = !1;
+		let i = !1, a = this.coordinates;
 		for (let e = 0, r = this.points.length - 1; e < this.points.length; r = e++) {
-			let a = this.points[r], o = this.points[e], s = a[0], c = a[1], l = o[0], u = o[1];
-			if ((t - s) * (u - c) - (n - c) * (l - s) === 0 && t >= Math.min(s, l) && t <= Math.max(s, l) && n >= Math.min(c, u) && n <= Math.max(c, u)) return !0;
-			c > n != u > n && t < (l - s) * (n - c) / (u - c) + s && (i = !i);
+			let o = a[r * 2], s = a[r * 2 + 1], c = a[e * 2], l = a[e * 2 + 1];
+			if ((t - o) * (l - s) - (n - s) * (c - o) === 0 && t >= Math.min(o, c) && t <= Math.max(o, c) && n >= Math.min(s, l) && n <= Math.max(s, l)) return !0;
+			s > n != l > n && t < (c - o) * (n - s) / (l - s) + o && (i = !i);
 		}
 		return i;
 	}

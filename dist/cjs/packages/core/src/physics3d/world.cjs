@@ -492,7 +492,7 @@ var PhysicsWorld3D = class {
 		if (u * u * s < 2 ** 53) {
 			let e = this.pairKeys = this.pairKeys.length < s ? new Float64Array(s * 2) : this.pairKeys;
 			for (let t = 0; t < s; t++) e[t] = (i[t].order * u + a[t].order) * s + t;
-			e.subarray(0, s).sort();
+			new BigUint64Array(e.buffer, 0, s).sort();
 			for (let t = 0; t < s; t++) o[t] = e[t] % s;
 		} else o.sort(this.comparePairs);
 		for (let e of o) {
