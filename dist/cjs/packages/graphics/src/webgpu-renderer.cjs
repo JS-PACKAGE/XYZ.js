@@ -4,7 +4,7 @@ const require_native_texture = require("../../assets/src/native-texture.cjs");
 const require_material2d = require("../../core/src/materials2d/material2d.cjs");
 const require_mesh = require("../../core/src/mesh.cjs");
 const require_geometry2d = require("../../core/src/rendering2d/geometry2d.cjs");
-const require_rendering = require("../../../src/data/rendering.cjs");
+const require_rendering_gpu = require("../../../src/data/rendering-gpu.cjs");
 const require_native_material3d = require("../../core/src/native-material3d.cjs");
 const require_render2d_contract = require("./render2d-contract.cjs");
 const require_render_stats = require("./render-stats.cjs");
@@ -180,7 +180,7 @@ var WebGPURenderer = class {
 	};
 	constructor(e, t = !0, n = {}) {
 		this.onError = e, this.antialias = t;
-		let r = t ? require_rendering.materialQuality.samples : 1;
+		let r = t ? require_rendering_gpu.materialQuality.samples : 1;
 		this.capabilities.alphaToCoverage = Object.freeze({
 			rgba8Samples: r,
 			hdrSamples: r
@@ -262,7 +262,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 						primitive: { topology: `triangle-list` }
 					});
 					let t = new require_effects.WebGPU2DEffects(i, o, () => this.destroyed || !!this.lostError, () => this.frameStats, () => !!this.encoder);
-					this.effectsPipeline = t, await t.initialize(), this.render2D = await require_webgpu_render2d.WebGPURender2D.create(i, t, this.render2DHooks), _ = await require_webgpu_mesh_pipeline.WebGPUMeshPipeline.initialize(i, o, () => this.destroyed, this.antialias ? require_rendering.materialQuality.samples : 1, this.frameStats, this.residency);
+					this.effectsPipeline = t, await t.initialize(), this.render2D = await require_webgpu_render2d.WebGPURender2D.create(i, t, this.render2DHooks), _ = await require_webgpu_mesh_pipeline.WebGPUMeshPipeline.initialize(i, o, () => this.destroyed, this.antialias ? require_rendering_gpu.materialQuality.samples : 1, this.frameStats, this.residency);
 				}
 			} finally {
 				v = await i.popErrorScope();

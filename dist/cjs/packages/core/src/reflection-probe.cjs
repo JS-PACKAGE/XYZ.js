@@ -1,5 +1,5 @@
 const require_math3d = require("../../math/src/math3d.cjs");
-const require_rendering = require("../../../src/data/rendering.cjs");
+const require_rendering_gpu = require("../../../src/data/rendering-gpu.cjs");
 const require_environment = require("./environment.cjs");
 //#region dist/packages/core/src/reflection-probe.js
 function copy(t) {
@@ -30,14 +30,14 @@ var ReflectionProbe = class {
 	captureSize;
 	ownedCapture;
 	constructor(e) {
-		this.environment = e.environment, this.position = copy(e.position), this.min = copy(e.min), this.max = copy(e.max), this.intensity = e.intensity ?? 1, this.enabled = e.enabled ?? !0, this.boxProjection = e.boxProjection ?? !0, this.blendDistance = e.blendDistance ?? 1, this.dynamic = e.dynamic ?? !1, this.captureInterval = e.captureInterval ?? require_rendering.reflectionCaptureLimits.interval, this.captureSize = e.captureSize ?? require_rendering.reflectionCaptureLimits.size, this.validate();
+		this.environment = e.environment, this.position = copy(e.position), this.min = copy(e.min), this.max = copy(e.max), this.intensity = e.intensity ?? 1, this.enabled = e.enabled ?? !0, this.boxProjection = e.boxProjection ?? !0, this.blendDistance = e.blendDistance ?? 1, this.dynamic = e.dynamic ?? !1, this.captureInterval = e.captureInterval ?? require_rendering_gpu.reflectionCaptureLimits.interval, this.captureSize = e.captureSize ?? require_rendering_gpu.reflectionCaptureLimits.size, this.validate();
 	}
 	validate() {
 		if (!(this.environment instanceof require_environment.EnvironmentMap)) throw TypeError(`Reflection probe environment must be an EnvironmentMap.`);
 		if (finiteVector(this.position), finiteVector(this.min), finiteVector(this.max), bounds(this.min.x, this.max.x, this.position.x), bounds(this.min.y, this.max.y, this.position.y), bounds(this.min.z, this.max.z, this.position.z), !Number.isFinite(this.intensity) || !Number.isFinite(Math.fround(this.intensity)) || this.intensity < 0) throw RangeError(`Reflection probe intensity must be finite, nonnegative and fit Float32.`);
 		if (typeof this.enabled != `boolean` || typeof this.boxProjection != `boolean`) throw TypeError(`Reflection probe enabled and boxProjection must be boolean.`);
 		if (typeof this.dynamic != `boolean`) throw TypeError(`Reflection probe dynamic must be boolean.`);
-		if (!finite(this.blendDistance) || this.blendDistance <= 0 || !finite(this.captureInterval) || this.captureInterval <= 0 || !Number.isInteger(this.captureSize) || this.captureSize < 2 || this.captureSize > require_rendering.reflectionCaptureLimits.maximumSize) throw RangeError(`Probe blending/capture requires positive blend distance/interval and capture size 2..512.`);
+		if (!finite(this.blendDistance) || this.blendDistance <= 0 || !finite(this.captureInterval) || this.captureInterval <= 0 || !Number.isInteger(this.captureSize) || this.captureSize < 2 || this.captureSize > require_rendering_gpu.reflectionCaptureLimits.maximumSize) throw RangeError(`Probe blending/capture requires positive blend distance/interval and capture size 2..512.`);
 	}
 	contains(e, t, n) {
 		return e >= this.min.x && e <= this.max.x && t >= this.min.y && t <= this.max.y && n >= this.min.z && n <= this.max.z;

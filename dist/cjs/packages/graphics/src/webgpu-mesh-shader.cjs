@@ -1,4 +1,5 @@
 const require_errors = require("./errors.cjs");
+const require_rendering_gpu = require("../../../src/data/rendering-gpu.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
 const require_optical_maps = require("./optical-maps.cjs");
 const require_shadow_shaders = require("./shadow-shaders.cjs");
@@ -362,7 +363,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   if ((!effectiveFront && (mesh.settings.y < 0.5 || mesh.transmission.y > 0.0)) || (masked && !coverage && sampledAlpha < mesh.settings.x)) { discard; }
   var coverageAlpha = 1.0;
   if (coverage) {
-    coverageAlpha = clamp((sampledAlpha-mesh.settings.x)/max(fwidth(sampledAlpha),${require_rendering.materialQuality.minAlphaFootprint})+0.5,0.0,1.0);
+    coverageAlpha = clamp((sampledAlpha-mesh.settings.x)/max(fwidth(sampledAlpha),${require_rendering_gpu.materialQuality.minAlphaFootprint})+0.5,0.0,1.0);
     if (coverageAlpha <= 0.0) { discard; }
   }
   var base = decodeSRGB(texel.rgb)*mesh.tint.rgb*input.color.rgb;
@@ -507,11 +508,11 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     let nx = dpdx(n); let ny = dpdy(n);
     let alpha = rough*rough;
     // GGX uses alpha = perceptual roughness squared; variance belongs to alpha squared.
-    rough = sqrt(sqrt(min(1.0,alpha*alpha+min(${require_rendering.materialQuality.normalVarianceScale}*(dot(nx,nx)+dot(ny,ny)+normalVariance),${require_rendering.materialQuality.maxNormalVariance})*mesh.sheenMaps.z)));
+    rough = sqrt(sqrt(min(1.0,alpha*alpha+min(${require_rendering_gpu.materialQuality.normalVarianceScale}*(dot(nx,nx)+dot(ny,ny)+normalVariance),${require_rendering_gpu.materialQuality.maxNormalVariance})*mesh.sheenMaps.z)));
     if (mesh.clearcoat.x > 0.0) {
       let cx = dpdx(nc); let cy = dpdy(nc);
       let coatAlpha = coatRoughness*coatRoughness;
-      coatRoughness = sqrt(sqrt(min(1.0,coatAlpha*coatAlpha+min(${require_rendering.materialQuality.normalVarianceScale}*(dot(cx,cx)+dot(cy,cy)+coatVariance),${require_rendering.materialQuality.maxNormalVariance})*mesh.sheenMaps.z)));
+      coatRoughness = sqrt(sqrt(min(1.0,coatAlpha*coatAlpha+min(${require_rendering_gpu.materialQuality.normalVarianceScale}*(dot(cx,cx)+dot(cy,cy)+coatVariance),${require_rendering_gpu.materialQuality.maxNormalVariance})*mesh.sheenMaps.z)));
     }
   }
   let v = safeNormal(scene.camera.xyz-input.world);

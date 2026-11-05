@@ -6,6 +6,7 @@ const require_math3d = require("../../math/src/math3d.cjs");
 const require_material2d = require("../../core/src/materials2d/material2d.cjs");
 const require_mesh = require("../../core/src/mesh.cjs");
 const require_geometry2d = require("../../core/src/rendering2d/geometry2d.cjs");
+const require_rendering_gpu = require("../../../src/data/rendering-gpu.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
 const require_pbr_material = require("../../core/src/pbr-material.cjs");
 const require_native_pbr_material = require("../../core/src/native-pbr-material.cjs");
@@ -484,10 +485,10 @@ var WebGL2Renderer = class {
 			let a = 1, o = 1;
 			if (this.antialias) {
 				let e = n.getInternalformatParameter(n.RENDERBUFFER, n.DEPTH_COMPONENT24, n.SAMPLES), t = n.getInternalformatParameter(n.RENDERBUFFER, n.RGBA8, n.SAMPLES);
-				for (let n of t) n <= require_rendering.materialQuality.samples && n > a && e.includes(n) && (a = n);
+				for (let n of t) n <= require_rendering_gpu.materialQuality.samples && n > a && e.includes(n) && (a = n);
 				if (this.floatColorBuffer) {
 					let t = n.getInternalformatParameter(n.RENDERBUFFER, n.RGBA16F, n.SAMPLES);
-					for (let n of t) n <= require_rendering.materialQuality.samples && n > o && e.includes(n) && (o = n);
+					for (let n of t) n <= require_rendering_gpu.materialQuality.samples && n > o && e.includes(n) && (o = n);
 				}
 			}
 			this.coverageCapabilities = Object.freeze({
@@ -1484,7 +1485,7 @@ var WebGL2Renderer = class {
 				program: o,
 				uniforms: e
 			};
-			if (this.meshPrograms.set(i, t), this.recentMeshProgram = i, this.meshPrograms.size > require_rendering.meshShaderVariantLimits.maxEntries) {
+			if (this.meshPrograms.set(i, t), this.recentMeshProgram = i, this.meshPrograms.size > require_rendering_gpu.meshShaderVariantLimits.maxEntries) {
 				let e = this.meshPrograms.entries().next().value;
 				e && (this.meshPrograms.delete(e[0]), r.deleteProgram(e[1].program));
 			}

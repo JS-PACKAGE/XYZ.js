@@ -116,6 +116,14 @@ function parseTiledTileset(t, n, r = `tileset`) {
 		animations: u
 	});
 }
+function chunkBound(e, t, n) {
+	let r = 0, i = e.length;
+	for (; r < i;) {
+		let a = r + i >>> 1;
+		e[a][n] < t ? r = a + 1 : i = a;
+	}
+	return r;
+}
 function parseTiledMap(t, n) {
 	let r = tiledRecord(t, `map`);
 	if (r.orientation !== `orthogonal`) throw new TiledError(`map.orientation`, `only orthogonal maps are supported`);
@@ -175,24 +183,35 @@ function parseTiledMap(t, n) {
 				if (_.compression !== void 0 && _.compression !== ``) throw new TiledError(`${t}.compression`, `compressed data requires loadTiledMap`);
 				if (i) {
 					C = [];
-					for (let n of array(_.chunks, `${t}.chunks`, require_tiled.tiledLimits.chunks)) {
-						let e = tiledRecord(n, `${t}.chunks`);
+					let n = [], r = [], i = 0, a = 0;
+					for (let o of array(_.chunks, `${t}.chunks`, require_tiled.tiledLimits.chunks)) {
+						let e = tiledRecord(o, `${t}.chunks`);
 						if (typeof e.data == `string` && _.encoding !== `base64`) throw new TiledError(t, `string chunk data requires base64 encoding`);
-						let r = integer(e, `x`, t, -(2 ** 53 - 1)), i = integer(e, `y`, t, -(2 ** 53 - 1)), a = integer(e, `width`, t, 1), o = integer(e, `height`, t, 1);
+						let l = integer(e, `x`, t, -(2 ** 53 - 1)), u = integer(e, `y`, t, -(2 ** 53 - 1)), d = integer(e, `width`, t, 1), f = integer(e, `height`, t, 1);
 						if (![
-							r * s,
-							i * c,
-							r + a,
-							i + o
+							l * s,
+							u * c,
+							l + d,
+							u + f
 						].every(Number.isSafeInteger)) throw new TiledError(t, `chunk coordinates exceed safe range`);
-						if (C.some((e) => r < e.x + e.width && r + a > e.x && i < e.y + e.height && i + o > e.y)) throw new TiledError(t, `overlapping chunks`);
+						let p = chunkBound(n, l, `x`), m = chunkBound(r, u, `y`), h = chunkBound(n, l - i, `x`), g = chunkBound(n, l + d, `x`), v = chunkBound(r, u - a, `y`), y = chunkBound(r, u + f, `y`), b = g - h <= y - v, x = b ? n : r, S = b ? g : y, w = !1;
+						for (let e = b ? h : v; e < S; e++) {
+							let t = x[e];
+							if (l < t.x + t.width && l + d > t.x && u < t.y + t.height && u + f > t.y) {
+								w = !0;
+								break;
+							}
+						}
+						if (w) throw new TiledError(t, `overlapping chunks`);
 						C.push(Object.freeze({
-							x: r,
-							y: i,
-							width: a,
-							height: o,
-							data: gids(e.data, a * o, `${t}.chunks.data`)
+							x: l,
+							y: u,
+							width: d,
+							height: f,
+							data: gids(e.data, d * f, `${t}.chunks.data`)
 						}));
+						let T = C[C.length - 1];
+						n.splice(p, 0, T), r.splice(m, 0, T), i = Math.max(i, d), a = Math.max(a, f);
 					}
 				} else {
 					if (unsupported(_, [`chunks`], t), integer(_, `width`, t, 1) !== a || integer(_, `height`, t, 1) !== o) throw new TiledError(t, `layer dimensions must match map`);

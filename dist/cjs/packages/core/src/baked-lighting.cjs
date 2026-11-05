@@ -315,7 +315,7 @@ function bakeIrradianceVolume(e, t) {
 		0,
 		0,
 		0
-	], x = /* @__PURE__ */ new Float64Array(9);
+	], x = /* @__PURE__ */ new Float64Array(9), S = new Float64Array(c.samples * 3), C = new Uint8Array(c.samples);
 	for (let e = 0; e < p; e++) for (let t = 0; t < f; t++) for (let i = 0; i < u; i++) {
 		h[0] = n.min[0] + i / (u - 1) * (n.max[0] - n.min[0]), h[1] = n.min[1] + t / (f - 1) * (n.max[1] - n.min[1]), h[2] = n.min[2] + e / (p - 1) * (n.max[2] - n.min[2]);
 		let a = ((e * f + t) * u + i) * m * 3;
@@ -330,8 +330,9 @@ function bakeIrradianceVolume(e, t) {
 				c.direct(v, y, b, i.triangle);
 				for (let e = 0; e < 3; e++) _[e] = b[e] * i.triangle.mesh.material.color[e];
 			} else if (s) {
-				radiance(s, g, _);
-				for (let e = 0; e < 3; e++) _[e] *= r?.environmentIntensity ?? 1;
+				let t = e * 3;
+				C[e] || (radiance(s, g, _), S.set(_, t), C[e] = 1);
+				for (let e = 0; e < 3; e++) _[e] = S[t + e] * (r?.environmentIntensity ?? 1);
 			} else _.fill(r?.ambientLight ?? 0);
 			basis(g[0], g[1], g[2], x);
 			for (let e = 0; e < m; e++) for (let t = 0; t < 3; t++) n.coefficients[a + e * 3 + t] += _[t] * x[e] * 4 * Math.PI / c.samples * d[e];

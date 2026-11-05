@@ -1,2 +1,460 @@
-import{Vector2 as e}from"../../../math/src/index.js";import{physicsDefaults as t,world2dLimits as n}from"../../../../src/data/world2d.js";import{hypot2 as r}from"../../../math/src/hypot.js";const i=t.geometryEpsilon,a=[0,1,3,4,6,7];export function finite(e,t){if(!Number.isFinite(e))throw RangeError(`${t} must be finite.`);return e}export function positive(e,t){if(finite(e,t),e<=0)throw RangeError(`${t} must be positive.`);return e}export function nonnegativeFinite(e,t){if(finite(e,t),e<0)throw RangeError(`${t} must be nonnegative.`);return e}export function unsigned(e,t){if(!Number.isInteger(e)||e<0||e>4294967295)throw RangeError(`${t} must be an unsigned 32-bit integer.`);return e>>>0}function boundedCoordinate(e,t){if(finite(e,t),Math.abs(e)>n.geometryExtent)throw RangeError(`${t} exceeds the physics geometry extent limit.`);return e}export class Collider2D{kind;radius;offset;vertices;sensor=!1;categoryBits=1;maskBits=4294967295;filterBits=Int32Array.of(1,-1);queryGeometry;constructor(t,r,a,o={}){this.kind=t,this.radius=r;let s=o.offset??[0,0];if(this.offset=Object.freeze(new e(boundedCoordinate(s[0],`offset.x`),boundedCoordinate(s[1],`offset.y`))),t===`circle`){positive(r,`radius`),boundedCoordinate(r,`radius`),this.vertices=Object.freeze([]);return}if(a.length<3||a.length>n.polygonVertices)throw RangeError(`Convex polygons require 3–32 vertices.`);let c=a.map(([e,t])=>[boundedCoordinate(e,`vertex.x`),boundedCoordinate(t,`vertex.y`)]),l=0;for(let e=0;e<c.length;e++){let t=c[e],n=c[(e+1)%c.length];l+=t[0]*n[1]-t[1]*n[0]}if(!Number.isFinite(l)||Math.abs(l)<=i)throw RangeError(`Polygon must have finite nonzero area.`);l<0&&c.reverse();for(let e=0;e<c.length;e++){let t=c[e],n=c[(e+1)%c.length];for(let r=0;r<c.length;r++){if(r===e||r===(e+1)%c.length)continue;let a=c[r];if((n[0]-t[0])*(a[1]-t[1])-(n[1]-t[1])*(a[0]-t[0])<=i)throw RangeError(`Polygon must be strictly convex with distinct vertices.`)}}this.vertices=Object.freeze(c.map(e=>Object.freeze(e)))}get category(){return this.categoryBits}set category(e){this.categoryBits=unsigned(e,`category`),this.filterBits[0]=this.categoryBits}get mask(){return this.maskBits}set mask(e){this.maskBits=unsigned(e,`mask`),this.filterBits[1]=this.maskBits}containsPoint(e,t){finite(e.x,`point.x`),finite(e.y,`point.y`);let n=this.queryGeometry??=new ShapeGeometry(this);return n.refresh(t),n.contains(e.x,e.y)}}export const Colliders=Object.freeze({circle(e,t){return new Collider2D(`circle`,e,[],t)},box(e,t,n){positive(e,`width`),positive(t,`height`);let r=e/2,i=t/2;return new Collider2D(`polygon`,0,[[-r,-i],[r,-i],[r,i],[-r,i]],n)},polygon(e,t){return new Collider2D(`polygon`,0,e,t)}});export function convexHull(e,t){if(e.length<3||e.length>n.hullPoints)throw RangeError(`Convex hulls require 3-256 input points.`);let r=e.map(([e,t])=>[boundedCoordinate(e,`point.x`),boundedCoordinate(t,`point.y`)]).sort((e,t)=>e[0]-t[0]||e[1]-t[1]),a=r.filter((e,t)=>t===0||e[0]!==r[t-1][0]||e[1]!==r[t-1][1]),turn=(e,t,n)=>(t[0]-e[0])*(n[1]-e[1])-(t[1]-e[1])*(n[0]-e[0]),o=[],s=[];for(let e of a){for(;o.length>=2&&turn(o[o.length-2],o[o.length-1],e)<=i;)o.pop();o.push(e)}for(let e=a.length-1;e>=0;e--){let t=a[e];for(;s.length>=2&&turn(s[s.length-2],s[s.length-1],t)<=i;)s.pop();s.push(t)}return o.pop(),s.pop(),new Collider2D(`polygon`,0,o.concat(s),t)}export class ShapeGeometry{collider;points;x=0;y=0;radius=0;minX=0;minY=0;maxX=0;maxY=0;inertiaPerMass=0;area=0;revision=0;edges;edgesRevision=-1;refreshedFromInputs=!1;rayEdgeTolerance=0;rayBound=1;rayBoundRevision=-1;poseState=new Float64Array(30).fill(NaN);offsetX;offsetY;local;constructor(e){this.collider=e;let t=e.vertices,n=e.offset;this.points=new Float64Array(t.length*2),this.offsetX=n.x,this.offsetY=n.y,this.local=new Float64Array(t.length*2);for(let e=0;e<t.length;e++){let r=t[e];this.local[e*2]=r[0]+n.x,this.local[e*2+1]=r[1]+n.y}}edgeData(){let e=this.points,t=this.edges;if(t&&this.edgesRevision===this.revision)return t;t??=this.edges=new Float64Array((e.length>>1)*3);for(let n=0,i=0;n<e.length;n+=2,i+=3){let a=(n+2)%e.length,o=e[a]-e[n],s=e[a+1]-e[n+1],c=r(o,s);t[i]=s/c,t[i+1]=-o/c,t[i+2]=c}return this.edgesRevision=this.revision,t}invalidateEdges(){this.edgesRevision=-1}rayAmplification(){if(this.rayBoundRevision===this.revision)return this.rayBound;if(this.rayBoundRevision=this.revision,this.collider.kind===`circle`)return this.rayEdgeTolerance=0,this.rayBound=1;let e=this.points,t=this.edgeData(),n=e.length>>1,r=1/0;for(let e=0;e<n;e++)r=Math.min(r,t[e*3+2]);this.rayEdgeTolerance=i/r;let a=0;for(let r=0;r<4;r++){let i=r===0?1:r===1?-1:0,o=r===2?1:r===3?-1:0,s=r===0?this.maxX:r===1?this.minX:r===2?this.maxY:this.minY,c=0;for(;c<n&&e[c*2+(r>>1)]!==s;)c++;let l=(c+n-1)%n*3,u=c*3,d=t[l],f=t[l+1],p=t[u],m=t[u+1],h=d*m-f*p,g=(i*m-o*p)/h,_=(d*o-f*i)/h;if(!(g>=-1e-9&&_>=-1e-9)){a=1/0;break}a=Math.max(a,Math.max(0,g)+Math.max(0,_))}return this.rayBound=a}refresh(e){let t=e.transform,n=this.poseState,r=e.composesFromTransform;if(this.refreshedFromInputs=r,r&&n[6]===t.position.x&&n[7]===t.position.y&&n[8]===t.rotation&&n[9]===t.scale.x&&n[10]===t.scale.y&&n[11]===t.pivot.x&&n[12]===t.pivot.y&&n[13]===t.skew.x&&n[14]===t.skew.y)return;let i=r?void 0:e.baseComposedParent;i&&(this.refreshedFromInputs=!0),!(i&&this.childUnchanged(i,t))&&(n[6]=NaN,this.poseState[15]=NaN,this.refreshPose(e),i?this.recordChild(i,t):r&&(n[6]=t.position.x,n[7]=t.position.y,n[8]=t.rotation,n[9]=t.scale.x,n[10]=t.scale.y,n[11]=t.pivot.x,n[12]=t.pivot.y,n[13]=t.skew.x,n[14]=t.skew.y))}childUnchanged(e,t){let n=e.updateWorldMatrix().elements,r=this.poseState;return r[15]===n[0]&&r[16]===n[1]&&r[17]===n[3]&&r[18]===n[4]&&r[19]===n[6]&&r[20]===n[7]&&r[21]===t.position.x&&r[22]===t.position.y&&r[23]===t.rotation&&r[24]===t.scale.x&&r[25]===t.scale.y&&r[26]===t.pivot.x&&r[27]===t.pivot.y&&r[28]===t.skew.x&&r[29]===t.skew.y}recordChild(e,t){let n=e.updateWorldMatrix().elements,r=this.poseState;r[15]=n[0],r[16]=n[1],r[17]=n[3],r[18]=n[4],r[19]=n[6],r[20]=n[7],r[21]=t.position.x,r[22]=t.position.y,r[23]=t.rotation,r[24]=t.scale.x,r[25]=t.scale.y,r[26]=t.pivot.x,r[27]=t.pivot.y,r[28]=t.skew.x,r[29]=t.skew.y}refreshPose(e){let t=e.updateWorldMatrix().elements,n=!1;for(let e=0;e<a.length;e++)if(this.poseState[0+e]!==t[a[e]]){n=!0;break}if(!n)return;for(let e=0;e<a.length;e++)finite(t[a[e]],`world transform`);let o=t[0]*t[4]-t[1]*t[3];if(Math.abs(o)<=i)throw RangeError(`Physics requires a nonsingular world transform.`);let s=this.offsetX,c=this.offsetY;if(this.x=t[0]*s+t[3]*c+t[6],this.y=t[1]*s+t[4]*c+t[7],this.collider.kind===`circle`){let e=r(t[0],t[1]),n=r(t[3],t[4]);if(Math.abs(e-n)>i*Math.max(e,n)||Math.abs(t[0]*t[3]+t[1]*t[4])>i*e*n)throw RangeError(`Circle colliders require uniform absolute world scale without shear.`);this.radius=this.collider.radius*e,this.area=Math.PI*this.radius*this.radius,this.minX=this.x-this.radius,this.maxX=this.x+this.radius,this.minY=this.y-this.radius,this.maxY=this.y+this.radius,this.inertiaPerMass=this.radius*this.radius/2+(this.x-t[6])**2+(this.y-t[7])**2,positive(this.inertiaPerMass,`world geometry inertia`);for(let e=0;e<a.length;e++)this.poseState[0+e]=t[a[e]];this.revision++;return}let l=1/0,u=1/0,d=-1/0,f=-1/0,p=this.local,m=this.points,h=p.length>>1;for(let e=0;e<h;e++){let n=(o<0?h-1-e:e)*2,r=p[n],i=p[n+1],a=t[0]*r+t[3]*i+t[6],s=t[1]*r+t[4]*i+t[7];m[e*2]=a,m[e*2+1]=s,l=Math.min(l,a),d=Math.max(d,a),u=Math.min(u,s),f=Math.max(f,s)}this.minX=l,this.maxX=d,this.minY=u,this.maxY=f;let g=0,_=0;for(let e=0;e<h;e++){let n=(e+1)%h,r=m[e*2]-t[6],i=m[e*2+1]-t[7],a=m[n*2]-t[6],o=m[n*2+1]-t[7],s=r*o-i*a;g+=s,_+=s*(r*r+r*a+a*a+i*i+i*o+o*o)}this.inertiaPerMass=_/(6*g),this.area=g/2,positive(this.inertiaPerMass,`world geometry inertia`);for(let e=0;e<a.length;e++)this.poseState[0+e]=t[a[e]];this.revision++}contains(e,t){if(this.collider.kind===`circle`)return(e-this.x)**2+(t-this.y)**2<=this.radius**2;let n=this.points;for(let r=0;r<n.length;r+=2){let a=(r+2)%n.length;if((n[a]-n[r])*(t-n[r+1])-(n[a+1]-n[r+1])*(e-n[r])<-i)return!1}return!0}}
+import { Vector2 } from '../../../math/src/index.js';
+import { physicsDefaults, world2dLimits, } from '../../../../src/data/world2d.js';
+import { hypot2 } from '../../../math/src/hypot.js';
+const EPSILON = physicsDefaults.geometryEpsilon;
+const TRANSFORM_INDICES = [0, 1, 3, 4, 6, 7];
+/** Offsets of ShapeGeometry's pose caches in `poseState`. */
+const SNAPSHOT = 0, POSE = 6, CHILD = 15;
+export function finite(value, name) {
+    if (!Number.isFinite(value))
+        throw new RangeError(`${name} must be finite.`);
+    return value;
+}
+export function positive(value, name) {
+    finite(value, name);
+    if (value <= 0)
+        throw new RangeError(`${name} must be positive.`);
+    return value;
+}
+export function nonnegativeFinite(value, name) {
+    finite(value, name);
+    if (value < 0)
+        throw new RangeError(`${name} must be nonnegative.`);
+    return value;
+}
+export function unsigned(value, name) {
+    if (!Number.isInteger(value) || value < 0 || value > 0xffffffff)
+        throw new RangeError(`${name} must be an unsigned 32-bit integer.`);
+    return value >>> 0;
+}
+function boundedCoordinate(value, name) {
+    finite(value, name);
+    if (Math.abs(value) > world2dLimits.geometryExtent)
+        throw new RangeError(`${name} exceeds the physics geometry extent limit.`);
+    return value;
+}
+/** Reusable local geometry. Bodies and scene membership belong to the owner, not the shape. */
+export class Collider2D {
+    kind;
+    radius;
+    offset;
+    vertices;
+    sensor = false;
+    categoryBits = 1;
+    maskBits = 0xffffffff;
+    /**
+     * @internal `[category, mask]` as int32 for the pair filters, whose bit tests are unchanged
+     * by it: an element load stays inline, while a getter call V8 does not inline returns these
+     * (mostly above the small-integer range) as freshly boxed numbers.
+     */
+    filterBits = Int32Array.of(1, -1);
+    queryGeometry;
+    /** Prefer Colliders factories; construction validates and snapshots geometry. */
+    constructor(kind, radius, vertices, options = {}) {
+        this.kind = kind;
+        this.radius = radius;
+        const offset = options.offset ?? [0, 0];
+        this.offset = Object.freeze(new Vector2(boundedCoordinate(offset[0], 'offset.x'), boundedCoordinate(offset[1], 'offset.y')));
+        if (kind === 'circle') {
+            positive(radius, 'radius');
+            boundedCoordinate(radius, 'radius');
+            this.vertices = Object.freeze([]);
+            return;
+        }
+        if (vertices.length < 3 || vertices.length > world2dLimits.polygonVertices)
+            throw new RangeError('Convex polygons require 3–32 vertices.');
+        const points = vertices.map(([x, y]) => [
+            boundedCoordinate(x, 'vertex.x'),
+            boundedCoordinate(y, 'vertex.y'),
+        ]);
+        let area = 0;
+        for (let i = 0; i < points.length; i++) {
+            const p = points[i], q = points[(i + 1) % points.length];
+            area += p[0] * q[1] - p[1] * q[0];
+        }
+        if (!Number.isFinite(area) || Math.abs(area) <= EPSILON)
+            throw new RangeError('Polygon must have finite nonzero area.');
+        if (area < 0)
+            points.reverse();
+        // Every vertex lies strictly inside every directed edge: rejects concavity and star polygons.
+        for (let i = 0; i < points.length; i++) {
+            const p = points[i], q = points[(i + 1) % points.length];
+            for (let j = 0; j < points.length; j++) {
+                if (j === i || j === (i + 1) % points.length)
+                    continue;
+                const r = points[j];
+                if ((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]) <=
+                    EPSILON)
+                    throw new RangeError('Polygon must be strictly convex with distinct vertices.');
+            }
+        }
+        this.vertices = Object.freeze(points.map((point) => Object.freeze(point)));
+    }
+    get category() {
+        return this.categoryBits;
+    }
+    set category(value) {
+        this.categoryBits = unsigned(value, 'category');
+        this.filterBits[0] = this.categoryBits;
+    }
+    get mask() {
+        return this.maskBits;
+    }
+    set mask(value) {
+        this.maskBits = unsigned(value, 'mask');
+        this.filterBits[1] = this.maskBits;
+    }
+    containsPoint(point, owner) {
+        finite(point.x, 'point.x');
+        finite(point.y, 'point.y');
+        const geometry = (this.queryGeometry ??= new ShapeGeometry(this));
+        geometry.refresh(owner);
+        return geometry.contains(point.x, point.y);
+    }
+}
+export const Colliders = /* @__PURE__ */ Object.freeze({
+    circle(radius, options) {
+        return new Collider2D('circle', radius, [], options);
+    },
+    box(width, height, options) {
+        positive(width, 'width');
+        positive(height, 'height');
+        const x = width / 2, y = height / 2;
+        return new Collider2D('polygon', 0, [
+            [-x, -y],
+            [x, -y],
+            [x, y],
+            [-x, y],
+        ], options);
+    },
+    polygon(vertices, options) {
+        return new Collider2D('polygon', 0, vertices, options);
+    },
+});
+/**
+ * Polygon `Collider2D` from the convex hull of 3-256 input points (Andrew's
+ * monotone chain). Exposed top-level so the 1.x `Colliders` surface stays
+ * structurally additive; duplicate points collapse before the sweep.
+ */
+export function convexHull(points, options) {
+    if (points.length < 3 || points.length > world2dLimits.hullPoints)
+        throw new RangeError('Convex hulls require 3-256 input points.');
+    const sorted = points
+        .map(([x, y]) => [boundedCoordinate(x, 'point.x'), boundedCoordinate(y, 'point.y')])
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const unique = sorted.filter((p, i) => i === 0 || p[0] !== sorted[i - 1][0] || p[1] !== sorted[i - 1][1]);
+    const turn = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    const lower = [], upper = [];
+    for (const p of unique) {
+        while (lower.length >= 2 &&
+            turn(lower[lower.length - 2], lower[lower.length - 1], p) <= EPSILON)
+            lower.pop();
+        lower.push(p);
+    }
+    for (let i = unique.length - 1; i >= 0; i--) {
+        const p = unique[i];
+        while (upper.length >= 2 &&
+            turn(upper[upper.length - 2], upper[upper.length - 1], p) <= EPSILON)
+            upper.pop();
+        upper.push(p);
+    }
+    lower.pop();
+    upper.pop();
+    return new Collider2D('polygon', 0, lower.concat(upper), options);
+}
+/** Reused world geometry and AABB. Polygon winding stays counterclockwise after reflection. */
+export class ShapeGeometry {
+    collider;
+    points;
+    x = 0;
+    y = 0;
+    radius = 0;
+    minX = 0;
+    minY = 0;
+    maxX = 0;
+    maxY = 0;
+    inertiaPerMass = 0;
+    area = 0;
+    /** @internal Changes only after a successful world-geometry refresh. */
+    revision = 0;
+    edges;
+    edgesRevision = -1;
+    /**
+     * @internal The last `refresh` composed the pose from recorded inputs: a root's own
+     * transform, or a base-composed parent's matrix and the transform. Repeating it before
+     * anything moves only compares them equal, provided the parent's matrix comes from an
+     * open matrix pass (otherwise recomposing it may call ancestors' overrides).
+     */
+    refreshedFromInputs = false;
+    /** @internal Valid after `rayAmplification`; see there. */
+    rayEdgeTolerance = 0;
+    rayBound = 1;
+    rayBoundRevision = -1;
+    /**
+     * Pose caches in one allocation, NaN when unknown. From `SNAPSHOT`: the world matrix
+     * entries the geometry was last built from. From `POSE`: the transform inputs `refresh`
+     * last composed a root's pose from. From `CHILD`: a child's parent world matrix (indices
+     * 0, 1, 3, 4, 6, 7) then its transform inputs, as `POSE` is for a root. Each of the last
+     * two forms invalidates the other when it refreshes.
+     */
+    poseState = new Float64Array(30).fill(NaN);
+    /**
+     * The collider's immutable offset and offset-applied local vertices as plain numbers.
+     * Reading them from the frozen Vector2 and tuples on every refresh took V8's slow
+     * property path in Chrome, which allocated on each read.
+     */
+    offsetX;
+    offsetY;
+    local;
+    constructor(collider) {
+        this.collider = collider;
+        const vertices = collider.vertices, offset = collider.offset;
+        this.points = new Float64Array(vertices.length * 2);
+        this.offsetX = offset.x;
+        this.offsetY = offset.y;
+        this.local = new Float64Array(vertices.length * 2);
+        for (let i = 0; i < vertices.length; i++) {
+            const vertex = vertices[i];
+            this.local[i * 2] = vertex[0] + offset.x;
+            this.local[i * 2 + 1] = vertex[1] + offset.y;
+        }
+    }
+    /**
+     * @internal Per polygon edge `i -> i + 1`: unit normal `(ey, -ex) / |e|` and length `|e|`
+     * (`hypot2(ex, ey)`), three floats each, computed on first use after each world-geometry
+     * refresh. Code that writes `points` otherwise must call `invalidateEdges`.
+     */
+    edgeData() {
+        const p = this.points;
+        let edges = this.edges;
+        if (edges && this.edgesRevision === this.revision)
+            return edges;
+        edges ??= this.edges = new Float64Array((p.length >> 1) * 3);
+        for (let i = 0, k = 0; i < p.length; i += 2, k += 3) {
+            const j = (i + 2) % p.length;
+            const ex = p[j] - p[i], ey = p[j + 1] - p[i + 1], length = hypot2(ex, ey);
+            edges[k] = ey / length;
+            edges[k + 1] = -ex / length;
+            edges[k + 2] = length;
+        }
+        this.edgesRevision = this.revision;
+        return edges;
+    }
+    /** @internal For writers of `points` outside `refresh` (motion samples). */
+    invalidateEdges() {
+        this.edgesRevision = -1;
+    }
+    /**
+     * @internal Bounds how far outside the AABB `rayDistance` can report a hit, contained
+     * origins included. Every such point lies within some tolerance `e` of the two edge lines
+     * beside each extreme vertex (`a·(p − v) ≤ e`), so it lies at most `e` times the returned
+     * factor past that vertex along the axis: the summed nonnegative weights expressing the
+     * axis direction in those two edge normals. Infinity where that decomposition fails.
+     * `rayEdgeTolerance` is `contains`'s own tolerance as a distance: EPSILON over the shortest
+     * edge. Circles return 1 (and 0), and are computed once per world-geometry refresh.
+     */
+    rayAmplification() {
+        if (this.rayBoundRevision === this.revision)
+            return this.rayBound;
+        this.rayBoundRevision = this.revision;
+        if (this.collider.kind === 'circle') {
+            this.rayEdgeTolerance = 0;
+            return (this.rayBound = 1);
+        }
+        const p = this.points, edges = this.edgeData(), count = p.length >> 1;
+        let shortest = Infinity;
+        for (let k = 0; k < count; k++)
+            shortest = Math.min(shortest, edges[k * 3 + 2]);
+        this.rayEdgeTolerance = EPSILON / shortest;
+        let bound = 0;
+        for (let axis = 0; axis < 4; axis++) {
+            // +x, -x, +y, -y and the matching extreme coordinate.
+            const ux = axis === 0 ? 1 : axis === 1 ? -1 : 0, uy = axis === 2 ? 1 : axis === 3 ? -1 : 0, extreme = axis === 0
+                ? this.maxX
+                : axis === 1
+                    ? this.minX
+                    : axis === 2
+                        ? this.maxY
+                        : this.minY;
+            let vertex = 0;
+            while (vertex < count && p[vertex * 2 + (axis >> 1)] !== extreme)
+                vertex++;
+            const before = ((vertex + count - 1) % count) * 3, after = vertex * 3;
+            const ax = edges[before], ay = edges[before + 1], bx = edges[after], by = edges[after + 1];
+            const determinant = ax * by - ay * bx;
+            const first = (ux * by - uy * bx) / determinant, second = (ax * uy - ay * ux) / determinant;
+            // Rounding leaves exact zeros slightly negative; a real negative weight means the
+            // normals do not bracket the axis (degenerate geometry), and nothing is bounded.
+            if (!(first >= -1e-9 && second >= -1e-9)) {
+                bound = Infinity;
+                break;
+            }
+            bound = Math.max(bound, Math.max(0, first) + Math.max(0, second));
+        }
+        return (this.rayBound = bound);
+    }
+    refresh(owner) {
+        const t = owner.transform, k = this.poseState;
+        const direct = owner.composesFromTransform;
+        this.refreshedFromInputs = direct;
+        // A root's world matrix is composed from these values alone; when none changed,
+        // the matrix snapshot below would match and nothing would be refreshed.
+        if (direct &&
+            k[POSE] === t.position.x &&
+            k[POSE + 1] === t.position.y &&
+            k[POSE + 2] === t.rotation &&
+            k[POSE + 3] === t.scale.x &&
+            k[POSE + 4] === t.scale.y &&
+            k[POSE + 5] === t.pivot.x &&
+            k[POSE + 6] === t.pivot.y &&
+            k[POSE + 7] === t.skew.x &&
+            k[POSE + 8] === t.skew.y)
+            return;
+        // A child's matrix is its parent's times its transform, so the parent's matrix stands in
+        // for every ancestor input.
+        const parent = direct ? undefined : owner.baseComposedParent;
+        if (parent)
+            this.refreshedFromInputs = true;
+        if (parent && this.childUnchanged(parent, t))
+            return;
+        k[POSE] = NaN;
+        this.poseState[CHILD] = NaN;
+        this.refreshPose(owner);
+        if (parent)
+            this.recordChild(parent, t);
+        else if (direct) {
+            k[POSE] = t.position.x;
+            k[POSE + 1] = t.position.y;
+            k[POSE + 2] = t.rotation;
+            k[POSE + 3] = t.scale.x;
+            k[POSE + 4] = t.scale.y;
+            k[POSE + 5] = t.pivot.x;
+            k[POSE + 6] = t.pivot.y;
+            k[POSE + 7] = t.skew.x;
+            k[POSE + 8] = t.skew.y;
+        }
+    }
+    childUnchanged(parent, t) {
+        const p = parent.updateWorldMatrix().elements, c = this.poseState;
+        return (c[CHILD] === p[0] &&
+            c[CHILD + 1] === p[1] &&
+            c[CHILD + 2] === p[3] &&
+            c[CHILD + 3] === p[4] &&
+            c[CHILD + 4] === p[6] &&
+            c[CHILD + 5] === p[7] &&
+            c[CHILD + 6] === t.position.x &&
+            c[CHILD + 7] === t.position.y &&
+            c[CHILD + 8] === t.rotation &&
+            c[CHILD + 9] === t.scale.x &&
+            c[CHILD + 10] === t.scale.y &&
+            c[CHILD + 11] === t.pivot.x &&
+            c[CHILD + 12] === t.pivot.y &&
+            c[CHILD + 13] === t.skew.x &&
+            c[CHILD + 14] === t.skew.y);
+    }
+    recordChild(parent, t) {
+        const p = parent.updateWorldMatrix().elements, c = this.poseState;
+        c[CHILD] = p[0];
+        c[CHILD + 1] = p[1];
+        c[CHILD + 2] = p[3];
+        c[CHILD + 3] = p[4];
+        c[CHILD + 4] = p[6];
+        c[CHILD + 5] = p[7];
+        c[CHILD + 6] = t.position.x;
+        c[CHILD + 7] = t.position.y;
+        c[CHILD + 8] = t.rotation;
+        c[CHILD + 9] = t.scale.x;
+        c[CHILD + 10] = t.scale.y;
+        c[CHILD + 11] = t.pivot.x;
+        c[CHILD + 12] = t.pivot.y;
+        c[CHILD + 13] = t.skew.x;
+        c[CHILD + 14] = t.skew.y;
+    }
+    refreshPose(owner) {
+        const e = owner.updateWorldMatrix().elements;
+        let changed = false;
+        for (let i = 0; i < TRANSFORM_INDICES.length; i++)
+            if (this.poseState[SNAPSHOT + i] !== e[TRANSFORM_INDICES[i]]) {
+                changed = true;
+                break;
+            }
+        if (!changed)
+            return;
+        for (let i = 0; i < TRANSFORM_INDICES.length; i++)
+            finite(e[TRANSFORM_INDICES[i]], 'world transform');
+        const determinant = e[0] * e[4] - e[1] * e[3];
+        if (Math.abs(determinant) <= EPSILON)
+            throw new RangeError('Physics requires a nonsingular world transform.');
+        const offsetX = this.offsetX, offsetY = this.offsetY;
+        this.x = e[0] * offsetX + e[3] * offsetY + e[6];
+        this.y = e[1] * offsetX + e[4] * offsetY + e[7];
+        if (this.collider.kind === 'circle') {
+            const sx = hypot2(e[0], e[1]), sy = hypot2(e[3], e[4]);
+            if (Math.abs(sx - sy) > EPSILON * Math.max(sx, sy) ||
+                Math.abs(e[0] * e[3] + e[1] * e[4]) > EPSILON * sx * sy)
+                throw new RangeError('Circle colliders require uniform absolute world scale without shear.');
+            this.radius = this.collider.radius * sx;
+            this.area = Math.PI * this.radius * this.radius;
+            this.minX = this.x - this.radius;
+            this.maxX = this.x + this.radius;
+            this.minY = this.y - this.radius;
+            this.maxY = this.y + this.radius;
+            this.inertiaPerMass =
+                (this.radius * this.radius) / 2 +
+                    (this.x - e[6]) ** 2 +
+                    (this.y - e[7]) ** 2;
+            positive(this.inertiaPerMass, 'world geometry inertia');
+            for (let i = 0; i < TRANSFORM_INDICES.length; i++)
+                this.poseState[SNAPSHOT + i] = e[TRANSFORM_INDICES[i]];
+            this.revision++;
+            return;
+        }
+        // Locals through both loops; the fields are written once each at the end.
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        const local = this.local, points = this.points, count = local.length >> 1;
+        for (let i = 0; i < count; i++) {
+            const at = (determinant < 0 ? count - 1 - i : i) * 2;
+            const lx = local[at], ly = local[at + 1];
+            const x = e[0] * lx + e[3] * ly + e[6], y = e[1] * lx + e[4] * ly + e[7];
+            points[i * 2] = x;
+            points[i * 2 + 1] = y;
+            minX = Math.min(minX, x);
+            maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y);
+            maxY = Math.max(maxY, y);
+        }
+        this.minX = minX;
+        this.maxX = maxX;
+        this.minY = minY;
+        this.maxY = maxY;
+        let crossSum = 0, moment = 0;
+        for (let i = 0; i < count; i++) {
+            const j = (i + 1) % count;
+            const ax = points[i * 2] - e[6], ay = points[i * 2 + 1] - e[7];
+            const bx = points[j * 2] - e[6], by = points[j * 2 + 1] - e[7];
+            const cross = ax * by - ay * bx;
+            crossSum += cross;
+            moment +=
+                cross * (ax * ax + ax * bx + bx * bx + ay * ay + ay * by + by * by);
+        }
+        this.inertiaPerMass = moment / (6 * crossSum);
+        this.area = crossSum / 2;
+        positive(this.inertiaPerMass, 'world geometry inertia');
+        for (let i = 0; i < TRANSFORM_INDICES.length; i++)
+            this.poseState[SNAPSHOT + i] = e[TRANSFORM_INDICES[i]];
+        this.revision++;
+    }
+    contains(x, y) {
+        if (this.collider.kind === 'circle')
+            return (x - this.x) ** 2 + (y - this.y) ** 2 <= this.radius ** 2;
+        const p = this.points;
+        for (let i = 0; i < p.length; i += 2) {
+            const j = (i + 2) % p.length;
+            if ((p[j] - p[i]) * (y - p[i + 1]) - (p[j + 1] - p[i + 1]) * (x - p[i]) <
+                -EPSILON)
+                return false;
+        }
+        return true;
+    }
+}
 //# sourceMappingURL=collider.js.map

@@ -1,10 +1,10 @@
-const require_rendering = require("../../../src/data/rendering.cjs");
+const require_rendering_gpu = require("../../../src/data/rendering-gpu.cjs");
 //#region dist/packages/graphics/src/sheen-shaders.js
 var n = 256;
-var r = Array.from({ length: require_rendering.materialQuality.sheenSamples }, (e, n) => {
+var r = Array.from({ length: require_rendering_gpu.materialQuality.sheenSamples }, (e, n) => {
 	let r = n, i = 0, a = .5;
 	for (; r;) i += (r & 1) * a, r >>>= 1, a *= .5;
-	let o = (n + .5) / require_rendering.materialQuality.sheenSamples * Math.PI * 2;
+	let o = (n + .5) / require_rendering_gpu.materialQuality.sheenSamples * Math.PI * 2;
 	return [
 		Math.cos(o),
 		Math.sin(o),
@@ -83,7 +83,7 @@ float sheenLightRetention(float nl,float rough,float tint,float viewEnergy) {
 }
 `;
 var sheenEnvironmentWGSL = `
-const charlieSamples=array<vec3f,${require_rendering.materialQuality.sheenSamples}>(
+const charlieSamples=array<vec3f,${require_rendering_gpu.materialQuality.sheenSamples}>(
   ${r.map((e) => `vec3f(${e.map((e) => e.toFixed(15)).join(`,`)})`).join(`,
   `)}
 );
@@ -97,7 +97,7 @@ fn sheenEnvironment(position: vec3f,n: vec3f,v: vec3f,rough: f32,weights: vec4f)
   let viewLambda=sheenLambda(nv,alpha);
   var radiance=vec3f(0.0);
   var total=0.0;
-  for(var i=0u;i<${require_rendering.materialQuality.sheenSamples}u;i++) {
+  for(var i=0u;i<${require_rendering_gpu.materialQuality.sheenSamples}u;i++) {
     let sample=charlieSamples[i];
     let sine=pow(sample.z,alpha/(1.0+2.0*alpha));
     let cosine=sqrt(max(1.0-sine*sine,0.0));
@@ -115,7 +115,7 @@ fn sheenEnvironment(position: vec3f,n: vec3f,v: vec3f,rough: f32,weights: vec4f)
 }
 `;
 var sheenEnvironmentGLSL = `
-const vec3 charlieSamples[${require_rendering.materialQuality.sheenSamples}]=vec3[${require_rendering.materialQuality.sheenSamples}](
+const vec3 charlieSamples[${require_rendering_gpu.materialQuality.sheenSamples}]=vec3[${require_rendering_gpu.materialQuality.sheenSamples}](
   ${r.map((e) => `vec3(${e.map((e) => e.toFixed(15)).join(`,`)})`).join(`,
   `)}
 );
@@ -126,7 +126,7 @@ vec3 sheenEnvironment(vec3 position,vec3 n,vec3 v,float rough,vec4 weights) {
   vec3 t=normalize(cross(axis,n)),b=cross(n,t);
   float alpha=rough*rough,viewLambda=sheenLambda(nv,alpha),total=0.0;
   vec3 radiance=vec3(0.0);
-  for(int i=0;i<${require_rendering.materialQuality.sheenSamples};i++) {
+  for(int i=0;i<${require_rendering_gpu.materialQuality.sheenSamples};i++) {
     vec3 point=charlieSamples[i];
     float sine=pow(point.z,alpha/(1.0+2.0*alpha));
     float cosine=sqrt(max(1.0-sine*sine,0.0));

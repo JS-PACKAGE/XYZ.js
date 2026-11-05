@@ -1,5 +1,5 @@
 const require_math3d = require("../../math/src/math3d.cjs");
-const require_rendering = require("../../../src/data/rendering.cjs");
+const require_rendering_gpu = require("../../../src/data/rendering-gpu.cjs");
 const require_native_material3d = require("../../core/src/native-material3d.cjs");
 const require_instanced_mesh = require("../../core/src/instanced-mesh.cjs");
 const require_skinned_mesh = require("../../core/src/skinned-mesh.cjs");
@@ -57,7 +57,7 @@ struct Vertex { @builtin(position) position:vec4f, @location(0) current:vec4f, @
 @fragment fn fragmentMain(input:Vertex)->@location(0) vec4f {
  var depth=1.0;
  ${t > 1 ? `for(var i=0;i<${t};i++) { depth=min(depth,textureLoad(opaqueDepth,vec2i(input.position.xy),i)); }` : `depth=textureLoad(opaqueDepth,vec2i(input.position.xy),0);`}
- if(abs(depth-input.position.z)>${require_rendering.motionBlurDefaults.velocityDepthTolerance}) { discard; }
+ if(abs(depth-input.position.z)>${require_rendering_gpu.motionBlurDefaults.velocityDepthTolerance}) { discard; }
  if(input.previous.w<=0.000001) { return vec4f(0.0); }
  return vec4f((input.current.xy/input.current.w-input.previous.xy/input.previous.w)*vec2f(0.5,-0.5),1.0,0.0);
 }`;
@@ -78,7 +78,7 @@ in vec4 currentPosition;
 in vec4 previousPosition;
 out vec4 velocity;
 void main() {
- if(abs(texelFetch(opaqueDepth,ivec2(gl_FragCoord.xy),0).r-gl_FragCoord.z)>${require_rendering.motionBlurDefaults.velocityDepthTolerance}) discard;
+ if(abs(texelFetch(opaqueDepth,ivec2(gl_FragCoord.xy),0).r-gl_FragCoord.z)>${require_rendering_gpu.motionBlurDefaults.velocityDepthTolerance}) discard;
  if(previousPosition.w<=.000001) { velocity=vec4(0.0); return; }
  velocity=vec4((currentPosition.xy/currentPosition.w-previousPosition.xy/previousPosition.w)*.5,1.0,0.0); }
 `;

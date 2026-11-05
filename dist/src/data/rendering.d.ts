@@ -1,3 +1,4 @@
+export { oitSettings, graphicsRecoveryLimits, reflectionCaptureLimits, meshShaderVariantLimits, materialQuality, motionBlurDefaults, } from './rendering-gpu.js';
 export declare const MAX_POINT_LIGHTS = 32;
 export declare const MAX_SPOT_LIGHTS = 32;
 /** CPU static-lighting work/storage quotas; caller requests can only lower hard caps. */
@@ -31,14 +32,6 @@ export declare const iridescenceFilmRange: Readonly<{
     minNm: 100;
     maxNm: 800;
 }>;
-/** Bounded opt-in material anti-aliasing, shared by both native shaders. */
-export declare const materialQuality: Readonly<{
-    samples: 4;
-    normalVarianceScale: 2;
-    maxNormalVariance: 0.18;
-    minAlphaFootprint: 0.0001;
-    sheenSamples: 32;
-}>;
 /** Stable per-map UV uniform order: two vec4 values per affine coordinate mapping. */
 export declare const materialTextureSlots: readonly ["texture", "metallicRoughness", "normal", "occlusion", "emissive", "specular", "specularColor", "clearcoat", "clearcoatRoughness", "clearcoatNormal", "sheenColor", "sheenRoughness", "transmission", "thickness"];
 export declare const MATERIAL_UV_FLOAT_COUNT: number;
@@ -53,12 +46,6 @@ export declare const LIGHTING_FLOAT_COUNT: number;
 export declare const ENVIRONMENT_FLOAT_COUNT = 40;
 /** Global environment plus four spatial probe SH/params/bounds records. */
 export declare const REFLECTION_FLOAT_COUNT: number;
-/** Bounded weights avoid rapidly overflowing half-float accumulation targets. */
-export declare const oitSettings: Readonly<{
-    scale: 100;
-    minWeight: 0.01;
-    maxWeight: 30;
-}>;
 export declare const environmentLimits: Readonly<{
     /** Equirect width cap; height is width / 2. */
     maxWidth: 2048;
@@ -69,10 +56,6 @@ export declare const environmentLimits: Readonly<{
     /** Deterministic GGX ray budget and maximum filtered output width. */
     prefilterSamples: 128;
     prefilterWidth: 256;
-}>;
-/** A lost WebGL2 context not restored within this window becomes a fatal GraphicsError. */
-export declare const graphicsRecoveryLimits: Readonly<{
-    restoreTimeoutMs: 10000;
 }>;
 /** Fog block shared by both graphics backends: color.rgb/mode, near/far/density/0. */
 export declare const FOG_FLOAT_COUNT = 8;
@@ -131,17 +114,6 @@ export declare const advancedPostDefaults: Readonly<{
     ssrStrength: 1;
     maximumSSRSteps: 128;
 }>;
-export declare const reflectionCaptureLimits: Readonly<{
-    size: 64;
-    maximumSize: 512;
-    maximumBytes: number;
-    interval: 1;
-}>;
-/** Bound driver program residency and protect the inexpensive default PBR source. */
-export declare const meshShaderVariantLimits: Readonly<{
-    maxEntries: 64;
-    plainFragmentMaxBytes: 40000;
-}>;
 /** Bound single-view scene readback and automatic caller-driven update pacing. */
 export declare const planarReflectionLimits: Readonly<{
     size: 128;
@@ -167,13 +139,4 @@ export declare const lensFlareDefaults: Readonly<{
     spacing: 0.5;
     haloRadius: 0.3;
     haloWidth: 0.15;
-}>;
-export declare const motionBlurDefaults: Readonly<{
-    perObject: false;
-    velocityDepthTolerance: 0.00001;
-    strength: 1;
-    samples: 12;
-    maximumSamples: 32;
-    maxRadius: 32;
-    maximumRadius: 64;
 }>;

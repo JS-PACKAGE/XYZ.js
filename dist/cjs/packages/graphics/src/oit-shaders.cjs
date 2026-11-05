@@ -1,13 +1,13 @@
-const require_rendering = require("../../../src/data/rendering.cjs");
+const require_rendering_gpu = require("../../../src/data/rendering-gpu.cjs");
 //#region dist/packages/graphics/src/oit-shaders.js
 var oitWeightWGSL = `
 fn transparencyWeight(alpha: f32, depth: f32) -> f32 {
-  return clamp(pow(alpha+0.01,3.0)*${require_rendering.oitSettings.scale}.0*pow(1.0-depth*0.9,3.0),${require_rendering.oitSettings.minWeight},${require_rendering.oitSettings.maxWeight}.0);
+  return clamp(pow(alpha+0.01,3.0)*${require_rendering_gpu.oitSettings.scale}.0*pow(1.0-depth*0.9,3.0),${require_rendering_gpu.oitSettings.minWeight},${require_rendering_gpu.oitSettings.maxWeight}.0);
 }
 `;
 var oitWeightGLSL = `
 float transparencyWeight(float alpha, float depth) {
-  return clamp(pow(alpha+0.01,3.0)*${require_rendering.oitSettings.scale}.0*pow(1.0-depth*0.9,3.0),${require_rendering.oitSettings.minWeight},${require_rendering.oitSettings.maxWeight}.0);
+  return clamp(pow(alpha+0.01,3.0)*${require_rendering_gpu.oitSettings.scale}.0*pow(1.0-depth*0.9,3.0),${require_rendering_gpu.oitSettings.minWeight},${require_rendering_gpu.oitSettings.maxWeight}.0);
 }
 `;
 var oitCompositeWGSL = `

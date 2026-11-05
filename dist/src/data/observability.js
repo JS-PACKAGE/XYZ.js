@@ -74,7 +74,7 @@ export const productionWorkload = /* @__PURE__ */ Object.freeze({
     hitchMilliseconds: 50,
 });
 /** Authored quality tiers; changing tier changes workload, not measured device identity. */
-export const productionQualityProfiles = /* @__PURE__ */ Object.freeze({
+export const productionQualityProfiles = /* @__PURE__ */ (() => Object.freeze({
     baseline: productionWorkload,
     low: /* @__PURE__ */ Object.freeze({
         ...productionWorkload,
@@ -100,7 +100,7 @@ export const productionQualityProfiles = /* @__PURE__ */ Object.freeze({
         spotLights: 8,
         overlaySprites3D: 128,
     }),
-});
+}))();
 /** Revision changes invalidate pinned profiles when authored work or phase semantics change. */
 export const productionRegressionWorkload = /* @__PURE__ */ Object.freeze({
     revision: 4,

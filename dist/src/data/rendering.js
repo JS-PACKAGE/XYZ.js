@@ -1,3 +1,4 @@
+export { oitSettings, graphicsRecoveryLimits, reflectionCaptureLimits, meshShaderVariantLimits, materialQuality, motionBlurDefaults, } from './rendering-gpu.js';
 export const MAX_POINT_LIGHTS = 32;
 export const MAX_SPOT_LIGHTS = 32;
 /** CPU static-lighting work/storage quotas; caller requests can only lower hard caps. */
@@ -31,14 +32,6 @@ export const iridescenceFilmRange = /* @__PURE__ */ Object.freeze({
     minNm: 100,
     maxNm: 800,
 });
-/** Bounded opt-in material anti-aliasing, shared by both native shaders. */
-export const materialQuality = /* @__PURE__ */ Object.freeze({
-    samples: 4,
-    normalVarianceScale: 2,
-    maxNormalVariance: 0.18,
-    minAlphaFootprint: 1e-4,
-    sheenSamples: 32,
-});
 /** Stable per-map UV uniform order: two vec4 values per affine coordinate mapping. */
 export const materialTextureSlots = /* @__PURE__ */ Object.freeze([
     'texture',
@@ -68,12 +61,6 @@ export const LIGHTING_FLOAT_COUNT = LIGHTING_POINT_ID_OFFSET + MAX_POINT_LIGHTS;
 export const ENVIRONMENT_FLOAT_COUNT = 40;
 /** Global environment plus four spatial probe SH/params/bounds records. */
 export const REFLECTION_FLOAT_COUNT = (ENVIRONMENT_FLOAT_COUNT + 12) * 5;
-/** Bounded weights avoid rapidly overflowing half-float accumulation targets. */
-export const oitSettings = /* @__PURE__ */ Object.freeze({
-    scale: 100,
-    minWeight: 0.01,
-    maxWeight: 30,
-});
 export const environmentLimits = /* @__PURE__ */ Object.freeze({
     /** Equirect width cap; height is width / 2. */
     maxWidth: 2048,
@@ -84,10 +71,6 @@ export const environmentLimits = /* @__PURE__ */ Object.freeze({
     /** Deterministic GGX ray budget and maximum filtered output width. */
     prefilterSamples: 128,
     prefilterWidth: 256,
-});
-/** A lost WebGL2 context not restored within this window becomes a fatal GraphicsError. */
-export const graphicsRecoveryLimits = /* @__PURE__ */ Object.freeze({
-    restoreTimeoutMs: 10000,
 });
 /** Fog block shared by both graphics backends: color.rgb/mode, near/far/density/0. */
 export const FOG_FLOAT_COUNT = 8;
@@ -146,17 +129,6 @@ export const advancedPostDefaults = /* @__PURE__ */ Object.freeze({
     ssrStrength: 1,
     maximumSSRSteps: 128,
 });
-export const reflectionCaptureLimits = /* @__PURE__ */ Object.freeze({
-    size: 64,
-    maximumSize: 512,
-    maximumBytes: 64 * 1024 * 1024,
-    interval: 1,
-});
-/** Bound driver program residency and protect the inexpensive default PBR source. */
-export const meshShaderVariantLimits = /* @__PURE__ */ Object.freeze({
-    maxEntries: 64,
-    plainFragmentMaxBytes: 40000,
-});
 /** Bound single-view scene readback and automatic caller-driven update pacing. */
 export const planarReflectionLimits = /* @__PURE__ */ Object.freeze({
     size: 128,
@@ -182,14 +154,5 @@ export const lensFlareDefaults = /* @__PURE__ */ Object.freeze({
     spacing: 0.5,
     haloRadius: 0.3,
     haloWidth: 0.15,
-});
-export const motionBlurDefaults = /* @__PURE__ */ Object.freeze({
-    perObject: false,
-    velocityDepthTolerance: 0.00001,
-    strength: 1,
-    samples: 12,
-    maximumSamples: 32,
-    maxRadius: 32,
-    maximumRadius: 64,
 });
 //# sourceMappingURL=rendering.js.map

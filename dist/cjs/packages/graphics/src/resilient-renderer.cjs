@@ -1,5 +1,5 @@
 const require_errors = require("./errors.cjs");
-const require_rendering = require("../../../src/data/rendering.cjs");
+const require_rendering_gpu = require("../../../src/data/rendering-gpu.cjs");
 const require_native_pbr_material = require("../../core/src/native-pbr-material.cjs");
 const require_native_material3d = require("../../core/src/native-material3d.cjs");
 const require_preparation = require("./preparation.cjs");
@@ -156,8 +156,8 @@ var ResilientRenderer = class {
 			}, aborted = () => {
 				finish(), t();
 			}, a = setTimeout(() => {
-				finish(), r(new require_errors.GraphicsError(`The WebGL2 context was not restored within ${require_rendering.graphicsRecoveryLimits.restoreTimeoutMs} ms.`));
-			}, require_rendering.graphicsRecoveryLimits.restoreTimeoutMs);
+				finish(), r(new require_errors.GraphicsError(`The WebGL2 context was not restored within ${require_rendering_gpu.graphicsRecoveryLimits.restoreTimeoutMs} ms.`));
+			}, require_rendering_gpu.graphicsRecoveryLimits.restoreTimeoutMs);
 			e.addEventListener(`webglcontextrestored`, restored, { once: !0 }), i.addEventListener(`abort`, aborted, { once: !0 });
 		});
 	}

@@ -1,4 +1,5 @@
 const require_errors = require("./errors.cjs");
+const require_rendering_gpu = require("../../../src/data/rendering-gpu.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
 const require_optical_maps = require("./optical-maps.cjs");
 const require_shadow_shaders = require("./shadow-shaders.cjs");
@@ -299,7 +300,7 @@ void shadeMesh() {
   bool coverage = pbr && sheenMaps.w > .5;
   float coverageAlpha = 1.0;
   if (coverage) {
-    coverageAlpha = clamp((opacity-emission.w)/max(fwidth(opacity),${require_rendering.materialQuality.minAlphaFootprint})+.5,0.0,1.0);
+    coverageAlpha = clamp((opacity-emission.w)/max(fwidth(opacity),${require_rendering_gpu.materialQuality.minAlphaFootprint})+.5,0.0,1.0);
     if (coverageAlpha <= 0.0) discard;
   }
   if (pbr) {
@@ -440,11 +441,11 @@ void shadeMesh() {
       vec3 nx = dFdx(n), ny = dFdy(n);
       float alphaAA = roughness*roughness;
       // Variance filters GGX alpha squared, not perceptual roughness squared.
-      roughness = sqrt(sqrt(min(1.0,alphaAA*alphaAA+min(${require_rendering.materialQuality.normalVarianceScale.toFixed(1)}*(dot(nx,nx)+dot(ny,ny)+normalVariance),${require_rendering.materialQuality.maxNormalVariance})*sheenMaps.z)));
+      roughness = sqrt(sqrt(min(1.0,alphaAA*alphaAA+min(${require_rendering_gpu.materialQuality.normalVarianceScale.toFixed(1)}*(dot(nx,nx)+dot(ny,ny)+normalVariance),${require_rendering_gpu.materialQuality.maxNormalVariance})*sheenMaps.z)));
       if (clearcoat.x > 0.0) {
         vec3 cx = dFdx(nc), cy = dFdy(nc);
         float coatAlphaAA = coatRoughness*coatRoughness;
-        coatRoughness = sqrt(sqrt(min(1.0,coatAlphaAA*coatAlphaAA+min(${require_rendering.materialQuality.normalVarianceScale.toFixed(1)}*(dot(cx,cx)+dot(cy,cy)+coatVariance),${require_rendering.materialQuality.maxNormalVariance})*sheenMaps.z)));
+        coatRoughness = sqrt(sqrt(min(1.0,coatAlphaAA*coatAlphaAA+min(${require_rendering_gpu.materialQuality.normalVarianceScale.toFixed(1)}*(dot(cx,cx)+dot(cy,cy)+coatVariance),${require_rendering_gpu.materialQuality.maxNormalVariance})*sheenMaps.z)));
       }
     }
     vec3 tangent=vec3(0.0),bitangent=vec3(0.0),reflectionNormal=n;

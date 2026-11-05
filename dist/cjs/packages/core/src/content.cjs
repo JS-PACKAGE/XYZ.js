@@ -159,25 +159,33 @@ var ContentScene = class {
 		if (this.mutating) throw Error(`Content mutation is in progress.`);
 		let t = this.entries.get(e);
 		if (!t) return !1;
-		let n = /* @__PURE__ */ new Set(), i = [t.node];
-		for (let e = 0; e < i.length; e++) {
-			let t = i[e];
+		let n = /* @__PURE__ */ new Set(), i = /* @__PURE__ */ new Map();
+		for (let e of this.entries.values()) {
+			if (e.alias === void 0) continue;
+			let t = this.entries.get(e.rootId)?.node;
+			if (!t) continue;
+			let n = i.get(t);
+			n || i.set(t, n = []), n.push(e.node);
+		}
+		let a = [t.node];
+		for (let e = 0; e < a.length; e++) {
+			let t = a[e];
 			if (this.owned.has(t) && !n.has(t)) {
 				n.add(t);
-				for (let e of childrenOf(t)) i.push(e);
-				for (let e of this.entries.values()) e.alias !== void 0 && this.entries.get(e.rootId)?.node === t && i.push(e.node);
+				for (let e of childrenOf(t)) a.push(e);
+				for (let e of i.get(t) ?? []) a.push(e);
 			}
 		}
-		let a = new Set([...this.entries].filter(([, e]) => n.has(e.node)).map(([e]) => e));
-		for (let [e, t] of this.definitions) if (!a.has(e) && Object.values(t.references ?? {}).some((e) => a.has(e))) throw Error(`Content ${e} still references a removed ID.`);
-		let o = /* @__PURE__ */ new Set();
-		for (let e of a) {
+		let o = new Set([...this.entries].filter(([, e]) => n.has(e.node)).map(([e]) => e));
+		for (let [e, t] of this.definitions) if (!o.has(e) && Object.values(t.references ?? {}).some((e) => o.has(e))) throw Error(`Content ${e} still references a removed ID.`);
+		let s = /* @__PURE__ */ new Set();
+		for (let e of o) {
 			let t = this.entries.get(e)?.resources;
-			t && o.add(t);
+			t && s.add(t);
 		}
 		this.mutating = !0;
 		try {
-			for (let e of a) {
+			for (let e of o) {
 				let t = this.entries.get(e);
 				if (t.unregister?.(), this.entries.delete(e), t.alias === void 0) this.definitions.delete(e);
 				else {
@@ -195,7 +203,7 @@ var ContentScene = class {
 			} catch (t) {
 				e.push(t);
 			}
-			for (let t of o) try {
+			for (let t of s) try {
 				this.scene instanceof ResourceContentScene ? this.scene.releaseResources(t) : t.release();
 			} catch (t) {
 				e.push(t);

@@ -1,3 +1,4 @@
+const require_rendering_gpu = require("./rendering-gpu.cjs");
 //#region dist/src/data/rendering.js
 /** CPU static-lighting work/storage quotas; caller requests can only lower hard caps. */
 var bakedLightingLimits = /* @__PURE__ */ Object.freeze({
@@ -34,14 +35,6 @@ var iridescenceFilmRange = /* @__PURE__ */ Object.freeze({
 	minNm: 100,
 	maxNm: 800
 });
-/** Bounded opt-in material anti-aliasing, shared by both native shaders. */
-var materialQuality = /* @__PURE__ */ Object.freeze({
-	samples: 4,
-	normalVarianceScale: 2,
-	maxNormalVariance: .18,
-	minAlphaFootprint: 1e-4,
-	sheenSamples: 32
-});
 /** Stable per-map UV uniform order: two vec4 values per affine coordinate mapping. */
 var materialTextureSlots = /* @__PURE__ */ Object.freeze([
 	"texture",
@@ -60,12 +53,6 @@ var materialTextureSlots = /* @__PURE__ */ Object.freeze([
 	"thickness"
 ]);
 materialTextureSlots.length * 8;
-/** Bounded weights avoid rapidly overflowing half-float accumulation targets. */
-var oitSettings = /* @__PURE__ */ Object.freeze({
-	scale: 100,
-	minWeight: .01,
-	maxWeight: 30
-});
 var environmentLimits = /* @__PURE__ */ Object.freeze({
 	/** Equirect width cap; height is width / 2. */
 	maxWidth: 2048,
@@ -77,8 +64,6 @@ var environmentLimits = /* @__PURE__ */ Object.freeze({
 	prefilterSamples: 128,
 	prefilterWidth: 256
 });
-/** A lost WebGL2 context not restored within this window becomes a fatal GraphicsError. */
-var graphicsRecoveryLimits = /* @__PURE__ */ Object.freeze({ restoreTimeoutMs: 1e4 });
 var shadowLimits = /* @__PURE__ */ Object.freeze({
 	cascades: 4,
 	pointLights: 8,
@@ -134,17 +119,6 @@ var advancedPostDefaults = /* @__PURE__ */ Object.freeze({
 	ssrStrength: 1,
 	maximumSSRSteps: 128
 });
-var reflectionCaptureLimits = /* @__PURE__ */ Object.freeze({
-	size: 64,
-	maximumSize: 512,
-	maximumBytes: 67108864,
-	interval: 1
-});
-/** Bound driver program residency and protect the inexpensive default PBR source. */
-var meshShaderVariantLimits = /* @__PURE__ */ Object.freeze({
-	maxEntries: 64,
-	plainFragmentMaxBytes: 4e4
-});
 /** Bound single-view scene readback and automatic caller-driven update pacing. */
 var planarReflectionLimits = /* @__PURE__ */ Object.freeze({
 	size: 128,
@@ -171,15 +145,6 @@ var lensFlareDefaults = /* @__PURE__ */ Object.freeze({
 	haloRadius: .3,
 	haloWidth: .15
 });
-var motionBlurDefaults = /* @__PURE__ */ Object.freeze({
-	perObject: false,
-	velocityDepthTolerance: 1e-5,
-	strength: 1,
-	samples: 12,
-	maximumSamples: 32,
-	maxRadius: 32,
-	maximumRadius: 64
-});
 //#endregion
 exports.SHADOW_FLOAT_COUNT = SHADOW_FLOAT_COUNT;
 exports.advancedPostDefaults = advancedPostDefaults;
@@ -188,17 +153,17 @@ exports.decalNormalOffset = decalNormalOffset;
 exports.depthPostDefaults = depthPostDefaults;
 exports.environmentLimits = environmentLimits;
 exports.fxaaDefaults = fxaaDefaults;
-exports.graphicsRecoveryLimits = graphicsRecoveryLimits;
+exports.graphicsRecoveryLimits = require_rendering_gpu.graphicsRecoveryLimits;
 exports.iridescenceFilmRange = iridescenceFilmRange;
 exports.lensFlareDefaults = lensFlareDefaults;
-exports.materialQuality = materialQuality;
+exports.materialQuality = require_rendering_gpu.materialQuality;
 exports.materialTextureSlots = materialTextureSlots;
-exports.meshShaderVariantLimits = meshShaderVariantLimits;
-exports.motionBlurDefaults = motionBlurDefaults;
+exports.meshShaderVariantLimits = require_rendering_gpu.meshShaderVariantLimits;
+exports.motionBlurDefaults = require_rendering_gpu.motionBlurDefaults;
 exports.nativeMaterial3DLimits = nativeMaterial3DLimits;
-exports.oitSettings = oitSettings;
+exports.oitSettings = require_rendering_gpu.oitSettings;
 exports.planarReflectionLimits = planarReflectionLimits;
-exports.reflectionCaptureLimits = reflectionCaptureLimits;
+exports.reflectionCaptureLimits = require_rendering_gpu.reflectionCaptureLimits;
 exports.shadowLimits = shadowLimits;
 exports.transmissionBlurFraction = transmissionBlurFraction;
 exports.volumetricPostDefaults = volumetricPostDefaults;

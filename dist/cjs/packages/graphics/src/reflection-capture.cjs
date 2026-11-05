@@ -1,12 +1,12 @@
 const require_errors = require("./errors.cjs");
-const require_rendering = require("../../../src/data/rendering.cjs");
+const require_rendering_gpu = require("../../../src/data/rendering-gpu.cjs");
 const require_perspective_camera = require("../../core/src/perspective-camera.cjs");
 const require_environment = require("../../core/src/environment.cjs");
 //#region dist/packages/graphics/src/reflection-capture.js
 function captureConfiguration(e, t = {}) {
 	e.validate();
-	let r = t.size ?? e.captureSize, i = t.near ?? .1, a = t.far ?? 100, o = t.maxBytes ?? require_rendering.reflectionCaptureLimits.maximumBytes, s = r * r * 96 + Math.ceil(r * 8 / 256) * 256 * r * 6;
-	if (!Number.isInteger(r) || r < 2 || r > require_rendering.reflectionCaptureLimits.maximumSize || !Number.isFinite(i) || !Number.isFinite(a) || i <= 0 || a <= i || !Number.isSafeInteger(o) || o < s) throw RangeError(`Reflection capture requires size 2..512, 0 < near < far, and sufficient maxBytes.`);
+	let r = t.size ?? e.captureSize, i = t.near ?? .1, a = t.far ?? 100, o = t.maxBytes ?? require_rendering_gpu.reflectionCaptureLimits.maximumBytes, s = r * r * 96 + Math.ceil(r * 8 / 256) * 256 * r * 6;
+	if (!Number.isInteger(r) || r < 2 || r > require_rendering_gpu.reflectionCaptureLimits.maximumSize || !Number.isFinite(i) || !Number.isFinite(a) || i <= 0 || a <= i || !Number.isSafeInteger(o) || o < s) throw RangeError(`Reflection capture requires size 2..512, 0 < near < far, and sufficient maxBytes.`);
 	return t.signal?.throwIfAborted(), {
 		size: r,
 		near: i,

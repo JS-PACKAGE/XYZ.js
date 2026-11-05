@@ -2,6 +2,7 @@ const require_errors = require("./errors.cjs");
 const require_native_texture = require("../../assets/src/native-texture.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_mesh = require("../../core/src/mesh.cjs");
+const require_rendering_gpu = require("../../../src/data/rendering-gpu.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
 const require_pbr_material = require("../../core/src/pbr-material.cjs");
 const require_native_pbr_material = require("../../core/src/native-pbr-material.cjs");
@@ -1283,7 +1284,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		}
 		if (this.prepareMesh(e), n === 3) return;
 		let r = e.material instanceof require_pbr_material.PBRMaterial && e.material.alphaToCoverage;
-		for (; this.pendingMeshPipelines.size >= require_rendering.meshShaderVariantLimits.maxEntries;) if (await Promise.race(this.pendingMeshPipelines), this.destroyed) throw new require_errors.GraphicsError(`Mesh pipeline preparation was invalidated.`);
+		for (; this.pendingMeshPipelines.size >= require_rendering_gpu.meshShaderVariantLimits.maxEntries;) if (await Promise.race(this.pendingMeshPipelines), this.destroyed) throw new require_errors.GraphicsError(`Mesh pipeline preparation was invalidated.`);
 		let i = this.meshPipelineEntry(e.material, e, t, n, r);
 		if (!i.pipeline && (i.pending || (i.pending = this.device.createRenderPipelineAsync(i.recipe).then((e) => {
 			!this.destroyed && !i.pipeline && (i.pipeline = e);
@@ -1317,7 +1318,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				alphaToCoverageEnabled: !0
 			} : s.multisample
 		};
-		if (this.meshPipelines.size >= require_rendering.meshShaderVariantLimits.maxEntries) {
+		if (this.meshPipelines.size >= require_rendering_gpu.meshShaderVariantLimits.maxEntries) {
 			let e = this.meshPipelines.keys().next().value;
 			e !== void 0 && this.meshPipelines.delete(e);
 		}
