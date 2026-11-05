@@ -19084,6 +19084,43 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  rm4sccbarcodes: Object.freeze({
+    dark: [22, 24, 34] as const,
+    light: [240, 232, 214] as const,
+    roughness: 0.55,
+    relief: 0.003,
+    // Rows of RM4SCC barcodes, the four-state barcode of the Royal Mail (the Wikipedia article on RM4SCC, read for this: a bar is short, extends up, extends down or both, a character is four bars, the 36 characters 0 to 9 and
+    // A to Z are the combinations of the two long bars of the top half and the two long bars of the bottom half in the order of the table, a barcode is a single-bar start character, the postcode, the two-character Delivery Point Suffix
+    // from 1A to 9T, a checksum character and a single-bar stop character; the checksum is made by weighting the extensions of the top and of the bottom half 4, 2, 1, 0, taking the sum modulo 6 of each half over all the characters and
+    // looking the pair up in the table). halves lists the six patterns of two long bars in four bars (1 long) in the order of the table; symbols the characters in the order of the table, six to a row of the top half. The start bar extends up and
+    // the stop bar extends both ways (the article shows them in a figure only; that is how I remember them). A row has a postcode of one of the formats (A for a letter, 9 for a digit, then 9AA; my approximation of the
+    // formats of UK postcodes, with the letters and digits of the seed, not a promise that the postcode exists), a Delivery Point Suffix of the seed and the check character, 34 to 42 bars on a row of slots in which the first and the last stay empty.
+    // A bar has the half width barHalf (of the tile); a short bar is only the tracker (from trackTop to trackBottom of the row), a long one adds the ascender (from ascTop) or the descender (to descBottom). The seed picks the surface (the
+    // tones of the paper and of the ink, shifted together a little) and whether the rows run along the picture or across it.
+    rows: 6,
+    slots: 64,
+    halves: Object.freeze(['0011', '0101', '0110', '1001', '1010', '1100']),
+    symbols: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+    formats: Object.freeze(['A9', 'A99', 'A9A', 'AA9', 'AA99', 'AA9A']),
+    barHalf: 0.0034,
+    ascTop: 0.12,
+    trackTop: 0.4,
+    trackBottom: 0.6,
+    descBottom: 0.88,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.92, ink: 0.12 }),
+      Object.freeze({ ground: 0.12, ink: 0.9 }),
+      Object.freeze({ ground: 0.78, ink: 0.28 }),
+      Object.freeze({ ground: 0.22, ink: 0.7 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    inkHeight: 0.4,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25576,6 +25613,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  rm4sccbarcodes: 1,
   codabarbarcodes: 1,
   itfbarcodes: 1,
   postnetbarcodes: 1,

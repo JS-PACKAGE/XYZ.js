@@ -86831,3 +86831,534 @@ describe('codabarbarcodes: rows of Codabar barcodes (a start character A to D, f
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('rm4sccbarcodes: rows of RM4SCC barcodes (the four-state barcode of the Royal Mail: a start bar, a postcode, a Delivery Point Suffix, a check character and a stop bar, every character four bars that are short or extend up, down or both), along or across the picture by the seed', () => {
+  const p = proceduralMaterialPresets.rm4sccbarcodes,
+    out = empty(),
+    rows = p.rows,
+    slots = p.slots,
+    half = p.barHalf;
+  const toneAt = (
+    sample: Sampler,
+    x: number,
+    y: number,
+    across: boolean,
+  ): number => {
+    // A place in tile units in the picture as it is drawn (the slots along x, the rows along y), as a place on the picture.
+    sample(across ? y : x, across ? x : y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The table of the article as it is laid out there: the 36 characters in six rows (the pattern of the long bars of the top half: 0011, 0101, 0110, 1001, 1010, 1100) of six columns (the same for the bottom half).
+  const patterns = ['0011', '0101', '0110', '1001', '1010', '1100'],
+    table = ['012345', '6789AB', 'CDEFGH', 'IJKLMN', 'OPQRST', 'UVWXYZ'];
+  // The value of a half by the weights of the article: 4, 2, 1, 0 for the four bars, summed, modulo 6.
+  const weightOf = (pattern: string): number =>
+    [...pattern].reduce(
+      (total, bit, i) => total + Number(bit) * [4, 2, 1, 0][i],
+      0,
+    ) % 6;
+  // Bar types: 1 short, 2 extends up, 3 extends down, 4 both.
+  type Barcode = { text: string; check: string; first: number; length: number };
+  // The reader of a row of bars written out here from the article: the start bar (up), characters of four bars looked up in the table by the bars that extend up and the bars that extend down, a stop bar (both). The characters are the postcode,
+  // the Delivery Point Suffix (a digit 1 to 9 and a letter A to T) and the check character, which must be the one that the sums of the weights of the top halves and of the bottom halves, modulo 6, give. It gives null where the row breaks that.
+  const read = (bars: number[]): Barcode | null => {
+    const first = bars.findIndex((bar) => bar > 0),
+      last = bars.length - 1 - [...bars].reverse().findIndex((bar) => bar > 0);
+    if (first < 1 || last > slots - 2) return null;
+    const run = bars.slice(first, last + 1);
+    if (run.some((bar) => bar === 0)) return null;
+    if (run[0] !== 2 || run[run.length - 1] !== 4) return null;
+    const inner = run.slice(1, -1);
+    if (inner.length % 4 !== 0) return null;
+    // The characters, and the sums of the weights of the top halves and of the bottom halves over all of them but the last (the check character).
+    let text = '',
+      topSum = 0,
+      bottomSum = 0;
+    for (let k = 0; k < inner.length; k += 4) {
+      const group = inner.slice(k, k + 4),
+        up = group.map((bar) => (bar === 2 || bar === 4 ? '1' : '0')).join(''),
+        down = group
+          .map((bar) => (bar === 3 || bar === 4 ? '1' : '0'))
+          .join(''),
+        row = patterns.indexOf(up),
+        column = patterns.indexOf(down);
+      if (row < 0 || column < 0) return null;
+      text += table[row][column];
+      if (k < inner.length - 4) {
+        topSum += weightOf(up);
+        bottomSum += weightOf(down);
+      }
+    }
+    if (text.length < 5 + 2 + 1 || text.length > 7 + 2 + 1) return null;
+    const checkText = text[text.length - 1],
+      expected =
+        table[
+          patterns.findIndex((pattern) => weightOf(pattern) === topSum % 6)
+        ][patterns.findIndex((pattern) => weightOf(pattern) === bottomSum % 6)];
+    if (checkText !== expected) return null;
+    const body = text.slice(0, -1),
+      dps = body.slice(-2);
+    if (!/^[1-9][A-T]$/.test(dps)) return null;
+    return { text: body, check: checkText, first, length: run.length };
+  };
+  type Reading = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { ground: number; ink: number };
+    bars: number[][];
+    codes: Barcode[];
+  };
+  // The place of a row (in tile units along y) at a share of its height.
+  const rowY = (row: number, share: number): number => (row + share) / rows;
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [];
+    for (const across of [false, true]) {
+      const tone = (x: number, y: number): number =>
+          toneAt(sample, x, y, across),
+        ground = tone(0, 0);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground,
+          ink = surface.ink + shift;
+        if (Math.abs(shift) > p.toneShift + 1e-9) return;
+        const bars: number[][] = [];
+        let valid = true;
+        for (let row = 0; row < rows && valid; row++) {
+          const line: number[] = [];
+          for (let slot = 0; slot < slots && valid; slot++) {
+            const x = (slot + 0.5) / slots,
+              isInk = (share: number): boolean =>
+                Math.abs(tone(x, rowY(row, share)) - ink) < 1e-6,
+              isGround = (share: number): boolean =>
+                Math.abs(tone(x, rowY(row, share)) - ground) < 1e-6,
+              tracker = isInk((p.trackTop + p.trackBottom) / 2),
+              up = isInk((p.ascTop + p.trackTop) / 2),
+              down = isInk((p.trackBottom + p.descBottom) / 2);
+            // Ground above the ascender and below the descender, and where there is no bar nothing at all; a bar that extends is also a bar in the tracker.
+            if (!isGround(p.ascTop / 2) || !isGround((1 + p.descBottom) / 2))
+              valid = false;
+            if ((up || down) && !tracker) valid = false;
+            if (tracker) line.push(1 + Number(up) + 2 * Number(down));
+            else line.push(0);
+          }
+          bars.push(line);
+        }
+        if (!valid) return;
+        const codes: Barcode[] = [];
+        for (const line of bars) {
+          const code = read(line);
+          if (code === null) return;
+          codes.push(code);
+        }
+        options.push({
+          across,
+          surface: index,
+          shift,
+          tones: { ground, ink },
+          bars,
+          codes,
+        });
+      });
+    }
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  const extent = (bar: number): [number, number] => [
+    bar % 2 === 0 ? p.ascTop : p.trackTop,
+    bar > 2 ? p.descBottom : p.trackBottom,
+  ];
+  // The model of the picture: ink inside a bar, else ground (in tile units, x along the slots, y along the rows).
+  const inked = (r: Reading, x: number, y: number): boolean => {
+    const gy = y * rows,
+      row = Math.floor(gy),
+      along = gy - row,
+      slot = Math.floor(x * slots),
+      bar = r.bars[row][slot];
+    if (bar === 0) return false;
+    const [top, bottom] = extent(bar);
+    return (
+      Math.abs(x - (slot + 0.5) / slots) <= half &&
+      along >= top &&
+      along <= bottom
+    );
+  };
+  const nearEdge = (x: number, y: number, within: number): boolean => {
+    const gy = y * rows,
+      along = gy - Math.floor(gy),
+      dx = Math.abs(x - (Math.floor(x * slots) + 0.5) / slots);
+    return (
+      Math.abs(dx - half) < within ||
+      [p.ascTop, p.trackTop, p.trackBottom, p.descBottom].some(
+        (level) => Math.abs(along - level) / rows < within,
+      )
+    );
+  };
+
+  it('draws a start bar that extends up, a postcode of one of the six formats, a Delivery Point Suffix from 1A to 9T, the check character that the article gives, and a stop bar that extends both ways, in every row, with the first and the last slot of a row empty', () => {
+    const formats = new Map<string, number>(),
+      seen = new Set<string>();
+    for (let seed = 0; seed < 100; seed++) {
+      const reading = readSurface(
+        createSurfaceSampler('rm4sccbarcodes', seed * 13 + 5),
+      );
+      for (const code of reading.codes) {
+        expect(code.length).toBe(2 + 4 * (code.text.length + 1));
+        expect(code.first).toBeGreaterThanOrEqual(1);
+        expect(code.first + code.length - 1).toBeLessThanOrEqual(slots - 2);
+        const format = code.text
+          .slice(0, -2)
+          .replace(/[A-Z]/g, 'A')
+          .replace(/[0-9]/g, '9');
+        formats.set(format, (formats.get(format) ?? 0) + 1);
+        seen.add(code.text);
+      }
+    }
+    expect([...formats.keys()].sort()).toEqual(
+      p.formats.map((format) => `${format}9AA`).sort(),
+    );
+    for (const count of formats.values())
+      expect(count).toBeGreaterThan(100 * rows * 0.1);
+    expect(seen.size).toBeGreaterThan(100 * rows * 0.99);
+  });
+
+  it('writes the characters as the table of the article has them, with the example of its figure (BX1 1LT with the Delivery Point Suffix 1A and the check character I), and refuses a broken barcode', () => {
+    expect(p.symbols).toBe(table.join(''));
+    expect(p.halves).toEqual(patterns);
+    // The row of bars of a text (the start bar, the characters, the stop bar).
+    const barsOf = (text: string): number[] => {
+      const line = new Array<number>(slots).fill(0);
+      let position = 1;
+      line[position++] = 2;
+      for (const character of text) {
+        const index = p.symbols.indexOf(character);
+        for (let i = 0; i < 4; i++)
+          line[position++] =
+            1 +
+            Number(patterns[Math.floor(index / 6)][i] === '1') +
+            2 * Number(patterns[index % 6][i] === '1');
+      }
+      line[position] = 4;
+      return line;
+    };
+    // The example of the article: the top halves have the values 2, 6, 1, 1, 4, 5, 1, 2 (sum 22, 4 modulo 6) and the bottom halves 6, 4, 2, 2, 4, 6, 2, 5 (sum 31, 1 modulo 6), so the check character is the one of the top value 4 and the bottom value 1: I.
+    const bars = barsOf('BX11LT1AI');
+    expect(read(bars)).toEqual({
+      text: 'BX11LT1A',
+      check: 'I',
+      first: 1,
+      length: 2 + 4 * 9,
+    });
+    // The value of the halves by the weights of the article: 0011 is 1, 0101 is 2, 0110 is 3, 1001 is 4, 1010 is 5, 1100 is 6, that is 0 modulo 6.
+    expect(patterns.map(weightOf)).toEqual([1, 2, 3, 4, 5, 0]);
+    // Refused: another check character, a start bar that is short, a stop bar that is short, a group of four bars that is not two long bars in the top half, a Delivery Point Suffix that is not 1A to 9T (with its own check character).
+    expect(read(barsOf('BX11LT1AJ'))).toBeNull();
+    const shortStart = [...bars];
+    shortStart[1] = 1;
+    expect(read(shortStart)).toBeNull();
+    const shortStop = [...bars];
+    shortStop[1 + 1 + 4 * 9] = 2;
+    expect(read(shortStop)).toBeNull();
+    const three = [...bars];
+    for (let i = 2; i < 6; i++) three[i] = 2;
+    expect(read(three)).toBeNull();
+    let topSum = 0,
+      bottomSum = 0;
+    for (const character of 'BX11LT0A') {
+      const index = p.symbols.indexOf(character);
+      topSum += weightOf(patterns[Math.floor(index / 6)]);
+      bottomSum += weightOf(patterns[index % 6]);
+    }
+    const checkOf =
+      table[patterns.findIndex((pattern) => weightOf(pattern) === topSum % 6)][
+        patterns.findIndex((pattern) => weightOf(pattern) === bottomSum % 6)
+      ];
+    expect(read(barsOf(`BX11LT0A${checkOf}`))).toBeNull();
+  });
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model (paper, ink) at every place of the picture away from the edges, for several seeds along and across',
+    { timeout: 120000 },
+    () => {
+      const seen = new Set<boolean>();
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        const sample = createSurfaceSampler('rm4sccbarcodes', seed),
+          reading = readSurface(sample);
+        seen.add(reading.across);
+        const o = empty();
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (nearEdge(x, y, 0.0008)) continue;
+            sample(reading.across ? y : x, reading.across ? x : y, o);
+            const ink = inked(reading, x, y);
+            expect(o.color).toBeCloseTo(
+              ink ? reading.tones.ink : reading.tones.ground,
+              6,
+            );
+            expect(o.height / p.relief).toBeCloseTo(
+              ink ? p.inkHeight : p.groundHeight,
+              6,
+            );
+            expect(o.roughness).toBeCloseTo(
+              ink ? p.inkRoughness : p.groundRoughness,
+              6,
+            );
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(110000);
+      }
+      expect(seen.size).toBe(2);
+    },
+  );
+
+  it('puts the sides, the tops and the bottoms of the bars where the model puts them: just inside and just outside by 0.0004 of a tile, exactly, and softens them over edgeSoft (checked at a quarter of it, for the tone, the height and the roughness)', () => {
+    const delta = 0.0004,
+      soft = 0.25 * p.edgeSoft;
+    let tested = 0;
+    const types = new Set<number>();
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('rm4sccbarcodes', seed),
+        reading = readSurface(sample),
+        { across, tones } = reading,
+        tone = (x: number, y: number): number => toneAt(sample, x, y, across);
+      for (let row = 0; row < rows; row++) {
+        const line = reading.bars[row];
+        let count = 0;
+        for (let slot = 1; slot < slots - 1 && count < 12; slot++) {
+          if (line[slot] === 0) continue;
+          count++;
+          types.add(line[slot]);
+          const x = (slot + 0.5) / slots,
+            [top, bottom] = extent(line[slot]),
+            middle = rowY(row, (top + bottom) / 2);
+          close(tone(x + half - delta, middle), tones.ink);
+          close(tone(x + half + delta, middle), tones.ground);
+          close(tone(x - half + delta, middle), tones.ink);
+          close(tone(x - half - delta, middle), tones.ground);
+          close(
+            tone(x + half - soft, middle),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(x + half + soft, middle),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          close(
+            tone(x - half + soft, middle),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(x - half - soft, middle),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          // The top and the bottom of the bar (the ascender or the tracker, the descender or the tracker).
+          close(tone(x, rowY(row, top) + delta), tones.ink);
+          close(tone(x, rowY(row, top) - delta), tones.ground);
+          close(tone(x, rowY(row, bottom) - delta), tones.ink);
+          close(tone(x, rowY(row, bottom) + delta), tones.ground);
+          close(
+            tone(x, rowY(row, top) + soft),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(x, rowY(row, top) - soft),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          close(
+            tone(x, rowY(row, bottom) - soft),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(x, rowY(row, bottom) + soft),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          // The height and the roughness are softened the same way as the tone.
+          for (const [offset, amount] of [
+            [half - soft, 0.75],
+            [half + soft, 0.25],
+          ] as const) {
+            sample(
+              across ? middle : x + offset,
+              across ? x + offset : middle,
+              out,
+            );
+            expect(out.height / p.relief).toBeCloseTo(
+              blend(p.groundHeight, p.inkHeight, amount),
+              4,
+            );
+            expect(out.roughness).toBeCloseTo(
+              blend(p.groundRoughness, p.inkRoughness, amount),
+              4,
+            );
+          }
+          tested++;
+        }
+      }
+    }
+    expect([...types].sort()).toEqual([1, 2, 3, 4]);
+    expect(tested).toBeGreaterThan(400);
+  });
+
+  it('gives the paper and the ink their heights and roughnesses, and full occlusion', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('rm4sccbarcodes', seed),
+        { across, bars } = readSurface(sample),
+        value = (x: number, y: number): [number, number, number] => {
+          sample(across ? y : x, across ? x : y, out);
+          return [out.height / p.relief, out.roughness, out.occlusion];
+        },
+        slot = bars[2].findIndex((bar) => bar > 0),
+        [paperHeight, paperRoughness, paperOcclusion] = value(0, 0.5 / rows),
+        [inkHeight, inkRoughness, inkOcclusion] = value(
+          (slot + 0.5) / slots,
+          rowY(2, 0.5),
+        );
+      expect(paperHeight).toBeCloseTo(p.groundHeight, 6);
+      expect(inkHeight).toBeCloseTo(p.inkHeight, 6);
+      expect(paperRoughness).toBeCloseTo(p.groundRoughness, 6);
+      expect(inkRoughness).toBeCloseTo(p.inkRoughness, 6);
+      expect([paperOcclusion, inkOcclusion]).toEqual([1, 1]);
+    }
+  });
+
+  it(
+    'uses every surface and both ways round over 1000 seeds about equally often, with the six postcode formats about equally often, the letters, the digits and the Delivery Point Suffixes spread, the barcodes starting at every place there is room for, and the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        formats = new Map<string, number>(),
+        starts = new Map<number, Set<number>>(),
+        letters = new Map<string, number>(),
+        digits = new Map<string, number>(),
+        suffixDigits = new Map<string, number>(),
+        suffixLetters = new Map<string, number>(),
+        shifts: number[] = [];
+      let acrossCount = 0,
+        letterTotal = 0,
+        digitTotal = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('rm4sccbarcodes', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        acrossCount += Number(reading.across);
+        for (const code of reading.codes) {
+          const postcode = code.text.slice(0, -2),
+            format = postcode.replace(/[A-Z]/g, 'A').replace(/[0-9]/g, '9');
+          formats.set(format, (formats.get(format) ?? 0) + 1);
+          starts.set(
+            code.length,
+            (starts.get(code.length) ?? new Set<number>()).add(code.first),
+          );
+          for (const character of postcode)
+            if (/[A-Z]/.test(character)) {
+              letters.set(character, (letters.get(character) ?? 0) + 1);
+              letterTotal++;
+            } else {
+              digits.set(character, (digits.get(character) ?? 0) + 1);
+              digitTotal++;
+            }
+          const [digit, letter] = code.text.slice(-2);
+          suffixDigits.set(digit, (suffixDigits.get(digit) ?? 0) + 1);
+          suffixLetters.set(letter, (suffixLetters.get(letter) ?? 0) + 1);
+        }
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 250)).toBeLessThan(50);
+      expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+      // 6000 rows over the six formats.
+      expect(formats.size).toBe(6);
+      for (const count of formats.values())
+        expect(Math.abs(count - 1000)).toBeLessThan(150);
+      // The 26 letters and the 10 digits of the postcodes, the digits 1 to 9 and the letters A to T of the suffixes, each about equally often.
+      expect(letters.size).toBe(26);
+      for (const count of letters.values())
+        expect(Math.abs(count / letterTotal - 1 / 26)).toBeLessThan(0.007);
+      expect(digits.size).toBe(10);
+      for (const count of digits.values())
+        expect(Math.abs(count / digitTotal - 0.1)).toBeLessThan(0.012);
+      expect([...suffixDigits.keys()].sort().join('')).toBe('123456789');
+      for (const count of suffixDigits.values())
+        expect(Math.abs(count - 6000 / 9)).toBeLessThan(120);
+      expect([...suffixLetters.keys()].sort().join('')).toBe(
+        'ABCDEFGHIJKLMNOPQRST',
+      );
+      for (const count of suffixLetters.values())
+        expect(Math.abs(count - 300)).toBeLessThan(90);
+      // The bars of every length start at every place there is room for (the first and the last slot of the row stay empty).
+      expect([...starts.keys()].sort((a, b) => a - b)).toEqual(
+        [34, 38, 42].flatMap((length) => [length]),
+      );
+      for (const [length, set] of starts)
+        expect([...set].sort((a, b) => a - b)).toEqual(
+          Array.from({ length: slots - length - 1 }, (_, k) => k + 1),
+        );
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarterOfRange = 0; quarterOfRange < 4; quarterOfRange++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) ===
+                quarterOfRange,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('rm4sccbarcodes', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('rm4sccbarcodes', 0),
+      b = createSurfaceSampler('rm4sccbarcodes', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

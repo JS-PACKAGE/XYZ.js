@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'rm4sccbarcodes',
   'codabarbarcodes',
   'itfbarcodes',
   'postnetbarcodes',
@@ -53532,6 +53533,99 @@ export function createSurfaceSampler(
               (p.bottom - along) / rows,
             );
           }
+          const ink = cover(inside),
+            ground = surface.ground + shift;
+          color = clamp(ground + (surface.ink + shift - ground) * ink);
+          height = clamp(p.groundHeight + (p.inkHeight - p.groundHeight) * ink);
+          roughness = clamp(
+            p.groundRoughness + (p.inkRoughness - p.groundRoughness) * ink,
+          );
+          occlusion = 1;
+        };
+      }
+      case 'rm4sccbarcodes': {
+        const p = proceduralMaterialPresets.rm4sccbarcodes,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(144, 1, seed ^ 0x380001) * p.surfaces.length)
+            ],
+          across = hash(144, 2, seed ^ 0x380002) < 0.5,
+          shift = (hash(144, 3, seed ^ 0x380003) * 2 - 1) * p.toneShift,
+          rows = p.rows,
+          slots = p.slots,
+          // The bar in each slot of each row: 0 none, then 1 + (extends up) + 2 * (extends down).
+          bars = new Uint8Array(rows * slots);
+        for (let row = 0; row < rows; row++) {
+          const pattern =
+              p.formats[
+                Math.min(
+                  p.formats.length - 1,
+                  Math.floor(hash(row, 0, seed ^ 0x380005) * p.formats.length),
+                )
+              ] + '9AA',
+            // The characters as places in the symbols: the postcode, the Delivery Point Suffix (a digit 1 to 9 and a letter A to T).
+            characters: number[] = [...pattern].map((kind, k) =>
+              kind === '9'
+                ? Math.min(
+                    9,
+                    Math.floor(hash(row, 1 + k, seed ^ 0x380005) * 10),
+                  )
+                : 10 +
+                  Math.min(
+                    25,
+                    Math.floor(hash(row, 1 + k, seed ^ 0x380005) * 26),
+                  ),
+            );
+          characters.push(
+            1 + Math.min(8, Math.floor(hash(row, 9, seed ^ 0x380005) * 9)),
+            10 + Math.min(19, Math.floor(hash(row, 10, seed ^ 0x380005) * 20)),
+          );
+          // The check character: the sums of the values 1 to 6 of the top and of the bottom halves, modulo 6, with 0 as the 6 of the last pattern.
+          let top = 0,
+            bottom = 0;
+          for (const character of characters) {
+            top += Math.floor(character / 6) + 1;
+            bottom += (character % 6) + 1;
+          }
+          characters.push(((top + 5) % 6) * 6 + ((bottom + 5) % 6));
+          const length = 2 + 4 * characters.length,
+            first =
+              1 +
+              Math.min(
+                slots - length - 2,
+                Math.floor(
+                  hash(row, 20, seed ^ 0x380005) * (slots - length - 1),
+                ),
+              );
+          bars[row * slots + first] = 2;
+          characters.forEach((character, k) => {
+            for (let i = 0; i < 4; i++)
+              bars[row * slots + first + 1 + 4 * k + i] =
+                1 +
+                Number(p.halves[Math.floor(character / 6)][i] === '1') +
+                2 * Number(p.halves[character % 6][i] === '1');
+          });
+          bars[row * slots + first + length - 1] = 4;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            x = across ? fv : fu,
+            gy = (across ? fu : fv) * rows,
+            row = Math.floor(gy),
+            along = gy - row,
+            slot = Math.floor(x * slots),
+            bar = bars[row * slots + slot];
+          let inside = -1;
+          if (bar > 0)
+            inside = Math.min(
+              p.barHalf - Math.abs(x - (slot + 0.5) / slots),
+              (along - (bar % 2 === 0 ? p.ascTop : p.trackTop)) / rows,
+              ((bar > 2 ? p.descBottom : p.trackBottom) - along) / rows,
+            );
           const ink = cover(inside),
             ground = surface.ground + shift;
           color = clamp(ground + (surface.ink + shift - ground) * ink);
