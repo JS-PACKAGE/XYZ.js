@@ -164,19 +164,57 @@ export function decomposeConvex(
   vertices: readonly Point[],
 ): [number, number][][] {
   const points = normalized(vertices);
-  let pieces = earClip(points);
+  const pieces = earClip(points);
+  const edges = new Map<number, number>();
+  const stride = points.length;
   let merged = true;
   while (merged) {
     merged = false;
-    outer: for (let i = 0; i < pieces.length; i++)
-      for (let j = i + 1; j < pieces.length; j++) {
-        const combined = mergeAcross(points, pieces[i], pieces[j]);
-        if (!combined) continue;
-        pieces = pieces.filter((_, index) => index !== i && index !== j);
-        pieces.push(combined);
-        merged = true;
-        break outer;
+    edges.clear();
+    let indexed = pieces.length > 16;
+    if (indexed)
+      for (let i = 0; i < pieces.length; i++) {
+        const piece = pieces[i];
+        for (let k = 0; k < piece.length; k++) {
+          const edge = piece[k] * stride + piece[(k + 1) % piece.length];
+          // Degenerate accepted polylines can repeat edges; retain the exhaustive search.
+          if (edges.has(edge)) indexed = false;
+          edges.set(edge, i);
+        }
       }
+    for (let i = 0; i < pieces.length; i++) {
+      const piece = pieces[i];
+      let next = pieces.length;
+      let combined: number[] | undefined;
+      // Only reversed shared edges can merge. Keep the original lowest-(i,j) order.
+      if (indexed) {
+        for (let k = 0; k < piece.length; k++) {
+          const j = edges.get(
+            piece[(k + 1) % piece.length] * stride + piece[k],
+          );
+          if (j === undefined || j <= i || j >= next) continue;
+          const candidate = mergeAcross(points, piece, pieces[j]);
+          if (candidate) {
+            next = j;
+            combined = candidate;
+          }
+        }
+      } else {
+        for (let j = i + 1; j < pieces.length; j++) {
+          combined = mergeAcross(points, piece, pieces[j]);
+          if (combined) {
+            next = j;
+            break;
+          }
+        }
+      }
+      if (!combined) continue;
+      pieces.splice(next, 1);
+      pieces.splice(i, 1);
+      pieces.push(combined);
+      merged = true;
+      break;
+    }
   }
   return pieces.map((piece) => {
     // Merging can leave collinear vertices that Collider2D rejects.

@@ -82,6 +82,37 @@ it('decomposes concave polygons into strictly convex pieces that cover the area 
   ).toHaveLength(1);
 });
 
+it('preserves greedy piece and vertex ordering when indexing shared edges', () => {
+  const polygon: Polygon = Array.from({ length: 24 }, (_, i) => {
+    const angle = (i / 24) * Math.PI * 2;
+    const radius = i % 2 ? 2 : 3;
+    return [Math.cos(angle) * radius, Math.sin(angle) * radius];
+  });
+  const pieces = decomposeConvex(polygon);
+  expect(
+    pieces.map((piece) =>
+      piece.map(([x, y]) =>
+        polygon.findIndex((point) => point[0] === x && point[1] === y),
+      ),
+    ),
+  ).toEqual([
+    [23, 0, 1],
+    [1, 2, 3],
+    [3, 4, 5],
+    [5, 6, 7],
+    [15, 16, 17],
+    [17, 18, 19],
+    [19, 20, 21],
+    [21, 22, 23],
+    [5, 7, 23, 1, 3],
+    [23, 7, 8, 9],
+    [23, 9, 10, 11],
+    [23, 11, 12, 13],
+    [23, 13, 14, 15],
+    [19, 21, 23, 15, 17],
+  ]);
+});
+
 it('rejects self-intersecting, degenerate and oversized polygons', () => {
   const bowtie: Polygon = [
     [0, 0],
