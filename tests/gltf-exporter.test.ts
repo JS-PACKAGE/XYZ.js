@@ -328,6 +328,58 @@ describe('glTF exporter', () => {
     }
   });
 
+  it('selects the first duplicate variant name and restores defaults across random switches', async () => {
+    const texture = images();
+    const material = new PBRMaterial({ texture, metallic: 0.7 });
+    const mesh = new Mesh({ geometry: triangle(), material });
+    const alternate = new PBRMaterial({ texture, metallic: 0.1 });
+    const result = await exportGLTF(mesh, {
+      ...external,
+      variants: [
+        { name: 'first', mappings: [{ mesh, material: alternate }] },
+        { name: 'second', mappings: [{ mesh, material }] },
+        { name: 'unmapped', mappings: [] },
+      ],
+    });
+    result.json.extensions = {
+      KHR_materials_variants: {
+        variants: [{ name: 'same' }, { name: 'same' }, { name: 'unmapped' }],
+      },
+    };
+    result.json.buffers[0].uri = `data:application/octet-stream;base64,${Buffer.from(result.buffers[0]).toString('base64')}`;
+    const asset = await new GLTFLoader().parse(JSON.stringify(result.json));
+    try {
+      const restored = meshes(asset.scene)[0];
+      const defaults = restored.material;
+      const support = gltfVariants(asset);
+      let state = 12345;
+      for (let i = 0; i < 5000; i++) {
+        state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+        const name = [undefined, 'same', 'unmapped', 'missing'][state % 4];
+        const chosen = support.variants.find(
+          (variant) => variant.name === name,
+        );
+        if (name !== undefined && !chosen) {
+          const before = restored.material;
+          expect(() => support.selectVariant(name)).toThrow(
+            'Unknown material variant missing.',
+          );
+          expect(restored.material).toBe(before);
+        } else {
+          support.selectVariant(name);
+          expect(restored.material).toBe(
+            chosen?.mappings[0]?.material ?? defaults,
+          );
+        }
+      }
+    } finally {
+      asset.dispose();
+    }
+    expect(() => gltfVariants(asset).selectVariant('same')).toThrow(
+      'Cannot select a variant after dispose().',
+    );
+  });
+
   it('exports perspective and orthographic camera definitions and valid GLB framing', async () => {
     const camera = new OrthographicCamera();
     camera.height = 8;

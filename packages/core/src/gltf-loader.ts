@@ -2161,6 +2161,11 @@ export class GLTFLoader {
       const variants: readonly GLTFMaterialVariant[] = variantDefs.map(
         (name, index) => ({ name, mappings: variantMappings[index] }),
       );
+      // glTF permits repeated names; selection resolves the first matching variant.
+      const variantsByName = new Map<string, GLTFMaterialVariant>();
+      for (const variant of variants)
+        if (!variantsByName.has(variant.name))
+          variantsByName.set(variant.name, variant);
       let disposed = false;
       const support: GLTFVariantSupport = {
         variants,
@@ -2168,9 +2173,7 @@ export class GLTFLoader {
           if (disposed)
             throw new AssetError('Cannot select a variant after dispose().');
           const chosen =
-            name === undefined
-              ? undefined
-              : variants.find((variant) => variant.name === name);
+            name === undefined ? undefined : variantsByName.get(name);
           if (name !== undefined && !chosen)
             throw new AssetError(`Unknown material variant ${name}.`);
           for (const [mesh, material] of variantDefaults)
