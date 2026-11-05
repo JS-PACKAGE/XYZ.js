@@ -185,6 +185,7 @@ export class WebGLRender2D {
   private readonly blendProgram: Program2D;
   private readonly matrixRows = new Float32Array(20);
   private readonly dependencies: RenderTexture2D[] = [];
+  private readonly dependencySet = new Set<RenderTexture2D>();
   private readonly samplers = new Map<number, WebGLSampler>();
   private resolution = 1;
   private viewportWidth = 1;
@@ -282,6 +283,7 @@ export class WebGLRender2D {
     this.viewportHeight = height;
     this.resolution = resolution;
     this.dependencies.length = 0;
+    this.dependencySet.clear();
     for (const effect of scene.effects2D) this.hooks.processor(effect);
     this.validateCommands(commands, 0);
   }
@@ -291,7 +293,10 @@ export class WebGLRender2D {
     view?.validate();
     if (source.kind === 'render') {
       assertRenderTextureOwner2D(source, this.hooks.owner);
-      if (!this.dependencies.includes(source)) this.dependencies.push(source);
+      if (!this.dependencySet.has(source)) {
+        this.dependencySet.add(source);
+        this.dependencies.push(source);
+      }
     }
   }
   private validateCommands(

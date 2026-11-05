@@ -167,6 +167,7 @@ export class WebGPURender2D {
   private readonly particles = new Map<ParticleLayer2D, ParticleBuffers2D>();
   private readonly captureCommands = new RenderCommandBuffer2D();
   private readonly dependencies: RenderTexture2D[] = [];
+  private readonly dependencySet = new Set<RenderTexture2D>();
   private readonly groups = new WeakMap<
     GPUTexture,
     (GPUBindGroup | undefined)[]
@@ -529,6 +530,7 @@ export class WebGPURender2D {
     this.viewportHeight = height;
     this.resolution = resolution;
     this.dependencies.length = 0;
+    this.dependencySet.clear();
     for (const effect of scene.effects2D) this.effects.validate(effect);
     this.validateCommands(commands, 0);
     this.ensure(this.count(commands));
@@ -539,7 +541,10 @@ export class WebGPURender2D {
     view?.validate();
     if (source.kind === 'render') {
       assertRenderTextureOwner2D(source, this.hooks.owner);
-      if (!this.dependencies.includes(source)) this.dependencies.push(source);
+      if (!this.dependencySet.has(source)) {
+        this.dependencySet.add(source);
+        this.dependencies.push(source);
+      }
     }
   }
   private validateGroup(group: IsolatedGroup2D): void {
