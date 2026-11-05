@@ -423,10 +423,10 @@ export class AudioMixer {
             let active = false;
             for (const activity of this.activities)
               if (
-                activity.enabled &&
-                activity.channel === rule.source &&
+                activity.end > time &&
                 activity.start <= time &&
-                activity.end > time
+                activity.enabled &&
+                activity.channel === rule.source
               ) {
                 active = true;
                 break;
