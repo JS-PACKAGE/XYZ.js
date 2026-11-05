@@ -64,8 +64,8 @@ export class PreparedAudioImpulse {
     );
     const channels = Array.from({ length: this.numberOfChannels }, (_, i) => {
       const copy = buffer.getChannelData(i).slice();
-      for (const value of copy)
-        if (!Number.isFinite(value))
+      for (let j = 0; j < copy.length; j++)
+        if (!Number.isFinite(copy[j]!))
           throw new AudioError('Impulse PCM must be finite.');
       return copy;
     });
