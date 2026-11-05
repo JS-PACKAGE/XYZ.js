@@ -340,7 +340,7 @@ export class ParticleLayer2D extends GameObject {
     this.capacity = options.capacity;
     this.dynamicAttributes = mask;
     this.occupied = new Uint8Array(this.capacity);
-    this.active = new Int32Array(this.capacity);
+    this.active = new Int32Array(this.capacity * 2);
     this.positions = new Int32Array(this.capacity);
     this.free = new Int32Array(this.capacity);
     this.freeCount = this.capacity;
@@ -408,8 +408,8 @@ export class ParticleLayer2D extends GameObject {
     slot.anchor(anchor);
     slot.activate();
     this.occupied[index] = 1;
-    // Live slots number fewer than capacity here, so compaction always frees room.
-    if (this.end === this.capacity) this.compact();
+    // Spare tombstone room amortizes interleaved remove/add churn at full capacity.
+    if (this.end === this.active.length) this.compact();
     this.positions[index] = this.end;
     this.active[this.end++] = index;
     this.count++;

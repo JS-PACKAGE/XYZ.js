@@ -444,4 +444,28 @@ describe('particle layer draw order', () => {
     expect(layer.getLocalBounds().width).toBe(1);
     expect(order()).toEqual([d, f, g]);
   });
+  it('preserves full-layer insertion order through repeated interleaved churn', () => {
+    const layer = new ParticleLayer2D({
+      capacity: 4,
+      texture: new Texture({
+        width: 1,
+        height: 1,
+        close: vi.fn(),
+      } as unknown as ImageBitmap),
+    });
+    const expected = Array.from({ length: 4 }, () => layer.addParticle());
+    for (let frame = 0; frame < 4; frame++) {
+      for (let step = 0; step < 13; step++) {
+        const at = step % expected.length;
+        layer.removeSlot(expected.splice(at, 1)[0]);
+        expected.push(layer.addParticle());
+      }
+      expect(
+        Array.from({ length: layer.activeCount }, (_, i) =>
+          layer.activeSlotAt(i),
+        ),
+      ).toEqual(expected);
+      expect(layer.availableCount).toBe(0);
+    }
+  });
 });
