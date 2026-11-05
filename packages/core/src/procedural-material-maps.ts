@@ -151,46 +151,37 @@ function grayScott(
           v[i] = 0.5;
         }
     }
-  // Wrapped neighbour columns and the summed decay rate are loop invariants.
-  const lefts = new Int32Array(size),
-    rights = new Int32Array(size),
-    feedKill = feed + kill;
-  for (let x = 0; x < size; x++) {
-    lefts[x] = (x + size - 1) % size;
-    rights[x] = (x + 1) % size;
-  }
+  const feedKill = feed + kill;
   for (let step = 0; step < steps; step++) {
     for (let y = 0; y < size; y++) {
       const above = ((y + size - 1) % size) * size,
         row = y * size,
         below = ((y + 1) % size) * size;
+      // Carry horizontal neighbours forward without rereading the same cells.
+      let leftU = u[row + size - 1],
+        leftV = v[row + size - 1],
+        cu = u[row],
+        cv = v[row];
       for (let x = 0; x < size; x++) {
-        const left = lefts[x],
-          right = rights[x],
+        const right = row + (x + 1 === size ? 0 : x + 1),
+          rightU = u[right],
+          rightV = v[right],
           i = row + x,
-          cu = u[i],
-          cv = v[i],
           reaction = cu * cv * cv;
         nextU[i] =
           cu +
-          diffuseU *
-            (u[above + x] +
-              u[below + x] +
-              u[row + left] +
-              u[row + right] -
-              4 * cu) -
+          diffuseU * (u[above + x] + u[below + x] + leftU + rightU - 4 * cu) -
           reaction +
           feed * (1 - cu);
         nextV[i] =
           cv +
-          diffuseV *
-            (v[above + x] +
-              v[below + x] +
-              v[row + left] +
-              v[row + right] -
-              4 * cv) +
+          diffuseV * (v[above + x] + v[below + x] + leftV + rightV - 4 * cv) +
           reaction -
           feedKill * cv;
+        leftU = cu;
+        leftV = cv;
+        cu = rightU;
+        cv = rightV;
       }
     }
     const swapU = u,
