@@ -1235,6 +1235,7 @@ try {
     'editdistance',
     'euclideanrhythms',
     'hanoistates',
+    'transformbasis',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

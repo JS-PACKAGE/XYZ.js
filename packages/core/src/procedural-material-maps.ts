@@ -56803,6 +56803,84 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'transformbasis': {
+        const p = proceduralMaterialPresets.transformbasis,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.sizes.length,
+          group = Math.floor(unsigned / p.sizes.length),
+          n: number = p.sizes[variant],
+          swap = (group & 1) === 1,
+          negate = (group & 2) === 2,
+          size = n * n,
+          // The one-dimensional functions: functions[u][x].
+          functions = (() => {
+            if (p.kinds[variant] === 0)
+              return Array.from({ length: n }, (_, u) =>
+                Array.from({ length: n }, (_, x) =>
+                  Math.cos(((2 * x + 1) * u * Math.PI) / (2 * n)),
+                ),
+              );
+            // Haar: the function 0 is 1; then for every block size from the whole row down to
+            // pairs, +1 on the first half of a block, -1 on the second half, 0 elsewhere.
+            const haar: number[][] = [new Array<number>(n).fill(1)];
+            for (let block = n; block >= 2; block >>= 1)
+              for (let start = 0; start < n; start += block) {
+                const row = new Array<number>(n).fill(0);
+                for (let x = 0; x < block / 2; x++) {
+                  row[start + x] = 1;
+                  row[start + block / 2 + x] = -1;
+                }
+                haar.push(row);
+              }
+            return haar;
+          })();
+        return () => {
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            // The panel of the column u and the row v, and the pixel in it.
+            column = Math.floor(i / n),
+            row = Math.floor(j / n),
+            px = i % n,
+            py = j % n,
+            value =
+              (swap
+                ? functions[row][px] * functions[column][py]
+                : functions[column][px] * functions[row][py]) *
+              (negate ? -1 : 1),
+            // The gaps on the four sides of the pixel: wider at the edge of a panel.
+            left = px === 0 ? p.gapPanel : p.gap,
+            right = px === n - 1 ? p.gapPanel : p.gap,
+            top = py === 0 ? p.gapPanel : p.gap,
+            bottom = py === n - 1 ? p.gapPanel : p.gap,
+            hx = (1 - left - right) / 2,
+            hy = (1 - top - bottom) / 2,
+            qx = Math.abs(x - i - (1 + left - right) / 2) - (hx - p.corner),
+            qy = Math.abs(y - j - (1 + top - bottom) / 2) - (hy - p.corner),
+            // The distance to the rounded rectangle of the pixel, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            level = (value + 1) / 2,
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65777,6 +65855,7 @@ export function createSurfaceSampler(
     kind === 'editdistance' ||
     kind === 'euclideanrhythms' ||
     kind === 'hanoistates' ||
+    kind === 'transformbasis' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -1198,6 +1198,7 @@ const kinds: ProceduralMaterialKind[] = [
   'editdistance',
   'euclideanrhythms',
   'hanoistates',
+  'transformbasis',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -213671,6 +213672,339 @@ describe('Hanoi states as every state of the shortest solution', () => {
     expect(blue / (512 * 512)).toBeLessThan(16.8);
     expect(maxTilt).toBeGreaterThan(0.0573);
     expect(maxTilt).toBeLessThan(0.0574);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Transform basis as the basis images of the cosine and Haar transforms', () => {
+  const p = proceduralMaterialPresets.transformbasis;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The one-dimensional functions of a variant: the cosines of the DCT-II, or the rows of the Haar matrix built by doubling (the rows of the matrix of half the size with every entry twice, then the pairs (1, -1) with a 0 everywhere else). */
+  const haarMatrix = (n: number): number[][] => {
+    if (n === 1) return [[1]];
+    const half = haarMatrix(n / 2);
+    return [
+      ...half.map((row) => row.flatMap((v) => [v, v])),
+      ...Array.from({ length: n / 2 }, (_, k) =>
+        Array.from({ length: n }, (_, x) =>
+          x === 2 * k ? 1 : x === 2 * k + 1 ? -1 : 0,
+        ),
+      ),
+    ];
+  };
+  const functionsOf = (variant: number): number[][] => {
+    const n: number = p.sizes[variant];
+    return p.kinds[variant] === 1
+      ? haarMatrix(n)
+      : Array.from({ length: n }, (_, u) =>
+          Array.from({ length: n }, (_, x) =>
+            Math.cos(((2 * x + 1) * u * Math.PI) / (2 * n)),
+          ),
+        );
+  };
+  /** The value of the pixel (i, j) of the whole grid for a seed: the panel (column, row) = (floor(i / n), floor(j / n)) holds f_column(x) f_row(y) (the panel (row, column) when the bit 1 of the group swaps them), and the bit 2 changes the sign. */
+  const expectedValues = (seed: number): number[][] => {
+    const variant = seed % p.sizes.length,
+      group = Math.floor(seed / p.sizes.length),
+      n: number = p.sizes[variant],
+      f = functionsOf(variant);
+    return Array.from({ length: n * n }, (_, j) =>
+      Array.from({ length: n * n }, (_, i) => {
+        const column = Math.floor(i / n),
+          row = Math.floor(j / n),
+          [a, b] = group & 1 ? [row, column] : [column, row],
+          value = f[a][i % n] * f[b][j % n];
+        return group & 2 ? -value : value;
+      }),
+    );
+  };
+  /** The values as the picture shows them, read back at the middle of every pixel (the height gives (value + 1) / 2 exactly). */
+  const readValues = (seed: number): number[][] => {
+    const n: number = p.sizes[seed % p.sizes.length],
+      size = n * n,
+      sample = createSurfaceSampler('transformbasis', seed),
+      out = empty();
+    return Array.from({ length: size }, (_, j) =>
+      Array.from({ length: size }, (_, i) => {
+        sample((i + 0.5) / size, (j + 0.5) / size, out);
+        const level =
+          (out.height / p.relief / p.cellHeight - p.heightBase) / p.heightSwing;
+        return 2 * level - 1;
+      }),
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.75, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('transformbasis', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.75));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9635, lit: 0.22371, mean: 0.51273 }],
+      [1, { high: 0.9637, lit: 0.11673, mean: 0.51408 }],
+      [0xffffffff, { high: 0.9644, lit: 0.13672, mean: 0.32114 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('transformbasis', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.75);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0154);
+      expect(low).toBeLessThan(0.0162);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws the basis images of the transform, read back at the middle of every pixel and equal to the definition, for the four groups of the swap and the sign', () => {
+    for (let seed = 0; seed < 24; seed++) {
+      const read = readValues(seed),
+        expected = expectedValues(seed);
+      let worst = 0;
+      read.forEach((row, j) =>
+        row.forEach((value, i) => {
+          worst = Math.max(worst, Math.abs(value - expected[j][i]));
+        }),
+      );
+      expect(worst).toBeLessThan(1e-9);
+    }
+  });
+  it('shows an orthogonal basis, read from the picture: the images are mutually orthogonal with the squared norm of the product of two functions, the first image is 1, the values of the Haar images are only -1, 0 and 1, and the energy of a test image is the sum of its parts along the images', () => {
+    for (let variant = 0; variant < 6; variant++) {
+      const n: number = p.sizes[variant],
+        values = readValues(variant),
+        images: number[][] = [];
+      for (let v = 0; v < n; v++)
+        for (let u = 0; u < n; u++) {
+          const image: number[] = [];
+          for (let y = 0; y < n; y++)
+            for (let x = 0; x < n; x++)
+              image.push(values[v * n + y][u * n + x]);
+          images.push(image);
+        }
+      const dot = (a: number[], b: number[]) =>
+        a.reduce((s, x, i) => s + x * b[i], 0);
+      expect(images[0].every((x) => Math.abs(x - 1) < 1e-9)).toBe(true);
+      const f = functionsOf(variant),
+        energy = (u: number) => f[u].reduce((s, x) => s + x * x, 0);
+      for (let a = 0; a < images.length; a++) {
+        expect(dot(images[a], images[a])).toBeCloseTo(
+          energy(a % n) * energy(Math.floor(a / n)),
+          9,
+        );
+        for (let b = a + 1; b < images.length; b++)
+          expect(Math.abs(dot(images[a], images[b]))).toBeLessThan(1e-9);
+        if (p.kinds[variant] === 1)
+          expect(
+            images[a].every((x) =>
+              [-1, 0, 1].some((w) => Math.abs(x - w) < 1e-9),
+            ),
+          ).toBe(true);
+      }
+      // Parseval: for any image w the sum of dot(w, image)^2 / dot(image, image) is dot(w, w) (the images are n^2 orthogonal images of n^2 pixels: a basis).
+      const w = Array.from(
+        { length: n * n },
+        (_, i) => ((i * 7) % 11) - 5 + (i % 3) / 3,
+      );
+      const parts = images.reduce(
+        (s, image) => s + dot(w, image) ** 2 / dot(image, image),
+        0,
+      );
+      expect(parts).toBeCloseTo(dot(w, w), 6);
+    }
+  });
+  it('agrees with the ideal rounded pixels away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const n: number = p.sizes[seed % p.sizes.length],
+        size = n * n,
+        values = expectedValues(seed),
+        sample = createSurfaceSampler('transformbasis', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * size,
+          y = v * size,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          // The gaps on the four sides of the pixel: wider at the edge of a panel.
+          left = i % n === 0 ? p.gapPanel : p.gap,
+          right = i % n === n - 1 ? p.gapPanel : p.gap,
+          top = j % n === 0 ? p.gapPanel : p.gap,
+          bottom = j % n === n - 1 ? p.gapPanel : p.gap,
+          dx = Math.abs(x - i - (1 + left - right) / 2),
+          dy = Math.abs(y - j - (1 + top - bottom) / 2),
+          hx = (1 - left - right) / 2,
+          hy = (1 - top - bottom) / 2,
+          innerX = hx - p.corner,
+          innerY = hy - p.corner,
+          // The distance to the rounded rectangle, by the straight sides or by the corner circle.
+          distance =
+            dx <= innerX || dy <= innerY
+              ? Math.max(dx - hx, dy - hy)
+              : Math.hypot(dx - innerX, dy - innerY) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          level = (values[j][i] + 1) / 2,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.2286224365234375, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.275421142578125, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('transformbasis', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pink transform basis maps on dark violet with raised pixels and shaded gaps', () => {
+    const maps = generateProceduralMaps('transformbasis', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(107.3);
+    expect(red / (512 * 512)).toBeLessThan(108.4);
+    expect(green / (512 * 512)).toBeGreaterThan(68.2);
+    expect(green / (512 * 512)).toBeLessThan(69.2);
+    expect(blue / (512 * 512)).toBeGreaterThan(105.4);
+    expect(blue / (512 * 512)).toBeLessThan(106.4);
+    expect(maxTilt).toBeGreaterThan(0.0846);
+    expect(maxTilt).toBeLessThan(0.0848);
     expect(invalid).toBe(0);
   });
 });
