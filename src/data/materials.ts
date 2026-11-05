@@ -19942,6 +19942,34 @@ export const proceduralMaterialPresets = Object.freeze({
     heightFilled: 1,
     gapOcclusion: 0.5,
   }),
+  robinsonschensted: Object.freeze({
+    dark: [24, 4, 16] as const,
+    light: [255, 130, 205] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x3a97,
+    // The Robinson-Schensted correspondence of three permutations of 1 to size, one in each row of three panels: the permutation matrix (the dot in the column i at the row p(i) - 1, holding i + 1), the insertion tableau P and the recording tableau Q (both standard Young tableaux of the same shape, the cell holding its number from 1 to size, left-justified rows from the top). P is made by inserting p(1), p(2), ... one after the other, every number bumping the next larger one in a row down to the next row; Q records in which new box each step ended. The permutations are of 6 types: 0 the identity, 1 the reversal, 2 random by hash keys, 3 a random involution (3 swaps of random pairs), 4 the cyclic shift by 3 and 5 the multiplication i -> 2 i mod 11. The seed is split in two: seed % 6 picks the type of the first row and floor(seed / 6) the group, whose value mod 2 plus 1 is the step to the types of the other rows (the rows have the types t, t + step and t + 2 step mod 6), and the group also seeds the random hash keys.
+    size: 10,
+    types: [0, 1, 2, 3, 4, 5] as const,
+    // The gap on each side of a cell inside a panel and at the edge of a panel, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.06,
+    gapPanel: 0.3,
+    corner: 0.14,
+    edgeSoft: 0.07,
+    grainCells: 128,
+    toneGround: 0.03,
+    // The tone of an empty cell, and of a cell holding the number v: toneMin + (toneMax - toneMin) v / size.
+    toneEmpty: 0.1,
+    toneMin: 0.25,
+    toneMax: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of an empty cell as a fraction of cellHeight, and of a cell holding v: heightBase + heightSwing v / size.
+    heightEmpty: 0.15,
+    heightBase: 0.3,
+    heightSwing: 0.7,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21787,6 +21815,7 @@ export const proceduralTileMeters = Object.freeze({
   burrowswheeler: 0.5,
   huffmancodes: 0.5,
   friezegroups: 0.5,
+  robinsonschensted: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

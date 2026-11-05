@@ -1245,6 +1245,7 @@ try {
     'burrowswheeler',
     'huffmancodes',
     'friezegroups',
+    'robinsonschensted',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

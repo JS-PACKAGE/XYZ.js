@@ -1208,6 +1208,7 @@ const kinds: ProceduralMaterialKind[] = [
   'burrowswheeler',
   'huffmancodes',
   'friezegroups',
+  'robinsonschensted',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -216943,6 +216944,375 @@ describe('Frieze groups as the seven frieze groups of strips with a glyph', () =
     expect(blue / (512 * 512)).toBeLessThan(43);
     expect(maxTilt).toBeGreaterThan(0.0679);
     expect(maxTilt).toBeLessThan(0.068);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Robinson-Schensted as permutations and their pairs of tableaux', () => {
+  const p = proceduralMaterialPresets.robinsonschensted;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = 10;
+  /** The permutation of a type as values 1 to n at the positions 1 to n, written another way than the sampler: 0 identity, 1 reversal, 4 cyclic shift by 3, 5 multiplication by 2 mod 11; null for the random types 2 and 3. */
+  const fixedPermutation = (type: number): number[] | null =>
+    [
+      Array.from({ length: n }, (_, i) => i + 1),
+      Array.from({ length: n }, (_, i) => n - i),
+      null,
+      null,
+      Array.from({ length: n }, (_, i) => ((i + 3) % n) + 1),
+      Array.from({ length: n }, (_, i) => (2 * (i + 1)) % (n + 1)),
+    ][type];
+  /** The types of the three rows of a seed. */
+  const typesOf = (seed: number): number[] => {
+    const step = 1 + (Math.floor(seed / 6) % 2);
+    return [0, 1, 2].map((k) => ((seed % 6) + k * step) % 6);
+  };
+  /** The nine panels of a seed read back from the picture at the middle of every cell: [row][column] with the column 0 the permutation matrix, 1 the insertion tableau and 2 the recording tableau, each as grid[j][i] of 0 (empty) or the number from 1 to n. */
+  const readPanels = (seed: number): number[][][][] => {
+    const sample = createSurfaceSampler('robinsonschensted', seed),
+      out = empty();
+    return [0, 1, 2].map((row) =>
+      [0, 1, 2].map((column) =>
+        Array.from({ length: n }, (_, j) =>
+          Array.from({ length: n }, (_, i) => {
+            sample(
+              (column * n + i + 0.5) / (3 * n),
+              (row * n + j + 0.5) / (3 * n),
+              out,
+            );
+            const high = out.height / p.relief / p.cellHeight;
+            if (Math.abs(high - p.heightEmpty) < 1e-9) return 0;
+            const level = (high - p.heightBase) / p.heightSwing,
+              value = Math.round(level * n);
+            expect(Math.abs(level * n - value)).toBeLessThan(1e-9);
+            expect(value).toBeGreaterThanOrEqual(1);
+            return value;
+          }),
+        ),
+      ),
+    );
+  };
+  /** The permutation a matrix panel shows: for the position i + 1 the row of its dot, as values 1 to n; every column and row must hold exactly one dot, and the dot at the position i + 1 holds i + 1. */
+  const permutationOf = (matrix: number[][]): number[] =>
+    Array.from({ length: n }, (_, i) => {
+      const dots = matrix
+        .map((row) => row[i])
+        .flatMap((v, j) => (v > 0 ? [j] : []));
+      expect(dots).toHaveLength(1);
+      expect(matrix[dots[0]][i]).toBe(i + 1);
+      expect(matrix[dots[0]].filter((v) => v > 0)).toHaveLength(1);
+      return dots[0] + 1;
+    });
+  /** The tableau as rows of numbers (left-justified; an empty cell may only come after the last number of its row and the empty rows only at the bottom). */
+  const rowsOf = (grid: number[][]): number[][] => {
+    const rows = grid.map((row) => {
+      const end = row.findIndex((v) => v === 0);
+      const length = end < 0 ? n : end;
+      expect(row.slice(length).every((v) => v === 0)).toBe(true);
+      return row.slice(0, length);
+    });
+    const used = rows.filter((row) => row.length > 0);
+    expect(rows.slice(0, used.length)).toEqual(used);
+    return used;
+  };
+  /** The inverse correspondence by reverse bumping: take the box of the largest recorded number out of P and push its entry up through the rows above, every row giving up the largest number smaller than it; what comes out of the top row is the last value of the permutation. */
+  const inverseCorrespondence = (
+    tableau: number[][],
+    recording: number[][],
+  ): number[] => {
+    const rows = tableau.map((row) => [...row]),
+      values = new Array<number>(n);
+    for (let time = n; time >= 1; time--) {
+      const r = recording.findIndex((row) => row.includes(time)),
+        c = recording[r].indexOf(time);
+      let x = rows[r].splice(c, 1)[0];
+      for (let up = r - 1; up >= 0; up--) {
+        let at = -1;
+        rows[up].forEach((entry, k) => {
+          if (entry < x) at = k;
+        });
+        [rows[up][at], x] = [x, rows[up][at]];
+      }
+      values[time - 1] = x;
+    }
+    return values;
+  };
+  /** The length of the longest increasing (sign 1) or decreasing (sign -1) run of values, in order of position, by the usual table. */
+  const longestRun = (values: number[], sign: number): number => {
+    const best = values.map(() => 1);
+    values.forEach((v, i) => {
+      for (let k = 0; k < i; k++)
+        if (sign * (v - values[k]) > 0)
+          best[i] = Math.max(best[i], best[k] + 1);
+    });
+    return Math.max(...best);
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('robinsonschensted', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.01545, high: 0.9621, lit: 0.04077, mean: 0.10916 }],
+      [1, { low: 0.01601, high: 0.9629, lit: 0.04338, mean: 0.11091 }],
+      [0xffffffff, { low: 0.01558, high: 0.9622, lit: 0.04286, mean: 0.11097 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('robinsonschensted', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('shows a permutation and two standard Young tableaux of one shape in each row, read back from the picture: the permutation matrix has one dot in every row and column, both tableaux have left-justified rows increasing along the rows and down the columns holding each of 1 to n once, and the fixed types are the permutations they should be', () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const panels = readPanels(seed);
+      typesOf(seed).forEach((type, row) => {
+        const permutation = permutationOf(panels[row][0]),
+          tableau = rowsOf(panels[row][1]),
+          recording = rowsOf(panels[row][2]);
+        expect(new Set(permutation).size).toBe(n);
+        expect(Math.min(...permutation)).toBe(1);
+        const fixed = fixedPermutation(type);
+        if (fixed !== null) expect(permutation).toEqual(fixed);
+        // Same shape, standard.
+        expect(tableau.map((r) => r.length)).toEqual(
+          recording.map((r) => r.length),
+        );
+        for (const t of [tableau, recording]) {
+          expect(t.flat().sort((a, b) => a - b)).toEqual(
+            Array.from({ length: n }, (_, i) => i + 1),
+          );
+          t.forEach((r, j) =>
+            r.forEach((v, i) => {
+              if (i > 0) expect(v).toBeGreaterThan(r[i - 1]);
+              if (j > 0) expect(v).toBeGreaterThan(t[j - 1][i]);
+            }),
+          );
+        }
+      });
+    }
+  });
+  it('is the Robinson-Schensted correspondence, checked by the inverse and by theorems: reverse bumping on the pair of tableaux gives back the permutation, the first row is the longest increasing run and the number of rows the longest decreasing run (Schensted), the tableaux are equal exactly for involutions (Schutzenberger), the identity has one row and the reversal one column', () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const panels = readPanels(seed);
+      typesOf(seed).forEach((type, row) => {
+        const permutation = permutationOf(panels[row][0]),
+          tableau = rowsOf(panels[row][1]),
+          recording = rowsOf(panels[row][2]);
+        expect(inverseCorrespondence(tableau, recording)).toEqual(permutation);
+        expect(tableau[0].length).toBe(longestRun(permutation, 1));
+        expect(tableau.length).toBe(longestRun(permutation, -1));
+        const involution = permutation.every(
+          (v, i) => permutation[v - 1] === i + 1,
+        );
+        expect(JSON.stringify(tableau) === JSON.stringify(recording)).toBe(
+          involution,
+        );
+        if (type === 0) expect(tableau).toHaveLength(1);
+        if (type === 1) expect(tableau[0]).toHaveLength(1);
+        if (type === 3) expect(involution).toBe(true);
+      });
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const cells = 3 * n,
+        panels = readPanels(seed),
+        sample = createSurfaceSampler('robinsonschensted', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * cells,
+          y = v * cells,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          // The gaps on the four sides of the cell: wider at the edge of a panel.
+          left = i % n === 0 ? p.gapPanel : p.gap,
+          right = i % n === n - 1 ? p.gapPanel : p.gap,
+          top = j % n === 0 ? p.gapPanel : p.gap,
+          bottom = j % n === n - 1 ? p.gapPanel : p.gap,
+          dx = Math.abs(x - i - (1 + left - right) / 2),
+          dy = Math.abs(y - j - (1 + top - bottom) / 2),
+          hx = (1 - left - right) / 2,
+          hy = (1 - top - bottom) / 2,
+          innerX = hx - p.corner,
+          innerY = hy - p.corner,
+          // The distance to the rounded rectangle, by the straight sides or by the corner circle.
+          distance =
+            dx <= innerX || dy <= innerY
+              ? Math.max(dx - hx, dy - hy)
+              : Math.hypot(dx - innerX, dy - innerY) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const held = panels[Math.floor(j / n)][Math.floor(i / n)][j % n][i % n],
+          ink = distance < 0 ? 1 : 0,
+          level = held / n,
+          tone =
+            held === 0
+              ? p.toneEmpty
+              : p.toneMin + (p.toneMax - p.toneMin) * level,
+          lift =
+            held === 0 ? p.heightEmpty : p.heightBase + p.heightSwing * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * lift,
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per type and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.0651397705078125, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.034942626953125, 8);
+    expect(unlike(first, litGrid(12))).toBeCloseTo(0.018310546875, 8);
+    expect(unlike(first, litGrid(24))).toBeCloseTo(0.014312744140625, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('robinsonschensted', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 magenta Robinson-Schensted maps on dark plum with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('robinsonschensted', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(49.2);
+    expect(red / (512 * 512)).toBeLessThan(49.5);
+    expect(green / (512 * 512)).toBeGreaterThan(17.7);
+    expect(green / (512 * 512)).toBeLessThan(17.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(36.6);
+    expect(blue / (512 * 512)).toBeLessThan(36.9);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1071);
     expect(invalid).toBe(0);
   });
 });

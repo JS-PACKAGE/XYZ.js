@@ -1182,6 +1182,7 @@ export type ProceduralMaterialKind =
   | 'burrowswheeler'
   | 'huffmancodes'
   | 'friezegroups'
+  | 'robinsonschensted'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2612,6 +2613,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'burrowswheeler',
   'huffmancodes',
   'friezegroups',
+  'robinsonschensted',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

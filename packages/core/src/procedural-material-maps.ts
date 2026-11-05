@@ -57804,6 +57804,139 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'robinsonschensted': {
+        const p = proceduralMaterialPresets.robinsonschensted,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          first = unsigned % p.types.length,
+          group = Math.floor(unsigned / p.types.length),
+          step = 1 + (group % 2),
+          keySeed = seed ^ p.seedSalt,
+          n: number = p.size,
+          // The permutation of a type, as the values 0 to n - 1 for the positions 0 to n - 1; row selects the hash keys of the random ones.
+          permutationOf = (type: number, row: number): number[] => {
+            const shuffled = Array.from(
+              { length: n },
+              (_, index) => index,
+            ).sort(
+              (a, b) =>
+                hash(a, 13 + row, keySeed) - hash(b, 13 + row, keySeed) ||
+                a - b,
+            );
+            if (type === 0) return Array.from({ length: n }, (_, i) => i);
+            if (type === 1)
+              return Array.from({ length: n }, (_, i) => n - 1 - i);
+            if (type === 2) return shuffled;
+            if (type === 3) {
+              // An involution: the first 6 of the shuffled positions are swapped in pairs.
+              const swapped = Array.from({ length: n }, (_, i) => i);
+              for (let k = 0; k < 6; k += 2) {
+                swapped[shuffled[k]] = shuffled[k + 1];
+                swapped[shuffled[k + 1]] = shuffled[k];
+              }
+              return swapped;
+            }
+            if (type === 4)
+              return Array.from({ length: n }, (_, i) => (i + 3) % n);
+            return Array.from(
+              { length: n },
+              (_, i) => ((2 * (i + 1)) % (n + 1)) - 1,
+            );
+          },
+          // The insertion tableau P and the recording tableau Q of a permutation by row insertion with bumping.
+          schensted = (values: number[]): [number[][], number[][]] => {
+            const tableau: number[][] = [],
+              recording: number[][] = [];
+            values.forEach((value, time) => {
+              let x = value,
+                row = 0;
+              for (;;) {
+                if (row === tableau.length) {
+                  tableau.push([x]);
+                  recording.push([time]);
+                  break;
+                }
+                const at = tableau[row].findIndex((entry) => entry > x);
+                if (at < 0) {
+                  tableau[row].push(x);
+                  recording[row].push(time);
+                  break;
+                }
+                [tableau[row][at], x] = [x, tableau[row][at]];
+                row++;
+              }
+            });
+            return [tableau, recording];
+          },
+          // The three panels of a row as grids[j * n + i] holding 0 for an empty cell: the permutation matrix (the dot holds its position + 1), P and Q.
+          panelsOf = (type: number, row: number): Uint8Array[] => {
+            const values = permutationOf(type, row),
+              [tableau, recording] = schensted(values),
+              matrix = new Uint8Array(n * n);
+            values.forEach((value, i) => {
+              matrix[value * n + i] = i + 1;
+            });
+            const fill = (rows: number[][]) => {
+              const grid = new Uint8Array(n * n);
+              rows.forEach((entries, j) =>
+                entries.forEach((entry, i) => {
+                  grid[j * n + i] = entry + 1;
+                }),
+              );
+              return grid;
+            };
+            return [matrix, fill(tableau), fill(recording)];
+          },
+          rows = [0, 1, 2].map((k) =>
+            panelsOf(p.types[(first + k * step) % p.types.length], k),
+          ),
+          total = 3 * n;
+        return () => {
+          const x = fract(u) * total,
+            y = fract(v) * total,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            column = Math.floor(i / n),
+            row = Math.floor(j / n),
+            px = i % n,
+            py = j % n,
+            held = rows[row][column][py * n + px],
+            // The gaps on the four sides of the cell: wider at the edge of a panel.
+            left = px === 0 ? p.gapPanel : p.gap,
+            right = px === n - 1 ? p.gapPanel : p.gap,
+            top = py === 0 ? p.gapPanel : p.gap,
+            bottom = py === n - 1 ? p.gapPanel : p.gap,
+            hx = (1 - left - right) / 2,
+            hy = (1 - top - bottom) / 2,
+            qx = Math.abs(x - i - (1 + left - right) / 2) - (hx - p.corner),
+            qy = Math.abs(y - j - (1 + top - bottom) / 2) - (hy - p.corner),
+            // The distance to the rounded rectangle of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            level = held / n,
+            tone =
+              held === 0
+                ? p.toneEmpty
+                : p.toneMin + (p.toneMax - p.toneMin) * level,
+            lift =
+              held === 0 ? p.heightEmpty : p.heightBase + p.heightSwing * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * lift;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -66788,6 +66921,7 @@ export function createSurfaceSampler(
     kind === 'burrowswheeler' ||
     kind === 'huffmancodes' ||
     kind === 'friezegroups' ||
+    kind === 'robinsonschensted' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
