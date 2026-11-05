@@ -1,2 +1,2 @@
-export const opmVendor=Object.freeze({version:`1.13.1`});
+export const opmVendor=Object.freeze({version:`1.14.0`});
 //# sourceMappingURL=opm.js.map

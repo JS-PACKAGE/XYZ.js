@@ -15861,6 +15861,542 @@ function createSurfaceSampler(i, o) {
 					J = n.toneGround * (1 - w) + E * w + n.grainTone * (D - .5), Y = n.cellHeight * w * (n.heightBase + n.heightSwing * T), Z = 1 - n.gapOcclusion * (1 - w);
 				};
 			}
+			case `pseudoprimeliars`: {
+				let n = require_materials.proceduralMaterialPresets.pseudoprimeliars, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = n.tests[i % n.tests.length], s = Math.floor(i / n.tests.length), c = n.starts[s % n.starts.length], l = n.firstBases[Math.floor(s / n.starts.length) % n.firstBases.length], u = n.size, gcd = (e, t) => t === 0 ? e : gcd(t, e % t), power = (e, t, n) => {
+					let r = 1, i = e, a = t;
+					for (; a > 0;) a % 2 == 1 && (r = r * i % n), i = i * i % n, a = Math.floor(a / 2);
+					return r;
+				}, jacobi = (e, t) => {
+					let n = e % t, r = t, i = 1;
+					for (; n !== 0;) {
+						for (; n % 2 == 0;) n /= 2, (r % 8 == 3 || r % 8 == 5) && (i = -i);
+						[n, r] = [r, n], n % 4 == 3 && r % 4 == 3 && (i = -i), n %= r;
+					}
+					return i;
+				}, isPrime = (e) => {
+					for (let t = 2; t * t <= e; t++) if (e % t === 0) return !1;
+					return !0;
+				}, passes = (e, t) => {
+					if (a === 0) return power(e, t - 1, t) === 1;
+					let n = power(e, (t - 1) / 2, t);
+					if (a === 1) return n === 1 || n === t - 1;
+					if (a === 3) return n === (jacobi(e, t) === 1 ? 1 : t - 1);
+					let r = t - 1, i = 0;
+					for (; r % 2 == 0;) r /= 2, i++;
+					let o = power(e, r, t);
+					if (o === 1 || o === t - 1) return !0;
+					for (let e = 1; e < i; e++) if (o = o * o % t, o === t - 1) return !0;
+					return !1;
+				}, d = new Uint8Array(u * u);
+				for (let e = 0; e < u; e++) {
+					let t = c + 2 * e, n = isPrime(t);
+					for (let r = 0; r < u; r++) {
+						let i = l + r;
+						d[e * u + r] = gcd(i, t) > 1 ? 0 : passes(i, t) ? n ? 2 : 3 : 1;
+					}
+				}
+				let f = .5 - n.gap - n.corner, p = [
+					n.toneShared,
+					n.toneWitness,
+					n.tonePrimeLiar,
+					n.toneCompositeLiar
+				], m = [
+					n.heightShared,
+					n.heightWitness,
+					n.heightPrimeLiar,
+					n.heightCompositeLiar
+				];
+				return () => {
+					let e = fract(G) * u, i = fract(K) * u, a = Math.floor(e), o = Math.floor(i), s = Math.abs(e - a - .5) - f, c = Math.abs(i - o - .5) - f, h = smooth(clamp(.5 - (require_hypot.hypot2(Math.max(s, 0), Math.max(c, 0)) + Math.min(Math.max(s, c), 0) - n.corner) / n.edgeSoft)), g = d[o * u + a], _ = r(G, K);
+					J = n.toneGround * (1 - h) + p[g] * h + n.grainTone * (_ - .5), Y = n.cellHeight * h * m[g], Z = 1 - n.gapOcclusion * (1 - h);
+				};
+			}
+			case `lightsoutpuzzles`: {
+				let n = require_materials.proceduralMaterialPresets.lightsoutpuzzles, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = i % 6, s = Math.floor(i / 6), c = n.sizes[s % n.sizes.length], l = 1 + Math.floor(s / n.sizes.length) % 5, u = c * c, pressed = (e, t, n) => {
+					let r = (c - 1) / 2;
+					return e === 0 ? t === r && n === r : e === 1 ? t === Math.floor(r) || n === Math.floor(r) : e === 2 ? !0 : e === 3 ? (t + n) % 2 == 0 : e === 4 ? t === 0 || n === 0 || t === c - 1 || n === c - 1 : t === n;
+				}, lightsAfter = (e) => {
+					let t = new Uint8Array(u);
+					for (let n = 0; n < c; n++) for (let r = 0; r < c; r++) if (e[n * c + r] === 1) for (let [e, i] of [
+						[0, 0],
+						[1, 0],
+						[-1, 0],
+						[0, 1],
+						[0, -1]
+					]) {
+						let a = r + e, o = n + i;
+						a >= 0 && a < c && o >= 0 && o < c && (t[o * c + a] ^= 1);
+					}
+					return t;
+				}, solve = (e) => {
+					let t = [];
+					for (let n = 0; n < u; n++) {
+						let r = new Uint8Array(u + 1), i = n % c, a = Math.floor(n / c);
+						for (let [e, t] of [
+							[0, 0],
+							[1, 0],
+							[-1, 0],
+							[0, 1],
+							[0, -1]
+						]) {
+							let n = i + e, o = a + t;
+							n >= 0 && n < c && o >= 0 && o < c && (r[o * c + n] = 1);
+						}
+						r[u] = e[n], t.push(r);
+					}
+					let n = [], r = 0;
+					for (let e = 0; e < u; e++) {
+						let i = -1;
+						for (let n = r; n < u; n++) if (t[n][e] === 1) {
+							i = n;
+							break;
+						}
+						if (!(i < 0)) {
+							[t[r], t[i]] = [t[i], t[r]];
+							for (let n = 0; n < u; n++) if (n !== r && t[n][e] === 1) for (let i = e; i <= u; i++) t[n][i] ^= t[r][i];
+							n.push(e), r++;
+						}
+					}
+					let i = new Uint8Array(u), a = [];
+					n.forEach((e, n) => {
+						i[e] = t[n][u];
+					});
+					for (let e = 0; e < u; e++) n.includes(e) || a.push(e);
+					let o = a.map((e) => {
+						let r = new Uint8Array(u);
+						return r[e] = 1, n.forEach((n, i) => {
+							r[n] = t[i][e];
+						}), r;
+					}), s = i, l = i.reduce((e, t) => e + t, 0);
+					for (let e = 1; e < 2 ** o.length; e++) {
+						let t = Uint8Array.from(i);
+						o.forEach((n, r) => {
+							if (e >> r & 1) for (let e = 0; e < u; e++) t[e] ^= n[e];
+						});
+						let n = t.reduce((e, t) => e + t, 0);
+						n < l && (s = t, l = n);
+					}
+					return s;
+				}, d = [a, (a + l) % 6].map((e) => {
+					let t = new Uint8Array(u);
+					for (let n = 0; n < c; n++) for (let r = 0; r < c; r++) t[n * c + r] = +!!pressed(e, r, n);
+					let n = lightsAfter(t);
+					return [n, solve(n)];
+				}), f = 2 * c;
+				return () => {
+					let e = fract(G) * f, i = fract(K) * f, a = Math.floor(e), o = Math.floor(i), s = Math.floor(a / c), l = Math.floor(o / c), u = a % c, p = o % c, m = d[l][s][p * c + u], h = u === 0 ? n.gapPanel : n.gap, g = u === c - 1 ? n.gapPanel : n.gap, _ = p === 0 ? n.gapPanel : n.gap, v = p === c - 1 ? n.gapPanel : n.gap, y = (1 - h - g) / 2, b = (1 - _ - v) / 2, x = Math.abs(e - a - (1 + h - g) / 2) - (y - n.corner), S = Math.abs(i - o - (1 + _ - v) / 2) - (b - n.corner), w = smooth(clamp(.5 - (require_hypot.hypot2(Math.max(x, 0), Math.max(S, 0)) + Math.min(Math.max(x, S), 0) - n.corner) / n.edgeSoft)), T = m === 1 ? n.toneOn : n.toneOff, E = m === 1 ? n.heightOn : n.heightOff, D = r(G, K);
+					J = n.toneGround * (1 - w) + T * w + n.grainTone * (D - .5), Y = n.cellHeight * w * E, Z = 1 - n.gapOcclusion * (1 - w);
+				};
+			}
+			case `burrowswheeler`: {
+				let n = require_materials.proceduralMaterialPresets.burrowswheeler, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = i % n.texts.length, s = 1 + Math.floor(i / n.texts.length) % 5, c = n.size, l = o ^ n.seedSalt, letters = (e) => {
+					if (e === 0) {
+						let e = `a`;
+						for (; e.length < c;) e = [...e].map((e) => e === `a` ? `ab` : `a`).join(``);
+						return e.slice(0, c - 1);
+					}
+					return e === 1 ? Array.from({ length: c - 1 }, (e, t) => t.toString(2).split(`1`).length % 2 == 0 ? `b` : `a`).join(``) : e === 2 ? `mississippi`.repeat(3).slice(0, c - 1) : e === 3 ? `banana`.repeat(4).slice(0, c - 1) : e === 5 ? `abracadabra`.repeat(3).slice(0, c - 1) : Array.from({ length: c - 1 }, (e, t) => `ACGT`[Math.floor(hash(t, 9, l) * 4)]).join(``);
+				}, u = [a, (a + s) % 6].map((e) => {
+					let t = letters(e), n = [...new Set(t)].sort(), r = [...Array.from(t, (e) => n.indexOf(e) + 1), 0], i = Array.from({ length: c }, (e, t) => Array.from({ length: c }, (e, n) => r[(t + n) % c])), a = [...i].sort((e, t) => {
+						for (let n = 0; n < c; n++) if (e[n] !== t[n]) return e[n] - t[n];
+						return 0;
+					});
+					return [i.flat(), a.flat()];
+				}), d = 2 * c;
+				return () => {
+					let e = fract(G) * d, i = fract(K) * d, a = Math.floor(e), o = Math.floor(i), s = Math.floor(a / c), l = Math.floor(o / c), f = a % c, p = o % c, m = u[l][s][p * c + f], h = f === 0 ? n.gapPanel : n.gap, g = f === c - 1 ? n.gapPanel : n.gap, _ = p === 0 ? n.gapPanel : n.gap, v = p === c - 1 ? n.gapPanel : n.gap, y = (1 - h - g) / 2, b = (1 - _ - v) / 2, x = Math.abs(e - a - (1 + h - g) / 2) - (y - n.corner), S = Math.abs(i - o - (1 + _ - v) / 2) - (b - n.corner), w = smooth(clamp(.5 - (require_hypot.hypot2(Math.max(x, 0), Math.max(S, 0)) + Math.min(Math.max(x, S), 0) - n.corner) / n.edgeSoft)), T = m / n.maxSymbol, E = n.toneMin + (n.toneMax - n.toneMin) * T, D = r(G, K);
+					J = n.toneGround * (1 - w) + E * w + n.grainTone * (D - .5), Y = n.cellHeight * w * (n.heightBase + n.heightSwing * T), Z = 1 - n.gapOcclusion * (1 - w);
+				};
+			}
+			case `huffmancodes`: {
+				let n = require_materials.proceduralMaterialPresets.huffmancodes, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = i % n.weights.length, s = 1 + Math.floor(i / n.weights.length) % 5, huffman = (e) => {
+					let t = e.map((e, t) => ({
+						weight: e,
+						symbols: [t]
+					})), n = e.map(() => ``), r = t.slice();
+					for (; r.length > 1;) {
+						r.sort((e, t) => e.weight - t.weight);
+						let [e, t, ...i] = r;
+						for (let t of e.symbols) n[t] = `0` + n[t];
+						for (let e of t.symbols) n[e] = `1` + n[e];
+						r = [...i, {
+							weight: e.weight + t.weight,
+							symbols: [...e.symbols, ...t.symbols]
+						}];
+					}
+					return n;
+				}, shannonFano = (e) => {
+					let t = e.map(() => ``), split = (n, r) => {
+						if (r - n < 2) return;
+						let i = 0;
+						for (let t = n; t < r; t++) i += e[t];
+						let a = n + 1, o = 1 / 0, s = 0;
+						for (let t = n + 1; t < r; t++) {
+							s += e[t - 1];
+							let n = Math.abs(2 * s - i);
+							n < o && (o = n, a = t);
+						}
+						for (let e = n; e < r; e++) t[e] += e < a ? `0` : `1`;
+						split(n, a), split(a, r);
+					};
+					return split(0, e.length), t;
+				}, panelsOf = (e) => [huffman(e), shannonFano(e)].map((e) => {
+					let t = /* @__PURE__ */ new Uint8Array(256);
+					return e.forEach((e, n) => {
+						[...e].forEach((e, r) => {
+							t[n * 16 + r] = e === `1` ? 2 : 1;
+						});
+					}), t;
+				}), c = [a, (a + s) % n.weights.length].map((e) => panelsOf(n.weights[e]));
+				return () => {
+					let e = fract(G) * 32, i = fract(K) * 32, a = Math.floor(e), o = Math.floor(i), s = Math.floor(a / 16), l = Math.floor(o / 16), u = a % 16, d = o % 16, f = c[l][s][d * 16 + u], p = u === 0 ? n.gapPanel : n.gap, m = u === 15 ? n.gapPanel : n.gap, h = d === 0 ? n.gapPanel : n.gap, g = d === 15 ? n.gapPanel : n.gap, _ = (1 - p - m) / 2, v = (1 - h - g) / 2, y = Math.abs(e - a - (1 + p - m) / 2) - (_ - n.corner), b = Math.abs(i - o - (1 + h - g) / 2) - (v - n.corner), S = smooth(clamp(.5 - (require_hypot.hypot2(Math.max(y, 0), Math.max(b, 0)) + Math.min(Math.max(y, b), 0) - n.corner) / n.edgeSoft)), C = [
+						n.toneNone,
+						n.toneZero,
+						n.toneOne
+					][f], w = [
+						n.heightNone,
+						n.heightZero,
+						n.heightOne
+					][f], T = r(G, K);
+					J = n.toneGround * (1 - S) + C * S + n.grainTone * (T - .5), Y = n.cellHeight * S * w, Z = 1 - n.gapOcclusion * (1 - S);
+				};
+			}
+			case `friezegroups`: {
+				let n = require_materials.proceduralMaterialPresets.friezegroups, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = n.glyphs[i % n.glyphs.length], s = Math.floor(i / n.glyphs.length), c = o ^ n.seedSalt, l = {
+					translate8: {
+						flip: 1,
+						shift: 8,
+						mirror: !1
+					},
+					translate16: {
+						flip: 1,
+						shift: 16,
+						mirror: !1
+					},
+					horizontal: {
+						flip: 1,
+						shift: 0,
+						mirror: !0
+					},
+					glide: {
+						flip: 1,
+						shift: 8,
+						mirror: !0
+					},
+					vertical: {
+						flip: -1,
+						shift: 10,
+						mirror: !1
+					},
+					halfTurn: {
+						flip: -1,
+						shift: 10,
+						mirror: !0
+					}
+				}, u = [
+					[`translate8`],
+					[`glide`],
+					[`horizontal`, `translate8`],
+					[`vertical`, `translate16`],
+					[`halfTurn`, `translate16`],
+					[`vertical`, `glide`],
+					[
+						`horizontal`,
+						`vertical`,
+						`translate16`
+					]
+				], d = [];
+				a.forEach((e, t) => [...e].forEach((e, n) => {
+					e === `X` && d.push([n, t + 1]);
+				}));
+				let stripOf = (e) => {
+					let t = /* @__PURE__ */ new Uint8Array(512), n = /* @__PURE__ */ new Set(), r = [{
+						flip: 1,
+						shift: 0,
+						mirror: !1
+					}];
+					for (; r.length > 0;) {
+						let t = r.pop(), i = `${t.flip},${t.shift},${t.mirror}`;
+						if (!n.has(i)) {
+							n.add(i);
+							for (let n of u[e]) {
+								let e = l[n];
+								r.push({
+									flip: e.flip * t.flip,
+									shift: ((e.flip * t.shift + e.shift) % 64 + 64) % 64,
+									mirror: e.mirror !== t.mirror
+								});
+							}
+						}
+					}
+					for (let e of n) {
+						let [n, r, i] = e.split(`,`);
+						for (let [e, a] of d) {
+							let o = ((Number(n) * e + Number(r)) % 64 + 64) % 64, s = i === `true` ? 7 - a : a;
+							t[s * 64 + o] = 1;
+						}
+					}
+					return t;
+				}, f = [
+					0,
+					1,
+					2,
+					3,
+					4,
+					5,
+					6,
+					s % 7
+				].map((e, t) => ({
+					kind: e,
+					key: hash(t, 11, c)
+				})).sort((e, t) => e.key - t.key).map((e) => e.kind), p = Array.from({ length: 7 }, (e, t) => stripOf(t)), m = .5 - n.gap - n.corner;
+				return () => {
+					let e = fract(G) * 64, i = fract(K) * 64, a = Math.floor(e), o = Math.floor(i), s = Math.abs(e - a - .5) - m, c = Math.abs(i - o - .5) - m, u = smooth(clamp(.5 - (require_hypot.hypot2(Math.max(s, 0), Math.max(c, 0)) + Math.min(Math.max(s, c), 0) - n.corner) / n.edgeSoft)), d = p[f[Math.floor(o / 8)]][o % 8 * 64 + a], h = d === 1 ? n.toneFilled : n.toneEmpty, g = d === 1 ? n.heightFilled : n.heightEmpty, _ = r(G, K);
+					J = n.toneGround * (1 - u) + h * u + n.grainTone * (_ - .5), Y = n.cellHeight * u * g, Z = 1 - n.gapOcclusion * (1 - u);
+				};
+			}
+			case `robinsonschensted`: {
+				let n = require_materials.proceduralMaterialPresets.robinsonschensted, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = i % n.types.length, s = 1 + Math.floor(i / n.types.length) % 2, c = o ^ n.seedSalt, l = n.size, permutationOf = (e, t) => {
+					let n = Array.from({ length: l }, (e, t) => t).sort((e, n) => hash(e, 13 + t, c) - hash(n, 13 + t, c) || e - n);
+					if (e === 0) return Array.from({ length: l }, (e, t) => t);
+					if (e === 1) return Array.from({ length: l }, (e, t) => l - 1 - t);
+					if (e === 2) return n;
+					if (e === 3) {
+						let e = Array.from({ length: l }, (e, t) => t);
+						for (let t = 0; t < 6; t += 2) e[n[t]] = n[t + 1], e[n[t + 1]] = n[t];
+						return e;
+					}
+					return e === 4 ? Array.from({ length: l }, (e, t) => (t + 3) % l) : Array.from({ length: l }, (e, t) => 2 * (t + 1) % (l + 1) - 1);
+				}, schensted = (e) => {
+					let t = [], n = [];
+					return e.forEach((e, r) => {
+						let i = e, a = 0;
+						for (;;) {
+							if (a === t.length) {
+								t.push([i]), n.push([r]);
+								break;
+							}
+							let e = t[a].findIndex((e) => e > i);
+							if (e < 0) {
+								t[a].push(i), n[a].push(r);
+								break;
+							}
+							[t[a][e], i] = [i, t[a][e]], a++;
+						}
+					}), [t, n];
+				}, panelsOf = (e, t) => {
+					let n = permutationOf(e, t), [r, i] = schensted(n), a = new Uint8Array(l * l);
+					n.forEach((e, t) => {
+						a[e * l + t] = t + 1;
+					});
+					let fill = (e) => {
+						let t = new Uint8Array(l * l);
+						return e.forEach((e, n) => e.forEach((e, r) => {
+							t[n * l + r] = e + 1;
+						})), t;
+					};
+					return [
+						a,
+						fill(r),
+						fill(i)
+					];
+				}, u = [
+					0,
+					1,
+					2
+				].map((e) => panelsOf(n.types[(a + e * s) % n.types.length], e)), d = 3 * l;
+				return () => {
+					let e = fract(G) * d, i = fract(K) * d, a = Math.floor(e), o = Math.floor(i), s = Math.floor(a / l), c = Math.floor(o / l), f = a % l, p = o % l, m = u[c][s][p * l + f], h = f === 0 ? n.gapPanel : n.gap, g = f === l - 1 ? n.gapPanel : n.gap, _ = p === 0 ? n.gapPanel : n.gap, v = p === l - 1 ? n.gapPanel : n.gap, y = (1 - h - g) / 2, b = (1 - _ - v) / 2, x = Math.abs(e - a - (1 + h - g) / 2) - (y - n.corner), S = Math.abs(i - o - (1 + _ - v) / 2) - (b - n.corner), w = smooth(clamp(.5 - (require_hypot.hypot2(Math.max(x, 0), Math.max(S, 0)) + Math.min(Math.max(x, S), 0) - n.corner) / n.edgeSoft)), T = m / l, E = m === 0 ? n.toneEmpty : n.toneMin + (n.toneMax - n.toneMin) * T, D = m === 0 ? n.heightEmpty : n.heightBase + n.heightSwing * T, O = r(G, K);
+					J = n.toneGround * (1 - w) + E * w + n.grainTone * (O - .5), Y = n.cellHeight * w * D, Z = 1 - n.gapOcclusion * (1 - w);
+				};
+			}
+			case `crctables`: {
+				let n = require_materials.proceduralMaterialPresets.crctables, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = i % n.polys.length, s = 1 + Math.floor(i / n.polys.length) % 5, reverse = (e) => {
+					let t = 0;
+					for (let n = 0; n < 8; n++) t |= (e >> n & 1) << 7 - n;
+					return t;
+				}, tablesOf = (e) => {
+					let t = /* @__PURE__ */ new Uint8Array(256), n = /* @__PURE__ */ new Uint8Array(256), r = reverse(e);
+					for (let i = 0; i < 256; i++) {
+						let a = i, o = i;
+						for (let t = 0; t < 8; t++) a = a & 128 ? (a << 1 ^ e) & 255 : a << 1, o = o & 1 ? o >> 1 ^ r : o >> 1;
+						t[i] = a, n[i] = o;
+					}
+					return [t, n];
+				}, c = [a, (a + s) % n.polys.length].map((e) => tablesOf(n.polys[e]));
+				return () => {
+					let e = fract(G) * 32, i = fract(K) * 32, a = Math.floor(e), o = Math.floor(i), s = Math.floor(a / 16), l = Math.floor(o / 16), u = a % 16, d = o % 16, f = c[l][s][d * 16 + u], p = u === 0 ? n.gapPanel : n.gap, m = u === 15 ? n.gapPanel : n.gap, h = d === 0 ? n.gapPanel : n.gap, g = d === 15 ? n.gapPanel : n.gap, _ = (1 - p - m) / 2, v = (1 - h - g) / 2, y = Math.abs(e - a - (1 + p - m) / 2) - (_ - n.corner), b = Math.abs(i - o - (1 + h - g) / 2) - (v - n.corner), S = smooth(clamp(.5 - (require_hypot.hypot2(Math.max(y, 0), Math.max(b, 0)) + Math.min(Math.max(y, b), 0) - n.corner) / n.edgeSoft)), C = f / 255, w = n.toneMin + (n.toneMax - n.toneMin) * C, T = r(G, K);
+					J = n.toneGround * (1 - S) + w * S + n.grainTone * (T - .5), Y = n.cellHeight * S * (n.heightBase + n.heightSwing * C), Z = 1 - n.gapOcclusion * (1 - S);
+				};
+			}
+			case `linearcodes`: {
+				let n = require_materials.proceduralMaterialPresets.linearcodes, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = i % n.codes.length, s = Math.floor(i / n.codes.length), weight = (e) => {
+					let t = 0;
+					for (let n = e; n; n &= n - 1) t++;
+					return t;
+				}, c = Array.from({ length: 8 }, (e, t) => t).sort((e, t) => s === 0 ? e - t : hash(e, 29, s ^ n.seedSalt) - hash(t, 29, s ^ n.seedSalt)), l = n.codes[a].map((e) => {
+					let t = 0;
+					for (let n = 0; n < 8; n++) e >> n & 1 && (t |= 1 << c[n]);
+					return t;
+				}), u = [];
+				for (let e = 7; e >= 0 && u.length < l.length; e--) {
+					let t = l.findIndex((t, n) => n >= u.length && t >> e & 1);
+					if (t < 0) continue;
+					[l[t], l[u.length]] = [l[u.length], l[t]];
+					let n = l[u.length];
+					for (let t = 0; t < l.length; t++) t !== u.length && l[t] >> e & 1 && (l[t] ^= n);
+					u.push(e);
+				}
+				let d = [
+					0,
+					1,
+					2,
+					3,
+					4,
+					5,
+					6,
+					7
+				].filter((e) => !u.includes(e)), pack = (e, t) => t.reduce((t, n, r) => t | (e >> n & 1) << r, 0), f = Array.from({ length: 16 }, (e, t) => l.reduce((e, n, r) => t >> r & 1 ? e ^ n : e, 0)), p = [
+					0,
+					1,
+					2,
+					3
+				].map(() => /* @__PURE__ */ new Uint8Array(256)), m = [
+					4,
+					15,
+					16,
+					8
+				];
+				for (let e = 0; e < 256; e++) {
+					let t = e, n = 9, r = 0, i = 0;
+					l.forEach((e, n) => {
+						t >> u[n] & 1 && (t ^= e);
+					}), f.forEach((t, a) => {
+						let o = weight(e ^ t);
+						o < n ? (n = o, r = 1, i = a) : o === n && r++;
+					}), p[0][e] = n, p[1][e] = pack(t, d), p[2][e] = r === 1 ? i + 1 : 0, p[3][e] = weight(e);
+				}
+				return () => {
+					let e = fract(G) * 32, i = fract(K) * 32, a = Math.floor(e), o = Math.floor(i), s = Math.floor(a / 16), c = Math.floor(o / 16), l = a % 16, u = o % 16, d = 2 * c + s, f = p[d][u * 16 + l] / m[d], h = l === 0 ? n.gapPanel : n.gap, g = l === 15 ? n.gapPanel : n.gap, _ = u === 0 ? n.gapPanel : n.gap, v = u === 15 ? n.gapPanel : n.gap, y = (1 - h - g) / 2, b = (1 - _ - v) / 2, x = Math.abs(e - a - (1 + h - g) / 2) - (y - n.corner), S = Math.abs(i - o - (1 + _ - v) / 2) - (b - n.corner), w = smooth(clamp(.5 - (require_hypot.hypot2(Math.max(x, 0), Math.max(S, 0)) + Math.min(Math.max(x, S), 0) - n.corner) / n.edgeSoft)), T = n.toneMin + (n.toneMax - n.toneMin) * f, E = r(G, K);
+					J = n.toneGround * (1 - w) + T * w + n.grainTone * (E - .5), Y = n.cellHeight * w * (n.heightBase + n.heightSwing * f), Z = 1 - n.gapOcclusion * (1 - w);
+				};
+			}
+			case `selfreferentialsequences`: {
+				let n = require_materials.proceduralMaterialPresets.selfreferentialsequences, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = i % n.levelPower.length, s = Math.floor(i / n.levelPower.length), c = n.columns, l = s * n.startStep % n.startRange, u = l + c * c, d = [];
+				if (a === 0) {
+					let e = /* @__PURE__ */ new Map(), t = 0;
+					for (let n = 0; n < u; n++) {
+						d.push(t);
+						let r = e.get(t);
+						e.set(t, n), t = r === void 0 ? 0 : n - r;
+					}
+				} else if (a === 1) for (d.push(1); d.length < u;) {
+					let e = d.length, t = 1;
+					for (let n = 1; n * (t + 1) <= e; n++) {
+						let r = 1;
+						for (; (r + 1) * n <= e;) {
+							let t = !0;
+							for (let i = 1; i <= n && t; i++) t = d[e - r * n - i] === d[e - i];
+							if (!t) break;
+							r++;
+						}
+						r > t && (t = r);
+					}
+					d.push(t);
+				}
+				else {
+					let e = [
+						0,
+						1,
+						1
+					];
+					for (let t = 3; t <= u; t++) e.push(a === 2 ? e[t - e[t - 1]] + e[t - e[t - 2]] : e[e[t - 1]] + e[t - e[t - 1]]);
+					for (let t = 1; t <= u; t++) d.push(2 * e[t] - t);
+				}
+				let f = d.slice(l, l + c * c), p = Math.min(...f), m = Math.max(...f);
+				return () => {
+					let e = fract(G) * c, i = fract(K) * c, o = Math.floor(e), s = Math.floor(i), l = ((f[s * c + o] - p) / (m - p)) ** n.levelPower[a], u = (1 - 2 * n.gap) / 2, d = Math.abs(e - o - .5) - (u - n.corner), h = Math.abs(i - s - .5) - (u - n.corner), _ = smooth(clamp(.5 - (require_hypot.hypot2(Math.max(d, 0), Math.max(h, 0)) + Math.min(Math.max(d, h), 0) - n.corner) / n.edgeSoft)), v = n.toneMin + (n.toneMax - n.toneMin) * l, y = r(G, K);
+					J = n.toneGround * (1 - _) + v * _ + n.grainTone * (y - .5), Y = n.cellHeight * _ * (n.heightBase + n.heightSwing * l), Z = 1 - n.gapOcclusion * (1 - _);
+				};
+			}
+			case `numbertriangles`: {
+				let n = require_materials.proceduralMaterialPresets.numbertriangles, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = n.moduli[i % n.moduli.length], s = Math.floor(i / n.moduli.length) % 4, c = Array.from({ length: 17 }, () => Array(17).fill(0)), l = Array(256).fill(-1), u = Array(256).fill(-1), d = Array(256).fill(-1), f = Array(256).fill(-1);
+				for (let e = 0; e <= 16; e++) {
+					c[e][0] = 1;
+					for (let t = 1; t <= e; t++) c[e][t] = c[e - 1][t - 1] + c[e - 1][t];
+				}
+				for (let e = 0; e < 16; e++) for (let t = 0; t < 16; t++) {
+					let n = e + 1;
+					if (t <= e) {
+						l[e * 16 + t] = e === 0 ? 1 : (n - t) * (t > 0 ? l[(e - 1) * 16 + t - 1] : 0) + (t + 1) * (t <= e - 1 ? l[(e - 1) * 16 + t] : 0), u[e * 16 + t] = c[n][t + 1] * c[n][t] / n;
+						let r = 1;
+						for (let e = t + 2; e <= n; e++) r *= e;
+						f[e * 16 + t] = c[e][t] * r;
+					}
+					d[e * 16 + t] = e === 0 || t === 0 ? 1 : d[(e - 1) * 16 + t] + d[e * 16 + t - 1] + d[(e - 1) * 16 + t - 1];
+				}
+				let p = [
+					l,
+					u,
+					d,
+					f
+				];
+				return () => {
+					let e = fract(G) * 32, i = fract(K) * 32, o = Math.floor(e), c = Math.floor(i), l = Math.floor(o / 16), u = Math.floor(c / 16), d = o % 16, f = c % 16, m = p[(2 * u + l + s) % 4][f * 16 + d], h = +(m >= 0), g = h ? m % a / (a - 1) : 0, _ = d === 0 ? n.gapPanel : n.gap, v = d === 15 ? n.gapPanel : n.gap, y = f === 0 ? n.gapPanel : n.gap, b = f === 15 ? n.gapPanel : n.gap, x = (1 - _ - v) / 2, S = (1 - y - b) / 2, C = Math.abs(e - o - (1 + _ - v) / 2) - (x - n.corner), w = Math.abs(i - c - (1 + y - b) / 2) - (S - n.corner), E = h * smooth(clamp(.5 - (require_hypot.hypot2(Math.max(C, 0), Math.max(w, 0)) + Math.min(Math.max(C, w), 0) - n.corner) / n.edgeSoft)), D = n.toneMin + (n.toneMax - n.toneMin) * g, O = r(G, K);
+					J = n.toneGround * (1 - E) + D * E + n.grainTone * (O - .5), Y = n.cellHeight * E * (n.heightBase + n.heightSwing * g), Z = 1 - n.gapOcclusion * (1 - E);
+				};
+			}
+			case `adjacencymatrices`: {
+				let n = require_materials.proceduralMaterialPresets.adjacencymatrices, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = i % 4, s = Math.floor(i / 4), weight = (e) => {
+					let t = 0;
+					for (let n = e; n; n &= n - 1) t++;
+					return t;
+				}, c = [
+					(e, t) => weight(e ^ t) === 1 || (e ^ t) === 15,
+					(e, t) => e >> 2 == t >> 2 != ((e & 3) == (t & 3)),
+					(e, t) => {
+						let n = ((e >> 2) - (t >> 2) + 4) % 4, r = ((e & 3) - (t & 3) + 4) % 4;
+						return n === 0 && r % 2 == 1 || r === 0 && n % 2 == 1 || n === r && n % 2 == 1;
+					},
+					(e, t) => weight(e ^ t) === 1
+				], l = [
+					0,
+					1,
+					2,
+					3
+				].map((e) => Array.from({ length: 16 }, (e, t) => t).sort((t, r) => s === 0 ? t - r : hash(t, 40 + e, s ^ n.seedSalt) - hash(r, 40 + e, s ^ n.seedSalt)));
+				return () => {
+					let e = fract(G) * 32, i = fract(K) * 32, o = Math.floor(e), s = Math.floor(i), u = Math.floor(o / 16), d = Math.floor(s / 16), f = o % 16, p = s % 16, m = 2 * d + u, h = +!!c[(m + a) % 4](l[m][p], l[m][f]), g = f === 0 ? n.gapPanel : n.gap, _ = f === 15 ? n.gapPanel : n.gap, v = p === 0 ? n.gapPanel : n.gap, y = p === 15 ? n.gapPanel : n.gap, b = (1 - g - _) / 2, x = (1 - v - y) / 2, S = Math.abs(e - o - (1 + g - _) / 2) - (b - n.corner), C = Math.abs(i - s - (1 + v - y) / 2) - (x - n.corner), T = smooth(clamp(.5 - (require_hypot.hypot2(Math.max(S, 0), Math.max(C, 0)) + Math.min(Math.max(S, C), 0) - n.corner) / n.edgeSoft)), E = n.toneMin + (n.toneMax - n.toneMin) * h, D = r(G, K);
+					J = n.toneGround * (1 - T) + E * T + n.grainTone * (D - .5), Y = n.cellHeight * T * (n.heightBase + n.heightSwing * h), Z = 1 - n.gapOcclusion * (1 - T);
+				};
+			}
+			case `busybeavers`: {
+				let n = require_materials.proceduralMaterialPresets.busybeavers, r = cachedNoise(n.grainCells, n.grainCells, o ^ n.seedSalt), i = o >>> 0, a = i % 4, s = Math.floor(i / 4), c = s % 2 == 1, l = Math.floor(s / 2) * 5 % 9 - 4, u = 1024, panelOf = (e) => {
+					let t = n.machines[e].split(`_`).map((e) => [0, 1].map((t) => {
+						let n = e.slice(3 * t, 3 * t + 3);
+						return [
+							Number(n[0]),
+							(n[1] === `R` ? 1 : -1) * (c ? -1 : 1),
+							n[2] === `H` ? -1 : n.charCodeAt(2) - 65
+						];
+					})), r = n.strides[e], i = new Uint8Array(2 * u), a = /* @__PURE__ */ new Uint8Array(1024), o = u, s = 0;
+					for (let e = 0; e <= 31 * r; e++) {
+						if (e % r === 0) for (let t = 0; t < 32; t++) {
+							let n = ((t - l) % 32 + 32) % 32 - 16, s = u + n;
+							a[e / r * 32 + t] = i[s] + (s === o ? 2 : 0);
+						}
+						if (s >= 0) {
+							let [e, n, r] = t[s][i[o]];
+							i[o] = e, o += n, s = r;
+						}
+					}
+					return a;
+				}, d = n.machines.map((e, t) => panelOf(t));
+				return () => {
+					let e = fract(G) * 64, i = fract(K) * 64, o = Math.floor(e), s = Math.floor(i), c = Math.floor(o / 32), l = Math.floor(s / 32), u = o % 32, f = s % 32, p = d[(2 * l + c + a) % 4][f * 32 + u] / 3, m = u === 0 ? n.gapPanel : n.gap, h = u === 31 ? n.gapPanel : n.gap, g = f === 0 ? n.gapPanel : n.gap, _ = f === 31 ? n.gapPanel : n.gap, v = (1 - m - h) / 2, y = (1 - g - _) / 2, b = Math.abs(e - o - (1 + m - h) / 2) - (v - n.corner), x = Math.abs(i - s - (1 + g - _) / 2) - (y - n.corner), C = smooth(clamp(.5 - (require_hypot.hypot2(Math.max(b, 0), Math.max(x, 0)) + Math.min(Math.max(b, x), 0) - n.corner) / n.edgeSoft)), w = n.toneMin + (n.toneMax - n.toneMin) * p, T = r(G, K);
+					J = n.toneGround * (1 - C) + w * C + n.grainTone * (T - .5), Y = n.cellHeight * C * (n.heightBase + n.heightSwing * p), Z = 1 - n.gapOcclusion * (1 - C);
+				};
+			}
 			case `totienttable`: {
 				let t = require_materials.proceduralMaterialPresets.totienttable, n = cachedNoise(t.grainCells, t.grainCells, o ^ t.seedSalt), r = 1 / t.kernelHalf, i = 1 / t.edgeSoft, a = Math.floor(hash(0, 0, o ^ t.seedSalt) * t.cells), s = Math.floor(hash(1, 0, o ^ t.seedSalt) * t.cells), c = t.cells * t.cells, l = new Int32Array(c + 1), u = new Float64Array(c);
 				for (let e = 0; e <= c; e++) l[e] = e;
@@ -17746,7 +18282,7 @@ function createSurfaceSampler(i, o) {
 			};
 		}
 		throw Error(`Procedural material ${i} has no sampler case in createSurfaceSampler.`);
-	}, un = pick(), dn = !((e) => ot || e === `flutedwood` || e === `subwaytiles` || e === `canewebbing` || e === `rammedearth` || e === `copperpatina` || e === `birdseyemaple` || e === `breezeblock` || e === `basketweavepavers` || e === `ripstop` || e === `octagondot` || e === `truchettiles` || e === `standingseam` || e === `damascus` || e === `windmillpavers` || e === `castiron` || e === `porphyry` || e === `linen` || e === `chippedenamel` || e === `perforatedleather` || e === `pigskinleather` || e === `argyle` || e === `chevronparquet` || e === `ginkgoleaf` || e === `pressedtin` || e === `sashiko` || e === `ashlar` || e === `gabion` || e === `gingham` || e === `mossypavers` || e === `bamboocrosscut` || e === `moire` || e === `oakleaf` || e === `rhombille` || e === `fossillimestone` || e === `seigaihatiles` || e === `tuftedleather` || e === `louveredmetal` || e === `herringbonebrick` || e === `shibori` || e === `scallopedslate` || e === `saltpan` || e === `dogbonepavers` || e === `palmendgrain` || e === `asanoha` || e === `lotusseedpod` || e === `crowncaps` || e === `cofferedconcrete` || e === `woodworm` || e === `calcadawaves` || e === `ikat` || e === `slottedwood` || e === `hollyleaf` || e === `englishbond` || e === `rebar` || e === `starfruit` || e === `diamondrustication` || e === `bargello` || e === `saffiano` || e === `cocoamat` || e === `suminagashi` || e === `vermiculite` || e === `cairotiles` || e === `guilloche` || e === `seaurchintest` || e === `crystallineglaze` || e === `shirring` || e === `sunburstveneer` || e === `rakedgravel` || e === `flintwall` || e === `frenchknots` || e === `artichoke` || e === `splitlockwashers` || e === `flemishbond` || e === `satinweave` || e === `lotusroot` || e === `cardboardedge` || e === `hexnuts` || e === `capnuts` || e === `flangenuts` || e === `orbicularjasper` || e === `acornbarnacles` || e === `circularpavers` || e === `snowflaketiles` || e === `sawblades` || e === `pistachios` || e === `polkadotfabric` || e === `cucumberslices` || e === `monsteraleaf` || e === `crossstitch` || e === `staranise` || e === `logcabinparquet` || e === `countersunkmetal` || e === `trilobitefossil` || e === `eyeletcotton` || e === `dendriticagate` || e === `ravioli` || e === `rollerchain` || e === `mapleleaf` || e === `smocking` || e === `quatrefoiltile` || e === `okraslice` || e === `eggcarton` || e === `greekkey` || e === `seedbeads` || e === `chainstitch` || e === `wingnuts` || e === `pomegranateslice` || e === `pawprinttiles` || e === `dovetailjoint` || e === `starsocketbolts` || e === `sanddollar` || e === `brogueleather` || e === `clovebuds` || e === `starcrosstiles` || e === `maplesamara` || e === `lenoweave` || e === `circlips` || e === `eclips` || e === `tuliptiles` || e === `gingerslice` || e === `fivebarplate` || e === `cinnamonswirl` || e === `wheatears` || e === `scalemail` || e === `trihexagonaltiles` || e === `burlwood` || e === `slottedmetal` || e === `peppercorns` || e === `castellatednuts` || e === `farfalle` || e === `cardamompods` || e === `brickarches` || e === `knottednet` || e === `fiddleheads` || e === `cowrieshells` || e === `cotterpins` || e === `seedstitch` || e === `garterstitch` || e === `mangosteenslice` || e === `pickettiles` || e === `squarewashers` || e === `eucalyptusleaf` || e === `twillweave` || e === `pinstripewool` || e === `chrysanthemumstone` || e === `snowflakeobsidian` || e === `sewingsnaps` || e === `lathplaster` || e === `ceramiccapacitors` || e === `fennelseeds` || e === `rj45femalefaces` || e === `rcafemalefaces` || e === `f05opticalfaces` || e === `minidin4femalefaces` || e === `dcbarreljackfaces` || e === `stfiberadapterfaces` || e === `to92packagefaces` || e === `to220packagefaces` || e === `ftypefemalefaces` || e === `usbcfemalefaces` || e === `iecc6inlets` || e === `iecc8inlets` || e === `din5femalefaces` || e === `xlrfemalefaces` || e === `bncfemalefaces` || e === `iecc14inlets` || e === `dsubsocketfaces` || e === `topadjusttrimmers` || e === `crownprobetips` || e === `piezodiaphragms` || e === `castellatedboards` || e === `qfnlandpads` || e === `bgasolderballs` || e === `ballbearingfaces` || e === `baseballleather` || e === `toothbrushheads` || e === `bowtieinlay` || e === `redcabbagecut` || e === `slottedturners` || e === `triglidesliders` || e === `popcorn` || e === `dualinlinechips` || e === `tortoiseshellacetate` || e === `cathedralquilt` || e === `matelasse` || e === `silknoil` || e === `buckwheathulls` || e === `rutilatedquartz` || e === `peppermintcanes` || e === `rubbergrommets` || e === `chioggiabeetcuts` || e === `flatflexcables` || e === `celerycuts` || e === `tactileswitches` || e === `paisleybrocade` || e === `siliconepastrybrushes` || e === `graphicgranite` || e === `brasspadlocks` || e === `carrotcuts` || e === `bluepushpins` || e === `oatflakes` || e === `grosgrainribbons` || e === `azuritemalachite` || e === `openendspanners` || e === `lentilseeds` || e === `blueprintpaper` || e === `horsechestnutleaf` || e === `binderclips` || e === `charoite` || e === `chenilleyarn` || e === `ceramicfuses` || e === `hazelnutshells` || e === `yagasuricloth` || e === `balloonwhisks` || e === `orthocerasstone` || e === `rickracktrim` || e === `toroidalinductors` || e === `pennerigate` || e === `lepidolitemica` || e === `brassjinglebells` || e === `nutmeghalves` || e === `coaxialcablecuts` || e === `shippocloth` || e === `driedtamarindpods` || e === `conicalsampletubes` || e === `botryoidalcopper` || e === `pencilshavings` || e === `papayacuts` || e === `sewingthimbles` || e === `boullebrassinlay` || e === `diamondpanelparquet` || e === `dendriticfrost` || e === `bullionknots` || e === `orecchiette` || e === `solderlessbreadboard` || e === `kyaniteblades` || e === `wulfenite` || e === `staurolite` || e === `papertape` || e === `ulamspiral` || e === `sevensegment` || e === `perfectmaze` || e === `rule30` || e === `embossedbraille` || e === `ean13label` || e === `soroban` || e === `deltoidaltrihexagonaltiles` || e === `snubtrihexagonaltiles` || e === `floretpentagonaltiles` || e === `prismaticpentagonaltiles` || e === `apollonianmosaic` || e === `ichinghexagrams` || e === `pythagorastree` || e === `pentominotiles` || e === `langtonsant` || e === `vogelspiral` || e === `gosperinlay` || e === `pallasite` || e === `cuttlebone` || e === `watermelontourmaline` || e === `leafstomata` || e === `chitonshells` || e === `radiolariandiscs` || e === `diatomvalves` || e === `moorecurve` || e === `sierpinskicarpet` || e === `chladnifigure` || e === `kisrhombilletiles` || e === `truncatedtrihexagonaltiles` || e === `elongatedtriangulartiles` || e === `rhombitrihexagonaltiles` || e === `snubsquaretiles` || e === `starfish` || e === `fishscaleshingles` || e === `waffleweave` || e === `halite` || e === `calcite` || e === `azurite` || e === `celestine` || e === `barite` || e === `dowelpins` || e === `clevispins` || e === `gibheadkeys` || e === `woodruffkeys` || e === `parallelkeys` || e === `internaltoothwashers` || e === `driedchillies` || e === `utilityknifeblades` || e === `windmillparquet` || e === `bismuthhoppers` || e === `splitvanillapods` || e === `seamrippers` || e === `flakedarrowheads` || e === `dandelionseeds` || e === `shojipaperlattice` || e === `nyloncableties` || e === `weavingshuttles` || e === `tailorstapes` || e === `woodenclothespins` || e === `cinnamonbarkcoils` || e === `compactcassettefaces` || e === `kintsugiceramic` || e === `pleatedfilterpapers` || e === `splitcedarshakes` || e === `swavepavers` || e === `mushroomslices` || e === `insulatedringlugs` || e === `bananaslices` || e === `rosemarysprigs` || e === `pencilsharpeners` || e === `scissors` || e === `serpentinesprings` || e === `impellerfaces` || e === `chipresistors` || e === `memorycardbacks` || e === `gnocchi` || e === `rectangularsocketfaces` || e === `saffronthreads` || e === `fishhooks` || e === `violinfholes` || e === `palmiers` || e === `barbedwire` || e === `oxfordweave` || e === `lacewood` || e === `papyrus` || e === `larimar` || e === `paperbark` || e === `horseshoes` || e === `durianpeel` || e === `flystitch` || e === `abaloneshells` || e === `gyroidinfill` || e === `cloisonne` || e === `rambutanskin` || e === `rackgears` || e === `grosgrain` || e === `faille` || e === `bedfordcord` || e === `poplin` || e === `whipcord` || e === `gabardine` || e === `oilspotglaze` || e === `persimmonslice` || e === `kitkattiles` || e === `brakediscs` || e === `mulberrypaper` || e === `howlite` || e === `sodalite` || e === `ottoman` || e === `shackles` || e === `watercaltrops` || e === `fluorite` || e === `vanadinite` || e === `pyromorphite` || e === `redberyl` || e === `cavansite` || e === `wenge` || e === `parchment` || e === `cavalrytwill` || e === `screwhooks` || e === `nigellaseeds` || e === `phyllite` || e === `shantung` || e === `hempcrete` || e === `utilityblades` || e === `chrysocolla` || e === `hemimorphite` || e === `smithsonite` || e === `sichuanpepperhusks` || e === `huckaback` || e === `anorthosite` || e === `cubebberries` || e === `seraphinite` || e === `hexsocketheads` || e === `squaresocketheads` || e === `trianglesocketheads` || e === `twopinscrewheads` || e === `amazonite` || e === `mungbeans` || e === `blackeyedpeas` || e === `adzukibeans` || e === `anigre` || e === `makore` || e === `larvikite` || e === `squareholewashers` || e === `tigerwood` || e === `blackpalm` || e === `snakewood` || e === `safflowerseeds` || e === `thulite` || e === `unakite` || e === `eudialyte` || e === `lignumvitae` || e === `iroko` || e === `purpleheart` || e === `yellowheart` || e === `bloodwood` || e === `blackwalnut` || e === `douglasfir` || e === `longleafpine` || e === `chesterfieldleather` || e === `westernredcedar` || e === `perforatedhardboard` || e === `qrcodelabel` || e === `laptopkeycaps` || e === `golfballdimples` || e === `blackcherry` || e === `teak` || e === `honduranmahogany` || e === `shagbarkhickory` || e === `eastindianrosewood` || e === `topographicmap` || e === `barcodelabel` || e === `ledmatrix` || e === `tapemeasure` || e === `metalflakepaint` || e === `poolcaustics` || e === `europeanolive` || e === `gamedice` || e === `raindropripples` || e === `coirdoormat` || e === `citruspeel` || e === `pumpkinskin` || e === `pomegranatearils` || e === `cauliflowercurd` || e === `amberbubbles` || e === `bubinga` || e === `jarrah` || e === `buffaloplaid` || e === `sheetmusic` || e === `crosshatchengraving` || e === `merbau` || e === `windowpane` || e === `crosswordgrid` || e === `sweetcorn` || e === `baconstrips` || e === `salami` || e === `raspberry` || e === `granola` || e === `kawung` || e === `pancake` || e === `garlicskin` || e === `jerky` || e === `heatsinkfins` || e === `tilledsoil` || e === `sherpafleece` || e === `redalder` || e === `ecgpaper` || e === `barchart` || e === `spectrogram` || e === `jade` || e === `cheetahfur` || e === `turingmaze` || e === `petricolonies` || e === `hestain` || e === `mackerel` || e === `fairisle` || e === `invaders` || e === `pizza` || e === `morse` || e === `couscous` || e === `datamatrix` || e === `sudoku` || e === `quasicrystal` || e === `hilbertcurve` || e === `gameoflife` || e === `elementaryautomata` || e === `modulartable` || e === `pascalmod3` || e === `collatzsteps` || e === `gcdtable` || e === `primesieve` || e === `lissajoustable` || e === `rhodoneatable` || e === `spirographtable` || e === `mandelbrottiles` || e === `juliatiles` || e === `dragoncurve` || e === `divisorcount` || e === `radicaltable` || e === `goldbachtable` || e === `totienttable` || e === `peanocurve` || e === `sacksspiral` || e === `tulle` || e === `levycurve` || e === `hadamardmatrix` || e === `paleytable` || e === `xortable` || e === `abundantnumbers` || e === `mobiustable` || e === `pisanotable` || e === `minkowskisausage` || e === `squarekoch` || e === `vicsekfractal` || e === `tsquarefractal` || e === `cantordust` || e === `voronoicells` || e === `voronoipillows` || e === `voronoifacets` || e === `percolationclusters` || e === `isingdomains` || e === `cyclicwaves` || e === `aggregationfrost` || e === `hammingtable` || e === `fordcircles` || e === `gaussianprimes` || e === `chromaticant` || e === `rule110` || e === `zernikemodes` || e === `supershapes` || e === `hermitemodes` || e === `walshmatrix` || e === `zeckendorftable` || e === `fibonacciword` || e === `paperfolding` || e === `rudinshapiro` || e === `graecolatin` || e === `thuemorse` || e === `chessqueens` || e === `cassiniovals` || e === `sterndiatomic` || e === `kolakoski` || e === `baumsweet` || e === `bayerdither` || e === `wangtiles` || e === `poissondisk` || e === `graycode` || e === `zoneplate` || e === `kaleidoscope` || e === `recamanarcs` || e === `phasevortices` || e === `euclidsteps` || e === `happynumbers` || e === `stringart` || e === `moirefringes` || e === `diamondsquare` || e === `golombruns` || e === `wythoffnim` || e === `nimproduct` || e === `partitionmod5` || e === `stirlingparity` || e === `josephus` || e === `schelling` || e === `gabrielgraph` || e === `euclideanmst` || e === `relativeneighborhood` || e === `sortingnetwork` || e === `cayleytable` || e === `paleyhadamard` || e === `hamiltoncycle` || e === `daynight` || e === `knightstour` || e === `fareygraph` || e === `hypercube` || e === `kaprekar` || e === `perfectarray` || e === `delaunay` || e === `harmonograph` || e === `lorenzattractor` || e === `ellipsebilliard` || e === `lsystemplants` || e === `pursuitpolygons` || e === `poincaretiling` || e === `sphericaltiling` || e === `poincaretriangles` || e === `sphericaltriangles` || e === `fareydisc` || e === `conformalspiral` || e === `steinerchain` || e === `confocalconics` || e === `eisensteinprimes` || e === `reuleauxfield` || e === `powerdiagram` || e === `polygonoffsets` || e === `zordercurve` || e === `logisticbifurcation` || e === `catenaryfestoons` || e === `cornuspirals` || e === `htree` || e === `mapattractors` || e === `wallpapergroups` || e === `sphericalharmonics` || e === `cylinderflow` || e === `fieldlines` || e === `twosourcewaves` || e === `fourierseries` || e === `escapefractals` || e === `zerovelocitycurves` || e === `keplerorbits` || e === `errordiffusion` || e === `diffractionpatterns` || e === `mapprojections` || e === `brillouinzones` || e === `powderdiffraction` || e === `arnoldtongues` || e === `kelvinwake` || e === `jacobielliptic` || e === `hofstadterbutterfly` || e === `raindropoptics` || e === `machcone` || e === `hydrogenorbitals` || e === `vortexstreet` || e === `newtonfractal` || e === `talbotcarpet` || e === `diffractioncatastrophes` || e === `standardmap` || e === `lyapunovfractal` || e === `zetalandscape` || e === `fresneldiffraction` || e === `islamicstars` || e === `gerstnerocean` || e === `opticalillusions` || e === `lineillusions` || e === `contrastillusions` || e === `randomdotstereogram` || e === `sizeillusions` || e === `excitableautomata` || e === `wireworldcircuits` || e === `celticinterlace` || e === `trominotiling` || e === `magicsquares` || e === `costasambiguity` || e === `projectiveplane` || e === `dyckpaths` || e === `youngdiagrams` || e === `necklaces` || e === `spanningtrees` || e === `polyominoes` || e === `selfavoidingwalks` || e === `permutations` || e === `lozengetilings` || e === `polygondissections` || e === `standardtableaux` || e === `graphatlas` || e === `rootedtrees` || e === `dominoboards` || e === `latinsquares` || e === `booleanfunctions` || e === `setpartitions` || e === `compositions` || e === `polyhexes` || e === `polysticks` || e === `alternatingsignmatrices` || e === `stilllifes` || e === `chorddiagrams` || e === `gridsplits` || e === `hamiltonpaths` || e === `lowdiscrepancy` || e === `kneser` || e === `debruijntorus` || e === `mondrianpartitions` || e === `langfordpairings` || e === `golombrulers` || e === `sortingtraces` || e === `editdistance` || e === `euclideanrhythms` || e === `hanoistates` || e === `transformbasis` || e === `diophantinegrid` || e === `beattysequences` || e === `minesweeperboards` || e === `finitefieldtables` || e === `dominotiling` || e === `sandpileidentity` || e === `multiplicativeorder` || e === `vermiculation` || e === `kikko` || e === `kagome` || e === `penrosetiling` || e === `penrosestar` || e === `ammannbeenker` || e === `heptagridtiling` || e === `dodecagridtiling` || e === `penrosefilled` || e === `ammannfilled` || e === `heptagridfilled` || e === `dodecagridfilled` || e === `europeanyew` || e === `europeanlarch` || e === `lenticularsheet` || e === `sitkaspruce` || e === `monitorlizardskin` || e === `kilimdiamonds` || e === `popcornceiling` || e === `forgedcarbon` || e === `woodenpalletdeck` || e === `thomsonite` || e === `dalmatianstone` || e === `basswood` || e === `nickelsilver` || e === `hopsack` || e === `monkscloth` || e === `lyocell` || e === `sateen` || e === `surah` || e === `serge` || e === `habotai` || e === `batiste` || e === `ramie` || e === `tabwashers` || e === `sphericalwashers` || e === `wavewashers` || e === `cupwashers` || e === `pietersite` || e === `bronzite` || e === `castorbeans` || e === `europeanbeech` || e === `whiteoak` || e === `whiteash` || e === `kingwood` || e === `braziliantulipwood` || e === `macassarebony` || e === `zebrawood` || e === `bocote` || e === `datepits` || e === `sapele` || e === `chambray` || e === `ticking` || e === `cottondrill` || e === `nephrite` || e === `diorite` || e === `carawayseeds` || e === `springpinends` || e === `rhyolite` || e === `tonkabeans` || e === `pentalobescrewheads` || e === `tripointscrewheads` || e === `padauk` || e === `cottonflannel` || e === `pinolith` || e === `septarian` || e === `ooliticlimestone` || e === `ogeetiles` || e === `bittermelonskin` || e === `cocobolo` || e === `doubleedgerazorblades` || e === `chiastolite` || e === `dimity` || e === `juniperberries` || e === `gabbro` || e === `turnbuckles` || e === `rhodochrosite` || e === `bluelaceagate` || e === `bayleaf` || e === `pumpkinseeds` || e === `spurgears` || e === `diamondcheckertiles` || e === `appleslice` || e === `paperclips` || e === `rclips` || e === `linchpins` || e === `ivyleaf` || e === `ribknit` || e === `pillowtiles` || e === `coffeerings` || e === `cashews` || e === `hinges` || e === `coins` || e === `righttriangletiles` || e === `cherryblossom` || e === `punchcard` || e === `braidedcord` || e === `crossbeddedsandstone` || e === `grommetcanvas` || e === `fishscaletiles` || e === `hexkeys` || e === `driedfigslice` || e === `creamcrackers` || e === `doorkeys` || e === `dodecagontiles` || e === `ballchain` || e === `succulentrosettes` || e === `foldingfans` || e === `togglebuttons` || e === `greenpeapods` || e === `beltbuckles` || e === `hextruchettiles` || e === `scoredmango` || e === `waxseals` || e === `cottonbolls` || e === `carabiners` || e === `pencilends` || e === `corrugatedplasticedge` || e === `haircombs` || e === `blackberries` || e === `musselshells` || e === `safetypins` || e === `poppyseedpods` || e === `leatherbookspines` || e === `matchsticks` || e === `porcelaininsulators` || e === `dominoes` || e === `woodenspoons` || e === `chessrooks` || e === `threadspools` || e === `bellpepperslices` || e === `sharkteeth` || e === `grinderburrs` || e === `spaltedwood` || e === `canlids` || e === `crinoidossicles` || e === `pythagoreantiles` || e === `dinnerforks` || e === `mudtiretracks` || e === `tangramtiles` || e === `batterypositivecaps` || e === `passionfruitslice` || e === `screwterminalblocks` || e === `dragonfruitflesh` || e === `speakercones` || e === `septarianstone` || e === `axialresistors` || e === `tomatoslices` || dt || mt || yt || Ct || kt || Pt || Rt || Ht || le || Jt || Qt || ie || te || N || O || f || m || g)(i), fn = o ^ 2747636419, pn = o ^ 2135587861;
+	}, un = pick(), dn = !((e) => ot || e === `flutedwood` || e === `subwaytiles` || e === `canewebbing` || e === `rammedearth` || e === `copperpatina` || e === `birdseyemaple` || e === `breezeblock` || e === `basketweavepavers` || e === `ripstop` || e === `octagondot` || e === `truchettiles` || e === `standingseam` || e === `damascus` || e === `windmillpavers` || e === `castiron` || e === `porphyry` || e === `linen` || e === `chippedenamel` || e === `perforatedleather` || e === `pigskinleather` || e === `argyle` || e === `chevronparquet` || e === `ginkgoleaf` || e === `pressedtin` || e === `sashiko` || e === `ashlar` || e === `gabion` || e === `gingham` || e === `mossypavers` || e === `bamboocrosscut` || e === `moire` || e === `oakleaf` || e === `rhombille` || e === `fossillimestone` || e === `seigaihatiles` || e === `tuftedleather` || e === `louveredmetal` || e === `herringbonebrick` || e === `shibori` || e === `scallopedslate` || e === `saltpan` || e === `dogbonepavers` || e === `palmendgrain` || e === `asanoha` || e === `lotusseedpod` || e === `crowncaps` || e === `cofferedconcrete` || e === `woodworm` || e === `calcadawaves` || e === `ikat` || e === `slottedwood` || e === `hollyleaf` || e === `englishbond` || e === `rebar` || e === `starfruit` || e === `diamondrustication` || e === `bargello` || e === `saffiano` || e === `cocoamat` || e === `suminagashi` || e === `vermiculite` || e === `cairotiles` || e === `guilloche` || e === `seaurchintest` || e === `crystallineglaze` || e === `shirring` || e === `sunburstveneer` || e === `rakedgravel` || e === `flintwall` || e === `frenchknots` || e === `artichoke` || e === `splitlockwashers` || e === `flemishbond` || e === `satinweave` || e === `lotusroot` || e === `cardboardedge` || e === `hexnuts` || e === `capnuts` || e === `flangenuts` || e === `orbicularjasper` || e === `acornbarnacles` || e === `circularpavers` || e === `snowflaketiles` || e === `sawblades` || e === `pistachios` || e === `polkadotfabric` || e === `cucumberslices` || e === `monsteraleaf` || e === `crossstitch` || e === `staranise` || e === `logcabinparquet` || e === `countersunkmetal` || e === `trilobitefossil` || e === `eyeletcotton` || e === `dendriticagate` || e === `ravioli` || e === `rollerchain` || e === `mapleleaf` || e === `smocking` || e === `quatrefoiltile` || e === `okraslice` || e === `eggcarton` || e === `greekkey` || e === `seedbeads` || e === `chainstitch` || e === `wingnuts` || e === `pomegranateslice` || e === `pawprinttiles` || e === `dovetailjoint` || e === `starsocketbolts` || e === `sanddollar` || e === `brogueleather` || e === `clovebuds` || e === `starcrosstiles` || e === `maplesamara` || e === `lenoweave` || e === `circlips` || e === `eclips` || e === `tuliptiles` || e === `gingerslice` || e === `fivebarplate` || e === `cinnamonswirl` || e === `wheatears` || e === `scalemail` || e === `trihexagonaltiles` || e === `burlwood` || e === `slottedmetal` || e === `peppercorns` || e === `castellatednuts` || e === `farfalle` || e === `cardamompods` || e === `brickarches` || e === `knottednet` || e === `fiddleheads` || e === `cowrieshells` || e === `cotterpins` || e === `seedstitch` || e === `garterstitch` || e === `mangosteenslice` || e === `pickettiles` || e === `squarewashers` || e === `eucalyptusleaf` || e === `twillweave` || e === `pinstripewool` || e === `chrysanthemumstone` || e === `snowflakeobsidian` || e === `sewingsnaps` || e === `lathplaster` || e === `ceramiccapacitors` || e === `fennelseeds` || e === `rj45femalefaces` || e === `rcafemalefaces` || e === `f05opticalfaces` || e === `minidin4femalefaces` || e === `dcbarreljackfaces` || e === `stfiberadapterfaces` || e === `to92packagefaces` || e === `to220packagefaces` || e === `ftypefemalefaces` || e === `usbcfemalefaces` || e === `iecc6inlets` || e === `iecc8inlets` || e === `din5femalefaces` || e === `xlrfemalefaces` || e === `bncfemalefaces` || e === `iecc14inlets` || e === `dsubsocketfaces` || e === `topadjusttrimmers` || e === `crownprobetips` || e === `piezodiaphragms` || e === `castellatedboards` || e === `qfnlandpads` || e === `bgasolderballs` || e === `ballbearingfaces` || e === `baseballleather` || e === `toothbrushheads` || e === `bowtieinlay` || e === `redcabbagecut` || e === `slottedturners` || e === `triglidesliders` || e === `popcorn` || e === `dualinlinechips` || e === `tortoiseshellacetate` || e === `cathedralquilt` || e === `matelasse` || e === `silknoil` || e === `buckwheathulls` || e === `rutilatedquartz` || e === `peppermintcanes` || e === `rubbergrommets` || e === `chioggiabeetcuts` || e === `flatflexcables` || e === `celerycuts` || e === `tactileswitches` || e === `paisleybrocade` || e === `siliconepastrybrushes` || e === `graphicgranite` || e === `brasspadlocks` || e === `carrotcuts` || e === `bluepushpins` || e === `oatflakes` || e === `grosgrainribbons` || e === `azuritemalachite` || e === `openendspanners` || e === `lentilseeds` || e === `blueprintpaper` || e === `horsechestnutleaf` || e === `binderclips` || e === `charoite` || e === `chenilleyarn` || e === `ceramicfuses` || e === `hazelnutshells` || e === `yagasuricloth` || e === `balloonwhisks` || e === `orthocerasstone` || e === `rickracktrim` || e === `toroidalinductors` || e === `pennerigate` || e === `lepidolitemica` || e === `brassjinglebells` || e === `nutmeghalves` || e === `coaxialcablecuts` || e === `shippocloth` || e === `driedtamarindpods` || e === `conicalsampletubes` || e === `botryoidalcopper` || e === `pencilshavings` || e === `papayacuts` || e === `sewingthimbles` || e === `boullebrassinlay` || e === `diamondpanelparquet` || e === `dendriticfrost` || e === `bullionknots` || e === `orecchiette` || e === `solderlessbreadboard` || e === `kyaniteblades` || e === `wulfenite` || e === `staurolite` || e === `papertape` || e === `ulamspiral` || e === `sevensegment` || e === `perfectmaze` || e === `rule30` || e === `embossedbraille` || e === `ean13label` || e === `soroban` || e === `deltoidaltrihexagonaltiles` || e === `snubtrihexagonaltiles` || e === `floretpentagonaltiles` || e === `prismaticpentagonaltiles` || e === `apollonianmosaic` || e === `ichinghexagrams` || e === `pythagorastree` || e === `pentominotiles` || e === `langtonsant` || e === `vogelspiral` || e === `gosperinlay` || e === `pallasite` || e === `cuttlebone` || e === `watermelontourmaline` || e === `leafstomata` || e === `chitonshells` || e === `radiolariandiscs` || e === `diatomvalves` || e === `moorecurve` || e === `sierpinskicarpet` || e === `chladnifigure` || e === `kisrhombilletiles` || e === `truncatedtrihexagonaltiles` || e === `elongatedtriangulartiles` || e === `rhombitrihexagonaltiles` || e === `snubsquaretiles` || e === `starfish` || e === `fishscaleshingles` || e === `waffleweave` || e === `halite` || e === `calcite` || e === `azurite` || e === `celestine` || e === `barite` || e === `dowelpins` || e === `clevispins` || e === `gibheadkeys` || e === `woodruffkeys` || e === `parallelkeys` || e === `internaltoothwashers` || e === `driedchillies` || e === `utilityknifeblades` || e === `windmillparquet` || e === `bismuthhoppers` || e === `splitvanillapods` || e === `seamrippers` || e === `flakedarrowheads` || e === `dandelionseeds` || e === `shojipaperlattice` || e === `nyloncableties` || e === `weavingshuttles` || e === `tailorstapes` || e === `woodenclothespins` || e === `cinnamonbarkcoils` || e === `compactcassettefaces` || e === `kintsugiceramic` || e === `pleatedfilterpapers` || e === `splitcedarshakes` || e === `swavepavers` || e === `mushroomslices` || e === `insulatedringlugs` || e === `bananaslices` || e === `rosemarysprigs` || e === `pencilsharpeners` || e === `scissors` || e === `serpentinesprings` || e === `impellerfaces` || e === `chipresistors` || e === `memorycardbacks` || e === `gnocchi` || e === `rectangularsocketfaces` || e === `saffronthreads` || e === `fishhooks` || e === `violinfholes` || e === `palmiers` || e === `barbedwire` || e === `oxfordweave` || e === `lacewood` || e === `papyrus` || e === `larimar` || e === `paperbark` || e === `horseshoes` || e === `durianpeel` || e === `flystitch` || e === `abaloneshells` || e === `gyroidinfill` || e === `cloisonne` || e === `rambutanskin` || e === `rackgears` || e === `grosgrain` || e === `faille` || e === `bedfordcord` || e === `poplin` || e === `whipcord` || e === `gabardine` || e === `oilspotglaze` || e === `persimmonslice` || e === `kitkattiles` || e === `brakediscs` || e === `mulberrypaper` || e === `howlite` || e === `sodalite` || e === `ottoman` || e === `shackles` || e === `watercaltrops` || e === `fluorite` || e === `vanadinite` || e === `pyromorphite` || e === `redberyl` || e === `cavansite` || e === `wenge` || e === `parchment` || e === `cavalrytwill` || e === `screwhooks` || e === `nigellaseeds` || e === `phyllite` || e === `shantung` || e === `hempcrete` || e === `utilityblades` || e === `chrysocolla` || e === `hemimorphite` || e === `smithsonite` || e === `sichuanpepperhusks` || e === `huckaback` || e === `anorthosite` || e === `cubebberries` || e === `seraphinite` || e === `hexsocketheads` || e === `squaresocketheads` || e === `trianglesocketheads` || e === `twopinscrewheads` || e === `amazonite` || e === `mungbeans` || e === `blackeyedpeas` || e === `adzukibeans` || e === `anigre` || e === `makore` || e === `larvikite` || e === `squareholewashers` || e === `tigerwood` || e === `blackpalm` || e === `snakewood` || e === `safflowerseeds` || e === `thulite` || e === `unakite` || e === `eudialyte` || e === `lignumvitae` || e === `iroko` || e === `purpleheart` || e === `yellowheart` || e === `bloodwood` || e === `blackwalnut` || e === `douglasfir` || e === `longleafpine` || e === `chesterfieldleather` || e === `westernredcedar` || e === `perforatedhardboard` || e === `qrcodelabel` || e === `laptopkeycaps` || e === `golfballdimples` || e === `blackcherry` || e === `teak` || e === `honduranmahogany` || e === `shagbarkhickory` || e === `eastindianrosewood` || e === `topographicmap` || e === `barcodelabel` || e === `ledmatrix` || e === `tapemeasure` || e === `metalflakepaint` || e === `poolcaustics` || e === `europeanolive` || e === `gamedice` || e === `raindropripples` || e === `coirdoormat` || e === `citruspeel` || e === `pumpkinskin` || e === `pomegranatearils` || e === `cauliflowercurd` || e === `amberbubbles` || e === `bubinga` || e === `jarrah` || e === `buffaloplaid` || e === `sheetmusic` || e === `crosshatchengraving` || e === `merbau` || e === `windowpane` || e === `crosswordgrid` || e === `sweetcorn` || e === `baconstrips` || e === `salami` || e === `raspberry` || e === `granola` || e === `kawung` || e === `pancake` || e === `garlicskin` || e === `jerky` || e === `heatsinkfins` || e === `tilledsoil` || e === `sherpafleece` || e === `redalder` || e === `ecgpaper` || e === `barchart` || e === `spectrogram` || e === `jade` || e === `cheetahfur` || e === `turingmaze` || e === `petricolonies` || e === `hestain` || e === `mackerel` || e === `fairisle` || e === `invaders` || e === `pizza` || e === `morse` || e === `couscous` || e === `datamatrix` || e === `sudoku` || e === `quasicrystal` || e === `hilbertcurve` || e === `gameoflife` || e === `elementaryautomata` || e === `modulartable` || e === `pascalmod3` || e === `collatzsteps` || e === `gcdtable` || e === `primesieve` || e === `lissajoustable` || e === `rhodoneatable` || e === `spirographtable` || e === `mandelbrottiles` || e === `juliatiles` || e === `dragoncurve` || e === `divisorcount` || e === `radicaltable` || e === `goldbachtable` || e === `totienttable` || e === `peanocurve` || e === `sacksspiral` || e === `tulle` || e === `levycurve` || e === `hadamardmatrix` || e === `paleytable` || e === `xortable` || e === `abundantnumbers` || e === `mobiustable` || e === `pisanotable` || e === `minkowskisausage` || e === `squarekoch` || e === `vicsekfractal` || e === `tsquarefractal` || e === `cantordust` || e === `voronoicells` || e === `voronoipillows` || e === `voronoifacets` || e === `percolationclusters` || e === `isingdomains` || e === `cyclicwaves` || e === `aggregationfrost` || e === `hammingtable` || e === `fordcircles` || e === `gaussianprimes` || e === `chromaticant` || e === `rule110` || e === `zernikemodes` || e === `supershapes` || e === `hermitemodes` || e === `walshmatrix` || e === `zeckendorftable` || e === `fibonacciword` || e === `paperfolding` || e === `rudinshapiro` || e === `graecolatin` || e === `thuemorse` || e === `chessqueens` || e === `cassiniovals` || e === `sterndiatomic` || e === `kolakoski` || e === `baumsweet` || e === `bayerdither` || e === `wangtiles` || e === `poissondisk` || e === `graycode` || e === `zoneplate` || e === `kaleidoscope` || e === `recamanarcs` || e === `phasevortices` || e === `euclidsteps` || e === `happynumbers` || e === `stringart` || e === `moirefringes` || e === `diamondsquare` || e === `golombruns` || e === `wythoffnim` || e === `nimproduct` || e === `partitionmod5` || e === `stirlingparity` || e === `josephus` || e === `schelling` || e === `gabrielgraph` || e === `euclideanmst` || e === `relativeneighborhood` || e === `sortingnetwork` || e === `cayleytable` || e === `paleyhadamard` || e === `hamiltoncycle` || e === `daynight` || e === `knightstour` || e === `fareygraph` || e === `hypercube` || e === `kaprekar` || e === `perfectarray` || e === `delaunay` || e === `harmonograph` || e === `lorenzattractor` || e === `ellipsebilliard` || e === `lsystemplants` || e === `pursuitpolygons` || e === `poincaretiling` || e === `sphericaltiling` || e === `poincaretriangles` || e === `sphericaltriangles` || e === `fareydisc` || e === `conformalspiral` || e === `steinerchain` || e === `confocalconics` || e === `eisensteinprimes` || e === `reuleauxfield` || e === `powerdiagram` || e === `polygonoffsets` || e === `zordercurve` || e === `logisticbifurcation` || e === `catenaryfestoons` || e === `cornuspirals` || e === `htree` || e === `mapattractors` || e === `wallpapergroups` || e === `sphericalharmonics` || e === `cylinderflow` || e === `fieldlines` || e === `twosourcewaves` || e === `fourierseries` || e === `escapefractals` || e === `zerovelocitycurves` || e === `keplerorbits` || e === `errordiffusion` || e === `diffractionpatterns` || e === `mapprojections` || e === `brillouinzones` || e === `powderdiffraction` || e === `arnoldtongues` || e === `kelvinwake` || e === `jacobielliptic` || e === `hofstadterbutterfly` || e === `raindropoptics` || e === `machcone` || e === `hydrogenorbitals` || e === `vortexstreet` || e === `newtonfractal` || e === `talbotcarpet` || e === `diffractioncatastrophes` || e === `standardmap` || e === `lyapunovfractal` || e === `zetalandscape` || e === `fresneldiffraction` || e === `islamicstars` || e === `gerstnerocean` || e === `opticalillusions` || e === `lineillusions` || e === `contrastillusions` || e === `randomdotstereogram` || e === `sizeillusions` || e === `excitableautomata` || e === `wireworldcircuits` || e === `celticinterlace` || e === `trominotiling` || e === `magicsquares` || e === `costasambiguity` || e === `projectiveplane` || e === `dyckpaths` || e === `youngdiagrams` || e === `necklaces` || e === `spanningtrees` || e === `polyominoes` || e === `selfavoidingwalks` || e === `permutations` || e === `lozengetilings` || e === `polygondissections` || e === `standardtableaux` || e === `graphatlas` || e === `rootedtrees` || e === `dominoboards` || e === `latinsquares` || e === `booleanfunctions` || e === `setpartitions` || e === `compositions` || e === `polyhexes` || e === `polysticks` || e === `alternatingsignmatrices` || e === `stilllifes` || e === `chorddiagrams` || e === `gridsplits` || e === `hamiltonpaths` || e === `lowdiscrepancy` || e === `kneser` || e === `debruijntorus` || e === `mondrianpartitions` || e === `langfordpairings` || e === `golombrulers` || e === `sortingtraces` || e === `editdistance` || e === `euclideanrhythms` || e === `hanoistates` || e === `transformbasis` || e === `diophantinegrid` || e === `beattysequences` || e === `minesweeperboards` || e === `finitefieldtables` || e === `pseudoprimeliars` || e === `lightsoutpuzzles` || e === `burrowswheeler` || e === `huffmancodes` || e === `friezegroups` || e === `robinsonschensted` || e === `crctables` || e === `linearcodes` || e === `selfreferentialsequences` || e === `numbertriangles` || e === `adjacencymatrices` || e === `busybeavers` || e === `dominotiling` || e === `sandpileidentity` || e === `multiplicativeorder` || e === `vermiculation` || e === `kikko` || e === `kagome` || e === `penrosetiling` || e === `penrosestar` || e === `ammannbeenker` || e === `heptagridtiling` || e === `dodecagridtiling` || e === `penrosefilled` || e === `ammannfilled` || e === `heptagridfilled` || e === `dodecagridfilled` || e === `europeanyew` || e === `europeanlarch` || e === `lenticularsheet` || e === `sitkaspruce` || e === `monitorlizardskin` || e === `kilimdiamonds` || e === `popcornceiling` || e === `forgedcarbon` || e === `woodenpalletdeck` || e === `thomsonite` || e === `dalmatianstone` || e === `basswood` || e === `nickelsilver` || e === `hopsack` || e === `monkscloth` || e === `lyocell` || e === `sateen` || e === `surah` || e === `serge` || e === `habotai` || e === `batiste` || e === `ramie` || e === `tabwashers` || e === `sphericalwashers` || e === `wavewashers` || e === `cupwashers` || e === `pietersite` || e === `bronzite` || e === `castorbeans` || e === `europeanbeech` || e === `whiteoak` || e === `whiteash` || e === `kingwood` || e === `braziliantulipwood` || e === `macassarebony` || e === `zebrawood` || e === `bocote` || e === `datepits` || e === `sapele` || e === `chambray` || e === `ticking` || e === `cottondrill` || e === `nephrite` || e === `diorite` || e === `carawayseeds` || e === `springpinends` || e === `rhyolite` || e === `tonkabeans` || e === `pentalobescrewheads` || e === `tripointscrewheads` || e === `padauk` || e === `cottonflannel` || e === `pinolith` || e === `septarian` || e === `ooliticlimestone` || e === `ogeetiles` || e === `bittermelonskin` || e === `cocobolo` || e === `doubleedgerazorblades` || e === `chiastolite` || e === `dimity` || e === `juniperberries` || e === `gabbro` || e === `turnbuckles` || e === `rhodochrosite` || e === `bluelaceagate` || e === `bayleaf` || e === `pumpkinseeds` || e === `spurgears` || e === `diamondcheckertiles` || e === `appleslice` || e === `paperclips` || e === `rclips` || e === `linchpins` || e === `ivyleaf` || e === `ribknit` || e === `pillowtiles` || e === `coffeerings` || e === `cashews` || e === `hinges` || e === `coins` || e === `righttriangletiles` || e === `cherryblossom` || e === `punchcard` || e === `braidedcord` || e === `crossbeddedsandstone` || e === `grommetcanvas` || e === `fishscaletiles` || e === `hexkeys` || e === `driedfigslice` || e === `creamcrackers` || e === `doorkeys` || e === `dodecagontiles` || e === `ballchain` || e === `succulentrosettes` || e === `foldingfans` || e === `togglebuttons` || e === `greenpeapods` || e === `beltbuckles` || e === `hextruchettiles` || e === `scoredmango` || e === `waxseals` || e === `cottonbolls` || e === `carabiners` || e === `pencilends` || e === `corrugatedplasticedge` || e === `haircombs` || e === `blackberries` || e === `musselshells` || e === `safetypins` || e === `poppyseedpods` || e === `leatherbookspines` || e === `matchsticks` || e === `porcelaininsulators` || e === `dominoes` || e === `woodenspoons` || e === `chessrooks` || e === `threadspools` || e === `bellpepperslices` || e === `sharkteeth` || e === `grinderburrs` || e === `spaltedwood` || e === `canlids` || e === `crinoidossicles` || e === `pythagoreantiles` || e === `dinnerforks` || e === `mudtiretracks` || e === `tangramtiles` || e === `batterypositivecaps` || e === `passionfruitslice` || e === `screwterminalblocks` || e === `dragonfruitflesh` || e === `speakercones` || e === `septarianstone` || e === `axialresistors` || e === `tomatoslices` || dt || mt || yt || Ct || kt || Pt || Rt || Ht || le || Jt || Qt || ie || te || N || O || f || m || g)(i), fn = o ^ 2747636419, pn = o ^ 2135587861;
 	return (e, t, n) => {
 		G = fract(e), K = fract(t), sn = an ? noise(G, K, 4, 4, o) : 0, q = dn ? noise(G, K, 32, 32, fn) : 0, cn = on ? noise(G, K, 64, 64, pn) : 0, J = sn, Y = sn, X = s.roughness, Z = 1, Q = 0, $ = ln, un(), n.color = J, n.height = Y * s.relief, n.roughness = clamp(X), n.occlusion = Z, n.mortar = Q, n.metallic = $;
 	};

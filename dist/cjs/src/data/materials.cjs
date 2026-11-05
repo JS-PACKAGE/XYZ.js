@@ -33259,6 +33259,597 @@ var proceduralMaterialPresets = Object.freeze({
 		heightSwing: .7,
 		gapOcclusion: .5
 	}),
+	pseudoprimeliars: Object.freeze({
+		dark: [
+			2,
+			14,
+			28
+		],
+		light: [
+			150,
+			225,
+			255
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 27943,
+		tests: [
+			0,
+			1,
+			2,
+			3
+		],
+		starts: [
+			521,
+			1065,
+			1689,
+			2425,
+			2781,
+			6561,
+			8871,
+			3001
+		],
+		size: 64,
+		firstBases: [2, 66],
+		gap: .08,
+		corner: .16,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneShared: .12,
+		toneWitness: .38,
+		tonePrimeLiar: .7,
+		toneCompositeLiar: .97,
+		grainTone: .03,
+		cellHeight: .8,
+		heightShared: .15,
+		heightWitness: .35,
+		heightPrimeLiar: .7,
+		heightCompositeLiar: 1,
+		gapOcclusion: .5
+	}),
+	lightsoutpuzzles: Object.freeze({
+		dark: [
+			18,
+			6,
+			4
+		],
+		light: [
+			255,
+			235,
+			150
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 19595,
+		sizes: [
+			5,
+			6,
+			7,
+			9
+		],
+		gap: .06,
+		gapPanel: .3,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneOff: .18,
+		toneOn: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightOff: .3,
+		heightOn: 1,
+		gapOcclusion: .5
+	}),
+	burrowswheeler: Object.freeze({
+		dark: [
+			8,
+			4,
+			24
+		],
+		light: [
+			195,
+			165,
+			255
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 10869,
+		size: 24,
+		texts: [
+			0,
+			1,
+			2,
+			3,
+			4,
+			5
+		],
+		gap: .06,
+		gapPanel: .3,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneMin: .2,
+		toneMax: .95,
+		maxSymbol: 5,
+		grainTone: .03,
+		cellHeight: .8,
+		heightBase: .3,
+		heightSwing: .7,
+		gapOcclusion: .5
+	}),
+	huffmancodes: Object.freeze({
+		dark: [
+			20,
+			10,
+			4
+		],
+		light: [
+			240,
+			185,
+			125
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 25059,
+		weights: [
+			[
+				127,
+				91,
+				82,
+				75,
+				70,
+				67,
+				63,
+				61,
+				60,
+				43,
+				40,
+				28,
+				28,
+				24,
+				24,
+				22
+			],
+			[
+				27720,
+				13860,
+				9240,
+				6930,
+				5544,
+				4620,
+				3960,
+				3465,
+				3080,
+				2772,
+				2520,
+				2310,
+				2132,
+				1980,
+				1848,
+				1732
+			],
+			[
+				987,
+				610,
+				377,
+				233,
+				144,
+				89,
+				55,
+				34,
+				21,
+				13,
+				8,
+				5,
+				3,
+				2,
+				1,
+				1
+			],
+			[
+				32768,
+				16384,
+				8192,
+				4096,
+				2048,
+				1024,
+				512,
+				256,
+				128,
+				64,
+				32,
+				16,
+				8,
+				4,
+				2,
+				1
+			],
+			[
+				1,
+				1,
+				1,
+				1,
+				1,
+				1,
+				1,
+				1,
+				1,
+				1,
+				1,
+				1,
+				1,
+				1,
+				1,
+				1
+			],
+			[
+				256,
+				225,
+				196,
+				169,
+				144,
+				121,
+				100,
+				81,
+				64,
+				49,
+				36,
+				25,
+				16,
+				9,
+				4,
+				1
+			]
+		],
+		gap: .06,
+		gapPanel: .3,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneNone: .12,
+		toneZero: .45,
+		toneOne: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightNone: .15,
+		heightZero: .5,
+		heightOne: 1,
+		gapOcclusion: .5
+	}),
+	friezegroups: Object.freeze({
+		dark: [
+			4,
+			18,
+			14
+		],
+		light: [
+			140,
+			235,
+			190
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 23827,
+		glyphs: [
+			[
+				`XXX`,
+				`XX.`,
+				`X..`
+			],
+			[
+				`XX.`,
+				`X.X`,
+				`XXX`
+			],
+			[
+				`X..`,
+				`XXX`,
+				`XX.`
+			],
+			[
+				`XXX`,
+				`X.X`,
+				`X..`
+			],
+			[
+				`.X.`,
+				`XXX`,
+				`X..`
+			],
+			[
+				`XX.`,
+				`.XX`,
+				`X.X`
+			]
+		],
+		gap: .07,
+		corner: .16,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneEmpty: .1,
+		toneFilled: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightEmpty: .2,
+		heightFilled: 1,
+		gapOcclusion: .5
+	}),
+	robinsonschensted: Object.freeze({
+		dark: [
+			24,
+			4,
+			16
+		],
+		light: [
+			255,
+			130,
+			205
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 14999,
+		size: 10,
+		types: [
+			0,
+			1,
+			2,
+			3,
+			4,
+			5
+		],
+		gap: .06,
+		gapPanel: .3,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneEmpty: .1,
+		toneMin: .25,
+		toneMax: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightEmpty: .15,
+		heightBase: .3,
+		heightSwing: .7,
+		gapOcclusion: .5
+	}),
+	crctables: Object.freeze({
+		dark: [
+			4,
+			10,
+			24
+		],
+		light: [
+			120,
+			200,
+			255
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 31809,
+		polys: [
+			7,
+			49,
+			29,
+			155,
+			213,
+			47
+		],
+		gap: .06,
+		gapPanel: .3,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneMin: .15,
+		toneMax: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightBase: .2,
+		heightSwing: .8,
+		gapOcclusion: .5
+	}),
+	linearcodes: Object.freeze({
+		dark: [
+			6,
+			20,
+			4
+		],
+		light: [
+			190,
+			255,
+			110
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 23315,
+		codes: [
+			[
+				240,
+				204,
+				170,
+				255
+			],
+			[
+				11,
+				22,
+				44,
+				88
+			],
+			[
+				192,
+				48,
+				12,
+				3
+			],
+			[
+				192,
+				96,
+				48,
+				15
+			]
+		],
+		gap: .06,
+		gapPanel: .3,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneMin: .15,
+		toneMax: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightBase: .2,
+		heightSwing: .8,
+		gapOcclusion: .5
+	}),
+	selfreferentialsequences: Object.freeze({
+		dark: [
+			2,
+			16,
+			20
+		],
+		light: [
+			90,
+			235,
+			225
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 11877,
+		columns: 48,
+		startStep: 197,
+		startRange: 1500,
+		levelPower: [
+			.5,
+			1,
+			1.5,
+			1
+		],
+		gap: .06,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneMin: .15,
+		toneMax: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightBase: .2,
+		heightSwing: .8,
+		gapOcclusion: .5
+	}),
+	numbertriangles: Object.freeze({
+		dark: [
+			26,
+			6,
+			6
+		],
+		light: [
+			255,
+			150,
+			110
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 27937,
+		moduli: [
+			2,
+			3,
+			4,
+			5,
+			6,
+			7,
+			8,
+			9
+		],
+		gap: .06,
+		gapPanel: .3,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneMin: .15,
+		toneMax: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightBase: .2,
+		heightSwing: .8,
+		gapOcclusion: .5
+	}),
+	adjacencymatrices: Object.freeze({
+		dark: [
+			8,
+			8,
+			24
+		],
+		light: [
+			140,
+			160,
+			255
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 19511,
+		gap: .06,
+		gapPanel: .3,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneMin: .15,
+		toneMax: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightBase: .2,
+		heightSwing: .8,
+		gapOcclusion: .5
+	}),
+	busybeavers: Object.freeze({
+		dark: [
+			2,
+			20,
+			12
+		],
+		light: [
+			110,
+			255,
+			170
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 14773,
+		machines: [
+			`1RB1LB_1LA1RH`,
+			`1RB1RH_0RC1RB_1LC1LA`,
+			`1RB1LB_1LA0LC_1RH1LD_1RD0RA`,
+			`1RB1LC_1RC1RB_1RD0LE_1LA1LD_1RH0LA`
+		],
+		strides: [
+			1,
+			1,
+			4,
+			1
+		],
+		gap: .06,
+		gapPanel: .3,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneMin: .15,
+		toneMax: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightBase: .2,
+		heightSwing: .8,
+		gapOcclusion: .5
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -35420,6 +36011,18 @@ var proceduralTileMeters = Object.freeze({
 	beattysequences: .5,
 	minesweeperboards: .5,
 	finitefieldtables: .5,
+	pseudoprimeliars: .5,
+	lightsoutpuzzles: .5,
+	burrowswheeler: .5,
+	huffmancodes: .5,
+	friezegroups: .5,
+	robinsonschensted: .5,
+	crctables: .5,
+	linearcodes: .5,
+	selfreferentialsequences: .5,
+	numbertriangles: .5,
+	adjacencymatrices: .5,
+	busybeavers: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

@@ -1,5 +1,5 @@
 //#region dist/src/data/opm.js
-var opmVendor = Object.freeze({ version: `1.13.1` });
+var opmVendor = Object.freeze({ version: `1.14.0` });
 //#endregion
 exports.opmVendor = opmVendor;
 
