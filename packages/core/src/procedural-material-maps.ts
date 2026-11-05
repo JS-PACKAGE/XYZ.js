@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'linecodes',
   'spitransfers',
   'rm4sccbarcodes',
   'codabarbarcodes',
@@ -53732,6 +53733,119 @@ export function createSurfaceSampler(
           );
           roughness = clamp(
             p.groundRoughness + (p.inkRoughness - p.groundRoughness) * covered,
+          );
+          occlusion = 1;
+        };
+      }
+      case 'linecodes': {
+        const p = proceduralMaterialPresets.linecodes,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(146, 1, seed ^ 0x3a0001) * p.surfaces.length)
+            ],
+          across = hash(146, 2, seed ^ 0x3a0002) < 0.5,
+          shift = (hash(146, 3, seed ^ 0x3a0003) * 2 - 1) * p.toneShift,
+          rows = p.rows,
+          cells = p.cells,
+          // The order of the seven line codes in the rows, shuffled by the seed: 0 NRZ-L, 1 NRZ-M, 2 NRZ-S, 3 Manchester (Thomas), 4 Manchester (802.3), 5 Differential Manchester, 6 AMI.
+          order = Array.from({ length: rows }, (_, i) => i),
+          // The level of every cell of every row: 0 low, 1 zero, 2 high.
+          levels = new Uint8Array(rows * cells);
+        for (let i = rows - 1; i > 0; i--) {
+          const j = Math.min(
+              i,
+              Math.floor(hash(i, 30, seed ^ 0x3a0005) * (i + 1)),
+            ),
+            kept = order[i];
+          order[i] = order[j];
+          order[j] = kept;
+        }
+        const word = Array.from({ length: p.bits }, (_, k) =>
+          Number(hash(k, 40, seed ^ 0x3a0005) < 0.5),
+        );
+        order.forEach((code, row) => {
+          const put = (cell: number, level: number): void => {
+            levels[row * cells + cell] = level;
+          };
+          // The level before the first bit (low, zero for AMI), kept by the line codes that change level from the level before.
+          let level = code === 6 ? 1 : 0,
+            mark = 2;
+          put(0, level);
+          put(1, level);
+          word.forEach((bit, k) => {
+            const first = 2 + 2 * k;
+            let second: number;
+            if (code === 0) {
+              level = bit ? 2 : 0;
+              second = level;
+            } else if (code === 1 || code === 2) {
+              if (bit === (code === 1 ? 1 : 0)) level = 2 - level;
+              second = level;
+            } else if (code === 3 || code === 4) {
+              level = bit === (code === 3 ? 1 : 0) ? 2 : 0;
+              second = 2 - level;
+            } else if (code === 5) {
+              level = 2 - level;
+              second = bit ? level : 2 - level;
+            } else {
+              level = bit ? mark : 1;
+              if (bit) mark = 2 - mark;
+              second = 1;
+            }
+            put(first, level);
+            put(first + 1, second);
+            level = second;
+          });
+          for (let cell = 2 + 2 * p.bits; cell < cells; cell++)
+            put(cell, level);
+        });
+        const shares = [p.lowShare, p.zeroShare, p.highShare];
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            x = across ? fv : fu,
+            gy = (across ? fu : fv) * rows,
+            row = Math.floor(gy),
+            along = gy - row,
+            cell = Math.floor(x * cells),
+            levelAt = (c: number): number =>
+              levels[row * cells + ((c + cells) % cells)],
+            // The line of the level of this cell, and the vertical lines at the two edges of the cell where the level changes (from the one level to the other, with the half width at both ends).
+            level = shares[levelAt(cell)];
+          let trace = cover(p.traceHalf - Math.abs(along - level) / rows);
+          for (const edge of [cell, cell + 1]) {
+            const before = shares[levelAt(edge - 1)],
+              after = shares[levelAt(edge)];
+            if (before !== after)
+              trace = Math.max(
+                trace,
+                cover(
+                  Math.min(
+                    p.traceHalf - Math.abs(x - edge / cells),
+                    (along - Math.min(before, after)) / rows + p.traceHalf,
+                    (Math.max(before, after) - along) / rows + p.traceHalf,
+                  ),
+                ),
+              );
+          }
+          // The thin lines at the edges of the bits, under the trace.
+          const grid = cover(
+              p.gridHalf -
+                Math.abs(x * cells * 0.5 - Math.round(x * cells * 0.5)) /
+                  (cells * 0.5),
+            ),
+            ground = surface.ground + shift,
+            lined = ground + (surface.grid + shift - ground) * grid;
+          color = clamp(lined + (surface.trace + shift - lined) * trace);
+          const gridded =
+            p.groundHeight + (p.gridHeight - p.groundHeight) * grid;
+          height = clamp(gridded + (p.traceHeight - gridded) * trace);
+          roughness = clamp(
+            p.groundRoughness +
+              (p.inkRoughness - p.groundRoughness) * Math.max(grid, trace),
           );
           occlusion = 1;
         };

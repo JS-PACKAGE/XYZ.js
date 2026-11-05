@@ -19176,6 +19176,41 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  linecodes: Object.freeze({
+    dark: [20, 22, 30] as const,
+    light: [230, 232, 220] as const,
+    roughness: 0.5,
+    relief: 0.003,
+    // One word of 30 bits drawn in seven line codes, one under the other, as the figures of the Wikipedia articles on line codes draw them (those articles on Non-return-to-zero, Manchester code, Differential Manchester encoding
+    // and Bipolar encoding, read for this): NRZ-L (1 high, 0 low), NRZ-M (a 1 is a change of level at the start of the bit, a 0 no change), NRZ-S (a 0 is a change, a 1 none), Manchester as G. E. Thomas has it (a 0 is low then high,
+    // a 1 high then low), Manchester as IEEE 802.3 has it (the reverse), Differential Manchester (an unconditional change at the start of every bit and a change in the middle of it for a 0, none for a 1, which is how I read the sentence of the
+    // article, whose figure shows the variant in which 0 is a change) and alternate mark inversion (AMI: a 0 is the zero level, a 1 alternately the positive and the negative level, for the first half of the bit, which is how a
+    // return-to-zero bipolar code is drawn). A row has cells half-bits across the tile: two cells of the level before the first bit (low, or zero for AMI: my choice of the starting level), the 30 bits of two cells each, and two cells that
+    // hold the last level. The seed picks the word, the order of the seven rows (a shuffle), a surface (the tones of the ground, of the thin lines at the bit boundaries and of the trace, all shifted together a little) and whether the rows
+    // run along the picture or across it. A level is a line at lowShare, zeroShare or highShare of the height of a row with the half width traceHalf (of the tile), and a change of level is a vertical line at the edge of the cell.
+    rows: 7,
+    cells: 64,
+    bits: 30,
+    lowShare: 0.84,
+    zeroShare: 0.5,
+    highShare: 0.16,
+    traceHalf: 0.003,
+    gridHalf: 0.0007,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.1, grid: 0.22, trace: 0.88 }),
+      Object.freeze({ ground: 0.9, grid: 0.72, trace: 0.15 }),
+      Object.freeze({ ground: 0.18, grid: 0.34, trace: 0.62 }),
+      Object.freeze({ ground: 0.75, grid: 0.55, trace: 0.3 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    gridHeight: 0.22,
+    traceHeight: 0.4,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25668,6 +25703,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  linecodes: 1,
   spitransfers: 1,
   rm4sccbarcodes: 1,
   codabarbarcodes: 1,

@@ -87924,3 +87924,566 @@ describe('spitransfers: blocks of the four lines of an SPI transfer (slave selec
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('linecodes: one word of 30 bits drawn in seven line codes, one under the other (NRZ-L, NRZ-M, NRZ-S, Manchester as Thomas and as IEEE 802.3 have it, Differential Manchester and AMI) in an order shuffled by the seed, along or across the picture', () => {
+  const p = proceduralMaterialPresets.linecodes,
+    out = empty(),
+    rows = p.rows,
+    cells = p.cells,
+    bits = p.bits,
+    half = p.traceHalf,
+    shares = [p.lowShare, p.zeroShare, p.highShare];
+  const toneAt = (
+    sample: Sampler,
+    x: number,
+    y: number,
+    across: boolean,
+  ): number => {
+    // A place in tile units in the picture as it is drawn (the cells along x, the rows along y), as a place on the picture.
+    sample(across ? y : x, across ? x : y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  const names = [
+    'NRZ-L',
+    'NRZ-M',
+    'NRZ-S',
+    'Manchester (Thomas)',
+    'Manchester (802.3)',
+    'Differential Manchester',
+    'AMI',
+  ];
+  // The readers of a row of levels (0 low, 1 zero, 2 high; one per cell, half of a bit), one for each line code, written out here from the Wikipedia articles (NRZ-L: 1 high, 0 low; NRZ-M: a 1 is a change of level at the start of the bit; NRZ-S: a 0 is a change;
+  // Thomas: a 0 is low then high, a 1 high then low; 802.3: the reverse; Differential Manchester: a change at the start of every bit and a change in the middle for a 0; AMI: a 0 is the zero level, a 1 alternately the high and the low level
+  // for the first half of the bit, starting with the high level). Two cells of the level before the first bit (low, zero for AMI), the bits of two cells each, and two cells that hold the last level. They give null where the row is not that code.
+  const decode = (code: number, line: number[]): number[] | null => {
+    const start = code === 6 ? 1 : 0;
+    if (line[0] !== start || line[1] !== start) return null;
+    const word: number[] = [];
+    let previous = start,
+      mark = 2;
+    for (let k = 0; k < bits; k++) {
+      const a = line[2 + 2 * k],
+        b = line[3 + 2 * k];
+      if (code === 6) {
+        if (b !== 1) return null;
+        if (a === 1) word.push(0);
+        else {
+          if (a !== mark) return null;
+          mark = 2 - mark;
+          word.push(1);
+        }
+        previous = b;
+        continue;
+      }
+      if (a === 1 || b === 1) return null;
+      if (code === 0) {
+        if (a !== b) return null;
+        word.push(a === 2 ? 1 : 0);
+      } else if (code === 1 || code === 2) {
+        if (a !== b) return null;
+        word.push(Number((a !== previous) === (code === 1)));
+      } else if (code === 3 || code === 4) {
+        if (a === b) return null;
+        word.push(Number((a === 2) === (code === 3)));
+      } else {
+        if (a === previous) return null;
+        word.push(Number(a === b));
+      }
+      previous = b;
+    }
+    if (line[2 + 2 * bits] !== previous || line[3 + 2 * bits] !== previous)
+      return null;
+    return word;
+  };
+  type Reading = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { ground: number; grid: number; trace: number };
+    levels: number[][];
+    order: number[];
+    word: number[];
+  };
+  // The rows of codes that agree: every row has to be read by a different code to the same word.
+  const assignments = (
+    levels: number[][],
+  ): { order: number[]; word: number[] }[] => {
+    const found: { order: number[]; word: number[] }[] = [],
+      candidates = levels.map((line) =>
+        names.map((_, code) => decode(code, line)),
+      ),
+      extend = (row: number, order: number[], word: number[] | null): void => {
+        if (row === levels.length) {
+          if (word !== null) found.push({ order: [...order], word });
+          return;
+        }
+        for (let code = 0; code < names.length; code++) {
+          const bitsOf = candidates[row][code];
+          if (bitsOf === null || order.includes(code)) continue;
+          if (word !== null && bitsOf.join('') !== word.join('')) continue;
+          extend(row + 1, [...order, code], word ?? bitsOf);
+        }
+      };
+    extend(0, [], null);
+    return found;
+  };
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [];
+    for (const across of [false, true]) {
+      const tone = (x: number, y: number): number =>
+          toneAt(sample, x, y, across),
+        ground = tone(0.5 / cells, 0),
+        grid = tone(0, 0);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground,
+          trace = surface.trace + shift;
+        if (Math.abs(shift) > p.toneShift + 1e-9) return;
+        if (Math.abs(grid - (surface.grid + shift)) > 1e-6) return;
+        const levels: number[][] = [];
+        let valid = true;
+        for (let row = 0; row < rows && valid; row++) {
+          const line: number[] = [];
+          for (let cell = 0; cell < cells && valid; cell++) {
+            const x = (cell + 0.5) / cells,
+              drawn = shares.map(
+                (share) =>
+                  Math.abs(tone(x, (row + share) / rows) - trace) < 1e-6,
+              ),
+              empty = shares.map(
+                (share, i) =>
+                  !drawn[i] &&
+                  Math.abs(tone(x, (row + share) / rows) - ground) < 1e-6,
+              );
+            if (
+              drawn.filter(Boolean).length !== 1 ||
+              empty.filter(Boolean).length !== 2
+            )
+              valid = false;
+            line.push(drawn.indexOf(true));
+          }
+          // The edges of the cells: a vertical line where the level changes (halfway between the two lines), and the thin line at the edge of a bit (an even edge) where it does not; nothing at the odd edges.
+          for (let edge = 0; edge < cells && valid; edge++) {
+            const before = line[(edge + cells - 1) % cells],
+              after = line[edge];
+            if (before === undefined || after === undefined) continue;
+            const x = edge / cells,
+              expected =
+                before !== after
+                  ? trace
+                  : edge % 2 === 0
+                    ? surface.grid + shift
+                    : ground,
+              y =
+                before !== after
+                  ? (row + (shares[before] + shares[after]) / 2) / rows
+                  : (row + 0.33) / rows;
+            if (Math.abs(tone(x, y) - expected) > 1e-6) valid = false;
+          }
+          levels.push(line);
+        }
+        if (!valid) return;
+        for (const { order, word } of assignments(levels))
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { ground, grid, trace },
+            levels,
+            order,
+            word,
+          });
+      });
+    }
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  type Piece = 'ground' | 'grid' | 'trace';
+  // The model of the picture: the piece a place (in tile units, x along the cells) is in, from the levels of the rows.
+  const piece = (r: Reading, x: number, y: number): Piece => {
+    const gy = y * rows,
+      row = Math.floor(gy),
+      along = gy - row,
+      cell = Math.floor(x * cells),
+      level = (c: number): number => shares[r.levels[row][(c + cells) % cells]];
+    if (Math.abs(along - level(cell)) / rows <= half) return 'trace';
+    for (const edge of [cell, cell + 1]) {
+      const before = level(edge - 1),
+        after = level(edge);
+      if (
+        before !== after &&
+        Math.abs(x - edge / cells) <= half &&
+        along >= Math.min(before, after) - half * rows &&
+        along <= Math.max(before, after) + half * rows
+      )
+        return 'trace';
+    }
+    if (Math.abs(x - Math.round(x * cells * 0.5) / (cells * 0.5)) <= p.gridHalf)
+      return 'grid';
+    return 'ground';
+  };
+  const nearEdge = (x: number, y: number, within: number): boolean => {
+    const gy = y * rows,
+      along = gy - Math.floor(gy),
+      dx = Math.abs(x - Math.round(x * cells) / cells),
+      dg = Math.abs(x - Math.round(x * cells * 0.5) / (cells * 0.5));
+    return (
+      shares.some(
+        (share) =>
+          Math.abs(Math.abs(along - share) / rows - half) < within ||
+          Math.abs((along - share) / rows + half) < within ||
+          Math.abs((share - along) / rows + half) < within,
+      ) ||
+      dx < within ||
+      Math.abs(dx - half) < within ||
+      Math.abs(dg - p.gridHalf) < within
+    );
+  };
+
+  it('draws one word of 30 bits in the seven line codes, each code in exactly one row, every row read back to the same word by a reader of that code written from the articles, in a shuffled order', () => {
+    const orders = new Set<string>(),
+      words = new Set<string>();
+    for (let seed = 0; seed < 100; seed++) {
+      const reading = readSurface(
+        createSurfaceSampler('linecodes', seed * 13 + 5),
+      );
+      expect([...reading.order].sort()).toEqual([0, 1, 2, 3, 4, 5, 6]);
+      expect(reading.word.length).toBe(bits);
+      orders.add(reading.order.join(''));
+      words.add(reading.word.join(''));
+    }
+    expect(orders.size).toBeGreaterThan(80);
+    expect(words.size).toBe(100);
+  });
+
+  it('is read by readers that agree with a waveform worked out from the articles for each code, and complain about a row that is another code, a bipolar code that does not alternate and a change that is missing', () => {
+    const word = [
+      1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1,
+      1, 0, 1, 0, 1,
+    ];
+    // The waveform of a code for the word, from the statements of the articles (levels: 0 low, 1 zero, 2 high), by a direct statement of each rule.
+    const waveform = (code: number): number[] => {
+      const line: number[] = code === 6 ? [1, 1] : [0, 0];
+      let previous = line[0],
+        mark = 2;
+      for (const bit of word) {
+        let pair: number[];
+        if (code === 0) pair = bit ? [2, 2] : [0, 0];
+        else if (code === 1)
+          pair = bit ? [2 - previous, 2 - previous] : [previous, previous];
+        else if (code === 2)
+          pair = bit ? [previous, previous] : [2 - previous, 2 - previous];
+        else if (code === 3) pair = bit ? [2, 0] : [0, 2];
+        else if (code === 4) pair = bit ? [0, 2] : [2, 0];
+        else if (code === 5)
+          pair = bit ? [2 - previous, 2 - previous] : [2 - previous, previous];
+        else {
+          pair = bit ? [mark, 1] : [1, 1];
+          if (bit) mark = 2 - mark;
+        }
+        line.push(...pair);
+        previous = pair[1];
+      }
+      line.push(previous, previous);
+      return line;
+    };
+    for (let code = 0; code < names.length; code++) {
+      const line = waveform(code);
+      expect(line.length).toBe(cells);
+      expect(decode(code, line)).toEqual(word);
+    }
+    // Rows that are another code: the Manchester codes are refused for an NRZ row (no change in the middle) and the other way round, and AMI for a row without the zero level.
+    expect(decode(3, waveform(0))).toBeNull();
+    expect(decode(0, waveform(3))).toBeNull();
+    expect(decode(6, waveform(5))).toBeNull();
+    expect(decode(5, waveform(3))).toBeNull();
+    // Two marks of the same level in a row of AMI, a Differential Manchester row without the change at the start of a bit, and a postamble that does not hold the level.
+    const same = waveform(6),
+      marks = same.map((level, i) => (i >= 2 && level === 0 ? 2 : level));
+    expect(decode(6, marks)).toBeNull();
+    const missing = waveform(5);
+    missing[2 + 2 * 3] = missing[2 + 2 * 3 - 1];
+    missing[2 + 2 * 3 + 1] = missing[2 + 2 * 3];
+    expect(decode(5, missing)).toBeNull();
+    const open = waveform(1);
+    open[cells - 1] = 2 - open[cells - 1];
+    expect(decode(1, open)).toBeNull();
+    // The same word read as NRZ-M and as NRZ-S gives different words (a bit and its change are opposite), which is why the rows must agree.
+    const m = decode(1, waveform(1))!,
+      s = decode(2, waveform(1))!;
+    expect(m.map((bit, i) => bit ^ s[i])).toEqual(word.map(() => 1));
+  });
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model (ground, thin line of a bit, trace) at every place of the picture away from the edges, for several seeds along and across',
+    { timeout: 120000 },
+    () => {
+      const seen = new Set<boolean>();
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        const sample = createSurfaceSampler('linecodes', seed),
+          reading = readSurface(sample);
+        seen.add(reading.across);
+        const o = empty();
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (nearEdge(x, y, 0.0008)) continue;
+            sample(reading.across ? y : x, reading.across ? x : y, o);
+            const label = piece(reading, x, y);
+            expect(o.color).toBeCloseTo(reading.tones[label], 6);
+            expect(o.height / p.relief).toBeCloseTo(
+              {
+                ground: p.groundHeight,
+                grid: p.gridHeight,
+                trace: p.traceHeight,
+              }[label],
+              6,
+            );
+            expect(o.roughness).toBeCloseTo(
+              label === 'ground' ? p.groundRoughness : p.inkRoughness,
+              6,
+            );
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(90000);
+      }
+      expect(seen.size).toBe(2);
+    },
+  );
+
+  it('puts the edges of the level lines, of the vertical lines at a change of level (the sides and both ends) and of the thin lines of the bits where the model puts them: just inside and just outside by 0.0004 of a tile, exactly, and softens them over edgeSoft (checked at a quarter of it, for the tone, the height and the roughness)', () => {
+    const delta = 0.0004,
+      soft = 0.25 * p.edgeSoft;
+    let vertical = 0,
+      threeLevel = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('linecodes', seed),
+        reading = readSurface(sample),
+        { across, tones, levels } = reading,
+        tone = (x: number, y: number): number => toneAt(sample, x, y, across);
+      for (let row = 0; row < rows; row++) {
+        const line = levels[row],
+          yOf = (share: number): number => (row + share) / rows;
+        // The level line of a few cells.
+        for (const cell of [5, 17, 40]) {
+          const x = (cell + 0.5) / cells,
+            centre = yOf(shares[line[cell]]);
+          close(tone(x, centre + half - delta), tones.trace);
+          close(tone(x, centre + half + delta), tones.ground);
+          close(tone(x, centre - half + delta), tones.trace);
+          close(tone(x, centre - half - delta), tones.ground);
+          close(
+            tone(x, centre + half - soft),
+            blend(tones.ground, tones.trace, 0.75),
+          );
+          close(
+            tone(x, centre + half + soft),
+            blend(tones.ground, tones.trace, 0.25),
+          );
+          sample(
+            across ? centre + half - soft : x,
+            across ? x : centre + half - soft,
+            out,
+          );
+          expect(out.height / p.relief).toBeCloseTo(
+            blend(p.groundHeight, p.traceHeight, 0.75),
+            4,
+          );
+          expect(out.roughness).toBeCloseTo(
+            blend(p.groundRoughness, p.inkRoughness, 0.75),
+            4,
+          );
+        }
+        // The thin lines at the edges of a few bits (at the top of the row, where nothing else is drawn).
+        for (const edge of [6, 20, 44]) {
+          const x = edge / cells;
+          close(tone(x + p.gridHalf - delta, row / rows), tones.grid);
+          close(tone(x + p.gridHalf + delta, row / rows), tones.ground);
+          close(tone(x - p.gridHalf + delta, row / rows), tones.grid);
+          close(tone(x - p.gridHalf - delta, row / rows), tones.ground);
+        }
+        // The vertical lines at the first four changes of level in the middle of the cell edges: the sides, and the two ends on the side of the cell where the end is not covered by the level line.
+        let changes = 0;
+        for (let edge = 3; edge < cells - 2 && changes < 4; edge++) {
+          const before = shares[line[edge - 1]],
+            after = shares[line[edge]];
+          if (before === after) continue;
+          changes++;
+          vertical++;
+          // A change to or from the zero level, which only the AMI rows have.
+          threeLevel += Number(before === p.zeroShare || after === p.zeroShare);
+          const x = edge / cells,
+            middle = yOf((before + after) / 2),
+            top = Math.min(before, after),
+            bottom = Math.max(before, after),
+            exposedTop = after === bottom ? 1 : -1;
+          close(tone(x + half - delta, middle), tones.trace);
+          close(tone(x + half + delta, middle), tones.ground);
+          close(tone(x - half + delta, middle), tones.trace);
+          close(tone(x - half - delta, middle), tones.ground);
+          close(
+            tone(x + half - soft, middle),
+            blend(tones.ground, tones.trace, 0.75),
+          );
+          close(
+            tone(x - half - soft, middle),
+            blend(tones.ground, tones.trace, 0.25),
+          );
+          close(
+            tone(x + exposedTop * 0.002, yOf(top) - half + delta),
+            tones.trace,
+          );
+          close(
+            tone(x + exposedTop * 0.002, yOf(top) - half - delta),
+            tones.ground,
+          );
+          close(
+            tone(x - exposedTop * 0.002, yOf(bottom) + half - delta),
+            tones.trace,
+          );
+          close(
+            tone(x - exposedTop * 0.002, yOf(bottom) + half + delta),
+            tones.ground,
+          );
+        }
+      }
+    }
+    // Four changes of level in each of the seven rows of six seeds.
+    expect(vertical).toBe(6 * rows * 4);
+    expect(threeLevel).toBeGreaterThan(0);
+  });
+
+  it('gives the ground, the thin lines and the trace their heights and roughnesses, and full occlusion', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('linecodes', seed),
+        { across, levels } = readSurface(sample),
+        read = (x: number, y: number): [number, number, number] => {
+          sample(across ? y : x, across ? x : y, out);
+          return [out.height / p.relief, out.roughness, out.occlusion];
+        },
+        row = 2,
+        cell = 12,
+        [groundHeight, groundRoughness, groundOcclusion] = read(
+          (cell + 0.5) / cells,
+          (row + 0.33) / rows,
+        ),
+        [gridHeight, gridRoughness, gridOcclusion] = read(
+          10 / cells,
+          row / rows,
+        ),
+        [traceHeight, traceRoughness, traceOcclusion] = read(
+          (cell + 0.5) / cells,
+          (row + shares[levels[row][cell]]) / rows,
+        );
+      expect(groundHeight).toBeCloseTo(p.groundHeight, 6);
+      expect(gridHeight).toBeCloseTo(p.gridHeight, 6);
+      expect(traceHeight).toBeCloseTo(p.traceHeight, 6);
+      expect(groundRoughness).toBeCloseTo(p.groundRoughness, 6);
+      expect([gridRoughness, traceRoughness]).toEqual([
+        p.inkRoughness,
+        p.inkRoughness,
+      ]);
+      expect([groundOcclusion, gridOcclusion, traceOcclusion]).toEqual([
+        1, 1, 1,
+      ]);
+    }
+  });
+
+  it(
+    'uses every surface and both ways round over 1000 seeds about equally often, every code in every row about equally often, the bits of the words half ones, almost every word different, and the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        places = new Map<string, number>(),
+        words = new Set<string>(),
+        shifts: number[] = [];
+      let acrossCount = 0,
+        ones = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('linecodes', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        acrossCount += Number(reading.across);
+        words.add(reading.word.join(''));
+        ones += reading.word.reduce((total, bit) => total + bit, 0);
+        reading.order.forEach((code, row) =>
+          places.set(`${row} ${code}`, (places.get(`${row} ${code}`) ?? 0) + 1),
+        );
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 250)).toBeLessThan(50);
+      expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+      // A shuffle puts every code in every row about a seventh of the time (1000 / 7 = 143).
+      expect(places.size).toBe(49);
+      for (const count of places.values())
+        expect(Math.abs(count - 1000 / 7)).toBeLessThan(50);
+      expect(Math.abs(ones / 30000 - 0.5)).toBeLessThan(0.015);
+      expect(words.size).toBeGreaterThan(998);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('linecodes', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('linecodes', 0),
+      b = createSurfaceSampler('linecodes', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});
