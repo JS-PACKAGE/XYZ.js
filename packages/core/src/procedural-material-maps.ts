@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'spitransfers',
   'rm4sccbarcodes',
   'codabarbarcodes',
   'itfbarcodes',
@@ -53632,6 +53633,105 @@ export function createSurfaceSampler(
           height = clamp(p.groundHeight + (p.inkHeight - p.groundHeight) * ink);
           roughness = clamp(
             p.groundRoughness + (p.inkRoughness - p.groundRoughness) * ink,
+          );
+          occlusion = 1;
+        };
+      }
+      case 'spitransfers': {
+        const p = proceduralMaterialPresets.spitransfers,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(145, 1, seed ^ 0x390001) * p.surfaces.length)
+            ],
+          across = hash(145, 2, seed ^ 0x390002) < 0.5,
+          shift = (hash(145, 3, seed ^ 0x390003) * 2 - 1) * p.toneShift,
+          mode = Math.min(3, Math.floor(hash(145, 4, seed ^ 0x390004) * 4)),
+          polarity = mode >> 1,
+          phase = mode & 1,
+          blocks = p.blocks,
+          cells = p.cells,
+          tones = [surface.select, surface.clock, surface.out, surface.back],
+          // The level of each line (slave select, SCLK, MOSI, MISO) in each cell of each block: slave select high, the clock at its idle level and the data low where nothing happens.
+          levels = new Uint8Array(blocks * 4 * cells),
+          at = (block: number, line: number, cell: number): number =>
+            (block * 4 + line) * cells + cell;
+        for (let block = 0; block < blocks; block++) {
+          for (let cell = 0; cell < cells; cell++) {
+            levels[at(block, 0, cell)] = 1;
+            levels[at(block, 1, cell)] = polarity;
+          }
+          const bits =
+              8 *
+              (1 +
+                Math.min(1, Math.floor(hash(block, 0, seed ^ 0x390005) * 2))),
+            span = 2 * bits + 1,
+            // The first cell of the transfer: after at least one idle cell, and the cell after the last clock and the cell where slave select goes high before the end of the row.
+            first =
+              1 +
+              Math.min(
+                cells - span - 3,
+                Math.floor(
+                  hash(block, 1, seed ^ 0x390005) * (cells - span - 2),
+                ),
+              );
+          for (let cell = first; cell < first + span; cell++)
+            levels[at(block, 0, cell)] = 0;
+          for (let k = 0; k < bits; k++)
+            levels[at(block, 1, first + 2 * k + 1)] = 1 - polarity;
+          // The bits of each direction, most significant bit first, from a byte of the seed for every eight.
+          for (let line = 2; line < 4; line++)
+            for (let k = 0; k < bits; k++) {
+              const byte = Math.floor(
+                  hash(block, 2 * line + (k >> 3), seed ^ 0x390005) * 256,
+                ),
+                bit = (byte >> (7 - (k & 7))) & 1,
+                // The bit is output when the transfer starts or when the clock goes to its idle level (phase 0), or at the first edge after the transfer starts or when the clock leaves its idle level (phase 1); it stays for a whole clock.
+                from = first + 2 * k + phase;
+              levels[at(block, line, from)] = bit;
+              levels[at(block, line, from + 1)] = bit;
+            }
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            x = across ? fv : fu,
+            gy = (across ? fu : fv) * blocks,
+            block = Math.floor(gy),
+            band = (gy - block) * 4,
+            line = Math.floor(band),
+            along = band - line,
+            cell = Math.floor(x * cells),
+            levelAt = (c: number): number =>
+              levels[at(block, line, (c + cells) % cells)],
+            heightOf = (c: number): number =>
+              levelAt(c) === 1 ? p.highShare : p.lowShare,
+            tile = 1 / (4 * blocks);
+          // The level line of the cell in the quarter of the block of this line, and the vertical lines at the two edges of the cell where the level changes.
+          let covered = cover(
+            p.traceHalf - Math.abs(along - heightOf(cell)) * tile,
+          );
+          for (const edge of [cell, cell + 1])
+            if (heightOf(edge - 1) !== heightOf(edge))
+              covered = Math.max(
+                covered,
+                cover(
+                  Math.min(
+                    p.traceHalf - Math.abs(x - edge / cells),
+                    (along - p.highShare) * tile + p.traceHalf,
+                    (p.lowShare - along) * tile + p.traceHalf,
+                  ),
+                ),
+              );
+          const ground = surface.ground + shift;
+          color = clamp(ground + (tones[line] + shift - ground) * covered);
+          height = clamp(
+            p.groundHeight + (p.traceHeight - p.groundHeight) * covered,
+          );
+          roughness = clamp(
+            p.groundRoughness + (p.inkRoughness - p.groundRoughness) * covered,
           );
           occlusion = 1;
         };

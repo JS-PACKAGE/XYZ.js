@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'spitransfers',
     'rm4sccbarcodes',
     'codabarbarcodes',
     'itfbarcodes',

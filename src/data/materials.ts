@@ -19121,6 +19121,61 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  spitransfers: Object.freeze({
+    dark: [16, 24, 22] as const,
+    light: [214, 236, 226] as const,
+    roughness: 0.5,
+    relief: 0.003,
+    // Blocks of the four lines of a Serial Peripheral Interface (SPI) transfer, as a logic analyser draws them: slave select (SS, active low), the clock (SCLK), MOSI and MISO (the Wikipedia article on SPI, read for this: the
+    // master pulls SS low, each clock cycle one bit goes each way, most significant bit first; CPOL is the level the clock idles at; with CPHA = 0 the first bit is output when SS activates, the later ones when SCLK goes to its idle
+    // level and the bits are sampled when SCLK leaves it, with CPHA = 1 the first bit is output on the first clock edge after SS activates, the later ones when SCLK leaves its idle level and the bits are sampled when it goes to it;
+    // the mode is 2 * CPOL + CPHA). A block has cells (half of a clock each) across the tile, a transfer of 8 or 16 bits of the seed in each direction with SS low from the first cell of the first clock to one cell after the last
+    // clock, and the idle level of SCLK around it. The drawing is mine: the data lines are drawn low when nothing is being sent (the article draws them as high impedance), a bit that is output at an edge is drawn from that edge,
+    // and the last bit of CPHA = 1 stays until SS goes high. A line is drawn at highShare or lowShare of its quarter of a block, with the half width traceHalf (of the tile), and a change of level as a vertical line at the edge of
+    // the cell. The seed picks the mode (the same for all the blocks), a surface (the tones of the ground and of the four lines, shifted together a little) and whether the blocks run along the picture or across it.
+    blocks: 3,
+    cells: 64,
+    highShare: 0.22,
+    lowShare: 0.78,
+    traceHalf: 0.003,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({
+        ground: 0.1,
+        select: 0.52,
+        clock: 0.9,
+        out: 0.7,
+        back: 0.34,
+      }),
+      Object.freeze({
+        ground: 0.9,
+        select: 0.5,
+        clock: 0.12,
+        out: 0.3,
+        back: 0.68,
+      }),
+      Object.freeze({
+        ground: 0.2,
+        select: 0.86,
+        clock: 0.58,
+        out: 0.4,
+        back: 0.7,
+      }),
+      Object.freeze({
+        ground: 0.78,
+        select: 0.2,
+        clock: 0.45,
+        out: 0.62,
+        back: 0.08,
+      }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    traceHeight: 0.4,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25613,6 +25668,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  spitransfers: 1,
   rm4sccbarcodes: 1,
   codabarbarcodes: 1,
   itfbarcodes: 1,

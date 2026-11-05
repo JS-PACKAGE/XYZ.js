@@ -87362,3 +87362,565 @@ describe('rm4sccbarcodes: rows of RM4SCC barcodes (the four-state barcode of the
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('spitransfers: blocks of the four lines of an SPI transfer (slave select, the clock, MOSI, MISO) as a logic analyser draws them, in one of the four modes by the seed, with transfers of 8 or 16 bits, along or across the picture', () => {
+  const p = proceduralMaterialPresets.spitransfers,
+    out = empty(),
+    blocks = p.blocks,
+    cells = p.cells,
+    half = p.traceHalf,
+    tile = 1 / (4 * blocks);
+  const toneAt = (
+    sample: Sampler,
+    x: number,
+    y: number,
+    across: boolean,
+  ): number => {
+    // A place in tile units in the picture as it is drawn (the cells along x, the blocks along y), as a place on the picture.
+    sample(across ? y : x, across ? x : y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  type Lines = {
+    select: number[];
+    clock: number[];
+    out: number[];
+    back: number[];
+  };
+  type Transfer = {
+    bits: number;
+    start: number;
+    out: number[];
+    back: number[];
+  };
+  // The reader of the four lines of a block (one level per cell, half of a clock), written out here from the Wikipedia article on SPI for the given clock phase: the transfer is while slave select is low; the clock idles at the level it has
+  // outside it, a leading edge leaves that level and a trailing edge goes back to it; with phase 0 the data is output when slave select goes low and at every trailing edge and sampled at every leading edge, with phase 1 it is output at
+  // every leading edge and sampled at every trailing edge (and slave select going high ends the last bit); the bits come most significant first, in bytes. The data line may change only where it is output, and must be steady where it is
+  // sampled. It gives null where a block breaks that.
+  const decodeBlock = (lines: Lines, phase: number): Transfer | null => {
+    const { select, clock } = lines;
+    if (select[0] !== 1 || select[cells - 1] !== 1) return null;
+    const start = select.indexOf(0),
+      end = select.indexOf(1, start);
+    if (start < 1 || end < 0 || select.slice(end).some((level) => level !== 1))
+      return null;
+    if (select.slice(start, end).some((level) => level !== 0)) return null;
+    const idle = clock[0];
+    if (
+      clock.slice(0, start).some((level) => level !== idle) ||
+      clock.slice(end).some((level) => level !== idle)
+    )
+      return null;
+    // The edges of the clock while slave select is low: boundaries e (between the cells e - 1 and e) with the kind of edge.
+    const leading: number[] = [],
+      trailing: number[] = [];
+    for (let e = start + 1; e < end; e++)
+      if (clock[e] !== clock[e - 1])
+        (clock[e] !== idle ? leading : trailing).push(e);
+    if (clock[start] !== idle) return null;
+    const bits = leading.length;
+    if (bits !== 8 && bits !== 16) return null;
+    // The leading and the trailing edges alternate, a cycle being two cells, and the last trailing edge is one cell before slave select goes high.
+    if (
+      leading.some((e, k) => trailing[k] !== e + 1) ||
+      trailing.length !== bits
+    )
+      return null;
+    const sampled = (phase === 0 ? leading : trailing).map((e) => e),
+      change = new Set<number>(
+        phase === 0 ? [start, ...trailing] : [...leading, end],
+      ),
+      readLine = (data: number[]): number[] | null => {
+        for (let e = 1; e < cells; e++)
+          if (data[e] !== data[e - 1] && !change.has(e)) return null;
+        const values: number[] = [];
+        for (const e of sampled) {
+          if (data[e - 1] !== data[e]) return null;
+          values.push(data[e]);
+        }
+        const bytes: number[] = [];
+        for (let k = 0; k < bits; k += 8)
+          bytes.push(
+            values.slice(k, k + 8).reduce((value, bit) => value * 2 + bit, 0),
+          );
+        return bytes;
+      },
+      sent = readLine(lines.out),
+      received = readLine(lines.back);
+    if (sent === null || received === null) return null;
+    return { bits, start, out: sent, back: received };
+  };
+  type Reading = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    mode: number;
+    tones: number[];
+    ground: number;
+    levels: Lines[];
+    transfers: Transfer[];
+  };
+  const names = ['select', 'clock', 'out', 'back'] as const;
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [];
+    for (const across of [false, true]) {
+      const tone = (x: number, y: number): number =>
+          toneAt(sample, x, y, across),
+        ground = tone(0, 0);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground,
+          tones = [
+            surface.select,
+            surface.clock,
+            surface.out,
+            surface.back,
+          ].map((value) => value + shift);
+        if (Math.abs(shift) > p.toneShift + 1e-9) return;
+        const levels: Lines[] = [];
+        let valid = true;
+        for (let block = 0; block < blocks && valid; block++) {
+          const lines: Lines = { select: [], clock: [], out: [], back: [] };
+          names.forEach((name, line) => {
+            const yAt = (share: number): number =>
+              (block + (line + share) / 4) / blocks;
+            for (let cell = 0; cell < cells && valid; cell++) {
+              const x = (cell + 0.5) / cells,
+                upper = tone(x, yAt(p.highShare)),
+                lower = tone(x, yAt(p.lowShare)),
+                drawnHigh = Math.abs(upper - tones[line]) < 1e-6,
+                drawnLow = Math.abs(lower - tones[line]) < 1e-6;
+              if (
+                drawnHigh === drawnLow ||
+                Math.abs((drawnHigh ? lower : upper) - ground) > 1e-6
+              )
+                valid = false;
+              lines[name].push(drawnHigh ? 1 : 0);
+            }
+            // The cell edges: a vertical line where the level changes (in the middle of the quarter), nothing between the quarters.
+            for (let edge = 0; edge < cells && valid; edge++) {
+              const changed =
+                  lines[name][(edge + cells - 1) % cells] !== lines[name][edge],
+                middle = tone(edge / cells, yAt(0.5)),
+                gap = tone(edge / cells, (block + line / 4) / blocks);
+              if (lines[name].length === cells) {
+                if (Math.abs(middle - (changed ? tones[line] : ground)) > 1e-6)
+                  valid = false;
+                if (Math.abs(gap - ground) > 1e-6) valid = false;
+              }
+            }
+          });
+          levels.push(lines);
+        }
+        if (!valid) return;
+        for (const phase of [0, 1]) {
+          const transfers: Transfer[] = [];
+          for (const lines of levels) {
+            const transfer = decodeBlock(lines, phase);
+            if (transfer === null) break;
+            transfers.push(transfer);
+          }
+          if (transfers.length === blocks)
+            options.push({
+              across,
+              surface: index,
+              shift,
+              mode: 2 * levels[0].clock[0] + phase,
+              tones,
+              ground,
+              levels,
+              transfers,
+            });
+        }
+      });
+    }
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  // The model of the picture: the line a place is on (0 to 3, or none), from the levels of the blocks (in tile units, x along the cells, y along the blocks).
+  const piece = (r: Reading, x: number, y: number): number => {
+    const gy = y * blocks,
+      block = Math.floor(gy),
+      band = (gy - block) * 4,
+      line = Math.floor(band),
+      along = band - line,
+      cell = Math.floor(x * cells),
+      level = (c: number): number =>
+        r.levels[block][names[line]][(c + cells) % cells],
+      heightOf = (c: number): number =>
+        level(c) === 1 ? p.highShare : p.lowShare;
+    if (Math.abs(along - heightOf(cell)) * tile <= half) return line;
+    for (const edge of [cell, cell + 1])
+      if (
+        heightOf(edge - 1) !== heightOf(edge) &&
+        Math.abs(x - edge / cells) <= half &&
+        along >= p.highShare - half / tile &&
+        along <= p.lowShare + half / tile
+      )
+        return line;
+    return -1;
+  };
+  const nearEdge = (x: number, y: number, within: number): boolean => {
+    const band = ((y * blocks) % 1) * 4,
+      along = band - Math.floor(band),
+      dx = Math.abs(x - Math.round(x * cells) / cells);
+    return (
+      [p.highShare, p.lowShare].some(
+        (level) => Math.abs(Math.abs(along - level) * tile - half) < within,
+      ) ||
+      Math.abs((along - p.highShare) * tile + half) < within ||
+      Math.abs((p.lowShare - along) * tile + half) < within ||
+      dx < within ||
+      Math.abs(dx - half) < within
+    );
+  };
+
+  it('draws in every block a transfer of 8 or 16 bits in each direction with slave select low from the first cell of the first clock until one cell after the last, the clock idling at the level of the mode, in all four modes, read back by a reader written from the article', () => {
+    const modes = new Set<number>(),
+      bits = new Set<number>(),
+      seen = new Set<string>();
+    for (let seed = 0; seed < 100; seed++) {
+      const reading = readSurface(
+        createSurfaceSampler('spitransfers', seed * 13 + 5),
+      );
+      modes.add(reading.mode);
+      for (const transfer of reading.transfers) {
+        bits.add(transfer.bits);
+        expect(transfer.start).toBeGreaterThanOrEqual(1);
+        expect(transfer.out.length).toBe(transfer.bits / 8);
+        seen.add(
+          `${reading.mode} ${transfer.out.join(',')} ${transfer.back.join(',')}`,
+        );
+      }
+    }
+    expect([...modes].sort()).toEqual([0, 1, 2, 3]);
+    expect([...bits].sort((a, b) => a - b)).toEqual([8, 16]);
+    expect(seen.size).toBeGreaterThan(100 * blocks * 0.98);
+  });
+
+  it('is read by a reader that agrees with a waveform worked out from the article for each of the four modes, and complains about the wrong phase and about a data line that changes where it is sampled', () => {
+    // The waveform of the article for a mode (polarity, phase) and two bytes in cells: slave select low from cell 1; the clock cycles of two cells; the data output as the article says.
+    const waveform = (
+      polarity: number,
+      phase: number,
+      sent: number[],
+      received: number[],
+    ): Lines => {
+      const bits = sent.length * 8,
+        lines: Lines = {
+          select: new Array<number>(cells).fill(1),
+          clock: new Array<number>(cells).fill(polarity),
+          out: new Array<number>(cells).fill(0),
+          back: new Array<number>(cells).fill(0),
+        },
+        first = 3;
+      for (let cell = first; cell <= first + 2 * bits; cell++)
+        lines.select[cell] = 0;
+      for (let k = 0; k < bits; k++) {
+        lines.clock[first + 2 * k + 1] = 1 - polarity;
+        // Phase 0: output when slave select goes low (the first bit) and when the clock returns to idle; phase 1: at the edge that leaves idle.
+        const from = first + 2 * k + phase;
+        for (const [line, bytes] of [
+          [lines.out, sent],
+          [lines.back, received],
+        ] as const) {
+          const bit = (bytes[k >> 3] >> (7 - (k & 7))) & 1;
+          line[from] = bit;
+          line[from + 1] = bit;
+        }
+      }
+      return lines;
+    };
+    for (const polarity of [0, 1])
+      for (const phase of [0, 1]) {
+        const sent = [0xa5, 0x3c],
+          received = [0x5a, 0xc3],
+          lines = waveform(polarity, phase, sent, received);
+        expect(decodeBlock(lines, phase)).toEqual({
+          bits: 16,
+          start: 3,
+          out: sent,
+          back: received,
+        });
+        // The other phase is refused: the data changes where it would be sampled.
+        expect(decodeBlock(lines, 1 - phase)).toBeNull();
+        // A data line that changes at a sampling edge is refused.
+        const broken = { ...lines, out: [...lines.out] };
+        const edge = 3 + 2 * 5 + (phase === 0 ? 1 : 2);
+        broken.out[edge] = 1 - broken.out[edge];
+        expect(decodeBlock(broken, phase)).toBeNull();
+      }
+    // Refused: slave select that goes low twice, a clock that idles at two levels, and a transfer of 9 bits.
+    const lines = waveform(0, 0, [0xa5], [0x5a]);
+    expect(decodeBlock(lines, 0)).toEqual({
+      bits: 8,
+      start: 3,
+      out: [0xa5],
+      back: [0x5a],
+    });
+    const twice = { ...lines, select: [...lines.select] };
+    twice.select[30] = 0;
+    expect(decodeBlock(twice, 0)).toBeNull();
+    const idles = { ...lines, clock: [...lines.clock] };
+    idles.clock[0] = 1;
+    expect(decodeBlock(idles, 0)).toBeNull();
+    const nine = {
+      ...lines,
+      clock: [...lines.clock],
+      select: [...lines.select],
+    };
+    nine.clock[3 + 2 * 8 + 1] = 1;
+    nine.select[3 + 2 * 8 + 1] = 0;
+    nine.select[3 + 2 * 8 + 2] = 0;
+    expect(decodeBlock(nine, 0)).toBeNull();
+  });
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model (ground, and the four lines) at every place of the picture away from the edges, for several seeds along and across',
+    { timeout: 120000 },
+    () => {
+      const seen = new Set<string>();
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        const sample = createSurfaceSampler('spitransfers', seed),
+          reading = readSurface(sample);
+        seen.add(`${reading.across}`);
+        const o = empty();
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (nearEdge(x, y, 0.0008)) continue;
+            sample(reading.across ? y : x, reading.across ? x : y, o);
+            const line = piece(reading, x, y);
+            expect(o.color).toBeCloseTo(
+              line < 0 ? reading.ground : reading.tones[line],
+              6,
+            );
+            expect(o.height / p.relief).toBeCloseTo(
+              line < 0 ? p.groundHeight : p.traceHeight,
+              6,
+            );
+            expect(o.roughness).toBeCloseTo(
+              line < 0 ? p.groundRoughness : p.inkRoughness,
+              6,
+            );
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(100000);
+      }
+      expect(seen.size).toBe(2);
+    },
+  );
+
+  it('puts the edges of the level lines and of the vertical lines at a change of level (the sides and both ends) where the model puts them: just inside and just outside by 0.0004 of a tile, exactly, and softens them over edgeSoft (checked at a quarter of it, for the tone, the height and the roughness)', () => {
+    const delta = 0.0004,
+      soft = 0.25 * p.edgeSoft;
+    let vertical = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('spitransfers', seed),
+        reading = readSurface(sample),
+        { across, tones, ground, levels } = reading,
+        tone = (x: number, y: number): number => toneAt(sample, x, y, across);
+      for (let block = 0; block < blocks; block++)
+        names.forEach((name, line) => {
+          const level = levels[block][name],
+            at = (c: number): number =>
+              level[(c + cells) % cells] === 1 ? p.highShare : p.lowShare,
+            yOf = (share: number): number =>
+              (block + (line + share) / 4) / blocks,
+            trace = tones[line];
+          // The level line of a few cells.
+          for (const cell of [2, 17, 40]) {
+            const x = (cell + 0.5) / cells,
+              centre = yOf(at(cell));
+            close(tone(x, centre + half - delta), trace);
+            close(tone(x, centre + half + delta), ground);
+            close(tone(x, centre - half + delta), trace);
+            close(tone(x, centre - half - delta), ground);
+            close(tone(x, centre + half - soft), blend(ground, trace, 0.75));
+            close(tone(x, centre + half + soft), blend(ground, trace, 0.25));
+            sample(
+              across ? centre + half - soft : x,
+              across ? x : centre + half - soft,
+              out,
+            );
+            expect(out.height / p.relief).toBeCloseTo(
+              blend(p.groundHeight, p.traceHeight, 0.75),
+              4,
+            );
+            expect(out.roughness).toBeCloseTo(
+              blend(p.groundRoughness, p.inkRoughness, 0.75),
+              4,
+            );
+          }
+          // The vertical lines at the first changes of level: the sides in the middle, and the two ends on the side of the cell where the end is not covered by the level line.
+          let changes = 0;
+          for (let edge = 1; edge < cells && changes < 4; edge++) {
+            if (at(edge - 1) === at(edge)) continue;
+            changes++;
+            vertical++;
+            const x = edge / cells,
+              middle = yOf(0.5),
+              lowSide = at(edge) === p.lowShare ? 1 : -1;
+            close(tone(x + half - delta, middle), trace);
+            close(tone(x + half + delta, middle), ground);
+            close(tone(x - half + delta, middle), trace);
+            close(tone(x - half - delta, middle), ground);
+            close(tone(x + half - soft, middle), blend(ground, trace, 0.75));
+            close(tone(x - half - soft, middle), blend(ground, trace, 0.25));
+            const topEnd = yOf(p.highShare) - half,
+              bottomEnd = yOf(p.lowShare) + half;
+            close(tone(x + lowSide * 0.002, topEnd + delta), trace);
+            close(tone(x + lowSide * 0.002, topEnd - delta), ground);
+            close(tone(x - lowSide * 0.002, bottomEnd - delta), trace);
+            close(tone(x - lowSide * 0.002, bottomEnd + delta), ground);
+          }
+        });
+    }
+    expect(vertical).toBeGreaterThan(200);
+  });
+
+  it('gives the ground and the lines their heights and roughnesses, and full occlusion', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('spitransfers', seed),
+        { across, levels } = readSurface(sample),
+        value = (x: number, y: number): [number, number, number] => {
+          sample(across ? y : x, across ? x : y, out);
+          return [out.height / p.relief, out.roughness, out.occlusion];
+        },
+        centre =
+          (1 + (2 + (levels[1].out[12] === 1 ? p.highShare : p.lowShare)) / 4) /
+          blocks,
+        [groundHeight, groundRoughness, groundOcclusion] = value(0, 0),
+        [lineHeight, lineRoughness, lineOcclusion] = value(
+          12.5 / cells,
+          centre,
+        );
+      expect(groundHeight).toBeCloseTo(p.groundHeight, 6);
+      expect(lineHeight).toBeCloseTo(p.traceHeight, 6);
+      expect(groundRoughness).toBeCloseTo(p.groundRoughness, 6);
+      expect(lineRoughness).toBeCloseTo(p.inkRoughness, 6);
+      expect([groundOcclusion, lineOcclusion]).toEqual([1, 1]);
+    }
+  });
+
+  it(
+    'uses every surface and both ways round over 1000 seeds about equally often, with the four modes about equally often, transfers of 8 and 16 bits about equally often, every byte value and every place a transfer can start turning up, and the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        modes = new Map<number, number>(),
+        lengths = new Map<number, number>(),
+        starts = new Map<number, Set<number>>(),
+        values = new Set<number>(),
+        shifts: number[] = [];
+      let acrossCount = 0,
+        repeated = 0,
+        words = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('spitransfers', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        modes.set(reading.mode, (modes.get(reading.mode) ?? 0) + 1);
+        acrossCount += Number(reading.across);
+        for (const transfer of reading.transfers) {
+          lengths.set(transfer.bits, (lengths.get(transfer.bits) ?? 0) + 1);
+          starts.set(
+            transfer.bits,
+            (starts.get(transfer.bits) ?? new Set<number>()).add(
+              transfer.start,
+            ),
+          );
+          for (const byte of [...transfer.out, ...transfer.back])
+            values.add(byte);
+          // The two bytes of a transfer of 16 bits, in each direction, are chosen separately.
+          if (transfer.bits === 16)
+            for (const bytes of [transfer.out, transfer.back]) {
+              words++;
+              repeated += Number(bytes[0] === bytes[1]);
+            }
+        }
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 250)).toBeLessThan(50);
+      expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+      expect(modes.size).toBe(4);
+      for (const count of modes.values())
+        expect(Math.abs(count - 250)).toBeLessThan(50);
+      // 3000 blocks.
+      for (const count of lengths.values())
+        expect(Math.abs(count - 1500)).toBeLessThan(150);
+      expect(values.size).toBe(256);
+      // About 3000 words of 16 bits, of which about 1 in 256 has two equal bytes.
+      expect(words).toBeGreaterThan(2500);
+      expect(repeated).toBeLessThan(words / 64);
+      for (const bits of [8, 16])
+        expect([...(starts.get(bits) ?? [])].sort((a, b) => a - b)).toEqual(
+          Array.from({ length: cells - (2 * bits + 1) - 2 }, (_, k) => k + 1),
+        );
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('spitransfers', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('spitransfers', 0),
+      b = createSurfaceSampler('spitransfers', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});
