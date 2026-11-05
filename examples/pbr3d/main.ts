@@ -1252,6 +1252,7 @@ try {
     'numbertriangles',
     'adjacencymatrices',
     'busybeavers',
+    'japanesemotifs',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

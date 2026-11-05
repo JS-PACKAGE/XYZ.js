@@ -1215,6 +1215,7 @@ const kinds: ProceduralMaterialKind[] = [
   'numbertriangles',
   'adjacencymatrices',
   'busybeavers',
+  'japanesemotifs',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -219377,6 +219378,398 @@ describe('Busy beavers as space-time diagrams of the champion Turing machines', 
     expect(blue / (512 * 512)).toBeLessThan(38.4);
     expect(maxTilt).toBeGreaterThan(0.0846);
     expect(maxTilt).toBeLessThan(0.0848);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Japanese motifs as four traditional geometric patterns', () => {
+  const p = proceduralMaterialPresets.japanesemotifs;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const counts = [4, 5, 6, 8];
+  const soft = p.edgeSoft;
+  /** The layout of a seed: the rotation of the motifs, the cells per panel and the shift of the pattern. */
+  const layoutOf = (seed: number) => {
+    const group = Math.floor(seed / 4),
+      step = Math.floor(group / 4);
+    return {
+      rotation: seed % 4,
+      cells: counts[group % 4],
+      shiftX: (step * 0.37) % 1,
+      shiftY: (step * 0.61) % 1,
+    };
+  };
+  /** The effective cell position of a texture point (the panel, the motif, the position in cells with the shift and with the half-cell shift of the uroko rows) and the distance of the point to the edge of its panel in cells. */
+  const locate = (seed: number, u: number, v: number) => {
+    const { rotation, cells, shiftX, shiftY } = layoutOf(seed),
+      column = Math.floor(2 * u),
+      row = Math.floor(2 * v),
+      panelU = 2 * u - column,
+      panelV = 2 * v - row,
+      motif = (2 * row + column + rotation) % 4,
+      cy = panelV * cells + shiftY,
+      cx =
+        panelU * cells +
+        shiftX +
+        (motif === 1 ? 0.5 * (Math.floor(cy) % 2) : 0);
+    return {
+      motif,
+      cx,
+      cy,
+      edge: cells * Math.min(panelU, 1 - panelU, panelV, 1 - panelV),
+    };
+  };
+  /** The inverse: the texture point whose effective cell position in the panel (column, row) is (cx, cy). */
+  const pointAt = (
+    seed: number,
+    column: number,
+    row: number,
+    cx: number,
+    cy: number,
+  ) => {
+    const { rotation, cells, shiftX, shiftY } = layoutOf(seed),
+      motif = (2 * row + column + rotation) % 4,
+      panelU =
+        (cx - shiftX - (motif === 1 ? 0.5 * (Math.floor(cy) % 2) : 0)) / cells,
+      panelV = (cy - shiftY) / cells;
+    return [(column + panelU) / 2, (row + panelV) / 2];
+  };
+  /** Whether the ink of the motif covers the position (fx, fy) in its cell (i, j), and how far the position is from an edge of the ink, by explicit inequalities and line distances written separately from the sampler. */
+  const classify = (
+    motif: number,
+    cx: number,
+    cy: number,
+  ): { ink: boolean; band: number } => {
+    const i = Math.floor(cx),
+      j = Math.floor(cy),
+      fx = cx - i,
+      fy = cy - j;
+    if (motif === 0)
+      return { ink: (i + j) % 2 === 0, band: Math.min(fx, 1 - fx, fy, 1 - fy) };
+    if (motif === 1) {
+      // The triangle with the apex (0.5, 0.08) and the base from (0.06, 0.92) to (0.94, 0.92).
+      const length = Math.hypot(0.44, 0.84),
+        left = ((fx - 0.5) * 0.84 + (fy - 0.08) * 0.44) / length,
+        right = ((0.5 - fx) * 0.84 + (fy - 0.08) * 0.44) / length,
+        inside = Math.min(left, right, 0.92 - fy);
+      return { ink: inside > 0, band: Math.abs(inside) };
+    }
+    if (motif === 2) {
+      const margins: number[] = [];
+      for (const c of [0.3, 0.7]) {
+        margins.push(
+          Math.min(0.06 - Math.abs(fx - c), 0.36 - Math.abs(fy - 0.5)),
+        );
+        margins.push(
+          Math.min(0.06 - Math.abs(fy - c), 0.36 - Math.abs(fx - 0.5)),
+        );
+      }
+      return {
+        ink: margins.some((m) => m > 0),
+        band: Math.min(...margins.map(Math.abs)),
+      };
+    }
+    const l1 = Math.abs(fx - 0.5) + Math.abs(fy - 0.5);
+    return {
+      ink: (l1 <= 0.46 && l1 >= 0.3) || l1 <= 0.14,
+      band:
+        Math.min(Math.abs(l1 - 0.46), Math.abs(l1 - 0.3), Math.abs(l1 - 0.14)) /
+        Math.SQRT2,
+    };
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('japanesemotifs', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.11064, high: 0.9396, lit: 0.69521, mean: 0.66637 }],
+      [1, { low: 0.11043, high: 0.9397, lit: 0.69513, mean: 0.66635 }],
+      [2, { low: 0.11064, high: 0.9398, lit: 0.69511, mean: 0.66639 }],
+      [6, { low: 0.11035, high: 0.9395, lit: 0.66856, mean: 0.65832 }],
+      [0xffffffff, { low: 0.11043, high: 0.9396, lit: 0.6792, mean: 0.66283 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('japanesemotifs', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('agrees with the ideal motifs away from their edges and from the panel borders: ink, height, tone and occlusion', () => {
+    const counted: number[] = [],
+      motifsSeen = new Set<number>(),
+      out = empty();
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22, 37, 70]) {
+      const sample = createSurfaceSampler('japanesemotifs', seed);
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          { motif, cx, cy, edge } = locate(seed, u, v),
+          { ink, band } = classify(motif, cx, cy);
+        // Within the border width of a panel the ink fades, and within half the smoothing of an edge it is in between.
+        if (edge < p.borderWidth || band < soft / 2) continue;
+        compared++;
+        motifsSeen.add(motif);
+        sample(u, v, out);
+        const level = Number(ink);
+        expect(out.occlusion).toBeCloseTo(
+          1 - p.paperOcclusion * (1 - level),
+          9,
+        );
+        expect(out.height).toBeCloseTo(p.relief * p.inkHeight * level, 12);
+        expect(
+          Math.abs(
+            out.color - (p.tonePaper - (p.tonePaper - p.toneInk) * level),
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counted.push(compared);
+    }
+    for (const compared of counted) expect(compared).toBeGreaterThan(3000);
+    expect([...motifsSeen].sort()).toEqual([0, 1, 2, 3]);
+  });
+  it('has the symmetries and the areas of the motifs: translation by the period of the pattern, the mirror symmetry of each motif and the ink fraction of a cell (0.5, 0.3696, 0.288 and 0.2824)', () => {
+    const out = empty(),
+      other = empty();
+    let checked = 0;
+    for (const seed of [0, 5, 14, 23]) {
+      const sample = createSurfaceSampler('japanesemotifs', seed),
+        { cells } = layoutOf(seed);
+      for (let panel = 0; panel < 4; panel++) {
+        const column = panel % 2,
+          row = Math.floor(panel / 2),
+          motif = (panel + (seed % 4)) % 4;
+        // Translations that leave a motif unchanged: ichimatsu by (2, 0), (0, 2) and (1, 1); the others by one cell sideways and by one cell down for igeta and hishi, two for uroko.
+        const periods =
+          motif === 0
+            ? [
+                [2, 0],
+                [0, 2],
+                [1, 1],
+              ]
+            : motif === 1
+              ? [
+                  [1, 0],
+                  [0, 2],
+                ]
+              : [
+                  [1, 0],
+                  [0, 1],
+                ];
+        for (let k = 0; k < 40; k++) {
+          const cx = 1 + 0.2 + ((k * 0.61803398875) % 1) * (cells - 3.4),
+            cy = 1 + 0.2 + ((k * 0.41421356237) % 1) * (cells - 3.4),
+            i = Math.floor(cx),
+            j = Math.floor(cy),
+            // The point itself, the translated points and the mirror images, all of which must stay clear of the border of the panel.
+            others = [
+              ...periods.map(([dx, dy]) => [cx + dx, cy + dy]),
+              [i + 1 - (cx - i), cy],
+              ...(motif === 1 ? [] : [[cx, j + 1 - (cy - j)]]),
+            ].map(([x, y]) => pointAt(seed, column, row, x, y)),
+            here = pointAt(seed, column, row, cx, cy);
+          if (
+            [here, ...others].some(
+              ([u, v]) => locate(seed, u, v).edge < p.borderWidth,
+            )
+          )
+            continue;
+          checked++;
+          sample(here[0], here[1], out);
+          for (const [u, v] of others) {
+            sample(u, v, other);
+            expect(other.height).toBeCloseTo(out.height, 9);
+            expect(other.occlusion).toBeCloseTo(out.occlusion, 9);
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(500);
+    // The ink fraction over a cell, or over two by two cells of the checkerboard, on a grid of 200 by 200 points.
+    const sample = createSurfaceSampler('japanesemotifs', 0),
+      areas = [0.5, 0.3696, 0.288, 0.2824];
+    for (let motif = 0; motif < 4; motif++) {
+      const span = motif === 0 ? 2 : 1,
+        panel = (motif - 0 + 4) % 4;
+      let sum = 0;
+      for (let a = 0; a < 200; a++)
+        for (let b = 0; b < 200; b++) {
+          const [u, v] = pointAt(
+            0,
+            panel % 2,
+            Math.floor(panel / 2),
+            1 + (span * (a + 0.5)) / 200,
+            1 + (span * (b + 0.5)) / 200,
+          );
+          sample(u, v, out);
+          sum += out.height / (p.relief * p.inkHeight);
+        }
+      expect(Math.abs(sum / 40000 - areas[motif])).toBeLessThan(0.004);
+    }
+  });
+  it('keeps a plain border around every panel: no ink at the very edge of a panel', () => {
+    const out = empty();
+    for (const seed of [0, 4, 12, 20, 41]) {
+      const sample = createSurfaceSampler('japanesemotifs', seed);
+      for (let k = 0; k < 400; k++) {
+        const along = ((k * 0.61803398875) % 1) / 2,
+          offsetPoint = 1e-4 / counts[Math.floor(seed / 4) % 4];
+        for (const [u, v] of [
+          [offsetPoint, along],
+          [0.5 - offsetPoint, along],
+          [along, offsetPoint],
+          [along, 0.5 - offsetPoint],
+          [0.5 + offsetPoint, 0.5 + along],
+          [0.5 + along, 0.5 + offsetPoint],
+        ]) {
+          sample(u, v, out);
+          expect(out.height / (p.relief * p.inkHeight)).toBeLessThan(1e-4);
+        }
+      }
+    }
+  });
+  it('draws a different view per rotation, cell count and shift and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.3769683837890625, 8);
+    expect(unlike(first, litGrid(4))).toBeCloseTo(0.4100799560546875, 8);
+    expect(unlike(first, litGrid(8))).toBeCloseTo(0.4237060546875, 8);
+    expect(unlike(first, litGrid(16))).toBeCloseTo(0.3841094970703125, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('japanesemotifs', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 Japanese motif maps on indigo ink and pale paper', () => {
+    const maps = generateProceduralMaps('japanesemotifs', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(158.7);
+    expect(red / (512 * 512)).toBeLessThan(158.9);
+    expect(green / (512 * 512)).toBeGreaterThan(162.0);
+    expect(green / (512 * 512)).toBeLessThan(162.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(178.3);
+    expect(blue / (512 * 512)).toBeLessThan(178.5);
+    expect(maxTilt).toBeGreaterThan(0.0467);
+    expect(maxTilt).toBeLessThan(0.0469);
     expect(invalid).toBe(0);
   });
 });

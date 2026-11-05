@@ -1189,6 +1189,7 @@ export type ProceduralMaterialKind =
   | 'numbertriangles'
   | 'adjacencymatrices'
   | 'busybeavers'
+  | 'japanesemotifs'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2626,6 +2627,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'numbertriangles',
   'adjacencymatrices',
   'busybeavers',
+  'japanesemotifs',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

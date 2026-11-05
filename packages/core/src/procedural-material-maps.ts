@@ -58489,6 +58489,116 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'japanesemotifs': {
+        const p = proceduralMaterialPresets.japanesemotifs,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          rotation = unsigned % 4,
+          group = Math.floor(unsigned / 4),
+          cells = p.counts[group % p.counts.length],
+          step = Math.floor(group / p.counts.length),
+          shiftX = (step * p.shiftStep[0]) % 1,
+          shiftY = (step * p.shiftStep[1]) % 1,
+          // The triangle of the uroko as the three corners and the orientation of the polygon, so that the signed distance to every edge line is positive inside.
+          corners = [
+            p.urokoApex,
+            [p.urokoBase[1], p.urokoBase[2]],
+            [p.urokoBase[0], p.urokoBase[2]],
+          ],
+          orientation = Math.sign(
+            (corners[1][0] - corners[0][0]) * (corners[2][1] - corners[0][1]) -
+              (corners[1][1] - corners[0][1]) * (corners[2][0] - corners[0][0]),
+          ),
+          // The distance inside the ink of each motif (negative outside) for the position (fx, fy) in the cell (i, j); row j of the uroko is shifted by half a cell.
+          motifs = [
+            (fx: number, fy: number, i: number, j: number) =>
+              (i + j) % 2 === 0
+                ? Math.min(fx, 1 - fx, fy, 1 - fy)
+                : -Math.min(fx, 1 - fx, fy, 1 - fy),
+            (fx: number, fy: number) => {
+              let inside = Infinity;
+              for (let k = 0; k < 3; k++) {
+                const [ax, ay] = corners[k],
+                  [bx, by] = corners[(k + 1) % 3],
+                  length = Math.hypot(bx - ax, by - ay);
+                inside = Math.min(
+                  inside,
+                  (orientation *
+                    ((bx - ax) * (fy - ay) - (by - ay) * (fx - ax))) /
+                    length,
+                );
+              }
+              return inside;
+            },
+            (fx: number, fy: number) => {
+              let inside = -Infinity;
+              for (const centre of p.igetaCentres) {
+                // An upright bar and a flat bar.
+                inside = Math.max(
+                  inside,
+                  Math.min(
+                    p.igetaHalfWidth - Math.abs(fx - centre),
+                    p.igetaHalfLength - Math.abs(fy - 0.5),
+                  ),
+                  Math.min(
+                    p.igetaHalfWidth - Math.abs(fy - centre),
+                    p.igetaHalfLength - Math.abs(fx - 0.5),
+                  ),
+                );
+              }
+              return inside;
+            },
+            (fx: number, fy: number) => {
+              const l1 = Math.abs(fx - 0.5) + Math.abs(fy - 0.5);
+              return (
+                Math.max(
+                  Math.min(p.hishiOuter - l1, l1 - p.hishiInner),
+                  p.hishiCore - l1,
+                ) * Math.SQRT1_2
+              );
+            },
+          ];
+        return () => {
+          const x = fract(u) * 2,
+            y = fract(v) * 2,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            panelU = x - column,
+            panelV = y - row,
+            motif = (2 * row + column + rotation) % 4,
+            // The position in cells with the shift; the rows of the uroko are shifted by half a cell.
+            cellX =
+              panelU * cells +
+              shiftX +
+              (motif === 1
+                ? 0.5 * (Math.floor(panelV * cells + shiftY) % 2)
+                : 0),
+            cellY = panelV * cells + shiftY,
+            i = Math.floor(cellX),
+            j = Math.floor(cellY),
+            inside = motifs[motif](cellX - i, cellY - j, i, j),
+            // Ink is 1 well inside the motif, 0 outside, smooth within edgeSoft of its edge; a plain border keeps the panels apart.
+            frame = smooth(
+              clamp(
+                (cells * Math.min(panelU, 1 - panelU, panelV, 1 - panelV)) /
+                  p.borderWidth,
+              ),
+            ),
+            ink = frame * smooth(clamp(0.5 + inside / p.edgeSoft)),
+            grain = grainField(u, v);
+          color =
+            p.tonePaper -
+            (p.tonePaper - p.toneInk) * ink +
+            p.grainTone * (grain - 0.5);
+          height = p.inkHeight * ink;
+          occlusion = 1 - p.paperOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -67480,6 +67590,7 @@ export function createSurfaceSampler(
     kind === 'numbertriangles' ||
     kind === 'adjacencymatrices' ||
     kind === 'busybeavers' ||
+    kind === 'japanesemotifs' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

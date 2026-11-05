@@ -20126,6 +20126,36 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.8,
     gapOcclusion: 0.5,
   }),
+  japanesemotifs: Object.freeze({
+    dark: [10, 16, 52] as const,
+    light: [236, 238, 244] as const,
+    roughness: 0.6,
+    relief: 0.0012,
+    seedSalt: 0x2b49,
+    // Four traditional Japanese geometric motifs in 2 x 2 panels, each repeated cells x cells times (indigo ink on pale paper, the ink slightly raised): ichimatsu (a checkerboard), uroko (rows of triangular scales, every other row shifted by half a cell), igeta (the well-curb sign: two upright and two flat bars crossing in a # shape) and hishi (a diamond outline around a small diamond). The seed is split in two: seed % 4 rotates the four motifs through the four panels and floor(seed / 4) is the group: group % 4 picks how many cells fit a panel from counts and floor(group / 4) shifts the pattern inside the panels by (step x 0.37, step x 0.61) cells modulo 1.
+    counts: [4, 5, 6, 8] as const,
+    shiftStep: [0.37, 0.61] as const,
+    // Uroko triangle: the apex and the base corners as fractions of the cell (y downwards).
+    urokoApex: [0.5, 0.08] as const,
+    urokoBase: [0.06, 0.94, 0.92] as const,
+    // Igeta: the centres of the two bars of each direction, their half width and half length.
+    igetaCentres: [0.3, 0.7] as const,
+    igetaHalfWidth: 0.06,
+    igetaHalfLength: 0.36,
+    // Hishi: the outer and inner radius of the diamond outline and the radius of the core (in the L1 distance from the cell centre).
+    hishiOuter: 0.46,
+    hishiInner: 0.3,
+    hishiCore: 0.14,
+    // The smoothing of an edge and the width of the plain border of a panel (in cells).
+    edgeSoft: 0.06,
+    borderWidth: 0.3,
+    grainCells: 128,
+    toneInk: 0.12,
+    tonePaper: 0.93,
+    grainTone: 0.02,
+    inkHeight: 0.8,
+    paperOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21978,6 +22008,7 @@ export const proceduralTileMeters = Object.freeze({
   numbertriangles: 0.5,
   adjacencymatrices: 0.5,
   busybeavers: 0.5,
+  japanesemotifs: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,
