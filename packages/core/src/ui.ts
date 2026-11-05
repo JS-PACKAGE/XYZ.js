@@ -574,12 +574,18 @@ interface ModalEntry {
   previous?: Focusable;
   generation?: number;
 }
+interface FocusOrder {
+  readonly tree: GameObject[];
+  readonly nodes: Focusable[];
+  readonly indices: Map<Focusable, number>;
+}
 export class UIFocusManager {
   private current?: Focusable;
   private currentGeneration = 0;
   private requested?: Focusable;
   private requestedGeneration?: number;
   private readonly modals: ModalEntry[] = [];
+  private readonly orders = new WeakMap<GameObject, FocusOrder>();
   constructor(private readonly root: UIRoot) {}
   get focused(): Focusable | undefined {
     return this.current;
@@ -610,15 +616,38 @@ export class UIFocusManager {
         return rootOf(node) === this.root;
     return false;
   }
-  private collect(node: GameObject, out: Focusable[]): void {
-    if (
-      node instanceof UIButton ||
-      node instanceof UICheckbox ||
-      node instanceof UISlider ||
-      node instanceof UITextInput
-    )
-      if (this.eligible(node)) out.push(node);
-    for (const child of node.children) this.collect(child, out);
+  private order(container: GameObject): FocusOrder {
+    const previous = this.orders.get(container);
+    let cursor = 0;
+    const matches = (node: GameObject): boolean => {
+      if (previous!.tree[cursor++] !== node) return false;
+      const children = node.existingChildren;
+      if (children)
+        for (const child of children) if (!matches(child)) return false;
+      return true;
+    };
+    // Non-UI descendants can be reparented without a UI layout invalidation.
+    // Check identity/order only; eligibility stays live, including direct visibility edits.
+    if (previous && matches(container) && cursor === previous.tree.length)
+      return previous;
+    const order: FocusOrder = { tree: [], nodes: [], indices: new Map() };
+    const visit = (node: GameObject): void => {
+      order.tree.push(node);
+      if (
+        node instanceof UIButton ||
+        node instanceof UICheckbox ||
+        node instanceof UISlider ||
+        node instanceof UITextInput
+      ) {
+        order.indices.set(node, order.nodes.length);
+        order.nodes.push(node);
+      }
+      const children = node.existingChildren;
+      if (children) for (const child of children) visit(child);
+    };
+    visit(container);
+    this.orders.set(container, order);
+    return order;
   }
   private first(node: GameObject): Focusable | undefined {
     if (
@@ -689,9 +718,10 @@ export class UIFocusManager {
   /** Focus traversal within one retained row, including nested controls. */
   focusWithin(container: UIElement, direction: number): boolean {
     if (direction < 0) {
-      const nodes: Focusable[] = [];
-      this.collect(container, nodes);
-      return nodes.length > 0 && this.focus(nodes[nodes.length - 1]);
+      const { nodes } = this.order(container);
+      for (let i = nodes.length - 1; i >= 0; i--)
+        if (this.eligible(nodes[i])) return this.focus(nodes[i]);
+      return false;
     }
     const node = this.first(container);
     return node !== undefined && this.focus(node);
@@ -702,10 +732,14 @@ export class UIFocusManager {
     node: GameObject,
     direction: number,
   ): boolean {
-    const nodes: Focusable[] = [];
-    this.collect(container, nodes);
-    const index = nodes.indexOf(node as Focusable) + (direction < 0 ? -1 : 1);
-    return index >= 0 && index < nodes.length;
+    const { nodes, indices } = this.order(container);
+    const step = direction < 0 ? -1 : 1;
+    const index = indices.get(node as Focusable);
+    const start =
+      index !== undefined && this.eligible(nodes[index]) ? index : -1;
+    for (let i = start + step; i >= 0 && i < nodes.length; i += step)
+      if (this.eligible(nodes[i])) return true;
+    return false;
   }
   move(direction: number): boolean {
     if (this.current) {
@@ -716,20 +750,22 @@ export class UIFocusManager {
         )
           return true;
     }
-    const nodes: Focusable[] = [];
-    this.collect(this.modal ?? this.root, nodes);
-    if (!nodes.length) {
-      this.acceptNative(undefined);
-      return false;
-    }
-    const index = this.current ? nodes.indexOf(this.current) : -1;
-    const next =
-      index < 0
-        ? direction < 0
+    const { nodes, indices } = this.order(this.modal ?? this.root);
+    const step = direction < 0 ? -1 : 1;
+    const index = this.current && indices.get(this.current);
+    let next =
+      index !== undefined && this.current && this.eligible(this.current)
+        ? index + step
+        : step < 0
           ? nodes.length - 1
-          : 0
-        : (index + (direction < 0 ? -1 : 1) + nodes.length) % nodes.length;
-    return this.focus(nodes[next]);
+          : 0;
+    for (let visited = 0; visited < nodes.length; visited++, next += step) {
+      if (next < 0) next = nodes.length - 1;
+      else if (next === nodes.length) next = 0;
+      if (this.eligible(nodes[next])) return this.focus(nodes[next]);
+    }
+    this.acceptNative(undefined);
+    return false;
   }
   pushModal(container: UIElement): void {
     if (container.destroyed || rootOf(container) !== this.root)
