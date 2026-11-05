@@ -78,7 +78,7 @@ try {
   context.fillRect(0, 0, 1, 1);
   white = await Texture.fromImage(source);
   const texture = white;
-  for (const kind of [
+  const presetKinds = [
     'wood',
     'brick',
     'stone',
@@ -1251,9 +1251,20 @@ try {
     'ammannfilled',
     'heptagridfilled',
     'dodecagridfilled',
-  ] as const) {
-    presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
-  }
+  ] as const;
+  const isPresetKind = (kind: string): kind is ProceduralMaterialKind =>
+    (presetKinds as readonly string[]).includes(kind);
+  // Presets are generated when first selected: creating all of them up front cost ~23 s.
+  const ensurePreset = async (kind: string): Promise<void> => {
+    if (!isPresetKind(kind) || presets.has(kind)) return;
+    const preset = await ProceduralMaterial.create(kind, { seed: 7 });
+    if (listeners.signal.aborted || presets.has(kind)) {
+      preset.destroy();
+      return;
+    }
+    presets.set(kind, preset);
+  };
+  await ensurePreset(materialSelect.value);
   environment = EnvironmentMap.gradient({
     zenith: [0.12, 0.3, 0.65],
     horizon: [0.8, 0.75, 0.6],
@@ -1356,47 +1367,48 @@ try {
         }),
       );
     }
-    private rebuildSamples(finish: string): void {
-      this.sampleMaterials = {};
-      for (const kind of ['plain', ...presets.keys()]) {
-        const preset = presets.get(kind as ProceduralMaterialKind);
-        const materials: PBRMaterial[] = [];
-        for (let y = 0; y < 5; y++)
-          for (let x = 0; x < 5; x++) {
-            const factors = {
-              metallic: x / 4,
-              roughness: 0.05 + (y / 4) * 0.95,
-              finish: finishes[finish],
-            };
-            materials.push(
-              preset
-                ? preset.createMaterial(factors)
-                : new PBRMaterial({
-                    texture,
-                    color: [0.72, 0.46, 0.18],
-                    ...factors,
-                    alphaMode: 'OPAQUE',
-                  }),
-            );
-          }
-        this.sampleMaterials[kind as 'plain' | ProceduralMaterialKind] =
-          materials;
-      }
+    private buildSamples(
+      kind: 'plain' | ProceduralMaterialKind,
+      finish: string,
+    ): PBRMaterial[] {
+      const preset = presets.get(kind as ProceduralMaterialKind);
+      const materials: PBRMaterial[] = [];
+      for (let y = 0; y < 5; y++)
+        for (let x = 0; x < 5; x++) {
+          const factors = {
+            metallic: x / 4,
+            roughness: 0.05 + (y / 4) * 0.95,
+            finish: finishes[finish],
+          };
+          materials.push(
+            preset
+              ? preset.createMaterial(factors)
+              : new PBRMaterial({
+                  texture,
+                  color: [0.72, 0.46, 0.18],
+                  ...factors,
+                  alphaMode: 'OPAQUE',
+                }),
+          );
+        }
+      return materials;
     }
     apply(): void {
+      const wanted = materialSelect.value;
+      // A newer selection is still generating; its own handler applies every control.
+      if (isPresetKind(wanted) && !presets.has(wanted)) return;
       if (
-        this.selectedMaterial !== materialSelect.value ||
+        this.selectedMaterial !== wanted ||
         this.selectedFinish !== finishSelect.value
       ) {
         if (this.selectedFinish !== finishSelect.value) {
           this.selectedFinish = finishSelect.value;
-          this.rebuildSamples(this.selectedFinish);
+          this.sampleMaterials = {};
         }
-        this.selectedMaterial = materialSelect.value;
-        const materials =
-          this.sampleMaterials[
-            this.selectedMaterial as 'plain' | ProceduralMaterialKind
-          ]!;
+        this.selectedMaterial = wanted;
+        const selectedKind = wanted as 'plain' | ProceduralMaterialKind;
+        const materials = (this.sampleMaterials[selectedKind] ??=
+          this.buildSamples(selectedKind, this.selectedFinish));
         // Replace consumers when the material set changes; shared maps and geometry stay.
         for (const sample of this.samples) sample.destroy();
         this.samples.length = 0;
@@ -1477,15 +1489,22 @@ try {
   controls.minDistance = 5;
   controls.maxDistance = 40;
   controls.update();
-  document
-    .querySelector('.controls')!
-    .addEventListener('input', () => scene.apply(), {
-      signal: listeners.signal,
-    });
+  document.querySelector('.controls')!.addEventListener(
+    'input',
+    () => {
+      ensurePreset(materialSelect.value)
+        .then(() => scene.apply())
+        .catch((error: unknown) => {
+          status.textContent =
+            error instanceof Error ? error.message : String(error);
+        });
+    },
+    { signal: listeners.signal },
+  );
   scene.apply();
   await game.setScene(scene);
   game.start();
-  status.textContent = `${game.graphics.backend} · ${presets.size} procedural material presets + plain · 25 metallic/roughness samples · directional shadows + point light · generated environment + fog + HDR/bloom`;
+  status.textContent = `${game.graphics.backend} · ${presetKinds.length} procedural material presets (generated when selected) + plain · 25 metallic/roughness samples · directional shadows + point light · generated environment + fog + HDR/bloom`;
   window.addEventListener('pagehide', (event) => {
     if (!event.persisted) cleanup();
   });
