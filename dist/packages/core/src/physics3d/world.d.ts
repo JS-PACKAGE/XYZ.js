@@ -73,6 +73,8 @@ export declare class PhysicsWorld3D {
     private readonly pairLows;
     private readonly pairHighs;
     private readonly pairSequence;
+    /** Sort keys of the pairs, each packing (low order, high order, index) into one integer. */
+    private pairKeys;
     private readonly comparePairs;
     private readonly queryCandidates;
     private readonly queryBounds;

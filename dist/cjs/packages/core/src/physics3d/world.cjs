@@ -57,6 +57,7 @@ var PhysicsWorld3D = class {
 	pairLows = [];
 	pairHighs = [];
 	pairSequence = [];
+	pairKeys = /* @__PURE__ */ new Float64Array();
 	comparePairs = (e, t) => this.pairLows[e].order - this.pairLows[t].order || this.pairHighs[e].order - this.pairHighs[t].order;
 	queryCandidates = [];
 	queryBounds = new require_spatial.Bounds3D();
@@ -486,7 +487,14 @@ var PhysicsWorld3D = class {
 			this.index.query(e.bounds, this.pairCandidates, require_physics3d.physics3DDefaults.contactMargin);
 			for (let t of this.pairCandidates) t !== e && (t.order < e.order && pairsWithin(t) || (o[s] = s, i[s] = t.order < e.order ? t : e, a[s++] = t.order < e.order ? e : t));
 		}
-		i.length = a.length = o.length = s, o.sort(this.comparePairs);
+		i.length = a.length = o.length = s;
+		let u = this.nextOrder;
+		if (u * u * s < 2 ** 53) {
+			let e = this.pairKeys = this.pairKeys.length < s ? new Float64Array(s * 2) : this.pairKeys;
+			for (let t = 0; t < s; t++) e[t] = (i[t].order * u + a[t].order) * s + t;
+			e.subarray(0, s).sort();
+			for (let t = 0; t < s; t++) o[t] = e[t] % s;
+		} else o.sort(this.comparePairs);
 		for (let e of o) {
 			let t = i[e], n = a[e];
 			this.counters.candidatePairs++;
