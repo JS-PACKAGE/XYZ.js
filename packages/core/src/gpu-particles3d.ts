@@ -372,7 +372,8 @@ export class GPUParticleEmitter3D extends Object3D {
     this.births[slot] = at;
     this.commands[base] = at - this.epoch;
     this.commandWords[base + 1] = sequence >>> 0;
-    this.commands.set(this.worldMatrix.elements, base + 4);
+    const matrix = this.worldMatrix.elements;
+    for (let i = 0; i < 16; i++) this.commands[base + 4 + i] = matrix[i];
     this.count++;
     this.lastAdmitted = slot;
     this.revision++;
