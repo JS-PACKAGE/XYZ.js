@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'starbattleboard',
   'sokobanlevels',
   'ladderlogic',
   'pigpencipher',
@@ -52600,6 +52601,164 @@ export function createSurfaceSampler(
               p.groundRoughness) *
               fill;
           roughness = clamp(rough + (p.pieceRoughness - rough) * mark);
+          occlusion = 1;
+        };
+      }
+      case 'starbattleboard': {
+        const p = proceduralMaterialPresets.starbattleboard,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(136, 1, seed ^ 0x300001) * p.surfaces.length)
+            ],
+          shift = (hash(136, 2, seed ^ 0x300002) * 2 - 1) * p.toneShift,
+          n = p.cells,
+          random = (a: number, b: number): number =>
+            hash(a, b, seed ^ 0x300003),
+          // The column of the star of each row: the columns are tried in a random order, and the row below keeps two or more columns away.
+          columns: number[] = new Array(n).fill(-1),
+          taken: boolean[] = new Array(n).fill(false),
+          place = (row: number): boolean => {
+            if (row === n) return true;
+            const order = Array.from({ length: n }, (_, column) => column)
+              .filter(
+                (column) =>
+                  !taken[column] &&
+                  (row === 0 || Math.abs(column - columns[row - 1]) > 1),
+              )
+              .sort((a, b) => random(row * n + a, 1) - random(row * n + b, 1));
+            for (const column of order) {
+              columns[row] = column;
+              taken[column] = true;
+              if (place(row + 1)) return true;
+              taken[column] = false;
+            }
+            return false;
+          },
+          regions: number[] = new Array(n * n).fill(-1);
+        place(0);
+        // The regions: one for each star, grown by taking, one at a time, the cell of the least random number that has a neighbour in a region.
+        for (let row = 0; row < n; row++) regions[row * n + columns[row]] = row;
+        for (let left = n * n - n; left > 0; left--) {
+          let best = -1;
+          for (let cell = 0; cell < n * n; cell++) {
+            const x = cell % n,
+              y = (cell - x) / n;
+            if (
+              regions[cell] >= 0 ||
+              !(
+                (x > 0 && regions[cell - 1] >= 0) ||
+                (x < n - 1 && regions[cell + 1] >= 0) ||
+                (y > 0 && regions[cell - n] >= 0) ||
+                (y < n - 1 && regions[cell + n] >= 0)
+              )
+            )
+              continue;
+            if (best < 0 || random(cell, 2) < random(best, 2)) best = cell;
+          }
+          const x = best % n,
+            y = (best - x) / n,
+            near: number[] = [];
+          if (x > 0 && regions[best - 1] >= 0) near.push(regions[best - 1]);
+          if (x < n - 1 && regions[best + 1] >= 0) near.push(regions[best + 1]);
+          if (y > 0 && regions[best - n] >= 0) near.push(regions[best - n]);
+          if (y < n - 1 && regions[best + n] >= 0) near.push(regions[best + n]);
+          regions[best] =
+            near[
+              Math.min(
+                near.length - 1,
+                Math.floor(random(best, 3) * near.length),
+              )
+            ];
+        }
+        // Whether the line between two squares is thick: the edge i, j of the lines that run along x (the line at y = j between the squares above and below, from x = i to i + 1) or along y; the lines around the tile are thick.
+        const thickAlong = (i: number, j: number): boolean =>
+            j % n === 0 ||
+            regions[(j - 1) * n + (i % n)] !== regions[j * n + (i % n)],
+          thickDown = (i: number, j: number): boolean =>
+            i % n === 0 ||
+            regions[(j % n) * n + i - 1] !== regions[(j % n) * n + i],
+          // The corners of the star (an outer and an inner corner alternating, the first outer one pointing up), in units of the outer radius.
+          star: number[][] = Array.from({ length: 10 }, (_, k) => {
+            const turn = -Math.PI / 2 + (k * Math.PI) / 5,
+              radius = k % 2 === 0 ? 1 : p.innerRatio;
+            return [radius * Math.cos(turn), radius * Math.sin(turn)];
+          });
+        return () => {
+          const x = (u - Math.floor(u)) * n,
+            y = (v - Math.floor(v)) * n,
+            cx = Math.min(n - 1, Math.floor(x)),
+            cy = Math.min(n - 1, Math.floor(y)),
+            kx = Math.round(x),
+            ky = Math.round(y);
+          // The four lines that meet at the nearest corner (a square end at the corner): the distance of the place from each, in tiles, where a line along a segment is as far as the larger of the way out beyond its ends and the way across it.
+          let thin = -1,
+            thick = -1;
+          for (const side of [-1, 0]) {
+            const i = kx + side,
+              j = ky + side,
+              alongX = Math.max(i - x, x - i - 1),
+              alongY = Math.max(j - y, y - j - 1),
+              reachX = Math.max(alongX, Math.abs(y - ky)) / n,
+              reachY = Math.max(alongY, Math.abs(x - kx)) / n;
+            if (thickAlong((i + n) % n, ky))
+              thick = Math.max(thick, p.thickHalf - reachX);
+            else thin = Math.max(thin, p.thinHalf - reachX);
+            if (thickDown(kx, (j + n) % n))
+              thick = Math.max(thick, p.thickHalf - reachY);
+            else thin = Math.max(thin, p.thinHalf - reachY);
+          }
+          // The star of the square, if it has one: the distance from the nearest side of the star, positive inside.
+          let inStar = -1;
+          if (columns[cy] === cx) {
+            const lx = (x - cx - 0.5) / n,
+              ly = (y - cy - 0.5) / n;
+            let nearest = Infinity,
+              crossings = 0;
+            for (let k = 0; k < 10; k++) {
+              const ax = star[k][0] * p.starRadius,
+                ay = star[k][1] * p.starRadius,
+                bx = star[(k + 1) % 10][0] * p.starRadius,
+                by = star[(k + 1) % 10][1] * p.starRadius,
+                dx = bx - ax,
+                dy = by - ay,
+                t = Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    ((lx - ax) * dx + (ly - ay) * dy) / (dx * dx + dy * dy),
+                  ),
+                );
+              nearest = Math.min(
+                nearest,
+                Math.hypot(lx - ax - t * dx, ly - ay - t * dy),
+              );
+              if (ay > ly !== by > ly && lx < ax + ((ly - ay) * dx) / dy)
+                crossings++;
+            }
+            inStar = crossings % 2 === 1 ? nearest : -nearest;
+          }
+          const thinCover = cover(thin),
+            thickCover = cover(thick),
+            starCover = cover(inStar),
+            ground = surface.ground + shift,
+            lined = ground + (surface.thin + shift - ground) * thinCover,
+            drawn = lined + (surface.thick + shift - lined) * thickCover;
+          color = clamp(drawn + (surface.star + shift - drawn) * starCover);
+          const thinHeight =
+              p.groundHeight + (p.thinHeight - p.groundHeight) * thinCover,
+            thickHeight =
+              thinHeight + (p.thickHeight - thinHeight) * thickCover;
+          height = clamp(
+            thickHeight + (p.starHeight - thickHeight) * starCover,
+          );
+          const rough =
+            p.groundRoughness +
+            (p.lineRoughness - p.groundRoughness) *
+              Math.max(thinCover, thickCover);
+          roughness = clamp(rough + (p.starRoughness - rough) * starCover);
           occlusion = 1;
         };
       }

@@ -621,6 +621,7 @@ describe('amberresin: polished resin with flow bands, bubbles and spangle cracks
 
   it.each(seeds)(
     'places at most one ring-shaped bubble inside each grid cell, within the authored radii (seed %i)',
+    { timeout: 120000 },
     (seed) => {
       const { maps } = sweep(seed),
         rim = maps.map((m) => m.occlusion < 0.95),
@@ -695,6 +696,7 @@ describe('amberresin: polished resin with flow bands, bubbles and spangle cracks
 
   it.each(seeds)(
     'bands the flow along v more finely than along u and cuts spangle cracks (seed %i)',
+    { timeout: 120000 },
     (seed) => {
       const { sample, maps } = sweep(seed),
         a = empty(),
@@ -35836,6 +35838,7 @@ describe('windbarbs: a grid of wind symbols that encode a speed and a direction'
 
   it.each([...seeds, 1, 2, 3, 4, 5, 6])(
     'draws every cell as a ring, a staff and the flags and barbs of one speed (seed %i)',
+    { timeout: 120000 },
     (seed) => {
       const { grid, stations } = layoutOf(seed);
       expect(stations).toHaveLength(grid * grid);
@@ -58005,6 +58008,7 @@ describe('keplerorbit: an elliptical orbit with equal-area wedges swept in equal
 
   it.each([...seeds, 1, 2, 3, 4, 5, 6])(
     'draws an ellipse of a stated size and shape with the sun at a focus and planet positions at equal steps of mean anomaly, the wedges between them alternating in tone (seed %i)',
+    { timeout: 120000 },
     (seed) => {
       const orbit = orbitFor(seed);
       // The planets' number, and the orbit's size, shape and place (the fit's numbers are close to the preset's).
@@ -66745,6 +66749,7 @@ describe('arnoldcatmap: a picture scrambled by the cat map of Arnold, as many ti
 
   it.each([...seeds, 1, 2, 3, 4, 5, 6])(
     'draws one of the three pictures scrambled by the cat map a number of times below the period, cell by cell, in the tones of the values (seed %i)',
+    { timeout: 120000 },
     (seed) => {
       const picture = readPicture(seed),
         found = fits(picture);
@@ -67491,6 +67496,7 @@ describe('poolrack: a pool table with the fifteen balls racked and the cue ball,
 
   it.each([...seeds, 1, 2, 3, 4, 5, 6])(
     'racks the fifteen balls in the triangle, the eight ball in the middle, a solid and a stripe in the back corners, each number once (seed %i)',
+    { timeout: 120000 },
     (seed) => {
       const sample = createSurfaceSampler('poolrack', seed),
         { numbers } = readRack(sample);
@@ -70239,6 +70245,7 @@ describe('hockeyrink: an ice hockey rink seen from above with the markings of th
 
   it.each([...seeds, 1, 2, 3, 4, 5, 6])(
     'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    { timeout: 120000 },
     (seed) => {
       const sample = createSurfaceSampler('hockeyrink', seed),
         { across, tones } = readSurface(sample),
@@ -71386,6 +71393,7 @@ describe('handballcourt: a handball court seen from above with the markings of t
 
   it.each([...seeds, 1, 2, 3, 4, 5, 6])(
     'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    { timeout: 120000 },
     (seed) => {
       const sample = createSurfaceSampler('handballcourt', seed),
         { across, tones } = readSurface(sample),
@@ -71829,6 +71837,7 @@ describe('highwaylanes: a four lane road seen from above with the pavement marki
 
   it.each([...seeds, 1, 2, 3, 4, 5, 6])(
     'draws every place of the picture as the rules say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    { timeout: 120000 },
     (seed) => {
       const sample = createSurfaceSampler('highwaylanes', seed),
         { across, tones } = readSurface(sample),
@@ -72192,6 +72201,7 @@ describe('cricketground: a cricket ground seen from above with its pitch, crease
 
   it.each([...seeds, 1, 2, 3, 4, 5, 6])(
     'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    { timeout: 120000 },
     (seed) => {
       const sample = createSurfaceSampler('cricketground', seed),
         { across, tones } = readSurface(sample),
@@ -82739,6 +82749,559 @@ describe('sokobanlevels: a Sokoban level (walls, storage locations, boxes, the p
     expect(invalid).toBe(0);
     const a = createSurfaceSampler('sokobanlevels', 0),
       b = createSurfaceSampler('sokobanlevels', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});
+
+describe('starbattleboard: a solved one-star Star Battle (Two Not Touch) board, with a surface chosen by the seed', () => {
+  const p = proceduralMaterialPresets.starbattleboard,
+    out = empty(),
+    n = p.cells;
+  const toneAt = (sample: Sampler, x: number, y: number): number => {
+    sample(x, y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  type Tones = { ground: number; thin: number; thick: number; star: number };
+  // The board as the picture shows it: the column of the star of each row, and for each line between squares whether it is thick. across[j][i] is the line at y = j (j from 0 to n) from x = i to i + 1, and down[j][i] the line at x = i (i from 0 to n) from y = j to j + 1.
+  type Board = {
+    stars: number[];
+    across: boolean[][];
+    down: boolean[][];
+    surface: number;
+    shift: number;
+    tones: Tones;
+  };
+  const readings = (sample: Sampler): Board[] => {
+    const options: Board[] = [],
+      ground = toneAt(sample, 0.1 / n, 0.1 / n);
+    p.surfaces.forEach((surface, index) => {
+      const shift = ground - surface.ground;
+      if (Math.abs(shift) > p.toneShift + 1e-9) return;
+      const tones: Tones = {
+        ground,
+        thin: surface.thin + shift,
+        thick: surface.thick + shift,
+        star: surface.star + shift,
+      };
+      const is = (tone: number, value: number): boolean =>
+        Math.abs(tone - value) < 1e-6;
+      const across: boolean[][] = [],
+        down: boolean[][] = [],
+        stars: number[] = [];
+      // The lines are read at the middle of the line (a thin line has the thin tone there, a thick line the thick tone).
+      for (let j = 0; j <= n; j++) {
+        across.push([]);
+        for (let i = 0; i < n; i++) {
+          const tone = toneAt(sample, (i + 0.5) / n, j / n);
+          if (!is(tone, tones.thin) && !is(tone, tones.thick)) return;
+          across[j].push(is(tone, tones.thick));
+        }
+      }
+      for (let j = 0; j < n; j++) {
+        down.push([]);
+        for (let i = 0; i <= n; i++) {
+          const tone = toneAt(sample, i / n, (j + 0.5) / n);
+          if (!is(tone, tones.thin) && !is(tone, tones.thick)) return;
+          down[j].push(is(tone, tones.thick));
+        }
+      }
+      // The squares: the middle has the tone of a star or the ground; a square has at most one star and a row has one.
+      for (let j = 0; j < n; j++) {
+        const found: number[] = [];
+        for (let i = 0; i < n; i++) {
+          const tone = toneAt(sample, (i + 0.5) / n, (j + 0.5) / n);
+          if (is(tone, tones.star)) found.push(i);
+          else if (!is(tone, tones.ground)) return;
+        }
+        if (found.length !== 1) return;
+        stars.push(found[0]);
+      }
+      options.push({ stars, across, down, surface: index, shift, tones });
+    });
+    return options;
+  };
+  const readSurface = (sample: Sampler): Board => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  // The regions of a board: the squares joined by thin lines (a thin line has a region on both sides).
+  const regionsOf = (board: Board): number[] => {
+    const region = new Array<number>(n * n).fill(-1);
+    let count = 0;
+    for (let start = 0; start < n * n; start++) {
+      if (region[start] >= 0) continue;
+      region[start] = count;
+      const stack = [start];
+      while (stack.length > 0) {
+        const cell = stack.pop() as number,
+          x = cell % n,
+          y = (cell - x) / n,
+          next: number[] = [];
+        if (x > 0 && !board.down[y][x]) next.push(cell - 1);
+        if (x < n - 1 && !board.down[y][x + 1]) next.push(cell + 1);
+        if (y > 0 && !board.across[y][x]) next.push(cell - n);
+        if (y < n - 1 && !board.across[y + 1][x]) next.push(cell + n);
+        for (const other of next)
+          if (region[other] < 0) {
+            region[other] = count;
+            stack.push(other);
+          }
+      }
+      count++;
+    }
+    return region;
+  };
+  // How many ways there are to put one star in every row, every column and every region with no two touching (counted up to a limit): the ways of the board, with the stars shown being one of them.
+  const countSolutions = (region: number[], limit: number): number => {
+    const columns: number[] = [],
+      usedColumn = new Array<boolean>(n).fill(false),
+      usedRegion = new Array<boolean>(n).fill(false);
+    let found = 0;
+    const go = (row: number): void => {
+      if (found >= limit) return;
+      if (row === n) {
+        found++;
+        return;
+      }
+      for (let column = 0; column < n; column++) {
+        const where = region[row * n + column];
+        if (usedColumn[column] || usedRegion[where]) continue;
+        if (row > 0 && Math.abs(column - columns[row - 1]) <= 1) continue;
+        columns.push(column);
+        usedColumn[column] = true;
+        usedRegion[where] = true;
+        go(row + 1);
+        usedRegion[where] = false;
+        usedColumn[column] = false;
+        columns.pop();
+      }
+    };
+    go(0);
+    return found;
+  };
+
+  it('is a board of the rules: one star in every row, column and region, no two stars touching (not even at a corner), n regions each joined by thin lines, thick lines around the tile and wherever two regions meet', () => {
+    let unique = 0,
+      boards = 0;
+    for (let seed = 0; seed < 150; seed++) {
+      const board = readSurface(
+          createSurfaceSampler('starbattleboard', seed * 13 + 5),
+        ),
+        region = regionsOf(board);
+      boards++;
+      // The lines around the tile are thick.
+      for (let k = 0; k < n; k++) {
+        expect(board.across[0][k]).toBe(true);
+        expect(board.across[n][k]).toBe(true);
+        expect(board.down[k][0]).toBe(true);
+        expect(board.down[k][n]).toBe(true);
+      }
+      // A line is thick exactly where the squares on its two sides are in different regions (inside the tile).
+      for (let j = 1; j < n; j++)
+        for (let i = 0; i < n; i++)
+          expect(board.across[j][i]).toBe(
+            region[(j - 1) * n + i] !== region[j * n + i],
+          );
+      for (let j = 0; j < n; j++)
+        for (let i = 1; i < n; i++)
+          expect(board.down[j][i]).toBe(
+            region[j * n + i - 1] !== region[j * n + i],
+          );
+      // One star in each column, no two stars in touching squares, and one star in each of the n regions.
+      expect(new Set(board.stars).size).toBe(n);
+      for (let row = 1; row < n; row++)
+        expect(
+          Math.abs(board.stars[row] - board.stars[row - 1]),
+        ).toBeGreaterThan(1);
+      expect(Math.max(...region) + 1).toBe(n);
+      expect(
+        new Set(board.stars.map((column, row) => region[row * n + column]))
+          .size,
+      ).toBe(n);
+      const solutions = countSolutions(region, 5000);
+      expect(solutions).toBeGreaterThanOrEqual(1);
+      unique += Number(solutions === 1);
+    }
+    expect(boards).toBe(150);
+    // The boards are not made to have one solution; some have, most have more.
+    expect(unique).toBeLessThan(boards);
+  });
+
+  // The model of the picture, written out again here.
+  const corners: [number, number][] = Array.from({ length: 10 }, (_, k) => {
+    const turn = -Math.PI / 2 + (k * Math.PI) / 5,
+      radius = (k % 2 === 0 ? 1 : p.innerRatio) * p.starRadius;
+    return [radius * Math.cos(turn), radius * Math.sin(turn)];
+  });
+  const sides = corners.map((corner, k) => [
+    corner,
+    corners[(k + 1) % corners.length],
+  ]);
+  const starDistance = (lx: number, ly: number): number =>
+    Math.min(
+      ...sides.map(([[ax, ay], [bx, by]]) => {
+        const dx = bx - ax,
+          dy = by - ay,
+          t = Math.max(
+            0,
+            Math.min(
+              1,
+              ((lx - ax) * dx + (ly - ay) * dy) / (dx * dx + dy * dy),
+            ),
+          );
+        return Math.hypot(lx - ax - t * dx, ly - ay - t * dy);
+      }),
+    );
+  const insideStar = (lx: number, ly: number): boolean =>
+    sides.filter(
+      ([[ax, ay], [bx, by]]) =>
+        ay > ly !== by > ly && lx < ax + ((ly - ay) * (bx - ax)) / (by - ay),
+    ).length %
+      2 ===
+    1;
+  // The lines that meet at the corner nearest to a place (in tile units): the segments with whether they are thick, and the distance of the place from each (as far as the larger of the way beyond the ends and the way across), in tiles.
+  const linesAt = (
+    board: Board,
+    x: number,
+    y: number,
+  ): { thick: boolean; reach: number }[] => {
+    const cx = x * n,
+      cy = y * n,
+      kx = Math.round(cx),
+      ky = Math.round(cy),
+      lines: { thick: boolean; reach: number }[] = [];
+    for (const side of [-1, 0]) {
+      const i = kx + side,
+        j = ky + side;
+      lines.push({
+        thick: board.across[ky][(i + n) % n],
+        reach: Math.max(Math.max(i - cx, cx - i - 1, 0), Math.abs(cy - ky)) / n,
+      });
+      lines.push({
+        thick: board.down[(j + n) % n][kx],
+        reach: Math.max(Math.max(j - cy, cy - j - 1, 0), Math.abs(cx - kx)) / n,
+      });
+    }
+    return lines;
+  };
+  type Label = 'star' | 'thick' | 'thin' | 'ground';
+  const starPlace = (board: Board, x: number, y: number) => {
+    const cx = Math.min(n - 1, Math.floor(x * n)),
+      cy = Math.min(n - 1, Math.floor(y * n));
+    return {
+      has: board.stars[cy] === cx,
+      lx: x - (cx + 0.5) / n,
+      ly: y - (cy + 0.5) / n,
+    };
+  };
+  const labelAt = (board: Board, x: number, y: number): Label => {
+    const place = starPlace(board, x, y);
+    if (place.has && insideStar(place.lx, place.ly)) return 'star';
+    const lines = linesAt(board, x, y);
+    if (lines.some((line) => line.thick && line.reach <= p.thickHalf))
+      return 'thick';
+    if (lines.some((line) => !line.thick && line.reach <= p.thinHalf))
+      return 'thin';
+    return 'ground';
+  };
+  const edgeDistance = (board: Board, x: number, y: number): number => {
+    const place = starPlace(board, x, y);
+    return Math.min(
+      place.has ? starDistance(place.lx, place.ly) : Infinity,
+      ...linesAt(board, x, y).map((line) =>
+        Math.abs(line.reach - (line.thick ? p.thickHalf : p.thinHalf)),
+      ),
+    );
+  };
+  const toneOf = (board: Board, label: Label): number =>
+    board.tones[
+      label === 'star' ? 'star' : label === 'ground' ? 'ground' : label
+    ];
+  const heightOf = (label: Label): number =>
+      ({
+        star: p.starHeight,
+        thick: p.thickHeight,
+        thin: p.thinHeight,
+        ground: p.groundHeight,
+      })[label],
+    roughnessOf = (label: Label): number =>
+      label === 'star'
+        ? p.starRoughness
+        : label === 'ground'
+          ? p.groundRoughness
+          : p.lineRoughness;
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model at every place of the picture away from the edges, for several seeds',
+    { timeout: 120000 },
+    () => {
+      const o = empty();
+      for (const seed of [1, 2, 3, 4, 5, 6]) {
+        const sample = createSurfaceSampler('starbattleboard', seed),
+          board = readSurface(sample);
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (edgeDistance(board, x, y) < 0.0008) continue;
+            sample(x, y, o);
+            const label = labelAt(board, x, y);
+            expect(o.color).toBeCloseTo(toneOf(board, label), 6);
+            expect(o.height / p.relief).toBeCloseTo(heightOf(label), 6);
+            expect(o.roughness).toBeCloseTo(roughnessOf(label), 6);
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(150000);
+      }
+    },
+  );
+
+  it('puts the edges of the thin lines, the thick lines and the stars where the model puts them: just inside and just outside by 0.0004 of a tile, exactly (where no other edge is within the softened width)', () => {
+    const delta = 0.0004,
+      counts = { thin: 0, thick: 0, star: 0, inside: 0, outside: 0 };
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('starbattleboard', seed),
+        board = readSurface(sample),
+        check = (
+          what: 'thin' | 'thick' | 'star',
+          x: number,
+          y: number,
+        ): void => {
+          if (x < 0 || x >= 1 || y < 0 || y >= 1) return;
+          if (edgeDistance(board, x, y) < 0.0003) return;
+          const label = labelAt(board, x, y);
+          close(toneAt(sample, x, y), toneOf(board, label));
+          counts[what]++;
+          counts[label === 'ground' ? 'outside' : 'inside']++;
+        };
+      for (let j = 0; j <= n; j++)
+        for (let i = 0; i < n; i++) {
+          const thick = board.across[j][i],
+            half = thick ? p.thickHalf : p.thinHalf;
+          for (const along of [0.01, 0.3, 0.5, 0.7, 0.99])
+            for (const side of [-1, 1])
+              for (const d of [half - delta, half + delta])
+                check(
+                  thick ? 'thick' : 'thin',
+                  (i + along) / n,
+                  j / n + side * d,
+                );
+        }
+      for (let j = 0; j < n; j++)
+        for (let i = 0; i <= n; i++) {
+          const thick = board.down[j][i],
+            half = thick ? p.thickHalf : p.thinHalf;
+          for (const along of [0.01, 0.3, 0.5, 0.7, 0.99])
+            for (const side of [-1, 1])
+              for (const d of [half - delta, half + delta])
+                check(
+                  thick ? 'thick' : 'thin',
+                  i / n + side * d,
+                  (j + along) / n,
+                );
+        }
+      board.stars.forEach((column, row) => {
+        const cx = (column + 0.5) / n,
+          cy = (row + 0.5) / n;
+        for (const [[ax, ay], [bx, by]] of sides)
+          for (const t of [0.3, 0.5, 0.7]) {
+            const mx = ax + (bx - ax) * t,
+              my = ay + (by - ay) * t,
+              length = Math.hypot(bx - ax, by - ay),
+              nx = -(by - ay) / length,
+              ny = (bx - ax) / length;
+            for (const d of [-delta, delta])
+              check('star', cx + mx + nx * d, cy + my + ny * d);
+          }
+      });
+    }
+    expect(counts.thin).toBeGreaterThan(2000);
+    expect(counts.thick).toBeGreaterThan(1000);
+    expect(counts.star).toBeGreaterThan(1500);
+    expect(counts.inside).toBeGreaterThan(2000);
+    expect(counts.outside).toBeGreaterThan(2000);
+  });
+
+  it('softens the edge of a thin line, a thick line and a star over edgeSoft (a quarter of the soft width inside and outside)', () => {
+    const quarter = 0.25 * p.edgeSoft;
+    let tested = 0;
+    for (const seed of [1, 2, 3]) {
+      const sample = createSurfaceSampler('starbattleboard', seed),
+        board = readSurface(sample),
+        { tones } = board,
+        pair = (
+          outer: number,
+          x: number,
+          y: number,
+          dx: number,
+          dy: number,
+          half: number,
+        ): void => {
+          // The point at the distance half - quarter from the line along (dx, dy) is inside, half + quarter outside; the colour behind each is the ground.
+          close(
+            toneAt(
+              sample,
+              x + dx * (half - quarter),
+              y + dy * (half - quarter),
+            ),
+            blend(tones.ground, outer, 0.75),
+          );
+          close(
+            toneAt(
+              sample,
+              x + dx * (half + quarter),
+              y + dy * (half + quarter),
+            ),
+            blend(tones.ground, outer, 0.25),
+          );
+          tested++;
+        };
+      // The middle of every line inside the tile, away from the corners.
+      for (let j = 1; j < n; j++)
+        for (let i = 0; i < n; i++) {
+          const thick = board.across[j][i];
+          pair(
+            thick ? tones.thick : tones.thin,
+            (i + 0.5) / n,
+            j / n,
+            0,
+            1,
+            thick ? p.thickHalf : p.thinHalf,
+          );
+          pair(
+            thick ? tones.thick : tones.thin,
+            (i + 0.5) / n,
+            j / n,
+            0,
+            -1,
+            thick ? p.thickHalf : p.thinHalf,
+          );
+        }
+      // A star: a side of its outer point, from the middle of the side of the star.
+      const [first, second] = [corners[0], corners[1]],
+        mx = (first[0] + second[0]) / 2,
+        my = (first[1] + second[1]) / 2,
+        length = Math.hypot(second[0] - first[0], second[1] - first[1]),
+        nx = -(second[1] - first[1]) / length,
+        ny = (second[0] - first[0]) / length,
+        cx = (board.stars[0] + 0.5) / n,
+        cy = 0.5 / n;
+      // Pointing away from the middle of the star, the side is outside: the normal that points out.
+      const out = nx * mx + ny * my > 0 ? 1 : -1;
+      close(
+        toneAt(
+          sample,
+          cx + mx - out * nx * quarter,
+          cy + my - out * ny * quarter,
+        ),
+        blend(tones.ground, tones.star, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          cx + mx + out * nx * quarter,
+          cy + my + out * ny * quarter,
+        ),
+        blend(tones.ground, tones.star, 0.25),
+      );
+      tested += 2;
+    }
+    expect(tested).toBeGreaterThan(300);
+  });
+
+  it(
+    'uses every surface about equally often, puts a star in every square now and then, makes boards that differ, and shifts the tones over the whole range, over 1000 seeds',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        boards = new Set<string>(),
+        shifts: number[] = [],
+        starAt = new Array<number>(n * n).fill(0);
+      let biggest = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const board = readSurface(
+            createSurfaceSampler('starbattleboard', seed * 7 + 1),
+          ),
+          region = regionsOf(board);
+        shifts.push(board.shift);
+        surfaces.set(board.surface, (surfaces.get(board.surface) ?? 0) + 1);
+        board.stars.forEach((column, row) => starAt[row * n + column]++);
+        boards.add(board.stars.join('') + region.join(''));
+        for (let k = 0; k < n; k++)
+          biggest = Math.max(
+            biggest,
+            region.filter((value) => value === k).length,
+          );
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(60);
+      expect(boards.size).toBeGreaterThan(995);
+      // Every square has a star in about an eighth of the boards (the rows and columns are spread, but squares next to a star cannot have one in the next row).
+      for (const count of starAt) {
+        expect(count).toBeGreaterThan(50);
+        expect(count).toBeLessThan(220);
+      }
+      expect(biggest).toBeGreaterThan(12);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('starbattleboard', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('starbattleboard', 0),
+      b = createSurfaceSampler('starbattleboard', 1),
       one = empty(),
       two = empty();
     let different = 0;

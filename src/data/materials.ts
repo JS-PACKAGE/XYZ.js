@@ -18760,6 +18760,38 @@ export const proceduralMaterialPresets = Object.freeze({
     wallRoughness: 0.8,
     pieceRoughness: 0.45,
   }),
+  starbattleboard: Object.freeze({
+    dark: [24, 28, 44] as const,
+    light: [232, 230, 216] as const,
+    roughness: 0.6,
+    relief: 0.003,
+    // A solved one-star Star Battle board (Two Not Touch) of cells x cells squares: one star in every row, every column and every outlined region, and no two stars touching, not even at a corner (the rules of the
+    // guide of Cluewright to the one-star form, read for this). The stars are put first, row by row in a random order of the columns that keeps the columns apart and neighbouring rows two or more columns apart, and then
+    // the regions are grown from the stars into the whole board, each cell taking the region of a neighbour, in the random order of the cells; that is my way of making a board, and it does not make the solution unique.
+    // The lines between the squares are thin (the half width thinHalf of a tile, with square ends) and where two regions meet, and around the tile, thick (thickHalf); a star is the five-pointed star with the outer
+    // radius starRadius and the inner radius innerRatio of it, with one point up, in the middle of its square. The seed picks the board and a surface (the tones of the ground, the thin lines, the thick lines and the
+    // stars, shifted together a little).
+    cells: 8,
+    thinHalf: 0.0012,
+    thickHalf: 0.0035,
+    starRadius: 0.047,
+    innerRatio: 0.4,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.9, thin: 0.62, thick: 0.12, star: 0.4 }),
+      Object.freeze({ ground: 0.14, thin: 0.38, thick: 0.88, star: 0.62 }),
+      Object.freeze({ ground: 0.6, thin: 0.45, thick: 0.15, star: 0.88 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    thinHeight: 0.1,
+    thickHeight: 0.35,
+    starHeight: 0.5,
+    groundRoughness: 0.7,
+    lineRoughness: 0.5,
+    starRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25252,6 +25284,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  starbattleboard: 1,
   sokobanlevels: 1,
   ladderlogic: 1,
   pigpencipher: 1,
