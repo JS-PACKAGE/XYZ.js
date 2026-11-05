@@ -243,6 +243,21 @@ export function parseTiledTileset(
     animations,
   });
 }
+function chunkBound(
+  chunks: readonly TiledChunk[],
+  value: number,
+  axis: 'x' | 'y',
+): number {
+  let low = 0,
+    high = chunks.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (chunks[middle]![axis] < value) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
 export function parseTiledMap(
   value: unknown,
   tilesets: readonly TiledTileset[],
@@ -402,6 +417,12 @@ export function parseTiledMap(
           );
         if (infinite) {
           chunks = [];
+          // Sorted axis indexes bound possible overlaps without scanning every prior
+          // chunk. Use the narrower interval, including for vertical chunk strips.
+          const byX: TiledChunk[] = [],
+            byY: TiledChunk[] = [];
+          let maxWidth = 0,
+            maxHeight = 0;
           for (const rawChunk of array(
             l.chunks,
             `${path}.chunks`,
@@ -423,16 +444,29 @@ export function parseTiledMap(
               )
             )
               throw new TiledError(path, 'chunk coordinates exceed safe range');
-            if (
-              chunks.some(
-                (other) =>
-                  x < other.x + other.width &&
-                  x + cw > other.x &&
-                  y < other.y + other.height &&
-                  y + ch > other.y,
-              )
-            )
-              throw new TiledError(path, 'overlapping chunks');
+            const xAt = chunkBound(byX, x, 'x'),
+              yAt = chunkBound(byY, y, 'y'),
+              x0 = chunkBound(byX, x - maxWidth, 'x'),
+              x1 = chunkBound(byX, x + cw, 'x'),
+              y0 = chunkBound(byY, y - maxHeight, 'y'),
+              y1 = chunkBound(byY, y + ch, 'y');
+            const useX = x1 - x0 <= y1 - y0,
+              candidates = useX ? byX : byY,
+              stop = useX ? x1 : y1;
+            let overlaps = false;
+            for (let i = useX ? x0 : y0; i < stop; i++) {
+              const other = candidates[i]!;
+              if (
+                x < other.x + other.width &&
+                x + cw > other.x &&
+                y < other.y + other.height &&
+                y + ch > other.y
+              ) {
+                overlaps = true;
+                break;
+              }
+            }
+            if (overlaps) throw new TiledError(path, 'overlapping chunks');
             chunks.push(
               Object.freeze({
                 x,
@@ -442,6 +476,11 @@ export function parseTiledMap(
                 data: gids(c.data, cw * ch, `${path}.chunks.data`),
               }),
             );
+            const chunk = chunks[chunks.length - 1]!;
+            byX.splice(xAt, 0, chunk);
+            byY.splice(yAt, 0, chunk);
+            maxWidth = Math.max(maxWidth, cw);
+            maxHeight = Math.max(maxHeight, ch);
           }
         } else {
           unsupported(l, ['chunks'], path);
