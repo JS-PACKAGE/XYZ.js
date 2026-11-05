@@ -14440,3 +14440,86 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：8項（色調範圍、perfect map、轉向視窗、群組平移、逐點比對、不同變體與群組與決定性、C1與UV週期、maps），`-t "De Bruijn torus as"`8項通過（約10 s）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "De Bruijn torus as|debruijntorus|kinds|catalog|distinct|periodic"`定向測試**2639項通過／4746項未選**，輸出`GATES-OK`。
 - 未驗證：完整suite（最近一次在`41676b27e`，11,302項全過，不含kneser與debruijntorus）、瀏覽器gallery（最近一次含hamiltonpaths與lowdiscrepancy，kneser與debruijntorus尚未檢查）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-05 持續速度優化（依功能 commit）
+
+使用者指定「持續進行速度優化，並依功能提交，直到我說結束為止」。以下每一項都是獨立 commit，未 push。量測環境為 macOS arm64、Node v26.7.0（V8）；Node headless 數字只代表 CPU 時間，不是 RAF／GPU fps。機器同時有多個程序在跑，因此取交錯 A/B 的 min-of-N，雜訊明顯；落在雜訊內的候選一律撤回，不寫成成果。每項的「等價性」都是在修改前保存 baseline bundle，與修改後輸出逐位元（SHA／`Object.is`）或逐操作（隨機 differential）比對。
+
+### 方法
+
+- 以 `bun build` 打包真實來源、在 Node／V8 下 `--cpu-prof` 取 profile（Bun 的 JSC 不作為判斷依據）；瀏覽器項目用 Chromium 153 headless（WebGL2／WebGPU）與 CDP profile，像素項目以截圖 SHA256 A/B 比對。
+- 第一輪針對各子系統熱路徑；後續幾輪改為「列舉公開 API、逐項微基準」：已高度調校的熱迴圈（物理 step、renderer、ECS 查詢、數學）幾乎沒有剩餘空間，而未被測過的公開 API 才藏著漸進式（O(n²) 或每次呼叫重掃）異常。
+- 沒有修改公開 API、驗證錯誤、事件／callback 順序或浮點運算順序；沒有新增 runtime 依賴。
+
+### 程序材質（`[Materials]`）
+
+- 1,160 種材質在 32²／48²、seed 0／7 的五張貼圖，優化前後 SHA1 逐一相同（含 hypot 替換）。128² 全部 preset 各產生一次的總時間，從約 44.4 s 降到約 8.8 s（兩次量測的機器負載不同，僅供數量級參考；主要來自下列反應擴散與細胞自動機的 sampler 建構成本）。
+- `233238f55` 共用貼圖生成迴圈（`generateProceduralMaps`／`writeNormals`）把逐像素不變的 contrast、tint、preset 色階、`1 - mortar`、wrap 索引移出迴圈：512²（含 height）concrete 約 56–78 → 36–39 ms（交錯三輪）。
+- `ef13a857d` Gray-Scott（cheetahfur／petricolonies／turingmaze／vermiculation／hestain 共用）每格不再做四次整數 `%` 與 `[u, nextU]` 解構交換：96² 格 6,000 步，cheetahfur 約 2.2 s → 0.82 s、其餘約 2.4–3×，運算式與順序不變。曾嘗試 u／v 交錯加滑動視窗，在真實程式只有 1–10%，已撤回。
+- `ed864e229` 沙堆恆等元不再於每次倒塌配置四個二元組陣列：第一次建立 552 → 377 ms（負載較高時的交錯比較；之後同尺寸有快取）。`63859f7b3` Ising 域改以棋盤列迴圈、無逐格鄰居陣列：724 → 235 ms。`c7174081f` 循環細胞自動機以列迴圈加 successor 表：709 → 78 ms。`b39ffbbaf` DLA 聚集的鄰居判斷與 wrap 內嵌，並保留 hash 為 1 時座標恰為 size 的原 `% size` 語意：775 → 323 ms。`96c474a00` 生命遊戲預先計算 wrap 欄：408 → 101 ms。`cf9f203bd` nim 乘法表只算對稱的一半並以 stamp 免清 `seen`：747 → 169 ms。`6b08fc543` Pisano 週期不再每步配置 `[previous, current]`：780 → 25 ms。
+- `81c8e26fa` 約 206 個 `Math.hypot(a, b[, c])` 全改為已有測試證明與 V8 `Math.hypot` 逐位元相同的 `hypot2`／`hypot3`（V8 內建每次呼叫會複製引數）：排除上述七種 RD／DLA／attractor 後，其餘約 1,150 種在 96² 的總時間 3,058 → 2,393 ms（−22%），部分 kind（keplerorbits、stringart、raindropoptics）約 2.4×。
+- 撤回：`noise()` 的 `%` 改條件 wrap、共用 sampler 的 broad／detail／fine 改 lattice 表、材質 sampler 內 array-literal `for-of` 展開（42 處，總時間僅 −0.6%）、IBL `convolve` 的 `%`（`environment.ts`，1024×512 約 0.9–1.0 s 不變）。
+
+### Geometry／Lighting／Terrain
+
+- `e35316a52` Geometry 每三角形只正規化一次 tangent／bitangent（除法保持一致）：51,200 三角形建立 145.30 → 139.28 ms；120 組隨機輸入逐元素相同。`8b071ece2` `Geometry.sphere` 預配置資料流並重用經度三角函數：8 個 100,651 頂點球體 210 → 169 ms；2,000 組隨機參數 vertices／indices／tangents／bounds 相同（**因啟動體積預算已 revert，見下節**）。
+- `bcf2a1290` BakedLighting BVH 的 slab 已排除射線就略過其餘軸：lightmap 831 → 716 ms、irradiance 240 → 220 ms；lightmap／volume SHA1 相同。`d613f662a` irradiance 體積 SH 取樣展開三色通道、保留 Float32 累加順序：20 萬次 110.3 → 94.0 ms。`4514ff995` 烘焙的光源距離改用 `hypot3`（原 `Math.hypot(...d)` 每像素每光一次陣列展開）：lightmap 約 −3–14%，hash 相同。
+- `53ff007c0` Terrain `normalAt` 不再計算未使用的中心高度（保留有限值／邊界驗證）：100k normals 10.62 → 9.41 ms；rebuild 4.37 → 3.97 ms。`c40ac1df1` Vegetation 其他 LOD 複製首層已驗證的 matrices：100k placements、4 LOD 99.92 → 79.90 ms。`d2298007f` Ribbon3D 年齡曲線沿單調年齡共用游標：10,000 點、64 keys、100 次 update 47.54 → 26.39 ms（預設 2 keys 在雜訊內）；24,000 次隨機操作的 vertices／colors 位元相同。
+- `3376718cf` ColorGrading 預設 LUT 預先計算各色頻道、移除逐格 RGB 陣列：10 個 64³ LUT 約 120 → 57 ms；16–64 全尺寸 × 4 preset 共 196 條 strip 位元相同。
+
+### 動畫／物理／導航／地圖
+
+- `7766f69fe` CUBICSPLINE 係數移出 channel 迴圈：100 角色 × 80 骨 TRS 3.40 → 3.17 ms／frame。`747f9d1a4` 逆播先檢查相鄰前一段：逆播 5.72 → 4.81 ms／frame（正播在雜訊內）。`4547fedd9` 無 pose overlay 時略過每軌兩次 Map 查詢：2.71 → 2.57 ms／frame。72,000 次 sampling 與角色 pose 逐 byte 相同。
+- `76333745a` SoftBody 所有 particle sweep 共用同一份剛體 pose 快照（原 94% CPU 花在 collider pose refresh）：256 particles／480 springs／1,000 boxes 14.92 → 0.344 ms／step。`2b3550087` Vehicle 四輪 raycast 共用 pose 快照：0.270 → 0.0685 ms／update。`3a15568ca` 無 joint 的 collider unregister 不掃全部 constraints：10k colliders＋2k 無關 joints 73.9 → 1.3 ms。`383aa9375` 尾端 joint 移除跳過全陣列搜尋：5k joints 反向移除 4.72 → 0.49 ms。皆以 positions／velocities／membership 位元雜湊或 5,000～10,000 次隨機操作比對。
+- `8458dcd85` 導航 frontier heap 移除改先下沉到 leaf：256² A*（22% 障礙）3.78 → 3.56 ms／path；`9ca4070c4` Crowd 候選速度剪枝：256 agents 1,000 次更新 1,011 → 711 ms（2,880 個逐幀狀態 hash 相同）；`5c2f57067` Crowd 控制器註冊所有權以 Set 索引：500 控制器註冊／移除 ×100 103.0 → 7.1 ms。
+- `420b94111` NavigationGrid 保存最低 traversal cost 的存量，只有最後一格最低成本消失才重掃：256² grid 10k 障礙編輯 738.82 → 0.874 ms；1k cost 編輯 71.93 → 0.060 ms。`8c4a8300e`（revert 後 cherry-pick 為 `099310420`）已排序 graph adjacency 以二分查找：8,192 節點星狀圖 50k lookup 241 → 3.6 ms。`df1460f4d` NavigationScheduler 維護 owner 排隊計數：4,096 owners 的 schedule 2.27 → 0.26 ms、admission 13.55 → 2.80 ms（**因啟動體積預算已 revert**）。`0a2c20a15` 零半徑 mesh region 重用 immutable surface，使 portal cache 有效：100 polygons 路徑 ×200 23.3 → 15.6 ms。完整路徑與 5,000～300,000 次隨機操作逐一相同。
+- `5e6ec8b62` Tiled GID atlas 查找二分搜尋：4 層、262,144 tiles、64 atlas 23.17 → 12.28 ms；`08bee81b7` 合併相鄰 atlas 區間（保留缺口檢查）：80 次解析 442 → 307 ms。`d0bdb65eb` TileMap 快取 cell key，相機移動時不重複 Map 查詢：12,000 次移動 1,741 → 1,370 ms。
+
+### ECS／Scene／Timer／Pool／Content
+
+- `e4f476336`、`f7ed69388`、`978253141` ECS `World`：重複註冊檢查與移除改用索引、不存在的系統直接返回、移除以幾何攤銷壓縮並保留重入註冊順序。新增 50k 系統 2,663.55 → 3.16 ms；移除 50k 系統正序 2,522 → 3.6 ms、反序 4,217 → 2.7 ms；10k 次移除不存在項目 180.9 → 0.048 ms。15,000 次隨機操作的回傳、錯誤、callback 紀錄完全一致，新增「初始化重入」「移除 callback 重新註冊」兩項回歸測試。
+- `1e8607dcf` Timer 尚未到期時略過 queue 掃描：10,000 timers／3,000 ticks 71.41 → 0.068 ms（全部每幀觸發的情境在雜訊內，未宣稱改善；**因啟動體積預算已 revert**）。`39baf6c02` 物件池借還重用 ownership 記錄：1,024 物件 ×2,000 輪 88.4 → 62.7 ms。
+- `f83ac7280` Cutscene 以游標跳過已消耗的 cue：5k cues／10k updates 3,538 → 12.4 ms；`7f4673ba9` Content 移除 child／alias 的成員判斷改 Set：4k aliases parse 11.0 → 3.2 ms、prefab build 24.1 → 9.2 ms。
+- `01d3699da` Storage revision 檢查重用已解碼的 primary record：6,000 單位 save＋load 50.5 → 37.4 ms。`851eccd12`、`ea03c39c7` WorldStreaming 先以距離分量排除遠方 cell、`settled()` 直接收集 pending tasks：4,096 cells 0.530 → 0.404 ms／輪。
+
+### 2D／文字／UI／輸入／本地化
+
+- `78dfc3184`、`007ed3934` UI leaf 布局略過子節點計算與暫存配置（兩個 commit 須一起保留）：3,281 節點 500 次 reflow 235.6 → 226.8 ms（−3.7%），布局 SHA1 相同。`c00aadc00` `UIVirtualList.setItems` 直接採用已驗證索引：50k 項目 ×60 次 298.9 → 145.3 ms；`5dc7ade32` virtual row 索引化 `keyOf`：500 列、深度 5、100k 查詢 678.6 → 4.9 ms。`ad92df3da` `focusWithin` 正向遇首個 eligible widget 即停：5k widgets、1k calls 3,143 → 1.0 ms；`e368b9bb9` 快取結構焦點順序與索引（仍保留 O(n) 結構驗證以偵測非 UI 節點變動）：5,000 控制項 move ×1,000 1,055 → 70 ms、反向 scoped focus 1,197 → 69 ms、modal push/pop ×200 275 → 167 ms；16,000 次隨機 visibility／disabled／reparent／modal／重入焦點操作與舊版一致。
+- `b8ecfbd6b`（revert 後 cherry-pick 為 `b38e233da`）InteractionListeners 以索引取代搜尋：重複註冊 25k 次 94.2 → 0.31 ms（單一訂閱的 50k 次建構增刪 5.12 → 7.63 ms，索引有小量固定成本）；`236c97cff`（revert 後 cherry-pick 為 `8832ab586`）純 leave／cancel 批次略過 target 掃描排序：5k targets、1k exits 194.3 → 1.88 ms。
+- `98cb55d44` 重用目前 locale 的 `Intl.Segmenter`：15,000 次混合文字分段 449 → 274 ms。`b07c4055a`、`1759847fa`、`c3ee3a0b1` SpriteFont 換行：空 kerning 查詢 −5.0%、重用 glyph indices −10.5%、重用重複 token 量測 −16.2%。`286e73369` 整形文字 caret 邊界改二分：4,000 clusters 20,000 次 11.51 → 2.95 ms。`2b28f58a8` Text2D 對齊與邊界共用 TextMetrics：2,000 個三行標籤 1,320 → 1,112 ns／標籤；`9c45e0912` Graphics2D 重繪沿用 setter 已驗證的 raster bounds：5,000 指令 setResolution 254.3 → 190.2 µs。
+- `2ab293264`、`93f68e2c2` I18n 重用預設數字／複數 formatter、locale 改變才建立 fallback 順序：10,000 次複數翻譯 287.7 → 26.6 ms、100,000 次查找 142.3 → 9.45 ms（合計約 29×）；新增 localechange 事件內查詢、訊息合併與可變格式 options 的測試。`666b5d58e` 重用不帶 `g`／`y` 的 gamepad mapping regex matcher：100 個 regex mapping、10k polls 368.2 → 132.0 ms。
+
+### 資產／音訊／影像／glTF
+
+- `262617271`、`2558287ef` glTF normalized accessor 與 interleaved accessor 複製特化成原生 typed-array 迴圈：8 meshes × 60,000 頂點 RGBA8 color 61.1 → 50.7 ms；18 萬頂點 48-byte stride 11.42 → 10.55 ms。`a749c0a15` glTF variant 名稱索引（重名首筆優先）：1,000 variants／10,000 次切換 13.02 → 3.27 ms；`b587ced07` 快取節點深度使階層驗證 O(N×depth) → O(N)：5,000 節點 parse 8.28 → 6.96 ms；3,500 份隨機／循環／深度邊界模型與舊版結果一致，`exportGLB` 位元組一致。
+- `a295660fa`、`9290e50a3` 批次 LRU 淘汰一次排序、單張淘汰保留線性快路徑：3,000 張小紋理換一張大紋理 32.16 → 0.277 ms。`23f455ffa`、`39f4d9cab` MP4：相鄰樣本重用時間換算（50k samples 9.02 → 5.37 ms）、media 區間改二分（10k chunks 102.0 → 3.79 ms），新增小數微秒與跨 mdat 邊界回歸測試。
+- `2ca785102` 沒有 ducking rules 時不掃描／排序 voice 時間邊界：600 voices 排程並釋放 106.25 → 1.69 ms。`66c8f63a0` 排程游標未過期時略過 stale-note 二分：500 軌 ×65,536 notes 3k ticks 176.0 → 39.4 ms。`bece700d7` analyser 查詢不展開所有 context：8 contexts 50k 次 1.55 → 0.365 ms。
+
+### Rendering（瀏覽器量測）
+
+- `9686f6ce2` WebGPU 穩定 PBR material 只比對 matrix／shadow／skin 旗標、略過未變的 material words（3,000 個 PBR cube、30% 移動，Chromium 153、各版本交錯三輪）：無陰影 cpuSubmit 9.913 → 8.984 ms（−9.4%）、有陰影 13.035 → 12.686 ms（接近雜訊）；兩版本畫面 PNG SHA256 相同；Node `updateMesh` 微基準 468 → 323 ms。
+- `68f92db37` 2D 世界 bounds 四角共享 affine 乘積（保留結合順序）：32,768 物件 ×20 次 42.7 → 38.1 ms；100,000 組輸入逐值 `Object.is` 相同；WebGL2 粒子整體 cpuSubmit 在雜訊內（10.418 → 10.423 ms，不宣稱整幀提升），畫面 SHA256 相同。
+- WebGL2 `drawMeshes`（每 program 上傳固定 uniform）與 WebGPU scene bind group 追蹤兩個候選，在 3,000 PBR cube 頁面分別為 6.904 → 7.864 ms（變慢）與 8.710 → 8.607 ms（1.2%），均撤回。
+
+### 啟動體積預算（Canvas2D startup gzip ≤ 214,168 B）
+
+- 這輪新增程式碼把 `scripts/check-tree-shaking.mjs` 的 Canvas2D startup gzip 從 213,548 B 推到 214,765 B，超過 214,168 B 的上限。處理：先 revert 九個體積成本最高的 commit 讓閘門回到 214,022 B；以 `c67dc3867`、`b00fc1fcd` 把凍結的 observability／rendering preset 標為純初始化（`/* @__PURE__ */`，不改設定值、`freeze` 或驗證），source 版本省下 817 B；但 `scripts/minify-dist.mjs` 使用的 Vite `minify` 會剝掉這些註記，所以 `dist/` 消費者（built-root 閘門）得不到這 817 B。最終把 interaction listeners、pointer exit samples、graph adjacency 二分三項 cherry-pick 回來，其餘（GainTimeline 三個 commit、`Geometry.sphere`、NavigationScheduler owner counts、Timer 掃描略過）保持 revert。
+- 最終閘門：source 213,317 B、built-root（`dist/`）213,999 B，皆低於 214,168 B。已 revert 的 commit 仍在歷史中，可在調整預算或再省體積後 `git cherry-pick`：GainTimeline 三項（索引化歷史、copy-on-write 取消、replay 二分：10k ramps 建立 288.8 → 0.64 ms、replay 247 → 0.40 ms，約 390 B gzip）為 `08dbe11d7 293199400 0c50096ae`；其餘為 `8b071ece2`、`df1460f4d`、`1e8607dcf`。
+- 未修改 `src/data/startup.ts` 或閘門腳本。已知 startup 閉包包含 physics2d／3d、audio、input、navigation、assets、game、scene、accessibility 等 157 個模組；UI、文字、glTF、地形／植被／水面、烘焙與 WebGL2／WebGPU renderer 不在 startup 內，改動不受此閘門限制（deferred chunk 另有 229,376 B ceiling）。
+
+### 已評估但撤回或不處理
+
+- BVH near-first 子節點排序與 per-origin 三角形 gather（lightmap 1.6–3× 反而變慢）、BVH 預存三角形 edges（1.4%）、四元數固定長度迴圈展開（約 3%）、Gray-Scott 交錯布局、IBL convolve 去 `%`、`noise()` lattice 表、材質 for-of 展開、MemoryStorage.keys、gamepad 軸快取、`buttonSlot` 改 Map、Geometry 色彩扁平迴圈與座標驗證捷徑、triangle normal 共用 area、ProceduralMapCache key 串接（1.2%）、Scene 每幀 object pass 追蹤（per-instance `update` 覆寫難以證明安全）、物理 contact solver 的 world inverse inertia 快取（改變浮點運算次序）、AssetLoader admission 掃描（跳過會改變外部 `texture.destroy` 後的 residency 語意）、Residency batch eviction（retire callback 可重入）、Date formatter 快取（時區語意）、共用 RangeError helper（minified −2.8 KB 但 gzip +29 B）。
+- 物理 contact solver（`step`／`solve`／`inverseInertiaInto`／`velocityInto`／`applyImpulse` 占 800 剛體 profile 約 60%）沒有變更；其餘熱路徑 profile 為平坦分佈。多數 3D 子系統（地形／水面／GPU 粒子／decal／frustum／InstancedMesh／光源選擇）逐項微基準都在每次呼叫數十 ns 至數 µs，未發現異常。
+
+### 驗證與限制
+
+- 每個 commit 在提交前都執行對應模組的 targeted Vitest、修改檔 ESLint 與 Prettier；上列「等價性」為各自的差分測試。
+- 驗證快照見本節末尾「閘門」；在快照之後新增的 commit 只有 targeted 驗證。Node CPU 時間不外推成瀏覽器 FPS；WebGPU／WebGL2 項目只在 Chromium 153／Apple M 系列測過，Safari／Firefox／其他 GPU 未驗證。
+- `dist/` 是 tracked 的建置產物，本輪各 source commit 未逐一重建；最後以一次 `[Build]` commit 依最終 source 重新產生。
+
+### 閘門（本輪最終 source 快照）
+
+- `tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 通過；`pnpm build`（含 718 個 CJS 檔）、`check:api-compatibility`（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）、`check:distribution`（367 exports）、`check:package-hygiene`、`check:tree-shaking`（source 213,317 B／built-root 213,999 B）通過。
+- 完整 Vitest：**179 files／11,320 tests 全部通過**（2,193.67 s）。該次執行後只有「再 revert 三個啟動體積項目」的 source 變更（`Geometry.sphere`、NavigationScheduler、Timer，其各自測試檔已另行 targeted 通過，53 tests）。
+- 未重跑瀏覽器 regression、site smoke、starter 與跨瀏覽器矩陣；WebGPU 項目的畫面等價只以 Chromium 截圖 SHA256 驗證。
