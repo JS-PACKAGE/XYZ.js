@@ -107,6 +107,21 @@ describe('World entity and component CRUD', () => {
     expect(removed).toEqual([2, 4, 17, 35, 40].map((index) => entities[index]));
   });
 
+  it('removes deleted entities from sparse stores before the first query yield', () => {
+    const world = new World();
+    const entities = Array.from({ length: 40 }, () => world.createEntity());
+    for (const index of [30, 4, 17])
+      world.addComponent(entities[index]!, Velocity, new Velocity(index));
+    const query = world.query(Velocity);
+    world.removeEntity(entities[4]!);
+    expect([...query]).toEqual([entities[17], entities[30]]);
+    expect([...world.query(Velocity)]).toEqual([entities[17], entities[30]]);
+    expect(() =>
+      world.addComponent(entities[4]!, Velocity, new Velocity(4)),
+    ).toThrow('Entity does not exist.');
+    world.destroy();
+  });
+
   it('initializes systems in order, defers newly added systems to the next tick, and destroys exactly once', () => {
     const world = new World();
     const calls: string[] = [];

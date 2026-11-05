@@ -89,8 +89,9 @@ export class World {
       // store's members sorted by id are exactly what the full walk below would yield.
       const matches: Entity[] = [];
       let sorted = true;
+      // Component stores contain only live entities; removal deletes from every store.
       for (const entity of smallest.keys()) {
-        if (!this.entities.has(entity) || !hasAll(stores, entity)) continue;
+        if (!hasAll(stores, entity)) continue;
         if (matches.length && entity < matches[matches.length - 1]!)
           sorted = false;
         matches.push(entity);
