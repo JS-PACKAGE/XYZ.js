@@ -34,7 +34,10 @@ var AssetBundleRangeReader = class {
 	abort;
 	destroyed = !1;
 	constructor(e, t, n) {
-		this.url = e, this.archive = t, this.signal = n, this.members = new Map(t.members.map((e) => [e.path, e])), this.abort = () => this.controller.abort(n?.reason), n?.addEventListener(`abort`, this.abort, { once: !0 }), n?.aborted && this.abort();
+		this.url = e, this.archive = t, this.signal = n;
+		let r = /* @__PURE__ */ new Map();
+		for (let e of t.members) r.set(e.path, e);
+		this.members = r, this.abort = () => this.controller.abort(n?.reason), n?.addEventListener(`abort`, this.abort, { once: !0 }), n?.aborted && this.abort();
 	}
 	async read(n) {
 		if (this.destroyed) throw new require_texture.AssetError(`Bundle range reader is destroyed.`);

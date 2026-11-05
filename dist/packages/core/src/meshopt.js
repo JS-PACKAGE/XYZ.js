@@ -1,2 +1,375 @@
-import{AssetError as e}from"../../assets/src/index.js";import{hypot3 as t}from"../../math/src/hypot.js";const n=[`NONE`,`OCTAHEDRAL`,`QUATERNION`,`EXPONENTIAL`,`COLOR`];function check(t){if(!t)throw new e(`Invalid EXT_meshopt_compression bitstream or layout.`)}const unzigzag=e=>e>>>1^-(e&1);export function decodeMeshopt(e,t,r,i,a,o=`NONE`){if(check(Number.isInteger(t)&&t>0),check(Number.isInteger(r)&&e.length===t*r),check(typeof o==`string`&&n.includes(o)),a===`ATTRIBUTES`){check(r>=4&&r<=256&&r%4==0),decodeVertices(e,t,r,i),applyFilter(e,t,r,o);return}check(o===`NONE`&&(r===2||r===4)),a===`TRIANGLES`?decodeTriangles(e,t,r,i):a===`INDICES`?decodeSequence(e,t,r,i):check(!1)}class Cursor{bytes;offset;end;constructor(e,t,n){this.bytes=e,this.offset=t,this.end=n}take(e){let t=this.offset;return check(e>=0&&t+e<=this.end),this.offset=t+e,t}byte(){return this.bytes[this.take(1)]}varint(){let e=0;for(let t=0;t<=28;t+=7){let n=this.byte();if(check(t!==28||n<16),e|=(n&127)<<t,n<128)return e>>>0}return check(!1),0}}const r=[[0,2,4,8],[0,1,2,4],[1,2,4,8]];function decodeVertices(e,t,n,i){check(i.length>0&&(i[0]===160||i[0]===161));let a=i[0]&15,o=a===0?n:n+n/4,s=Math.max(o,a===0?32:24);check(i.length>=1+s);let c=i.length-o,l=new Cursor(i,1,i.length-s),u=i.slice(c,c+n),d=a===0?void 0:i.subarray(c+n),f=Math.min(8192/n&-16,256);check(f>0);let p=new Uint8Array(f*n);for(let o=0;o<t;o+=f){let s=Math.min(f,t-o),c=s+15>>>4,m=c+3>>>2,h=a===0?0:l.take(n/4);p.fill(0);for(let e=0;e<n;e++){let t=e*s,n=a===0?0:i[h+(e>>>2)]>>>((e&3)<<1)&3;if(n===2)continue;if(n===3){p.set(i.subarray(l.take(s),l.offset),t);continue}let o=l.take(m),u=r[a===0?0:n+1];for(let e=0;e<c;e++){let n=u[i[o+(e>>>2)]>>>((e&3)<<1)&3],r=t+(e<<4);if(n===0)continue;if(n===8){let t=l.take(16);for(let n=0;n<16&&(e<<4)+n<s;n++)p[r+n]=i[t+n];continue}let a=l.take(n*2),c=(1<<n)-1;for(let t=0;t<16;t++){let o=t*n,u=n===1?o&7:8-n-(o&7),d=i[a+(o>>>3)]>>>u&c;d===c&&(d=l.byte()),(e<<4)+t<s&&(p[r+t]=d)}}}for(let t=0;t<s;t++){let r=(o+t)*n;for(let i=0;i<n;i+=4){let n=d?d[i>>>2]:0,a=n&3;if(check(a!==3),a===0)for(let n=i;n<i+4;n++){let i=u[n]+unzigzag(p[n*s+t])&255;e[r+n]=u[n]=i}else if(a===1)for(let n=i;n<i+4;n+=2){let i=unzigzag(p[n*s+t]|p[(n+1)*s+t]<<8),a=(u[n]|u[n+1]<<8)+i&65535;e[r+n]=u[n]=a&255,e[r+n+1]=u[n+1]=a>>>8}else{let a=0,o=0;for(let e=0;e<4;e++)a|=p[(i+e)*s+t]<<e*8,o|=u[i+e]<<e*8;let c=n>>>4,l=o^(a>>>c|a<<32-c);for(let t=0;t<4;t++)e[r+i+t]=u[i+t]=l>>>t*8&255}}}}check(l.offset===l.end)}function indexWriter(e,t){let n=new DataView(e.buffer,e.byteOffset,e.byteLength);return(e,r)=>{check(r>=0&&r<=(t===2?65535:4294967295)),t===2?n.setUint16(e*2,r,!0):n.setUint32(e*4,r,!0)}}function decodeSequence(e,t,n,r){check(r.length>=5&&r[0]===209);let i=new Cursor(r,1,r.length-4),a=[0,0],o=indexWriter(e,n);for(let e=0;e<t;e++){let t=i.varint(),n=t&1;a[n]=a[n]+unzigzag(t>>>1)>>>0,o(e,a[n])}check(i.offset===i.end)}function decodeTriangles(e,t,n,r){check(t%3==0&&r.length>0&&r[0]===225);let i=t/3,a=r.length-16;check(a>=1+i);let o=new Cursor(r,1+i,a),s=new Uint32Array(32),c=new Uint32Array(16),l=0,u=0,d=0,f=0,edge=e=>s[l-1-e&31],vertex=e=>c[u-1-e&15],pushVertex=e=>{c[u++&15]=e},pushEdge=(e,t)=>{s[l++&31]=e,s[l++&31]=t},explicit=()=>f=f+unzigzag(o.varint())>>>0,p=indexWriter(e,n);for(let e=0;e<i;e++){let t=r[1+e],n=t>>>4,i=t&15,s,c,l;if(n<15)s=edge(n*2),c=edge(n*2+1),i===0?(l=d++,pushVertex(l)):i<13?l=vertex(i):i===13?(l=f=f-1>>>0,pushVertex(l)):i===14?(l=f=f+1>>>0,pushVertex(l)):(l=explicit(),pushVertex(l)),pushEdge(c,l),pushEdge(l,s);else{let e;i<14?e=r[a+i]:(e=o.byte(),e===0&&(d=0));let t=e>>>4,n=e&15;i<14?(s=d++,c=t===0?d++:vertex(t-1),l=n===0?d++:vertex(n-1),pushVertex(s),t===0&&pushVertex(c),n===0&&pushVertex(l)):(s=i===14?d++:explicit(),c=t===0?d++:t===15?explicit():vertex(t-1),l=n===0?d++:n===15?explicit():vertex(n-1),pushVertex(s),(t===0||t===15)&&pushVertex(c),(n===0||n===15)&&pushVertex(l)),pushEdge(s,c),pushEdge(c,l),pushEdge(l,s)}p(e*3,s),p(e*3+1,c),p(e*3+2,l)}check(o.offset===o.end)}function applyFilter(e,n,r,i){if(i===`NONE`)return;let a=new DataView(e.buffer,e.byteOffset,e.byteLength);if(i===`EXPONENTIAL`){for(let t=0;t<e.length;t+=4){let e=a.getInt32(t,!0);a.setFloat32(t,(e<<8>>8)*2**(e>>24),!0)}return}check(i===`QUATERNION`?r===8:r===4||r===8);let o=r===8,s=o?32767:127,c=o?2:1,get=e=>o?a.getInt16(e,!0):a.getInt8(e),getUnsigned=e=>o?a.getUint16(e,!0):a.getUint8(e),put=(e,t)=>{o?a.setInt16(e,Math.round(t),!0):a.setInt8(e,Math.round(t))},putUnsigned=(e,t)=>{o?a.setUint16(e,Math.round(t),!0):a.setUint8(e,Math.round(t))};for(let e=0;e<n;e++){let n=e*r;if(i===`OCTAHEDRAL`){let e=get(n+2*c);check(e!==0);let r=get(n)/e,i=get(n+c)/e,a=1-Math.abs(r)-Math.abs(i),o=Math.max(-a,0);r-=r>=0?o:-o,i-=i>=0?o:-o;let l=s/t(r,i,a);put(n,r*l),put(n+c,i*l),put(n+2*c,a*l)}else if(i===`QUATERNION`){let e=a.getInt16(n+6,!0),t=e&3,r=Math.SQRT1_2/(e|3),i=a.getInt16(n,!0)*r,o=a.getInt16(n+2,!0)*r,s=a.getInt16(n+4,!0)*r,c=Math.sqrt(Math.max(0,1-i*i-o*o-s*s));a.setInt16(n+(t+1&3)*2,Math.round(i*32767),!0),a.setInt16(n+(t+2&3)*2,Math.round(o*32767),!0),a.setInt16(n+(t+3&3)*2,Math.round(s*32767),!0),a.setInt16(n+t*2,Math.round(c*32767),!0)}else{let e=(1<<r*2)-1,t=getUnsigned(n),i=get(n+c),a=get(n+2*c),o=getUnsigned(n+3*c);check(o>0);let s=(1<<32-Math.clz32(o))-1,l=o&s>>>1;l=l<<1|l&1;let u=e/s;putUnsigned(n,(t+i-a)*u),putUnsigned(n+c,(t+a)*u),putUnsigned(n+2*c,(t-i-a)*u),putUnsigned(n+3*c,l*u)}}}
+import { AssetError } from '../../assets/src/index.js';
+import { hypot3 } from '../../math/src/hypot.js';
+const filters = [
+    'NONE',
+    'OCTAHEDRAL',
+    'QUATERNION',
+    'EXPONENTIAL',
+    'COLOR',
+];
+// The filter's signed byte exponent has only 256 exact binary scales.
+const exponentScales = /* @__PURE__ */ Float64Array.from({ length: 256 }, (_, i) => 2 ** (i - 128));
+function check(condition) {
+    if (!condition)
+        throw new AssetError('Invalid EXT_meshopt_compression bitstream or layout.');
+}
+const unzigzag = (value) => (value >>> 1) ^ -(value & 1);
+/**
+ * Decodes one EXT_meshopt_compression buffer view into `target` (exactly `count * stride` bytes).
+ * This is a from-scratch implementation of the meshoptimizer vertex (versions 0 and 1), triangle
+ * and index-sequence codecs plus the octahedral, quaternion, exponential and color filters. Every
+ * read is bounds-checked against the compressed input and nothing is allocated proportionally to
+ * it, so a malicious stream can only fail, not allocate.
+ */
+export function decodeMeshopt(target, count, stride, source, mode, filter = 'NONE') {
+    check(Number.isInteger(count) && count > 0);
+    check(Number.isInteger(stride) && target.length === count * stride);
+    check(typeof filter === 'string' && filters.includes(filter));
+    if (mode === 'ATTRIBUTES') {
+        check(stride >= 4 && stride <= 256 && stride % 4 === 0);
+        decodeVertices(target, count, stride, source);
+        applyFilter(target, count, stride, filter);
+        return;
+    }
+    check(filter === 'NONE' && (stride === 2 || stride === 4));
+    if (mode === 'TRIANGLES')
+        decodeTriangles(target, count, stride, source);
+    else if (mode === 'INDICES')
+        decodeSequence(target, count, stride, source);
+    else
+        check(false);
+}
+/** Forward-only cursor over `bytes[offset..end)`; `take` reserves a span and returns its start. */
+class Cursor {
+    bytes;
+    offset;
+    end;
+    constructor(bytes, offset, end) {
+        this.bytes = bytes;
+        this.offset = offset;
+        this.end = end;
+    }
+    take(length) {
+        const start = this.offset;
+        check(length >= 0 && start + length <= this.end);
+        this.offset = start + length;
+        return start;
+    }
+    byte() {
+        return this.bytes[this.take(1)];
+    }
+    /** LEB128 limited to 32 bits. */
+    varint() {
+        let value = 0;
+        for (let shift = 0; shift <= 28; shift += 7) {
+            const byte = this.byte();
+            check(shift !== 28 || byte < 16);
+            value |= (byte & 127) << shift;
+            if (byte < 128)
+                return value >>> 0;
+        }
+        return (check(false), 0);
+    }
+}
+/** Bits per delta for each 2-bit group header, indexed by codec version and control mode. */
+const deltaBits = [
+    [0, 2, 4, 8],
+    [0, 1, 2, 4],
+    [1, 2, 4, 8],
+];
+function decodeVertices(out, count, stride, input) {
+    check(input.length > 0 && (input[0] === 0xa0 || input[0] === 0xa1));
+    const version = input[0] & 15;
+    const tail = version === 0 ? stride : stride + stride / 4;
+    const padded = Math.max(tail, version === 0 ? 32 : 24);
+    check(input.length >= 1 + padded);
+    const tailStart = input.length - tail;
+    const body = new Cursor(input, 1, input.length - padded);
+    // The previous element is carried per byte lane in `previous` across blocks.
+    const previous = input.slice(tailStart, tailStart + stride);
+    const channels = version === 0 ? undefined : input.subarray(tailStart + stride);
+    const blockSize = Math.min((0x2000 / stride) & ~15, 256);
+    check(blockSize > 0);
+    const deltas = new Uint8Array(blockSize * stride);
+    for (let first = 0; first < count; first += blockSize) {
+        const length = Math.min(blockSize, count - first);
+        const groups = (length + 15) >>> 4;
+        const headerBytes = (groups + 3) >>> 2;
+        const controls = version === 0 ? 0 : body.take(stride / 4);
+        deltas.fill(0);
+        for (let byte = 0; byte < stride; byte++) {
+            const base = byte * length;
+            const control = version === 0
+                ? 0
+                : (input[controls + (byte >>> 2)] >>> ((byte & 3) << 1)) & 3;
+            if (control === 2)
+                continue;
+            if (control === 3) {
+                deltas.set(input.subarray(body.take(length), body.offset), base);
+                continue;
+            }
+            const headers = body.take(headerBytes);
+            const table = deltaBits[version === 0 ? 0 : control + 1];
+            for (let group = 0; group < groups; group++) {
+                const bits = table[(input[headers + (group >>> 2)] >>> ((group & 3) << 1)) & 3];
+                const at = base + (group << 4);
+                if (bits === 0)
+                    continue;
+                if (bits === 8) {
+                    // Out-of-range lanes of a final partial group are dropped by the slice below.
+                    const start = body.take(16);
+                    for (let lane = 0; lane < 16 && (group << 4) + lane < length; lane++)
+                        deltas[at + lane] = input[start + lane];
+                    continue;
+                }
+                const packed = body.take(bits * 2);
+                const sentinel = (1 << bits) - 1;
+                for (let lane = 0; lane < 16; lane++) {
+                    const bit = lane * bits;
+                    // 1-bit fields are packed from the least significant bit, wider ones from the top.
+                    const shift = bits === 1 ? bit & 7 : 8 - bits - (bit & 7);
+                    let value = (input[packed + (bit >>> 3)] >>> shift) & sentinel;
+                    if (value === sentinel)
+                        value = body.byte();
+                    if ((group << 4) + lane < length)
+                        deltas[at + lane] = value;
+                }
+            }
+        }
+        for (let element = 0; element < length; element++) {
+            const row = (first + element) * stride;
+            for (let lane = 0; lane < stride; lane += 4) {
+                const channel = channels ? channels[lane >>> 2] : 0;
+                const kind = channel & 3;
+                check(kind !== 3);
+                if (kind === 0) {
+                    for (let byte = lane; byte < lane + 4; byte++) {
+                        const value = (previous[byte] + unzigzag(deltas[byte * length + element])) &
+                            255;
+                        out[row + byte] = previous[byte] = value;
+                    }
+                }
+                else if (kind === 1) {
+                    for (let byte = lane; byte < lane + 4; byte += 2) {
+                        const delta = unzigzag(deltas[byte * length + element] |
+                            (deltas[(byte + 1) * length + element] << 8));
+                        const value = ((previous[byte] | (previous[byte + 1] << 8)) + delta) & 0xffff;
+                        out[row + byte] = previous[byte] = value & 255;
+                        out[row + byte + 1] = previous[byte + 1] = value >>> 8;
+                    }
+                }
+                else {
+                    let delta = 0;
+                    let last = 0;
+                    for (let k = 0; k < 4; k++) {
+                        delta |= deltas[(lane + k) * length + element] << (k * 8);
+                        last |= previous[lane + k] << (k * 8);
+                    }
+                    const rotate = channel >>> 4;
+                    const value = last ^ ((delta >>> rotate) | (delta << (32 - rotate)));
+                    for (let k = 0; k < 4; k++)
+                        out[row + lane + k] = previous[lane + k] =
+                            (value >>> (k * 8)) & 255;
+                }
+            }
+        }
+    }
+    check(body.offset === body.end);
+}
+function indexWriter(target, stride) {
+    const view = new DataView(target.buffer, target.byteOffset, target.byteLength);
+    return (index, value) => {
+        check(value >= 0 && value <= (stride === 2 ? 0xffff : 0xffffffff));
+        if (stride === 2)
+            view.setUint16(index * 2, value, true);
+        else
+            view.setUint32(index * 4, value, true);
+    };
+}
+function decodeSequence(out, count, stride, input) {
+    check(input.length >= 5 && input[0] === 0xd1);
+    const cursor = new Cursor(input, 1, input.length - 4);
+    const last = [0, 0];
+    const put = indexWriter(out, stride);
+    for (let i = 0; i < count; i++) {
+        const code = cursor.varint();
+        const lane = code & 1;
+        last[lane] = (last[lane] + unzigzag(code >>> 1)) >>> 0;
+        put(i, last[lane]);
+    }
+    check(cursor.offset === cursor.end);
+}
+function decodeTriangles(out, count, stride, input) {
+    check(count % 3 === 0 && input.length > 0 && input[0] === 0xe1);
+    const triangles = count / 3;
+    const auxStart = input.length - 16;
+    check(auxStart >= 1 + triangles);
+    const data = new Cursor(input, 1 + triangles, auxStart);
+    // FIFOs hold the most recent edges (pairs) and vertices; index 0 is the newest entry.
+    const edges = new Uint32Array(32);
+    const verts = new Uint32Array(16);
+    let edgeHead = 0;
+    let vertHead = 0;
+    let next = 0;
+    let last = 0;
+    const edge = (n) => edges[(edgeHead - 1 - n) & 31];
+    const vertex = (n) => verts[(vertHead - 1 - n) & 15];
+    const pushVertex = (v) => {
+        verts[vertHead++ & 15] = v;
+    };
+    const pushEdge = (a, b) => {
+        edges[edgeHead++ & 31] = a;
+        edges[edgeHead++ & 31] = b;
+    };
+    const explicit = () => (last = (last + unzigzag(data.varint())) >>> 0);
+    const put = indexWriter(out, stride);
+    for (let i = 0; i < triangles; i++) {
+        const code = input[1 + i];
+        const high = code >>> 4;
+        const low = code & 15;
+        let a;
+        let b;
+        let c;
+        if (high < 15) {
+            a = edge(high * 2);
+            b = edge(high * 2 + 1);
+            if (low === 0) {
+                c = next++;
+                pushVertex(c);
+            }
+            else if (low < 13)
+                c = vertex(low);
+            else if (low === 13) {
+                c = last = (last - 1) >>> 0;
+                pushVertex(c);
+            }
+            else if (low === 14) {
+                c = last = (last + 1) >>> 0;
+                pushVertex(c);
+            }
+            else {
+                c = explicit();
+                pushVertex(c);
+            }
+            pushEdge(b, c);
+            pushEdge(c, a);
+        }
+        else {
+            let aux;
+            if (low < 14)
+                aux = input[auxStart + low];
+            else {
+                aux = data.byte();
+                if (aux === 0)
+                    next = 0;
+            }
+            const z = aux >>> 4;
+            const w = aux & 15;
+            if (low < 14) {
+                a = next++;
+                b = z === 0 ? next++ : vertex(z - 1);
+                c = w === 0 ? next++ : vertex(w - 1);
+                pushVertex(a);
+                if (z === 0)
+                    pushVertex(b);
+                if (w === 0)
+                    pushVertex(c);
+            }
+            else {
+                a = low === 14 ? next++ : explicit();
+                b = z === 0 ? next++ : z === 15 ? explicit() : vertex(z - 1);
+                c = w === 0 ? next++ : w === 15 ? explicit() : vertex(w - 1);
+                pushVertex(a);
+                if (z === 0 || z === 15)
+                    pushVertex(b);
+                if (w === 0 || w === 15)
+                    pushVertex(c);
+            }
+            pushEdge(a, b);
+            pushEdge(b, c);
+            pushEdge(c, a);
+        }
+        put(i * 3, a);
+        put(i * 3 + 1, b);
+        put(i * 3 + 2, c);
+    }
+    check(data.offset === data.end);
+}
+function applyFilter(bytes, count, stride, filter) {
+    if (filter === 'NONE')
+        return;
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    if (filter === 'EXPONENTIAL') {
+        for (let offset = 0; offset < bytes.length; offset += 4) {
+            const value = view.getInt32(offset, true);
+            view.setFloat32(offset, ((value << 8) >> 8) * exponentScales[(value >> 24) + 128], true);
+        }
+        return;
+    }
+    check(filter === 'QUATERNION' ? stride === 8 : stride === 4 || stride === 8);
+    const wide = stride === 8;
+    const max = wide ? 32767 : 127;
+    const width = wide ? 2 : 1;
+    const get = (offset) => wide ? view.getInt16(offset, true) : view.getInt8(offset);
+    const getUnsigned = (offset) => wide ? view.getUint16(offset, true) : view.getUint8(offset);
+    const put = (offset, value) => {
+        if (wide)
+            view.setInt16(offset, Math.round(value), true);
+        else
+            view.setInt8(offset, Math.round(value));
+    };
+    const putUnsigned = (offset, value) => {
+        if (wide)
+            view.setUint16(offset, Math.round(value), true);
+        else
+            view.setUint8(offset, Math.round(value));
+    };
+    for (let element = 0; element < count; element++) {
+        const o = element * stride;
+        if (filter === 'OCTAHEDRAL') {
+            const one = get(o + 2 * width);
+            check(one !== 0);
+            let x = get(o) / one;
+            let y = get(o + width) / one;
+            const z = 1 - Math.abs(x) - Math.abs(y);
+            const fold = Math.max(-z, 0);
+            x -= x >= 0 ? fold : -fold;
+            y -= y >= 0 ? fold : -fold;
+            const scale = max / hypot3(x, y, z);
+            put(o, x * scale);
+            put(o + width, y * scale);
+            put(o + 2 * width, z * scale);
+        }
+        else if (filter === 'QUATERNION') {
+            const code = view.getInt16(o + 6, true);
+            const largest = code & 3;
+            const scale = Math.SQRT1_2 / (code | 3);
+            const x = view.getInt16(o, true) * scale;
+            const y = view.getInt16(o + 2, true) * scale;
+            const z = view.getInt16(o + 4, true) * scale;
+            const w = Math.sqrt(Math.max(0, 1 - x * x - y * y - z * z));
+            view.setInt16(o + ((largest + 1) & 3) * 2, Math.round(x * 32767), true);
+            view.setInt16(o + ((largest + 2) & 3) * 2, Math.round(y * 32767), true);
+            view.setInt16(o + ((largest + 3) & 3) * 2, Math.round(z * 32767), true);
+            view.setInt16(o + largest * 2, Math.round(w * 32767), true);
+        }
+        else {
+            // COLOR: YCoCg with a variable-width alpha; the top set bit of alpha fixes the scale.
+            const full = (1 << (stride * 2)) - 1;
+            const luma = getUnsigned(o);
+            const co = get(o + width);
+            const cg = get(o + 2 * width);
+            const alphaCode = getUnsigned(o + 3 * width);
+            check(alphaCode > 0);
+            const alphaMax = (1 << (32 - Math.clz32(alphaCode))) - 1;
+            let alpha = alphaCode & (alphaMax >>> 1);
+            alpha = (alpha << 1) | (alpha & 1);
+            const factor = full / alphaMax;
+            putUnsigned(o, (luma + co - cg) * factor);
+            putUnsigned(o + width, (luma + cg) * factor);
+            putUnsigned(o + 2 * width, (luma - co - cg) * factor);
+            putUnsigned(o + 3 * width, alpha * factor);
+        }
+    }
+}
 //# sourceMappingURL=meshopt.js.map
