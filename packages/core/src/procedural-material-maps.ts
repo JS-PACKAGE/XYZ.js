@@ -56533,6 +56533,110 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'editdistance': {
+        const p = proceduralMaterialPresets.editdistance,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.pair.length,
+          group = Math.floor(unsigned / p.pair.length),
+          words: readonly string[] = p.pairs[p.pair[variant]],
+          reverse = (group & 1) === 1,
+          swap = (group & 2) === 2,
+          first = [...(swap ? words[1] : words[0])],
+          second = [...(swap ? words[0] : words[1])],
+          letters = [
+            reverse ? first.reverse() : first,
+            reverse ? second.reverse() : second,
+          ],
+          length = letters[0].length,
+          size = length + 1,
+          edit = p.kinds[variant] === 0,
+          // The table of values and the cells of one optimal path back from the last cell.
+          table = new Int16Array(size * size),
+          onPath = new Uint8Array(size * size);
+        for (let i = 0; i < size; i++)
+          for (let j = 0; j < size; j++) {
+            if (i === 0 || j === 0) {
+              table[i * size + j] = edit ? i + j : 0;
+              continue;
+            }
+            const same = letters[0][i - 1] === letters[1][j - 1],
+              diagonal = table[(i - 1) * size + j - 1],
+              up = table[(i - 1) * size + j],
+              left = table[i * size + j - 1];
+            table[i * size + j] = edit
+              ? Math.min(diagonal + (same ? 0 : 1), up + 1, left + 1)
+              : same
+                ? diagonal + 1
+                : Math.max(up, left);
+          }
+        {
+          let i = length,
+            j = length;
+          onPath[i * size + j] = 1;
+          while (i > 0 || j > 0) {
+            const here = table[i * size + j];
+            if (
+              i > 0 &&
+              j > 0 &&
+              (edit
+                ? here ===
+                  table[(i - 1) * size + j - 1] +
+                    (letters[0][i - 1] === letters[1][j - 1] ? 0 : 1)
+                : letters[0][i - 1] === letters[1][j - 1] &&
+                  here === table[(i - 1) * size + j - 1] + 1)
+            ) {
+              i--;
+              j--;
+            } else if (
+              i > 0 &&
+              (edit
+                ? here === table[(i - 1) * size + j] + 1
+                : j === 0 ||
+                  table[(i - 1) * size + j] >= table[i * size + j - 1])
+            ) {
+              i--;
+            } else {
+              j--;
+            }
+            onPath[i * size + j] = 1;
+          }
+        }
+        return () => {
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            path = onPath[row * size + column] === 1,
+            half = 0.5 - (path ? p.gapPath : p.gap),
+            inner = half - p.corner,
+            qx = Math.abs(x - column - 0.5) - inner,
+            qy = Math.abs(y - row - 0.5) - inner,
+            // The distance to the rounded square of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            level = table[row * size + column] / length,
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+            mask *
+            (path ? 1 : p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65502,6 +65606,7 @@ export function createSurfaceSampler(
     kind === 'langfordpairings' ||
     kind === 'golombrulers' ||
     kind === 'sortingtraces' ||
+    kind === 'editdistance' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

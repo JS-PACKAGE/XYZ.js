@@ -1169,6 +1169,7 @@ export type ProceduralMaterialKind =
   | 'langfordpairings'
   | 'golombrulers'
   | 'sortingtraces'
+  | 'editdistance'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2586,6 +2587,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'langfordpairings',
   'golombrulers',
   'sortingtraces',
+  'editdistance',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

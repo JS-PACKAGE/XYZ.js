@@ -1232,6 +1232,7 @@ try {
     'langfordpairings',
     'golombrulers',
     'sortingtraces',
+    'editdistance',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

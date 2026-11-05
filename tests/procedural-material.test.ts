@@ -1195,6 +1195,7 @@ const kinds: ProceduralMaterialKind[] = [
   'langfordpairings',
   'golombrulers',
   'sortingtraces',
+  'editdistance',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -212604,6 +212605,436 @@ describe('Sorting traces as the array after every step of a sorting algorithm', 
     expect(blue / (512 * 512)).toBeLessThan(61.7);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1071);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Edit distance as the table of two words with an optimal path', () => {
+  const p = proceduralMaterialPresets.editdistance;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The words of a seed as the sampler reads them: the pair of the variant, both reversed for the bit 1 of the group and swapped for the bit 2. */
+  const wordsOf = (seed: number): [string[], string[]] => {
+    const variant = seed % p.pair.length,
+      group = Math.floor(seed / p.pair.length),
+      pair: readonly string[] = p.pairs[p.pair[variant]];
+    let a = [...pair[0]],
+      b = [...pair[1]];
+    if (group & 2) [a, b] = [b, a];
+    if (group & 1) {
+      a.reverse();
+      b.reverse();
+    }
+    return [a, b];
+  };
+  /** The table of a seed by two recursions written on the definitions of the values (the edit distance of the first i letters and the first j, and the length of their longest common subsequence), with a memo. */
+  const expectedTable = (seed: number): number[][] => {
+    const [a, b] = wordsOf(seed),
+      edit = p.kinds[seed % p.pair.length] === 0,
+      memo = new Map<string, number>(),
+      value = (i: number, j: number): number => {
+        const key = `${i},${j}`;
+        if (memo.has(key)) return memo.get(key)!;
+        let result: number;
+        if (edit) {
+          result =
+            i === 0
+              ? j
+              : j === 0
+                ? i
+                : Math.min(
+                    value(i - 1, j) + 1,
+                    value(i, j - 1) + 1,
+                    value(i - 1, j - 1) + (a[i - 1] === b[j - 1] ? 0 : 1),
+                  );
+        } else {
+          result =
+            i === 0 || j === 0
+              ? 0
+              : a[i - 1] === b[j - 1]
+                ? value(i - 1, j - 1) + 1
+                : Math.max(value(i - 1, j), value(i, j - 1));
+        }
+        memo.set(key, result);
+        return result;
+      };
+    return Array.from({ length: a.length + 1 }, (_, i) =>
+      Array.from({ length: b.length + 1 }, (_, j) => value(i, j)),
+    );
+  };
+  /** The cells of the path back from the last cell to the first as the definition has it: the diagonal step if it fits the table (a match or a substitution; in the longest common subsequence a match), else up (the edit distance: if the cell above plus 1 is the value; the longest common subsequence: if the cell above is not less than the cell to the left), else left; written as a walk with a list of the cells. */
+  const expectedPath = (seed: number): Set<string> => {
+    const [a, b] = wordsOf(seed),
+      edit = p.kinds[seed % p.pair.length] === 0,
+      table = expectedTable(seed),
+      cells = ['' + a.length + ',' + b.length];
+    let [i, j] = [a.length, b.length];
+    while (i > 0 || j > 0) {
+      const here = table[i][j],
+        same = i > 0 && j > 0 && a[i - 1] === b[j - 1];
+      if (
+        i > 0 &&
+        j > 0 &&
+        (edit
+          ? here === table[i - 1][j - 1] + (same ? 0 : 1)
+          : same && here === table[i - 1][j - 1] + 1)
+      ) {
+        i--;
+        j--;
+      } else if (
+        i > 0 &&
+        (edit
+          ? here === table[i - 1][j] + 1
+          : j === 0 || table[i - 1][j] >= table[i][j - 1])
+      ) {
+        i--;
+      } else {
+        j--;
+      }
+      cells.push(`${i},${j}`);
+    }
+    return new Set(cells);
+  };
+  /** The table as the picture shows it, read back at the middle of every cell: the cells on the path are the highest (the height is the full cellHeight), the value is solved from the tone (grain moves it by at most half of grainTone) and, off the path, from the height too. */
+  const readTable = (
+    seed: number,
+  ): { values: number[][]; path: Set<string> } => {
+    const [a] = wordsOf(seed),
+      length = a.length,
+      size = length + 1,
+      sample = createSurfaceSampler('editdistance', seed),
+      out = empty(),
+      values: number[][] = [],
+      path = new Set<string>();
+    for (let i = 0; i < size; i++) {
+      const row: number[] = [];
+      for (let j = 0; j < size; j++) {
+        sample((j + 0.5) / size, (i + 0.5) / size, out);
+        const high = out.height / p.relief / p.cellHeight,
+          onPath = Math.abs(high - 1) < 1e-9;
+        if (onPath) path.add(`${i},${j}`);
+        const byTone =
+          ((out.color - p.toneMin) / (p.toneMax - p.toneMin)) * length;
+        expect(Math.abs(byTone - Math.round(byTone))).toBeLessThan(0.45);
+        const value = Math.abs(Math.round(byTone));
+        if (!onPath)
+          // Off the path the height gives the value exactly.
+          expect(high).toBeCloseTo(
+            p.heightBase + (p.heightSwing * value) / length,
+            9,
+          );
+        row.push(value);
+      }
+      values.push(row);
+    }
+    return { values, path };
+  };
+  /** The grid of 256 by 256 colours above 0.75, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('editdistance', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.75));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9636, lit: 0.16812, mean: 0.39193 }],
+      [1, { high: 0.9639, lit: 0.0666, mean: 0.33815 }],
+      [0xffffffff, { high: 0.6297, lit: 0, mean: 0.1821 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('editdistance', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.75);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0154);
+      expect(low).toBeLessThan(0.0159);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws the table of values of both measures for every pair of words, read back at the middle of every cell and equal to a separate recursion, for the four groups of the reverse and the swap', () => {
+    for (let seed = 0; seed < 24; seed++) {
+      const { values } = readTable(seed);
+      expect(values).toEqual(expectedTable(seed));
+    }
+  });
+  it('shows the first row and column, the recurrence in every cell and the end values, read from the picture: the edit distance of intention and execution is 5, and a swap of the words gives the transposed table', () => {
+    for (let seed = 0; seed < 24; seed++) {
+      const variant = seed % p.pair.length,
+        edit = p.kinds[variant] === 0,
+        [a, b] = wordsOf(seed),
+        { values } = readTable(seed),
+        n = a.length;
+      for (let i = 0; i <= n; i++)
+        for (let j = 0; j <= n; j++) {
+          if (i === 0 || j === 0) {
+            expect(values[i][j]).toBe(edit ? i + j : 0);
+            continue;
+          }
+          const same = a[i - 1] === b[j - 1];
+          expect(values[i][j]).toBe(
+            edit
+              ? Math.min(
+                  values[i - 1][j] + 1,
+                  values[i][j - 1] + 1,
+                  values[i - 1][j - 1] + (same ? 0 : 1),
+                )
+              : same
+                ? values[i - 1][j - 1] + 1
+                : Math.max(values[i - 1][j], values[i][j - 1]),
+          );
+        }
+      // Swapping the words (the bit 2 of the group) gives the transposed table.
+      if ((Math.floor(seed / p.pair.length) & 2) === 2) {
+        const unswapped = readTable(seed - 2 * p.pair.length).values;
+        for (let i = 0; i <= n; i++)
+          for (let j = 0; j <= n; j++)
+            expect(values[i][j]).toBe(unswapped[j][i]);
+      }
+    }
+    // The classic pair, the variant 0 as written: 5 edits turn intention into execution.
+    expect(readTable(0).values[9][9]).toBe(5);
+  });
+  it('marks one optimal path back from the last cell to the first: the cells of the path are those of the walk of the definition, join as steps of one cell, and their cost is the end value', () => {
+    for (let seed = 0; seed < 24; seed++) {
+      const variant = seed % p.pair.length,
+        edit = p.kinds[variant] === 0,
+        [a, b] = wordsOf(seed),
+        n = a.length,
+        { values, path } = readTable(seed);
+      expect(path).toEqual(expectedPath(seed));
+      // The path read from the picture is a chain of steps (diagonal, up or left) from the last cell to the first; its cost (the edit steps, or the matches) is the end value.
+      let [i, j] = [n, n],
+        cost = 0,
+        matches = 0,
+        steps = 0;
+      const seen = new Set([`${i},${j}`]);
+      while (i > 0 || j > 0) {
+        const diagonal = i > 0 && j > 0 && path.has(`${i - 1},${j - 1}`),
+          up = i > 0 && path.has(`${i - 1},${j}`),
+          left = j > 0 && path.has(`${i},${j - 1}`);
+        // The step the picture allows: the walk takes the diagonal first, then up, then left.
+        const same = i > 0 && j > 0 && a[i - 1] === b[j - 1];
+        if (
+          diagonal &&
+          (edit
+            ? values[i][j] === values[i - 1][j - 1] + (same ? 0 : 1)
+            : same && values[i][j] === values[i - 1][j - 1] + 1)
+        ) {
+          cost += edit && !same ? 1 : 0;
+          matches += same ? 1 : 0;
+          i--;
+          j--;
+        } else if (
+          up &&
+          (edit
+            ? values[i][j] === values[i - 1][j] + 1
+            : j === 0 || values[i - 1][j] >= values[i][j - 1])
+        ) {
+          cost += 1;
+          i--;
+        } else {
+          expect(left).toBe(true);
+          cost += 1;
+          j--;
+        }
+        seen.add(`${i},${j}`);
+        steps++;
+      }
+      expect(seen.size).toBe(path.size);
+      expect(steps).toBeGreaterThanOrEqual(n);
+      expect(steps).toBeLessThanOrEqual(2 * n);
+      if (edit) expect(cost).toBe(values[n][n]);
+      else expect(matches).toBe(values[n][n]);
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const [a] = wordsOf(seed),
+        length = a.length,
+        size = length + 1,
+        table = expectedTable(seed),
+        path = expectedPath(seed),
+        sample = createSurfaceSampler('editdistance', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * size,
+          y = v * size,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          onPath = path.has(`${row},${column}`),
+          half = 0.5 - (onPath ? p.gapPath : p.gap),
+          inner = half - p.corner,
+          dx = Math.abs(x - column - 0.5),
+          dy = Math.abs(y - row - 0.5),
+          // The distance to the rounded square, by the straight sides or by the corner circle.
+          distance =
+            dx <= inner || dy <= inner
+              ? Math.max(dx, dy) - half
+              : Math.hypot(dx - inner, dy - inner) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          level = table[row][column] / length,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (onPath ? 1 : p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4700);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.1431427001953125, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.107940673828125, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('editdistance', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 teal edit distance table maps on dark green with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('editdistance', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(37.9);
+    expect(red / (512 * 512)).toBeLessThan(39);
+    expect(green / (512 * 512)).toBeGreaterThan(80.8);
+    expect(green / (512 * 512)).toBeLessThan(81.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(85.1);
+    expect(blue / (512 * 512)).toBeLessThan(86.1);
+    expect(maxTilt).toBeGreaterThan(0.0432);
+    expect(maxTilt).toBeLessThan(0.0433);
     expect(invalid).toBe(0);
   });
 });
