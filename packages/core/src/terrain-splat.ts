@@ -157,7 +157,7 @@ export function bakeTerrainSplat(
           ty = (sample[1]! * 2 - 1) * layer.normalScale;
           tz = sample[2]! * 2 - 1;
         }
-        const length = hypot3(tx, ty, tz) || 1;
+        const length = layer.normal ? hypot3(tx, ty, tz) || 1 : 1;
         nx += (tx / length) * weight;
         ny += (ty / length) * weight;
         nz += (tz / length) * weight;
