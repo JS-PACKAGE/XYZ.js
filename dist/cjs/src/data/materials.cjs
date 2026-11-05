@@ -29088,6 +29088,47 @@ var proceduralMaterialPresets = Object.freeze({
 		lineRoughness: .5,
 		starRoughness: .4
 	}),
+	debruijnstrips: Object.freeze({
+		dark: [
+			20,
+			24,
+			32
+		],
+		light: [
+			232,
+			232,
+			220
+		],
+		roughness: .55,
+		relief: .003,
+		cells: 32,
+		windowBits: 5,
+		cellHalf: .0144,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .9,
+				on: .18
+			}),
+			Object.freeze({
+				ground: .12,
+				on: .86
+			}),
+			Object.freeze({
+				ground: .72,
+				on: .4
+			}),
+			Object.freeze({
+				ground: .28,
+				on: .7
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		onHeight: .45,
+		groundRoughness: .7,
+		onRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37769,6 +37810,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	debruijnstrips: 1,
 	starbattleboard: 1,
 	sokobanlevels: 1,
 	ladderlogic: 1,

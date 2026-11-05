@@ -1,10 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { proceduralMaterialPresets } from '../src/data/materials.js';
 import {
   createSurfaceSampler,
   generateProceduralMaps,
   type SurfaceSample,
 } from '../packages/core/src/procedural-material-maps.js';
+
+// Many tests here compare whole pictures or run over many seeds, which takes seconds each and more on a loaded machine.
+vi.setConfig({ testTimeout: 120_000 });
 
 const seeds = [0, 7, 0xffffffff] as const;
 const empty = (): SurfaceSample => ({
@@ -83302,6 +83305,312 @@ describe('starbattleboard: a solved one-star Star Battle (Two Not Touch) board, 
     expect(invalid).toBe(0);
     const a = createSurfaceSampler('starbattleboard', 0),
       b = createSurfaceSampler('starbattleboard', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});
+
+describe('debruijnstrips: rows of a binary de Bruijn sequence of order 5 as cells on or off, with a surface chosen by the seed', () => {
+  const p = proceduralMaterialPresets.debruijnstrips,
+    out = empty(),
+    n = p.cells,
+    bits = p.windowBits;
+  const toneAt = (
+    sample: Sampler,
+    x: number,
+    y: number,
+    across: boolean,
+  ): number => {
+    // A place in tile units in the picture as it is drawn (the rows along x), as a place on the picture.
+    sample(across ? y : x, across ? x : y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  type Reading = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { ground: number; on: number };
+    rows: number[][];
+  };
+  // The decoder of a row, written out again here from the definition of the Wikipedia article on de Bruijn sequences: a cyclic sequence in which every possible string of the length of the window turns up exactly once. It gives whether a row is one.
+  const isDeBruijn = (row: number[]): boolean => {
+    if (row.length !== 1 << bits) return false;
+    const seen = new Set<number>();
+    for (let start = 0; start < row.length; start++) {
+      let word = 0;
+      for (let k = 0; k < bits; k++)
+        word = word * 2 + row[(start + k) % row.length];
+      seen.add(word);
+    }
+    return seen.size === 1 << bits;
+  };
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [];
+    for (const across of [false, true]) {
+      const ground = toneAt(sample, 0, 0, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground,
+          on = surface.on + shift;
+        if (Math.abs(shift) > p.toneShift + 1e-9) return;
+        const rows: number[][] = [];
+        for (let row = 0; row < n; row++) {
+          const cells: number[] = [];
+          for (let column = 0; column < n; column++) {
+            const tone = toneAt(
+              sample,
+              (column + 0.5) / n,
+              (row + 0.5) / n,
+              across,
+            );
+            if (Math.abs(tone - on) < 1e-6) cells.push(1);
+            else if (Math.abs(tone - ground) < 1e-6) cells.push(0);
+            else return;
+          }
+          if (!isDeBruijn(cells)) return;
+          rows.push(cells);
+        }
+        options.push({
+          across,
+          surface: index,
+          shift,
+          tones: { ground, on },
+          rows,
+        });
+      });
+    }
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  // The first rotation of a row that is the smallest (the necklace of the row), to count the different sequences.
+  const necklace = (row: number[]): string =>
+    row
+      .map((_, shiftBy) =>
+        row.map((__, k) => row[(k + shiftBy) % row.length]).join(''),
+      )
+      .sort()[0];
+
+  it('makes every row a de Bruijn sequence: all 32 windows of 5 cells (wrapping round the row) are different, with 16 cells on, and the rows are not all the same', () => {
+    for (let seed = 0; seed < 100; seed++) {
+      const { rows } = readSurface(
+        createSurfaceSampler('debruijnstrips', seed * 13 + 5),
+      );
+      expect(rows.length).toBe(n);
+      for (const row of rows) {
+        expect(row.length).toBe(n);
+        expect(isDeBruijn(row)).toBe(true);
+        expect(row.reduce((total, cell) => total + cell, 0)).toBe(16);
+        // The 5 cells of any window are in the row once as a window: the window of all zeros turns up, and the window of all ones.
+        expect(row.join('').repeat(2)).toContain('00000');
+        expect(row.join('').repeat(2)).toContain('11111');
+      }
+      expect(new Set(rows.map((row) => row.join(''))).size).toBeGreaterThan(24);
+    }
+    // The decoder says no to a row that is not one: a row with one cell turned over.
+    const { rows } = readSurface(createSurfaceSampler('debruijnstrips', 3)),
+      broken = rows[0].slice();
+    broken[7] = 1 - broken[7];
+    expect(isDeBruijn(broken)).toBe(false);
+    expect(isDeBruijn(rows[0])).toBe(true);
+  });
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model at every place of the picture away from the edges of the cells, for several seeds',
+    { timeout: 120000 },
+    () => {
+      const o = empty();
+      for (const seed of [1, 2, 3, 4, 5, 6]) {
+        const sample = createSurfaceSampler('debruijnstrips', seed),
+          reading = readSurface(sample);
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021,
+              column = Math.floor(x * n),
+              row = Math.floor(y * n),
+              lx = x - (column + 0.5) / n,
+              ly = y - (row + 0.5) / n;
+            if (
+              Math.abs(Math.max(Math.abs(lx), Math.abs(ly)) - p.cellHalf) <
+              0.0008
+            )
+              continue;
+            sample(reading.across ? y : x, reading.across ? x : y, o);
+            const inked =
+              reading.rows[row][column] === 1 &&
+              Math.max(Math.abs(lx), Math.abs(ly)) <= p.cellHalf;
+            expect(o.color).toBeCloseTo(
+              inked ? reading.tones.on : reading.tones.ground,
+              6,
+            );
+            expect(o.height / p.relief).toBeCloseTo(
+              inked ? p.onHeight : p.groundHeight,
+              6,
+            );
+            expect(o.roughness).toBeCloseTo(
+              inked ? p.onRoughness : p.groundRoughness,
+              6,
+            );
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(150000);
+      }
+    },
+  );
+
+  it('puts the four sides of an on cell where the model puts them: just inside and just outside by 0.0004 of a tile, exactly, along and across the picture, and softens them over edgeSoft', () => {
+    const delta = 0.0004,
+      quarter = 0.25 * p.edgeSoft;
+    let checked = 0;
+    const seen = new Set<boolean>();
+    for (let seed = 1; seed <= 8; seed++) {
+      const sample = createSurfaceSampler('debruijnstrips', seed),
+        { across, tones, rows } = readSurface(sample),
+        tone = (x: number, y: number): number => toneAt(sample, x, y, across);
+      seen.add(across);
+      rows.forEach((cells, row) =>
+        cells.forEach((cell, column) => {
+          if (cell !== 1) return;
+          const cx = (column + 0.5) / n,
+            cy = (row + 0.5) / n;
+          // The cells next to it are off or on: the side is checked against the cell beside only where that is off, since the gap between two on cells is the softened edges of both.
+          const sides: [number, number, number, number][] = [
+            [1, 0, row, (column + 1) % n],
+            [-1, 0, row, (column + n - 1) % n],
+            [0, 1, (row + 1) % n, column],
+            [0, -1, (row + n - 1) % n, column],
+          ];
+          for (const [dx, dy, nr, nc] of sides) {
+            if (rows[nr][nc] === 1) continue;
+            close(
+              tone(
+                cx + dx * (p.cellHalf - delta),
+                cy + dy * (p.cellHalf - delta),
+              ),
+              tones.on,
+            );
+            close(
+              tone(
+                cx + dx * (p.cellHalf + delta),
+                cy + dy * (p.cellHalf + delta),
+              ),
+              tones.ground,
+            );
+            close(
+              tone(
+                cx + dx * (p.cellHalf - quarter),
+                cy + dy * (p.cellHalf - quarter),
+              ),
+              blend(tones.ground, tones.on, 0.75),
+            );
+            close(
+              tone(
+                cx + dx * (p.cellHalf + quarter),
+                cy + dy * (p.cellHalf + quarter),
+              ),
+              blend(tones.ground, tones.on, 0.25),
+            );
+            checked++;
+          }
+        }),
+      );
+    }
+    expect(seen.size).toBe(2);
+    expect(checked).toBeGreaterThan(2000);
+  });
+
+  it(
+    'uses every surface and both ways round about equally often over 1000 seeds, makes many different sequences (about 2048 exist), and shifts the tones over the whole range',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        sequences = new Set<string>(),
+        zeroAt = new Array<number>(n).fill(0),
+        shifts: number[] = [];
+      let acrossCount = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('debruijnstrips', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        acrossCount += Number(reading.across);
+        for (const row of reading.rows) {
+          sequences.add(necklace(row));
+          // Where in the row the window of five cells off starts (turning round the end): the rows are turned by a random number of cells.
+          const text = row.join('');
+          zeroAt[(text + text).indexOf('00000')]++;
+        }
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+      expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+      // There are 2^(2^(5 - 1) - 5) = 2048 de Bruijn sequences of order 5 up to turning, and the walks should find a good share of them.
+      expect(sequences.size).toBeGreaterThan(1000);
+      for (const count of zeroAt)
+        expect(Math.abs(count - 32000 / n)).toBeLessThan(150);
+      expect(sequences.size).toBeLessThanOrEqual(2048);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('debruijnstrips', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('debruijnstrips', 0),
+      b = createSurfaceSampler('debruijnstrips', 1),
       one = empty(),
       two = empty();
     let different = 0;

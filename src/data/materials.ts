@@ -18792,6 +18792,33 @@ export const proceduralMaterialPresets = Object.freeze({
     lineRoughness: 0.5,
     starRoughness: 0.4,
   }),
+  debruijnstrips: Object.freeze({
+    dark: [20, 24, 32] as const,
+    light: [232, 232, 220] as const,
+    roughness: 0.55,
+    relief: 0.003,
+    // Rows of a binary de Bruijn sequence: each of the cells rows is a ring of cells cells, each cell on or off, in which every window of windowBits cells in a row (wrapping from the end of the row to its start) is a
+    // different pattern, so that all 2^windowBits patterns of that many cells turn up exactly once (the de Bruijn sequence of order windowBits, as the Wikipedia article on de Bruijn sequences describes it, read for
+    // this). A row is made as a closed walk through all the edges of the de Bruijn graph (the nodes are the patterns of windowBits - 1 cells, the edges the patterns of windowBits cells, from the pattern without its
+    // first cell to the pattern without its last cell), taking the edges in the random order of the seed; that is my way of making a sequence, and the sequence is then turned by a random number of cells. An on cell is
+    // a square of the half size cellHalf in the cell. The seed picks the rows, a surface (the tones of the ground and of the on cells, shifted together a little) and whether the rows run along the picture or across it.
+    cells: 32,
+    windowBits: 5,
+    cellHalf: 0.0144,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.9, on: 0.18 }),
+      Object.freeze({ ground: 0.12, on: 0.86 }),
+      Object.freeze({ ground: 0.72, on: 0.4 }),
+      Object.freeze({ ground: 0.28, on: 0.7 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    onHeight: 0.45,
+    groundRoughness: 0.7,
+    onRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25284,6 +25311,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  debruijnstrips: 1,
   starbattleboard: 1,
   sokobanlevels: 1,
   ladderlogic: 1,

@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'debruijnstrips',
   'starbattleboard',
   'sokobanlevels',
   'ladderlogic',
@@ -52759,6 +52760,71 @@ export function createSurfaceSampler(
             (p.lineRoughness - p.groundRoughness) *
               Math.max(thinCover, thickCover);
           roughness = clamp(rough + (p.starRoughness - rough) * starCover);
+          occlusion = 1;
+        };
+      }
+      case 'debruijnstrips': {
+        const p = proceduralMaterialPresets.debruijnstrips,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(137, 1, seed ^ 0x310001) * p.surfaces.length)
+            ],
+          across = hash(137, 2, seed ^ 0x310002) < 0.5,
+          shift = (hash(137, 3, seed ^ 0x310003) * 2 - 1) * p.toneShift,
+          n = p.cells,
+          nodes = 1 << (p.windowBits - 1),
+          cells = new Uint8Array(n * n);
+        for (let row = 0; row < n; row++) {
+          // A closed walk through all the edges of the de Bruijn graph, from the node of all zeros, in a random order of the two edges of each node: the bits that the edges add, taken in the order that the walk is finished (the reverse of the order of the walk, which is also a de Bruijn sequence: its windows are the reversed windows), are the row.
+          const used = new Uint8Array(nodes * 2),
+            order = (node: number): number =>
+              hash(row * nodes + node, 1, seed ^ 0x310004) < 0.5 ? 0 : 1,
+            stack: number[][] = [[0, -1]],
+            walk: number[] = [];
+          while (stack.length > 0) {
+            const [node, via] = stack[stack.length - 1],
+              first = order(node),
+              bit = !used[node * 2 + first]
+                ? first
+                : !used[node * 2 + 1 - first]
+                  ? 1 - first
+                  : -1;
+            if (bit < 0) {
+              stack.pop();
+              if (via >= 0) walk.push(via);
+            } else {
+              used[node * 2 + bit] = 1;
+              stack.push([((node << 1) | bit) & (nodes - 1), bit]);
+            }
+          }
+          const turn = Math.min(
+            n - 1,
+            Math.floor(hash(row, 2, seed ^ 0x310005) * n),
+          );
+          for (let i = 0; i < n; i++) cells[row * n + i] = walk[(i + turn) % n];
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            x = (across ? fv : fu) * n,
+            y = (across ? fu : fv) * n,
+            column = Math.min(n - 1, Math.floor(x)),
+            row = Math.min(n - 1, Math.floor(y)),
+            lx = (x - column - 0.5) / n,
+            ly = (y - row - 0.5) / n,
+            on =
+              cells[row * n + column] === 1
+                ? cover(p.cellHalf - Math.max(Math.abs(lx), Math.abs(ly)))
+                : 0,
+            ground = surface.ground + shift;
+          color = clamp(ground + (surface.on + shift - ground) * on);
+          height = clamp(p.groundHeight + (p.onHeight - p.groundHeight) * on);
+          roughness = clamp(
+            p.groundRoughness + (p.onRoughness - p.groundRoughness) * on,
+          );
           occlusion = 1;
         };
       }

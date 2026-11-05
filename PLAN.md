@@ -2533,6 +2533,10 @@
 
 預設1 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`debruijnstrips`（de Bruijn序列條）使目前目錄1243→1244種，含plain的gallery為1245項。32列二進位的de Bruijn序列：每列是32個格組成的環，每格開或關，任何連續5格的窗口（從列尾繞回列首也算）各不相同，所以5格的32種圖案各恰好出現一次——這是維基百科「De Bruijn sequence」條目對de Bruijn序列的定義（**我讀了該條目的wiki原始碼**：每個長度n的字串在環狀序列中恰好出現一次；可由de Bruijn圖的Euler迴路構成）。每一列這樣做（**我的方法**）：在de Bruijn圖（節點是4格的圖案，邊是5格的圖案）上，從全0的節點開始，每個節點的兩條出邊依seed的隨機順序走，走出一條經過全部32條邊的封閉路徑（Hierholzer法），邊所加的位元（取走完的順序，也就是路徑的反序——反序也是de Bruijn序列，因為它的窗口是反過來的窗口）就是這一列，再轉動隨機的格數。開的格是格中邊半長0.0144的方塊。seed選每一列、四種表面之一（底色與開格的色調，再一起偏移不超過`toneShift`）與列沿著或橫過圖放。測試端另外寫了判斷：列是不是de Bruijn序列（五格窗口收集成集合，繞過列尾，必須有32種）、並由畫面解碼（每一格的色調必須是底色或開格的色調，另外沿著或橫過圖放兩種都試，只有正確的一種每一列都是de Bruijn序列）：100個seed每一列都是、每列恰好16格開（平衡）、全0窗口與全1窗口都出現、32列不全相同，把一格翻過來的列判斷器會說不是；由解碼出的列建出模型，整張圖（每隔0.0021個貼圖單位，避開離格邊0.0008以內）的每一處由模型給出的色調、高度、粗糙度與遮蔽度與取樣器相同；開格的四邊，內外各0.0004個貼圖單位處精確（只檢查旁邊的格是關的那一邊），並以四分之一柔化寬度檢查。1000個seed（32000列）中四種表面與兩種放法各約一半或四分之一，列的不同序列（轉動後相同的算同一個）超過1000種（5階的de Bruijn序列共有2048種），全0窗口在列中的起點散佈在32個位置（每個1000±150），色調偏移涵蓋整個範圍。Metallic與mortar為0。
+
+預設1 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -17149,6 +17149,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineRoughness: 0.5;
         starRoughness: 0.4;
     }>;
+    debruijnstrips: Readonly<{
+        dark: readonly [20, 24, 32];
+        light: readonly [232, 232, 220];
+        roughness: 0.55;
+        relief: 0.003;
+        cells: 32;
+        windowBits: 5;
+        cellHalf: 0.0144;
+        edgeSoft: 0.0006;
+        surfaces: readonly (Readonly<{
+            ground: 0.9;
+            on: 0.18;
+        }> | Readonly<{
+            ground: 0.12;
+            on: 0.86;
+        }> | Readonly<{
+            ground: 0.72;
+            on: 0.4;
+        }> | Readonly<{
+            ground: 0.28;
+            on: 0.7;
+        }>)[];
+        toneShift: 0.04;
+        groundHeight: 0.15;
+        onHeight: 0.45;
+        groundRoughness: 0.7;
+        onRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23634,6 +23662,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    debruijnstrips: 1;
     starbattleboard: 1;
     sokobanlevels: 1;
     ladderlogic: 1;
