@@ -80002,3 +80002,584 @@ describe('hassedivisors: the Hasse diagram of the divisors of a number (a node f
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('dynkindiagrams: the Dynkin diagrams of the finite-type root systems (A to G), with their bonds and arrows, along or across the picture by the seed', () => {
+  const p = proceduralMaterialPresets.dynkindiagrams,
+    out = empty();
+  const toneAt = (
+    sample: Sampler,
+    x: number,
+    y: number,
+    across: boolean,
+  ): number => {
+    // A place in tile units from the middle of the tile, in the diagram as it is drawn (a chain along x), as a place on the picture.
+    sample(0.5 + (across ? y : x), 0.5 + (across ? x : y), out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The model, written out again here: for each diagram the nodes, the bonds (the two nodes, the multiplicity, and the node that the arrow points to: the shorter root), as the classification of finite-type diagrams has them.
+  type Bond = { a: number; b: number; multiplicity: number; towards: number };
+  type Diagram = {
+    nodes: [number, number][];
+    bonds: Bond[];
+    segments: number[][];
+  };
+  const diagrams = new Map<string, Diagram>(),
+    diagramOf = (name: string): Diagram => {
+      const known = diagrams.get(name);
+      if (known) return known;
+      const letter = name[0],
+        n = Number(name.slice(1)),
+        s = p.nodeSpacing,
+        nodes: [number, number][] = [],
+        bonds: Bond[] = [],
+        simple = (a: number, b: number): Bond => ({
+          a,
+          b,
+          multiplicity: 1,
+          towards: -1,
+        });
+      const addChain = (count: number): void => {
+        for (let i = 0; i < count; i++) nodes.push([i * s, 0]);
+        for (let i = 1; i < count; i++) bonds.push(simple(i - 1, i));
+      };
+      if (letter === 'A') addChain(n);
+      else if (letter === 'B' || letter === 'C') {
+        addChain(n);
+        bonds[n - 2] = {
+          a: n - 2,
+          b: n - 1,
+          multiplicity: 2,
+          towards: letter === 'B' ? n - 1 : n - 2,
+        };
+      } else if (letter === 'D') {
+        addChain(n - 2);
+        nodes.push(
+          [(n - 3) * s + s / 2, (s * Math.sqrt(3)) / 2],
+          [(n - 3) * s + s / 2, -(s * Math.sqrt(3)) / 2],
+        );
+        bonds.push(simple(n - 3, n - 2), simple(n - 3, n - 1));
+      } else if (letter === 'E') {
+        addChain(n - 1);
+        nodes.push([2 * s, -s]);
+        bonds.push(simple(2, n - 1));
+      } else if (name === 'F4') {
+        addChain(4);
+        bonds[1] = { a: 1, b: 2, multiplicity: 2, towards: 2 };
+      } else {
+        addChain(2);
+        bonds[0] = { a: 0, b: 1, multiplicity: 3, towards: 0 };
+      }
+      const xs = nodes.map(([x]) => x),
+        ys = nodes.map(([, y]) => y),
+        mx = (Math.min(...xs) + Math.max(...xs)) / 2,
+        my = (Math.min(...ys) + Math.max(...ys)) / 2,
+        centred = nodes.map(([x, y]): [number, number] => [x - mx, y - my]),
+        segments: number[][] = [];
+      for (const { a, b, multiplicity, towards } of bonds) {
+        const [x0, y0] = centred[a],
+          [x1, y1] = centred[b],
+          length = Math.hypot(x1 - x0, y1 - y0),
+          ux = (x1 - x0) / length,
+          uy = (y1 - y0) / length;
+        for (let k = 0; k < multiplicity; k++) {
+          const offset = (k - (multiplicity - 1) / 2) * p.bondGap;
+          segments.push([
+            x0 - uy * offset,
+            y0 + ux * offset,
+            x1 - uy * offset,
+            y1 + ux * offset,
+          ]);
+        }
+        if (towards >= 0) {
+          // The chevron of the arrow: its tip half an arrow length from the middle of the bond towards the shorter root, its arms going back.
+          const dir = towards === b ? 1 : -1,
+            tx = (x0 + x1) / 2 + (dir * ux * p.arrowLength) / 2,
+            ty = (y0 + y1) / 2 + (dir * uy * p.arrowLength) / 2;
+          for (const side of [-1, 1]) {
+            const angle =
+              Math.atan2(dir * uy, dir * ux) + Math.PI + side * p.arrowAngle;
+            segments.push([
+              tx,
+              ty,
+              tx + p.arrowLength * Math.cos(angle),
+              ty + p.arrowLength * Math.sin(angle),
+            ]);
+          }
+        }
+      }
+      const result = { nodes: centred, bonds, segments };
+      diagrams.set(name, result);
+      return result;
+    };
+  const distanceToSegment = (
+    x: number,
+    y: number,
+    [x0, y0, x1, y1]: number[],
+  ): number => {
+    const dx = x1 - x0,
+      dy = y1 - y0,
+      t = Math.max(
+        0,
+        Math.min(1, ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - x0 - t * dx, y - y0 - t * dy);
+  };
+  // The piece of the picture a place is in: the ring of a node, the centre of a node, a bond (or an arrow), or the ground.
+  const piece = (d: Diagram, x: number, y: number): string => {
+    for (const [nx, ny] of d.nodes) {
+      const distance = Math.hypot(x - nx, y - ny);
+      if (distance <= p.nodeRadius)
+        return distance >= p.nodeRadius - p.ringWidth ? 'ring' : 'centre';
+    }
+    return d.segments.some(
+      (segment) => distanceToSegment(x, y, segment) <= p.bondHalf,
+    )
+      ? 'bond'
+      : 'ground';
+  };
+  type Surface = {
+    name: string;
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { ground: number; ink: number; centre: number };
+  };
+  const predict = (
+    d: Diagram,
+    tones: Surface['tones'],
+    x: number,
+    y: number,
+  ): number => {
+    const label = piece(d, x, y);
+    return label === 'ground'
+      ? tones.ground
+      : label === 'centre'
+        ? tones.centre
+        : tones.ink;
+  };
+  // How many boundaries of the model (the two edges of a ring, the edges of a line) are within a distance of a place: where there is one, the softened edge blends the tones, and where there are two the blend is of both.
+  const boundariesWithin = (
+    d: Diagram,
+    x: number,
+    y: number,
+    within: number,
+  ): number =>
+    d.nodes.reduce(
+      (total, [nx, ny]) =>
+        total +
+        [p.nodeRadius, p.nodeRadius - p.ringWidth].filter(
+          (r) => Math.abs(Math.hypot(x - nx, y - ny) - r) < within,
+        ).length,
+      0,
+    ) +
+    d.segments.filter(
+      (segment) =>
+        Math.abs(distanceToSegment(x, y, segment) - p.bondHalf) < within,
+    ).length;
+  // Finds the diagram, the way and the surface: the tone of the ground in a corner gives the shift for each surface, the centres of the nodes must have the tone of the centre, and then the model must give the tone of the picture along every bond and arrow (three places on each segment).
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const name of p.names) {
+      const d = diagramOf(name);
+      for (const across of [false, true]) {
+        const ground = toneAt(sample, 0.48, 0.48, across),
+          centres = d.nodes.map(([x, y]) => toneAt(sample, x, y, across));
+        p.surfaces.forEach((surface, index) => {
+          const shift = ground - surface.ground;
+          if (
+            Math.abs(shift) > p.toneShift + 1e-9 ||
+            !centres.every(
+              (tone) => Math.abs(tone - surface.centre - shift) < 1e-6,
+            )
+          )
+            return;
+          const tones = {
+            ground,
+            ink: surface.ink + shift,
+            centre: surface.centre + shift,
+          };
+          // The picture must be the model and nothing more: the tone at places along every bond and arrow (not at 0.2 or 0.8 along a bond, the inner edge of the ring of a node; the ends of the arms of an arrow are away from the lines of the bond, which tells B_n from C_n), and at a grid of places that sees every node (the model alone is not enough: the smaller diagrams are parts of the larger).
+          const probes: [number, number][] = [];
+          for (const [x0, y0, x1, y1] of d.segments)
+            for (const f of [0.37, 0.5, 0.63, 0.85, 0.95, 1])
+              probes.push([x0 + (x1 - x0) * f, y0 + (y1 - y0) * f]);
+          // The lines of a multiple bond are thin and a grid does not see them either: across the middle of every bond, at the places where the lines of a double or triple bond would be.
+          for (const { a, b } of d.bonds) {
+            const [x0, y0] = d.nodes[a],
+              [x1, y1] = d.nodes[b],
+              length = Math.hypot(x1 - x0, y1 - y0);
+            for (const offset of [
+              -p.bondGap,
+              -p.bondGap / 2,
+              p.bondGap / 2,
+              p.bondGap,
+            ])
+              probes.push([
+                (x0 + x1) / 2 - ((y1 - y0) / length) * offset,
+                (y0 + y1) / 2 + ((x1 - x0) / length) * offset,
+              ]);
+          }
+          for (let i = 0; i <= 30; i++)
+            for (let j = 0; j <= 30; j++)
+              probes.push([-0.49 + (0.98 * i) / 30, -0.49 + (0.98 * j) / 30]);
+          for (const [x, y] of probes) {
+            // Not where a boundary of the model is within the softened width.
+            const near =
+              d.nodes.some(([nx, ny]) =>
+                [p.nodeRadius, p.nodeRadius - p.ringWidth].some(
+                  (r) => Math.abs(Math.hypot(x - nx, y - ny) - r) < 0.002,
+                ),
+              ) ||
+              d.segments.some(
+                (segment) =>
+                  Math.abs(distanceToSegment(x, y, segment) - p.bondHalf) <
+                  0.002,
+              );
+            if (
+              !near &&
+              Math.abs(toneAt(sample, x, y, across) - predict(d, tones, x, y)) >
+                1e-6
+            )
+              return;
+          }
+          options.push({ name, across, surface: index, shift, tones });
+        });
+      }
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the diagrams of the classification: the number of nodes, the multiplicities of the bonds, the root lengths that the arrows give, and the determinant and the leading minors of the Cartan matrix (A_n: n + 1, B_n and C_n: 2, D_n: 4, E_6: 3, E_7: 2, E_8: 1, F_4: 1, G_2: 1)', () => {
+    const determinant = (matrix: number[][]): number => {
+      // The determinant by elimination with fractions kept exact enough for these small integer matrices (Bareiss).
+      const a = matrix.map((row) => [...row]);
+      let previous = 1,
+        sign = 1;
+      for (let k = 0; k < a.length - 1; k++) {
+        if (a[k][k] === 0) {
+          const swap = a.findIndex((row, i) => i > k && row[k] !== 0);
+          if (swap < 0) return 0;
+          [a[k], a[swap]] = [a[swap], a[k]];
+          sign = -sign;
+        }
+        for (let i = k + 1; i < a.length; i++)
+          for (let j = k + 1; j < a.length; j++)
+            a[i][j] = (a[i][j] * a[k][k] - a[i][k] * a[k][j]) / previous;
+        previous = a[k][k];
+      }
+      return sign * a[a.length - 1][a.length - 1];
+    };
+    const known: Record<string, (n: number) => number> = {
+      A: (n) => n + 1,
+      B: () => 2,
+      C: () => 2,
+      D: () => 4,
+      E: (n) => (n === 6 ? 3 : n === 7 ? 2 : 1),
+      F: () => 1,
+      G: () => 1,
+    };
+    for (const name of p.names) {
+      const d = diagramOf(name),
+        n = Number(name.slice(1)),
+        lengths = new Array<number>(d.nodes.length).fill(0);
+      expect(d.nodes.length).toBe(n);
+      // The squares of the lengths of the roots: propagate along the bonds from the node 0 (equal across a single bond, the ratio of the multiplicity across a multiple bond, the arrow pointing to the shorter one).
+      lengths[0] = 1;
+      for (let pass = 0; pass < d.nodes.length; pass++)
+        for (const { a, b, multiplicity, towards } of d.bonds) {
+          if (towards < 0) {
+            if (lengths[a] && !lengths[b]) lengths[b] = lengths[a];
+            else if (lengths[b] && !lengths[a]) lengths[a] = lengths[b];
+          } else {
+            const long = towards === a ? b : a;
+            if (lengths[towards] && !lengths[long])
+              lengths[long] = lengths[towards] * multiplicity;
+            else if (lengths[long] && !lengths[towards])
+              lengths[towards] = lengths[long] / multiplicity;
+          }
+        }
+      for (const length of lengths) expect(length).toBeGreaterThan(0);
+      // The Cartan matrix: 2 on the diagonal, and for joined nodes minus the ratio of the squares of the lengths when the first is the longer one, minus 1 otherwise.
+      const cartan: number[][] = d.nodes.map((_, i) =>
+        d.nodes.map((__, j) => (i === j ? 2 : 0)),
+      );
+      for (const { a, b, multiplicity } of d.bonds) {
+        cartan[a][b] = lengths[a] > lengths[b] ? -multiplicity : -1;
+        cartan[b][a] = lengths[b] > lengths[a] ? -multiplicity : -1;
+        expect(
+          Math.max(lengths[a], lengths[b]) / Math.min(lengths[a], lengths[b]),
+        ).toBeCloseTo(multiplicity === 1 ? 1 : multiplicity, 9);
+      }
+      expect(determinant(cartan)).toBe(known[name[0]](n));
+      for (let k = 1; k <= n; k++)
+        expect(
+          determinant(cartan.slice(0, k).map((row) => row.slice(0, k))),
+        ).toBeGreaterThan(0);
+      // The arrow points to the shorter root and the diagram is inside the tile with its nodes apart.
+      for (const { a, b, towards } of d.bonds)
+        if (towards >= 0)
+          expect(lengths[towards]).toBeLessThan(lengths[towards === a ? b : a]);
+      for (const [x, y] of d.nodes) {
+        expect(Math.abs(x) + p.nodeRadius).toBeLessThan(0.5);
+        expect(Math.abs(y) + p.nodeRadius).toBeLessThan(0.5);
+      }
+    }
+    // The shorter roots as the convention has them (from memory): the last of B_n, the first n - 1 of C_n, the last two of F_4 and the first of G_2.
+    expect(diagramOf('B5').bonds[3].towards).toBe(4);
+    expect(diagramOf('C5').bonds[3].towards).toBe(3);
+    expect(diagramOf('F4').bonds[1].towards).toBe(2);
+    expect(diagramOf('G2').bonds[0].towards).toBe(0);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the diagram says, with its tone, height and roughness (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('dynkindiagrams', seed),
+        { name, across, tones } = readSurface(sample),
+        d = diagramOf(name),
+        counts = new Map<string, number>(),
+        step = 0.0029,
+        clear = 0.0008;
+      // Every place of the picture (the places within 0.0008 of a change in the picture are skipped: the softened edges are checked below, exactly).
+      for (let x = -0.4995; x <= 0.4995; x += step)
+        for (let y = -0.4995; y <= 0.4995; y += step) {
+          const label = piece(d, x, y);
+          if (boundariesWithin(d, x, y, clear) > 0) continue;
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(d, x + dx, y + dy) !== label)
+          )
+            continue;
+          counts.set(label, (counts.get(label) ?? 0) + 1);
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            label === 'ground'
+              ? tones.ground
+              : label === 'centre'
+                ? tones.centre
+                : tones.ink,
+            6,
+          );
+          if (label === 'ground') {
+            expect(out.height / p.relief).toBeCloseTo(p.groundHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.groundRoughness, 6);
+          } else if (label === 'centre') {
+            expect(out.height / p.relief).toBeCloseTo(p.centreHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.groundRoughness, 6);
+          } else {
+            // Ink is the bonds (and arrows) or the ring of a node, each with a height of its own.
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(out.height / p.relief).toBeCloseTo(
+              label === 'ring' ? p.ringHeight : p.bondHeight,
+              6,
+            );
+          }
+        }
+      expect(counts.get('ground') ?? 0).toBeGreaterThan(80000);
+      expect(counts.get('bond') ?? 0).toBeGreaterThan(40);
+      expect(counts.get('ring') ?? 0).toBeGreaterThan(100);
+      expect(counts.get('centre') ?? 0).toBeGreaterThan(30);
+    },
+  );
+
+  it(
+    'uses every diagram and surface and both ways round over 1000 seeds, about equally often, with the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const names = new Map<string, number>(),
+        surfaces = new Map<number, number>(),
+        shifts: number[] = [];
+      let acrossCount = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const { name, across, surface, shift } = readSurface(
+          createSurfaceSampler('dynkindiagrams', seed * 7 + 1),
+        );
+        shifts.push(shift);
+        names.set(name, (names.get(name) ?? 0) + 1);
+        surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+        acrossCount += Number(across);
+      }
+      expect(names.size).toBe(p.names.length);
+      for (const count of names.values())
+        expect(Math.abs(count - 1000 / p.names.length)).toBeLessThan(20);
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+      expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('puts both edges of the ring of every node, the edges of every bond and the arms of every arrow where the model puts them: just inside and just outside by 0.0004 of a tile, exactly, along and across the picture', () => {
+    const delta = 0.0004,
+      seen = new Set<string>();
+    let inside = 0,
+      outside = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('dynkindiagrams', seed),
+        { name, across, tones } = readSurface(sample),
+        d = diagramOf(name),
+        // A probe is checked where only the boundary that it is a probe of is near (a second boundary within the softened width would blend the tones).
+        check = (x: number, y: number): void => {
+          if (boundariesWithin(d, x, y, 0.0009) !== 1) return;
+          const label = piece(d, x, y);
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            predict(d, tones, x, y),
+            6,
+          );
+          if (label === 'ground') outside++;
+          else inside++;
+        };
+      seen.add(`${name[0]} ${across}`);
+      // Both edges of the ring of each node, in eight directions.
+      for (const [nx, ny] of d.nodes)
+        for (let k = 0; k < 8; k++) {
+          const angle = (k * Math.PI) / 4 + 0.3;
+          for (const radius of [
+            p.nodeRadius - p.ringWidth - delta,
+            p.nodeRadius - p.ringWidth + delta,
+            p.nodeRadius - delta,
+            p.nodeRadius + delta,
+          ])
+            check(nx + radius * Math.cos(angle), ny + radius * Math.sin(angle));
+        }
+      // Both sides of each segment (a line of a bond or an arm of an arrow), at three places along it.
+      for (const [x0, y0, x1, y1] of d.segments) {
+        const length = Math.hypot(x1 - x0, y1 - y0),
+          nx = -(y1 - y0) / length,
+          ny = (x1 - x0) / length;
+        for (const f of [0.3, 0.5, 0.7])
+          for (const side of [-1, 1])
+            for (const offset of [p.bondHalf - delta, p.bondHalf + delta])
+              check(
+                x0 + (x1 - x0) * f + side * offset * nx,
+                y0 + (y1 - y0) * f + side * offset * ny,
+              );
+      }
+    }
+    expect(inside).toBeGreaterThan(3000);
+    expect(outside).toBeGreaterThan(3000);
+    expect(seen.size).toBeGreaterThanOrEqual(7);
+  });
+
+  it('softens the ring of a node (both edges) and a bond over edgeSoft', () => {
+    // A diagram with a single bond between two nodes: A4 (the seed is looked for).
+    let found: {
+      sample: Sampler;
+      across: boolean;
+      tones: Surface['tones'];
+    } | null = null;
+    for (let seed = 0; seed < 400 && !found; seed++) {
+      const sample = createSurfaceSampler('dynkindiagrams', seed),
+        { name, across, tones } = readSurface(sample);
+      if (name === 'A4') found = { sample, across, tones };
+    }
+    expect(found).not.toBeNull();
+    const { sample, across, tones } = found!,
+      d = diagramOf('A4'),
+      quarter = 0.25 * p.edgeSoft,
+      tone = (x: number, y: number): number => toneAt(sample, x, y, across),
+      [first, second] = d.nodes,
+      mx = (first[0] + second[0]) / 2,
+      my = (first[1] + second[1]) / 2;
+    // The outer edge of the ring of the first node, to the left of it (over the ground), and the inner edge of the ring (over the centre).
+    close(
+      tone(first[0] - p.nodeRadius - quarter, first[1]),
+      blend(tones.ground, tones.ink, 0.25),
+    );
+    close(
+      tone(first[0] - p.nodeRadius + quarter, first[1]),
+      blend(tones.ground, tones.ink, 0.75),
+    );
+    close(
+      tone(first[0] - (p.nodeRadius - p.ringWidth + quarter), first[1]),
+      blend(tones.centre, tones.ink, 0.75),
+    );
+    close(
+      tone(first[0] - (p.nodeRadius - p.ringWidth - quarter), first[1]),
+      blend(tones.centre, tones.ink, 0.25),
+    );
+    // The sides of the bond between the first two nodes, at its middle (over the ground): the bond is along x, so the sides are above and below.
+    expect(my).toBeCloseTo(first[1], 12);
+    close(
+      tone(mx, my + p.bondHalf - quarter),
+      blend(tones.ground, tones.ink, 0.75),
+    );
+    close(
+      tone(mx, my + p.bondHalf + quarter),
+      blend(tones.ground, tones.ink, 0.25),
+    );
+    close(
+      tone(mx, my - p.bondHalf + quarter),
+      blend(tones.ground, tones.ink, 0.75),
+    );
+    close(
+      tone(mx, my - p.bondHalf - quarter),
+      blend(tones.ground, tones.ink, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('dynkindiagrams', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('dynkindiagrams', 0),
+      b = createSurfaceSampler('dynkindiagrams', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

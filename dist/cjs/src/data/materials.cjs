@@ -28771,6 +28771,58 @@ var proceduralMaterialPresets = Object.freeze({
 		groundRoughness: .72,
 		inkRoughness: .45
 	}),
+	dynkindiagrams: Object.freeze({
+		dark: [
+			20,
+			26,
+			44
+		],
+		light: [
+			242,
+			240,
+			228
+		],
+		roughness: .6,
+		relief: .004,
+		names: Object.freeze(`A2.A3.A4.A5.A6.A7.A8.B3.B4.B5.B6.B7.B8.C3.C4.C5.C6.C7.C8.D4.D5.D6.D7.D8.E6.E7.E8.F4.G2`.split(`.`)),
+		nodeSpacing: .11,
+		nodeRadius: .028,
+		ringWidth: .006,
+		bondHalf: .0035,
+		bondGap: .012,
+		arrowLength: .03,
+		arrowAngle: .6,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .88,
+				ink: .12,
+				centre: .94
+			}),
+			Object.freeze({
+				ground: .2,
+				ink: .85,
+				centre: .3
+			}),
+			Object.freeze({
+				ground: .7,
+				ink: .18,
+				centre: .88
+			}),
+			Object.freeze({
+				ground: .35,
+				ink: .92,
+				centre: .5
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		bondHeight: .35,
+		centreHeight: .28,
+		ringHeight: .4,
+		groundRoughness: .72,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37452,6 +37504,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	dynkindiagrams: 1,
 	hassedivisors: 1,
 	baudottape: 1,
 	isopapersizes: 1,

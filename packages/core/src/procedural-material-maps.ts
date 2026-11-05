@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'dynkindiagrams',
   'hassedivisors',
   'baudottape',
   'isopapersizes',
@@ -51876,6 +51877,178 @@ export function createSurfaceSampler(
             p.groundRoughness +
               (p.inkRoughness - p.groundRoughness) * Math.max(line, node),
           );
+          occlusion = 1;
+        };
+      }
+      case 'dynkindiagrams': {
+        const p = proceduralMaterialPresets.dynkindiagrams,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(131, 1, seed ^ 0x2b0001) * p.surfaces.length)
+            ],
+          name =
+            p.names[Math.floor(hash(131, 2, seed ^ 0x2b0002) * p.names.length)],
+          across = hash(131, 3, seed ^ 0x2b0003) < 0.5,
+          shift = (hash(131, 4, seed ^ 0x2b0004) * 2 - 1) * p.toneShift,
+          rank = Number(name.slice(1)),
+          spacing = p.nodeSpacing,
+          points: number[][] = [],
+          // A bond: the two nodes, its multiplicity, and the node that its arrow points to (the shorter root), or -1.
+          bonds: number[][] = [];
+        const chain = (count: number): void => {
+          for (let i = 0; i < count; i++) {
+            points.push([i * spacing, 0]);
+            if (i > 0) bonds.push([i - 1, i, 1, -1]);
+          }
+        };
+        if (name[0] === 'E') {
+          // A chain of rank - 1 nodes with the branch leaving down from the third.
+          chain(rank - 1);
+          points.push([2 * spacing, -spacing]);
+          bonds.push([2, rank - 1, 1, -1]);
+        } else if (name[0] === 'D') {
+          // A chain of rank - 2 nodes, forking at its end at 120 degrees between the three bonds.
+          chain(rank - 2);
+          const last = rank - 3,
+            forkX = last * spacing + spacing * Math.cos(Math.PI / 3),
+            forkY = spacing * Math.sin(Math.PI / 3);
+          points.push([forkX, forkY], [forkX, -forkY]);
+          bonds.push([last, rank - 2, 1, -1], [last, rank - 1, 1, -1]);
+        } else if (name === 'F4') {
+          chain(4);
+          bonds[1] = [1, 2, 2, 2];
+        } else if (name === 'G2') {
+          chain(2);
+          bonds[0] = [0, 1, 3, 0];
+        } else {
+          chain(rank);
+          // B_n: the last bond is double with its arrow to the last node (the short root); C_n: to the one before it.
+          if (name[0] === 'B')
+            bonds[rank - 2] = [rank - 2, rank - 1, 2, rank - 1];
+          else if (name[0] === 'C')
+            bonds[rank - 2] = [rank - 2, rank - 1, 2, rank - 2];
+        }
+        // The diagram is centred in the tile.
+        const middleX =
+            (Math.min(...points.map((point) => point[0])) +
+              Math.max(...points.map((point) => point[0]))) /
+            2,
+          middleY =
+            (Math.min(...points.map((point) => point[1])) +
+              Math.max(...points.map((point) => point[1]))) /
+            2;
+        for (const point of points) {
+          point[0] -= middleX;
+          point[1] -= middleY;
+        }
+        // The lines of the bonds (one, two or three parallel) and the two arms of the chevron of an arrow, as segments.
+        const segments: number[][] = [];
+        for (const [a, b, multiplicity, towards] of bonds) {
+          const dx = points[b][0] - points[a][0],
+            dy = points[b][1] - points[a][1],
+            length = Math.hypot(dx, dy),
+            ux = dx / length,
+            uy = dy / length;
+          for (let line = 0; line < multiplicity; line++) {
+            const offset = (line - (multiplicity - 1) / 2) * p.bondGap;
+            segments.push([
+              points[a][0] - uy * offset,
+              points[a][1] + ux * offset,
+              points[b][0] - uy * offset,
+              points[b][1] + ux * offset,
+            ]);
+          }
+          if (towards >= 0) {
+            const sign = towards === b ? 1 : -1,
+              tipX =
+                (points[a][0] + points[b][0]) / 2 +
+                (sign * ux * p.arrowLength) / 2,
+              tipY =
+                (points[a][1] + points[b][1]) / 2 +
+                (sign * uy * p.arrowLength) / 2;
+            for (const side of [-1, 1])
+              segments.push([
+                tipX,
+                tipY,
+                tipX -
+                  p.arrowLength *
+                    (sign * ux * Math.cos(p.arrowAngle) -
+                      side * uy * Math.sin(p.arrowAngle)),
+                tipY -
+                  p.arrowLength *
+                    (sign * uy * Math.cos(p.arrowAngle) +
+                      side * ux * Math.sin(p.arrowAngle)),
+              ]);
+          }
+        }
+        const reach = p.bondHalf + p.edgeSoft;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            x = (across ? fv : fu) - 0.5,
+            y = (across ? fu : fv) - 0.5;
+          let inBond = -1;
+          for (const [x0, y0, x1, y1] of segments) {
+            const dx = x1 - x0,
+              dy = y1 - y0,
+              t = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy),
+                ),
+              ),
+              away = (x - x0 - t * dx) ** 2 + (y - y0 - t * dy) ** 2;
+            if (away < reach * reach)
+              inBond = Math.max(inBond, p.bondHalf - Math.sqrt(away));
+          }
+          const bond = cover(inBond),
+            ink = surface.ink + shift;
+          let shade =
+              surface.ground + shift + (ink - surface.ground - shift) * bond,
+            elevation = p.groundHeight + (p.bondHeight - p.groundHeight) * bond,
+            rough =
+              p.groundRoughness + (p.inkRoughness - p.groundRoughness) * bond;
+          for (const [px, py] of points) {
+            const near = Math.hypot(x - px, y - py);
+            if (near > p.nodeRadius + p.edgeSoft) continue;
+            // The node is a filled centre inside a ring; the ring has the outer edge of the node, so the ring is applied as the share of the node that it covers.
+            const here = cover(p.nodeRadius - near),
+              ring =
+                here > 0
+                  ? Math.min(
+                      1,
+                      cover(
+                        Math.min(
+                          near - (p.nodeRadius - p.ringWidth),
+                          p.nodeRadius - near,
+                        ),
+                      ) / here,
+                    )
+                  : 0;
+            shade +=
+              (surface.centre +
+                shift +
+                (ink - surface.centre - shift) * ring -
+                shade) *
+              here;
+            elevation +=
+              (p.centreHeight +
+                (p.ringHeight - p.centreHeight) * ring -
+                elevation) *
+              here;
+            rough +=
+              (p.groundRoughness +
+                (p.inkRoughness - p.groundRoughness) * ring -
+                rough) *
+              here;
+          }
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(rough);
           occlusion = 1;
         };
       }

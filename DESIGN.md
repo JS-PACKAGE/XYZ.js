@@ -2517,6 +2517,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`dynkindiagrams`（Dynkin圖）使目前目錄1237→1238種，含plain的gallery為1239項。有限型根系的Dynkin圖，畫法依維基百科「Dynkin diagram」條目（我讀了該條目的wiki原始碼）：每個單根一個節點，相連的節點之間有一、二或三條平行線的鍵（重數是兩根長度平方的比），多重鍵上有朝向較短根的箭頭（畫成人字形；條目說有些作者把方向反過來），兩條鍵相接的節點是180度，D_n分岔的節點是120度，E_n分支離開的節點是90度。圖的種類是分類：A_n（n從2到8）、B_n與C_n（3到8）、D_n（4到8）、E_6、E_7、E_8、F_4、G_2共29種（B_2與C_2是同一個圖、A_1只是一個節點，所以不收）。**每個圖中哪個根是短根我是憑記憶**（沒有讀到來源）：B_n是最後一個、C_n的最後一個是長根、F_4的後兩個是短根、G_2的第一個。節點是外圍一圈環、中間填色，節點相距nodeSpacing，E_n的分支從鏈的第三個節點向下離開（鏈在E_6、E_7、E_8分別是5、6、7個節點）。seed選圖、選一種表面（底色、鍵與環的墨色、節點中心的色調，四種之一，再一起偏移不超過`toneShift`），並把圖沿著或橫過圖放。測試端另外寫了模型，並檢查分類：每個圖的節點數、鍵的重數、由箭頭推得的各根長度（較長的是較短的乘以重數）、Cartan矩陣的行列式（A_n是n+1、B_n與C_n是2、D_n是4、E_6是3、E_7是2、E_8是1、F_4是1、G_2是1）與所有首位主子式為正，箭頭指向較短的根，圖在貼圖之內。整張圖（每隔0.0029個貼圖單位）的每一個位置（避開離任何邊界0.0008以內），由模型給出色調、高度與粗糙度，與取樣器逐一相同；每個環的內外緣在八個方向、每條線與箭頭的臂在三個位置的兩側，內外各0.0004個貼圖單位處精確（只檢查附近只有被探測的那一條邊界之處）；測試端由圖辨認是哪個圖、哪種放法與哪種表面（先看節點中心，再看沿每條鍵與箭頭、鍵的線可能出現的位置，以及一個格點，因為小的圖是大的圖的一部分，且箭頭的臂要延伸到鍵的線之外才能分辨B_n與C_n）。1000個seed涵蓋29種圖、四種表面與兩種放法、色調偏移涵蓋整個範圍；環與鍵的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
