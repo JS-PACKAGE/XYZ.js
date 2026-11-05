@@ -41298,7 +41298,10 @@ export function createSurfaceSampler(
               : -1;
         const size = p.size,
           last = size - 1,
-          acceptSeed = seed ^ (p.seedSalt + 2);
+          acceptSeed = seed ^ (p.seedSalt + 2),
+          // Four +/-1 neighbours give only two positive energy changes.
+          acceptFour = Math.exp(-4 / p.temperature),
+          acceptEight = Math.exp(-8 / p.temperature);
         for (let sweep = 0; sweep < p.sweeps; sweep++)
           for (let parity = 0; parity < 2; parity++)
             for (let y = 0; y < size; y++) {
@@ -41317,7 +41320,7 @@ export function createSurfaceSampler(
                 if (
                   energyChange <= 0 ||
                   hash(cell, sweep * 2 + parity, acceptSeed) <
-                    Math.exp(-energyChange / p.temperature)
+                    (energyChange === 4 ? acceptFour : acceptEight)
                 )
                   spins[cell] = -spins[cell];
               }
