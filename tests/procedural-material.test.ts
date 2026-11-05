@@ -1191,6 +1191,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lowdiscrepancy',
   'kneser',
   'debruijntorus',
+  'mondrianpartitions',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -211182,6 +211183,399 @@ describe('De Bruijn torus as a perfect map of every window once', () => {
     expect(blue / (512 * 512)).toBeLessThan(131.3);
     expect(maxTilt).toBeGreaterThan(0.0336);
     expect(maxTilt).toBeLessThan(0.0337);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Mondrian partitions as a square cut into rectangles no two alike', () => {
+  const p = proceduralMaterialPresets.mondrianpartitions;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** One piece read back from the picture: its corner and size in units of the grid, the tone and height at its middle. */
+  type Piece = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    tone: number;
+    relief: number;
+  };
+  /** The pieces as the picture shows them: two neighbouring cells are in one piece if there is ink (a height above 0) at the middle of the edge between them, which a gap line leaves bare. Also checks that the edges of the tile are gaps. */
+  const readPieces = (seed: number): { size: number; pieces: Piece[] } => {
+    const size: number = p.sizes[seed % p.sizes.length],
+      sample = createSurfaceSampler('mondrianpartitions', seed),
+      out = empty(),
+      parent = Array.from({ length: size * size }, (_, i) => i),
+      find = (a: number): number => {
+        while (parent[a] !== a) a = parent[a] = parent[parent[a]];
+        return a;
+      },
+      inked = (u: number, v: number): boolean => {
+        sample(u, v, out);
+        return out.height > 0;
+      };
+    for (let j = 0; j < size; j++)
+      for (let i = 0; i < size; i++) {
+        expect(inked((i + 0.5) / size, (j + 0.5) / size)).toBe(true);
+        if (i + 1 < size && inked((i + 1) / size, (j + 0.5) / size))
+          parent[find(j * size + i)] = find(j * size + i + 1);
+        if (j + 1 < size && inked((i + 0.5) / size, (j + 1) / size))
+          parent[find(j * size + i)] = find((j + 1) * size + i);
+      }
+    for (let k = 0; k < size; k++) {
+      expect(inked(0, (k + 0.5) / size)).toBe(false);
+      expect(inked((k + 0.5) / size, 0)).toBe(false);
+    }
+    const members = new Map<number, number[]>();
+    for (let c = 0; c < size * size; c++) {
+      const root = find(c);
+      members.set(root, [...(members.get(root) ?? []), c]);
+    }
+    return {
+      size,
+      pieces: [...members.values()].map((cells) => {
+        const xs = cells.map((c) => c % size),
+          ys = cells.map((c) => Math.floor(c / size)),
+          x = Math.min(...xs),
+          y = Math.min(...ys),
+          width = Math.max(...xs) - x + 1,
+          height = Math.max(...ys) - y + 1;
+        // A piece is a rectangle: it fills its bounding box.
+        expect(cells.length).toBe(width * height);
+        sample((x + width / 2) / size, (y + height / 2) / size, out);
+        return { x, y, width, height, tone: out.color, relief: out.height };
+      }),
+    };
+  };
+  /** The grid of 256 by 256 colours above 0.75 (the brightest pieces), for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('mondrianpartitions', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.75));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9645, lit: 0.71106, mean: 0.68098 }],
+      [1, { high: 0.9642, lit: 0.20517, mean: 0.57079 }],
+      [0xffffffff, { high: 0.9647, lit: 0.36047, mean: 0.64357 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('mondrianpartitions', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.75);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0161);
+      expect(low).toBeLessThan(0.0164);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('shows a partition of the square into rectangles no two of which are alike, read back from the gap lines, for every variant and every turn', () => {
+    const pieceCounts = [3, 7, 8, 7, 13, 21],
+      spreads = [4, 5, 5, 6, 8, 2496];
+    for (let seed = 0; seed < 48; seed++) {
+      const variant = seed % p.sizes.length,
+        { size, pieces } = readPieces(seed),
+        areas = pieces.map((piece) => piece.width * piece.height);
+      expect(pieces.length).toBe(pieceCounts[variant]);
+      // The pieces fill the square (every cell is in a piece, and the areas add up to the square).
+      expect(areas.reduce((a, b) => a + b, 0)).toBe(size * size);
+      // No two pieces are congruent: a rectangle and its quarter turn count as one shape.
+      const shapes = new Set(
+        pieces.map(
+          (piece) =>
+            `${Math.min(piece.width, piece.height)}x${Math.max(piece.width, piece.height)}`,
+        ),
+      );
+      expect(shapes.size).toBe(pieces.length);
+      expect(Math.max(...areas) - Math.min(...areas)).toBe(spreads[variant]);
+      // The tone and the height rise with the area (the same area, the same tone).
+      const byArea = [...pieces].sort(
+        (a, b) => a.width * a.height - b.width * b.height,
+      );
+      for (let k = 1; k < byArea.length; k++) {
+        const same =
+          byArea[k].width * byArea[k].height ===
+          byArea[k - 1].width * byArea[k - 1].height;
+        if (same) {
+          expect(
+            Math.abs(byArea[k].relief - byArea[k - 1].relief),
+          ).toBeLessThan(1e-12);
+        } else {
+          expect(byArea[k].relief).toBeGreaterThan(byArea[k - 1].relief);
+          expect(byArea[k].tone).toBeGreaterThan(
+            byArea[k - 1].tone - p.grainTone,
+          );
+        }
+      }
+      if (variant === 5) {
+        // The perfect squared square: 21 squares, all of different sizes (Duijvestijn's list of the sides).
+        expect(pieces.every((piece) => piece.width === piece.height)).toBe(
+          true,
+        );
+        expect(
+          pieces.map((piece) => piece.width).sort((a, b) => a - b),
+        ).toEqual([
+          2, 4, 6, 7, 8, 9, 11, 15, 16, 17, 18, 19, 24, 25, 27, 29, 33, 35, 37,
+          42, 50,
+        ]);
+      }
+    }
+  });
+  it('turns and reflects the whole partition by the group mod 8: the pieces of every group are those of the group 0 under the same move', () => {
+    for (let variant = 0; variant < 6; variant++) {
+      const { size, pieces } = readPieces(variant),
+        key = (x: number, y: number, w: number, h: number) =>
+          `${x},${y},${w},${h}`;
+      for (let group = 0; group < 8; group++) {
+        const expected = new Set(
+            pieces.map((piece) => {
+              let { x, y, width: w, height: h } = piece;
+              if (group & 4) [x, y, w, h] = [y, x, h, w];
+              if (group & 1) x = size - x - w;
+              if (group & 2) y = size - y - h;
+              return key(x, y, w, h);
+            }),
+          ),
+          shown = new Set(
+            readPieces(variant + 6 * group).pieces.map((piece) =>
+              key(piece.x, piece.y, piece.width, piece.height),
+            ),
+          );
+        expect(shown).toEqual(expected);
+      }
+      // The group 8 is the group 0 again (the move is mod 8).
+      expect(
+        new Set(
+          readPieces(variant + 48).pieces.map((piece) =>
+            key(piece.x, piece.y, piece.width, piece.height),
+          ),
+        ),
+      ).toEqual(
+        new Set(
+          pieces.map((piece) =>
+            key(piece.x, piece.y, piece.width, piece.height),
+          ),
+        ),
+      );
+    }
+  });
+  it('agrees with the ideal rectangles away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const variant = seed % p.sizes.length,
+        gap: number = p.gap[variant],
+        soft: number = p.edgeSoft[variant],
+        { size, pieces } = readPieces(seed),
+        areas = pieces.map((piece) => piece.width * piece.height),
+        least = Math.min(...areas),
+        most = Math.max(...areas),
+        sample = createSurfaceSampler('mondrianpartitions', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * size,
+          y = v * size,
+          piece = pieces.find(
+            (r) =>
+              Math.floor(x) >= r.x &&
+              Math.floor(x) < r.x + r.width &&
+              Math.floor(y) >= r.y &&
+              Math.floor(y) < r.y + r.height,
+          )!,
+          edge = Math.min(
+            x - piece.x,
+            piece.x + piece.width - x,
+            y - piece.y,
+            piece.y + piece.height - y,
+          );
+        // The ink is 1 more than half the smoothing inside the gap, 0 more than half of it outside, and not compared in between.
+        if (Math.abs(edge - gap) < soft / 2) continue;
+        const ink = edge > gap ? 1 : 0,
+          level = (piece.width * piece.height - least) / (most - least),
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5500);
+  });
+  it('smooths the edge of a piece over the width of its variant: a quarter of the width inside and outside the gap line gives the smoothstep of 0.75 and 0.25', () => {
+    const smoothstep = (t: number): number => t * t * (3 - 2 * t);
+    for (let variant = 0; variant < 6; variant++) {
+      const gap: number = p.gap[variant],
+        soft: number = p.edgeSoft[variant],
+        { size, pieces } = readPieces(variant),
+        piece = pieces[0],
+        sample = createSurfaceSampler('mondrianpartitions', variant),
+        out = empty();
+      // On the middle line of the piece, at the given distance from its left side.
+      for (const [offset, t] of [
+        [gap + soft / 4, 0.75],
+        [gap - soft / 4, 0.25],
+      ]) {
+        sample(
+          (piece.x + offset) / size,
+          (piece.y + piece.height / 2) / size,
+          out,
+        );
+        expect(out.occlusion).toBeCloseTo(
+          1 - p.gapOcclusion * (1 - smoothstep(t)),
+          9,
+        );
+      }
+    }
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.51824951171875, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.460693359375, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('mondrianpartitions', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 blue Mondrian partition maps on dark navy with raised pieces and shaded gaps', () => {
+    const maps = generateProceduralMaps('mondrianpartitions', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(69.7);
+    expect(red / (512 * 512)).toBeLessThan(70.8);
+    expect(green / (512 * 512)).toBeGreaterThan(118.9);
+    expect(green / (512 * 512)).toBeLessThan(119.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(156.3);
+    expect(blue / (512 * 512)).toBeLessThan(157.3);
+    expect(maxTilt).toBeGreaterThan(0.0499);
+    expect(maxTilt).toBeLessThan(0.05);
     expect(invalid).toBe(0);
   });
 });

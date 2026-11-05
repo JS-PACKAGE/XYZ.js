@@ -1228,6 +1228,7 @@ try {
     'lowdiscrepancy',
     'kneser',
     'debruijntorus',
+    'mondrianpartitions',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

@@ -1165,6 +1165,7 @@ export type ProceduralMaterialKind =
   | 'lowdiscrepancy'
   | 'kneser'
   | 'debruijntorus'
+  | 'mondrianpartitions'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2578,6 +2579,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lowdiscrepancy',
   'kneser',
   'debruijntorus',
+  'mondrianpartitions',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

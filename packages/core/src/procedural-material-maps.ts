@@ -56166,6 +56166,60 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'mondrianpartitions': {
+        const p = proceduralMaterialPresets.mondrianpartitions,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.sizes.length,
+          group = Math.floor(unsigned / p.sizes.length),
+          size: number = p.sizes[variant],
+          gap: number = p.gap[variant],
+          soft: number = p.edgeSoft[variant],
+          turn = group % 8,
+          // The pieces as [x, y, width, height] after the turn or reflection of the group.
+          pieces = p.pieces[variant].map(([px, py, pw, ph]) => {
+            let x: number = px,
+              y: number = py,
+              w: number = pw,
+              h: number = ph;
+            if (turn & 4) [x, y, w, h] = [y, x, h, w];
+            if (turn & 1) x = size - x - w;
+            if (turn & 2) y = size - y - h;
+            return [x, y, w, h];
+          }),
+          areas = pieces.map(([, , w, h]) => w * h),
+          least = Math.min(...areas),
+          most = Math.max(...areas),
+          // The piece of every cell of the grid.
+          owner = new Int8Array(size * size);
+        pieces.forEach(([x, y, w, h], k) => {
+          for (let j = y; j < y + h; j++)
+            for (let i = x; i < x + w; i++) owner[j * size + i] = k;
+        });
+        return () => {
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            k = owner[Math.floor(y) * size + Math.floor(x)],
+            [px, py, pw, ph] = pieces[k],
+            // The distance from the edge of the piece, inside it.
+            edge = Math.min(x - px, px + pw - x, y - py, py + ph - y),
+            mask = smooth(clamp((edge - gap) / soft + 0.5)),
+            level = (areas[k] - least) / (most - least),
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65131,6 +65185,7 @@ export function createSurfaceSampler(
     kind === 'lowdiscrepancy' ||
     kind === 'kneser' ||
     kind === 'debruijntorus' ||
+    kind === 'mondrianpartitions' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
