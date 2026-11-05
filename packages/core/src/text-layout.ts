@@ -280,25 +280,28 @@ export class BrowserTextLayout {
     if (this.disposed) throw new Error('Cannot query destroyed text layout.');
     if (!Number.isFinite(x))
       throw new RangeError('Invalid pointer coordinate.');
-    let best: TextCaretPosition = { index: 0, x: 0, affinity: 'downstream' };
+    // A pointer near the paragraph end can replace the closest caret for every cluster.
+    let index = 0,
+      position = 0,
+      affinity: TextCaretAffinity = 'downstream';
     let distance = Infinity;
     for (const cluster of this.clusters) {
       const startDistance = Math.abs(x - cluster.startX);
       if (startDistance < distance) {
         distance = startDistance;
-        best = {
-          index: cluster.start,
-          x: cluster.startX,
-          affinity: 'downstream',
-        };
+        index = cluster.start;
+        position = cluster.startX;
+        affinity = 'downstream';
       }
       const endDistance = Math.abs(x - cluster.endX);
       if (endDistance < distance) {
         distance = endDistance;
-        best = { index: cluster.end, x: cluster.endX, affinity: 'upstream' };
+        index = cluster.end;
+        position = cluster.endX;
+        affinity = 'upstream';
       }
     }
-    return Object.freeze(best);
+    return Object.freeze({ index, x: position, affinity });
   }
 
   selection(start: number, end: number): readonly TextSelectionRect[] {
