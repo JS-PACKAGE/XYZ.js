@@ -152,12 +152,16 @@ describe('ResilientRenderer', () => {
     const processor = new FakeDescriptor();
     await renderer.prepareMaterial(material as never);
     await renderer.preparePostProcessor(processor as never);
+    renderer.resize(160, 100);
     renderer.resize(320, 200);
 
     created[0].onError(new WebGL2ContextLostError('lost'));
     expect(hooks.onLost).toHaveBeenCalledOnce();
     expect(renderer.isRecovering).toBe(true);
     expect(created[0].destroyed).toBe(true);
+    renderer.resize(640, 400);
+    renderer.resize(800, 600);
+    expect(created[0].size).toEqual([320, 200]);
     // Frames are skipped and renderer-owned handles are refused until recovery.
     renderer.render();
     expect(created[0].frames).toBe(0);
@@ -171,7 +175,7 @@ describe('ResilientRenderer', () => {
     await settle();
     expect(created).toHaveLength(2);
     expect(created[1].prepared).toEqual([material, processor]);
-    expect(created[1].size).toEqual([320, 200]);
+    expect(created[1].size).toEqual([800, 600]);
     expect(renderer.isRecovering).toBe(false);
     expect(hooks.onRecovered).toHaveBeenCalledOnce();
     expect(renderer.recoveries).toBe(1);

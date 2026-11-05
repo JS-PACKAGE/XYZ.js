@@ -377,7 +377,10 @@ export class ResilientRenderer implements Renderer {
   }
 
   resize(width: number, height: number): void {
-    this.size = { width, height };
+    if (this.size) {
+      this.size.width = width;
+      this.size.height = height;
+    } else this.size = { width, height };
     if (!this.recovering) this.current.resize(width, height);
   }
 
