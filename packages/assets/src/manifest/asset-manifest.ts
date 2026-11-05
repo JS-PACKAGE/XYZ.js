@@ -167,7 +167,7 @@ export class AssetManifest {
         !names.length ||
         aliasCount > rendering2dLimits.manifestEntries ||
         names.some((name) => !name.trim() || this.aliases.has(name)) ||
-        new Set(names).size !== names.length
+        (names.length > 1 && new Set(names).size !== names.length)
       )
         throw new RangeError(
           'Manifest aliases must be unique, nonempty and bounded.',
