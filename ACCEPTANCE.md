@@ -14593,3 +14593,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：8項（色調範圍、與另寫遞迴逐格相等、遞迴式與轉置、路徑、逐點比對、不同變體與群組與決定性、C1與UV週期、maps），`-t "Edit distance as"`8項通過（約11 s）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Edit distance as|editdistance|kinds|catalog|distinct|periodic"`定向測試**2649項通過／4778項未選**，輸出`GATES-OK`。
 - 未驗證：完整suite（最近一次在`0da26556a`，11,364項裡11,363項通過、1項逾時失敗——和上一次同一項既有的washer rims C1測試，30000 ms逾時——不含editdistance，這次完整suite尚未寫成紀錄）、瀏覽器gallery（最近一次含kneser、debruijntorus與mondrianpartitions，之後的langfordpairings、golombrulers、sortingtraces與editdistance尚未檢查）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-05 完整測試與瀏覽器gallery複驗（至editdistance）
+
+- 完整suite（工具實跑，`/private/tmp/xyz-ct-suite`在`0da26556a`的乾淨detached worktree，完整`vitest run`，sortingtraces那個commit，不含之後的editdistance）：**179個檔案、11,364項測試，11,363項通過、1項失敗**，耗時2219 s。失敗的仍是既有的`Closed silver-colored washer rims with twelve inward metal teeth …`的C1測試，錯誤是30000 ms逾時（不是斷言失敗），與`19c6aca9f`那次是同一項；我沒有改動它，也沒有查它為什麼接近30 s的上限，這次沒有重跑它（上一次單獨重跑該組5項全過，整組35.9 s）。上一次完整suite（`19c6aca9f`）是11,336項；這次多出的28項裡，我的是langfordpairings（7項）、golombrulers（7項）與sortingtraces（7項）共21項，其餘7項是主目錄上別人的commit加的測試，我沒有逐項確認來源。
+- 瀏覽器gallery（工具實跑，Chrome，`http://127.0.0.1:5391/examples/pbr3d/`，服務`/private/tmp/xyz-ct`在`1bce78117`）：WebGPU與`?renderer=webgl2`下選項都是1170項（目錄1169種加plain）；頁面顯示目錄數的欄位這次兩邊都讀到`null`（與上一次同樣，我沒有查原因），只憑選項數。`langfordpairings`、`golombrulers`、`sortingtraces`與`editdistance`在兩種renderer下都能選取且不丟錯（`tab.errors()`皆空）；只做了「能選取且沒有錯誤」，沒有逐像素比對兩個backend，也沒有檢查畫面外觀。
+- 未驗證：editdistance的完整suite、Canvas2D fallback下的gallery、其他瀏覽器與GPU；不push。
