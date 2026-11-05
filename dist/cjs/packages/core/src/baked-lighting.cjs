@@ -63,11 +63,11 @@ var Context = class {
 		for (let n = 0; n < 3; n++) this.origin[n] = e[n] + t[n] * this.bias;
 		let a = i.directionalLight, s = this.direction, c = a.direction.length();
 		s[0] = a.direction.x / c, s[1] = a.direction.y / c, s[2] = a.direction.z / c;
-		let l = Math.max(0, t[0] * s[0] + t[1] * s[1] + t[2] * s[2]);
-		if (l && a.intensity && !this.bvh.occluded(this.origin, s, 1 / 0, r)) for (let e = 0; e < 3; e++) n[e] += l * a.intensity * a.color[e];
+		let u = Math.max(0, t[0] * s[0] + t[1] * s[1] + t[2] * s[2]);
+		if (u && a.intensity && !this.bvh.occluded(this.origin, s, 1 / 0, r)) for (let e = 0; e < 3; e++) n[e] += u * a.intensity * a.color[e];
 		for (let a of [i.pointLights, i.spotLights]) for (let i of a) {
 			s[0] = i.position.x - e[0], s[1] = i.position.y - e[1], s[2] = i.position.z - e[2];
-			let a = Math.hypot(...s);
+			let a = require_hypot.hypot3(s[0], s[1], s[2]);
 			if (a <= this.bias || i.range && a >= i.range) continue;
 			for (let e = 0; e < 3; e++) s[e] /= a;
 			let c = Math.max(0, t[0] * s[0] + t[1] * s[1] + t[2] * s[2]) * i.intensity / Math.max(a * a, .01);
@@ -291,11 +291,7 @@ function bakeIrradianceVolume(e, t) {
 	if (!(e instanceof require_scene.Scene) && !(e instanceof require_environment.EnvironmentMap)) throw TypeError(`Probe bake requires Scene or EnvironmentMap.`);
 	let s = e instanceof require_environment.EnvironmentMap ? e : e.environment;
 	if (s?.destroyed) throw RangeError(`Destroyed bake environment.`);
-	let c = new Context(r, t), [l, u, f] = n.resolution, p = n.order === 1 ? 4 : 9, m = [
-		0,
-		0,
-		0
-	], h = [
+	let c = new Context(r, t), [u, f, p] = n.resolution, m = n.order === 1 ? 4 : 9, h = [
 		0,
 		0,
 		0
@@ -315,46 +311,50 @@ function bakeIrradianceVolume(e, t) {
 		0,
 		0,
 		0
-	], b = /* @__PURE__ */ new Float64Array(9);
-	for (let e = 0; e < f; e++) for (let t = 0; t < u; t++) for (let i = 0; i < l; i++) {
-		m[0] = n.min[0] + i / (l - 1) * (n.max[0] - n.min[0]), m[1] = n.min[1] + t / (u - 1) * (n.max[1] - n.min[1]), m[2] = n.min[2] + e / (f - 1) * (n.max[2] - n.min[2]);
-		let a = ((e * u + t) * l + i) * p * 3;
+	], b = [
+		0,
+		0,
+		0
+	], x = /* @__PURE__ */ new Float64Array(9);
+	for (let e = 0; e < p; e++) for (let t = 0; t < f; t++) for (let i = 0; i < u; i++) {
+		h[0] = n.min[0] + i / (u - 1) * (n.max[0] - n.min[0]), h[1] = n.min[1] + t / (f - 1) * (n.max[1] - n.min[1]), h[2] = n.min[2] + e / (p - 1) * (n.max[2] - n.min[2]);
+		let a = ((e * f + t) * u + i) * m * 3;
 		for (let e = 0; e < c.samples; e++) {
-			h[1] = 1 - 2 * (e + .5) / c.samples;
-			let t = Math.sqrt(1 - h[1] * h[1]);
-			h[0] = t * Math.cos(e * 2.399963229728653), h[2] = t * Math.sin(e * 2.399963229728653);
-			let i = c.bvh.hit(m, h, 1 / 0);
+			g[1] = 1 - 2 * (e + .5) / c.samples;
+			let t = Math.sqrt(1 - g[1] * g[1]);
+			g[0] = t * Math.cos(e * 2.399963229728653), g[2] = t * Math.sin(e * 2.399963229728653);
+			let i = c.bvh.hit(h, g, 1 / 0);
 			if (i) {
-				for (let e = 0; e < 3; e++) _[e] = m[e] + h[e] * i.distance, v[e] = i.triangle.n[e] + i.triangle.n[e + 3] + i.triangle.n[e + 6];
-				if (normalize(v), v[0] * h[0] + v[1] * h[1] + v[2] * h[2] > 0) for (let e = 0; e < 3; e++) v[e] *= -1;
-				c.direct(_, v, y, i.triangle);
-				for (let e = 0; e < 3; e++) g[e] = y[e] * i.triangle.mesh.material.color[e];
+				for (let e = 0; e < 3; e++) v[e] = h[e] + g[e] * i.distance, y[e] = i.triangle.n[e] + i.triangle.n[e + 3] + i.triangle.n[e + 6];
+				if (normalize(y), y[0] * g[0] + y[1] * g[1] + y[2] * g[2] > 0) for (let e = 0; e < 3; e++) y[e] *= -1;
+				c.direct(v, y, b, i.triangle);
+				for (let e = 0; e < 3; e++) _[e] = b[e] * i.triangle.mesh.material.color[e];
 			} else if (s) {
-				radiance(s, h, g);
-				for (let e = 0; e < 3; e++) g[e] *= r?.environmentIntensity ?? 1;
-			} else g.fill(r?.ambientLight ?? 0);
-			basis(h[0], h[1], h[2], b);
-			for (let e = 0; e < p; e++) for (let t = 0; t < 3; t++) n.coefficients[a + e * 3 + t] += g[t] * b[e] * 4 * Math.PI / c.samples * d[e];
+				radiance(s, g, _);
+				for (let e = 0; e < 3; e++) _[e] *= r?.environmentIntensity ?? 1;
+			} else _.fill(r?.ambientLight ?? 0);
+			basis(g[0], g[1], g[2], x);
+			for (let e = 0; e < m; e++) for (let t = 0; t < 3; t++) n.coefficients[a + e * 3 + t] += _[t] * x[e] * 4 * Math.PI / c.samples * d[e];
 		}
 		if (r) {
 			let e = r.directionalLight, project = (e, t, r, i) => {
-				if (r && !c.bvh.occluded(m, e, i)) {
-					basis(e[0], e[1], e[2], b);
-					for (let e = 0; e < p; e++) for (let i = 0; i < 3; i++) n.coefficients[a + e * 3 + i] += t[i] * r * Math.PI * d[e] * b[e];
+				if (r && !c.bvh.occluded(h, e, i)) {
+					basis(e[0], e[1], e[2], x);
+					for (let e = 0; e < m; e++) for (let i = 0; i < 3; i++) n.coefficients[a + e * 3 + i] += t[i] * r * Math.PI * d[e] * x[e];
 				}
 			};
-			h[0] = e.direction.x, h[1] = e.direction.y, h[2] = e.direction.z, normalize(h), project(h, e.color, e.intensity, 1 / 0);
+			g[0] = e.direction.x, g[1] = e.direction.y, g[2] = e.direction.z, normalize(g), project(g, e.color, e.intensity, 1 / 0);
 			for (let e of [r.pointLights, r.spotLights]) for (let t of e) {
-				h[0] = t.position.x - m[0], h[1] = t.position.y - m[1], h[2] = t.position.z - m[2];
-				let e = Math.hypot(...h);
+				g[0] = t.position.x - h[0], g[1] = t.position.y - h[1], g[2] = t.position.z - h[2];
+				let e = require_hypot.hypot3(g[0], g[1], g[2]);
 				if (e <= c.bias || t.range && e >= t.range) continue;
-				normalize(h);
+				normalize(g);
 				let n = t.intensity / Math.max(.01, e * e);
 				if (t.range && (n *= (1 - (e / t.range) ** 4) ** 2), t instanceof require_lights.SpotLight) {
-					let e = -(h[0] * t.direction.x + h[1] * t.direction.y + h[2] * t.direction.z) / t.direction.length(), r = Math.max(0, Math.min(1, (e - Math.cos(t.outerAngle)) / (Math.cos(t.innerAngle) - Math.cos(t.outerAngle))));
+					let e = -(g[0] * t.direction.x + g[1] * t.direction.y + g[2] * t.direction.z) / t.direction.length(), r = Math.max(0, Math.min(1, (e - Math.cos(t.outerAngle)) / (Math.cos(t.innerAngle) - Math.cos(t.outerAngle))));
 					n *= r * r * (3 - 2 * r);
 				}
-				project(h, t.color, n, e - c.bias);
+				project(g, t.color, n, e - c.bias);
 			}
 		}
 	}

@@ -49,13 +49,16 @@ function flatten(e, t, n) {
 var I18n = class extends EventTarget {
 	tables = /* @__PURE__ */ new Map();
 	fallbacks;
+	lookupOrder;
 	missing;
 	bindings = /* @__PURE__ */ new Set();
+	pluralRules = /* @__PURE__ */ new Map();
+	numberFormat;
 	current;
 	constructor(e = {}) {
 		super(), this.current = canonical(e.locale ?? `en`);
 		let t = e.fallback ?? [];
-		this.fallbacks = (typeof t == `string` ? [t] : t).map(canonical), this.missing = e.missing ?? `key`;
+		this.fallbacks = (typeof t == `string` ? [t] : t).map(canonical).flatMap(lineage), this.lookupOrder = [...lineage(this.current), ...this.fallbacks], this.missing = e.missing ?? `key`;
 		for (let [t, n] of Object.entries(e.messages ?? {})) this.addMessages(t, n);
 	}
 	get locale() {
@@ -78,7 +81,7 @@ var I18n = class extends EventTarget {
 		let t = canonical(e);
 		if (t === this.current) return;
 		let n = this.current;
-		this.current = t, this.dispatchEvent(new CustomEvent(`localechange`, { detail: {
+		this.current = t, this.lookupOrder = [...lineage(t), ...this.fallbacks], this.numberFormat = void 0, this.dispatchEvent(new CustomEvent(`localechange`, { detail: {
 			locale: t,
 			previous: n
 		} }));
@@ -98,13 +101,15 @@ var I18n = class extends EventTarget {
 		else {
 			let i = t?.count;
 			if (typeof i != `number` || !Number.isFinite(i)) throw new I18nError(`Plural message "${e}" requires a finite numeric "count" parameter.`);
-			let a = new Intl.PluralRules(n.locale).select(i);
-			r = n.message[a] ?? n.message.other;
+			let a = this.pluralRules.get(n.locale);
+			a || (a = new Intl.PluralRules(n.locale), this.pluralRules.set(n.locale, a));
+			let o = a.select(i);
+			r = n.message[o] ?? n.message.other;
 		}
 		return this.interpolate(e, r, t);
 	}
 	formatNumber(e, t) {
-		return new Intl.NumberFormat(this.current, t).format(e);
+		return t === void 0 ? (this.numberFormat ??= new Intl.NumberFormat(this.current), this.numberFormat.format(e)) : new Intl.NumberFormat(this.current, t).format(e);
 	}
 	formatDate(e, t) {
 		return new Intl.DateTimeFormat(this.current, t).format(e);
@@ -124,12 +129,11 @@ var I18n = class extends EventTarget {
 		this.bindings.clear();
 	}
 	lookup(e) {
-		let t = [...lineage(this.current), ...this.fallbacks.flatMap((e) => lineage(e))];
-		for (let n of t) {
-			let t = this.tables.get(n)?.get(e);
-			if (t !== void 0) return {
-				message: t,
-				locale: n
+		for (let t of this.lookupOrder) {
+			let n = this.tables.get(t)?.get(e);
+			if (n !== void 0) return {
+				message: n,
+				locale: t
 			};
 		}
 	}

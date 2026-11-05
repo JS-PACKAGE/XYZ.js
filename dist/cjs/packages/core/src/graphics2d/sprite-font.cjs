@@ -137,22 +137,24 @@ var SpriteText = class extends require_group2d.Group2D {
 				t.push(n);
 				continue;
 			}
-			let e = ``, r = 0, i, push = () => {
-				t.push(e.trimEnd()), e = ``, r = 0, i = void 0;
-			}, append = (t, n) => {
-				i !== void 0 && n.first !== void 0 && (r += this.letterSpacing + this.font.getKerning(i, n.first)), r += n.advance, i = n.last, e += t;
+			let e = /* @__PURE__ */ new Map(), r = ``, i = 0, a, push = () => {
+				t.push(r.trimEnd()), r = ``, i = 0, a = void 0;
+			}, append = (e, t) => {
+				a !== void 0 && t.first !== void 0 && (i += this.letterSpacing + this.font.getKerning(a, t.first)), i += t.advance, a = t.last, r += e;
 			};
 			for (let t of n.match(/\S+|\s+/gu) ?? []) {
-				let n = this.measure(t), a = i !== void 0 && n.first !== void 0 ? this.letterSpacing + this.font.getKerning(i, n.first) : 0;
-				if (e && r + a + n.width > this.wrapWidth && push(), e || !/^\s+$/u.test(t)) {
-					if (this.breakWords && n.width > this.wrapWidth) for (let n of t) {
-						let t = this.measure(n), a = i === void 0 ? 0 : this.letterSpacing + this.font.getKerning(i, t.first);
-						e && r + a + t.width > this.wrapWidth && push(), append(n, t);
+				let n = e.get(t);
+				n === void 0 && (n = this.measure(t), e.set(t, n));
+				let o = a !== void 0 && n.first !== void 0 ? this.letterSpacing + this.font.getKerning(a, n.first) : 0;
+				if (r && i + o + n.width > this.wrapWidth && push(), r || !/^\s+$/u.test(t)) {
+					if (this.breakWords && n.width > this.wrapWidth) for (let e of t) {
+						let t = this.measure(e), n = a === void 0 ? 0 : this.letterSpacing + this.font.getKerning(a, t.first);
+						r && i + n + t.width > this.wrapWidth && push(), append(e, t);
 					}
 					else append(t, n);
 				}
 			}
-			t.push(e.trimEnd());
+			t.push(r.trimEnd());
 		}
 		return t;
 	}

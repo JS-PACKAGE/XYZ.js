@@ -115,6 +115,7 @@ var UIVirtualList = class extends UIScrollView {
 	keys = [];
 	indices = /* @__PURE__ */ new Map();
 	rows = /* @__PURE__ */ new Map();
+	rowNodes = /* @__PURE__ */ new Map();
 	pool = [];
 	reconciling = !1;
 	constructor(e) {
@@ -134,6 +135,18 @@ var UIVirtualList = class extends UIScrollView {
 		return this.rows.get(e)?.node;
 	}
 	keyOf(e) {
+		let t;
+		for (let n = e; n; n = n.parent) {
+			let r = this.rowNodes.get(n);
+			if (r === null) return this.firstRowKey(e);
+			if (r) {
+				if (t) return this.firstRowKey(e);
+				t = r;
+			}
+		}
+		return t?.key;
+	}
+	firstRowKey(e) {
 		for (let t of this.rows.values()) for (let n = e; n; n = n.parent) if (n === t.node) return t.key;
 	}
 	setItems(e) {
@@ -144,8 +157,7 @@ var UIVirtualList = class extends UIScrollView {
 			if (typeof r != `string` && typeof r != `number` || typeof r == `number` && !Number.isFinite(r) || t.has(r)) throw TypeError(`Virtual list requires unique finite string/number keys.`);
 			return t.set(r, n), r;
 		}), i = this.root()?.focus.focused, a = i ? this.keyOf(i) : void 0;
-		this.items = [...e], this.keys = n, this.indices.clear();
-		for (let [e, n] of t) this.indices.set(e, n);
+		this.items = [...e], this.keys = n, this.indices = t;
 		for (let e of this.rows.values()) {
 			let t = this.indices.get(e.key);
 			t !== void 0 && (e.index = t, this.options.bindRow(e.node, this.items[t], t, e.key));
@@ -188,7 +200,10 @@ var UIVirtualList = class extends UIScrollView {
 						t.index = a;
 						continue;
 					}
-					i && this.keyOf(i) === e && this.root()?.focus.focus(void 0), this.options.unbindRow?.(t.node, e), this.content.remove(t.node), this.rows.delete(e), this.pool.push(t.node);
+					i && this.keyOf(i) === e && this.root()?.focus.focus(void 0), this.options.unbindRow?.(t.node, e), this.content.remove(t.node), this.rows.delete(e);
+					let s = this.rowNodes.get(t.node) === null;
+					if (this.rowNodes.delete(t.node), s) for (let e of this.rows.values()) e.node === t.node && this.rowNodes.set(t.node, this.rowNodes.has(t.node) ? null : e);
+					this.pool.push(t.node);
 				}
 				for (let t = n; t < r; t++) {
 					let n = this.keys[t];
@@ -200,11 +215,12 @@ var UIVirtualList = class extends UIScrollView {
 					} catch (e) {
 						throw r.destroy(), e;
 					}
-					this.rows.set(n, {
+					let i = {
 						node: r,
 						key: n,
 						index: t
-					}), this.content.add(r);
+					};
+					this.rows.set(n, i), this.rowNodes.set(r, this.rowNodes.has(r) ? null : i), this.content.add(r);
 				}
 				for (let e of this.rows.values()) (e.node.layout.width !== this.layoutWidth || e.node.layout.height !== this.rowHeight) && e.node.setLayout({
 					width: this.layoutWidth,
@@ -220,7 +236,7 @@ var UIVirtualList = class extends UIScrollView {
 	destroy() {
 		if (!this.destroyed) {
 			for (let e of this.rows.values()) this.options.unbindRow?.(e.node, e.key);
-			this.rows.clear();
+			this.rows.clear(), this.rowNodes.clear();
 			for (let e of this.pool) e.destroy();
 			this.pool.length = 0, super.destroy();
 		}

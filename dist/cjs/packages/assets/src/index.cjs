@@ -121,13 +121,17 @@ var AssetLoader = class {
 			promise: Promise.race([a, o]).then((t) => {
 				try {
 					if (this.disposed || i.signal.aborted || this.cache.get(n) !== s) throw new require_texture.AssetError(`Texture acquisition was cancelled.`);
-					let r = t.width * t.height * 4, a = 0;
-					for (let [e, t] of this.cache) t.texture?.destroyed ? this.removeTexture(e, t) : t.texture && !t.pinned && !t.references && (a += t.bytes);
+					let r = t.width * t.height * 4, a = 0, o, c;
+					for (let [e, t] of this.cache) t.texture?.destroyed ? this.removeTexture(e, t) : t.texture && !t.pinned && !t.references && (a += t.bytes, (!c || t.seen < c.seen) && (o = e, c = t));
 					if (this.decodedBytes + r - a > this.decodedBudget) throw new require_texture.AssetError(`Decoded texture budget is exhausted by borrowed resources.`);
-					for (; this.decodedBytes + r > this.decodedBudget;) {
-						let e;
-						for (let t of this.cache) t[1].texture && !t[1].pinned && !t[1].references && (!e || t[1].seen < e[1].seen) && (e = t);
-						this.removeTexture(e[0], e[1]), e[1].texture.destroy(), this.evictions++;
+					if (this.decodedBytes + r > this.decodedBudget && (this.removeTexture(o, c), c.texture.destroy(), this.evictions++), this.decodedBytes + r > this.decodedBudget) {
+						let e = [];
+						for (let t of this.cache) t[1].texture && !t[1].pinned && !t[1].references && e.push(t);
+						e.sort((e, t) => e[1].seen - t[1].seen);
+						for (let [t, n] of e) {
+							if (this.decodedBytes + r <= this.decodedBudget) break;
+							this.removeTexture(t, n), n.texture.destroy(), this.evictions++;
+						}
 					}
 					return s.texture = t, s.bytes = r, this.decodedBytes += r, this.decodedPeak = Math.max(this.decodedPeak, this.decodedBytes), t;
 				} catch (e) {

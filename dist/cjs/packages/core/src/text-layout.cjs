@@ -105,10 +105,15 @@ var BrowserTextLayout = class {
 	}
 	caret(e, t = `downstream`) {
 		if (this.disposed) throw Error(`Cannot query destroyed text layout.`);
-		let n = require_text_graphemes.snapGrapheme(this.boundaries, e, t), i = this.boundaries.indexOf(n), a = this.clusters[i], o = this.clusters[i - 1], s = t === `downstream` ? a ?? o : o ?? a, c = s ? s.start === n ? s.startX : s.endX : 0;
+		let n = require_text_graphemes.snapGrapheme(this.boundaries, e, t), i = 0, a = this.boundaries.length - 1;
+		for (; i < a;) {
+			let e = i + a >>> 1;
+			this.boundaries[e] < n ? i = e + 1 : a = e;
+		}
+		let o = this.clusters[i], s = this.clusters[i - 1], c = t === `downstream` ? o ?? s : s ?? o, l = c ? c.start === n ? c.startX : c.endX : 0;
 		return Object.freeze({
 			index: n,
-			x: c,
+			x: l,
 			affinity: t
 		});
 	}

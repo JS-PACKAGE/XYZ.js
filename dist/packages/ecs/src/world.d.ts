@@ -11,8 +11,9 @@ export declare class World {
     private readonly entities;
     private readonly components;
     private readonly systems;
+    private readonly systemEntries;
     private updating;
-    private systemsNeedCompaction;
+    private inactiveSystems;
     private disposed;
     /** Bumped by every entity or component membership change; see query. */
     private revision;

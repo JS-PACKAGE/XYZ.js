@@ -204,13 +204,14 @@ var Text2D = class Text2D extends require_sprite.Sprite {
 			}
 			pushLine(r.trimEnd());
 		}
-		let d = s.map((e, t) => (a.direction = c[t], a.measureText(e).width)), m = n.wrapWidth ?? Math.max(0, ...d), h = d.map((e, t) => {
+		let d = s.map((e, t) => (a.direction = c[t], a.measureText(e))), m = n.wrapWidth ?? 0;
+		if (n.wrapWidth === void 0) for (let e of d) m = Math.max(m, e.width);
+		let h = d.map(({ width: e }, t) => {
 			let r = n.align === `right` || n.align === `start` && c[t] === `rtl` || n.align === `end` && c[t] === `ltr`;
 			return n.align === `center` ? (m - e) / 2 : r ? m - e : 0;
 		}), g = 0, _ = m, v = -n.fontSize, y = (s.length - 1) * n.lineHeight + n.fontSize * .25;
 		for (let e = 0; e < s.length; e++) {
-			a.direction = c[e];
-			let t = a.measureText(s[e]);
+			let t = d[e];
 			g = Math.min(g, h[e] - t.actualBoundingBoxLeft), _ = Math.max(_, h[e] + Math.max(t.width, t.actualBoundingBoxRight)), v = Math.min(v, e * n.lineHeight - t.actualBoundingBoxAscent), y = Math.max(y, e * n.lineHeight + t.actualBoundingBoxDescent);
 		}
 		let b = (n.stroke?.width ?? 0) / 2, x = n.shadow, S = (x?.blur ?? 0) * 3, C = b + Math.max(0, S - (x?.offsetX ?? 0)), w = b + Math.max(0, S + (x?.offsetX ?? 0)), T = b + Math.max(0, S - (x?.offsetY ?? 0)), E = b + Math.max(0, S + (x?.offsetY ?? 0)), D = Math.max(1, Math.ceil((_ - g + n.padding * 2 + C + w) * n.resolution)), O = Math.max(1, Math.ceil((y - v + n.padding * 2 + T + E) * n.resolution));
@@ -224,7 +225,7 @@ var Text2D = class Text2D extends require_sprite.Sprite {
 				direction: c[e],
 				x: t,
 				baseline: r,
-				width: d[e]
+				width: d[e].width
 			})), n.stroke && n.stroke.width && a.strokeText(s[e], t, r), a.fillText(s[e], t, r);
 		}
 		return {

@@ -82,7 +82,8 @@ var AudioMixer = class {
 		return this.attach(e), this.graphs.get(e).buses[t].input;
 	}
 	analyser(e, t = 0) {
-		return [...this.graphs.values()][t]?.buses[e].analyser;
+		let n = 0;
+		for (let r of this.graphs.values()) if (n++ === t) return r.buses[e].analyser;
 	}
 	setEffects(i, a) {
 		if (this.disposed) throw new require_errors.AudioError(`Audio mixer has been destroyed.`);

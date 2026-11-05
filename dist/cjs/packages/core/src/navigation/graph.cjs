@@ -105,7 +105,13 @@ var NavigationGraph3D = class NavigationGraph3D {
 	getConnectionIndex(e, t) {
 		let n = this.indices.get(e), r = this.indices.get(t);
 		if (n === void 0 || r === void 0) throw RangeError(`Unknown navigation endpoint.`);
-		return this.edges[n].find((e) => e.to === r)?.connection;
+		let i = this.edges[n], a = 0, o = i.length - 1;
+		for (; a <= o;) {
+			let e = a + o >>> 1, t = i[e];
+			if (t.to < r) a = e + 1;
+			else if (t.to > r) o = e - 1;
+			else return t.connection;
+		}
 	}
 	setConnection(e, t) {
 		this.setConnections([{

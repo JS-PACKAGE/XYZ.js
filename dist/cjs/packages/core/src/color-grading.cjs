@@ -47,15 +47,14 @@ var ColorLUT3D = class ColorLUT3D {
 			`cinematic`
 		].includes(t)) throw RangeError(`Unknown LUT preset.`);
 		if (!Number.isInteger(e) || e < 16 || e > 64) throw RangeError(`LUT size must be an integer in 16..64.`);
-		let n = new Float32Array(e ** 3 * 3);
-		for (let r = 0; r < e; r++) for (let i = 0; i < e; i++) for (let a = 0; a < e; a++) {
-			let o = [
-				a / (e - 1),
-				i / (e - 1),
-				r / (e - 1)
-			];
-			if (t === `warm` && (o[0] = Math.min(1, o[0] * 1.08), o[2] *= .9), t === `cool` && (o[2] = Math.min(1, o[2] * 1.08), o[0] *= .9), t === `cinematic`) for (let e = 0; e < 3; e++) o[e] = Math.max(0, Math.min(1, (o[e] - .5) * 1.12 + .5));
-			n.set(o, ((r * e + i) * e + a) * 3);
+		let n = new Float32Array(e ** 3 * 3), r = new Float32Array(e * 3);
+		for (let n = 0; n < e; n++) {
+			let i = n / (e - 1), a = i, o = i;
+			t === `warm` && (i = Math.min(1, i * 1.08), o *= .9), t === `cool` && (o = Math.min(1, o * 1.08), i *= .9), t === `cinematic` && (i = Math.max(0, Math.min(1, (i - .5) * 1.12 + .5)), a = i, o = i), r[n * 3] = i, r[n * 3 + 1] = a, r[n * 3 + 2] = o;
+		}
+		for (let t = 0; t < e; t++) for (let i = 0; i < e; i++) for (let a = 0; a < e; a++) {
+			let o = ((t * e + i) * e + a) * 3;
+			n[o] = r[a * 3], n[o + 1] = r[i * 3 + 1], n[o + 2] = r[t * 3 + 2];
 		}
 		return new ColorLUT3D(e, n);
 	}

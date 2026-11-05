@@ -291,12 +291,8 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 			y: 0,
 			width: 0,
 			height: 0
-		}), n = this.updateWorldMatrix().elements, r = 1 / 0, i = 1 / 0, a = -1 / 0, o = -1 / 0;
-		for (let e = 0; e < 4; e++) {
-			let s = t.x + (e & 1 ? t.width : 0), c = t.y + (e & 2 ? t.height : 0), l = n[0] * s + n[3] * c + n[6], u = n[1] * s + n[4] * c + n[7];
-			r = Math.min(r, l), i = Math.min(i, u), a = Math.max(a, l), o = Math.max(o, u);
-		}
-		return e.x = r, e.y = i, e.width = a - r, e.height = o - i, e;
+		}), n = this.updateWorldMatrix().elements, r = t.x + 0, i = t.x + t.width, a = t.y + 0, o = t.y + t.height, s = n[0] * r, c = n[0] * i, l = n[3] * a, u = n[3] * o, d = n[1] * r, f = n[1] * i, p = n[4] * a, m = n[4] * o, h = s + l + n[6], g = c + l + n[6], _ = s + u + n[6], v = c + u + n[6], y = d + p + n[7], b = f + p + n[7], x = d + m + n[7], S = f + m + n[7], C = Math.min(h, g, _, v), w = Math.min(y, b, x, S), T = Math.max(h, g, _, v), E = Math.max(y, b, x, S);
+		return e.x = C, e.y = w, e.width = T - C, e.height = E - w, e;
 	}
 	containsPoint(e) {
 		if (this.hitTestMode === `collider`) return this.collider ? this.colliderPieces ? this.colliderPieces.some((t) => t.containsPoint(e, this)) : this.collider.containsPoint(e, this) : !1;

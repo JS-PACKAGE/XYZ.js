@@ -1163,6 +1163,7 @@ export type ProceduralMaterialKind =
   | 'gridsplits'
   | 'hamiltonpaths'
   | 'lowdiscrepancy'
+  | 'kneser'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2574,6 +2575,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'gridsplits',
   'hamiltonpaths',
   'lowdiscrepancy',
+  'kneser',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

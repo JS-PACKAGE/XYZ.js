@@ -12,6 +12,7 @@ var CutsceneDirector = class extends require_game_object.GameObject {
 	clock = 0;
 	passNumber = 0;
 	fired = /* @__PURE__ */ new Set();
+	nextCue = 0;
 	barrier;
 	cueLifetimes = /* @__PURE__ */ new Map();
 	generation = 0;
@@ -89,7 +90,16 @@ var CutsceneDirector = class extends require_game_object.GameObject {
 				let t = e, r = 0;
 				for (; this.state === `playing`;) {
 					if (++r > require_narrative.narrativeLimits.cutsceneUpdateSteps) throw RangeError(`Cutscene update exceeded its bounded cue/pass work budget.`);
-					let e = this.generation, i = Math.min(this.duration, this.clock + t), a = this.cues.find((e) => e.at <= i && !this.fired.has(this.cueKey(e)));
+					let e = this.generation, i = Math.min(this.duration, this.clock + t), a;
+					for (; this.nextCue < this.cues.length;) {
+						let e = this.cues[this.nextCue];
+						if (e.at > i) break;
+						if (!this.fired.has(this.cueKey(e))) {
+							a = e;
+							break;
+						}
+						this.nextCue++;
+					}
 					if (a) {
 						let n = Math.max(0, a.at - this.clock);
 						if (this.clock = Math.max(this.clock, a.at), t = Math.max(0, t - n), this.sample(), e !== this.generation || this.state !== `playing`) break;
@@ -128,7 +138,7 @@ var CutsceneDirector = class extends require_game_object.GameObject {
 					if (t -= i - this.clock, this.clock = i, this.sample(), e !== this.generation || this.state !== `playing` || this.clock < this.duration) break;
 					if (this.passNumber < this.repeat) {
 						for (let e of this.cues) e.repeat && this.fired.delete(this.cueKey(e));
-						this.passNumber++, this.clock = 0;
+						this.passNumber++, this.nextCue = 0, this.clock = 0;
 						for (let e of this.tracks) e.action.reset();
 						if (t === 0) break;
 					} else {

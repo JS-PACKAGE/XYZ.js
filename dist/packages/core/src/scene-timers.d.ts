@@ -6,6 +6,7 @@ export interface TimerHandle {
 export declare class SceneTimers {
     private readonly tasks;
     private time;
+    private nextDue;
     private nextId;
     private disposed;
     private updating;

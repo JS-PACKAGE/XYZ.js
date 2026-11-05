@@ -56024,6 +56024,93 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'kneser': {
+        const p = proceduralMaterialPresets.kneser,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.ns.length,
+          group = Math.floor(unsigned / p.ns.length),
+          n: number = p.ns[variant],
+          k: number = p.ks[variant],
+          bits = (mask: number): number => {
+            let count = 0;
+            for (let rest = mask; rest > 0; rest >>= 1) count += rest & 1;
+            return count;
+          },
+          // The k-subsets as bit masks (bit e is the element e) in the order of the group mod 3:
+          // 0 the lexicographic order of the sorted lists of elements (a set whose smaller
+          // elements come first is first: the larger key, with the bit of every element turned
+          // round), 1 the order of the sum of the elements, equal sums in the lexicographic order,
+          // and 2 the revolving-door order, in which every subset differs from the next by one
+          // element taken out and one put in.
+          subsets = (() => {
+            const mode = group % 3;
+            if (mode === 2) {
+              const door = (total: number, size: number): number[] => {
+                if (size === 0) return [0];
+                if (size === total) return [(1 << total) - 1];
+                const without = door(total - 1, size),
+                  withLast = door(total - 1, size - 1)
+                    .reverse()
+                    .map((mask) => mask | (1 << (total - 1)));
+                return without.concat(withLast);
+              };
+              return door(n, k);
+            }
+            const found: { mask: number; key: number; sum: number }[] = [];
+            for (let mask = 0; mask < 1 << n; mask++) {
+              if (bits(mask) !== k) continue;
+              let key = 0,
+                sum = 0;
+              for (let e = 0; e < n; e++)
+                if ((mask >> e) & 1) {
+                  key |= 1 << (n - 1 - e);
+                  sum += e;
+                }
+              found.push({ mask, key, sum });
+            }
+            found.sort((a, b) =>
+              mode === 0 ? b.key - a.key : a.sum - b.sum || b.key - a.key,
+            );
+            return found.map((entry) => entry.mask);
+          })(),
+          size = subsets.length,
+          // The number of elements the subsets of the row and of the column have in common.
+          shared = new Uint8Array(size * size);
+        for (let row = 0; row < size; row++)
+          for (let column = 0; column < size; column++)
+            shared[row * size + column] = bits(subsets[row] & subsets[column]);
+        const half = 0.5 - p.gap,
+          inner = half - p.corner;
+        return () => {
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            qx = Math.abs(x - i - 0.5) - inner,
+            qy = Math.abs(y - j - 0.5) - inner,
+            // The distance to the rounded square of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            apart = (k - shared[j * size + i]) / k,
+            tone = p.toneMin + (p.toneMax - p.toneMin) * apart,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * apart);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -64987,6 +65074,7 @@ export function createSurfaceSampler(
     kind === 'gridsplits' ||
     kind === 'hamiltonpaths' ||
     kind === 'lowdiscrepancy' ||
+    kind === 'kneser' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -277,7 +277,7 @@ var PhysicsWorld3D = class {
 	unregister(e) {
 		let t = this.entries.get(e);
 		if (!t) return;
-		for (let t = this.constraints.length - 1; t >= 0; t--) {
+		if (this.jointLinks.has(e)) for (let t = this.constraints.length - 1; t >= 0; t--) {
 			let n = this.constraints[t];
 			(n.bodyA === e || n.bodyB === e) && this.removeJoint(n);
 		}

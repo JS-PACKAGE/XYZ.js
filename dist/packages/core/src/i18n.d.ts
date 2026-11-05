@@ -34,8 +34,11 @@ export interface I18nLocaleChangeDetail {
 export declare class I18n extends EventTarget {
     private readonly tables;
     private readonly fallbacks;
+    private lookupOrder;
     private readonly missing;
     private readonly bindings;
+    private readonly pluralRules;
+    private numberFormat;
     private current;
     constructor(options?: I18nOptions);
     get locale(): string;

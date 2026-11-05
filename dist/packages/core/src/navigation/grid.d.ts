@@ -42,6 +42,7 @@ export declare class NavigationGrid2D {
     private readonly searches;
     private readonly paths;
     private minimumCost;
+    private minimumCostCount;
     private currentRevision;
     private disposed;
     constructor(options: NavigationGridOptions2D);

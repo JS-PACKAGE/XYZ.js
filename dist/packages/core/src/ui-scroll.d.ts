@@ -48,8 +48,9 @@ export declare class UIVirtualList<T> extends UIScrollView {
     readonly overscan: number;
     private items;
     private keys;
-    private readonly indices;
+    private indices;
     private readonly rows;
+    private readonly rowNodes;
     private readonly pool;
     private reconciling;
     constructor(options: UIVirtualListOptions<T>);
@@ -58,6 +59,7 @@ export declare class UIVirtualList<T> extends UIScrollView {
     get pooledCount(): number;
     row(key: UIVirtualListKey): UIElement | undefined;
     keyOf(node: GameObject): UIVirtualListKey | undefined;
+    private firstRowKey;
     setItems(items: readonly T[]): void;
     /** Reveals and focuses a keyed offscreen row without mounting the intervening rows. */
     focusKey(key: UIVirtualListKey, direction?: number): boolean;

@@ -351,7 +351,7 @@ var NavigationMesh3D = class {
 	}
 	region(e, t) {
 		let n = this.geometry[e];
-		if (t === 0) return { vertices: n.surface.vertices };
+		if (t === 0) return n.surface;
 		let r = this.regions[e];
 		if (r && r.radius === t && r.epoch === this.epoch) return r.region;
 		let i = this.clipRegion(n, t);

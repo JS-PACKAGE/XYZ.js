@@ -14,7 +14,7 @@ export declare class ObjectPool<T extends object> {
     private readonly options;
     readonly capacity: number;
     private readonly owned;
-    private readonly borrowed;
+    private borrowed;
     private readonly available;
     private busy;
     private disposed;

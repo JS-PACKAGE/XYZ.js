@@ -4,8 +4,9 @@ var World = class {
 	entities = /* @__PURE__ */ new Set();
 	components = /* @__PURE__ */ new Map();
 	systems = [];
+	systemEntries = /* @__PURE__ */ new Map();
 	updating = !1;
-	systemsNeedCompaction = !1;
+	inactiveSystems = 0;
 	disposed = !1;
 	revision = 0;
 	createEntity() {
@@ -67,7 +68,7 @@ var World = class {
 		return n && this.revision++, n;
 	}
 	addSystem(e) {
-		if (this.assertAlive(), this.systems.some((t) => t.active && t.system === e)) throw Error(`System is already registered.`);
+		if (this.assertAlive(), this.systemEntries.has(e)) throw Error(`System is already registered.`);
 		try {
 			e.initialize?.(this);
 		} catch (t) {
@@ -78,15 +79,22 @@ var World = class {
 			}
 			throw t;
 		}
-		this.systems.push({
+		let t = {
 			system: e,
-			active: !0
-		});
+			active: !0,
+			next: void 0
+		};
+		this.systems.push(t);
+		let n = this.systemEntries.get(e);
+		if (n) {
+			for (; n.next;) n = n.next;
+			n.next = t;
+		} else this.systemEntries.set(e, t);
 	}
 	removeSystem(e) {
 		this.assertAlive();
-		let t = this.systems.find((t) => t.active && t.system === e);
-		return t ? (t.active = !1, this.systemsNeedCompaction = !0, this.updating || this.compactSystems(), e.destroy?.(this), !0) : !1;
+		let t = this.systemEntries.get(e);
+		return t ? (t.active = !1, t.next ? this.systemEntries.set(e, t.next) : this.systemEntries.delete(e), t.next = void 0, this.inactiveSystems++, !this.updating && this.inactiveSystems * 2 >= this.systems.length && this.compactSystems(), e.destroy?.(this), !0) : !1;
 	}
 	update(e) {
 		if (this.assertAlive(), this.updating) throw Error(`World update cannot be reentered.`);
@@ -116,16 +124,16 @@ var World = class {
 				}
 			}
 		}
-		if (this.systems.length = 0, this.components.clear(), this.entities.clear(), e.length) throw AggregateError(e, `World system cleanup failed.`);
+		if (this.systems.length = 0, this.systemEntries.clear(), this.components.clear(), this.entities.clear(), e.length) throw AggregateError(e, `World system cleanup failed.`);
 	}
 	compactSystems() {
-		if (!this.systemsNeedCompaction) return;
+		if (this.inactiveSystems === 0) return;
 		let e = 0;
 		for (let t = 0; t < this.systems.length; t++) {
 			let n = this.systems[t];
 			n.active && (this.systems[e++] = n);
 		}
-		this.systems.length = e, this.systemsNeedCompaction = !1;
+		this.systems.length = e, this.inactiveSystems = 0;
 	}
 	assertAlive() {
 		if (this.disposed) throw Error(`World has been destroyed.`);

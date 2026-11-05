@@ -65,42 +65,42 @@ function demuxMP4(i, a = {}) {
 	(d.end - d.start < 8 || (d.end - d.start) % 4) && invalid();
 	let te = one(u, `moov`), f = u.filter((e) => e.type === `mdat`);
 	f.length || invalid();
-	let ne = te.children.filter((e) => e.type === `trak`);
-	if (ne.length > c) throw RangeError(`MP4 track budget exceeded.`);
-	let p;
-	for (let e of ne) {
+	let p = te.children.filter((e) => e.type === `trak`);
+	if (p.length > c) throw RangeError(`MP4 track budget exceeded.`);
+	let m;
+	for (let e of p) {
 		let t = one(one(e.children, `mdia`).children, `hdlr`), n = full(t);
-		need(n, 8, t.end), text(n + 4) === `vide` && !p && (p = e);
+		need(n, 8, t.end), text(n + 4) === `vide` && !m && (m = e);
 	}
-	p || unsupported(`no video track`), p.children.some((e) => e.type === `edts`) && unsupported(`edit lists`);
-	let m = one(p.children, `mdia`), h = one(m.children, `mdhd`);
-	need(h.start, 4, h.end);
-	let g = i[h.start];
-	g !== 0 && g !== 1 && unsupported(`mdhd version`), full(h, g), need(h.start, g === 1 ? 36 : 24, h.end);
-	let _ = u32(h.start + (g === 1 ? 20 : 12));
-	_ || invalid();
-	let v = one(one(m.children, `minf`).children, `stbl`);
-	v.children.some((e) => [
+	m || unsupported(`no video track`), m.children.some((e) => e.type === `edts`) && unsupported(`edit lists`);
+	let h = one(m.children, `mdia`), g = one(h.children, `mdhd`);
+	need(g.start, 4, g.end);
+	let _ = i[g.start];
+	_ !== 0 && _ !== 1 && unsupported(`mdhd version`), full(g, _), need(g.start, _ === 1 ? 36 : 24, g.end);
+	let v = u32(g.start + (_ === 1 ? 20 : 12));
+	v || invalid();
+	let y = one(one(h.children, `minf`).children, `stbl`);
+	y.children.some((e) => [
 		`senc`,
 		`saiz`,
 		`saio`
 	].includes(e.type)) && unsupported(`encrypted samples`);
-	let y = one(v.children, `stsd`), b = full(y);
-	need(b, 4, y.end), u32(b) !== 1 && unsupported(`multiple sample descriptions`);
-	let x = parse(b + 4, y.end, 6);
-	x.length !== 1 && invalid();
-	let S = x[0];
-	S.type === `encv` && unsupported(`encrypted video track`), [
+	let b = one(y.children, `stsd`), x = full(b);
+	need(x, 4, b.end), u32(x) !== 1 && unsupported(`multiple sample descriptions`);
+	let S = parse(x + 4, b.end, 6);
+	S.length !== 1 && invalid();
+	let C = S[0];
+	C.type === `encv` && unsupported(`encrypted video track`), [
 		`avc1`,
 		`vp09`,
 		`av01`
-	].includes(S.type) || unsupported(`codec ${S.type}`), need(S.start, 78, S.end), l.getUint16(S.start + 6) !== 1 && unsupported(`external data reference`);
-	let C = l.getUint16(S.start + 24), w = l.getUint16(S.start + 26);
-	(!C || !w || C > require_assets.assetLimits.textureDimension || w > require_assets.assetLimits.textureDimension || C * w > require_assets.assetLimits.texturePixels) && invalid();
-	let T = parse(S.start + 78, S.end, 7);
-	T.some((e) => e.type === `sinf`) && unsupported(`encrypted video track`);
-	let E = one(T, S.type === `avc1` ? `avcC` : S.type === `vp09` ? `vpcC` : `av1C`), D = i.subarray(E.start, E.end), O, k, pad = (e) => String(e).padStart(2, `0`);
-	if (S.type === `avc1`) {
+	].includes(C.type) || unsupported(`codec ${C.type}`), need(C.start, 78, C.end), l.getUint16(C.start + 6) !== 1 && unsupported(`external data reference`);
+	let w = l.getUint16(C.start + 24), T = l.getUint16(C.start + 26);
+	(!w || !T || w > require_assets.assetLimits.textureDimension || T > require_assets.assetLimits.textureDimension || w * T > require_assets.assetLimits.texturePixels) && invalid();
+	let ne = parse(C.start + 78, C.end, 7);
+	ne.some((e) => e.type === `sinf`) && unsupported(`encrypted video track`);
+	let E = one(ne, C.type === `avc1` ? `avcC` : C.type === `vp09` ? `vpcC` : `av1C`), D = i.subarray(E.start, E.end), O, k, pad = (e) => String(e).padStart(2, `0`);
+	if (C.type === `avc1`) {
 		(D.length < 7 || D[0] !== 1 || (D[4] & 3) == 2) && invalid();
 		let e = 6, consume = (t) => {
 			for (let n = 0; n < t; n++) {
@@ -112,7 +112,7 @@ function demuxMP4(i, a = {}) {
 		t || invalid(), consume(t), need(E.start + e, 1, E.end);
 		let n = D[e++];
 		n || invalid(), consume(n), O = `avc1.${Array.from(D.subarray(1, 4), (e) => e.toString(16).padStart(2, `0`)).join(``)}`, k = D.slice();
-	} else if (S.type === `vp09`) {
+	} else if (C.type === `vp09`) {
 		full(E, 1), D.length < 12 && invalid();
 		let e = D[4], t = D[5], n = D[6] >> 4;
 		(e > 3 || ![
@@ -127,23 +127,23 @@ function demuxMP4(i, a = {}) {
 	}
 	let re = {
 		codec: O,
-		codedWidth: C,
-		codedHeight: w,
+		codedWidth: w,
+		codedHeight: T,
 		...k ? { description: k } : {}
-	}, A = one(v.children, `stsz`), j = full(A);
+	}, A = one(y.children, `stsz`), j = full(A);
 	need(j, 8, A.end);
 	let M = u32(j), N = u32(j + 4);
 	if (!N || N > s) throw RangeError(`MP4 sample budget exceeded.`);
 	j + 8 + (M ? 0 : N * 4) !== A.end && invalid();
 	let P = new Uint32Array(N);
 	for (let e = 0; e < N; e++) P[e] = M || u32(j + 8 + e * 4), (!P[e] || P[e] > require_video.videoTextureLimits.decoderChunkBytes) && invalid();
-	let F = table(one(v.children, `stts`), 8), I = new Uint32Array(N), L = 0;
+	let F = table(one(y.children, `stts`), 8), I = new Uint32Array(N), L = 0;
 	for (let e = 0; e < F.count; e++) {
 		let t = u32(F.offset + e * 8), n = u32(F.offset + e * 8 + 4);
 		(!t || !n || L + t > N) && invalid(), I.fill(n, L, L + t), L += t;
 	}
 	L !== N && invalid();
-	let R = new Int32Array(N), z = v.children.filter((e) => e.type === `ctts`);
+	let R = new Int32Array(N), z = y.children.filter((e) => e.type === `ctts`);
 	if (z.length > 1 && invalid(), z[0]) {
 		let e = z[0], t = i[e.start];
 		t !== 0 && t !== 1 && unsupported(`ctts version`);
@@ -157,7 +157,7 @@ function demuxMP4(i, a = {}) {
 		}
 		L !== N && invalid();
 	}
-	let B = new Uint8Array(N), V = v.children.filter((e) => e.type === `stss`);
+	let B = new Uint8Array(N), V = y.children.filter((e) => e.type === `stss`);
 	if (V.length > 1 && invalid(), !V.length) B.fill(1);
 	else {
 		let e = table(V[0], 4), t = 0;
@@ -166,9 +166,9 @@ function demuxMP4(i, a = {}) {
 			(r <= t || r > N) && invalid(), B[r - 1] = 1, t = r;
 		}
 	}
-	let H = v.children.filter((e) => e.type === `stco` || e.type === `co64`);
+	let H = y.children.filter((e) => e.type === `stco` || e.type === `co64`);
 	H.length !== 1 && invalid();
-	let U = H[0], W = U.type === `co64` ? 8 : 4, G = table(U, W), K = table(one(v.children, `stsc`), 12);
+	let U = H[0], W = U.type === `co64` ? 8 : 4, G = table(U, W), K = table(one(y.children, `stsc`), 12);
 	(!K.count || !G.count) && invalid();
 	let q = [], J = [];
 	for (let e = 0; e < K.count; e++) {
@@ -183,7 +183,12 @@ function demuxMP4(i, a = {}) {
 		let t = W === 8 ? safe64(G.offset + e * 8) : u32(G.offset + e * 4), n = t, r = J[Z];
 		L + r > N && invalid();
 		for (let e = 0; e < r; e++) X[L] = t, t += P[L++];
-		f.some((e) => n >= e.start && t <= e.end) || invalid(), Y.push({
+		let i = 0, a = f.length;
+		for (; i < a;) {
+			let e = i + a >>> 1;
+			f[e].start <= n ? i = e + 1 : a = e;
+		}
+		(i === 0 || t > f[i - 1].end) && invalid(), Y.push({
 			offset: n,
 			end: t
 		});
@@ -191,24 +196,24 @@ function demuxMP4(i, a = {}) {
 	L !== N && invalid(), Y.sort((e, t) => e.offset - t.offset);
 	for (let e = 1; e < Y.length; e++) Y[e].offset < Y[e - 1].end && invalid();
 	typeof EncodedVideoChunk > `u` && unsupported(`WebCodecs EncodedVideoChunk unavailable`);
-	let micros = (e) => {
-		let t = Number(e * 1000000n / BigInt(_));
+	let ie = BigInt(v), micros = (e) => {
+		let t = Number(e * 1000000n / ie);
 		return Number.isSafeInteger(t) || invalid(), t;
-	}, Q = [], $ = 0n;
+	}, ae = [], Q = 0n, $ = 0;
 	for (let e = 0; e < N; e++) {
-		let t = BigInt(I[e]), n = micros($ + BigInt(R[e])), r = micros($ + t) - micros($);
-		r < 1 && invalid();
-		let a = X[e];
-		Q.push(new EncodedVideoChunk({
+		let t = BigInt(I[e]), n = R[e], r = n === 0 ? $ : micros(Q + BigInt(n)), a = Q + t, o = micros(a), s = o - $;
+		s < 1 && invalid();
+		let c = X[e];
+		ae.push(new EncodedVideoChunk({
 			type: B[e] ? `key` : `delta`,
-			timestamp: n,
-			duration: r,
-			data: i.subarray(a, a + P[e])
-		})), $ += t;
+			timestamp: r,
+			duration: s,
+			data: i.subarray(c, c + P[e])
+		})), Q = a, $ = o;
 	}
 	return {
 		config: re,
-		chunks: Q
+		chunks: ae
 	};
 }
 //#endregion

@@ -10,12 +10,13 @@ var NavigationGrid2D = class {
 	searches;
 	paths = /* @__PURE__ */ new WeakSet();
 	minimumCost = 1;
+	minimumCostCount;
 	currentRevision = 0;
 	disposed = !1;
 	constructor(n) {
 		let { columns: r, rows: i } = n;
 		if (!Number.isSafeInteger(r) || !Number.isSafeInteger(i) || r <= 0 || i <= 0 || r * i > require_navigation.navigationLimits.gridCells) throw RangeError(`Navigation grid exceeds the positive integer cell budget.`);
-		this.columns = r, this.rows = i, this.walkable = new Uint8Array(r * i).fill(1), this.costs = new Float64Array(r * i).fill(1), this.clearance = new Float64Array(r * i).fill(1 / 0), this.searches = new require_jobs.NavigationSearchPool(r * i);
+		this.columns = r, this.rows = i, this.walkable = new Uint8Array(r * i).fill(1), this.costs = new Float64Array(r * i).fill(1), this.clearance = new Float64Array(r * i).fill(1 / 0), this.searches = new require_jobs.NavigationSearchPool(r * i), this.minimumCostCount = r * i;
 	}
 	get revision() {
 		return this.currentRevision;
@@ -62,10 +63,14 @@ var NavigationGrid2D = class {
 			});
 		}
 		let r = !1;
-		for (let [e, t] of n) (this.walkable[e] === 1 !== t.walkable || this.costs[e] !== t.cost || this.clearance[e] !== t.clearance) && (r = !0, this.walkable[e] = +!!t.walkable, this.costs[e] = t.cost, this.clearance[e] = t.clearance);
-		if (r) {
-			this.currentRevision++, this.searches.invalidate(), this.minimumCost = 1 / 0;
-			for (let e = 0; e < this.costs.length; e++) this.walkable[e] && (this.minimumCost = Math.min(this.minimumCost, this.costs[e]));
+		for (let [e, t] of n) (this.walkable[e] === 1 !== t.walkable || this.costs[e] !== t.cost || this.clearance[e] !== t.clearance) && (r = !0, this.walkable[e] && this.costs[e] === this.minimumCost && this.minimumCostCount--, t.walkable && (t.cost < this.minimumCost ? (this.minimumCost = t.cost, this.minimumCostCount = 1) : t.cost === this.minimumCost && this.minimumCostCount++), this.walkable[e] = +!!t.walkable, this.costs[e] = t.cost, this.clearance[e] = t.clearance);
+		if (r && (this.currentRevision++, this.searches.invalidate(), this.minimumCostCount === 0)) {
+			this.minimumCost = 1 / 0;
+			for (let e = 0; e < this.costs.length; e++) {
+				if (!this.walkable[e]) continue;
+				let t = this.costs[e];
+				t < this.minimumCost ? (this.minimumCost = t, this.minimumCostCount = 1) : t === this.minimumCost && this.minimumCostCount++;
+			}
 			this.minimumCost === 1 / 0 && (this.minimumCost = 0);
 		}
 	}

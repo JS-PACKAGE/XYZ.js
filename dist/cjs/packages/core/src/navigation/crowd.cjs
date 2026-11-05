@@ -198,7 +198,7 @@ var CrowdSolver = class {
 		y > v && (g *= v / y, _ *= v / y);
 		let b = this.candidateScratch;
 		b.best = 1 / 0, b.x = b.z = 0, b.count = m, b.px = g, b.pz = _, b.speed = v, this.candidate(g, _), this.candidate(0, 0);
-		for (let e = 0; e < m; e++) {
+		for (let e = 0; e < m && b.best !== 0; e++) {
 			let t = this.lines[e], r = t.b - t.nx * g - t.nz * _;
 			this.candidate(g + r * t.nx, _ + r * t.nz);
 			let i = v * v - t.b * t.b;
@@ -214,14 +214,14 @@ var CrowdSolver = class {
 		e.next.set(b.x, 0, b.z), e.state = b.best === 1 / 0 ? `blocked` : require_hypot.hypot3(b.x, e.preferred.y, b.z) < 1e-6 ? require_hypot.hypot2(g, _) > 1e-6 ? `blocked` : `idle` : `moving`;
 	}
 	candidate(e, t) {
-		let r = this.candidateScratch;
-		if (e * e + t * t > r.speed * r.speed + require_crowd.crowdLimits.epsilon) return;
-		for (let i = 0; i < r.count; i++) {
-			let r = this.lines[i];
-			if (r.nx * e + r.nz * t < r.b - require_crowd.crowdLimits.epsilon) return;
+		let r = this.candidateScratch, i = (e - r.px) ** 2 + (t - r.pz) ** 2;
+		if (i < r.best && !(e * e + t * t > r.speed * r.speed + require_crowd.crowdLimits.epsilon)) {
+			for (let i = 0; i < r.count; i++) {
+				let r = this.lines[i];
+				if (r.nx * e + r.nz * t < r.b - require_crowd.crowdLimits.epsilon) return;
+			}
+			r.best = i, r.x = e, r.z = t;
 		}
-		let i = (e - r.px) ** 2 + (t - r.pz) ** 2;
-		i < r.best && (r.best = i, r.x = e, r.z = t);
 	}
 	destroy() {
 		if (this.updating) throw Error(`Destroy crowd outside update callbacks.`);

@@ -19247,6 +19247,30 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.65,
     gapOcclusion: 0.45,
   }),
+  kneser: Object.freeze({
+    dark: [24, 8, 6] as const,
+    light: [255, 190, 120] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x4b21,
+    // The k-subsets of n elements, one row and column each (C(n, k) of them, in the order of their sorted lists of elements), and the tile of a cell is toned by the number of elements two subsets share: the Johnson scheme of the variant (n = ns[variant], k = ks[variant]); the cells of disjoint subsets (the edges of the Kneser graph) are the brightest, the diagonal (a subset with itself, k shared elements) the darkest. The seed is split in two: seed % 6 picks the variant and floor(seed / 6) the group, which picks the order of the subsets by group mod 3 (0 lexicographic, 1 by the sum of the elements with equal sums in the lexicographic order, 2 revolving door: every subset differs from the next by one element out and one in), the same matrix up to the order of its rows and columns, so seeds 0 to 5 are the six variants in the lexicographic order.
+    ns: [5, 6, 7, 6, 7, 8] as const,
+    ks: [2, 2, 2, 3, 3, 3] as const,
+    // The gap between two cells, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.07,
+    corner: 0.18,
+    edgeSoft: 0.08,
+    grainCells: 128,
+    toneGround: 0.03,
+    toneMin: 0.22,
+    toneMax: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of a cell is cellHeight times (heightBase + heightSwing times the share of the k elements the two subsets do not have in common).
+    heightBase: 0.4,
+    heightSwing: 0.6,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21073,6 +21097,7 @@ export const proceduralTileMeters = Object.freeze({
   gridsplits: 0.5,
   hamiltonpaths: 0.5,
   lowdiscrepancy: 0.5,
+  kneser: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

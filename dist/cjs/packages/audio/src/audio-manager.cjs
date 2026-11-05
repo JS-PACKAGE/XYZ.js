@@ -427,7 +427,7 @@ var AudioManager = class {
 			e.cycle < t && (e.cycle = t, e.index = 0);
 		}
 		let a = i - e.cycle * r - p;
-		if (a > 0) {
+		if (a > 0 && e.index < n.length && n[e.index].time < a) {
 			let t = e.index, r = n.length;
 			for (; t < r;) {
 				let e = t + r >>> 1;

@@ -50,6 +50,7 @@ export declare class CutsceneDirector extends GameObject {
     private clock;
     private passNumber;
     private readonly fired;
+    private nextCue;
     private barrier;
     private readonly cueLifetimes;
     private generation;

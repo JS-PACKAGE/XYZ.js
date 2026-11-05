@@ -89,7 +89,8 @@ var TileMap = class extends require_group2d.Group2D {
 			index: a,
 			tile: l,
 			insertion: -1,
-			cellAt: -1
+			cellAt: -1,
+			cellKey: NaN
 		}, h = m.sprite, g = m.colliderOwner, _ = g?.collider, v = g?.position.x ?? 0, y = g?.position.y ?? 0;
 		if (this.origin(e, t, f.elevation, this.local), !Number.isFinite(this.local.x) || !Number.isFinite(this.local.y)) throw RangeError(`Elevated tile coordinates must remain finite.`);
 		let b = this.local.x, x = this.local.y;
@@ -221,14 +222,18 @@ var TileMap = class extends require_group2d.Group2D {
 	cullSlot(e) {
 		let t = e.sprite;
 		if (!t) return;
-		let n = this.culling, r = t.position.x - t.anchor.x * this.tileWidth, i = t.position.y - t.anchor.y * this.tileHeight, a = cullCellKey(Math.floor(r / (this.tileWidth * 8)), Math.floor(i / (this.tileHeight * 8))), o = this.cullCells.get(a);
-		if (e.cell !== o || !o) {
-			let t = e.cell;
-			if (t) {
-				let n = t[t.length - 1];
-				t[e.cellAt] = n, n.cellAt = e.cellAt, t.pop();
+		let n = this.culling, r = t.position.x - t.anchor.x * this.tileWidth, i = t.position.y - t.anchor.y * this.tileHeight, a = cullCellKey(Math.floor(r / (this.tileWidth * 8)), Math.floor(i / (this.tileHeight * 8)));
+		if (e.cellKey !== a) {
+			let t = this.cullCells.get(a);
+			if (e.cell !== t || !t) {
+				let n = e.cell;
+				if (n) {
+					let t = n[n.length - 1];
+					n[e.cellAt] = t, t.cellAt = e.cellAt, n.pop();
+				}
+				t || this.cullCells.set(a, t = []), e.cell = t, e.cellAt = t.push(e) - 1;
 			}
-			o || this.cullCells.set(a, o = []), e.cell = o, e.cellAt = o.push(e) - 1;
+			e.cellKey = a;
 		}
 		t.renderEnabled = n.visible && e.tile.frame !== void 0 && (n.singular || r <= n.maxX && r + this.tileWidth >= n.minX && i <= n.maxY && i + this.tileHeight >= n.minY);
 	}

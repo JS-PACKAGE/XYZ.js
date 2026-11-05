@@ -1189,6 +1189,7 @@ const kinds: ProceduralMaterialKind[] = [
   'gridsplits',
   'hamiltonpaths',
   'lowdiscrepancy',
+  'kneser',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -210436,6 +210437,428 @@ describe('Low-discrepancy points as the first points of a sequence drawn once', 
     expect(blue / (512 * 512)).toBeLessThan(30.2);
     expect(maxTilt).toBeGreaterThan(0.0831);
     expect(maxTilt).toBeLessThan(0.0833);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Kneser matrix as the shared elements of every pair of k-subsets drawn once', () => {
+  const p = proceduralMaterialPresets.kneser;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The k-subsets of the elements 0 to n - 1 as sorted lists, found by counting the bits of every integer below 2^n. */
+  const allSubsets = (n: number, k: number): number[][] => {
+    const found: number[][] = [];
+    for (let m = 0; m < 1 << n; m++) {
+      const list = [...Array(n).keys()].filter((e) => (m >> e) & 1);
+      if (list.length === k) found.push(list);
+    }
+    return found;
+  };
+  /** The subsets in the order of the group of a seed (mod 3): the lexicographic order of the sorted lists, the order of the sum of the elements (equal sums in the lexicographic order) or the revolving-door order (by the recursion R(n, k) = R(n - 1, k), then R(n - 1, k - 1) reversed with n - 1 added to every subset). */
+  const orderedSubsets = (seed: number): number[][] => {
+    const variant = seed % p.ns.length,
+      mode = Math.floor(seed / p.ns.length) % 3,
+      n: number = p.ns[variant],
+      k: number = p.ks[variant];
+    if (mode === 0)
+      return allSubsets(n, k).sort((a, b) => {
+        for (let i = 0; i < k; i++) if (a[i] !== b[i]) return a[i] - b[i];
+        return 0;
+      });
+    if (mode === 1)
+      return allSubsets(n, k).sort((a, b) => {
+        const sums =
+          a.reduce((s, e) => s + e, 0) - b.reduce((s, e) => s + e, 0);
+        if (sums !== 0) return sums;
+        for (let i = 0; i < k; i++) if (a[i] !== b[i]) return a[i] - b[i];
+        return 0;
+      });
+    const door = (total: number, size: number): number[][] =>
+      size === 0
+        ? [[]]
+        : size === total
+          ? [[...Array(total).keys()]]
+          : [
+              ...door(total - 1, size),
+              ...door(total - 1, size - 1)
+                .reverse()
+                .map((list) => [...list, total - 1]),
+            ];
+    return door(n, k);
+  };
+  /** The number of elements two sorted lists have in common. */
+  const common = (a: number[], b: number[]): number =>
+    a.filter((e) => b.includes(e)).length;
+  /** The matrix of shared elements as the sampler shows it, read back at the middle of every cell (the height gives the share). */
+  const readMatrix = (seed: number): number[] => {
+    const variant = seed % p.ns.length,
+      k: number = p.ks[variant],
+      size = allSubsets(p.ns[variant], k).length,
+      sample = createSurfaceSampler('kneser', seed),
+      out = empty(),
+      matrix: number[] = [];
+    for (let row = 0; row < size; row++)
+      for (let column = 0; column < size; column++) {
+        sample((column + 0.5) / size, (row + 0.5) / size, out);
+        const apart =
+          (out.height / p.relief / p.cellHeight - p.heightBase) / p.heightSwing;
+        const shared = k * (1 - apart);
+        expect(Math.abs(shared - Math.round(shared))).toBeLessThan(1e-6);
+        matrix.push(Math.round(shared));
+      }
+    return matrix;
+  };
+  /** The binomial coefficient, by Pascal's triangle. */
+  const binomial = (n: number, k: number): number => {
+    let row = [1];
+    for (let i = 1; i <= n; i++)
+      row = Array.from(
+        { length: i + 1 },
+        (_, j) => (row[j - 1] ?? 0) + (row[j] ?? 0),
+      );
+    return row[k] ?? 0;
+  };
+  /** The grid of 256 by 256 colours above 0.75 (the cells of disjoint subsets), for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('kneser', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.75));
+      }
+    return lit;
+  };
+  /** The grid of 256 by 256 heights, for comparing two seeds. */
+  const heightGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('kneser', seed),
+      out = empty(),
+      heights: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        heights.push(out.height);
+      }
+    return heights;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9639, lit: 0.19913, mean: 0.47765 }],
+      [1, { high: 0.9644, lit: 0.26509, mean: 0.51233 }],
+      [0xffffffff, { high: 0.9631, lit: 0.03302, mean: 0.42549 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('kneser', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.75);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0158);
+      expect(low).toBeLessThan(0.0162);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws the shared elements of every pair of subsets in the order of the group, read back at the middle of every cell, with a gap between the cells', () => {
+    for (let seed = 0; seed < 18; seed++) {
+      const subsets = orderedSubsets(seed),
+        size = subsets.length,
+        matrix = readMatrix(seed),
+        sample = createSurfaceSampler('kneser', seed),
+        out = empty();
+      expect(matrix.length).toBe(size * size);
+      let wrong = 0;
+      for (let row = 0; row < size; row++)
+        for (let column = 0; column < size; column++)
+          wrong += Number(
+            matrix[row * size + column] !==
+              common(subsets[row], subsets[column]),
+          );
+      expect(wrong).toBe(0);
+      // At every corner where four cells meet there is no ink: no height and the gap occlusion.
+      for (let row = 0; row < size; row++) {
+        sample(row / size, ((row * 7) % size) / size, out);
+        expect(out.height).toBe(0);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion, 9);
+      }
+    }
+  });
+  it('shows the Johnson scheme read from the picture: symmetric, a full diagonal, a binomial count of every share in every row and the same intersection numbers for every pair of one share', () => {
+    for (let seed = 0; seed < 18; seed++) {
+      const variant = seed % p.ns.length,
+        n: number = p.ns[variant],
+        k: number = p.ks[variant],
+        size = binomial(n, k),
+        matrix = readMatrix(seed),
+        tables = new Map<number, string>();
+      for (let a = 0; a < size; a++) {
+        const counts = new Array<number>(k + 1).fill(0);
+        for (let b = 0; b < size; b++) {
+          expect(matrix[a * size + b]).toBe(matrix[b * size + a]);
+          counts[matrix[a * size + b]]++;
+        }
+        // A subset has k shared elements with itself only, and C(k, i) C(n - k, k - i) subsets share i with it.
+        expect(matrix[a * size + a]).toBe(k);
+        for (let i = 0; i <= k; i++)
+          expect(counts[i]).toBe(binomial(k, i) * binomial(n - k, k - i));
+        // For two subsets sharing s elements, the number of subsets that share i with the one and j with the other does not depend on which two.
+        for (let b = 0; b < size; b++) {
+          const table = Array.from({ length: k + 1 }, () =>
+            new Array<number>(k + 1).fill(0),
+          );
+          for (let c = 0; c < size; c++)
+            table[matrix[a * size + c]][matrix[b * size + c]]++;
+          const text = JSON.stringify(table),
+            s = matrix[a * size + b];
+          if (!tables.has(s)) tables.set(s, text);
+          expect(text).toBe(tables.get(s));
+        }
+      }
+      expect(tables.size).toBe(k + 1);
+    }
+  });
+  it('shows the Kneser graphs of the disjoint cells: the Petersen graph, the matching of the complements and the odd graph of girth 6', () => {
+    // Petersen graph (seed 0: 2-subsets of 5): 10 vertices of degree 3, 15 edges, two adjacent vertices have no neighbour in common and two others have exactly one (strongly regular).
+    const petersen = readMatrix(0);
+    let edges = 0;
+    for (let a = 0; a < 10; a++) {
+      let degree = 0;
+      for (let b = 0; b < 10; b++) degree += Number(petersen[a * 10 + b] === 0);
+      expect(degree).toBe(3);
+      edges += degree;
+      for (let b = 0; b < 10; b++) {
+        if (a === b) continue;
+        let neighbours = 0;
+        for (let c = 0; c < 10; c++)
+          neighbours += Number(
+            petersen[a * 10 + c] === 0 && petersen[b * 10 + c] === 0,
+          );
+        expect(neighbours).toBe(petersen[a * 10 + b] === 0 ? 0 : 1);
+      }
+    }
+    expect(edges / 2).toBe(15);
+    // 3-subsets of 6 (seed 3): exactly one disjoint partner, the complement.
+    const subsets = orderedSubsets(3),
+      matching = readMatrix(3);
+    for (let a = 0; a < 20; a++) {
+      const partners = subsets.filter((_, b) => matching[a * 20 + b] === 0);
+      expect(partners.length).toBe(1);
+      expect(partners[0]).toEqual(
+        [0, 1, 2, 3, 4, 5].filter((e) => !subsets[a].includes(e)),
+      );
+    }
+    // 3-subsets of 7 (seed 4): 35 vertices of degree 4, and two vertices have at most one neighbour in common (no triangle, no 4-cycle).
+    const odd = readMatrix(4);
+    let most = 0;
+    for (let a = 0; a < 35; a++) {
+      let degree = 0;
+      for (let b = 0; b < 35; b++) degree += Number(odd[a * 35 + b] === 0);
+      expect(degree).toBe(4);
+      for (let b = a + 1; b < 35; b++) {
+        let neighbours = 0;
+        for (let c = 0; c < 35; c++)
+          neighbours += Number(odd[a * 35 + c] === 0 && odd[b * 35 + c] === 0);
+        most = Math.max(most, neighbours);
+        if (odd[a * 35 + b] === 0) expect(neighbours).toBe(0);
+      }
+    }
+    expect(most).toBe(1);
+  });
+  it('puts the subsets of the revolving-door order so that every one differs from the next by one element', () => {
+    for (const seed of [12, 13, 14, 15, 16, 17, 30, 35]) {
+      const variant = seed % p.ns.length,
+        k: number = p.ks[variant],
+        size = binomial(p.ns[variant], k),
+        matrix = readMatrix(seed);
+      expect(Math.floor(seed / p.ns.length) % 3).toBe(2);
+      for (let a = 0; a + 1 < size; a++)
+        expect(matrix[a * size + a + 1]).toBe(k - 1);
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 12, 15]) {
+      const variant = seed % p.ns.length,
+        k: number = p.ks[variant],
+        subsets = orderedSubsets(seed),
+        size = subsets.length,
+        sample = createSurfaceSampler('kneser', seed),
+        out = empty(),
+        half = 0.5 - p.gap,
+        inner = half - p.corner;
+      let compared = 0;
+      for (let q = 0; q < 6000; q++) {
+        const u = (q * 0.61803398875) % 1,
+          v = (q * 0.41421356237) % 1,
+          x = u * size,
+          y = v * size,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          dx = Math.abs(x - column - 0.5),
+          dy = Math.abs(y - row - 0.5),
+          // The distance to the rounded square, by the straight sides or by the corner circle.
+          distance =
+            dx <= inner || dy <= inner
+              ? Math.max(dx, dy) - half
+              : Math.hypot(dx - inner, dy - inner) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          apart = (k - common(subsets[row], subsets[column])) / k,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * apart;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * apart),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4400);
+  });
+  it('draws a different view per variant and per group, repeats the order every 3 groups and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.3057);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.3058);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.1065);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.1066);
+    expect(litGrid(0)).toEqual(first);
+    // The group 3 has the order of the group 0: the same heights (the tones have another grain).
+    expect(heightGrid(18)).toEqual(heightGrid(0));
+    expect(heightGrid(24)).toEqual(heightGrid(6));
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('kneser', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber Kneser matrix maps on dark brown with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('kneser', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(141.8);
+    expect(red / (512 * 512)).toBeLessThan(142.8);
+    expect(green / (512 * 512)).toBeGreaterThan(100.7);
+    expect(green / (512 * 512)).toBeLessThan(101.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(63.9);
+    expect(blue / (512 * 512)).toBeLessThan(64.9);
+    expect(maxTilt).toBeGreaterThan(0.0573);
+    expect(maxTilt).toBeLessThan(0.0574);
     expect(invalid).toBe(0);
   });
 });

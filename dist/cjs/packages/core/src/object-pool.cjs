@@ -8,8 +8,8 @@ var ObjectPoolExhaustedError = class extends Error {
 var ObjectPool = class {
 	options;
 	capacity;
-	owned = /* @__PURE__ */ new Set();
-	borrowed = /* @__PURE__ */ new Set();
+	owned = /* @__PURE__ */ new Map();
+	borrowed = 0;
 	available = [];
 	busy = !1;
 	disposed = !1;
@@ -20,7 +20,7 @@ var ObjectPool = class {
 		return this.owned.size;
 	}
 	get borrowedCount() {
-		return this.borrowed.size;
+		return this.borrowed;
 	}
 	get availableCount() {
 		return this.available.length;
@@ -37,16 +37,18 @@ var ObjectPool = class {
 			try {
 				if (e = this.options.create(), typeof e != `object` && typeof e != `function` || e === null) throw TypeError(`Pool factory must create an object.`);
 				if (this.owned.has(e)) throw Error(`Pool factory returned an already owned object.`);
-				this.owned.add(e);
+				this.owned.set(e, { borrowed: !1 });
 			} finally {
 				this.busy = !1;
 			}
 		}
-		return this.borrowed.add(e), e;
+		return this.owned.get(e).borrowed = !0, this.borrowed++, e;
 	}
 	release(e) {
-		if (this.assertMutable(), !this.borrowed.delete(e)) throw Error(`Object is not borrowed from this pool.`);
-		this.busy = !0;
+		this.assertMutable();
+		let t = this.owned.get(e);
+		if (!t?.borrowed) throw Error(`Object is not borrowed from this pool.`);
+		t.borrowed = !1, this.borrowed--, this.busy = !0;
 		try {
 			try {
 				this.options.reset?.(e);
@@ -67,9 +69,9 @@ var ObjectPool = class {
 	destroy() {
 		if (this.busy) throw Error(`Pool callbacks cannot mutate the pool.`);
 		if (this.disposed) return;
-		this.disposed = !0, this.borrowed.clear(), this.available.length = 0;
+		this.disposed = !0, this.borrowed = 0, this.available.length = 0;
 		let e = [];
-		for (let t of this.owned) try {
+		for (let t of this.owned.keys()) try {
 			this.options.destroy?.(t);
 		} catch (t) {
 			e.push(t);

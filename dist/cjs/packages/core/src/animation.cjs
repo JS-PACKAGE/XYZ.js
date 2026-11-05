@@ -274,6 +274,7 @@ var AnimationMixer = class {
 		return this.constraints.add(e), () => this.constraints.delete(e);
 	}
 	captureOverlay(e, t, r = !0) {
+		if (!r && this.overlays.size === 0) return;
 		let i = this.overlays.get(e);
 		if (!r && !i?.get(t)?.captured) return;
 		i || this.overlays.set(e, i = /* @__PURE__ */ new Map());
@@ -281,7 +282,7 @@ var AnimationMixer = class {
 		a || i.set(t, a = new require_animation_pose.AnimationPoseOverlay(e, t)), a.capture();
 	}
 	sealOverlay(e, t) {
-		this.overlays.get(e)?.get(t)?.seal();
+		this.overlays.size !== 0 && this.overlays.get(e)?.get(t)?.seal();
 	}
 	clipAction(e) {
 		if (this.destroyed) throw Error(`AnimationMixer is destroyed.`);

@@ -1226,6 +1226,7 @@ try {
     'gridsplits',
     'hamiltonpaths',
     'lowdiscrepancy',
+    'kneser',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

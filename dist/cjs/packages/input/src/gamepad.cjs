@@ -233,8 +233,15 @@ var GamepadState = class {
 		}
 	}
 };
+var r = /* @__PURE__ */ new WeakMap();
 function matches(e, t) {
-	return typeof e == `string` ? t.toLowerCase().includes(e.toLowerCase()) : new RegExp(e.source, e.flags.replace(/[gy]/g, ``)).test(t);
+	if (typeof e == `string`) return t.toLowerCase().includes(e.toLowerCase());
+	let n = e.source, i = e.flags, a = r.get(e);
+	return (!a || a.source !== n || a.flags !== i) && (a = {
+		source: n,
+		flags: i,
+		matcher: new RegExp(n, i.replace(/[gy]/g, ``))
+	}, r.set(e, a)), a.matcher.test(t);
 }
 function buttonSlot(e) {
 	let n = t.indexOf(e);
@@ -246,7 +253,7 @@ function axisSlot(e) {
 	if (t < 0) throw RangeError(`Unknown gamepad axis: ${e}`);
 	return t;
 }
-var r = {
+var i = {
 	tap: !0,
 	doubletap: !0,
 	longpress: !0,
@@ -283,7 +290,7 @@ function checkBinding(e) {
 		};
 	}
 	if (`gesture` in e) {
-		if (!Object.hasOwn(r, e.gesture)) throw RangeError(`Unknown gesture binding.`);
+		if (!Object.hasOwn(i, e.gesture)) throw RangeError(`Unknown gesture binding.`);
 		return { gesture: e.gesture };
 	}
 	if (`virtual` in e) return checkAction(e.virtual), e.direction !== void 0 && checkDirection(e.direction), e.direction === void 0 ? { virtual: e.virtual } : {

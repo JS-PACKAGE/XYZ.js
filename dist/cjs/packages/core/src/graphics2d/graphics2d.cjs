@@ -181,25 +181,26 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 	}
 	async setInstructions(e) {
 		if (this.destroyed) throw new require_texture.AssetError(`Cannot update destroyed Graphics2D.`);
-		let n = snapshotInstructions(e);
-		rasterBounds(n, this.requestedResolution), this.requestedInstructions = n, this.refresh();
+		let n = snapshotInstructions(e), r = rasterBounds(n, this.requestedResolution);
+		this.requestedInstructions = n, this.refresh(r);
 	}
 	async setResolution(e) {
 		if (this.destroyed) throw new require_texture.AssetError(`Cannot update destroyed Graphics2D.`);
-		rasterBounds(this.requestedInstructions, e), this.requestedResolution = e, this.refresh();
+		let n = rasterBounds(this.requestedInstructions, e);
+		this.requestedResolution = e, this.refresh(n);
 	}
-	refresh() {
-		let e = this.requestedInstructions, t = this.requestedResolution, n;
+	refresh(e) {
+		let t = this.requestedInstructions, n = this.requestedResolution, i;
 		try {
-			n = Graphics2D.rasterize(e, t, rasterBounds(e, t));
+			i = Graphics2D.rasterize(t, n, e);
 		} catch (e) {
 			throw this.requestedInstructions = this.displayedInstructions, this.requestedResolution = this.displayedResolution, e;
 		}
-		let { canvas: i, bounds: a } = n, o = this.ownedTexture;
+		let { canvas: a } = i, o = this.ownedTexture;
 		try {
-			release(o.adopt(i));
+			release(o.adopt(a));
 		} catch (e) {
-			throw i.width = i.height = 0, e;
+			throw a.width = a.height = 0, e;
 		}
 		this.view = new require_texture2d.TextureView2D(o, {
 			frame: {
@@ -208,8 +209,8 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 				width: o.width,
 				height: o.height
 			},
-			resolution: t
-		}), this.rasterOrigin = a, this.displayedInstructions = e, this.displayedResolution = t;
+			resolution: n
+		}), this.rasterOrigin = e, this.displayedInstructions = t, this.displayedResolution = n;
 	}
 	getLocalBounds(e = {
 		x: 0,

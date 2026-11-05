@@ -250,7 +250,8 @@ function contentOrder(t) {
 			o.add(t);
 		}
 		a.set(e.id, e.id);
-		for (let [t, n] of Object.entries(e.children ?? {})) e.removedChildren?.includes(t) || a.set(n, e.id);
+		let t = e.removedChildren?.length ? new Set(e.removedChildren) : void 0;
+		for (let [n, r] of Object.entries(e.children ?? {})) t?.has(n) || a.set(r, e.id);
 		n.set(e.id, e), r.set(e.id, []);
 	}
 	if (o.size > require_content.contentLimits.maxNodes) throw RangeError(`Content exceeds 4096 stable IDs.`);
@@ -387,7 +388,8 @@ async function rebuildContentScene(e, n, r, s = {}) {
 	let c = parseContentScene(e, n.content), l = /* @__PURE__ */ new Set();
 	for (let e of c.nodes) {
 		l.add(e.id);
-		for (let [t, n] of Object.entries(e.children ?? {})) e.removedChildren?.includes(t) || l.add(n);
+		let t = e.removedChildren?.length ? new Set(e.removedChildren) : void 0;
+		for (let [n, r] of Object.entries(e.children ?? {})) t?.has(n) || l.add(r);
 	}
 	let u = JSON.parse(JSON.stringify(n.parents)), d = JSON.parse(JSON.stringify(n.state));
 	for (let e of [u, d.objects]) if (Object.keys(e).length !== l.size || Object.keys(e).some((e) => !l.has(e))) throw Error(`Content snapshot IDs do not match topology.`);
@@ -465,7 +467,7 @@ async function createContentNode(e, t, a, o, s, c, u, d, f) {
 		if (!p.has(e) || _.has(e)) throw Error(`Prefab metadata must name distinct owned descendants.`);
 		_.add(e);
 	}
-	let v = /* @__PURE__ */ new Set();
+	let v = /* @__PURE__ */ new Set(), y = t.removedChildren?.length ? new Set(t.removedChildren) : void 0;
 	for (let e of t.removedChildren ?? []) {
 		let t = [g[e]];
 		for (let e = 0; e < t.length; e++) {
@@ -473,20 +475,20 @@ async function createContentNode(e, t, a, o, s, c, u, d, f) {
 			for (let n of childrenOf(t[e])) t.push(n);
 		}
 	}
-	for (let [e, n] of Object.entries(g)) if (v.has(n) && !t.removedChildren?.includes(e)) throw Error(`Removed prefab subtrees must mark all descendant aliases.`);
+	for (let [e, t] of Object.entries(g)) if (v.has(t) && !y?.has(e)) throw Error(`Removed prefab subtrees must mark all descendant aliases.`);
 	require_factories.destroyFactoryNodes(v, !1);
 	for (let e of v) d.delete(e);
-	let y = [[
+	let b = [[
 		t.id,
 		m,
 		void 0
 	]];
-	for (let [e, n] of Object.entries(g)) v.has(n) || y.push([
+	for (let [e, n] of Object.entries(g)) v.has(n) || b.push([
 		t.children[e],
 		n,
 		e
 	]);
-	for (let [e, n, r] of y) {
+	for (let [e, n, r] of b) {
 		if (c.has(e) || u.has(e)) throw Error(`Duplicate content ID: ${e}.`);
 		let i = h.state ? h.state(m, n) : require_serialization.sceneObjectState(n);
 		if (!i || typeof i.serialize != `function` || typeof i.restore != `function`) throw TypeError(`Invalid Serializable adapter for ${e}.`);
