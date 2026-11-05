@@ -412,6 +412,48 @@ describe('QuestSystem', () => {
     restored.restore(restored.save());
     expect(reward).toHaveBeenCalledTimes(2);
   });
+  it('preserves dependant order and duplicate prerequisites across restore', () => {
+    const transitions: string[] = [];
+    const quests = new QuestSystem(
+      [
+        { id: 'first', prerequisites: ['root', 'root'] },
+        { id: 'second', prerequisites: ['root', 'other'] },
+        { id: 'third', prerequisites: ['root'] },
+        { id: 'root' },
+        { id: 'other' },
+      ].map((quest) => ({
+        ...quest,
+        objectives: [{ id: 'done', target: 1 }],
+      })),
+      {
+        onTransition: (id, status) => {
+          transitions.push(`${id}:${status}`);
+          if (id === 'root' && status === 'completed') {
+            expect(quests.get('first').status).toBe('available');
+            expect(quests.get('third').status).toBe('available');
+            expect(quests.get('second').status).toBe('locked');
+          }
+        },
+      },
+    );
+    quests.restore(quests.save());
+    quests.accept('root');
+    quests.progress('root', 'done');
+    expect(transitions).toEqual([
+      'root:active',
+      'root:completed',
+      'first:available',
+      'third:available',
+    ]);
+    quests.restore(quests.save());
+    quests.accept('other');
+    quests.progress('other', 'done');
+    expect(transitions.slice(-3)).toEqual([
+      'other:active',
+      'other:completed',
+      'second:available',
+    ]);
+  });
   it('commits completion before throwing rewards and blocks reentrant mutations', () => {
     const quests = new QuestSystem(questDefinitions, {
       onReward: () => {

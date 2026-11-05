@@ -33,6 +33,7 @@ export interface QuestState {
 export class QuestSystem extends GameObject {
   readonly definitions: readonly QuestDefinition[];
   private readonly byId = new Map<string, QuestDefinition>();
+  private readonly dependants = new Map<string, QuestDefinition[]>();
   private records: Record<string, QuestRecord> = Object.create(null) as Record<
     string,
     QuestRecord
@@ -77,6 +78,13 @@ export class QuestSystem extends GameObject {
       this.definitions.map((quest) => quest.id),
       (id) => this.byId.get(id)!.prerequisites ?? [],
     );
+    for (const quest of this.definitions) {
+      for (const parent of new Set(quest.prerequisites ?? [])) {
+        let dependants = this.dependants.get(parent);
+        if (!dependants) this.dependants.set(parent, (dependants = []));
+        dependants.push(quest);
+      }
+    }
   }
   get(id: string): Readonly<QuestRecord> {
     const record = this.records[id];
@@ -111,9 +119,9 @@ export class QuestSystem extends GameObject {
         return;
       record.status = 'completed';
       record.rewarded = true;
-      // Unlock all dependants before exposing callbacks, so save sees a coherent graph.
+      // Only direct dependants can become unlocked; keep definition order for callbacks.
       const unlocked: string[] = [];
-      for (const quest of this.definitions) {
+      for (const quest of this.dependants.get(id) ?? []) {
         if (
           this.records[quest.id].status === 'locked' &&
           quest.prerequisites!.every(
