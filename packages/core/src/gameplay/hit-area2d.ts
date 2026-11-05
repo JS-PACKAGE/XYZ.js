@@ -124,8 +124,12 @@ export class HitArea2D {
       i < this.points.length;
       j = i++
     ) {
-      const [ax, ay] = this.points[j],
-        [bx, by] = this.points[i];
+      const a = this.points[j],
+        b = this.points[i],
+        ax = a[0],
+        ay = a[1],
+        bx = b[0],
+        by = b[1];
       const cross = (x - ax) * (by - ay) - (y - ay) * (bx - ax);
       if (
         cross === 0 &&
