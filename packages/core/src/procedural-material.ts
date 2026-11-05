@@ -1186,6 +1186,7 @@ export type ProceduralMaterialKind =
   | 'crctables'
   | 'linearcodes'
   | 'selfreferentialsequences'
+  | 'numbertriangles'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2620,6 +2621,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'crctables',
   'linearcodes',
   'selfreferentialsequences',
+  'numbertriangles',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

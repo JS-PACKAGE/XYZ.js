@@ -1249,6 +1249,7 @@ try {
     'crctables',
     'linearcodes',
     'selfreferentialsequences',
+    'numbertriangles',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

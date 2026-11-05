@@ -1212,6 +1212,7 @@ const kinds: ProceduralMaterialKind[] = [
   'crctables',
   'linearcodes',
   'selfreferentialsequences',
+  'numbertriangles',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -218279,6 +218280,344 @@ describe('Self-referential sequences as four integer sequences that describe the
     expect(blue / (512 * 512)).toBeLessThan(96.2);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1072);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Number triangles as four counting triangles modulo m', () => {
+  const p = proceduralMaterialPresets.numbertriangles;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = 16;
+  const moduli = [2, 3, 4, 5, 6, 7, 8, 9];
+  const fact = (k: number): bigint => (k <= 1 ? 1n : BigInt(k) * fact(k - 1));
+  const choose = (a: number, b: number): bigint =>
+    b < 0 || b > a ? 0n : fact(a) / (fact(b) * fact(a - b));
+  /** The four triangles from closed formulas on big integers (not the sampler's recurrences), index r * 16 + c, -1 outside the triangle: Eulerian A(r + 1, c), Narayana N(r + 1, c + 1), Delannoy D(r, c) and Lah L(r + 1, c + 1). */
+  const exact: bigint[][] = [[], [], [], []].map(() =>
+    new Array<bigint>(n * n).fill(-1n),
+  );
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++) {
+      const size = r + 1;
+      if (c <= r) {
+        let sum = 0n;
+        for (let j = 0; j <= c + 1; j++)
+          sum +=
+            (j % 2 ? -1n : 1n) *
+            choose(size + 1, j) *
+            BigInt(c + 1 - j) ** BigInt(size);
+        exact[0][r * n + c] = sum;
+        const k = c + 1;
+        exact[1][r * n + c] =
+          (fact(size) * fact(size)) /
+          (fact(k) *
+            fact(k - 1) *
+            fact(size - k) *
+            fact(size - k + 1) *
+            BigInt(size));
+        exact[3][r * n + c] = (choose(size - 1, k - 1) * fact(size)) / fact(k);
+      }
+      let delannoy = 0n;
+      for (let k = 0; k <= Math.min(r, c); k++)
+        delannoy += choose(r, k) * choose(c, k) * 2n ** BigInt(k);
+      exact[2][r * n + c] = delannoy;
+    }
+  /** The residue (or -1 for an empty cell) of every cell of the four panels read back from the picture at the middle of every cell: panels[panel][r * 16 + c]. */
+  const readPanels = (seed: number): number[][] => {
+    const sample = createSurfaceSampler('numbertriangles', seed),
+      out = empty(),
+      modulus = moduli[seed % 8];
+    return [0, 1, 2, 3].map((panel) =>
+      Array.from({ length: n * n }, (_, index) => {
+        sample(
+          (n * (panel % 2) + (index % n) + 0.5) / (2 * n),
+          (n * Math.floor(panel / 2) + Math.floor(index / n) + 0.5) / (2 * n),
+          out,
+        );
+        if (out.height === 0) return -1;
+        const level =
+            (out.height / p.relief / p.cellHeight - p.heightBase) /
+            p.heightSwing,
+          residue = Math.round(level * (modulus - 1));
+        expect(Math.abs(level * (modulus - 1) - residue)).toBeLessThan(1e-9);
+        return residue;
+      }),
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('numbertriangles', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.0155, high: 0.9646, lit: 0.35638, mean: 0.31982 }],
+      [1, { low: 0.01587, high: 0.9638, lit: 0.20624, mean: 0.21104 }],
+      [2, { low: 0.01558, high: 0.9639, lit: 0.12805, mean: 0.23012 }],
+      [0xffffffff, { low: 0.01555, high: 0.9634, lit: 0.1544, mean: 0.22757 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('numbertriangles', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('shows the residues of the four triangles read back from the picture: equal to the closed formulas on big integers for 64 seeds, with empty cells outside the triangles', () => {
+    for (let seed = 0; seed < 64; seed++) {
+      const panels = readPanels(seed),
+        modulus = BigInt(moduli[seed % 8]),
+        rotation = Math.floor(seed / 8) % 4;
+      for (let panel = 0; panel < 4; panel++) {
+        const triangle = (panel + rotation) % 4;
+        const expected = exact[triangle].map((value) =>
+          value < 0n ? -1 : Number(value % modulus),
+        );
+        expect(panels[panel]).toEqual(expected);
+      }
+    }
+  });
+  it('has the known properties of the triangles, checked on the picture alone: symmetries, row sums, the all-odd Delannoy numbers and the sizes of the triangles', () => {
+    const catalan = (k: number): bigint => choose(2 * k, k) / BigInt(k + 1);
+    for (let seed = 0; seed < 64; seed++) {
+      const panels = readPanels(seed),
+        modulus = moduli[seed % 8],
+        rotation = Math.floor(seed / 8) % 4,
+        // The panel of each triangle: Eulerian, Narayana, Delannoy, Lah.
+        at = (triangle: number) => panels[(triangle - rotation + 4) % 4],
+        [eulerian, narayana, delannoy, lah] = [0, 1, 2, 3].map(at),
+        residue = (value: bigint) => Number(value % BigInt(modulus));
+      expect(
+        [eulerian, narayana, delannoy, lah].map(
+          (t) => t.filter((x) => x >= 0).length,
+        ),
+      ).toEqual([136, 136, 256, 136]);
+      for (let r = 0; r < n; r++) {
+        const size = r + 1;
+        let eulerianSum = 0,
+          narayanaSum = 0;
+        for (let c = 0; c < n; c++) {
+          // Eulerian A(n, k) = A(n, n - 1 - k), Narayana N(n, k) = N(n, n + 1 - k), Delannoy D(m, k) = D(k, m).
+          if (c <= r) {
+            expect(eulerian[r * n + c]).toBe(eulerian[r * n + (r - c)]);
+            expect(narayana[r * n + c]).toBe(narayana[r * n + (r - c)]);
+            eulerianSum += eulerian[r * n + c];
+            narayanaSum += narayana[r * n + c];
+          } else {
+            expect(eulerian[r * n + c]).toBe(-1);
+            expect(lah[r * n + c]).toBe(-1);
+          }
+          expect(delannoy[r * n + c]).toBe(delannoy[c * n + r]);
+        }
+        // The Eulerian numbers of a row add up to n! and the Narayana numbers to the Catalan number.
+        expect(eulerianSum % modulus).toBe(residue(fact(size)));
+        expect(narayanaSum % modulus).toBe(residue(catalan(size)));
+      }
+      // Every Delannoy number is odd, so modulo 2 the whole square is lit.
+      if (modulus === 2) expect(new Set(delannoy)).toEqual(new Set([1]));
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const cells = 2 * n,
+        panels = readPanels(seed),
+        modulus = moduli[seed % 8],
+        sample = createSurfaceSampler('numbertriangles', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * cells,
+          y = v * cells,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          // The gaps on the four sides of the cell: wider at the edge of a panel.
+          left = i % n === 0 ? p.gapPanel : p.gap,
+          right = i % n === n - 1 ? p.gapPanel : p.gap,
+          top = j % n === 0 ? p.gapPanel : p.gap,
+          bottom = j % n === n - 1 ? p.gapPanel : p.gap,
+          dx = Math.abs(x - i - (1 + left - right) / 2),
+          dy = Math.abs(y - j - (1 + top - bottom) / 2),
+          hx = (1 - left - right) / 2,
+          hy = (1 - top - bottom) / 2,
+          innerX = hx - p.corner,
+          innerY = hy - p.corner,
+          // The distance to the rounded rectangle, by the straight sides or by the corner circle.
+          distance =
+            dx <= innerX || dy <= innerY
+              ? Math.max(dx - hx, dy - hy)
+              : Math.hypot(dx - innerX, dy - innerY) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const residue =
+            panels[2 * Math.floor(j / n) + Math.floor(i / n)][
+              (j % n) * n + (i % n)
+            ],
+          ink = distance < 0 && residue >= 0 ? 1 : 0,
+          level = ink ? residue / (modulus - 1) : 0,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per modulus and rotation, repeats with the period 32 in the seed and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.2349853515625, 8);
+    expect(unlike(first, litGrid(8))).toBeCloseTo(0.451171875, 8);
+    expect(unlike(first, litGrid(16))).toBeCloseTo(0.3934326171875, 8);
+    expect(unlike(first, litGrid(24))).toBeCloseTo(0.451171875, 8);
+    // Eight moduli times four rotations: the seed 32 shows the picture of the seed 0.
+    expect(litGrid(32)).toEqual(first);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('numbertriangles', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 number triangle maps on dark coral with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('numbertriangles', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(77.1);
+    expect(red / (512 * 512)).toBeLessThan(77.4);
+    expect(green / (512 * 512)).toBeGreaterThan(38.1);
+    expect(green / (512 * 512)).toBeLessThan(38.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(29.1);
+    expect(blue / (512 * 512)).toBeLessThan(29.4);
+    expect(maxTilt).toBeGreaterThan(0.1034);
+    expect(maxTilt).toBeLessThan(0.1036);
     expect(invalid).toBe(0);
   });
 });

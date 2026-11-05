@@ -58223,6 +58223,94 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'numbertriangles': {
+        const p = proceduralMaterialPresets.numbertriangles,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          modulus = p.moduli[unsigned % p.moduli.length],
+          rotation = Math.floor(unsigned / p.moduli.length) % 4,
+          n = 16,
+          // The four triangles as exact integers (all below 2^53), index r * n + c, -1 outside the triangle.
+          binomial = Array.from({ length: n + 1 }, () =>
+            new Array<number>(n + 1).fill(0),
+          ),
+          eulerian = new Array<number>(n * n).fill(-1),
+          narayana = new Array<number>(n * n).fill(-1),
+          delannoy = new Array<number>(n * n).fill(-1),
+          lah = new Array<number>(n * n).fill(-1);
+        for (let a = 0; a <= n; a++) {
+          binomial[a][0] = 1;
+          for (let b = 1; b <= a; b++)
+            binomial[a][b] = binomial[a - 1][b - 1] + binomial[a - 1][b];
+        }
+        for (let r = 0; r < n; r++)
+          for (let c = 0; c < n; c++) {
+            const size = r + 1;
+            if (c <= r) {
+              // Eulerian: A(size, c) = (size - c) A(size - 1, c - 1) + (c + 1) A(size - 1, c).
+              eulerian[r * n + c] =
+                r === 0
+                  ? 1
+                  : (size - c) * (c > 0 ? eulerian[(r - 1) * n + c - 1] : 0) +
+                    (c + 1) * (c <= r - 1 ? eulerian[(r - 1) * n + c] : 0);
+              narayana[r * n + c] =
+                (binomial[size][c + 1] * binomial[size][c]) / size;
+              let ratio = 1;
+              for (let factor = c + 2; factor <= size; factor++)
+                ratio *= factor;
+              lah[r * n + c] = binomial[r][c] * ratio;
+            }
+            delannoy[r * n + c] =
+              r === 0 || c === 0
+                ? 1
+                : delannoy[(r - 1) * n + c] +
+                  delannoy[r * n + c - 1] +
+                  delannoy[(r - 1) * n + c - 1];
+          }
+        const triangles = [eulerian, narayana, delannoy, lah],
+          total = 2 * n;
+        return () => {
+          const x = fract(u) * total,
+            y = fract(v) * total,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            column = Math.floor(i / n),
+            row = Math.floor(j / n),
+            px = i % n,
+            py = j % n,
+            entry = triangles[(2 * row + column + rotation) % 4][py * n + px],
+            present = entry >= 0 ? 1 : 0,
+            level = present ? (entry % modulus) / (modulus - 1) : 0,
+            // The gaps on the four sides of the cell: wider at the edge of a panel.
+            left = px === 0 ? p.gapPanel : p.gap,
+            right = px === n - 1 ? p.gapPanel : p.gap,
+            top = py === 0 ? p.gapPanel : p.gap,
+            bottom = py === n - 1 ? p.gapPanel : p.gap,
+            hx = (1 - left - right) / 2,
+            hy = (1 - top - bottom) / 2,
+            qx = Math.abs(x - i - (1 + left - right) / 2) - (hx - p.corner),
+            qy = Math.abs(y - j - (1 + top - bottom) / 2) - (hy - p.corner),
+            // The distance to the rounded rectangle of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = present * smooth(clamp(0.5 - distance / p.edgeSoft)),
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -67211,6 +67299,7 @@ export function createSurfaceSampler(
     kind === 'crctables' ||
     kind === 'linearcodes' ||
     kind === 'selfreferentialsequences' ||
+    kind === 'numbertriangles' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
