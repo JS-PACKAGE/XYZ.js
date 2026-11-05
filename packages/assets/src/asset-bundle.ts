@@ -165,14 +165,16 @@ export function selectAssetBundleVariant(
 ): AssetBundleVariant {
   if (!renderer.capabilities.threeD)
     throw new AssetError('Renderer does not support bundle 3D models.');
-  if (
-    descriptor.textures.some(
-      (t) =>
-        t.width > renderer.capabilities.maxTextureSize ||
-        t.height > renderer.capabilities.maxTextureSize,
+  const textures = descriptor.textures;
+  for (let i = 0, count = textures.length; i < count; i++) {
+    if (!(i in textures)) continue;
+    const t = textures[i];
+    if (
+      t.width > renderer.capabilities.maxTextureSize ||
+      t.height > renderer.capabilities.maxTextureSize
     )
-  )
-    throw new AssetError('Bundle textures exceed device dimensions.');
+      throw new AssetError('Bundle textures exceed device dimensions.');
+  }
   const supported = new Set(renderer.capabilities.supportedTextureFormats);
   const variant = descriptor.variants.find(
     (v) =>

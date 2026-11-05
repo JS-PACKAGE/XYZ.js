@@ -62,6 +62,29 @@ describe('asset bundle consumer boundaries', () => {
     ).toThrow('does not support');
   });
 
+  it('checks every present texture in large and sparse descriptors', () => {
+    const input = descriptor();
+    input.textures = Array.from({ length: 4000 }, () => ({
+      width: 8,
+      height: 8,
+    }));
+    delete input.textures[100];
+    const bundle = parseAssetBundle(input);
+    expect(selectAssetBundleVariant(bundle, capabilities('webgpu')).path).toBe(
+      'raster.gltf',
+    );
+    const limited = capabilities('webgpu');
+    limited.capabilities.maxTextureSize = 7;
+    expect(() => selectAssetBundleVariant(bundle, limited)).toThrow(
+      'Bundle textures exceed device dimensions.',
+    );
+    input.textures[3999] = { width: 8, height: 8192 };
+    limited.capabilities.maxTextureSize = 4096;
+    expect(() =>
+      selectAssetBundleVariant(parseAssetBundle(input), limited),
+    ).toThrow('Bundle textures exceed device dimensions.');
+  });
+
   it('respects WebGPU compressed base-dimension alignment without imposing that constraint on WebGL2', () => {
     const bundle = parseAssetBundle(descriptor(7));
     expect(
