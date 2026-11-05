@@ -81084,3 +81084,527 @@ describe('uarttraces: the traces of an asynchronous serial line (UART, 8E1) with
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('pigpencipher: a sheet of the pigpen (Freemason) cipher, the letters as the lines of a grid or an X around them with or without a dot', () => {
+  const p = proceduralMaterialPresets.pigpencipher,
+    out = empty(),
+    n = p.cells,
+    size = p.symbolHalf,
+    half = p.lineHalf;
+  const toneAt = (sample: Sampler, x: number, y: number): number => {
+    // A place in tile units, as a place on the picture.
+    sample(x, y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  type Segment = [number, number, number, number];
+  type Symbol = { segments: Segment[]; dot: [number, number] | null };
+  // The key written out again here from its rule (grid, grid, X, X): in the tic-tac-toe grid a place is drawn as the lines of the grid that bound it (a place in the top row has no line above it, and so on), in the X the place is
+  // drawn as the two lines that bound it; the second grid and the second X have a dot.
+  const symbolOf = (letter: number): Symbol => {
+    if (letter < 18) {
+      const place = letter % 9,
+        row = Math.floor(place / 3),
+        column = place % 3,
+        segments: Segment[] = [];
+      if (row > 0) segments.push([-size, -size, size, -size]);
+      if (row < 2) segments.push([-size, size, size, size]);
+      if (column > 0) segments.push([-size, -size, -size, size]);
+      if (column < 2) segments.push([size, -size, size, size]);
+      return { segments, dot: letter >= 9 ? [0, 0] : null };
+    }
+    const wedge = (letter - 18) % 4,
+      corners: [number, number][][] = [
+        [
+          [-size, -size],
+          [size, -size],
+        ],
+        [
+          [-size, -size],
+          [-size, size],
+        ],
+        [
+          [size, -size],
+          [size, size],
+        ],
+        [
+          [-size, size],
+          [size, size],
+        ],
+      ],
+      segments: Segment[] = corners[wedge].map(([x, y]) => [x, y, 0, 0]),
+      dots: [number, number][] = [
+        [0, -size / 2],
+        [-size / 2, 0],
+        [size / 2, 0],
+        [0, size / 2],
+      ];
+    return { segments, dot: letter >= 22 ? dots[wedge] : null };
+  };
+  const distanceTo = (
+    x: number,
+    y: number,
+    [x0, y0, x1, y1]: Segment,
+  ): number => {
+    const dx = x1 - x0,
+      dy = y1 - y0,
+      t = Math.max(
+        0,
+        Math.min(1, ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - x0 - t * dx, y - y0 - t * dy);
+  };
+  // Whether a place (from the middle of its cell) is inked by the symbol, and how far it is from the nearest edge of it.
+  const signedInside = (
+    symbol: Symbol | null,
+    x: number,
+    y: number,
+  ): number => {
+    if (symbol === null) return -1;
+    let inside = -1;
+    for (const segment of symbol.segments)
+      inside = Math.max(inside, half - distanceTo(x, y, segment));
+    if (symbol.dot)
+      inside = Math.max(
+        inside,
+        p.dotRadius - Math.hypot(x - symbol.dot[0], y - symbol.dot[1]),
+      );
+    return inside;
+  };
+  type Reading = {
+    surface: number;
+    shift: number;
+    tones: { ground: number; ink: number };
+    letters: number[];
+  };
+  const centre = (index: number): [number, number] => [
+    ((index % n) + 0.5) / n,
+    (Math.floor(index / n) + 0.5) / n,
+  ];
+  // Decodes a cell from the picture: the middles of the four sides of the box (a grid symbol), the middles of the four lines to the middle (an X symbol) and the places of the dots. It gives null for a place that is neither ground nor ink.
+  const decode = (
+    sample: Sampler,
+    index: number,
+    tones: { ground: number; ink: number },
+  ): number | null => {
+    const [cx, cy] = centre(index),
+      read = (x: number, y: number): boolean | null => {
+        const tone = toneAt(sample, cx + x, cy + y);
+        if (Math.abs(tone - tones.ink) < 1e-6) return true;
+        if (Math.abs(tone - tones.ground) < 1e-6) return false;
+        return null;
+      },
+      s = size,
+      probes = {
+        top: read(0, -s),
+        bottom: read(0, s),
+        left: read(-s, 0),
+        right: read(s, 0),
+        topLeft: read(-s / 2, -s / 2),
+        topRight: read(s / 2, -s / 2),
+        bottomLeft: read(-s / 2, s / 2),
+        bottomRight: read(s / 2, s / 2),
+        middle: read(0, 0),
+        dots: [
+          read(0, -s / 2),
+          read(-s / 2, 0),
+          read(s / 2, 0),
+          read(0, s / 2),
+        ],
+      };
+    if (Object.values(probes).flat().includes(null)) return null;
+    const {
+      top,
+      bottom,
+      left,
+      right,
+      topLeft,
+      topRight,
+      bottomLeft,
+      bottomRight,
+    } = probes;
+    if (top || bottom || left || right) {
+      if (topLeft || topRight || bottomLeft || bottomRight) return null;
+      const row = top && bottom ? 1 : bottom ? 0 : top ? 2 : -1,
+        column = left && right ? 1 : right ? 0 : left ? 2 : -1;
+      if (row < 0 || column < 0) return null;
+      return row * 3 + column + (probes.middle ? 9 : 0);
+    }
+    if (topLeft || topRight || bottomLeft || bottomRight) {
+      const wedge =
+        topLeft && topRight && !bottomLeft && !bottomRight
+          ? 0
+          : topLeft && bottomLeft && !topRight && !bottomRight
+            ? 1
+            : topRight && bottomRight && !topLeft && !bottomLeft
+              ? 2
+              : bottomLeft && bottomRight && !topLeft && !topRight
+                ? 3
+                : -1;
+      if (wedge < 0) return null;
+      // The middle is where the two lines meet, so it is ink; the dot is in the place of the symbol.
+      return 18 + wedge + ((probes.dots as boolean[])[wedge] ? 4 : 0);
+    }
+    return probes.middle ? null : 26;
+  };
+  // Finds the surface and the letters from the picture: the ground in a corner of the tile gives the shift for each surface, and every cell must decode.
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [],
+      ground = toneAt(sample, 0, 0);
+    p.surfaces.forEach((surface, index) => {
+      const shift = ground - surface.ground,
+        tones = { ground, ink: surface.ink + shift };
+      if (Math.abs(shift) > p.toneShift + 1e-9) return;
+      const letters: number[] = [];
+      for (let cell = 0; cell < n * n; cell++) {
+        const letter = decode(sample, cell, tones);
+        if (letter === null) return;
+        letters.push(letter);
+      }
+      options.push({ surface: index, shift, tones, letters });
+    });
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  const symbolAt = (reading: Reading, cell: number): Symbol | null =>
+    reading.letters[cell] === 26 ? null : symbolOf(reading.letters[cell]);
+  // How far a place is from the nearest edge of the drawing of its cell (the edges of the lines and of the dot).
+  const edgeDistance = (
+    symbol: Symbol | null,
+    x: number,
+    y: number,
+  ): number => {
+    if (symbol === null) return Infinity;
+    let nearest = Infinity;
+    for (const segment of symbol.segments)
+      nearest = Math.min(nearest, Math.abs(distanceTo(x, y, segment) - half));
+    if (symbol.dot)
+      nearest = Math.min(
+        nearest,
+        Math.abs(
+          Math.hypot(x - symbol.dot[0], y - symbol.dot[1]) - p.dotRadius,
+        ),
+      );
+    return nearest;
+  };
+
+  it('draws 26 distinct symbols by the key (a grid, a grid with a dot, an X, an X with a dot), and a space', () => {
+    const seen = new Set<string>();
+    for (let letter = 0; letter < 26; letter++) {
+      const { segments, dot } = symbolOf(letter);
+      seen.add(
+        JSON.stringify([
+          segments
+            .map((segment) => segment.map((x) => Math.round(x * 1e6)))
+            .sort(),
+          dot,
+        ]),
+      );
+      // A grid symbol has between 2 and 4 lines, an X symbol 2.
+      if (letter < 18) {
+        expect(segments.length).toBeGreaterThanOrEqual(2);
+        expect(segments.length).toBeLessThanOrEqual(4);
+      } else expect(segments.length).toBe(2);
+      expect(dot !== null).toBe((letter >= 9 && letter < 18) || letter >= 22);
+    }
+    expect(seen.size).toBe(26);
+    // E is the middle place of the grid (the box without a dot), N the middle place of the second grid (the box with a dot).
+    expect(symbolOf(4).segments.length).toBe(4);
+    expect(symbolOf(4).dot).toBeNull();
+    expect(symbolOf(13).segments.length).toBe(4);
+    expect(symbolOf(13).dot).toEqual([0, 0]);
+  });
+
+  it(
+    'puts the tone, the height and the roughness of the model at every place of the picture away from the edges of the lines and dots, for several seeds',
+    { timeout: 120000 },
+    () => {
+      const o = empty();
+      for (const seed of [1, 2, 3, 4, 5, 6]) {
+        const sample = createSurfaceSampler('pigpencipher', seed),
+          reading = readSurface(sample);
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021,
+              cell = Math.floor(y * n) * n + Math.floor(x * n),
+              lx = x - (Math.floor(x * n) + 0.5) / n,
+              ly = y - (Math.floor(y * n) + 0.5) / n,
+              symbol = symbolAt(reading, cell);
+            if (edgeDistance(symbol, lx, ly) < 0.0008) continue;
+            sample(x, y, o);
+            const inked = signedInside(symbol, lx, ly) > 0;
+            expect(o.color).toBeCloseTo(
+              inked ? reading.tones.ink : reading.tones.ground,
+              6,
+            );
+            expect(o.height / p.relief).toBeCloseTo(
+              inked ? p.inkHeight : p.groundHeight,
+              6,
+            );
+            expect(o.roughness).toBeCloseTo(
+              inked ? p.inkRoughness : p.groundRoughness,
+              6,
+            );
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(100000);
+      }
+    },
+  );
+
+  it('puts the edges of the lines (the sides and the free ends) and of the dots where the model puts them: just inside and just outside by 0.0004 of a tile, exactly', () => {
+    const delta = 0.0004;
+    let lines = 0,
+      dots = 0,
+      ends = 0;
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('pigpencipher', seed),
+        reading = readSurface(sample),
+        { tones } = reading;
+      for (let cell = 0; cell < n * n; cell++) {
+        const symbol = symbolAt(reading, cell);
+        if (symbol === null) continue;
+        const [cx, cy] = centre(cell),
+          tone = (x: number, y: number): number =>
+            toneAt(sample, cx + x, cy + y);
+        for (const segment of symbol.segments) {
+          const [x0, y0, x1, y1] = segment,
+            length = Math.hypot(x1 - x0, y1 - y0),
+            ux = (x1 - x0) / length,
+            uy = (y1 - y0) / length,
+            mx = (x0 + x1) / 2,
+            my = (y0 + y1) / 2;
+          // The two sides in the middle of the line (over the ground: nothing else is near).
+          for (const side of [-1, 1]) {
+            close(
+              tone(
+                mx - uy * side * (half - delta),
+                my + ux * side * (half - delta),
+              ),
+              tones.ink,
+            );
+            close(
+              tone(
+                mx - uy * side * (half + delta),
+                my + ux * side * (half + delta),
+              ),
+              tones.ground,
+            );
+          }
+          lines++;
+          // The ends that no other line of the symbol shares.
+          for (const [ex, ey, dx, dy] of [
+            [x0, y0, -ux, -uy],
+            [x1, y1, ux, uy],
+          ]) {
+            const shared = symbol.segments.some(
+              (other) =>
+                other !== segment &&
+                ((other[0] === ex && other[1] === ey) ||
+                  (other[2] === ex && other[3] === ey)),
+            );
+            if (shared) continue;
+            close(
+              tone(ex + dx * (half - delta), ey + dy * (half - delta)),
+              tones.ink,
+            );
+            close(
+              tone(ex + dx * (half + delta), ey + dy * (half + delta)),
+              tones.ground,
+            );
+            ends++;
+          }
+        }
+        if (symbol.dot) {
+          const [dx, dy] = symbol.dot;
+          for (const [vx, vy] of [
+            [1, 0],
+            [0, 1],
+            [-1, 0],
+            [0, -1],
+          ]) {
+            close(
+              tone(
+                dx + vx * (p.dotRadius - delta),
+                dy + vy * (p.dotRadius - delta),
+              ),
+              tones.ink,
+            );
+            close(
+              tone(
+                dx + vx * (p.dotRadius + delta),
+                dy + vy * (p.dotRadius + delta),
+              ),
+              tones.ground,
+            );
+          }
+          dots++;
+        }
+      }
+    }
+    expect(lines).toBeGreaterThan(500);
+    expect(dots).toBeGreaterThan(100);
+    expect(ends).toBeGreaterThan(300);
+  });
+
+  it('softens the edge of a line of the box, of a diagonal line and of a dot over edgeSoft', () => {
+    const quarter = 0.25 * p.edgeSoft,
+      found = { box: false, diagonal: false, dot: false };
+    for (
+      let seed = 1;
+      seed < 30 && !(found.box && found.diagonal && found.dot);
+      seed++
+    ) {
+      const sample = createSurfaceSampler('pigpencipher', seed),
+        reading = readSurface(sample),
+        { tones } = reading;
+      for (let cell = 0; cell < n * n; cell++) {
+        const letter = reading.letters[cell],
+          [cx, cy] = centre(cell),
+          tone = (x: number, y: number): number =>
+            toneAt(sample, cx + x, cy + y);
+        // The top line of a box (E, the box), at its middle.
+        if (letter === 4 && !found.box) {
+          close(
+            tone(0, -size + half - quarter),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(0, -size + half + quarter),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          close(
+            tone(0, -size - half + quarter),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(0, -size - half - quarter),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          found.box = true;
+        }
+        // The line from the top left corner to the middle of the top wedge X (S, a V), at the middle of the line: the sides are along (1, -1).
+        if (letter === 18 && !found.diagonal) {
+          const mx = -size / 2,
+            my = -size / 2,
+            k = Math.SQRT1_2;
+          close(
+            tone(mx + k * (half - quarter), my - k * (half - quarter)),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(mx + k * (half + quarter), my - k * (half + quarter)),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          close(
+            tone(mx - k * (half - quarter), my + k * (half - quarter)),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(mx - k * (half + quarter), my + k * (half + quarter)),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          found.diagonal = true;
+        }
+        // The dot of a dotted box (N): the middle.
+        if (letter === 13 && !found.dot) {
+          close(
+            tone(p.dotRadius - quarter, 0),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(p.dotRadius + quarter, 0),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          found.dot = true;
+        }
+      }
+    }
+    expect(found).toEqual({ box: true, diagonal: true, dot: true });
+  });
+
+  it(
+    'uses every letter and the space about equally often, and every surface, over 1000 seeds, with the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const letters = new Array<number>(27).fill(0),
+        surfaces = new Map<number, number>(),
+        shifts: number[] = [];
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('pigpencipher', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        for (const letter of reading.letters) letters[letter]++;
+      }
+      for (const count of letters)
+        expect(Math.abs(count - 64000 / 27)).toBeLessThan(250);
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('pigpencipher', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('pigpencipher', 0),
+      b = createSurfaceSampler('pigpencipher', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

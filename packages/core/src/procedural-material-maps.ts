@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'pigpencipher',
   'uarttraces',
   'dynkindiagrams',
   'hassedivisors',
@@ -52145,6 +52146,107 @@ export function createSurfaceSampler(
           roughness = clamp(
             p.groundRoughness +
               (p.inkRoughness - p.groundRoughness) * Math.max(grid, trace),
+          );
+          occlusion = 1;
+        };
+      }
+      case 'pigpencipher': {
+        const p = proceduralMaterialPresets.pigpencipher,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(133, 1, seed ^ 0x2d0001) * p.surfaces.length)
+            ],
+          shift = (hash(133, 2, seed ^ 0x2d0002) * 2 - 1) * p.toneShift,
+          n = p.cells,
+          letters = new Uint8Array(n * n),
+          // The lines of the box around a place of the grid (top, right, bottom, left) and the lines of an X that bound a place (top left, top right, bottom left, bottom right to the middle), in units of symbolHalf from the middle of the place.
+          top = [-1, -1, 1, -1],
+          right = [1, -1, 1, 1],
+          bottom = [-1, 1, 1, 1],
+          left = [-1, -1, -1, 1],
+          topLeft = [-1, -1, 0, 0],
+          topRight = [1, -1, 0, 0],
+          bottomLeft = [-1, 1, 0, 0],
+          bottomRight = [1, 1, 0, 0],
+          shapes = [
+            [right, bottom],
+            [left, right, bottom],
+            [left, bottom],
+            [top, right, bottom],
+            [top, right, bottom, left],
+            [top, left, bottom],
+            [top, right],
+            [top, left, right],
+            [top, left],
+            [topLeft, topRight],
+            [topLeft, bottomLeft],
+            [topRight, bottomRight],
+            [bottomLeft, bottomRight],
+          ],
+          wedgeDots = [
+            [0, -0.5],
+            [-0.5, 0],
+            [0.5, 0],
+            [0, 0.5],
+          ];
+        for (let i = 0; i < n * n; i++)
+          letters[i] = Math.min(
+            p.letters - 1,
+            Math.floor(
+              hash(i % n, Math.floor(i / n), seed ^ 0x2d0003) * p.letters,
+            ),
+          );
+        return () => {
+          const x = (u - Math.floor(u)) * n,
+            y = (v - Math.floor(v)) * n,
+            cx = Math.floor(x),
+            cy = Math.floor(y),
+            lx = (x - cx - 0.5) / n,
+            ly = (y - cy - 0.5) / n,
+            letter = letters[cy * n + cx],
+            size = p.symbolHalf;
+          let inside = -1;
+          if (letter < 26) {
+            const shape =
+              shapes[
+                letter < 9 ? letter : letter < 22 ? letter - 9 : letter - 13
+              ];
+            for (const [x0, y0, x1, y1] of shape) {
+              const ax = x0 * size,
+                ay = y0 * size,
+                dx = x1 * size - ax,
+                dy = y1 * size - ay,
+                t = Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    ((lx - ax) * dx + (ly - ay) * dy) / (dx * dx + dy * dy),
+                  ),
+                );
+              inside = Math.max(
+                inside,
+                p.lineHalf - Math.hypot(lx - ax - t * dx, ly - ay - t * dy),
+              );
+            }
+            if ((letter >= 9 && letter < 18) || letter >= 22) {
+              const dot = letter < 18 ? [0, 0] : wedgeDots[letter - 22];
+              inside = Math.max(
+                inside,
+                p.dotRadius -
+                  Math.hypot(lx - dot[0] * size, ly - dot[1] * size),
+              );
+            }
+          }
+          const ink = cover(inside);
+          color = clamp(
+            surface.ground + shift + (surface.ink - surface.ground) * ink,
+          );
+          height = clamp(p.groundHeight + (p.inkHeight - p.groundHeight) * ink);
+          roughness = clamp(
+            p.groundRoughness + (p.inkRoughness - p.groundRoughness) * ink,
           );
           occlusion = 1;
         };

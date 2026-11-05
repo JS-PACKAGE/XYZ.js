@@ -18620,6 +18620,36 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  pigpencipher: Object.freeze({
+    dark: [30, 26, 20] as const,
+    light: [236, 228, 208] as const,
+    roughness: 0.62,
+    relief: 0.003,
+    // A sheet of the pigpen (Freemason's) cipher: cells x cells places, each with one of 26 letters as a symbol or a space (27 choices of the seed). The key is the common order of the Wikipedia article on the pigpen cipher
+    // (read for this: grid, grid, X, X; the article gives the image of the key and not the letters of each place in words, so the places are from my memory): the letters A to I are the nine places of a tic-tac-toe grid
+    // (A top left, B top middle, C top right, D middle left, E the middle, F middle right, G bottom left, H bottom middle, I bottom right) drawn as the lines of the grid around the place, J to R the same with a dot, S to V
+    // the four places of an X (S top, T left, U right, V bottom) drawn as the two lines that bound the place, W to Z the same with a dot. A symbol has the half size symbolHalf (of the tile, from the middle of its place), the
+    // lines have the half width lineHalf and the dot the radius dotRadius (the dot of a grid symbol in the middle, of an X symbol half way out in the place). The seed picks the letters and a surface (the tones of the
+    // ground and of the ink, shifted together a little).
+    cells: 8,
+    letters: 27,
+    symbolHalf: 0.045,
+    lineHalf: 0.0032,
+    dotRadius: 0.0085,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.9, ink: 0.15 }),
+      Object.freeze({ ground: 0.12, ink: 0.85 }),
+      Object.freeze({ ground: 0.78, ink: 0.36 }),
+      Object.freeze({ ground: 0.2, ink: 0.62 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the paper.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    inkHeight: 0.45,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25112,6 +25142,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  pigpencipher: 1,
   uarttraces: 1,
   dynkindiagrams: 1,
   hassedivisors: 1,
