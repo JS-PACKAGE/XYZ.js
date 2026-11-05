@@ -74,8 +74,8 @@ export class PostProcessor2D extends NativeEffect2D {}
 export function validateEffect2D(effect: Material2D | PostProcessor2D): void {
   if (effect.destroyed)
     throw new GraphicsError('Cannot use a destroyed 2D effect.');
-  for (const value of effect.uniforms) {
-    if (!Number.isFinite(value))
+  for (let i = 0; i < effect.uniforms.length; i++) {
+    if (!Number.isFinite(effect.uniforms[i]))
       throw new GraphicsError('2D effect uniforms must remain finite.');
   }
 }
