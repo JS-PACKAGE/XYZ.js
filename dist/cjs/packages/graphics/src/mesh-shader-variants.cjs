@@ -69,7 +69,7 @@ function omitShaderBlock(e, t) {
 			if (i) throw Error(`Unbalanced shader block: ${t}`);
 			e = e.slice(0, n) + e.slice(a);
 		}
-		n = e.indexOf(t);
+		n = e.indexOf(t, Math.max(0, n - t.length + 1));
 	}
 	return e;
 }

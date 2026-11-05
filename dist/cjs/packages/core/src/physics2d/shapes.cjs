@@ -92,14 +92,32 @@ function mergeAcross(e, n, r) {
 	}
 }
 function decomposeConvex(e) {
-	let t = normalized(e), n = earClip(t), r = !0;
-	for (; r;) {
-		r = !1;
-		outer: for (let e = 0; e < n.length; e++) for (let i = e + 1; i < n.length; i++) {
-			let a = mergeAcross(t, n[e], n[i]);
-			if (a) {
-				n = n.filter((t, n) => n !== e && n !== i), n.push(a), r = !0;
-				break outer;
+	let t = normalized(e), n = earClip(t), r = /* @__PURE__ */ new Map(), i = t.length, a = !0;
+	for (; a;) {
+		a = !1, r.clear();
+		let e = n.length > 16;
+		if (e) for (let t = 0; t < n.length; t++) {
+			let a = n[t];
+			for (let n = 0; n < a.length; n++) {
+				let o = a[n] * i + a[(n + 1) % a.length];
+				r.has(o) && (e = !1), r.set(o, t);
+			}
+		}
+		for (let o = 0; o < n.length; o++) {
+			let s = n[o], c = n.length, l;
+			if (e) for (let e = 0; e < s.length; e++) {
+				let a = r.get(s[(e + 1) % s.length] * i + s[e]);
+				if (a === void 0 || a <= o || a >= c) continue;
+				let u = mergeAcross(t, s, n[a]);
+				u && (c = a, l = u);
+			}
+			else for (let e = o + 1; e < n.length; e++) if (l = mergeAcross(t, s, n[e]), l) {
+				c = e;
+				break;
+			}
+			if (l) {
+				n.splice(c, 1), n.splice(o, 1), n.push(l), a = !0;
+				break;
 			}
 		}
 	}

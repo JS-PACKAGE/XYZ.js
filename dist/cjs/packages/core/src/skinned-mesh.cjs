@@ -112,7 +112,7 @@ var SkinnedMesh = class extends require_mesh.Mesh {
 				let t = a * this.influencesPerVertex + e, n = this.weights[t];
 				if (n === 0) continue;
 				let r = this.matrices[this.jointIndices[t]].elements;
-				for (let e = 0; e < 16; e++) o[e] += n * r[e];
+				o[0] += n * r[0], o[1] += n * r[1], o[2] += n * r[2], o[3] += n * r[3], o[4] += n * r[4], o[5] += n * r[5], o[6] += n * r[6], o[7] += n * r[7], o[8] += n * r[8], o[9] += n * r[9], o[10] += n * r[10], o[11] += n * r[11], o[12] += n * r[12], o[13] += n * r[13], o[14] += n * r[14], o[15] += n * r[15];
 			}
 			let s = a * 8, c = t[s], l = t[s + 1], u = t[s + 2];
 			e[s] = o[0] * c + o[4] * l + o[8] * u + o[12], e[s + 1] = o[1] * c + o[5] * l + o[9] * u + o[13], e[s + 2] = o[2] * c + o[6] * l + o[10] * u + o[14];

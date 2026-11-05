@@ -42,7 +42,7 @@ var AssetManifest = class {
 			let i = typeof t == `string` ? [t] : [...t];
 			if (i.some((e) => typeof e != `string`)) throw TypeError(`Manifest aliases must be a string or strings.`);
 			let a = i;
-			if (r += a.length, !a.length || r > require_rendering2d.rendering2dLimits.manifestEntries || a.some((e) => !e.trim() || this.aliases.has(e)) || new Set(a).size !== a.length) throw RangeError(`Manifest aliases must be unique, nonempty and bounded.`);
+			if (r += a.length, !a.length || r > require_rendering2d.rendering2dLimits.manifestEntries || a.some((e) => !e.trim() || this.aliases.has(e)) || a.length > 1 && new Set(a).size !== a.length) throw RangeError(`Manifest aliases must be unique, nonempty and bounded.`);
 			if (![
 				`texture`,
 				`binary`,
