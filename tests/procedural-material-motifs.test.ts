@@ -81608,3 +81608,518 @@ describe('pigpencipher: a sheet of the pigpen (Freemason) cipher, the letters as
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('ladderlogic: a ladder diagram of rungs of normally open and normally closed contacts, with a parallel branch, ending in a coil between two rails', () => {
+  const p = proceduralMaterialPresets.ladderlogic,
+    out = empty(),
+    rows = p.rows,
+    half = p.lineHalf;
+  const toneAt = (sample: Sampler, x: number, y: number): number => {
+    sample(x, y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // A rung as the diagram has it: for each place on the path a wire (0), a normally open contact (1) or a normally closed contact (2), a parallel branch around one place holding one more contact (or none), and whether the coil is the normally active one.
+  type Rung = {
+    places: number[];
+    branch: { place: number; kind: number } | null;
+    active: boolean;
+  };
+  type Segment = [number, number, number, number];
+  const pathY = (row: number): number => (row + p.wireAt) / rows,
+    branchY = (row: number): number => pathY(row) + p.branchDrop;
+  // The straight lines of a rung written out again here, with the wire of the path made by taking the places of the contacts out of it.
+  const contactLines = (at: number, y: number, kind: number): Segment[] => {
+    const lines: Segment[] = [
+      [at - p.barGap, y - p.barHalf, at - p.barGap, y + p.barHalf],
+      [at + p.barGap, y - p.barHalf, at + p.barGap, y + p.barHalf],
+    ];
+    if (kind === 2)
+      lines.push([at - p.barGap, y - p.barHalf, at + p.barGap, y + p.barHalf]);
+    return lines;
+  };
+  const linesOf = (rung: Rung, row: number): Segment[] => {
+    const y = pathY(row),
+      lines: Segment[] = [];
+    // The path from the left rail to the coil, minus the middle of each contact.
+    let from = p.railX;
+    rung.places.forEach((kind, place) => {
+      if (kind === 0) return;
+      const at = p.slotX[place];
+      lines.push([from, y, at - p.barGap, y], ...contactLines(at, y, kind));
+      from = at + p.barGap;
+    });
+    lines.push([from, y, p.coilX - p.coilReach, y]);
+    lines.push([p.coilX + p.coilReach, y, 1 - p.railX, y]);
+    if (rung.branch) {
+      const at = p.slotX[rung.branch.place],
+        by = branchY(row);
+      for (const side of [-1, 1]) {
+        lines.push([at + side * p.junction, y, at + side * p.junction, by]);
+        lines.push([at + side * p.junction, by, at + side * p.barGap, by]);
+      }
+      lines.push(...contactLines(at, by, rung.branch.kind));
+    }
+    if (rung.active)
+      lines.push([
+        p.coilX - p.coilSlash[0],
+        y - p.coilSlash[1],
+        p.coilX + p.coilSlash[0],
+        y + p.coilSlash[1],
+      ]);
+    return lines;
+  };
+  const distanceTo = (
+    x: number,
+    y: number,
+    [x0, y0, x1, y1]: Segment,
+  ): number => {
+    const dx = x1 - x0,
+      dy = y1 - y0,
+      t = Math.max(
+        0,
+        Math.min(1, ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - x0 - t * dx, y - y0 - t * dy);
+  };
+  // The two parentheses of a coil: the centre of the arc, the direction out and the arc.
+  const parens = [
+    { centre: p.coilX + p.parenShift, out: Math.PI },
+    { centre: p.coilX - p.parenShift, out: 0 },
+  ];
+  const arcPoint = (
+    paren: (typeof parens)[number],
+    turn: number,
+    row: number,
+    radius: number = p.parenRadius,
+  ): [number, number] => [
+    paren.centre + radius * Math.cos(paren.out + turn),
+    pathY(row) + radius * Math.sin(paren.out + turn),
+  ];
+  const arcDistance = (
+    paren: (typeof parens)[number],
+    x: number,
+    y: number,
+    row: number,
+  ): number => {
+    let turn = Math.atan2(y - pathY(row), x - paren.centre) - paren.out;
+    turn -= Math.round(turn / (2 * Math.PI)) * 2 * Math.PI;
+    const [ax, ay] = arcPoint(
+      paren,
+      Math.max(-p.parenSpan, Math.min(p.parenSpan, turn)),
+      row,
+    );
+    return Math.hypot(x - ax, y - ay);
+  };
+  // The distances from a place to the lines of the drawing: all of them (the rails, the lines of the rungs and the arcs of the coils).
+  const distances = (rungs: Rung[], x: number, y: number): number[] => {
+    const row = Math.min(rows - 1, Math.floor(y * rows)),
+      found = [
+        Math.abs(x - p.railX),
+        Math.abs(x - (1 - p.railX)),
+        ...linesOf(rungs[row], row).map((line) => distanceTo(x, y, line)),
+        ...parens.map((paren) => arcDistance(paren, x, y, row)),
+      ];
+    return found;
+  };
+  type Reading = {
+    surface: number;
+    shift: number;
+    tones: { ground: number; ink: number };
+    rungs: Rung[];
+  };
+  // Decodes a rung from the picture: for each place the two bars of a contact (both ink for a contact, both ground for a wire) and the middle (ink for a wire or a slash), the two lines that join a branch and its contact, the four marks on the parentheses of the coil and the middle of the coil for the slash. It gives null where a probe is neither ground nor ink or where the places do not make a ladder.
+  const decode = (
+    sample: Sampler,
+    row: number,
+    tones: { ground: number; ink: number },
+  ): Rung | null => {
+    const read = (x: number, y: number): boolean | null => {
+      const tone = toneAt(sample, x, y);
+      if (Math.abs(tone - tones.ink) < 1e-6) return true;
+      if (Math.abs(tone - tones.ground) < 1e-6) return false;
+      return null;
+    };
+    const y = pathY(row),
+      by = branchY(row),
+      kindAt = (at: number, level: number): number | null => {
+        const left = read(at - p.barGap, level - p.barHalf / 2),
+          right = read(at + p.barGap, level - p.barHalf / 2),
+          middle = read(at, level);
+        if (left === null || right === null || middle === null) return null;
+        if (left !== right) return null;
+        if (!left) return middle ? 0 : null;
+        return middle ? 2 : 1;
+      };
+    const places: number[] = [];
+    let branch: Rung['branch'] = null;
+    for (let place = 0; place < p.slotX.length; place++) {
+      const at = p.slotX[place],
+        kind = kindAt(at, y);
+      if (kind === null) return null;
+      places.push(kind);
+      const leftJoin = read(at - p.junction, (y + by) / 2),
+        rightJoin = read(at + p.junction, (y + by) / 2);
+      if (leftJoin === null || rightJoin === null || leftJoin !== rightJoin)
+        return null;
+      if (leftJoin) {
+        const kind = kindAt(at, by);
+        if (kind === null || kind === 0 || branch !== null) return null;
+        branch = { place, kind };
+      } else
+        for (const offset of [-p.barGap, 0, p.barGap])
+          if (read(at + offset, by) !== false) return null;
+    }
+    if (!places.some((kind) => kind !== 0)) return null;
+    // The coil: the marks on the two parentheses, above and below the path, are all ink, and the middle shows the slash.
+    for (const paren of parens)
+      for (const turn of [-0.3, 0.3]) {
+        const [x, py] = arcPoint(paren, turn, row);
+        if (read(x, py) !== true) return null;
+      }
+    const slash = read(p.coilX, y);
+    if (slash === null) return null;
+    return { places, branch, active: slash };
+  };
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [],
+      ground = toneAt(sample, 0, 0);
+    p.surfaces.forEach((surface, index) => {
+      const shift = ground - surface.ground,
+        tones = { ground, ink: surface.ink + shift };
+      if (Math.abs(shift) > p.toneShift + 1e-9) return;
+      const rungs: Rung[] = [];
+      for (let row = 0; row < rows; row++) {
+        const rung = decode(sample, row, tones);
+        if (rung === null) return;
+        rungs.push(rung);
+      }
+      options.push({ surface: index, shift, tones, rungs });
+    });
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has rungs with at least one contact on the path, at most one branch holding one contact around a place, and one coil at the far right between the rails', () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const { rungs } = readSurface(
+        createSurfaceSampler('ladderlogic', seed * 11 + 3),
+      );
+      expect(rungs.length).toBe(rows);
+      for (const rung of rungs) {
+        expect(rung.places.length).toBe(p.slotX.length);
+        expect(rung.places.some((kind) => kind !== 0)).toBe(true);
+        if (rung.branch) {
+          expect(rung.branch.place).toBeGreaterThanOrEqual(0);
+          expect(rung.branch.place).toBeLessThan(p.slotX.length);
+          expect([1, 2]).toContain(rung.branch.kind);
+        }
+      }
+    }
+    // The places are in order from the left rail to the coil, which is to the right of them and left of the right rail.
+    for (const at of p.slotX) {
+      expect(at - p.junction).toBeGreaterThan(p.railX);
+      expect(at + p.junction).toBeLessThan(p.coilX - p.coilReach);
+    }
+    for (let i = 1; i < p.slotX.length; i++)
+      expect(p.slotX[i] - p.slotX[i - 1]).toBeGreaterThan(2 * p.junction);
+    expect(p.coilX + p.coilReach).toBeLessThan(1 - p.railX);
+  });
+
+  it(
+    'puts the tone, the height and the roughness of the model at every place of the picture away from the edges of the lines, for several seeds',
+    { timeout: 120000 },
+    () => {
+      const o = empty();
+      for (const seed of [1, 2, 3, 4, 5, 6]) {
+        const sample = createSurfaceSampler('ladderlogic', seed),
+          reading = readSurface(sample);
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021,
+              distance = distances(reading.rungs, x, y).map((d) =>
+                Math.abs(d - half),
+              );
+            if (Math.min(...distance) < 0.0008) continue;
+            sample(x, y, o);
+            const inked = Math.min(...distances(reading.rungs, x, y)) < half;
+            expect(o.color).toBeCloseTo(
+              inked ? reading.tones.ink : reading.tones.ground,
+              6,
+            );
+            expect(o.height / p.relief).toBeCloseTo(
+              inked ? p.inkHeight : p.groundHeight,
+              6,
+            );
+            expect(o.roughness).toBeCloseTo(
+              inked ? p.inkRoughness : p.groundRoughness,
+              6,
+            );
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(100000);
+      }
+    },
+  );
+
+  // Whether no line (or arc) has an edge within the softened width of a place, so that the tone there is exactly ink or ground, and whether the line nearest to a place is the only one within the softened width of its outer edge, so that the soft edge of it is not changed by another.
+  const settled = (rungs: Rung[], x: number, y: number): boolean =>
+      distances(rungs, x, y).every((d) => Math.abs(d - half) >= 0.0003),
+    lonely = (rungs: Rung[], x: number, y: number): boolean =>
+      distances(rungs, x, y).filter((d) => d < half + 0.0003).length === 1;
+
+  it('puts the edges of the rails, of every line and of the parentheses of the coils where the model puts them: just inside and just outside by 0.0004 of a tile, exactly (where no other line is near)', () => {
+    const delta = 0.0004,
+      counts = { inside: 0, outside: 0, line: 0, arc: 0, end: 0 };
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('ladderlogic', seed),
+        reading = readSurface(sample),
+        { tones, rungs } = reading,
+        check = (x: number, y: number, kind: 'line' | 'arc' | 'end'): void => {
+          if (!settled(rungs, x, y)) return;
+          const inked = Math.min(...distances(rungs, x, y)) < half;
+          close(toneAt(sample, x, y), inked ? tones.ink : tones.ground);
+          counts[inked ? 'inside' : 'outside']++;
+          counts[kind]++;
+        };
+      for (const rail of [p.railX, 1 - p.railX])
+        for (const y of [0.11, 0.3, 0.52, 0.77])
+          for (const side of [-1, 1])
+            for (const d of [half - delta, half + delta])
+              check(rail + side * d, y, 'line');
+      rungs.forEach((rung, row) => {
+        for (const [x0, y0, x1, y1] of linesOf(rung, row)) {
+          const length = Math.hypot(x1 - x0, y1 - y0),
+            ux = (x1 - x0) / length,
+            uy = (y1 - y0) / length;
+          for (const along of [0.25, 0.5, 0.75])
+            for (const side of [-1, 1])
+              for (const d of [half - delta, half + delta])
+                check(
+                  x0 + (x1 - x0) * along - uy * side * d,
+                  y0 + (y1 - y0) * along + ux * side * d,
+                  'line',
+                );
+          // Near the two ends of the line (0.0022 in from the end, where it joins another line or ends in its round cap), a little inside and a little outside of the edge.
+          for (const fromEnd of [0.0022 / length, 1 - 0.0022 / length])
+            for (const side of [-1, 1])
+              for (const d of [half - delta, half + delta])
+                check(
+                  x0 + (x1 - x0) * fromEnd - uy * side * d,
+                  y0 + (y1 - y0) * fromEnd + ux * side * d,
+                  'line',
+                );
+        }
+        for (const paren of parens)
+          for (const turn of [-0.4, -0.2, 0.2, 0.4])
+            for (const radius of [
+              p.parenRadius + half - delta,
+              p.parenRadius + half + delta,
+              p.parenRadius - half + delta,
+              p.parenRadius - half - delta,
+            ]) {
+              const [x, y] = arcPoint(paren, turn, row, radius);
+              check(x, y, 'arc');
+            }
+        // Beyond the ends of the arcs, along the tangent out of the end.
+        for (const paren of parens)
+          for (const sign of [-1, 1]) {
+            const turn = sign * p.parenSpan,
+              [ex, ey] = arcPoint(paren, turn, row),
+              tx = -sign * Math.sin(paren.out + turn),
+              ty = sign * Math.cos(paren.out + turn);
+            for (const d of [half - delta, half + delta])
+              check(ex + tx * d, ey + ty * d, 'end');
+          }
+      });
+    }
+    expect(counts.line).toBeGreaterThan(3000);
+    expect(counts.arc).toBeGreaterThan(500);
+    expect(counts.end).toBeGreaterThan(100);
+    expect(counts.inside).toBeGreaterThan(1500);
+    expect(counts.outside).toBeGreaterThan(1500);
+  });
+
+  it('softens the edge of every line and of the parentheses over edgeSoft (a quarter of the soft width inside and outside, where no other line is near)', () => {
+    const quarter = 0.25 * p.edgeSoft;
+    let tested = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('ladderlogic', seed),
+        { tones, rungs } = readSurface(sample),
+        check = (x: number, y: number, inside: boolean): void => {
+          if (!lonely(rungs, x, y)) return;
+          close(
+            toneAt(sample, x, y),
+            blend(tones.ground, tones.ink, inside ? 0.75 : 0.25),
+          );
+          tested++;
+        };
+      for (const rail of [p.railX, 1 - p.railX])
+        for (const side of [-1, 1]) {
+          check(rail + side * (half - quarter), 0.3, true);
+          check(rail + side * (half + quarter), 0.3, false);
+        }
+      rungs.forEach((rung, row) => {
+        for (const [x0, y0, x1, y1] of linesOf(rung, row)) {
+          const length = Math.hypot(x1 - x0, y1 - y0),
+            ux = (x1 - x0) / length,
+            uy = (y1 - y0) / length;
+          for (const along of [0.3, 0.7])
+            for (const side of [-1, 1]) {
+              const x = x0 + (x1 - x0) * along,
+                y = y0 + (y1 - y0) * along;
+              check(
+                x - uy * side * (half - quarter),
+                y + ux * side * (half - quarter),
+                true,
+              );
+              check(
+                x - uy * side * (half + quarter),
+                y + ux * side * (half + quarter),
+                false,
+              );
+            }
+        }
+        for (const paren of parens)
+          for (const turn of [-0.3, 0.3]) {
+            const [x, y] = arcPoint(
+                paren,
+                turn,
+                row,
+                p.parenRadius + half - quarter,
+              ),
+              [ox, oy] = arcPoint(
+                paren,
+                turn,
+                row,
+                p.parenRadius + half + quarter,
+              );
+            check(x, y, true);
+            check(ox, oy, false);
+          }
+      });
+    }
+    expect(tested).toBeGreaterThan(2000);
+  });
+
+  it(
+    'uses the three kinds of place, the branch at every place with both kinds of contact, both coils and every surface about equally often over 1000 seeds, with the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const kinds = [0, 1, 2].map(() =>
+          new Array<number>(p.slotX.length).fill(0),
+        ),
+        branches = new Array<number>(p.slotX.length).fill(0),
+        branchKinds = [0, 0, 0],
+        coils = [0, 0],
+        surfaces = new Map<number, number>(),
+        shifts: number[] = [];
+      let rungCount = 0;
+      const firstOnly = [0, 0, 0];
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('ladderlogic', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        for (const rung of reading.rungs) {
+          rungCount++;
+          rung.places.forEach((kind, place) => kinds[kind][place]++);
+          if (rung.places[1] === 0 && rung.places[2] === 0)
+            firstOnly[rung.places[0]]++;
+          if (rung.branch) {
+            branches[rung.branch.place]++;
+            branchKinds[rung.branch.kind]++;
+          }
+          coils[Number(rung.active)]++;
+        }
+      }
+      expect(rungCount).toBe(6000);
+      // A place is a wire, a normally open or a normally closed contact one third of the time each, except for the first place, which takes a contact when a rung would have none (1 in 27 rungs).
+      for (let place = 1; place < p.slotX.length; place++)
+        for (const kind of [0, 1, 2])
+          expect(Math.abs(kinds[kind][place] - 2000)).toBeLessThan(180);
+      expect(Math.abs(kinds[0][0] - (6000 * 8) / 27)).toBeLessThan(180);
+      expect(Math.abs(kinds[1][0] - (6000 * 19) / 54)).toBeLessThan(180);
+      expect(Math.abs(kinds[2][0] - (6000 * 19) / 54)).toBeLessThan(180);
+      // A rung with a wire in the second and third place has a contact in the first (a wire there is replaced by a normally open or a normally closed contact, half each): 1 in 9 rungs, and the two kinds about equally often.
+      expect(firstOnly[0]).toBe(0);
+      expect(Math.abs(firstOnly[1] - firstOnly[2])).toBeLessThan(80);
+      expect(Math.abs(firstOnly[1] + firstOnly[2] - 6000 / 9)).toBeLessThan(
+        100,
+      );
+      const branched = branches.reduce((total, count) => total + count, 0);
+      expect(Math.abs(branched / 6000 - 0.5)).toBeLessThan(0.05);
+      for (const count of branches)
+        expect(Math.abs(count - branched / p.slotX.length)).toBeLessThan(150);
+      expect(Math.abs(branchKinds[1] - branched / 2)).toBeLessThan(150);
+      expect(Math.abs(branchKinds[2] - branched / 2)).toBeLessThan(150);
+      expect(Math.abs(coils[1] / 6000 - 0.5)).toBeLessThan(0.05);
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('ladderlogic', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('ladderlogic', 0),
+      b = createSurfaceSampler('ladderlogic', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

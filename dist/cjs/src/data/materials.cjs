@@ -28916,6 +28916,63 @@ var proceduralMaterialPresets = Object.freeze({
 		groundRoughness: .7,
 		inkRoughness: .4
 	}),
+	ladderlogic: Object.freeze({
+		dark: [
+			24,
+			28,
+			36
+		],
+		light: [
+			226,
+			230,
+			222
+		],
+		roughness: .55,
+		relief: .003,
+		rows: 6,
+		railX: .05,
+		wireAt: .35,
+		branchDrop: .05,
+		slotX: Object.freeze([
+			.22,
+			.42,
+			.62
+		]),
+		coilX: .8,
+		barGap: .016,
+		barHalf: .028,
+		junction: .036,
+		coilReach: .015,
+		parenRadius: .05,
+		parenShift: .035,
+		parenSpan: .55,
+		coilSlash: Object.freeze([.01, .025]),
+		lineHalf: .0032,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .9,
+				ink: .15
+			}),
+			Object.freeze({
+				ground: .12,
+				ink: .85
+			}),
+			Object.freeze({
+				ground: .78,
+				ink: .36
+			}),
+			Object.freeze({
+				ground: .2,
+				ink: .62
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		inkHeight: .45,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37597,6 +37654,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	ladderlogic: 1,
 	pigpencipher: 1,
 	uarttraces: 1,
 	dynkindiagrams: 1,

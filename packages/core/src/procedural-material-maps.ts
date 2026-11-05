@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'ladderlogic',
   'pigpencipher',
   'uarttraces',
   'dynkindiagrams',
@@ -52240,6 +52241,157 @@ export function createSurfaceSampler(
               );
             }
           }
+          const ink = cover(inside);
+          color = clamp(
+            surface.ground + shift + (surface.ink - surface.ground) * ink,
+          );
+          height = clamp(p.groundHeight + (p.inkHeight - p.groundHeight) * ink);
+          roughness = clamp(
+            p.groundRoughness + (p.inkRoughness - p.groundRoughness) * ink,
+          );
+          occlusion = 1;
+        };
+      }
+      case 'ladderlogic': {
+        const p = proceduralMaterialPresets.ladderlogic,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(134, 1, seed ^ 0x2e0001) * p.surfaces.length)
+            ],
+          shift = (hash(134, 2, seed ^ 0x2e0002) * 2 - 1) * p.toneShift,
+          rows = p.rows,
+          band = 1 / rows,
+          pathY = p.wireAt * band,
+          branchY = pathY + p.branchDrop,
+          // The straight lines of each rung (x0, y0, x1, y1: x in the tile and y from the top of the band of the rung): wires, the bars of contacts and slashes.
+          rungs: number[][][] = [],
+          contact = (
+            list: number[][],
+            at: number,
+            y: number,
+            closed: boolean,
+          ): void => {
+            for (const side of [-1, 1])
+              list.push([
+                at + side * p.barGap,
+                y - p.barHalf,
+                at + side * p.barGap,
+                y + p.barHalf,
+              ]);
+            if (closed)
+              list.push([
+                at - p.barGap,
+                y - p.barHalf,
+                at + p.barGap,
+                y + p.barHalf,
+              ]);
+          };
+        for (let row = 0; row < rows; row++) {
+          const types: number[] = p.slotX.map((_, slot) =>
+              Math.floor(hash(row, slot, seed ^ 0x2e0003) * 3),
+            ),
+            list: number[][] = [];
+          if (Math.max(...types) === 0)
+            types[0] = 1 + Math.floor(hash(row, 3, seed ^ 0x2e0003) * 2);
+          let cursor = p.railX;
+          p.slotX.forEach((at, slot) => {
+            if (types[slot] === 0) return;
+            list.push([cursor, pathY, at - p.barGap, pathY]);
+            contact(list, at, pathY, types[slot] === 2);
+            cursor = at + p.barGap;
+          });
+          list.push(
+            [cursor, pathY, p.coilX - p.coilReach, pathY],
+            [p.coilX + p.coilReach, pathY, 1 - p.railX, pathY],
+          );
+          if (hash(row, 4, seed ^ 0x2e0003) < 0.5) {
+            const at =
+              p.slotX[
+                Math.min(
+                  p.slotX.length - 1,
+                  Math.floor(hash(row, 5, seed ^ 0x2e0003) * p.slotX.length),
+                )
+              ];
+            for (const side of [-1, 1])
+              list.push(
+                [
+                  at + side * p.junction,
+                  pathY,
+                  at + side * p.junction,
+                  branchY,
+                ],
+                [
+                  at + side * p.junction,
+                  branchY,
+                  at + side * p.barGap,
+                  branchY,
+                ],
+              );
+            contact(list, at, branchY, hash(row, 6, seed ^ 0x2e0003) < 0.5);
+          }
+          if (hash(row, 7, seed ^ 0x2e0003) < 0.5)
+            list.push([
+              p.coilX - p.coilSlash[0],
+              pathY - p.coilSlash[1],
+              p.coilX + p.coilSlash[0],
+              pathY + p.coilSlash[1],
+            ]);
+          rungs.push(list);
+        }
+        // The inside distance of the line of a parenthesis: an arc of the radius parenRadius about (centreX, pathY) that reaches parenSpan each side of the direction out.
+        const parenthesis = (
+          x: number,
+          y: number,
+          centreX: number,
+          out: number,
+        ): number => {
+          const dx = x - centreX,
+            dy = y - pathY;
+          let turn = Math.atan2(dy, dx) - out;
+          turn -= Math.round(turn / (2 * Math.PI)) * 2 * Math.PI;
+          if (Math.abs(turn) <= p.parenSpan)
+            return p.lineHalf - Math.abs(Math.hypot(dx, dy) - p.parenRadius);
+          const end = out + Math.sign(turn) * p.parenSpan;
+          return (
+            p.lineHalf -
+            Math.hypot(
+              dx - p.parenRadius * Math.cos(end),
+              dy - p.parenRadius * Math.sin(end),
+            )
+          );
+        };
+        return () => {
+          const x = u - Math.floor(u),
+            y = v - Math.floor(v),
+            row = Math.floor(y * rows),
+            local = y - row * band;
+          let inside =
+            p.lineHalf -
+            Math.min(Math.abs(x - p.railX), Math.abs(x - (1 - p.railX)));
+          for (const [x0, y0, x1, y1] of rungs[row]) {
+            const dx = x1 - x0,
+              dy = y1 - y0,
+              t = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((x - x0) * dx + (local - y0) * dy) / (dx * dx + dy * dy),
+                ),
+              );
+            inside = Math.max(
+              inside,
+              p.lineHalf - Math.hypot(x - x0 - t * dx, local - y0 - t * dy),
+            );
+          }
+          if (Math.abs(x - p.coilX) < p.coilReach + 2 * p.lineHalf)
+            inside = Math.max(
+              inside,
+              parenthesis(x, local, p.coilX + p.parenShift, Math.PI),
+              parenthesis(x, local, p.coilX - p.parenShift, 0),
+            );
           const ink = cover(inside);
           color = clamp(
             surface.ground + shift + (surface.ink - surface.ground) * ink,

@@ -17018,6 +17018,46 @@ export declare const proceduralMaterialPresets: Readonly<{
         groundRoughness: 0.7;
         inkRoughness: 0.4;
     }>;
+    ladderlogic: Readonly<{
+        dark: readonly [24, 28, 36];
+        light: readonly [226, 230, 222];
+        roughness: 0.55;
+        relief: 0.003;
+        rows: 6;
+        railX: 0.05;
+        wireAt: 0.35;
+        branchDrop: 0.05;
+        slotX: readonly number[];
+        coilX: 0.8;
+        barGap: 0.016;
+        barHalf: 0.028;
+        junction: 0.036;
+        coilReach: 0.015;
+        parenRadius: 0.05;
+        parenShift: 0.035;
+        parenSpan: 0.55;
+        coilSlash: readonly number[];
+        lineHalf: 0.0032;
+        edgeSoft: 0.0006;
+        surfaces: readonly (Readonly<{
+            ground: 0.9;
+            ink: 0.15;
+        }> | Readonly<{
+            ground: 0.12;
+            ink: 0.85;
+        }> | Readonly<{
+            ground: 0.78;
+            ink: 0.36;
+        }> | Readonly<{
+            ground: 0.2;
+            ink: 0.62;
+        }>)[];
+        toneShift: 0.04;
+        groundHeight: 0.15;
+        inkHeight: 0.45;
+        groundRoughness: 0.7;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23503,6 +23543,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    ladderlogic: 1;
     pigpencipher: 1;
     uarttraces: 1;
     dynkindiagrams: 1;

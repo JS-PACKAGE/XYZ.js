@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'ladderlogic',
     'pigpencipher',
     'uarttraces',
     'dynkindiagrams',

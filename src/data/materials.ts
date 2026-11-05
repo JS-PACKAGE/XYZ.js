@@ -18650,6 +18650,48 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  ladderlogic: Object.freeze({
+    dark: [24, 28, 36] as const,
+    light: [226, 230, 222] as const,
+    roughness: 0.55,
+    relief: 0.003,
+    // A ladder diagram (ladder logic of programmable controllers) as the Wikipedia article on ladder logic describes it (read for this): two vertical rails and between them rungs, each rung a path from the left rail
+    // through contacts (a normally open contact is drawn as two bars with nothing between them, a normally closed contact as the same with a slash through it) to one coil at the far right (a coil is drawn as two
+    // parentheses, a normally active coil with a slash through them) and the right rail. The article draws the contacts as [ ] and [\] and the coils as ( ) and (\) in text; the two bars of a contact in place of the
+    // square brackets, and where the slash goes in a contact or a coil, are my drawing. A rung has three places for a contact on its path (each a wire, a normally open or a normally closed contact), and may have a
+    // parallel branch around one of the places that holds one more contact. The seed picks the contacts, the branch and the kind of coil of each rung (at least one contact on the path) and a surface (the tones of the
+    // ground and of the ink, shifted together a little). Lengths are in tiles from the rail or the middle of a place: rows rungs one above another, the path at wireAt of the height of a rung, the branch branchDrop
+    // below it, the places at slotX, the coil at coilX, a contact of the bars barGap each side of the middle and barHalf high, the branch rejoining the path junction each side of the middle, a coil of parentheses
+    // of the radius parenRadius reaching coilReach each side of its middle (the centres of the arcs parenShift from the middle, the arcs parenSpan each side of the direction out).
+    rows: 6,
+    railX: 0.05,
+    wireAt: 0.35,
+    branchDrop: 0.05,
+    slotX: Object.freeze([0.22, 0.42, 0.62]),
+    coilX: 0.8,
+    barGap: 0.016,
+    barHalf: 0.028,
+    junction: 0.036,
+    coilReach: 0.015,
+    parenRadius: 0.05,
+    parenShift: 0.035,
+    parenSpan: 0.55,
+    coilSlash: Object.freeze([0.01, 0.025]),
+    lineHalf: 0.0032,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.9, ink: 0.15 }),
+      Object.freeze({ ground: 0.12, ink: 0.85 }),
+      Object.freeze({ ground: 0.78, ink: 0.36 }),
+      Object.freeze({ ground: 0.2, ink: 0.62 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    inkHeight: 0.45,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25142,6 +25184,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  ladderlogic: 1,
   pigpencipher: 1,
   uarttraces: 1,
   dynkindiagrams: 1,
