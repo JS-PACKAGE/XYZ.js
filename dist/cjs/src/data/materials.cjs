@@ -12160,39 +12160,6 @@ var proceduralMaterialPresets = Object.freeze({
 		grainRoughness: .04,
 		patternAO: .82
 	}),
-	bayerdither: Object.freeze({
-		dark: [
-			18,
-			22,
-			30
-		],
-		light: [
-			236,
-			232,
-			214
-		],
-		roughness: .62,
-		relief: .0036,
-		blocks: 64,
-		phase: .25,
-		levelCells: 3,
-		contrast: 1.5,
-		gap: .06,
-		bevel: .12,
-		jitter: .05,
-		gapTone: .02,
-		onTone: .9,
-		offTone: .14,
-		floorHeight: .04,
-		onHeight: .92,
-		offHeight: .46,
-		onRoughness: .42,
-		offRoughness: .78,
-		gapRoughness: .95,
-		floorAO: .5,
-		onAO: 1,
-		offAO: .8
-	}),
 	patchworkquilt: Object.freeze({
 		dark: [
 			46,
@@ -12974,37 +12941,6 @@ var proceduralMaterialPresets = Object.freeze({
 		voidAO: .35,
 		jointAO: .55
 	}),
-	moirefringes: Object.freeze({
-		dark: [
-			18,
-			20,
-			30
-		],
-		light: [
-			240,
-			236,
-			222
-		],
-		roughness: .62,
-		relief: .0014,
-		kx1: 24,
-		ky1: 3,
-		kx2: 24,
-		ky2: -3,
-		duty: .26,
-		edgeSoft: .1,
-		fiberCells: 256,
-		paperTone: .97,
-		inkTone: .04,
-		fiberTone: .03,
-		inkHeight: .55,
-		paperHeight: .3,
-		fiberHeight: .08,
-		paperRoughness: .66,
-		inkRoughness: .45,
-		paperAO: 1,
-		inkAO: .9
-	}),
 	azulejotiles: Object.freeze({
 		dark: [
 			18,
@@ -13279,111 +13215,6 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .42,
 		paperRoughness: .64
 	}),
-	ecgpaper: Object.freeze({
-		dark: [
-			28,
-			10,
-			22
-		],
-		light: [
-			252,
-			236,
-			236
-		],
-		roughness: .7,
-		relief: .0012,
-		millimeters: 80,
-		rows: 4,
-		major: 5,
-		beat: 20,
-		minorHalfWidth: .045,
-		majorHalfWidth: .09,
-		traceHalfWidth: .2,
-		lineSoft: .06,
-		waves: [
-			[
-				3,
-				.9,
-				.55
-			],
-			[
-				7.6,
-				-.8,
-				.22
-			],
-			[
-				8.4,
-				7,
-				.24
-			],
-			[
-				9.3,
-				-1.8,
-				.26
-			],
-			[
-				14.5,
-				1.7,
-				1
-			]
-		],
-		amplitudeJitter: .06,
-		wanderAmplitude: .25,
-		paperCells: 256,
-		inkCells: 128,
-		paperTone: .96,
-		minorTone: .84,
-		majorTone: .68,
-		inkTone: .04,
-		inkGain: .05,
-		paperGrain: .02,
-		inkHeight: .55,
-		paperHeight: .3,
-		lineHeight: .36,
-		inkRoughness: .4,
-		paperRoughness: .74
-	}),
-	sheetmusic: Object.freeze({
-		dark: [
-			20,
-			16,
-			14
-		],
-		light: [
-			244,
-			236,
-			214
-		],
-		roughness: .74,
-		relief: .0014,
-		staves: 8,
-		beats: 16,
-		barBeats: 4,
-		spacing: .015625,
-		lineHalf: .07,
-		barHalf: .045,
-		headA: .66,
-		headB: .46,
-		headTilt: .35,
-		holeA: .42,
-		holeB: .2,
-		holeChance: .3,
-		stemHalf: .05,
-		stemLength: 3.5,
-		maxPosition: 8,
-		middlePosition: 4,
-		edgeSoft: .1,
-		inkCells: 128,
-		paperCells: 256,
-		paperTone: .9,
-		inkTone: .05,
-		inkGain: .06,
-		paperGrain: .04,
-		inkHeight: .58,
-		paperHeight: .3,
-		inkRoughness: .46,
-		paperRoughness: .78
-	}),
 	sudokugrid: Object.freeze({
 		dark: [
 			22,
@@ -13533,41 +13364,6 @@ var proceduralMaterialPresets = Object.freeze({
 		fretRoughness: .28,
 		inlayRoughness: .3,
 		stringShadow: .5
-	}),
-	crosswordgrid: Object.freeze({
-		dark: [
-			20,
-			20,
-			26
-		],
-		light: [
-			244,
-			240,
-			230
-		],
-		roughness: .72,
-		relief: .0014,
-		size: 15,
-		blackTarget: .17,
-		attempts: 600,
-		minRun: 3,
-		pixel: .05,
-		numberLeft: .08,
-		numberTop: .08,
-		lineHalf: .016,
-		edgeSoft: .004,
-		inkCells: 192,
-		paperCells: 256,
-		paperTone: .94,
-		blackTone: .05,
-		lineTone: .14,
-		digitTone: .08,
-		inkGain: .06,
-		paperGrain: .04,
-		inkHeight: .56,
-		paperHeight: .3,
-		inkRoughness: .44,
-		paperRoughness: .76
 	}),
 	flipdotdisplay: Object.freeze({
 		dark: [
@@ -13720,34 +13516,6 @@ var proceduralMaterialPresets = Object.freeze({
 		hullRoughness: .55,
 		pegRoughness: .4,
 		hullAO: .8
-	}),
-	hilbertcurve: Object.freeze({
-		dark: [
-			16,
-			22,
-			52
-		],
-		light: [
-			244,
-			238,
-			222
-		],
-		roughness: .62,
-		relief: .0014,
-		order: 4,
-		lineHalf: .14,
-		edgeSoft: .03,
-		paperCells: 256,
-		inkCells: 128,
-		paperTone: .94,
-		startTone: .08,
-		endTone: .55,
-		inkGain: .04,
-		paperGrain: .04,
-		inkHeight: .56,
-		paperHeight: .3,
-		inkRoughness: .42,
-		paperRoughness: .72
 	}),
 	mondriancomposition: Object.freeze({
 		dark: [
@@ -14355,39 +14123,6 @@ var proceduralMaterialPresets = Object.freeze({
 		bodyRoughness: .6,
 		paperRoughness: .75
 	}),
-	knightstour: Object.freeze({
-		dark: [
-			28,
-			22,
-			18
-		],
-		light: [
-			240,
-			226,
-			196
-		],
-		roughness: .55,
-		relief: .0022,
-		size: 8,
-		nodeBudget: 4e4,
-		attempts: 60,
-		digitPixel: .0125,
-		digitGap: .0125,
-		lineHalf: .0035,
-		edgeSoft: .0015,
-		grainCells: 192,
-		lightSquare: .88,
-		darkSquare: .6,
-		lineTone: .52,
-		inkTone: .08,
-		grainTone: .025,
-		inkHeight: .6,
-		lineHeight: .45,
-		squareHeight: .3,
-		darkSquareHeight: .26,
-		inkRoughness: .4,
-		squareRoughness: .62
-	}),
 	graycodediscs: Object.freeze({
 		dark: [
 			14,
@@ -14983,42 +14718,6 @@ var proceduralMaterialPresets = Object.freeze({
 		roughnessSpan: .3,
 		roughnessBase: .4
 	}),
-	elementaryautomata: Object.freeze({
-		dark: [
-			10,
-			16,
-			30
-		],
-		light: [
-			236,
-			240,
-			226
-		],
-		roughness: .55,
-		relief: .0014,
-		rules: [
-			90,
-			110,
-			150,
-			184
-		],
-		cells: 31,
-		seedDensity: .12,
-		inset: .08,
-		panelLine: .004,
-		edgeSoft: .02,
-		grainCells: 192,
-		paperTone: .95,
-		deadTone: .85,
-		liveTone: .1,
-		lineTone: .4,
-		grainTone: .03,
-		liveHeight: .6,
-		paperHeight: .3,
-		lineHeight: .45,
-		liveRoughness: .4,
-		paperRoughness: .72
-	}),
 	mastermindboard: Object.freeze({
 		dark: [
 			30,
@@ -15116,44 +14815,6 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .4,
 		paperRoughness: .72
 	}),
-	magicsquares: Object.freeze({
-		dark: [
-			28,
-			22,
-			38
-		],
-		light: [
-			246,
-			238,
-			214
-		],
-		roughness: .6,
-		relief: .0014,
-		orders: [
-			3,
-			4,
-			5,
-			7
-		],
-		margin: .02,
-		digitFraction: .11,
-		lineHalf: .0014,
-		outerHalf: .0028,
-		edgeSoft: .0013,
-		grainCells: 192,
-		jitterCells: 96,
-		paperTone: .95,
-		cellTone: .9,
-		lineTone: .5,
-		inkTone: .1,
-		inkJitter: .05,
-		grainTone: .03,
-		inkHeight: .58,
-		lineHeight: .4,
-		paperHeight: .3,
-		inkRoughness: .4,
-		paperRoughness: .72
-	}),
 	slidingpuzzle: Object.freeze({
 		dark: [
 			30,
@@ -15191,47 +14852,6 @@ var proceduralMaterialPresets = Object.freeze({
 		faceRoughness: .42,
 		frameRoughness: .68,
 		holeRoughness: .9
-	}),
-	kaleidoscope: Object.freeze({
-		dark: [
-			18,
-			20,
-			44
-		],
-		light: [
-			250,
-			226,
-			168
-		],
-		roughness: .34,
-		relief: .002,
-		folds: [
-			6,
-			8,
-			5,
-			12
-		],
-		blobs: 9,
-		rimStart: .455,
-		rimEnd: .485,
-		edgeSoft: .012,
-		ringFrequency: 14,
-		ringAmplitude: .16,
-		baseTone: .4,
-		blobTones: [
-			.12,
-			.28,
-			.5,
-			.66,
-			.82,
-			.95
-		],
-		rimTone: .06,
-		blobHeight: .62,
-		baseHeight: .4,
-		rimHeight: .2,
-		roughnessBase: .4,
-		roughnessBlob: .26
 	}),
 	oghaminscription: Object.freeze({
 		dark: [
@@ -15287,42 +14907,6 @@ var proceduralMaterialPresets = Object.freeze({
 		stoneRoughness: .88,
 		carveRoughness: .74
 	}),
-	gameoflife: Object.freeze({
-		dark: [
-			8,
-			22,
-			20
-		],
-		light: [
-			150,
-			255,
-			190
-		],
-		roughness: .46,
-		relief: .004,
-		size: 20,
-		density: .36,
-		burnIn: 10,
-		margin: .02,
-		inset: .14,
-		lineHalf: 7e-4,
-		frameHalf: .0026,
-		edgeSoft: .0011,
-		grainCells: 160,
-		deadTone: .1,
-		lineTone: .2,
-		liveTone: .9,
-		frameTone: .5,
-		paperTone: .04,
-		grainTone: .03,
-		liveHeight: .8,
-		deadHeight: .3,
-		lineHeight: .22,
-		frameHeight: .5,
-		paperHeight: .12,
-		liveRoughness: .3,
-		deadRoughness: .62
-	}),
 	pascalmodulo: Object.freeze({
 		dark: [
 			18,
@@ -15359,66 +14943,6 @@ var proceduralMaterialPresets = Object.freeze({
 		heightStep: .12,
 		tileRoughness: .34,
 		emptyRoughness: .8
-	}),
-	dragoncurve: Object.freeze({
-		dark: [
-			14,
-			10,
-			30
-		],
-		light: [
-			255,
-			170,
-			60
-		],
-		roughness: .4,
-		relief: .003,
-		order: 11,
-		margin: .04,
-		lineHalf: .17,
-		edgeSoft: .07,
-		grainCells: 192,
-		backgroundTone: .05,
-		startTone: .42,
-		endTone: .96,
-		grainTone: .03,
-		lineHeight: .75,
-		backgroundHeight: .15,
-		lineRoughness: .32,
-		backgroundRoughness: .82
-	}),
-	cantordust: Object.freeze({
-		dark: [
-			10,
-			16,
-			28
-		],
-		light: [
-			120,
-			235,
-			255
-		],
-		roughness: .44,
-		relief: .003,
-		rows: 6,
-		barDigits: 5,
-		dustDigits: 3,
-		margin: .03,
-		barFill: .6,
-		dustSide: .44,
-		edgeSoft: 9e-4,
-		grainCells: 192,
-		backgroundTone: .05,
-		guideTone: .12,
-		firstTone: .42,
-		lastTone: .92,
-		dustTone: .9,
-		grainTone: .03,
-		barHeight: .7,
-		backgroundHeight: .15,
-		guideHeight: .25,
-		barRoughness: .34,
-		backgroundRoughness: .82
 	}),
 	eightqueens: Object.freeze({
 		dark: [
@@ -15495,42 +15019,6 @@ var proceduralMaterialPresets = Object.freeze({
 		frameHeight: .4,
 		woodRoughness: .62,
 		diskRoughness: .34
-	}),
-	latinsquares: Object.freeze({
-		dark: [
-			20,
-			18,
-			40
-		],
-		light: [
-			255,
-			214,
-			130
-		],
-		roughness: .5,
-		relief: .003,
-		orders: [
-			5,
-			6,
-			7,
-			8
-		],
-		margin: .02,
-		gap: .0016,
-		frameHalf: .0028,
-		edgeSoft: .0011,
-		grainCells: 192,
-		lowTone: .16,
-		highTone: .96,
-		frameTone: .5,
-		paperTone: .05,
-		grainTone: .03,
-		cellHeight: .7,
-		heightStep: .12,
-		frameHeight: .4,
-		paperHeight: .15,
-		cellRoughness: .34,
-		paperRoughness: .8
 	}),
 	mayansums: Object.freeze({
 		dark: [
@@ -15609,44 +15097,6 @@ var proceduralMaterialPresets = Object.freeze({
 		frameHeight: .4,
 		barRoughness: .3,
 		panelRoughness: .75
-	}),
-	primesieve: Object.freeze({
-		dark: [
-			16,
-			14,
-			36
-		],
-		light: [
-			255,
-			230,
-			120
-		],
-		roughness: .46,
-		relief: .004,
-		size: 16,
-		firstMax: 744,
-		margin: .02,
-		gap: .0022,
-		cornerRadius: .004,
-		edgeSoft: .0011,
-		grainCells: 192,
-		gapTone: .05,
-		oneTone: .08,
-		primeTone: .98,
-		factorTones: [
-			.3,
-			.42,
-			.54,
-			.66,
-			.8
-		],
-		grainTone: .03,
-		gapHeight: .12,
-		oneHeight: .2,
-		compositeHeight: .4,
-		primeHeight: .85,
-		primeRoughness: .28,
-		otherRoughness: .55
 	}),
 	knockoutbracket: Object.freeze({
 		dark: [
@@ -16733,40 +16183,6 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		endRoughness: .35
 	}),
-	euclideanrhythms: Object.freeze({
-		dark: [
-			14,
-			16,
-			30
-		],
-		light: [
-			250,
-			236,
-			190
-		],
-		roughness: .5,
-		relief: .004,
-		steps: 16,
-		tracks: 16,
-		minPulses: 1,
-		maxPulses: 8,
-		margin: .04,
-		padInset: .1,
-		padCorner: .22,
-		edgeSoft: .0011,
-		grainCells: 160,
-		panelTone: .1,
-		padTone: .26,
-		beatTone: .36,
-		litTone: .94,
-		grainTone: .03,
-		panelHeight: .15,
-		padHeight: .45,
-		litHeight: .8,
-		panelRoughness: .7,
-		padRoughness: .55,
-		litRoughness: .25
-	}),
 	chinesecheckersboard: Object.freeze({
 		dark: [
 			30,
@@ -17786,47 +17202,6 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		curveRoughness: .35
 	}),
-	cassiniovals: Object.freeze({
-		dark: [
-			20,
-			36,
-			58
-		],
-		light: [
-			246,
-			242,
-			224
-		],
-		roughness: .5,
-		relief: .004,
-		halfSeparations: Object.freeze([
-			.13,
-			.18,
-			.23
-		]),
-		ratios: Object.freeze([
-			.4,
-			.7,
-			.9,
-			1,
-			1.15,
-			1.35,
-			1.6
-		]),
-		curveHalf: .002,
-		lemniscateHalf: .0032,
-		focusRadius: .006,
-		edgeSoft: .0011,
-		grainCells: 192,
-		paperTone: .95,
-		curveTone: .1,
-		lemniscateTone: .06,
-		grainTone: .02,
-		paperHeight: .22,
-		curveHeight: .78,
-		paperRoughness: .74,
-		curveRoughness: .35
-	}),
 	twosourceripples: Object.freeze({
 		dark: [
 			14,
@@ -18275,84 +17650,6 @@ var proceduralMaterialPresets = Object.freeze({
 		grainTone: .03,
 		cellRoughness: .6
 	}),
-	percolationclusters: Object.freeze({
-		dark: [
-			26,
-			32,
-			58
-		],
-		light: [
-			246,
-			242,
-			222
-		],
-		roughness: .6,
-		relief: .004,
-		size: 48,
-		openings: Object.freeze([
-			.56,
-			.5927,
-			.63
-		]),
-		mediumSize: 8,
-		grainCells: 192,
-		closedTone: .94,
-		smallTone: .62,
-		mediumTone: .38,
-		largestTone: .08,
-		closedHeight: .12,
-		smallHeight: .4,
-		mediumHeight: .6,
-		largestHeight: .85,
-		grainTone: .03,
-		cellRoughness: .6
-	}),
-	gcdtable: Object.freeze({
-		dark: [
-			26,
-			32,
-			58
-		],
-		light: [
-			246,
-			242,
-			222
-		],
-		roughness: .55,
-		relief: .004,
-		size: 12,
-		starts: Object.freeze([
-			1,
-			5,
-			13,
-			25
-		]),
-		left: .06,
-		top: .06,
-		cell: .07,
-		digitPixel: .0085,
-		lineHalf: 6e-4,
-		edgeSoft: .0011,
-		grainCells: 192,
-		coprimeTone: .94,
-		divisorFloor: .5,
-		divisorRange: .44,
-		headerTone: .14,
-		lineTone: .62,
-		inkTone: .08,
-		headerInkTone: .94,
-		grainTone: .03,
-		paperTone: .9,
-		paperHeight: .22,
-		coprimeHeight: .2,
-		divisorHeight: .55,
-		headerHeight: .85,
-		inkDepth: .06,
-		paperRoughness: .74,
-		cellRoughness: .55,
-		headerRoughness: .35,
-		inkRoughness: .4
-	}),
 	bitwiselogic: Object.freeze({
 		dark: [
 			26,
@@ -18399,38 +17696,6 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		cellRoughness: .55,
 		inkRoughness: .4
-	}),
-	logisticbifurcation: Object.freeze({
-		dark: [
-			26,
-			32,
-			58
-		],
-		light: [
-			246,
-			242,
-			222
-		],
-		roughness: .6,
-		relief: .004,
-		columns: 256,
-		rows: 256,
-		start: .4,
-		transient: 300,
-		recorded: 500,
-		windows: Object.freeze([
-			Object.freeze([2.5, 4]),
-			Object.freeze([3.4, 4]),
-			Object.freeze([3.55, 3.95])
-		]),
-		grainCells: 192,
-		paperTone: .94,
-		inkTone: .08,
-		saturation: 4,
-		grainTone: .03,
-		paperHeight: .15,
-		inkHeight: .8,
-		cellRoughness: .6
 	}),
 	burningship: Object.freeze({
 		dark: [
@@ -18791,48 +18056,6 @@ var proceduralMaterialPresets = Object.freeze({
 		arrowHeight: .75,
 		paperRoughness: .74,
 		arrowRoughness: .4
-	}),
-	fordcircles: Object.freeze({
-		dark: [
-			26,
-			32,
-			58
-		],
-		light: [
-			246,
-			242,
-			222
-		],
-		roughness: .55,
-		relief: .004,
-		limits: Object.freeze([
-			4,
-			6,
-			8
-		]),
-		tones: Object.freeze([
-			.2,
-			.34,
-			.44,
-			.52,
-			.58,
-			.64,
-			.7,
-			.76
-		]),
-		outlineHalf: .0016,
-		axisHalf: .003,
-		edgeSoft: .0011,
-		grainCells: 192,
-		paperTone: .94,
-		outlineTone: .06,
-		axisTone: .1,
-		grainTone: .03,
-		paperHeight: .2,
-		fillHeight: .45,
-		outlineHeight: .8,
-		paperRoughness: .74,
-		fillRoughness: .5
 	}),
 	mobiusgrid: Object.freeze({
 		dark: [
@@ -19792,71 +19015,6 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		inkRoughness: .4
 	}),
-	dyckpaths: Object.freeze({
-		dark: [
-			26,
-			32,
-			58
-		],
-		light: [
-			246,
-			242,
-			222
-		],
-		roughness: .55,
-		relief: .004,
-		semilength: 4,
-		columns: 2,
-		rows: 7,
-		unit: .028,
-		lineHalf: .0034,
-		baseHalf: .0012,
-		dotRadius: .0058,
-		edgeSoft: .0011,
-		grainCells: 192,
-		paperTone: .94,
-		stripeTone: .9,
-		baseTone: .62,
-		inkTone: .08,
-		grainTone: .03,
-		paperHeight: .22,
-		stripeHeight: .3,
-		baseHeight: .45,
-		inkHeight: .8,
-		paperRoughness: .74,
-		inkRoughness: .4
-	}),
-	sacksspiral: Object.freeze({
-		dark: [
-			26,
-			32,
-			58
-		],
-		light: [
-			246,
-			242,
-			222
-		],
-		roughness: .55,
-		relief: .004,
-		lasts: Object.freeze([
-			900,
-			1200,
-			1600
-		]),
-		outerRadius: .475,
-		buckets: 40,
-		dotRadius: .0055,
-		edgeSoft: .0011,
-		grainCells: 192,
-		paperTone: .94,
-		inkTone: .08,
-		grainTone: .03,
-		paperHeight: .22,
-		inkHeight: .8,
-		paperRoughness: .74,
-		inkRoughness: .4
-	}),
 	sierpinskipascal: Object.freeze({
 		dark: [
 			26,
@@ -20004,41 +19162,6 @@ var proceduralMaterialPresets = Object.freeze({
 		stripeHeight: .28,
 		chordHeight: .6,
 		ringHeight: .45,
-		dotHeight: .8,
-		paperRoughness: .74,
-		inkRoughness: .4
-	}),
-	gaussianprimes: Object.freeze({
-		dark: [
-			26,
-			32,
-			58
-		],
-		light: [
-			246,
-			242,
-			222
-		],
-		roughness: .55,
-		relief: .004,
-		size: 40,
-		corners: Object.freeze([
-			[0, 0],
-			[-20, -20],
-			[-12, -30],
-			[5, -8],
-			[-35, 4],
-			[18, 21]
-		]),
-		dotRadius: .0092,
-		edgeSoft: .0011,
-		grainCells: 192,
-		paperTone: .94,
-		stripeTone: .9,
-		dotTone: .1,
-		grainTone: .03,
-		paperHeight: .2,
-		stripeHeight: .28,
 		dotHeight: .8,
 		paperRoughness: .74,
 		inkRoughness: .4
@@ -20351,43 +19474,6 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		inkRoughness: .4
 	}),
-	recamanarcs: Object.freeze({
-		dark: [
-			26,
-			32,
-			58
-		],
-		light: [
-			246,
-			242,
-			222
-		],
-		roughness: .55,
-		relief: .004,
-		counts: Object.freeze([
-			40,
-			50,
-			60,
-			70
-		]),
-		left: .03,
-		width: .94,
-		axis: .5,
-		lineHalf: .0016,
-		axisHalf: .0011,
-		dotRadius: .0034,
-		edgeSoft: .0011,
-		grainCells: 192,
-		paperTone: .94,
-		arcTone: .12,
-		axisTone: .55,
-		grainTone: .03,
-		paperHeight: .2,
-		arcHeight: .75,
-		axisHeight: .4,
-		paperRoughness: .74,
-		inkRoughness: .4
-	}),
 	thuemorsegrid: Object.freeze({
 		dark: [
 			24,
@@ -20492,125 +19578,6 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		inkRoughness: .42
 	}),
-	golombrulers: Object.freeze({
-		dark: [
-			30,
-			26,
-			22
-		],
-		light: [
-			240,
-			226,
-			188
-		],
-		roughness: .55,
-		relief: .004,
-		rulers: Object.freeze([
-			Object.freeze([
-				0,
-				1,
-				3
-			]),
-			Object.freeze([
-				0,
-				1,
-				4,
-				6
-			]),
-			Object.freeze([
-				0,
-				1,
-				4,
-				9,
-				11
-			]),
-			Object.freeze([
-				0,
-				1,
-				4,
-				10,
-				12,
-				17
-			]),
-			Object.freeze([
-				0,
-				1,
-				4,
-				10,
-				18,
-				23,
-				25
-			]),
-			Object.freeze([
-				0,
-				1,
-				4,
-				9,
-				15,
-				22,
-				32,
-				34
-			]),
-			Object.freeze([
-				0,
-				1,
-				5,
-				12,
-				25,
-				27,
-				35,
-				41,
-				44
-			]),
-			Object.freeze([
-				0,
-				1,
-				6,
-				10,
-				23,
-				26,
-				34,
-				41,
-				53,
-				55
-			]),
-			Object.freeze([
-				0,
-				1,
-				4,
-				13,
-				28,
-				33,
-				47,
-				54,
-				64,
-				70,
-				72
-			])
-		]),
-		left: .05,
-		width: .9,
-		top: .05,
-		rowPitch: .1,
-		barHalf: .012,
-		markHalf: .0028,
-		markReach: .034,
-		unitHalf: .0011,
-		unitReach: .026,
-		edgeSoft: .0011,
-		grainCells: 192,
-		paperTone: .92,
-		barTone: .7,
-		unitTone: .45,
-		markTone: .08,
-		grainTone: .035,
-		paperHeight: .2,
-		barHeight: .45,
-		unitHeight: .5,
-		markHeight: .78,
-		paperRoughness: .72,
-		inkRoughness: .45
-	}),
 	bitwisetable: Object.freeze({
 		dark: [
 			24,
@@ -20646,37 +19613,6 @@ var proceduralMaterialPresets = Object.freeze({
 		groutRoughness: .9,
 		faceRoughness: .62,
 		inkRoughness: .4
-	}),
-	peanocurve: Object.freeze({
-		dark: [
-			20,
-			34,
-			52
-		],
-		light: [
-			244,
-			240,
-			224
-		],
-		roughness: .55,
-		relief: .004,
-		orders: Object.freeze([
-			2,
-			3,
-			4
-		]),
-		margin: .04,
-		lineHalf: .26,
-		edgeSoft: .0011,
-		grainCells: 192,
-		paperTone: .93,
-		startTone: .06,
-		endTone: .55,
-		grainTone: .03,
-		paperHeight: .2,
-		inkHeight: .7,
-		paperRoughness: .74,
-		inkRoughness: .42
 	}),
 	cliffordattractor: Object.freeze({
 		dark: [
@@ -20736,45 +19672,6 @@ var proceduralMaterialPresets = Object.freeze({
 		inkHeight: .7,
 		paperRoughness: .74,
 		inkRoughness: .42
-	}),
-	voronoicells: Object.freeze({
-		dark: [
-			28,
-			30,
-			38
-		],
-		light: [
-			238,
-			232,
-			214
-		],
-		roughness: .6,
-		relief: .005,
-		counts: Object.freeze([
-			5,
-			7,
-			9
-		]),
-		jitters: Object.freeze([
-			.25,
-			.32,
-			.38
-		]),
-		borderHalf: .0024,
-		dotRadius: .0065,
-		edgeSoft: .0012,
-		grainCells: 192,
-		lowestTone: .38,
-		highestTone: .88,
-		borderTone: .26,
-		dotTone: .04,
-		grainTone: .03,
-		borderHeight: .1,
-		faceHeight: .5,
-		dotHeight: .78,
-		borderRoughness: .88,
-		faceRoughness: .62,
-		dotRoughness: .4
 	}),
 	euclidsquares: Object.freeze({
 		dark: [
@@ -21135,37 +20032,6 @@ var proceduralMaterialPresets = Object.freeze({
 		inkHeight: .72,
 		paperRoughness: .74,
 		inkRoughness: .42
-	}),
-	wangtiles: Object.freeze({
-		dark: [
-			28,
-			30,
-			44
-		],
-		light: [
-			240,
-			236,
-			220
-		],
-		roughness: .6,
-		relief: .005,
-		counts: Object.freeze([
-			6,
-			8,
-			10
-		]),
-		colourCounts: Object.freeze([3, 4]),
-		lineHalf: .0016,
-		edgeSoft: .0011,
-		grainCells: 192,
-		lowTone: .25,
-		highTone: .88,
-		lineTone: .08,
-		grainTone: .03,
-		faceHeight: .5,
-		lineHeight: .12,
-		faceRoughness: .62,
-		lineRoughness: .88
 	}),
 	marchingsquares: Object.freeze({
 		dark: [
@@ -21533,42 +20399,6 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		lineRoughness: .42
 	}),
-	tsquarefractal: Object.freeze({
-		dark: [
-			28,
-			30,
-			44
-		],
-		light: [
-			244,
-			238,
-			222
-		],
-		roughness: .6,
-		relief: .004,
-		counts: Object.freeze([2, 3]),
-		depths: Object.freeze([
-			4,
-			5,
-			6
-		]),
-		bigSide: .5,
-		outlineHalf: .0012,
-		outlineShare: .06,
-		edgeSoft: .001,
-		grainCells: 192,
-		paperTone: .94,
-		lowTone: .2,
-		highTone: .8,
-		outlineTone: .08,
-		grainTone: .03,
-		paperHeight: .15,
-		lowHeight: .35,
-		highHeight: .95,
-		outlineHeight: .05,
-		paperRoughness: .74,
-		squareRoughness: .5
-	}),
 	superformulacells: Object.freeze({
 		dark: [
 			30,
@@ -21830,359 +20660,6 @@ var proceduralMaterialPresets = Object.freeze({
 		lineHeight: .05,
 		pieceRoughness: .5,
 		lineRoughness: .7
-	}),
-	errordiffusion: Object.freeze({
-		dark: [
-			20,
-			22,
-			34
-		],
-		light: [
-			248,
-			244,
-			230
-		],
-		roughness: .6,
-		relief: .004,
-		sizes: Object.freeze([
-			48,
-			64,
-			96
-		]),
-		kernels: Object.freeze([
-			Object.freeze({
-				divisor: 16,
-				taps: Object.freeze([
-					[
-						1,
-						0,
-						7
-					],
-					[
-						-1,
-						1,
-						3
-					],
-					[
-						0,
-						1,
-						5
-					],
-					[
-						1,
-						1,
-						1
-					]
-				])
-			}),
-			Object.freeze({
-				divisor: 8,
-				taps: Object.freeze([
-					[
-						1,
-						0,
-						1
-					],
-					[
-						2,
-						0,
-						1
-					],
-					[
-						-1,
-						1,
-						1
-					],
-					[
-						0,
-						1,
-						1
-					],
-					[
-						1,
-						1,
-						1
-					],
-					[
-						0,
-						2,
-						1
-					]
-				])
-			}),
-			Object.freeze({
-				divisor: 48,
-				taps: Object.freeze([
-					[
-						1,
-						0,
-						7
-					],
-					[
-						2,
-						0,
-						5
-					],
-					[
-						-2,
-						1,
-						3
-					],
-					[
-						-1,
-						1,
-						5
-					],
-					[
-						0,
-						1,
-						7
-					],
-					[
-						1,
-						1,
-						5
-					],
-					[
-						2,
-						1,
-						3
-					],
-					[
-						-2,
-						2,
-						1
-					],
-					[
-						-1,
-						2,
-						3
-					],
-					[
-						0,
-						2,
-						5
-					],
-					[
-						1,
-						2,
-						3
-					],
-					[
-						2,
-						2,
-						1
-					]
-				])
-			}),
-			Object.freeze({
-				divisor: 42,
-				taps: Object.freeze([
-					[
-						1,
-						0,
-						8
-					],
-					[
-						2,
-						0,
-						4
-					],
-					[
-						-2,
-						1,
-						2
-					],
-					[
-						-1,
-						1,
-						4
-					],
-					[
-						0,
-						1,
-						8
-					],
-					[
-						1,
-						1,
-						4
-					],
-					[
-						2,
-						1,
-						2
-					],
-					[
-						-2,
-						2,
-						1
-					],
-					[
-						-1,
-						2,
-						2
-					],
-					[
-						0,
-						2,
-						4
-					],
-					[
-						1,
-						2,
-						2
-					],
-					[
-						2,
-						2,
-						1
-					]
-				])
-			}),
-			Object.freeze({
-				divisor: 32,
-				taps: Object.freeze([
-					[
-						1,
-						0,
-						8
-					],
-					[
-						2,
-						0,
-						4
-					],
-					[
-						-2,
-						1,
-						2
-					],
-					[
-						-1,
-						1,
-						4
-					],
-					[
-						0,
-						1,
-						8
-					],
-					[
-						1,
-						1,
-						4
-					],
-					[
-						2,
-						1,
-						2
-					]
-				])
-			}),
-			Object.freeze({
-				divisor: 32,
-				taps: Object.freeze([
-					[
-						1,
-						0,
-						5
-					],
-					[
-						2,
-						0,
-						3
-					],
-					[
-						-2,
-						1,
-						2
-					],
-					[
-						-1,
-						1,
-						4
-					],
-					[
-						0,
-						1,
-						5
-					],
-					[
-						1,
-						1,
-						4
-					],
-					[
-						2,
-						1,
-						2
-					],
-					[
-						-1,
-						2,
-						2
-					],
-					[
-						0,
-						2,
-						3
-					],
-					[
-						1,
-						2,
-						2
-					]
-				])
-			})
-		]),
-		pictures: Object.freeze([
-			Object.freeze([
-				1,
-				1,
-				.1,
-				.35,
-				.26,
-				.2,
-				.04
-			]),
-			Object.freeze([
-				2,
-				1,
-				.6,
-				.05,
-				.22,
-				.24,
-				.02
-			]),
-			Object.freeze([
-				1,
-				2,
-				.3,
-				.8,
-				.3,
-				.16,
-				.03
-			]),
-			Object.freeze([
-				2,
-				2,
-				.45,
-				.2,
-				.2,
-				.2,
-				.08
-			])
-		]),
-		edgeSoft: 8e-4,
-		grainCells: 192,
-		offTone: .14,
-		onTone: .9,
-		grainTone: .02,
-		offHeight: .2,
-		onHeight: .8,
-		offRoughness: .7,
-		onRoughness: .5
 	}),
 	worleycells: Object.freeze({
 		dark: [
@@ -22774,32 +21251,6 @@ var proceduralMaterialPresets = Object.freeze({
 		boxRoughness: .4,
 		gapRoughness: .9
 	}),
-	vicsekfractal: Object.freeze({
-		dark: [
-			20,
-			24,
-			36
-		],
-		light: [
-			240,
-			236,
-			222
-		],
-		roughness: .55,
-		relief: .004,
-		depths: Object.freeze([3, 4]),
-		inset: .05,
-		edgeSoft: 6e-4,
-		grainCells: 192,
-		paperTone: .94,
-		cellLight: .5,
-		cellDark: .06,
-		grainTone: .03,
-		paperHeight: .2,
-		cellHeight: .7,
-		paperRoughness: .8,
-		cellRoughness: .4
-	}),
 	jacobisymbols: Object.freeze({
 		dark: [
 			18,
@@ -23017,131 +21468,6 @@ var proceduralMaterialPresets = Object.freeze({
 		axisHeight: .4,
 		dotHeight: .7,
 		bitHeight: .85,
-		paperRoughness: .8,
-		inkRoughness: .4
-	}),
-	chorddiagrams: Object.freeze({
-		dark: [
-			24,
-			22,
-			30
-		],
-		light: [
-			242,
-			236,
-			222
-		],
-		roughness: .55,
-		relief: .004,
-		grids: Object.freeze([2, 3]),
-		chords: Object.freeze([
-			Object.freeze([
-				-1,
-				3,
-				2,
-				0,
-				1,
-				0
-			]),
-			Object.freeze([
-				3,
-				2,
-				0,
-				0,
-				0,
-				3
-			]),
-			Object.freeze([
-				-1,
-				-1,
-				0,
-				2,
-				3,
-				2
-			]),
-			Object.freeze([
-				-1,
-				0,
-				2,
-				2,
-				2,
-				0
-			]),
-			Object.freeze([
-				0,
-				2,
-				2,
-				1,
-				0,
-				0
-			]),
-			Object.freeze([
-				-1,
-				0,
-				2,
-				2,
-				1,
-				0
-			]),
-			Object.freeze([
-				0,
-				2,
-				2,
-				0,
-				0,
-				0
-			]),
-			Object.freeze([
-				-1,
-				-1,
-				0,
-				2,
-				3,
-				1
-			]),
-			Object.freeze([
-				1,
-				3,
-				3,
-				2,
-				1,
-				1
-			]),
-			Object.freeze([
-				-1,
-				2,
-				4,
-				4,
-				3,
-				2
-			])
-		]),
-		strings: 6,
-		frets: 5,
-		stringLeft: .2,
-		stringSpacing: .12,
-		boxTop: .3,
-		fretSpacing: .12,
-		markerY: .18,
-		markerRadius: .04,
-		markerHalf: .007,
-		dotRadius: .047,
-		stringHalf: .006,
-		fretHalf: .004,
-		nutHalf: .015,
-		edgeSoft: 6e-4,
-		grainCells: 192,
-		paperTone: .93,
-		lineTone: .4,
-		nutTone: .12,
-		markerTone: .3,
-		dotTone: .1,
-		grainTone: .03,
-		paperHeight: .2,
-		lineHeight: .4,
-		nutHeight: .7,
-		markerHeight: .6,
-		dotHeight: .85,
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
@@ -23475,48 +21801,6 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
-	editdistance: Object.freeze({
-		dark: [
-			20,
-			28,
-			44
-		],
-		light: [
-			242,
-			238,
-			226
-		],
-		roughness: .55,
-		relief: .004,
-		lengths: Object.freeze([
-			4,
-			5,
-			6,
-			7
-		]),
-		alphabet: 3,
-		origin: .05,
-		cell: .1,
-		fillHalf: .044,
-		frameRadius: .036,
-		frameHalf: .0032,
-		dotPitch: .026,
-		dotRadius: .0105,
-		edgeSoft: 6e-4,
-		grainCells: 192,
-		paperTone: .93,
-		valueLightest: .86,
-		valueStep: .09,
-		frameTone: .04,
-		dotTone: .1,
-		grainTone: .03,
-		paperHeight: .2,
-		fillHeight: .4,
-		frameHeight: .7,
-		dotHeight: .85,
-		paperRoughness: .8,
-		inkRoughness: .4
-	}),
 	hashchains: Object.freeze({
 		dark: [
 			22,
@@ -23568,48 +21852,6 @@ var proceduralMaterialPresets = Object.freeze({
 		linkHeight: .5,
 		frameHeight: .65,
 		bitHeight: .85,
-		paperRoughness: .8,
-		inkRoughness: .4
-	}),
-	huffmancodes: Object.freeze({
-		dark: [
-			20,
-			28,
-			44
-		],
-		light: [
-			242,
-			238,
-			226
-		],
-		roughness: .55,
-		relief: .004,
-		counts: Object.freeze([
-			5,
-			6,
-			7
-		]),
-		maxFrequency: 30,
-		top: .09,
-		rowPitch: .11,
-		barX: .05,
-		unit: .0115,
-		barHalf: .028,
-		bitX: .5,
-		bitPitch: .06,
-		bitHalf: .021,
-		ringWidth: .004,
-		edgeSoft: 6e-4,
-		grainCells: 192,
-		paperTone: .93,
-		barTone: .4,
-		bitOnTone: .1,
-		ringTone: .45,
-		grainTone: .03,
-		paperHeight: .2,
-		barHeight: .5,
-		bitOnHeight: .85,
-		ringHeight: .65,
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
@@ -23759,38 +22001,6 @@ var proceduralMaterialPresets = Object.freeze({
 		barHeight: .5,
 		baselineHeight: .4,
 		tickHeight: .85,
-		paperRoughness: .8,
-		inkRoughness: .4
-	}),
-	zordercurve: Object.freeze({
-		dark: [
-			20,
-			28,
-			44
-		],
-		light: [
-			242,
-			238,
-			226
-		],
-		roughness: .55,
-		relief: .004,
-		sizes: Object.freeze([4, 8]),
-		variants: 8,
-		origin: .07,
-		span: .86,
-		nodeRadius: .0125,
-		segmentHalf: .0035,
-		edgeSoft: 6e-4,
-		grainCells: 192,
-		paperTone: .93,
-		nodeTone: .08,
-		rampFirst: .18,
-		rampLast: .7,
-		grainTone: .03,
-		paperHeight: .2,
-		segmentHeight: .55,
-		nodeHeight: .85,
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
@@ -25412,51 +23622,6 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
-	eisensteinprimes: Object.freeze({
-		dark: [
-			24,
-			34,
-			62
-		],
-		light: [
-			246,
-			243,
-			232
-		],
-		roughness: .55,
-		relief: .004,
-		size: 28,
-		origins: Object.freeze([
-			Object.freeze([14, 14]),
-			Object.freeze([9, 12]),
-			Object.freeze([18, 8]),
-			Object.freeze([6, 19]),
-			Object.freeze([20, 18]),
-			Object.freeze([12, 5]),
-			Object.freeze([15, 22]),
-			Object.freeze([3, 10])
-		]),
-		primeRadius: .012,
-		plainRadius: .0042,
-		originRadius: .0085,
-		ringRadius: .0145,
-		ringHalf: .0015,
-		edgeSoft: 6e-4,
-		grainCells: 192,
-		paperTone: .96,
-		primeTone: .1,
-		plainTone: .66,
-		originTone: .3,
-		ringTone: .44,
-		grainTone: .03,
-		paperHeight: .2,
-		primeHeight: .85,
-		plainHeight: .4,
-		originHeight: .65,
-		ringHeight: .55,
-		paperRoughness: .8,
-		inkRoughness: .4
-	}),
 	catalantriangulations: Object.freeze({
 		dark: [
 			26,
@@ -25710,38 +23875,6 @@ var proceduralMaterialPresets = Object.freeze({
 		innerLift: .14,
 		grainTone: .03,
 		paperHeight: .2,
-		paperRoughness: .8,
-		inkRoughness: .45
-	}),
-	walshmatrix: Object.freeze({
-		dark: [
-			22,
-			40,
-			58
-		],
-		light: [
-			240,
-			236,
-			222
-		],
-		roughness: .55,
-		relief: .004,
-		sizes: Object.freeze([
-			8,
-			16,
-			32
-		]),
-		extent: .9,
-		gapHalf: .0012,
-		edgeSoft: 6e-4,
-		grainCells: 192,
-		paperTone: .97,
-		plusTone: .1,
-		minusTone: .88,
-		grainTone: .03,
-		paperHeight: .2,
-		plusHeight: .8,
-		minusHeight: .4,
 		paperRoughness: .8,
 		inkRoughness: .45
 	}),
@@ -51602,6 +49735,48 @@ var proceduralMaterialPresets = Object.freeze({
 		heightSwing: .8,
 		gapOcclusion: .5
 	}),
+	japanesemotifs: Object.freeze({
+		dark: [
+			10,
+			16,
+			52
+		],
+		light: [
+			236,
+			238,
+			244
+		],
+		roughness: .6,
+		relief: .0012,
+		seedSalt: 11081,
+		counts: [
+			4,
+			5,
+			6,
+			8
+		],
+		shiftStep: [.37, .61],
+		urokoApex: [.5, .08],
+		urokoBase: [
+			.06,
+			.94,
+			.92
+		],
+		igetaCentres: [.3, .7],
+		igetaHalfWidth: .06,
+		igetaHalfLength: .36,
+		hishiOuter: .46,
+		hishiInner: .3,
+		hishiCore: .14,
+		edgeSoft: .06,
+		borderWidth: .3,
+		grainCells: 128,
+		toneInk: .12,
+		tonePaper: .93,
+		grainTone: .02,
+		inkHeight: .8,
+		paperOcclusion: .5
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -53293,13 +51468,11 @@ var proceduralTileMeters = Object.freeze({
 	wireworldcircuit: 1,
 	cycliccellular: 1,
 	beattypartition: 1,
-	walshmatrix: 1,
 	paperfoldingruler: 1,
 	rudinshapirogrid: 1,
 	baumsweetgrid: 1,
 	binarynecklaces: 1,
 	catalantriangulations: 1,
-	eisensteinprimes: 1,
 	keplerorbit: 1,
 	pythagoreanproof: 1,
 	contributiongraph: 1,
@@ -53333,13 +51506,10 @@ var proceduralTileMeters = Object.freeze({
 	quicksortsteps: 1,
 	ganttschedule: 1,
 	lorenzcurve: 1,
-	zordercurve: 1,
 	histogrambins: 1,
 	sankeyflows: 1,
 	bodeplots: 1,
-	huffmancodes: 1,
 	hashchains: 1,
-	editdistance: 1,
 	nearesttour: 1,
 	karnaughmap: 1,
 	bsttreeorder: 1,
@@ -53348,14 +51518,12 @@ var proceduralTileMeters = Object.freeze({
 	ecdfplot: 1,
 	intervalpartition: 1,
 	waterfallchart: 1,
-	chorddiagrams: 1,
 	qamconstellation: 1,
 	countertimings: 1,
 	hofstadterq: 1,
 	semaphorefigures: 1,
 	fenwicktree: 1,
 	jacobisymbols: 1,
-	vicsekfractal: 1,
 	segmenttree: 1,
 	rankchevrons: 1,
 	windbarbs: 1,
@@ -53368,14 +51536,11 @@ var proceduralTileMeters = Object.freeze({
 	intelhexrecords: 1,
 	equalizerbars: 1,
 	worleycells: 1,
-	errordiffusion: 1,
 	tetrominoes: 1,
 	candlestickcharts: 1,
 	paleygraphmatrix: 1,
 	superformulacells: 1,
-	tsquarefractal: 1,
 	marchingsquares: 1,
-	wangtiles: 1,
 	htreefractal: 1,
 	lsystemplant: 1,
 	quadtreecells: 1,
@@ -53383,15 +51548,11 @@ var proceduralTileMeters = Object.freeze({
 	braiddiagram: 1,
 	youngtableaux: 1,
 	euclidsquares: 1,
-	voronoicells: 1,
 	cliffordattractor: 1,
-	peanocurve: 1,
 	bitwisetable: 1,
-	golombrulers: 1,
 	henonattractor: 1,
 	digitalroottable: 1,
 	thuemorsegrid: 1,
-	recamanarcs: 1,
 	happynumberchains: .8,
 	lookandsayrows: .8,
 	kaprekarsteps: .8,
@@ -53400,13 +51561,10 @@ var proceduralTileMeters = Object.freeze({
 	circleoffifths: .9,
 	periodictablecells: 1,
 	josephuscircle: .9,
-	gaussianprimes: .8,
 	timestablecircles: .9,
 	divisorcountbars: 1,
 	cobwebplots: .8,
 	sierpinskipascal: .8,
-	sacksspiral: 1,
-	dyckpaths: .7,
 	figuratenumbers: .8,
 	pythagoreantriples: .5,
 	hexdumprows: .6,
@@ -53429,7 +51587,6 @@ var proceduralTileMeters = Object.freeze({
 	numberwords: .5,
 	dipolefieldlines: .6,
 	mobiusgrid: .6,
-	fordcircles: .6,
 	vectorfieldarrows: .6,
 	wordsquares: .5,
 	caesarcipher: .5,
@@ -53437,10 +51594,7 @@ var proceduralTileMeters = Object.freeze({
 	primefactors: .5,
 	modularpowers: .5,
 	burningship: .6,
-	logisticbifurcation: .6,
 	bitwiselogic: .5,
-	gcdtable: .5,
-	percolationclusters: .6,
 	abeliansandpile: .6,
 	binaryaddition: .5,
 	roundingmodes: .5,
@@ -53450,7 +51604,6 @@ var proceduralTileMeters = Object.freeze({
 	bezierconstruction: .6,
 	luhnnumbers: .4,
 	twosourceripples: .5,
-	cassiniovals: .5,
 	rosecurves: .6,
 	conicsections: .6,
 	cantorsetrows: .8,
@@ -53478,7 +51631,6 @@ var proceduralTileMeters = Object.freeze({
 	draughtsposition: .5,
 	colormapregions: .5,
 	chinesecheckersboard: .6,
-	euclideanrhythms: .4,
 	hidatochain: .5,
 	mancalaboard: .6,
 	rushhourjam: .5,
@@ -53506,23 +51658,15 @@ var proceduralTileMeters = Object.freeze({
 	pianoroll: .5,
 	skyscraperpuzzles: .4,
 	knockoutbracket: .5,
-	primesieve: .5,
 	sortingnetworks: .4,
 	mayansums: .5,
-	latinsquares: .4,
 	hanoitowers: .4,
 	eightqueens: .4,
-	cantordust: .5,
-	dragoncurve: .5,
 	pascalmodulo: .4,
-	gameoflife: .4,
 	oghaminscription: .5,
-	kaleidoscope: .4,
 	slidingpuzzle: .3,
-	magicsquares: .4,
 	wordsearchgrid: .35,
 	mastermindboard: .35,
-	elementaryautomata: .4,
 	bluenoisemask: .2,
 	fibonaccisquares: .4,
 	doubleslitfringes: .4,
@@ -53539,7 +51683,6 @@ var proceduralTileMeters = Object.freeze({
 	amidakuji: .3,
 	code39barcodes: .3,
 	graycodediscs: .35,
-	knightstour: .4,
 	scrambledcubenet: .4,
 	weavingdraft: .4,
 	lightsoutboard: .25,
@@ -53557,18 +51700,14 @@ var proceduralTileMeters = Object.freeze({
 	zoneplates: .2,
 	lissajousgrid: .4,
 	mondriancomposition: .6,
-	hilbertcurve: .3,
 	battleshipgrid: .4,
 	tetrisstack: .4,
 	minesweeperboard: .4,
 	flipdotdisplay: .5,
-	crosswordgrid: .3,
 	fretboard: .32,
 	calendarpage: .3,
 	measuringtape: .16,
 	sudokugrid: .25,
-	sheetmusic: .3,
-	ecgpaper: .08,
 	datamatrixcodes: .4,
 	frostpolygons: 1.5,
 	sandripples: 1,
@@ -53577,7 +51716,6 @@ var proceduralTileMeters = Object.freeze({
 	kilimflatweave: 1.2,
 	tumblingblocks: .6,
 	azulejotiles: .8,
-	moirefringes: .3,
 	cinderblockwall: 1.6,
 	dicefaces: .4,
 	needlepoint: .3,
@@ -53597,7 +51735,6 @@ var proceduralTileMeters = Object.freeze({
 	ammonitestone: .5,
 	amberresin: .2,
 	patchworkquilt: .8,
-	bayerdither: .32,
 	turingpattern: .4,
 	mudcloth: .5,
 	to220packagefaces: .08,
@@ -54143,6 +52280,7 @@ var proceduralTileMeters = Object.freeze({
 	numbertriangles: .5,
 	adjacencymatrices: .5,
 	busybeavers: .5,
+	japanesemotifs: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,
