@@ -58013,6 +58013,129 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'linearcodes': {
+        const p = proceduralMaterialPresets.linearcodes,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.codes.length,
+          group = Math.floor(unsigned / p.codes.length),
+          n = 16,
+          weight = (x: number): number => {
+            let count = 0;
+            for (let rest = x; rest; rest &= rest - 1) count++;
+            return count;
+          },
+          // The coordinates in the order of group 0 or permuted by hash keys.
+          order = Array.from({ length: 8 }, (_, index) => index).sort((a, b) =>
+            group === 0
+              ? a - b
+              : hash(a, 29, group ^ p.seedSalt) -
+                hash(b, 29, group ^ p.seedSalt),
+          ),
+          // The generator rows with their coordinates permuted, then row-reduced so that each row owns a pivot column that no other row uses.
+          rows = p.codes[variant].map((row) => {
+            let moved = 0;
+            for (let bit = 0; bit < 8; bit++)
+              if ((row >> bit) & 1) moved |= 1 << order[bit];
+            return moved;
+          }),
+          pivots: number[] = [];
+        for (
+          let column = 7;
+          column >= 0 && pivots.length < rows.length;
+          column--
+        ) {
+          const at = rows.findIndex(
+            (row, index) => index >= pivots.length && (row >> column) & 1,
+          );
+          if (at < 0) continue;
+          [rows[at], rows[pivots.length]] = [rows[pivots.length], rows[at]];
+          const pivotRow = rows[pivots.length];
+          for (let index = 0; index < rows.length; index++)
+            if (index !== pivots.length && (rows[index] >> column) & 1)
+              rows[index] ^= pivotRow;
+          pivots.push(column);
+        }
+        const free = [0, 1, 2, 3, 4, 5, 6, 7].filter(
+            (column) => !pivots.includes(column),
+          ),
+          // The bits of x at the listed columns packed into a number.
+          pack = (x: number, columns: number[]): number =>
+            columns.reduce(
+              (sum, column, index) => sum | (((x >> column) & 1) << index),
+              0,
+            ),
+          codewords = Array.from({ length: 16 }, (_, message) =>
+            rows.reduce(
+              (sum, row, index) => ((message >> index) & 1 ? sum ^ row : sum),
+              0,
+            ),
+          ),
+          panels = [0, 1, 2, 3].map(() => new Uint8Array(256)),
+          denominators = [4, 15, 16, 8];
+        for (let w = 0; w < 256; w++) {
+          let reduced = w,
+            nearest = 9,
+            ties = 0,
+            nearestMessage = 0;
+          rows.forEach((row, index) => {
+            if ((reduced >> pivots[index]) & 1) reduced ^= row;
+          });
+          codewords.forEach((codeword, message) => {
+            const distance = weight(w ^ codeword);
+            if (distance < nearest) {
+              nearest = distance;
+              ties = 1;
+              nearestMessage = message;
+            } else if (distance === nearest) ties++;
+          });
+          panels[0][w] = nearest;
+          panels[1][w] = pack(reduced, free);
+          panels[2][w] = ties === 1 ? nearestMessage + 1 : 0;
+          panels[3][w] = weight(w);
+        }
+        const total = 2 * n;
+        return () => {
+          const x = fract(u) * total,
+            y = fract(v) * total,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            column = Math.floor(i / n),
+            row = Math.floor(j / n),
+            px = i % n,
+            py = j % n,
+            panel = 2 * row + column,
+            level = panels[panel][py * n + px] / denominators[panel],
+            // The gaps on the four sides of the cell: wider at the edge of a panel.
+            left = px === 0 ? p.gapPanel : p.gap,
+            right = px === n - 1 ? p.gapPanel : p.gap,
+            top = py === 0 ? p.gapPanel : p.gap,
+            bottom = py === n - 1 ? p.gapPanel : p.gap,
+            hx = (1 - left - right) / 2,
+            hy = (1 - top - bottom) / 2,
+            qx = Math.abs(x - i - (1 + left - right) / 2) - (hx - p.corner),
+            qy = Math.abs(y - j - (1 + top - bottom) / 2) - (hy - p.corner),
+            // The distance to the rounded rectangle of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -66999,6 +67122,7 @@ export function createSurfaceSampler(
     kind === 'friezegroups' ||
     kind === 'robinsonschensted' ||
     kind === 'crctables' ||
+    kind === 'linearcodes' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

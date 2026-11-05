@@ -1247,6 +1247,7 @@ try {
     'friezegroups',
     'robinsonschensted',
     'crctables',
+    'linearcodes',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

@@ -1210,6 +1210,7 @@ const kinds: ProceduralMaterialKind[] = [
   'friezegroups',
   'robinsonschensted',
   'crctables',
+  'linearcodes',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -217600,6 +217601,355 @@ describe('CRC tables as the 8-bit lookup tables of two generator polynomials', (
     expect(blue / (512 * 512)).toBeLessThan(115.6);
     expect(maxTilt).toBeGreaterThan(0.1034);
     expect(maxTilt).toBeLessThan(0.1036);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Linear codes as four binary codes of length 8', () => {
+  const p = proceduralMaterialPresets.linearcodes;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = 16;
+  const denominators = [4, 15, 16, 8];
+  /** The generator rows of the four codes, written out again as strings of coordinates 7 to 0. */
+  const bases = [
+    ['11110000', '11001100', '10101010', '11111111'],
+    ['00001011', '00010110', '00101100', '01011000'],
+    ['11000000', '00110000', '00001100', '00000011'],
+    ['11000000', '01100000', '00110000', '00001111'],
+  ].map((rows) => rows.map((row) => parseInt(row, 2)));
+  const ones = (x: number): number => x.toString(2).replaceAll('0', '').length;
+  /** All 16 words spanned by some rows. */
+  const span = (rows: number[]): number[] => {
+    let words = [0];
+    for (const row of rows)
+      words = words.concat(words.map((word) => word ^ row));
+    return words;
+  };
+  /** The four panels read back from the picture at the middle of every cell: values[panel][w] with w = 16 r + c. */
+  const readPanels = (seed: number): number[][] => {
+    const sample = createSurfaceSampler('linearcodes', seed),
+      out = empty();
+    return [0, 1, 2, 3].map((panel) =>
+      Array.from({ length: 256 }, (_, w) => {
+        sample(
+          (n * (panel % 2) + (w % n) + 0.5) / (2 * n),
+          (n * Math.floor(panel / 2) + Math.floor(w / n) + 0.5) / (2 * n),
+          out,
+        );
+        const level =
+            (out.height / p.relief / p.cellHeight - p.heightBase) /
+            p.heightSwing,
+          value = Math.round(level * denominators[panel]);
+        expect(Math.abs(level * denominators[panel] - value)).toBeLessThan(
+          1e-9,
+        );
+        return value;
+      }),
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('linearcodes', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.01579, high: 0.9631, lit: 0.27716, mean: 0.35347 }],
+      [1, { low: 0.01623, high: 0.9635, lit: 0.31287, mean: 0.38568 }],
+      [0xffffffff, { low: 0.01591, high: 0.9634, lit: 0.28273, mean: 0.34918 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('linearcodes', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('draws a code that is a coordinate permutation of the base code: the words at distance 0 form a 16-word subspace with the weight list and the minimum distance of the base code, and with the coordinates kept it is the base code itself', () => {
+    const perms: number[][] = [];
+    const build = (rest: number[], taken: number[]): void => {
+      if (!rest.length) perms.push(taken);
+      else
+        rest.forEach((value, index) =>
+          build(
+            rest.filter((_, k) => k !== index),
+            [...taken, value],
+          ),
+        );
+    };
+    build([0, 1, 2, 3, 4, 5, 6, 7], []);
+    const distances = [4, 3, 2, 2];
+    for (let seed = 0; seed < 60; seed++) {
+      const code = readPanels(seed)[0]
+          .map((distance, w) => (distance === 0 ? w : -1))
+          .filter((w) => w >= 0),
+        base = bases[seed % 4],
+        weights = (words: number[]) => words.map(ones).sort((a, b) => a - b),
+        set = new Set(code);
+      expect(code.length).toBe(16);
+      expect(weights(code)).toEqual(weights(span(base)));
+      let unclosed = 0;
+      for (const a of code)
+        for (const b of code) unclosed += Number(!set.has(a ^ b));
+      expect(unclosed).toBe(0);
+      expect(Math.min(...code.filter((w) => w > 0).map(ones))).toBe(
+        distances[seed % 4],
+      );
+      if (seed < 4) expect(new Set(span(base))).toEqual(set);
+      // Some permutation of the 8 coordinates carries every generator row into the code.
+      if (seed < 24) {
+        const found = perms.some((perm) =>
+          base.every((row) => {
+            let moved = 0;
+            for (let bit = 0; bit < 8; bit++)
+              if ((row >> bit) & 1) moved |= 1 << perm[bit];
+            return set.has(moved);
+          }),
+        );
+        expect(found).toBe(true);
+      }
+    }
+  });
+  it('shows the distance, the syndrome, the decoding and the weight of every word: brute-force nearest codeword, a linear syndrome whose kernel is the code, a linear message and the number of ones', () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const [near, syndrome, decoded, weight] = readPanels(seed),
+        code = near
+          .map((distance, w) => (distance === 0 ? w : -1))
+          .filter((w) => w >= 0),
+        message = new Map(code.map((word) => [word, decoded[word] - 1]));
+      for (let w = 0; w < 256; w++) {
+        const distances = code.map((word) => ones(w ^ word)),
+          nearest = Math.min(...distances),
+          winners = code.filter((_, index) => distances[index] === nearest);
+        expect(near[w]).toBe(nearest);
+        expect(weight[w]).toBe(ones(w));
+        // A tie gives 0; a unique nearest codeword gives its message plus 1.
+        expect(decoded[w]).toBe(
+          winners.length === 1 ? message.get(winners[0])! + 1 : 0,
+        );
+        // The syndrome is 0 on the code only and the same on a coset.
+        expect(syndrome[w] === 0).toBe(near[w] === 0);
+        for (const word of code.slice(0, 5))
+          expect(syndrome[w ^ word]).toBe(syndrome[w]);
+      }
+      // The syndrome is linear, takes all 16 values, and the message is a linear bijection on the code.
+      let unlinear = 0;
+      for (let a = 0; a < 256; a++)
+        for (let b = a; b < 256; b++)
+          unlinear += Number(syndrome[a ^ b] !== (syndrome[a] ^ syndrome[b]));
+      expect(unlinear).toBe(0);
+      expect(new Set(syndrome).size).toBe(16);
+      expect(new Set(message.values()).size).toBe(16);
+      expect(Math.max(...message.values())).toBe(15);
+      let notLinear = 0;
+      for (const a of code)
+        for (const b of code)
+          notLinear += Number(
+            message.get(a ^ b) !== (message.get(a)! ^ message.get(b)!),
+          );
+      expect(notLinear).toBe(0);
+      // The extended Hamming code is perfect for one error: 16 words at distance 0, 128 at distance 1, 112 at distance 2.
+      if (seed % 4 === 0)
+        expect(
+          [0, 1, 2].map((d) => near.filter((x) => x === d).length),
+        ).toEqual([16, 128, 112]);
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const cells = 2 * n,
+        panels = readPanels(seed),
+        sample = createSurfaceSampler('linearcodes', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * cells,
+          y = v * cells,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          // The gaps on the four sides of the cell: wider at the edge of a panel.
+          left = i % n === 0 ? p.gapPanel : p.gap,
+          right = i % n === n - 1 ? p.gapPanel : p.gap,
+          top = j % n === 0 ? p.gapPanel : p.gap,
+          bottom = j % n === n - 1 ? p.gapPanel : p.gap,
+          dx = Math.abs(x - i - (1 + left - right) / 2),
+          dy = Math.abs(y - j - (1 + top - bottom) / 2),
+          hx = (1 - left - right) / 2,
+          hy = (1 - top - bottom) / 2,
+          innerX = hx - p.corner,
+          innerY = hy - p.corner,
+          // The distance to the rounded rectangle, by the straight sides or by the corner circle.
+          distance =
+            dx <= innerX || dy <= innerY
+              ? Math.max(dx - hx, dy - hy)
+              : Math.hypot(dx - innerX, dy - innerY) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const panel = 2 * Math.floor(j / n) + Math.floor(i / n),
+          level = panels[panel][(j % n) * n + (i % n)] / denominators[panel],
+          ink = distance < 0 ? 1 : 0,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per code and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.204315185546875, 8);
+    expect(unlike(first, litGrid(4))).toBeCloseTo(0.1386566162109375, 8);
+    expect(unlike(first, litGrid(8))).toBeCloseTo(0.1397247314453125, 8);
+    expect(unlike(first, litGrid(24))).toBeCloseTo(0.1428985595703125, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('linearcodes', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 linear codes maps on dark green with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('linearcodes', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(68.6);
+    expect(red / (512 * 512)).toBeLessThan(68.8);
+    expect(green / (512 * 512)).toBeGreaterThan(100.0);
+    expect(green / (512 * 512)).toBeLessThan(100.2);
+    expect(blue / (512 * 512)).toBeGreaterThan(40.0);
+    expect(blue / (512 * 512)).toBeLessThan(40.2);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1072);
     expect(invalid).toBe(0);
   });
 });

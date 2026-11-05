@@ -1184,6 +1184,7 @@ export type ProceduralMaterialKind =
   | 'friezegroups'
   | 'robinsonschensted'
   | 'crctables'
+  | 'linearcodes'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2616,6 +2617,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'friezegroups',
   'robinsonschensted',
   'crctables',
+  'linearcodes',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

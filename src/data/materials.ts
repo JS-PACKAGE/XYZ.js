@@ -19994,6 +19994,35 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.8,
     gapOcclusion: 0.5,
   }),
+  linearcodes: Object.freeze({
+    dark: [6, 20, 4] as const,
+    light: [190, 255, 110] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x5b13,
+    // Four binary linear block codes of length 8 and dimension 4, each by 4 generator rows (as bytes): 0 the extended Hamming code (Reed-Muller of order 1, minimum distance 4), 1 the cyclic Hamming code of length 7 with a zero coordinate appended (distance 3), 2 four copies of the repetition code of length 2 (distance 2) and 3 the even-weight code of length 4 next to the repetition code of length 4 (distance 2). Each code is drawn by four 16x16 panels of the 256 words w (the cell in the row r and the column c is w = 16 r + c): top left the distance from w to the nearest codeword (divided by 4), top right the syndrome (the 4 free bits of w reduced by the row-reduced generator rows, divided by 15), bottom left the message of the nearest codeword plus 1 (0 when two or more codewords are equally near, divided by 16) and bottom right the number of ones in w (divided by 8). The seed is split in two: seed % 4 picks the code and floor(seed / 4) the group: group 0 keeps the coordinates and any other group permutes the 8 coordinates by hash keys.
+    codes: [
+      [0xf0, 0xcc, 0xaa, 0xff],
+      [0x0b, 0x16, 0x2c, 0x58],
+      [0xc0, 0x30, 0x0c, 0x03],
+      [0xc0, 0x60, 0x30, 0x0f],
+    ] as const,
+    // The gap on each side of a cell inside a panel and at the edge of a panel, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.06,
+    gapPanel: 0.3,
+    corner: 0.14,
+    edgeSoft: 0.07,
+    grainCells: 128,
+    toneGround: 0.03,
+    toneMin: 0.15,
+    toneMax: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of a cell is cellHeight times (heightBase + heightSwing times its level).
+    heightBase: 0.2,
+    heightSwing: 0.8,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21841,6 +21870,7 @@ export const proceduralTileMeters = Object.freeze({
   friezegroups: 0.5,
   robinsonschensted: 0.5,
   crctables: 0.5,
+  linearcodes: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,
