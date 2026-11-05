@@ -34,7 +34,9 @@ export class WebGLUniformCache {
       let i = 0;
       while (i < data.length && same(sent[i]!, data[i]!)) i++;
       if (i === data.length) return;
-      sent.set(data);
+      // Small uniforms cost less to copy inline; the equal prefix is already cached.
+      if (data.length <= 16) for (; i < data.length; i++) sent[i] = data[i]!;
+      else sent.set(data);
     } else entry[sentVector] = data.slice();
     entry[sentShared] = undefined;
     gl.uniform4fv(location, data);
