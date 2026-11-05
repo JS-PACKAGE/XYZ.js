@@ -229,6 +229,7 @@ export class NineSlice extends Group2D {
     }
     if (this.atlasView) {
       const view = this.atlasView;
+      let write = patches.length;
       for (let index = patches.length - 1; index >= 0; index--) {
         const patch = patches[index]!;
         const cell = patch.source;
@@ -242,10 +243,7 @@ export class NineSlice extends Group2D {
           cell.y + cell.height,
           view.trim.y + view.trim.height,
         );
-        if (right <= x || bottom <= y) {
-          patches.splice(index, 1);
-          continue;
-        }
+        if (right <= x || bottom <= y) continue;
         const width = right - x;
         const height = bottom - y;
         const ix = x - view.trim.x;
@@ -266,7 +264,11 @@ export class NineSlice extends Group2D {
           originalSize: [cell.width, cell.height],
           trim: { x: x - cell.x, y: y - cell.y, width, height },
         });
+        patches[--write] = patch;
       }
+      // Compact once, retaining reverse view-validation order without repeated shifts.
+      patches.copyWithin(0, write);
+      patches.length -= write;
     }
     const extra: Sprite[] = [];
     try {
