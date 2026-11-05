@@ -14678,3 +14678,18 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   - `a4555f718` manifest 單一別名不建立去重 Set：1,000 entries 18.42→16.18 ms。
   - 量過未保留：所有小多邊形強制建索引（16 頂點慢約 11%）、shader 大括號 `indexOf` 掃描（約 1%）、IK 重用 quaternion 長度（−0.7%／3.3%）。其餘（角色、關節、CCD、Scene、Accessibility、Locomotion、OPM、XR、Game 幀迴圈、visibility、environment、blend tree、follower、bake）測得線性或已無可驗證候選。
   - 驗證：startup gzip 213,437 B（上限 214,168 B）；`pnpm build`、四項 `check:*`、`tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 通過；各 commit 的相關 targeted tests 通過，**沒有重跑完整 Vitest**。音訊、video、XR、locomotion move 使用原生介面替身，只代表 CPU 包裝成本；Path2D 原生 flatten／stroke 與 canvas 像素操作沒有在 Node 驗證。
+- 第十四波（剩餘模組掃描；GPU／DOM／WebAudio 皆用替身，數字只代表 CPU bookkeeping／包裝成本；Node CPU time，interleaved min-of-N，輸出hash前後相同；不是FPS）：
+  - `35fa18838` Quest 反向依賴索引，鏈式完成 O(N²)→O(N)：1,000 任務 82.02→1.00 ms，4,000 任務 1,355→4.52 ms。
+  - `8322a3d70` KTX2 安全整數欄位改用兩個 uint32，消除 BigInt 配置：每批 15,000 次解析 8 層 29.29→12.39 ms，32 層 100.98→39.30 ms。
+  - `1475f9023` terrain splat 省略隱含單位法線的重複正規化：128² 14.68→12.67 ms，256² 62.57→46.94 ms（有 normal map 時不變）。
+  - `e35e688ab` 小型 WebGL uniform 原地複製變動後綴（大型陣列仍用原生 `set`）：vec4 200k 次 8.56→6.06 ms。
+  - `206054faf` binary16 解碼重用指數表：1M 23.20→15.85 ms；65,536 個編碼逐值 `Object.is` 相同。
+  - `ff87ac3ba` 雙後端 render texture 依賴去重改線性：50k commands／50k dependencies，WebGPU 552.4→15.3 ms，WebGL 511.9→9.6 ms。
+  - `dfc841db8` HitArea2D 多邊形拾取改索引讀取：64 邊 40,000 次 227.9→130.6 ms。
+  - `af94d52a2` Mask2D.containsPoint 移除 frozen transform iterator：100,000 次 11.70→5.82 ms（startup +23 B）；`getBounds` 同類改法 +16 B startup，不保留。
+  - `3d6f04771` Lighting RGB 直接寫入：20 萬次四燈 90.08→51.70 ms。
+  - `a08249231` NineSlice 裁切由反覆 splice 改線性壓實：6000² 76.27→33.61 ms。
+  - `111564b5c` PCM 驗證改索引迴圈：262,144 samples 10.08→7.73 ms。
+  - `7091c30bd` Tiled 父圖層查找 O(N²)→O(N)：128 層 0.171→0.116 ms。
+  - 量過未保留：InstancedMesh 手動複製矩陣（較慢）、SpatialIndex 葉節點直接複製（無收益）、uniform 無條件 JS 複製（大型陣列退步）。Residency 全量 eviction 確認是平方級（1k→4k 4.08→62.7 ms），但 `ResidencyAllocation.lastUsed/references/bytes/destroyed` 是公開可寫欄位，retire callback 可直接改，惰性 heap 或版本號無法保持逐次選擇語義，所以不改。Mikk tangents 的成本在 WASM，Water 的成本是 phase modulo（不改計算順序），native uniforms 的成本是必要驗證。其餘 Scene、Water、控制器、反射、profiler、timer、occlusion 等量到的是線性成長。
+  - 驗證：startup gzip 213,459 B（上限 214,168 B）；`pnpm build`、四項 `check:*`、`tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 通過；各 commit 的 targeted tests 通過，**沒有重跑完整 Vitest**；沒有量原生 GPU 效能、真實 WebAudio 或 DOM 控制器事件。
