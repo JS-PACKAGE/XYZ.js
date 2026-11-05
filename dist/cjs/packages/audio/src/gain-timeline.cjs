@@ -3,25 +3,48 @@ const require_errors = require("./errors.cjs");
 var GainTimeline = class GainTimeline {
 	initial;
 	segments = [];
+	ordered = !0;
+	applying = 0;
 	constructor(e = 1) {
 		this.initial = e;
 	}
-	valueAt(e) {
-		let t = this.initial;
-		for (let n of this.segments) {
-			if (e < n.start) break;
-			if (e >= n.end) {
-				t = n.to;
-				continue;
-			}
-			let r = (e - n.start) / (n.end - n.start);
-			return n.curve === `linear` ? n.from + (n.to - n.from) * r : n.from * (n.to / n.from) ** r;
+	indexAt(e) {
+		let t = 0, n = this.segments.length;
+		for (; t < n;) {
+			let r = t + n >>> 1;
+			this.segments[r].start <= e ? t = r + 1 : n = r;
 		}
-		return t;
+		return t - 1;
+	}
+	valueAt(e) {
+		if (!this.ordered) {
+			let t = this.initial;
+			for (let n of this.segments) {
+				if (e < n.start) break;
+				if (e >= n.end) {
+					t = n.to;
+					continue;
+				}
+				let r = (e - n.start) / (n.end - n.start);
+				return n.curve === `linear` ? n.from + (n.to - n.from) * r : n.from * (n.to / n.from) ** r;
+			}
+			return t;
+		}
+		if (Number.isNaN(e) && this.segments.length) return NaN;
+		let t = this.indexAt(e);
+		if (t < 0) return this.initial;
+		let n = this.segments[t];
+		if (e >= n.end) return n.to;
+		let r = (e - n.start) / (n.end - n.start);
+		return n.curve === `linear` ? n.from + (n.to - n.from) * r : n.from * (n.to / n.from) ** r;
 	}
 	isRampingAt(e) {
-		for (let t of this.segments) if (t.start <= e && t.end > e) return !0;
-		return !1;
+		if (!this.ordered) {
+			for (let t of this.segments) if (t.start <= e && t.end > e) return !0;
+			return !1;
+		}
+		let t = this.indexAt(e);
+		return t >= 0 && this.segments[t].end > e;
 	}
 	copy(e) {
 		let t = new GainTimeline(this.initial);
@@ -29,7 +52,7 @@ var GainTimeline = class GainTimeline {
 			...t,
 			start: t.start + e,
 			end: t.end + e
-		})), t;
+		})), t.ordered = this.ordered && Number.isFinite(e), t;
 	}
 	validateRamp(t, n, r, i = `linear`) {
 		if (!Number.isFinite(t) || t < 0 || t > 1 || !Number.isFinite(n) || n < 0 || !Number.isFinite(r) || r < 0) throw new require_errors.AudioError(`Gain automation requires gain 0..1 and nonnegative finite time/duration.`);
@@ -49,24 +72,53 @@ var GainTimeline = class GainTimeline {
 		});
 	}
 	cancel(e) {
-		let t = this.valueAt(e), n = [];
-		for (let r of this.segments) {
-			if (r.start >= e) break;
-			r.end > e ? n.push({
-				...r,
-				end: e,
-				to: t
-			}) : n.push(r);
+		let t = this.valueAt(e);
+		if (!this.ordered) {
+			let n = [];
+			for (let r of this.segments) {
+				if (r.start >= e) break;
+				r.end > e ? n.push({
+					...r,
+					end: e,
+					to: t
+				}) : n.push(r);
+			}
+			return this.segments = n, t;
 		}
-		return this.segments = n, t;
+		let n = 0, r = this.segments.length;
+		for (; n < r;) {
+			let t = n + r >>> 1;
+			this.segments[t].start >= e ? r = t : n = t + 1;
+		}
+		this.applying ? this.segments = this.segments.slice(0, n) : this.segments.length = n;
+		let i = this.segments[n - 1];
+		return i && i.end > e && (this.segments[n - 1] = {
+			...i,
+			end: e,
+			to: t
+		}), t;
 	}
 	apply(e, t, n = 0) {
 		e.cancelScheduledValues(t + n), e.setValueAtTime(this.valueAt(t), t + n);
-		for (let r of this.segments) {
-			if (r.end < t) continue;
-			r.start > t && e.setValueAtTime(r.from, r.start + n);
-			let i = Math.max(t, r.end) + n;
-			r.curve === `exponential` ? e.exponentialRampToValueAtTime(r.to, i) : e.linearRampToValueAtTime(r.to, i);
+		let r = this.segments, i = 0;
+		if (this.ordered) {
+			let e = r.length;
+			for (; i < e;) {
+				let n = i + e >>> 1;
+				r[n].end < t ? i = n + 1 : e = n;
+			}
+		}
+		this.applying++;
+		try {
+			for (let a = i; a < r.length; a++) {
+				let i = r[a];
+				if (i.end < t) continue;
+				i.start > t && e.setValueAtTime(i.from, i.start + n);
+				let o = Math.max(t, i.end) + n;
+				i.curve === `exponential` ? e.exponentialRampToValueAtTime(i.to, o) : e.linearRampToValueAtTime(i.to, o);
+			}
+		} finally {
+			this.applying--;
 		}
 	}
 };

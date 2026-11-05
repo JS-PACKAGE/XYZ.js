@@ -252,24 +252,29 @@ var Geometry = class Geometry {
 	}
 	static sphere(e = .5, t = 32, n = 16) {
 		positive(e, `Sphere radius`), segments(t, 3, `Sphere widthSegments`), segments(n, 2, `Sphere heightSegments`);
-		let r = [], i = [], a = [], o = [];
-		for (let o = 0; o <= n; o++) {
-			let s = Math.PI * o / n, c = Math.sin(s), l = Math.cos(s);
+		let r = (t + 1) * (n + 1), i = new Float64Array(r * 3), a = new Float64Array(r * 3), o = new Float64Array(r * 2), s = new Float64Array(t * (n - 1) * 6), c = new Float64Array(t + 1), l = new Float64Array(t + 1);
+		for (let e = 0; e <= t; e++) {
+			let n = 2 * Math.PI * e / t;
+			c[e] = Math.sin(n), l[e] = Math.cos(n);
+		}
+		let u = 0;
+		for (let r = 0; r <= n; r++) {
+			let s = Math.PI * r / n, d = Math.sin(s), f = Math.cos(s);
 			for (let s = 0; s <= t; s++) {
-				let u = 2 * Math.PI * s / t, d = c * Math.cos(u), f = c * Math.sin(u);
-				r.push(e * d, e * l, e * f), i.push(d, l, f), a.push(s / t, o / n);
+				let p = d * l[s], m = d * c[s], h = u * 3;
+				i[h] = e * p, i[h + 1] = e * f, i[h + 2] = e * m, a[h] = p, a[h + 1] = f, a[h + 2] = m, o[u * 2] = s / t, o[u * 2 + 1] = r / n, u++;
 			}
 		}
-		let s = t + 1;
+		let d = t + 1, f = 0;
 		for (let e = 0; e < n; e++) for (let r = 0; r < t; r++) {
-			let t = e * s + r, i = t + s;
-			e > 0 && o.push(t, t + 1, i + 1), e < n - 1 && o.push(t, i + 1, i);
+			let t = e * d + r, i = t + d;
+			e > 0 && (s[f++] = t, s[f++] = t + 1, s[f++] = i + 1), e < n - 1 && (s[f++] = t, s[f++] = i + 1, s[f++] = i);
 		}
 		return new Geometry({
-			positions: r,
-			normals: i,
-			uvs: a,
-			indices: o
+			positions: i,
+			normals: a,
+			uvs: o,
+			indices: s
 		});
 	}
 	static plane(e = 1, t = 1) {

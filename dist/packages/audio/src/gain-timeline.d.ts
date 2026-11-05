@@ -4,7 +4,10 @@ export type GainCurve = 'linear' | 'exponential';
 export declare class GainTimeline {
     private initial;
     private segments;
+    private ordered;
+    private applying;
     constructor(initial?: number);
+    private indexAt;
     valueAt(time: number): number;
     isRampingAt(time: number): boolean;
     /** Copies schedules onto another context's captured clock, without sharing mutable segments. */

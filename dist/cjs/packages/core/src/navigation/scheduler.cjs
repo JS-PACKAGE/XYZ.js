@@ -41,6 +41,7 @@ var NavigationScheduler = class {
 	followers = /* @__PURE__ */ new Set();
 	cursor = 0;
 	owners = [];
+	queuedByOwner = /* @__PURE__ */ new Map();
 	disposed = !1;
 	stats = {
 		work: 0,
@@ -63,7 +64,7 @@ var NavigationScheduler = class {
 			work: r,
 			kind: `search`,
 			owner: t
-		}), this.owners.includes(t) || this.owners.push(t), r;
+		}), this.addQueuedOwner(t), r;
 	}
 	scheduleBake(t) {
 		if (this.assertLive(), this.queue.length + this.active.length >= require_navigation.navigationLimits.scheduledWork) throw RangeError(`Navigation scheduled work limit exceeded.`);
@@ -71,7 +72,7 @@ var NavigationScheduler = class {
 			work: t,
 			kind: `bake`,
 			owner: void 0
-		}), this.owners.includes(void 0) || this.owners.push(void 0), t;
+		}), this.addQueuedOwner(void 0), t;
 	}
 	addFollower(e) {
 		this.assertLive(), this.followers.add(e);
@@ -97,8 +98,8 @@ var NavigationScheduler = class {
 					}
 				}
 				if (e >= 0) {
-					let r = this.queue.splice(e, 1)[0], i = this.owners.splice(t, 1)[0];
-					if (this.queue.some((e) => e.owner === i) && this.owners.push(i), n.work++, r.work.status !== `pending`) {
+					let r = this.queue.splice(e, 1)[0], i = this.owners.splice(t, 1)[0], a = this.queuedByOwner.get(i) - 1;
+					if (a > 0 ? (this.queuedByOwner.set(i, a), this.owners.push(i)) : this.queuedByOwner.delete(i), n.work++, r.work.status !== `pending`) {
 						this.record(r.work.status);
 						continue;
 					}
@@ -128,7 +129,7 @@ var NavigationScheduler = class {
 	clear() {
 		for (let e of this.queue) e.work.cancel();
 		for (let e of this.active) e.work.cancel();
-		this.queue.length = this.active.length = this.owners.length = 0, this.cursor = 0;
+		this.queue.length = this.active.length = this.owners.length = 0, this.cursor = 0, this.queuedByOwner.clear();
 		for (let e of this.followers) e.stop();
 		this.followers.clear(), this.stats.queued = this.stats.active = 0;
 	}
@@ -137,6 +138,10 @@ var NavigationScheduler = class {
 	}
 	record(e) {
 		e === `cancelled` ? this.stats.cancelled++ : e === `invalidated` ? this.stats.invalidated++ : this.stats.completed++;
+	}
+	addQueuedOwner(e) {
+		let t = this.queuedByOwner.get(e) ?? 0;
+		t === 0 && this.owners.push(e), this.queuedByOwner.set(e, t + 1);
 	}
 	checkBudget(t) {
 		if (!Number.isSafeInteger(t) || t < 0 || t > require_navigation.navigationLimits.expansionsPerStep) throw RangeError(`Navigation work budget exceeds its nonnegative integer bound.`);

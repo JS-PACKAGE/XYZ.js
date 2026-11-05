@@ -61,6 +61,7 @@ export declare class NavigationScheduler {
     private readonly followers;
     private cursor;
     private readonly owners;
+    private readonly queuedByOwner;
     private disposed;
     readonly stats: NavigationSchedulerStats;
     constructor(options?: NavigationSchedulerOptions);
@@ -76,6 +77,7 @@ export declare class NavigationScheduler {
     clear(): void;
     destroy(): void;
     private record;
+    private addQueuedOwner;
     private checkBudget;
     private assertLive;
 }

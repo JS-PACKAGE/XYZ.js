@@ -18,6 +18,7 @@ var TimerTask = class {
 var SceneTimers = class {
 	tasks = /* @__PURE__ */ new Set();
 	time = 0;
+	nextDue = 1 / 0;
 	nextId = 0;
 	disposed = !1;
 	updating = !1;
@@ -32,16 +33,22 @@ var SceneTimers = class {
 		if (this.disposed) return;
 		if (this.updating) throw Error(`Cannot recursively update SceneTimers.`);
 		if (!Number.isFinite(e) || e < 0 || !Number.isFinite(this.time + e)) throw RangeError(`Timer delta must be finite and nonnegative.`);
-		this.time += e;
+		if (this.time += e, this.time < this.nextDue) return;
+		this.nextDue = 1 / 0;
 		let t = this.nextId;
 		this.updating = !0;
 		try {
 			for (let e of this.tasks) {
 				if (e.id > t) break;
-				if (e.due > this.time) continue;
+				if (e.due > this.time) {
+					this.nextDue = Math.min(this.nextDue, e.due);
+					continue;
+				}
 				let n = e.callback;
-				e.interval === 0 ? e.cancel() : e.due = this.time + e.interval - (this.time - e.due) % e.interval, n();
+				e.interval === 0 ? e.cancel() : (e.due = this.time + e.interval - (this.time - e.due) % e.interval, this.nextDue = Math.min(this.nextDue, e.due)), n();
 			}
+		} catch (e) {
+			throw this.nextDue = -1 / 0, e;
 		} finally {
 			this.updating = !1;
 		}
@@ -57,7 +64,7 @@ var SceneTimers = class {
 		if (!Number.isFinite(e) || e < 0 || !Number.isFinite(this.time + e)) throw RangeError(`Timer delay must be finite and nonnegative.`);
 		if (typeof n != `function`) throw TypeError(`Timer callback must be a function.`);
 		let r = new TimerTask(++this.nextId, this.time + e, t, n, this.tasks);
-		return this.tasks.add(r), r;
+		return this.tasks.add(r), this.nextDue = Math.min(this.nextDue, r.due), r;
 	}
 };
 //#endregion
