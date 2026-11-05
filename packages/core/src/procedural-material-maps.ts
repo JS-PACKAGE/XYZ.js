@@ -51098,7 +51098,10 @@ export function createSurfaceSampler(
           squareRe = new Float64Array(count + 1),
           squareIm = new Float64Array(count + 1),
           fixedRe = new Float64Array(count + 1),
-          fixedIm = new Float64Array(count + 1);
+          fixedIm = new Float64Array(count + 1),
+          cosineRe = new Float64Array(count + 1),
+          cosineIm = new Float64Array(count + 1);
+        let previousY = NaN;
         for (let k = 0; k <= count; k++) {
           const s = k * step,
             leading = s ** (2 * degree),
@@ -51118,6 +51121,19 @@ export function createSurfaceSampler(
             fv = fract(v),
             x = centreX + (halfWidth * (fu - 0.5)) / plot,
             y = (halfWidth * (0.5 - fv)) / plot;
+          // Raster rows share the cosine factor; keep arbitrary sampler calls valid too.
+          if (y !== previousY) {
+            for (let k = 0; k <= count; k++) {
+              const argument = y * s2[k],
+                ur = argument * cosAngle,
+                vi = argument * sinAngle,
+                grow = Math.exp(vi),
+                shrink = 1 / grow;
+              cosineRe[k] = Math.cos(ur) * 0.5 * (grow + shrink);
+              cosineIm[k] = -Math.sin(ur) * 0.5 * (grow - shrink);
+            }
+            previousY = y;
+          }
           // The integral is the sum over the nodes of exp(i (fixed + x t^2)) 2 cos(y t) (the nodes +-s pair up), times exp(i angle) step.
           let re = 0,
             im = 0;
@@ -51126,13 +51142,8 @@ export function createSurfaceSampler(
               phase = fixedRe[k] + x * squareRe[k],
               er = magnitude * Math.cos(phase),
               ei = magnitude * Math.sin(phase),
-              argument = y * s2[k],
-              ur = argument * cosAngle,
-              vi = argument * sinAngle,
-              grow = Math.exp(vi),
-              shrink = 1 / grow,
-              cr = Math.cos(ur) * 0.5 * (grow + shrink),
-              ci = -Math.sin(ur) * 0.5 * (grow - shrink),
+              cr = cosineRe[k],
+              ci = cosineIm[k],
               weight = k === 0 ? 1 : 2;
             re += weight * (er * cr - ei * ci);
             im += weight * (er * ci + ei * cr);
