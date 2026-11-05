@@ -121,6 +121,21 @@ describe('3D cameras', () => {
 });
 
 describe('exact 3D picking', () => {
+  it('clears duplicate visitation after successful and interrupted picks', () => {
+    const mesh = new Mesh({ geometry: triangle(), material: material() });
+    const ray = new Raycaster();
+    ray.origin.set(0, -0.25, 5);
+    for (let i = 0; i < 3; i++)
+      expect(ray.intersectObjects([mesh, mesh])).toHaveLength(1);
+    function* interrupted() {
+      yield mesh;
+      throw new Error('interrupted');
+    }
+    expect(() => ray.intersectObjects(interrupted())).toThrow('interrupted');
+    expect(ray.intersectObjects([mesh, mesh])).toHaveLength(1);
+    mesh.material.texture.destroy();
+  });
+
   it('picks a reflected, nonuniformly scaled and rotated child in world units without duplicate flat registrations', () => {
     const parent = new Group();
     parent.position.set(2, 3, -1);

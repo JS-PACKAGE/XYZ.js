@@ -47,7 +47,9 @@ export class Raycaster {
   private readonly world = new Matrix4();
   private readonly localOrigin = new Vector3();
   private readonly localDirection = new Vector3();
-  private readonly visited = new Set<Object3D>();
+  // Reuse weak entries across picks instead of rebuilding a large Set for each ray.
+  private visited = new WeakMap<Object3D, number>();
+  private visit = 0;
   private readonly bounds: BoundingSphere3D = { x: 0, y: 0, z: 0, radius: 0 };
 
   setFromCamera(x: number, y: number, camera: Camera3D, aspect: number): this {
@@ -101,7 +103,10 @@ export class Raycaster {
       out.sort(nearestFirst);
       return out;
     } finally {
-      this.visited.clear();
+      if (++this.visit === Number.MAX_SAFE_INTEGER) {
+        this.visited = new WeakMap();
+        this.visit = 0;
+      }
     }
   }
 
@@ -110,8 +115,8 @@ export class Raycaster {
     recursive: boolean,
     out: RaycastHit[],
   ): void {
-    if (this.visited.has(object)) return;
-    this.visited.add(object);
+    if (this.visited.get(object) === this.visit) return;
+    this.visited.set(object, this.visit);
     if (object.destroyed || !object.worldVisible) return;
     if (object instanceof Mesh) {
       object.updateDeformation();
