@@ -18,6 +18,14 @@ async function minifyDirectory(directory) {
       if (path !== join(dist, 'vendor')) await minifyDirectory(path);
     } else if (entry.isFile() && entry.name.endsWith('.js')) {
       const source = await readFile(path, 'utf8');
+      // The minifier drops `/* @__PURE__ */`, which consumers' bundlers read to tree-shake
+      // unused frozen data tables; such modules are small, so they are published as emitted.
+      if (source.includes('@__PURE__')) {
+        files++;
+        before += Buffer.byteLength(source);
+        after += Buffer.byteLength(source);
+        continue;
+      }
       const inputMap = JSON.parse(await readFile(`${path}.map`, 'utf8'));
       const result = await minify(path, source, {
         module: true,
