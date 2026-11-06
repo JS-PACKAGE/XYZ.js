@@ -46,6 +46,19 @@ export class ResidencyPool implements ResidencyStats {
   #lastFrame: ResidencyAllocation[] = [];
   #lastCount = 0;
   #epoch = 1;
+  /**
+   * Evictable allocations oldest first, with the `lastUsed` each had when listed; consumed
+   * from `#evictionHead`. While valid, an allocation can only leave eligibility (be pinned,
+   * retained, captured or destroyed) or be touched to a newer clock than every listed one,
+   * so the first listed entry still eligible and unchanged is the overall oldest. Anything
+   * that can make an allocation eligible again (a frame or capture ending, a last release)
+   * invalidates the list. Streaming many allocations at the budget then costs one scan and
+   * sort instead of two full scans per allocation.
+   */
+  #eviction: ResidencyAllocation[] = [];
+  #evictionStamps: number[] = [];
+  #evictionHead = 0;
+  #evictionValid = false;
   private capture: Set<ResidencyAllocation> | undefined;
   get entries(): number {
     return this.allocations.size;
@@ -83,11 +96,17 @@ export class ResidencyPool implements ResidencyStats {
     this.#framePins = previous;
     this.#frameCount = 0;
     this.#epoch++;
+    this.#evictionValid = false;
   }
   abortFrame(): void {
     this.frame = false;
     this.#frameCount = 0;
     this.#epoch++;
+    this.#evictionValid = false;
+  }
+  /** @internal A last release makes an allocation evictable again. */
+  released(): void {
+    this.#evictionValid = false;
   }
   retainFrameResources(): ResidencyAllocation[] {
     const result: ResidencyAllocation[] = [];
@@ -106,6 +125,7 @@ export class ResidencyPool implements ResidencyStats {
   endCapture(): ResidencyAllocation[] {
     const result = [...(this.capture ?? [])];
     this.capture = undefined;
+    this.#evictionValid = false;
     for (const allocation of result) allocation.retain();
     return result;
   }
@@ -170,33 +190,90 @@ export class ResidencyPool implements ResidencyStats {
   ): void {
     const needed = this.liveBytes + bytes - budget;
     if (needed <= 0) return;
-    let available = 0;
+    // Nothing is evicted unless enough is evictable; the listed allocations are all of it
+    // once the list is rebuilt (allocations made since are newer and may be missing).
+    if (this.evictableBytes(needed, except) < needed) {
+      this.listEvictable();
+      if (this.evictableBytes(needed, except) < needed)
+        throw new GraphicsError(
+          'Native resource budget is exhausted by active or retained resources.',
+        );
+    }
+    while (this.liveBytes + bytes > budget) {
+      let oldest = this.nextEvictable(except);
+      if (!oldest) {
+        // The list ran out before allocations made since it was built; list them too.
+        this.listEvictable();
+        oldest = this.nextEvictable(except);
+      }
+      if (!oldest)
+        throw new GraphicsError(
+          'Native resource budget is exhausted by active or retained resources.',
+        );
+      oldest.destroy();
+      this.evictions++;
+    }
+  }
+  private evictable(
+    allocation: ResidencyAllocation,
+    index: number,
+    except: ResidencyAllocation | undefined,
+  ): boolean {
+    return (
+      allocation !== except &&
+      !allocation.destroyed &&
+      allocation.lastUsed === this.#evictionStamps[index] &&
+      !allocation.references &&
+      !this.pinned(allocation) &&
+      !this.capture?.has(allocation)
+    );
+  }
+  private listEvictable(): void {
+    const list = this.#eviction;
+    list.length = 0;
     for (const allocation of this.allocations)
       if (
-        allocation !== except &&
         !allocation.references &&
         !this.pinned(allocation) &&
         !this.capture?.has(allocation)
       )
-        available += allocation.bytes;
-    if (available < needed)
-      throw new GraphicsError(
-        'Native resource budget is exhausted by active or retained resources.',
-      );
-    while (this.liveBytes + bytes > budget) {
-      let oldest: ResidencyAllocation | undefined;
-      for (const allocation of this.allocations)
-        if (
-          allocation !== except &&
-          !allocation.references &&
-          !this.pinned(allocation) &&
-          !this.capture?.has(allocation) &&
-          (!oldest || allocation.lastUsed < oldest.lastUsed)
-        )
-          oldest = allocation;
-      oldest!.destroy();
-      this.evictions++;
+        list.push(allocation);
+    list.sort((a, b) => a.lastUsed - b.lastUsed);
+    const stamps = this.#evictionStamps;
+    stamps.length = list.length;
+    for (let i = 0; i < list.length; i++) stamps[i] = list[i]!.lastUsed;
+    this.#evictionHead = 0;
+    this.#evictionValid = true;
+  }
+  /** Listed evictable bytes, counted until `limit`; an invalid list counts as none. */
+  private evictableBytes(
+    limit: number,
+    except: ResidencyAllocation | undefined,
+  ): number {
+    if (!this.#evictionValid) return 0;
+    let bytes = 0;
+    for (let i = this.#evictionHead; i < this.#eviction.length; i++)
+      if (this.evictable(this.#eviction[i]!, i, except)) {
+        bytes += this.#eviction[i]!.bytes;
+        if (bytes >= limit) break;
+      }
+    return bytes;
+  }
+  /** The oldest evictable allocation; drops listed entries that can no longer be. */
+  private nextEvictable(
+    except: ResidencyAllocation | undefined,
+  ): ResidencyAllocation | undefined {
+    if (!this.#evictionValid) return undefined;
+    const list = this.#eviction;
+    for (let i = this.#evictionHead; i < list.length; i++) {
+      const allocation = list[i]!;
+      if (this.evictable(allocation, i, except)) return allocation;
+      // `except` stays listed for later calls; any other skipped entry stays ineligible
+      // (or newer than every listed one) until the list is invalidated.
+      if (allocation !== except && i === this.#evictionHead)
+        this.#evictionHead++;
     }
+    return undefined;
   }
 }
 
@@ -219,7 +296,7 @@ export class ResidencyAllocation {
     this.references++;
   }
   release(): void {
-    if (this.references) this.references--;
+    if (this.references && --this.references === 0) this.pool.released();
   }
   resize(bytes: number): void {
     this.pool.resize(this, bytes);

@@ -169,6 +169,36 @@ describe('native cache admission', () => {
     expect(pool.entries).toBe(0);
   });
 
+  it('keeps exact LRU order across evictions after releases, touches and frame pins', () => {
+    const pool = new ResidencyPool();
+    pool.configure(5);
+    const retired: string[] = [];
+    const allocate = (name: string) =>
+      pool.allocate(1, () => retired.push(name));
+    const a = allocate('a');
+    a.retain();
+    allocate('b');
+    const c = allocate('c');
+    allocate('d');
+    const e = allocate('e');
+    allocate('f');
+    expect(retired).toEqual(['b']);
+    // Released, a is the oldest idle allocation again; touched, c is newer than f.
+    a.release();
+    c.touch();
+    allocate('g');
+    allocate('h');
+    expect(retired).toEqual(['b', 'a', 'd']);
+    pool.beginFrame();
+    e.touch();
+    allocate('i');
+    expect(retired).toEqual(['b', 'a', 'd', 'f']);
+    pool.endFrame();
+    allocate('j');
+    expect(retired).toEqual(['b', 'a', 'd', 'f', 'c']);
+    pool.clear();
+  });
+
   it('rejects budget reconfiguration atomically and cannot evict the allocation being resized', () => {
     const native = new NativeResidency();
     native.configure({ textureBytes: 8, geometryBytes: 8 });
