@@ -4718,6 +4718,8 @@
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。沒有 worker 時，`create()` 改呼叫 `generateProceduralMapsSliced`：同一個 build（`fill(start, end)`／`finish()`）逐列填寫，約 8 ms 以 MessageChannel 讓出一次（避開巢狀 `setTimeout` 的 4 ms clamp）；Gray-Scott 場改為可分段的 run，在 sampler setup 前分段跑完並保留最近八個，setup 隨即命中。輸出與同步路徑逐位元組相同，只有其餘 setup 與單一列不可分割。
 
+Sampler 的各 preset 以模組頂層 `nameSurface` 準備並回傳逐像素 closure；dispatch switch 只負責選擇，不再把全部 preset 的實作巢狀放進首次呼叫必須解析的大函式。每個 sampler 的座標、noise 與輸出共用小型 mutable state；大量只讀預計算資料放在 `prepared`，各 closure 只在建立時解構需要的欄位，避免逐像素 dictionary lookup。共用欄位不跨 sampler，未新增逐像素配置或改變取樣運算。
+
 `ProceduralMapCache` 只保存 CPU 端的四個 `Uint8ClampedArray`，從不交給呼叫者；`create()` 每次仍以 `ImageData` 複製進新的貼圖，所以 destroy 一個 preset 不影響其他 preset 或快取。key 由 kind／size／seed／contrast／roughnessBias／tint 串成，Map 插入順序即 LRU 順序（命中時重新插入）；超過 bytes 或 entries 上限時從最舊的淘汰，單筆超過上限則不保留。進行中的生成以 pending promise 共用，失敗時移除且不寫入。
 
 Height map 走 optical texture array 第 6 層（`opticalSample(..., 5).r`），WGSL 在 MeshUniforms 末尾、GLSL 以 `heightMapSettings` uniform 加一個 vec4，mapped UV 區塊增為 18 slot／144 floats、atlas residency 每 texel 24 bytes。shader variant `heightMap` 只在材質有 height map 時保留新的 parallax 分支並移除舊的 normal.z 分支；沒有時還原原本的條件字串，舊材質 shader 文字不變（但共用 uniform 版面變大）。程序 height 以 `(h-min)/(max-min)` 正規化，平面為 0.5。
