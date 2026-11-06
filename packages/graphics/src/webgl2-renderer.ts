@@ -302,6 +302,9 @@ interface CachedTexture {
   seen: number;
   version: number;
   prepared: boolean;
+  /** Size of the uploaded image storage. */
+  width: number;
+  height: number;
 }
 interface CachedGeometry {
   allocation: ResidencyAllocation;
@@ -4629,7 +4632,26 @@ export class WebGL2Renderer implements Renderer {
         gl.TEXTURE_MAX_LEVEL,
         native ? texture.levels.length - 1 : 0,
       );
+      // A new version of the same size rewrites the existing storage. That allocates nothing,
+      // so it skips the error query: getError is a synchronous GPU round trip, and labels or
+      // canvas textures updated every frame paid one per upload. Context loss is still
+      // reported by the context-loss path.
+      const rewrite =
+        !native &&
+        existing !== undefined &&
+        existing.width === width &&
+        existing.height === height;
       if (native) uploadNativeWebGL(gl, texture);
+      else if (rewrite)
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          0,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          texture.image,
+        );
       else
         gl.texImage2D(
           gl.TEXTURE_2D,
@@ -4640,19 +4662,25 @@ export class WebGL2Renderer implements Renderer {
           texture.image,
         );
       this.stats.upload(bytes);
-      const error = gl.getError();
-      if (error !== gl.NO_ERROR)
-        throw new GraphicsError(
-          `WebGL2 texture upload failed (GL error 0x${error.toString(16)}).`,
-        );
+      if (!rewrite) {
+        const error = gl.getError();
+        if (error !== gl.NO_ERROR)
+          throw new GraphicsError(
+            `WebGL2 texture upload failed (GL error 0x${error.toString(16)}).`,
+          );
+      }
       const entry = existing ?? {
         resource,
         allocation,
         seen: this.frame,
         version: texture.version,
         prepared: false,
+        width,
+        height,
       };
       entry.version = texture.version;
+      entry.width = width;
+      entry.height = height;
       this.textures.set(texture, entry);
       return entry;
     } catch (error) {
