@@ -247,8 +247,9 @@ export class CanvasSpriteSource {
     const x = quad.u0 * sourceWidth,
       y = quad.v0 * sourceHeight;
     const tinted = tint[0] !== 1 || tint[1] !== 1 || tint[2] !== 1;
-    // An integer-offset 1:1 copy reads back exactly the source's own pixels, so tint
-    // those from one read of the source instead of reading back every painted frame.
+    // An integer-offset 1:1 copy reads back exactly the source's own pixels (the copy holds
+    // the same premultiplied texels, so it unpremultiplies to the same values at any alpha),
+    // so tint those from one read of the source instead of reading back every painted frame.
     const pixels =
       tinted &&
       readable &&
@@ -266,8 +267,7 @@ export class CanvasSpriteSource {
         sw = readable!.width,
         x0 = Math.max(0, x),
         x1 = Math.min(sw, x + width);
-      let exact = true;
-      copy: for (let row = 0; row < height; row++) {
+      for (let row = 0; row < height; row++) {
         const sy = y + row;
         if (sy < 0 || sy >= readable!.height || x0 >= x1) continue;
         for (
@@ -277,21 +277,14 @@ export class CanvasSpriteSource {
           s < end;
           o += 4, s += 4
         ) {
-          const alpha = pixels[s + 3]!;
-          if (alpha !== 0 && alpha !== 255) {
-            exact = false;
-            break copy;
-          }
           data[o] = pixels[s]! * tint[0]!;
           data[o + 1] = pixels[s + 1]! * tint[1]!;
           data[o + 2] = pixels[s + 2]! * tint[2]!;
-          data[o + 3] = alpha;
+          data[o + 3] = pixels[s + 3]!;
         }
       }
-      if (exact) {
-        context.putImageData(out, 0, 0);
-        return;
-      }
+      context.putImageData(out, 0, 0);
+      return;
     }
     context.setTransform(
       d / det,

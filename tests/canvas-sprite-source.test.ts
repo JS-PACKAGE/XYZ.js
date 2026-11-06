@@ -162,7 +162,7 @@ describe('Canvas2D painted frame snapshots', () => {
     );
   });
 
-  it('tints binary-alpha frames from one read of their source', () => {
+  it('tints 1:1 frames from one read of their source', () => {
     readAlpha = (pixel) => (pixel % 2 ? 255 : 0);
     const texture = new CanvasTexture2D({
       width: 8,
@@ -207,16 +207,22 @@ describe('Canvas2D painted frame snapshots', () => {
     expect(readbacks()).toBe(4);
   });
 
-  it('reads back each semi-transparent tinted frame itself', () => {
+  it('tints semi-transparent 1:1 frames from the same single source read', () => {
     const texture = new CanvasTexture2D({
       width: 8,
       height: 8,
     } as HTMLCanvasElement);
     const source = sprites();
-    source.image(texture, quad(texture, 0, 4), [0.5, 1, 1, 1]);
-    const first = readbacks();
+    const first = source.image(texture, quad(texture, 0, 4), [0.5, 1, 1, 1]);
     source.image(texture, quad(texture, 4, 4), [0.5, 1, 1, 1]);
     source.image(texture, quad(texture, 0, 4), [0.25, 1, 1, 1]);
-    expect(readbacks()).toBe(first + 2);
+    expect(paints()).toBe(3);
+    expect(readbacks()).toBe(1);
+    const data = (first as unknown as FakeCanvas).context.putImageData.mock
+      .calls[0]![0].data as Uint8ClampedArray;
+    // Red 200 - pixel halves; the partial alpha 200 passes through unchanged.
+    expect(Array.from(data.subarray(0, 8))).toEqual([
+      100, 200, 200, 200, 100, 199, 199, 200,
+    ]);
   });
 });
