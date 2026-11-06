@@ -21805,24 +21805,30 @@ export function createSurfaceSampler(
             centerY = (0.25 + 0.5 * (cell >> 1)) * size,
             loops = gear / gcd(ring, gear),
             ratio = (ring - gear) / gear,
-            radius = Math.ceil(p.lineHalf + 1);
+            radius = Math.ceil(p.lineHalf + 1),
+            cosPhase = Math.cos(phase),
+            sinPhase = Math.sin(phase),
+            reachInk = p.lineHalf + 0.5,
+            // Pixels at or beyond reachInk get zero coverage; the squared test skips them, with
+            // slack so borderline pixels still take the exact path.
+            skipSquared = reachInk * reachInk * (1 + 1e-9);
           for (let i = 0; i < p.pointsPerLoop * loops; i++) {
             const t = (i / (p.pointsPerLoop * loops)) * TAU * loops,
               x = (ring - gear) * Math.cos(t) + pen * Math.cos(ratio * t),
               y = (ring - gear) * Math.sin(t) - pen * Math.sin(ratio * t),
-              px =
-                centerX + scale * (x * Math.cos(phase) - y * Math.sin(phase)),
-              py =
-                centerY + scale * (x * Math.sin(phase) + y * Math.cos(phase)),
+              px = centerX + scale * (x * cosPhase - y * sinPhase),
+              py = centerY + scale * (x * sinPhase + y * cosPhase),
               x0 = Math.floor(px),
               y0 = Math.floor(py);
             for (let j = y0 - radius; j <= y0 + radius; j++) {
               if (j < 0 || j >= size) continue;
+              const dy = j + 0.5 - py;
               for (let k = x0 - radius; k <= x0 + radius; k++) {
                 if (k < 0 || k >= size) continue;
-                const coverage = clamp(
-                    p.lineHalf + 0.5 - Math.hypot(k + 0.5 - px, j + 0.5 - py),
-                  ),
+                const dx = k + 0.5 - px,
+                  distanceSquared = dx * dx + dy * dy;
+                if (distanceSquared >= skipSquared) continue;
+                const coverage = clamp(reachInk - Math.sqrt(distanceSquared)),
                   at = j * size + k;
                 if (coverage > mask[at]) mask[at] = coverage;
               }
