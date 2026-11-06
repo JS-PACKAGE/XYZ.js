@@ -169,11 +169,10 @@ interface CachedGeometry {
 }
 interface CachedMesh {
   allocation: ResidencyAllocation;
-  textureEpoch: number;
   uniform: GPUBuffer;
   bindGroup: GPUBindGroup;
+  /** The material's shared group from `materialBinding`. */
   materialGroup: GPUBindGroup;
-  material: TextureMaterial | undefined;
   environment: EnvironmentMap | undefined;
   instance: GPUBuffer;
   instanceVersion: number;
@@ -412,6 +411,15 @@ class PassBindings {
   }
 }
 
+/** Group 2 of every mesh drawing one material, with the resources it binds. */
+interface MaterialBinding {
+  group: GPUBindGroup;
+  resources: (GPUTextureView | GPUSampler)[];
+  /** Render and texture epoch the resources were last resolved at. */
+  frame: number;
+  epoch: number;
+}
+
 interface NativeMaterialEntry {
   module: GPUShaderModule;
   pipelines: readonly GPURenderPipeline[];
@@ -471,6 +479,11 @@ export class WebGPUMeshPipeline {
     CachedTexture
   >();
   private readonly samplers = new Map<string, GPUSampler>();
+  private readonly materialBindings = new WeakMap<
+    TextureMaterial,
+    MaterialBinding
+  >();
+  private readonly materialResources: (GPUTextureView | GPUSampler)[] = [];
   private readonly meshPipelines = new Map<
     number,
     {
@@ -3056,58 +3069,7 @@ export class WebGPUMeshPipeline {
 
   private cacheMesh(object: Mesh): CachedMesh {
     const material = object.material;
-    const pbr = material instanceof PBRMaterial;
-    const sources = pbr ? pbrTextureSources(material) : undefined;
-    const native =
-      material instanceof NativeMaterial3D
-        ? nativeMaterialSources(material)
-        : undefined;
-    const base = this.cacheTexture(materialBaseTexture(material), !pbr).view;
-    const mr = sources?.metallicRoughnessTexture
-      ? this.cacheTexture(sources.metallicRoughnessTexture, false).view
-      : native && native[0]
-        ? this.cacheTexture(native[0], false).view
-        : this.whiteView;
-    const normal = sources?.normalTexture
-      ? this.cacheTexture(sources.normalTexture, false).view
-      : native && native[1]
-        ? this.cacheTexture(native[1], false).view
-        : this.whiteView;
-    const ao = sources?.occlusionTexture
-      ? this.cacheTexture(sources.occlusionTexture, false).view
-      : native && native[2]
-        ? this.cacheTexture(native[2], false).view
-        : this.whiteView;
-    const emissiveSlot = pbr ? pbrEmissiveSlot(material) : undefined;
-    const emissive = emissiveSlot?.texture
-      ? this.cacheTexture(emissiveSlot.texture, false).view
-      : native && native[3]
-        ? this.cacheTexture(native[3], false).view
-        : this.whiteView;
-    const specular = sources?.specularTexture
-      ? this.cacheTexture(sources.specularTexture, false).view
-      : this.whiteView;
-    const specularColor = sources?.specularColorTexture
-      ? this.cacheTexture(sources.specularColorTexture, false).view
-      : this.whiteView;
-    const clearcoat = sources?.clearcoatTexture
-      ? this.cacheTexture(sources.clearcoatTexture, false).view
-      : this.whiteView;
-    const clearcoatRoughness = sources?.clearcoatRoughnessTexture
-      ? this.cacheTexture(sources.clearcoatRoughnessTexture, false).view
-      : this.whiteView;
-    const clearcoatNormal = sources?.clearcoatNormalTexture
-      ? this.cacheTexture(sources.clearcoatNormalTexture, false).view
-      : this.whiteView;
-    const sheenColor = sources?.sheenColorTexture
-      ? this.cacheTexture(sources.sheenColorTexture, false).view
-      : this.whiteView;
-    const sheenRoughness = sources?.sheenRoughnessTexture
-      ? this.cacheTexture(sources.sheenRoughnessTexture, false).view
-      : this.whiteView;
-    const optical = pbr
-      ? this.cacheOpticalMaps(material)
-      : this.emptyOpticalView;
+    const materialGroup = this.materialBinding(material);
     const existing = this.meshes.get(object);
     const skin = object instanceof SkinnedMesh ? object : undefined;
     const skinBytes = skin
@@ -3133,11 +3095,7 @@ export class WebGPUMeshPipeline {
         this.stats.upload(skin.jointPalette.byteLength);
         existing.paletteVersion = skin.paletteVersion;
       }
-      if (
-        existing.textureEpoch === this.textureEpoch &&
-        existing.material === material
-      )
-        return existing;
+      if (existing.materialGroup === materialGroup) return existing;
     }
     const allocation =
       existing?.allocation ??
@@ -3232,102 +3190,12 @@ export class WebGPUMeshPipeline {
             },
           ],
         });
-      const materialGroup = this.device.createBindGroup({
-        layout: this.materialLayout,
-        entries: [
-          { binding: 0, resource: base },
-          {
-            binding: 1,
-            resource: this.cacheSampler(material.textureSampler),
-          },
-          { binding: 2, resource: mr },
-          { binding: 3, resource: normal },
-          { binding: 4, resource: ao },
-          { binding: 5, resource: emissive },
-          {
-            binding: 6,
-            resource: pbr
-              ? this.cacheSampler(material.metallicRoughnessSampler)
-              : this.sampler,
-          },
-          {
-            binding: 7,
-            resource: pbr
-              ? this.cacheSampler(material.normalSampler)
-              : this.sampler,
-          },
-          {
-            binding: 8,
-            resource: pbr
-              ? this.cacheSampler(material.occlusionSampler)
-              : this.sampler,
-          },
-          {
-            binding: 9,
-            resource: pbr
-              ? this.cacheSampler(material.emissiveSampler)
-              : this.sampler,
-          },
-          { binding: 10, resource: specular },
-          { binding: 11, resource: specularColor },
-          {
-            binding: 12,
-            resource: pbr
-              ? this.cacheSampler(material.specularSampler)
-              : this.sampler,
-          },
-          {
-            binding: 13,
-            resource: pbr
-              ? this.cacheSampler(material.specularColorSampler)
-              : this.sampler,
-          },
-          { binding: 14, resource: clearcoat },
-          { binding: 15, resource: clearcoatRoughness },
-          { binding: 16, resource: clearcoatNormal },
-          {
-            binding: 17,
-            resource: pbr
-              ? this.cacheSampler(material.clearcoatSampler)
-              : this.sampler,
-          },
-          {
-            binding: 18,
-            resource: pbr
-              ? this.cacheSampler(material.clearcoatRoughnessSampler)
-              : this.sampler,
-          },
-          {
-            binding: 19,
-            resource: pbr
-              ? this.cacheSampler(material.clearcoatNormalSampler)
-              : this.sampler,
-          },
-          { binding: 20, resource: sheenColor },
-          { binding: 21, resource: sheenRoughness },
-          {
-            binding: 22,
-            resource: pbr
-              ? this.cacheSampler(material.sheenColorSampler)
-              : this.sampler,
-          },
-          {
-            binding: 23,
-            resource: pbr
-              ? this.cacheSampler(material.sheenRoughnessSampler)
-              : this.sampler,
-          },
-          { binding: 24, resource: optical },
-        ],
-      });
       const uniformData = existing?.data ?? new Float32Array(meshUniformFloats);
       const entry: CachedMesh = existing ?? {
         uniform,
         allocation,
-        textureEpoch: this.textureEpoch,
         bindGroup,
         materialGroup,
-        material,
         environment: undefined,
         instance,
         instanceVersion: object instanceof InstancedMesh ? object.version : 0,
@@ -3347,8 +3215,6 @@ export class WebGPUMeshPipeline {
         irradiance: undefined,
         seen: this.frame,
       };
-      entry.textureEpoch = this.textureEpoch;
-      entry.material = material;
       entry.materialGroup = materialGroup;
       this.meshes.set(object, entry);
       return entry;
@@ -3363,6 +3229,126 @@ export class WebGPUMeshPipeline {
       }
       throw error;
     }
+  }
+
+  /**
+   * Group 2 shared by every mesh drawing `material`. Texture lookups (which also touch
+   * residency and upload new versions) run once per material per render, or again after
+   * the texture epoch moves; a group is created only when a bound view or sampler changed.
+   * Caching an unrelated texture therefore no longer rebuilds a group for every cached mesh.
+   */
+  private materialBinding(material: TextureMaterial): GPUBindGroup {
+    const binding = this.materialBindings.get(material);
+    if (
+      binding &&
+      binding.frame === this.frame &&
+      binding.epoch === this.textureEpoch
+    )
+      return binding.group;
+    const pbr = material instanceof PBRMaterial;
+    const sources = pbr ? pbrTextureSources(material) : undefined;
+    const native =
+      material instanceof NativeMaterial3D
+        ? nativeMaterialSources(material)
+        : undefined;
+    const base = this.cacheTexture(materialBaseTexture(material), !pbr).view;
+    const mr = sources?.metallicRoughnessTexture
+      ? this.cacheTexture(sources.metallicRoughnessTexture, false).view
+      : native && native[0]
+        ? this.cacheTexture(native[0], false).view
+        : this.whiteView;
+    const normal = sources?.normalTexture
+      ? this.cacheTexture(sources.normalTexture, false).view
+      : native && native[1]
+        ? this.cacheTexture(native[1], false).view
+        : this.whiteView;
+    const ao = sources?.occlusionTexture
+      ? this.cacheTexture(sources.occlusionTexture, false).view
+      : native && native[2]
+        ? this.cacheTexture(native[2], false).view
+        : this.whiteView;
+    const emissiveSlot = pbr ? pbrEmissiveSlot(material) : undefined;
+    const emissive = emissiveSlot?.texture
+      ? this.cacheTexture(emissiveSlot.texture, false).view
+      : native && native[3]
+        ? this.cacheTexture(native[3], false).view
+        : this.whiteView;
+    const specular = sources?.specularTexture
+      ? this.cacheTexture(sources.specularTexture, false).view
+      : this.whiteView;
+    const specularColor = sources?.specularColorTexture
+      ? this.cacheTexture(sources.specularColorTexture, false).view
+      : this.whiteView;
+    const clearcoat = sources?.clearcoatTexture
+      ? this.cacheTexture(sources.clearcoatTexture, false).view
+      : this.whiteView;
+    const clearcoatRoughness = sources?.clearcoatRoughnessTexture
+      ? this.cacheTexture(sources.clearcoatRoughnessTexture, false).view
+      : this.whiteView;
+    const clearcoatNormal = sources?.clearcoatNormalTexture
+      ? this.cacheTexture(sources.clearcoatNormalTexture, false).view
+      : this.whiteView;
+    const sheenColor = sources?.sheenColorTexture
+      ? this.cacheTexture(sources.sheenColorTexture, false).view
+      : this.whiteView;
+    const sheenRoughness = sources?.sheenRoughnessTexture
+      ? this.cacheTexture(sources.sheenRoughnessTexture, false).view
+      : this.whiteView;
+    const optical = pbr
+      ? this.cacheOpticalMaps(material)
+      : this.emptyOpticalView;
+    const resources = this.materialResources;
+    resources.length = 0;
+    resources.push(
+      base,
+      this.cacheSampler(material.textureSampler),
+      mr,
+      normal,
+      ao,
+      emissive,
+      pbr ? this.cacheSampler(material.metallicRoughnessSampler) : this.sampler,
+      pbr ? this.cacheSampler(material.normalSampler) : this.sampler,
+      pbr ? this.cacheSampler(material.occlusionSampler) : this.sampler,
+      pbr ? this.cacheSampler(material.emissiveSampler) : this.sampler,
+      specular,
+      specularColor,
+      pbr ? this.cacheSampler(material.specularSampler) : this.sampler,
+      pbr ? this.cacheSampler(material.specularColorSampler) : this.sampler,
+      clearcoat,
+      clearcoatRoughness,
+      clearcoatNormal,
+      pbr ? this.cacheSampler(material.clearcoatSampler) : this.sampler,
+      pbr
+        ? this.cacheSampler(material.clearcoatRoughnessSampler)
+        : this.sampler,
+      pbr ? this.cacheSampler(material.clearcoatNormalSampler) : this.sampler,
+      sheenColor,
+      sheenRoughness,
+      pbr ? this.cacheSampler(material.sheenColorSampler) : this.sampler,
+      pbr ? this.cacheSampler(material.sheenRoughnessSampler) : this.sampler,
+      optical,
+    );
+    if (
+      binding &&
+      binding.resources.every(
+        (resource, index) => resource === resources[index],
+      )
+    ) {
+      binding.frame = this.frame;
+      binding.epoch = this.textureEpoch;
+      return binding.group;
+    }
+    const group = this.device.createBindGroup({
+      layout: this.materialLayout,
+      entries: resources.map((resource, binding) => ({ binding, resource })),
+    });
+    this.materialBindings.set(material, {
+      group,
+      resources: resources.slice(),
+      frame: this.frame,
+      epoch: this.textureEpoch,
+    });
+    return group;
   }
 
   private cacheSampler(options: TextureSamplerOptions | undefined): GPUSampler {
