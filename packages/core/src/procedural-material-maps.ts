@@ -21784,85 +21784,94 @@ export function createSurfaceSampler(
         };
       }
       case 'spirographrosettes': {
-        const p = proceduralMaterialPresets.spirographrosettes,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27701),
-          size = p.maskSize,
-          mask = new Float32Array(size * size),
-          gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
-        // Four hypotrochoids (a small gear of radius r rolling inside a ring of radius R, the pen at
-        // distance d from its center), one per quadrant. Each is stamped once into an ink-coverage
-        // mask, so per-sample work is a bilinear lookup.
-        for (let cell = 0; cell < 4; cell++) {
-          const [ring, gear] = p.gears[cell],
-            penRatio =
-              p.penOffset +
-              p.penJitter * (2 * hash(cell, 1, seed ^ 0x27703) - 1),
-            pen = gear * penRatio,
-            reach = ring - gear + pen,
-            scale = (p.outerRadius * size) / reach,
-            phase = hash(cell, 2, seed ^ 0x27705) * TAU,
-            centerX = (0.25 + 0.5 * (cell & 1)) * size,
-            centerY = (0.25 + 0.5 * (cell >> 1)) * size,
-            loops = gear / gcd(ring, gear),
-            ratio = (ring - gear) / gear,
-            radius = Math.ceil(p.lineHalf + 1),
-            cosPhase = Math.cos(phase),
-            sinPhase = Math.sin(phase),
-            reachInk = p.lineHalf + 0.5,
-            // Pixels at or beyond reachInk get zero coverage; the squared test skips them, with
-            // slack so borderline pixels still take the exact path.
-            skipSquared = reachInk * reachInk * (1 + 1e-9);
-          for (let i = 0; i < p.pointsPerLoop * loops; i++) {
-            const t = (i / (p.pointsPerLoop * loops)) * TAU * loops,
-              x = (ring - gear) * Math.cos(t) + pen * Math.cos(ratio * t),
-              y = (ring - gear) * Math.sin(t) - pen * Math.sin(ratio * t),
-              px = centerX + scale * (x * cosPhase - y * sinPhase),
-              py = centerY + scale * (x * sinPhase + y * cosPhase),
-              x0 = Math.floor(px),
-              y0 = Math.floor(py);
-            for (let j = y0 - radius; j <= y0 + radius; j++) {
-              if (j < 0 || j >= size) continue;
-              const dy = j + 0.5 - py;
-              for (let k = x0 - radius; k <= x0 + radius; k++) {
-                if (k < 0 || k >= size) continue;
-                const dx = k + 0.5 - px,
-                  distanceSquared = dx * dx + dy * dy;
-                if (distanceSquared >= skipSquared) continue;
-                const coverage = clamp(reachInk - Math.sqrt(distanceSquared)),
-                  at = j * size + k;
-                if (coverage > mask[at]) mask[at] = coverage;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.spirographrosettes,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ 0x27701,
+            ),
+            size = p.maskSize,
+            mask = new Float32Array(size * size),
+            gcd = (a: number, b: number): number =>
+              b === 0 ? a : gcd(b, a % b);
+          // Four hypotrochoids (a small gear of radius r rolling inside a ring of radius R, the pen at
+          // distance d from its center), one per quadrant. Each is stamped once into an ink-coverage
+          // mask, so per-sample work is a bilinear lookup.
+          for (let cell = 0; cell < 4; cell++) {
+            const [ring, gear] = p.gears[cell],
+              penRatio =
+                p.penOffset +
+                p.penJitter * (2 * hash(cell, 1, seed ^ 0x27703) - 1),
+              pen = gear * penRatio,
+              reach = ring - gear + pen,
+              scale = (p.outerRadius * size) / reach,
+              phase = hash(cell, 2, seed ^ 0x27705) * TAU,
+              centerX = (0.25 + 0.5 * (cell & 1)) * size,
+              centerY = (0.25 + 0.5 * (cell >> 1)) * size,
+              loops = gear / gcd(ring, gear),
+              ratio = (ring - gear) / gear,
+              radius = Math.ceil(p.lineHalf + 1),
+              cosPhase = Math.cos(phase),
+              sinPhase = Math.sin(phase),
+              reachInk = p.lineHalf + 0.5,
+              // Pixels at or beyond reachInk get zero coverage; the squared test skips them, with
+              // slack so borderline pixels still take the exact path.
+              skipSquared = reachInk * reachInk * (1 + 1e-9);
+            for (let i = 0; i < p.pointsPerLoop * loops; i++) {
+              const t = (i / (p.pointsPerLoop * loops)) * TAU * loops,
+                x = (ring - gear) * Math.cos(t) + pen * Math.cos(ratio * t),
+                y = (ring - gear) * Math.sin(t) - pen * Math.sin(ratio * t),
+                px = centerX + scale * (x * cosPhase - y * sinPhase),
+                py = centerY + scale * (x * sinPhase + y * cosPhase),
+                x0 = Math.floor(px),
+                y0 = Math.floor(py);
+              for (let j = y0 - radius; j <= y0 + radius; j++) {
+                if (j < 0 || j >= size) continue;
+                const dy = j + 0.5 - py;
+                for (let k = x0 - radius; k <= x0 + radius; k++) {
+                  if (k < 0 || k >= size) continue;
+                  const dx = k + 0.5 - px,
+                    distanceSquared = dx * dx + dy * dy;
+                  if (distanceSquared >= skipSquared) continue;
+                  const coverage = clamp(reachInk - Math.sqrt(distanceSquared)),
+                    at = j * size + k;
+                  if (coverage > mask[at]) mask[at] = coverage;
+                }
               }
             }
           }
-        }
-        return () => {
-          const gx = u * size - 0.5,
-            gy = v * size - 0.5,
-            x0 = Math.floor(gx),
-            y0 = Math.floor(gy),
-            fx = gx - x0,
-            fy = gy - y0,
-            xa = (x0 + size) % size,
-            xb = (x0 + 1 + size) % size,
-            ya = (y0 + size) % size,
-            yb = (y0 + 1 + size) % size,
-            ink =
-              (mask[ya * size + xa] * (1 - fx) + mask[ya * size + xb] * fx) *
-                (1 - fy) +
-              (mask[yb * size + xa] * (1 - fx) + mask[yb * size + xb] * fx) *
-                fy,
-            cell = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
-            pen = p.inkTone + (p.inkStep * cell) / 3;
-          color = clamp(
-            p.paperTone +
-              p.grainTone * (grainField(u, v) - 0.5) +
-              (pen - p.paperTone) * ink,
-          );
-          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
-          occlusion = 1;
+          return () => {
+            const gx = u * size - 0.5,
+              gy = v * size - 0.5,
+              x0 = Math.floor(gx),
+              y0 = Math.floor(gy),
+              fx = gx - x0,
+              fy = gy - y0,
+              xa = (x0 + size) % size,
+              xb = (x0 + 1 + size) % size,
+              ya = (y0 + size) % size,
+              yb = (y0 + 1 + size) % size,
+              ink =
+                (mask[ya * size + xa] * (1 - fx) + mask[ya * size + xb] * fx) *
+                  (1 - fy) +
+                (mask[yb * size + xa] * (1 - fx) + mask[yb * size + xb] * fx) *
+                  fy,
+              cell = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+              pen = p.inkTone + (p.inkStep * cell) / 3;
+            color = clamp(
+              p.paperTone +
+                p.grainTone * (grainField(u, v) - 0.5) +
+                (pen - p.paperTone) * ink,
+            );
+            height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+            roughness =
+              p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+            occlusion = 1;
+          };
         };
+        return setup();
       }
       case 'juliacells': {
         const p = proceduralMaterialPresets.juliacells,
@@ -23554,121 +23563,126 @@ export function createSurfaceSampler(
         };
       }
       case 'bluenoisemask': {
-        const p = proceduralMaterialPresets.bluenoisemask,
-          n = p.size,
-          total = n * n,
-          radius = p.kernelRadius,
-          kernel = new Float64Array((2 * radius + 1) ** 2),
-          ranks = new Float64Array(total);
-        for (let dy = -radius; dy <= radius; dy++)
-          for (let dx = -radius; dx <= radius; dx++)
-            kernel[(dy + radius) * (2 * radius + 1) + dx + radius] = Math.exp(
-              -(dx * dx + dy * dy) / (2 * p.sigma * p.sigma),
-            );
-        // Void-and-cluster (Ulichney): build a blue-noise dither mask in which the rank of every texel
-        // 0..total-1 is used exactly once. `energy` is the Gaussian-blurred density of the texels
-        // currently set (on a torus, so the mask tiles).
-        const pattern = new Uint8Array(total),
-          energy = new Float64Array(total),
-          splat = (index: number, sign: number): void => {
-            const px = index % n,
-              py = Math.floor(index / n);
-            for (let dy = -radius; dy <= radius; dy++) {
-              const row = ((py + dy + n) % n) * n;
-              for (let dx = -radius; dx <= radius; dx++)
-                energy[row + ((px + dx + n) % n)] +=
-                  sign * kernel[(dy + radius) * (2 * radius + 1) + dx + radius];
-            }
-          },
-          // The set texel with the highest energy (tightest cluster) or the clear texel with the
-          // lowest (largest void).
-          tightest = (): number => {
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.bluenoisemask,
+            n = p.size,
+            total = n * n,
+            radius = p.kernelRadius,
+            kernel = new Float64Array((2 * radius + 1) ** 2),
+            ranks = new Float64Array(total);
+          for (let dy = -radius; dy <= radius; dy++)
+            for (let dx = -radius; dx <= radius; dx++)
+              kernel[(dy + radius) * (2 * radius + 1) + dx + radius] = Math.exp(
+                -(dx * dx + dy * dy) / (2 * p.sigma * p.sigma),
+              );
+          // Void-and-cluster (Ulichney): build a blue-noise dither mask in which the rank of every texel
+          // 0..total-1 is used exactly once. `energy` is the Gaussian-blurred density of the texels
+          // currently set (on a torus, so the mask tiles).
+          const pattern = new Uint8Array(total),
+            energy = new Float64Array(total),
+            splat = (index: number, sign: number): void => {
+              const px = index % n,
+                py = Math.floor(index / n);
+              for (let dy = -radius; dy <= radius; dy++) {
+                const row = ((py + dy + n) % n) * n;
+                for (let dx = -radius; dx <= radius; dx++)
+                  energy[row + ((px + dx + n) % n)] +=
+                    sign *
+                    kernel[(dy + radius) * (2 * radius + 1) + dx + radius];
+              }
+            },
+            // The set texel with the highest energy (tightest cluster) or the clear texel with the
+            // lowest (largest void).
+            tightest = (): number => {
+              let best = -1,
+                value = -Infinity;
+              for (let i = 0; i < total; i++)
+                if (pattern[i] === 1 && energy[i] > value) {
+                  value = energy[i];
+                  best = i;
+                }
+              return best;
+            },
+            largestVoid = (): number => {
+              let best = -1,
+                value = Infinity;
+              for (let i = 0; i < total; i++)
+                if (pattern[i] === 0 && energy[i] < value) {
+                  value = energy[i];
+                  best = i;
+                }
+              return best;
+            };
+          // Initial pattern: the first texels in the order of a seeded hash, then relaxed until the
+          // tightest cluster is also the largest void.
+          const order = Array.from({ length: total }, (_, i) => i).sort(
+              (a, b) => hash(a, 1, seed ^ 0x28d01) - hash(b, 1, seed ^ 0x28d01),
+            ),
+            ones = Math.floor(total * p.initialFraction);
+          for (let i = 0; i < ones; i++) {
+            pattern[order[i]] = 1;
+            splat(order[i], 1);
+          }
+          for (let step = 0; step < p.relaxLimit; step++) {
+            const cluster = tightest();
+            pattern[cluster] = 0;
+            splat(cluster, -1);
+            const hole = largestVoid();
+            pattern[hole] = 1;
+            splat(hole, 1);
+            if (hole === cluster) break;
+          }
+          const initial = pattern.slice();
+          // Phase 1: remove ones from the tightest cluster, giving ranks ones - 1 down to 0.
+          for (let rank = ones - 1; rank >= 0; rank--) {
+            const cluster = tightest();
+            pattern[cluster] = 0;
+            splat(cluster, -1);
+            ranks[cluster] = rank;
+          }
+          // Phase 2: restore the initial pattern and add ones in the largest voids up to half full.
+          energy.fill(0);
+          for (let i = 0; i < total; i++) {
+            pattern[i] = initial[i];
+            if (initial[i] === 1) splat(i, 1);
+          }
+          const half = total >> 1;
+          for (let rank = ones; rank < half; rank++) {
+            const hole = largestVoid();
+            pattern[hole] = 1;
+            splat(hole, 1);
+            ranks[hole] = rank;
+          }
+          // Phase 3: the remaining texels, each the tightest cluster of clear texels.
+          energy.fill(0);
+          for (let i = 0; i < total; i++) if (pattern[i] === 0) splat(i, 1);
+          for (let rank = half; rank < total; rank++) {
             let best = -1,
               value = -Infinity;
             for (let i = 0; i < total; i++)
-              if (pattern[i] === 1 && energy[i] > value) {
+              if (pattern[i] === 0 && energy[i] > value) {
                 value = energy[i];
                 best = i;
               }
-            return best;
-          },
-          largestVoid = (): number => {
-            let best = -1,
-              value = Infinity;
-            for (let i = 0; i < total; i++)
-              if (pattern[i] === 0 && energy[i] < value) {
-                value = energy[i];
-                best = i;
-              }
-            return best;
+            pattern[best] = 1;
+            splat(best, -1);
+            ranks[best] = rank;
+          }
+          return () => {
+            const tone =
+              ranks[
+                Math.min(n - 1, Math.floor(v * n)) * n +
+                  Math.min(n - 1, Math.floor(u * n))
+              ] /
+              (total - 1);
+            color = tone;
+            height = clamp(tone * p.heightGain);
+            roughness = clamp(p.roughnessBase + p.roughnessSpan * tone);
+            occlusion = 1;
           };
-        // Initial pattern: the first texels in the order of a seeded hash, then relaxed until the
-        // tightest cluster is also the largest void.
-        const order = Array.from({ length: total }, (_, i) => i).sort(
-            (a, b) => hash(a, 1, seed ^ 0x28d01) - hash(b, 1, seed ^ 0x28d01),
-          ),
-          ones = Math.floor(total * p.initialFraction);
-        for (let i = 0; i < ones; i++) {
-          pattern[order[i]] = 1;
-          splat(order[i], 1);
-        }
-        for (let step = 0; step < p.relaxLimit; step++) {
-          const cluster = tightest();
-          pattern[cluster] = 0;
-          splat(cluster, -1);
-          const hole = largestVoid();
-          pattern[hole] = 1;
-          splat(hole, 1);
-          if (hole === cluster) break;
-        }
-        const initial = pattern.slice();
-        // Phase 1: remove ones from the tightest cluster, giving ranks ones - 1 down to 0.
-        for (let rank = ones - 1; rank >= 0; rank--) {
-          const cluster = tightest();
-          pattern[cluster] = 0;
-          splat(cluster, -1);
-          ranks[cluster] = rank;
-        }
-        // Phase 2: restore the initial pattern and add ones in the largest voids up to half full.
-        energy.fill(0);
-        for (let i = 0; i < total; i++) {
-          pattern[i] = initial[i];
-          if (initial[i] === 1) splat(i, 1);
-        }
-        const half = total >> 1;
-        for (let rank = ones; rank < half; rank++) {
-          const hole = largestVoid();
-          pattern[hole] = 1;
-          splat(hole, 1);
-          ranks[hole] = rank;
-        }
-        // Phase 3: the remaining texels, each the tightest cluster of clear texels.
-        energy.fill(0);
-        for (let i = 0; i < total; i++) if (pattern[i] === 0) splat(i, 1);
-        for (let rank = half; rank < total; rank++) {
-          let best = -1,
-            value = -Infinity;
-          for (let i = 0; i < total; i++)
-            if (pattern[i] === 0 && energy[i] > value) {
-              value = energy[i];
-              best = i;
-            }
-          pattern[best] = 1;
-          splat(best, -1);
-          ranks[best] = rank;
-        }
-        return () => {
-          const tone =
-            ranks[
-              Math.min(n - 1, Math.floor(v * n)) * n +
-                Math.min(n - 1, Math.floor(u * n))
-            ] /
-            (total - 1);
-          color = tone;
-          height = clamp(tone * p.heightGain);
-          roughness = clamp(p.roughnessBase + p.roughnessSpan * tone);
-          occlusion = 1;
         };
+        return setup();
       }
       case 'mastermindboard': {
         const p = proceduralMaterialPresets.mastermindboard,
@@ -28700,134 +28714,144 @@ export function createSurfaceSampler(
         };
       }
       case 'colormapregions': {
-        const p = proceduralMaterialPresets.colormapregions,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2bc01),
-          cells = p.cells,
-          count = cells * cells,
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          sites = Array.from(
-            { length: count },
-            (_, index): [number, number] => [
-              ((index % cells) +
-                0.5 +
-                p.jitter * (2 * hash(index, 3, seed ^ 0x2bc03) - 1)) /
-                cells,
-              (Math.floor(index / cells) +
-                0.5 +
-                p.jitter * (2 * hash(index, 5, seed ^ 0x2bc05) - 1)) /
-                cells,
-            ],
-          ),
-          // The owner of a point (its nearest site, periodic) and its distance to the border with the second-nearest site.
-          lookup = (x: number, y: number): [number, number] => {
-            const ci = Math.floor(x * cells),
-              cj = Math.floor(y * cells);
-            let first = -1,
-              firstDistance = Infinity,
-              firstX = 0,
-              firstY = 0,
-              secondDistance = Infinity,
-              secondX = 0,
-              secondY = 0;
-            for (let dj = -1; dj <= 1; dj++)
-              for (let di = -1; di <= 1; di++) {
-                const index =
-                    ((((cj + dj) % cells) + cells) % cells) * cells +
-                    ((((ci + di) % cells) + cells) % cells),
-                  sx = sites[index][0] + Math.floor((ci + di) / cells),
-                  sy = sites[index][1] + Math.floor((cj + dj) / cells),
-                  distance = (sx - x) * (sx - x) + (sy - y) * (sy - y);
-                if (distance < firstDistance) {
-                  secondDistance = firstDistance;
-                  secondX = firstX;
-                  secondY = firstY;
-                  first = index;
-                  firstDistance = distance;
-                  firstX = sx;
-                  firstY = sy;
-                } else if (distance < secondDistance) {
-                  secondDistance = distance;
-                  secondX = sx;
-                  secondY = sy;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.colormapregions,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ 0x2bc01,
+            ),
+            cells = p.cells,
+            count = cells * cells,
+            inverseSoft = 1 / p.edgeSoft,
+            cover = (inside: number): number =>
+              smooth(clamp(inside * inverseSoft + 0.5)),
+            sites = Array.from(
+              { length: count },
+              (_, index): [number, number] => [
+                ((index % cells) +
+                  0.5 +
+                  p.jitter * (2 * hash(index, 3, seed ^ 0x2bc03) - 1)) /
+                  cells,
+                (Math.floor(index / cells) +
+                  0.5 +
+                  p.jitter * (2 * hash(index, 5, seed ^ 0x2bc05) - 1)) /
+                  cells,
+              ],
+            ),
+            // The owner of a point (its nearest site, periodic) and its distance to the border with the second-nearest site.
+            lookup = (x: number, y: number): [number, number] => {
+              const ci = Math.floor(x * cells),
+                cj = Math.floor(y * cells);
+              let first = -1,
+                firstDistance = Infinity,
+                firstX = 0,
+                firstY = 0,
+                secondDistance = Infinity,
+                secondX = 0,
+                secondY = 0;
+              for (let dj = -1; dj <= 1; dj++)
+                for (let di = -1; di <= 1; di++) {
+                  const index =
+                      ((((cj + dj) % cells) + cells) % cells) * cells +
+                      ((((ci + di) % cells) + cells) % cells),
+                    sx = sites[index][0] + Math.floor((ci + di) / cells),
+                    sy = sites[index][1] + Math.floor((cj + dj) / cells),
+                    distance = (sx - x) * (sx - x) + (sy - y) * (sy - y);
+                  if (distance < firstDistance) {
+                    secondDistance = firstDistance;
+                    secondX = firstX;
+                    secondY = firstY;
+                    first = index;
+                    firstDistance = distance;
+                    firstX = sx;
+                    firstY = sy;
+                  } else if (distance < secondDistance) {
+                    secondDistance = distance;
+                    secondX = sx;
+                    secondY = sy;
+                  }
+                }
+              return [
+                first,
+                (secondDistance - firstDistance) /
+                  (2 * Math.hypot(secondX - firstX, secondY - firstY)),
+              ];
+            },
+            neighbours = Array.from({ length: count }, () => new Set<number>()),
+            owner = new Int16Array(p.scan * p.scan);
+          // Which regions touch: scan a periodic grid and note where the owner changes, including across
+          // diagonals so that regions meeting only at a short edge or a corner are separated too.
+          for (let j = 0; j < p.scan; j++)
+            for (let i = 0; i < p.scan; i++)
+              owner[j * p.scan + i] = lookup(
+                (i + 0.5) / p.scan,
+                (j + 0.5) / p.scan,
+              )[0];
+          for (let j = 0; j < p.scan; j++)
+            for (let i = 0; i < p.scan; i++) {
+              const here = owner[j * p.scan + i];
+              for (const [dx, dy] of [
+                [1, 0],
+                [0, 1],
+                [1, 1],
+                [1, -1],
+              ]) {
+                const other =
+                  owner[
+                    ((j + dy + p.scan) % p.scan) * p.scan +
+                      ((i + dx + p.scan) % p.scan)
+                  ];
+                if (other !== here) {
+                  neighbours[here].add(other);
+                  neighbours[other].add(here);
                 }
               }
-            return [
-              first,
-              (secondDistance - firstDistance) /
-                (2 * Math.hypot(secondX - firstX, secondY - firstY)),
-            ];
-          },
-          neighbours = Array.from({ length: count }, () => new Set<number>()),
-          owner = new Int16Array(p.scan * p.scan);
-        // Which regions touch: scan a periodic grid and note where the owner changes, including across
-        // diagonals so that regions meeting only at a short edge or a corner are separated too.
-        for (let j = 0; j < p.scan; j++)
-          for (let i = 0; i < p.scan; i++)
-            owner[j * p.scan + i] = lookup(
-              (i + 0.5) / p.scan,
-              (j + 0.5) / p.scan,
-            )[0];
-        for (let j = 0; j < p.scan; j++)
-          for (let i = 0; i < p.scan; i++) {
-            const here = owner[j * p.scan + i];
-            for (const [dx, dy] of [
-              [1, 0],
-              [0, 1],
-              [1, 1],
-              [1, -1],
-            ]) {
-              const other =
-                owner[
-                  ((j + dy + p.scan) % p.scan) * p.scan +
-                    ((i + dx + p.scan) % p.scan)
-                ];
-              if (other !== here) {
-                neighbours[here].add(other);
-                neighbours[other].add(here);
-              }
             }
+          // Colour the map with as few tones as possible: try four, then five, by backtracking.
+          const order = Array.from({ length: count }, (_, i) => i).sort(
+              (a, b) => neighbours[b].size - neighbours[a].size,
+            ),
+            tones = new Array<number>(count).fill(-1);
+          let nodes = 0;
+          const paint = (position: number, palette: number): boolean => {
+            if (position === count) return true;
+            if (++nodes > p.nodeLimit) return false;
+            const region = order[position];
+            for (let tone = 0; tone < palette; tone++) {
+              if (
+                [...neighbours[region]].some((other) => tones[other] === tone)
+              )
+                continue;
+              tones[region] = tone;
+              if (paint(position + 1, palette)) return true;
+              tones[region] = -1;
+            }
+            return false;
+          };
+          for (let palette = 4; palette <= p.regionTones.length; palette++) {
+            tones.fill(-1);
+            nodes = 0;
+            if (paint(0, palette)) break;
           }
-        // Colour the map with as few tones as possible: try four, then five, by backtracking.
-        const order = Array.from({ length: count }, (_, i) => i).sort(
-            (a, b) => neighbours[b].size - neighbours[a].size,
-          ),
-          tones = new Array<number>(count).fill(-1);
-        let nodes = 0;
-        const paint = (position: number, palette: number): boolean => {
-          if (position === count) return true;
-          if (++nodes > p.nodeLimit) return false;
-          const region = order[position];
-          for (let tone = 0; tone < palette; tone++) {
-            if ([...neighbours[region]].some((other) => tones[other] === tone))
-              continue;
-            tones[region] = tone;
-            if (paint(position + 1, palette)) return true;
-            tones[region] = -1;
-          }
-          return false;
+          return () => {
+            const [region, distance] = lookup(u, v),
+              border = cover(p.borderHalf - distance),
+              tone =
+                p.regionTones[Math.max(0, tones[region])] +
+                p.grainTone * (grainField(u, v) - 0.5);
+            color = clamp(tone + (p.borderTone - tone) * border);
+            height = clamp(
+              p.regionHeight + (p.borderHeight - p.regionHeight) * border,
+            );
+            roughness =
+              p.regionRoughness +
+              (p.borderRoughness - p.regionRoughness) * border;
+            occlusion = 1;
+          };
         };
-        for (let palette = 4; palette <= p.regionTones.length; palette++) {
-          tones.fill(-1);
-          nodes = 0;
-          if (paint(0, palette)) break;
-        }
-        return () => {
-          const [region, distance] = lookup(u, v),
-            border = cover(p.borderHalf - distance),
-            tone =
-              p.regionTones[Math.max(0, tones[region])] +
-              p.grainTone * (grainField(u, v) - 0.5);
-          color = clamp(tone + (p.borderTone - tone) * border);
-          height = clamp(
-            p.regionHeight + (p.borderHeight - p.regionHeight) * border,
-          );
-          roughness =
-            p.regionRoughness +
-            (p.borderRoughness - p.regionRoughness) * border;
-          occlusion = 1;
-        };
+        return setup();
       }
       case 'draughtsposition': {
         const p = proceduralMaterialPresets.draughtsposition,
@@ -32058,48 +32082,60 @@ export function createSurfaceSampler(
         };
       }
       case 'abeliansandpile': {
-        const p = proceduralMaterialPresets.abeliansandpile,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2df01),
-          n = p.size,
-          centre = (n - 1) / 2,
-          counts = new Int32Array(n * n),
-          // Every grain lands on the centre cell and any cell holding four or more grains gives one to each neighbour
-          // per four it holds; grains that leave the grid are lost. The final pile does not depend on the order of the
-          // topplings, so a stack of cells is enough.
-          stack: number[] = [centre * n + centre];
-        counts[centre * n + centre] =
-          p.grains[Math.floor(hash(1, 2, seed ^ 0x2df02) * p.grains.length)];
-        while (stack.length > 0) {
-          const index = stack.pop() as number,
-            batches = counts[index] >> 2;
-          if (batches === 0) continue;
-          counts[index] -= batches << 2;
-          const x = index % n,
-            y = (index - x) / n;
-          for (const [nx, ny] of [
-            [x - 1, y],
-            [x + 1, y],
-            [x, y - 1],
-            [x, y + 1],
-          ])
-            if (nx >= 0 && nx < n && ny >= 0 && ny < n) {
-              counts[ny * n + nx] += batches;
-              if (counts[ny * n + nx] >= 4) stack.push(ny * n + nx);
-            }
-        }
-        return () => {
-          const count =
-            counts[
-              Math.min(n - 1, Math.floor(v * n)) * n +
-                Math.min(n - 1, Math.floor(u * n))
-            ];
-          color = clamp(
-            p.tones[count] + p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(p.heights[count]);
-          roughness = p.cellRoughness;
-          occlusion = 1;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.abeliansandpile,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ 0x2df01,
+            ),
+            n = p.size,
+            centre = (n - 1) / 2,
+            counts = new Int32Array(n * n),
+            // Every grain lands on the centre cell and any cell holding four or more grains gives one to each neighbour
+            // per four it holds; grains that leave the grid are lost. The final pile does not depend on the order of the
+            // topplings, so in-place sweeps over the square that has received grains are enough; they topple in large
+            // batches, where following single cells mostly moves one batch at a time.
+            origin = Math.floor(centre);
+          counts[centre * n + centre] =
+            p.grains[Math.floor(hash(1, 2, seed ^ 0x2df02) * p.grains.length)];
+          let low = origin,
+            high = origin;
+          for (let unstable = true; unstable;) {
+            unstable = false;
+            const first = Math.max(0, low - 1),
+              last = Math.min(n - 1, high + 1);
+            for (let y = first; y <= last; y++)
+              for (let x = first; x <= last; x++) {
+                const index = y * n + x,
+                  batches = counts[index] >> 2;
+                if (batches === 0) continue;
+                unstable = true;
+                counts[index] -= batches << 2;
+                if (x > 0) counts[index - 1] += batches;
+                if (x < n - 1) counts[index + 1] += batches;
+                if (y > 0) counts[index - n] += batches;
+                if (y < n - 1) counts[index + n] += batches;
+                low = Math.min(low, x, y);
+                high = Math.max(high, x, y);
+              }
+          }
+          return () => {
+            const count =
+              counts[
+                Math.min(n - 1, Math.floor(v * n)) * n +
+                  Math.min(n - 1, Math.floor(u * n))
+              ];
+            color = clamp(
+              p.tones[count] + p.grainTone * (grainField(u, v) - 0.5),
+            );
+            height = clamp(p.heights[count]);
+            roughness = p.cellRoughness;
+            occlusion = 1;
+          };
         };
+        return setup();
       }
       case 'bitwiselogic': {
         const p = proceduralMaterialPresets.bitwiselogic,
@@ -35086,140 +35122,150 @@ export function createSurfaceSampler(
         };
       }
       case 'timestablecircles': {
-        const p = proceduralMaterialPresets.timestablecircles,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30701),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          cellSize = 1 / p.cells,
-          reach = p.lineHalf + p.edgeSoft,
-          // The seed picks nine different multipliers (Fisher-Yates shuffle of kMin .. kMax, first nine kept).
-          multipliers = Array.from(
-            { length: p.kMax - p.kMin + 1 },
-            (_, i) => p.kMin + i,
-          );
-        for (let i = multipliers.length - 1; i > 0; i--) {
-          const j = Math.floor(hash(i, 9, seed ^ 0x30702) * (i + 1)),
-            swap = multipliers[i];
-          multipliers[i] = multipliers[j];
-          multipliers[j] = swap;
-        }
-        // Chords as [x0, y0, x1, y1] and dots as [x, y]; a bucket grid lists, for each small square of the tile, the chords
-        // (index >= 0) and dots (index < 0, as -1 - index) that come within reach of it.
-        const chords: number[][] = [],
-          dotPoints: number[][] = [],
-          buckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          around = (x: number, y: number, entry: number): void => {
-            for (
-              let by = Math.max(0, Math.floor((y - reach) * p.buckets));
-              by <=
-              Math.min(p.buckets - 1, Math.floor((y + reach) * p.buckets));
-              by++
-            )
-              for (
-                let bx = Math.max(0, Math.floor((x - reach) * p.buckets));
-                bx <=
-                Math.min(p.buckets - 1, Math.floor((x + reach) * p.buckets));
-                bx++
-              ) {
-                const bucket = buckets[by * p.buckets + bx];
-                if (bucket[bucket.length - 1] !== entry) bucket.push(entry);
-              }
-          };
-        for (let cell = 0; cell < p.cells * p.cells; cell++) {
-          const k = multipliers[cell],
-            cx = ((cell % p.cells) + 0.5) * cellSize,
-            cy = (Math.floor(cell / p.cells) + 0.5) * cellSize,
-            at = (i: number): number[] => [
-              cx +
-                p.radius * Math.cos((2 * Math.PI * i) / p.points - Math.PI / 2),
-              cy +
-                p.radius * Math.sin((2 * Math.PI * i) / p.points - Math.PI / 2),
-            ];
-          for (let i = 0; i < p.points; i++) {
-            const [x0, y0] = at(i),
-              j = (k * i) % p.points;
-            around(x0, y0, -1 - dotPoints.length);
-            dotPoints.push([x0, y0]);
-            if (j === i) continue;
-            const [x1, y1] = at(j),
-              steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * p.buckets * 2);
-            for (let step = 0; step <= steps; step++)
-              around(
-                x0 + ((x1 - x0) * step) / steps,
-                y0 + ((y1 - y0) * step) / steps,
-                chords.length,
-              );
-            chords.push([x0, y0, x1, y1]);
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.timestablecircles,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ 0x30701,
+            ),
+            inverseSoft = 1 / p.edgeSoft,
+            cover = (inside: number): number =>
+              smooth(clamp(inside * inverseSoft + 0.5)),
+            cellSize = 1 / p.cells,
+            reach = p.lineHalf + p.edgeSoft,
+            // The seed picks nine different multipliers (Fisher-Yates shuffle of kMin .. kMax, first nine kept).
+            multipliers = Array.from(
+              { length: p.kMax - p.kMin + 1 },
+              (_, i) => p.kMin + i,
+            );
+          for (let i = multipliers.length - 1; i > 0; i--) {
+            const j = Math.floor(hash(i, 9, seed ^ 0x30702) * (i + 1)),
+              swap = multipliers[i];
+            multipliers[i] = multipliers[j];
+            multipliers[j] = swap;
           }
-        }
-        return () => {
-          const column = Math.min(p.cells - 1, Math.floor(u * p.cells)),
-            row = Math.min(p.cells - 1, Math.floor(v * p.cells));
-          let chord = 0,
-            dots = 0;
-          for (const entry of buckets[
-            Math.min(p.buckets - 1, Math.floor(v * p.buckets)) * p.buckets +
-              Math.min(p.buckets - 1, Math.floor(u * p.buckets))
-          ]) {
-            if (entry < 0) {
-              const dot = dotPoints[-1 - entry];
-              dots = Math.max(
-                dots,
-                cover(p.dotRadius - Math.hypot(u - dot[0], v - dot[1])),
-              );
-            } else {
-              const line = chords[entry],
-                dx = line[2] - line[0],
-                dy = line[3] - line[1],
-                t = clamp(
-                  ((u - line[0]) * dx + (v - line[1]) * dy) /
-                    (dx * dx + dy * dy),
+          // Chords as [x0, y0, x1, y1] and dots as [x, y]; a bucket grid lists, for each small square of the tile, the chords
+          // (index >= 0) and dots (index < 0, as -1 - index) that come within reach of it.
+          const chords: number[][] = [],
+            dotPoints: number[][] = [],
+            buckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            around = (x: number, y: number, entry: number): void => {
+              for (
+                let by = Math.max(0, Math.floor((y - reach) * p.buckets));
+                by <=
+                Math.min(p.buckets - 1, Math.floor((y + reach) * p.buckets));
+                by++
+              )
+                for (
+                  let bx = Math.max(0, Math.floor((x - reach) * p.buckets));
+                  bx <=
+                  Math.min(p.buckets - 1, Math.floor((x + reach) * p.buckets));
+                  bx++
+                ) {
+                  const bucket = buckets[by * p.buckets + bx];
+                  if (bucket[bucket.length - 1] !== entry) bucket.push(entry);
+                }
+            };
+          for (let cell = 0; cell < p.cells * p.cells; cell++) {
+            const k = multipliers[cell],
+              cx = ((cell % p.cells) + 0.5) * cellSize,
+              cy = (Math.floor(cell / p.cells) + 0.5) * cellSize,
+              at = (i: number): number[] => [
+                cx +
+                  p.radius *
+                    Math.cos((2 * Math.PI * i) / p.points - Math.PI / 2),
+                cy +
+                  p.radius *
+                    Math.sin((2 * Math.PI * i) / p.points - Math.PI / 2),
+              ];
+            for (let i = 0; i < p.points; i++) {
+              const [x0, y0] = at(i),
+                j = (k * i) % p.points;
+              around(x0, y0, -1 - dotPoints.length);
+              dotPoints.push([x0, y0]);
+              if (j === i) continue;
+              const [x1, y1] = at(j),
+                steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * p.buckets * 2);
+              for (let step = 0; step <= steps; step++)
+                around(
+                  x0 + ((x1 - x0) * step) / steps,
+                  y0 + ((y1 - y0) * step) / steps,
+                  chords.length,
                 );
-              chord = Math.max(
-                chord,
-                cover(
-                  p.lineHalf -
-                    Math.hypot(u - line[0] - t * dx, v - line[1] - t * dy),
-                ),
-              );
+              chords.push([x0, y0, x1, y1]);
             }
           }
-          const ring = cover(
-              p.ringHalf -
-                Math.abs(
-                  Math.hypot(
-                    u - (column + 0.5) * cellSize,
-                    v - (row + 0.5) * cellSize,
-                  ) - p.radius,
-                ),
-            ),
-            band = (row + column) % 2,
-            paper = p.paperTone + (p.stripeTone - p.paperTone) * band,
-            level = p.paperHeight + (p.stripeHeight - p.paperHeight) * band,
-            withRing = paper + (p.ringTone - paper) * ring,
-            withChord = withRing + (p.chordTone - withRing) * chord;
-          color = clamp(
-            withChord +
-              (p.dotTone - withChord) * dots +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(
-            Math.max(
-              level,
-              ring * p.ringHeight,
-              chord * p.chordHeight,
-              dots * p.dotHeight,
-            ),
-          );
-          roughness =
-            p.paperRoughness +
-            (p.inkRoughness - p.paperRoughness) * Math.max(ring, chord, dots);
-          occlusion = 1;
+          return () => {
+            const column = Math.min(p.cells - 1, Math.floor(u * p.cells)),
+              row = Math.min(p.cells - 1, Math.floor(v * p.cells));
+            let chord = 0,
+              dots = 0;
+            for (const entry of buckets[
+              Math.min(p.buckets - 1, Math.floor(v * p.buckets)) * p.buckets +
+                Math.min(p.buckets - 1, Math.floor(u * p.buckets))
+            ]) {
+              if (entry < 0) {
+                const dot = dotPoints[-1 - entry];
+                dots = Math.max(
+                  dots,
+                  cover(p.dotRadius - Math.hypot(u - dot[0], v - dot[1])),
+                );
+              } else {
+                const line = chords[entry],
+                  dx = line[2] - line[0],
+                  dy = line[3] - line[1],
+                  t = clamp(
+                    ((u - line[0]) * dx + (v - line[1]) * dy) /
+                      (dx * dx + dy * dy),
+                  );
+                chord = Math.max(
+                  chord,
+                  cover(
+                    p.lineHalf -
+                      Math.hypot(u - line[0] - t * dx, v - line[1] - t * dy),
+                  ),
+                );
+              }
+            }
+            const ring = cover(
+                p.ringHalf -
+                  Math.abs(
+                    Math.hypot(
+                      u - (column + 0.5) * cellSize,
+                      v - (row + 0.5) * cellSize,
+                    ) - p.radius,
+                  ),
+              ),
+              band = (row + column) % 2,
+              paper = p.paperTone + (p.stripeTone - p.paperTone) * band,
+              level = p.paperHeight + (p.stripeHeight - p.paperHeight) * band,
+              withRing = paper + (p.ringTone - paper) * ring,
+              withChord = withRing + (p.chordTone - withRing) * chord;
+            color = clamp(
+              withChord +
+                (p.dotTone - withChord) * dots +
+                p.grainTone * (grainField(u, v) - 0.5),
+            );
+            height = clamp(
+              Math.max(
+                level,
+                ring * p.ringHeight,
+                chord * p.chordHeight,
+                dots * p.dotHeight,
+              ),
+            );
+            roughness =
+              p.paperRoughness +
+              (p.inkRoughness - p.paperRoughness) * Math.max(ring, chord, dots);
+            occlusion = 1;
+          };
         };
+        return setup();
       }
       case 'josephuscircle': {
         const p = proceduralMaterialPresets.josephuscircle,
@@ -36186,67 +36232,75 @@ export function createSurfaceSampler(
         };
       }
       case 'henonattractor': {
-        const p = proceduralMaterialPresets.henonattractor,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31501),
-          [a, b] =
-            p.maps[Math.floor(hash(3, 1, seed ^ 0x31502) * p.maps.length)],
-          mirrorX = hash(5, 2, seed ^ 0x31503) < 0.5,
-          mirrorY = hash(7, 3, seed ^ 0x31504) < 0.5,
-          size = p.gridSize,
-          span = 1 - 2 * p.margin,
-          counts = new Uint16Array(size * size),
-          level = new Float32Array(size * size),
-          inverseLog = 1 / Math.log(1 + p.saturation);
-        let x = 0,
-          y = 0;
-        for (let i = 0; i < p.iterations; i++) {
-          const nextX = 1 - a * x * x + y;
-          y = b * x;
-          x = nextX;
-          if (i < p.warmUp) continue;
-          const column = Math.floor(((x / p.windowX) * 0.5 + 0.5) * size),
-            row = Math.floor(((y / p.windowY) * 0.5 + 0.5) * size);
-          if (
-            column >= 0 &&
-            column < size &&
-            row >= 0 &&
-            row < size &&
-            counts[row * size + column] < 65535
-          )
-            counts[row * size + column]++;
-        }
-        for (let k = 0; k < size * size; k++)
-          level[k] = Math.min(1, Math.log(1 + counts[k]) * inverseLog);
-        return () => {
-          // Window coordinates in cells (cell centres at integers), mirrored when the seed says so.
-          const fu = (u - Math.floor(u) - p.margin) / span,
-            fv = (v - Math.floor(v) - p.margin) / span;
-          let ink = 0;
-          if (fu >= 0 && fu < 1 && fv >= 0 && fv < 1) {
-            const gx = (mirrorX ? 1 - fu : fu) * size - 0.5,
-              gy = (mirrorY ? 1 - fv : fv) * size - 0.5,
-              x0 = Math.floor(gx),
-              y0 = Math.floor(gy),
-              tx = gx - x0,
-              ty = gy - y0,
-              at = (cx: number, cy: number): number =>
-                cx < 0 || cx >= size || cy < 0 || cy >= size
-                  ? 0
-                  : level[cy * size + cx];
-            ink =
-              (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) +
-              (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.henonattractor,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ 0x31501,
+            ),
+            [a, b] =
+              p.maps[Math.floor(hash(3, 1, seed ^ 0x31502) * p.maps.length)],
+            mirrorX = hash(5, 2, seed ^ 0x31503) < 0.5,
+            mirrorY = hash(7, 3, seed ^ 0x31504) < 0.5,
+            size = p.gridSize,
+            span = 1 - 2 * p.margin,
+            counts = new Uint16Array(size * size),
+            level = new Float32Array(size * size),
+            inverseLog = 1 / Math.log(1 + p.saturation);
+          let x = 0,
+            y = 0;
+          for (let i = 0; i < p.iterations; i++) {
+            const nextX = 1 - a * x * x + y;
+            y = b * x;
+            x = nextX;
+            if (i < p.warmUp) continue;
+            const column = Math.floor(((x / p.windowX) * 0.5 + 0.5) * size),
+              row = Math.floor(((y / p.windowY) * 0.5 + 0.5) * size);
+            if (
+              column >= 0 &&
+              column < size &&
+              row >= 0 &&
+              row < size &&
+              counts[row * size + column] < 65535
+            )
+              counts[row * size + column]++;
           }
-          color = clamp(
-            p.paperTone +
-              (p.inkTone - p.paperTone) * ink +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
-          occlusion = 1;
+          for (let k = 0; k < size * size; k++)
+            level[k] = Math.min(1, Math.log(1 + counts[k]) * inverseLog);
+          return () => {
+            // Window coordinates in cells (cell centres at integers), mirrored when the seed says so.
+            const fu = (u - Math.floor(u) - p.margin) / span,
+              fv = (v - Math.floor(v) - p.margin) / span;
+            let ink = 0;
+            if (fu >= 0 && fu < 1 && fv >= 0 && fv < 1) {
+              const gx = (mirrorX ? 1 - fu : fu) * size - 0.5,
+                gy = (mirrorY ? 1 - fv : fv) * size - 0.5,
+                x0 = Math.floor(gx),
+                y0 = Math.floor(gy),
+                tx = gx - x0,
+                ty = gy - y0,
+                at = (cx: number, cy: number): number =>
+                  cx < 0 || cx >= size || cy < 0 || cy >= size
+                    ? 0
+                    : level[cy * size + cx];
+              ink =
+                (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) +
+                (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty;
+            }
+            color = clamp(
+              p.paperTone +
+                (p.inkTone - p.paperTone) * ink +
+                p.grainTone * (grainField(u, v) - 0.5),
+            );
+            height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+            roughness =
+              p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+            occlusion = 1;
+          };
         };
+        return setup();
       }
       case 'bitwisetable': {
         const p = proceduralMaterialPresets.bitwisetable,
@@ -36310,68 +36364,76 @@ export function createSurfaceSampler(
         };
       }
       case 'cliffordattractor': {
-        const p = proceduralMaterialPresets.cliffordattractor,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31901),
-          [a, b, c, d] =
-            p.maps[Math.floor(hash(3, 1, seed ^ 0x31902) * p.maps.length)],
-          mirrorX = hash(5, 2, seed ^ 0x31903) < 0.5,
-          mirrorY = hash(7, 3, seed ^ 0x31904) < 0.5,
-          size = p.gridSize,
-          span = 1 - 2 * p.margin,
-          windowX = 1 + Math.abs(c),
-          windowY = 1 + Math.abs(d),
-          counts = new Uint16Array(size * size),
-          level = new Float32Array(size * size),
-          inverseLog = 1 / Math.log(1 + p.saturation);
-        let x = 0.1,
-          y = 0.1;
-        for (let i = 0; i < p.iterations; i++) {
-          const nextX = Math.sin(a * y) + c * Math.cos(a * x);
-          y = Math.sin(b * x) + d * Math.cos(b * y);
-          x = nextX;
-          if (i < p.warmUp) continue;
-          const column = Math.min(
-              size - 1,
-              Math.floor(((x / windowX) * 0.5 + 0.5) * size),
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.cliffordattractor,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ 0x31901,
             ),
-            row = Math.min(
-              size - 1,
-              Math.floor(((y / windowY) * 0.5 + 0.5) * size),
-            );
-          if (counts[row * size + column] < 65535)
-            counts[row * size + column]++;
-        }
-        for (let k = 0; k < size * size; k++)
-          level[k] = Math.min(1, Math.log(1 + counts[k]) * inverseLog);
-        return () => {
-          const fu = (u - Math.floor(u) - p.margin) / span,
-            fv = (v - Math.floor(v) - p.margin) / span;
-          let ink = 0;
-          if (fu >= 0 && fu < 1 && fv >= 0 && fv < 1) {
-            const gx = (mirrorX ? 1 - fu : fu) * size - 0.5,
-              gy = (mirrorY ? 1 - fv : fv) * size - 0.5,
-              x0 = Math.floor(gx),
-              y0 = Math.floor(gy),
-              tx = gx - x0,
-              ty = gy - y0,
-              at = (cx: number, cy: number): number =>
-                cx < 0 || cx >= size || cy < 0 || cy >= size
-                  ? 0
-                  : level[cy * size + cx];
-            ink =
-              (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) +
-              (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty;
+            [a, b, c, d] =
+              p.maps[Math.floor(hash(3, 1, seed ^ 0x31902) * p.maps.length)],
+            mirrorX = hash(5, 2, seed ^ 0x31903) < 0.5,
+            mirrorY = hash(7, 3, seed ^ 0x31904) < 0.5,
+            size = p.gridSize,
+            span = 1 - 2 * p.margin,
+            windowX = 1 + Math.abs(c),
+            windowY = 1 + Math.abs(d),
+            counts = new Uint16Array(size * size),
+            level = new Float32Array(size * size),
+            inverseLog = 1 / Math.log(1 + p.saturation);
+          let x = 0.1,
+            y = 0.1;
+          for (let i = 0; i < p.iterations; i++) {
+            const nextX = Math.sin(a * y) + c * Math.cos(a * x);
+            y = Math.sin(b * x) + d * Math.cos(b * y);
+            x = nextX;
+            if (i < p.warmUp) continue;
+            const column = Math.min(
+                size - 1,
+                Math.floor(((x / windowX) * 0.5 + 0.5) * size),
+              ),
+              row = Math.min(
+                size - 1,
+                Math.floor(((y / windowY) * 0.5 + 0.5) * size),
+              );
+            if (counts[row * size + column] < 65535)
+              counts[row * size + column]++;
           }
-          color = clamp(
-            p.paperTone +
-              (p.inkTone - p.paperTone) * ink +
-              p.grainTone * (grainField(u, v) - 0.5),
-          );
-          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
-          roughness =
-            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
-          occlusion = 1;
+          for (let k = 0; k < size * size; k++)
+            level[k] = Math.min(1, Math.log(1 + counts[k]) * inverseLog);
+          return () => {
+            const fu = (u - Math.floor(u) - p.margin) / span,
+              fv = (v - Math.floor(v) - p.margin) / span;
+            let ink = 0;
+            if (fu >= 0 && fu < 1 && fv >= 0 && fv < 1) {
+              const gx = (mirrorX ? 1 - fu : fu) * size - 0.5,
+                gy = (mirrorY ? 1 - fv : fv) * size - 0.5,
+                x0 = Math.floor(gx),
+                y0 = Math.floor(gy),
+                tx = gx - x0,
+                ty = gy - y0,
+                at = (cx: number, cy: number): number =>
+                  cx < 0 || cx >= size || cy < 0 || cy >= size
+                    ? 0
+                    : level[cy * size + cx];
+              ink =
+                (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) +
+                (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty;
+            }
+            color = clamp(
+              p.paperTone +
+                (p.inkTone - p.paperTone) * ink +
+                p.grainTone * (grainField(u, v) - 0.5),
+            );
+            height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+            roughness =
+              p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+            occlusion = 1;
+          };
         };
+        return setup();
       }
       case 'euclidsquares': {
         const p = proceduralMaterialPresets.euclidsquares,
@@ -37242,70 +37304,82 @@ export function createSurfaceSampler(
         };
       }
       case 'superformulacells': {
-        const p = proceduralMaterialPresets.superformulacells,
-          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32501),
-          inverseSoft = 1 / p.edgeSoft,
-          cover = (inside: number): number =>
-            smooth(clamp(inside * inverseSoft + 0.5)),
-          count =
-            p.counts[Math.floor(hash(3, 1, seed ^ 0x32502) * p.counts.length)],
-          cell = 1 / count,
-          superformula = (shape: readonly number[], phi: number): number =>
-            (Math.abs(Math.cos((shape[0] * phi) / 4)) ** shape[2] +
-              Math.abs(Math.sin((shape[0] * phi) / 4)) ** shape[3]) **
-            (-1 / shape[1]),
-          // One over the largest radius of every shape, found on 4096 angles.
-          inverseLargest = p.shapes.map((shape) => {
-            let largest = 0;
-            for (let i = 0; i < 4096; i++)
-              largest = Math.max(
-                largest,
-                superformula(shape, (i / 4096) * TAU),
-              );
-            return 1 / largest;
-          });
-        return () => {
-          const fx = u * count,
-            fy = v * count,
-            column = Math.floor(fx) % count,
-            row = Math.floor(fy) % count,
-            // The point in uv from the middle of its cell.
-            x = (fx - Math.floor(fx) - 0.5) * cell,
-            y = (fy - Math.floor(fy) - 0.5) * cell,
-            shapeIndex = Math.floor(
-              hash(column, row, seed ^ 0x32503) * p.shapes.length,
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.superformulacells,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ 0x32501,
             ),
-            scale =
-              p.scales[
-                Math.floor(hash(column, row, seed ^ 0x32504) * p.scales.length)
+            inverseSoft = 1 / p.edgeSoft,
+            cover = (inside: number): number =>
+              smooth(clamp(inside * inverseSoft + 0.5)),
+            count =
+              p.counts[
+                Math.floor(hash(3, 1, seed ^ 0x32502) * p.counts.length)
               ],
-            toneIndex = Math.floor(
-              hash(column, row, seed ^ 0x32505) * p.tones.length,
-            ),
-            boundary =
-              p.fill *
-              (cell / 2) *
-              scale *
-              inverseLargest[shapeIndex] *
-              superformula(p.shapes[shapeIndex], Math.atan2(y, x)),
-            inside = boundary - Math.hypot(x, y),
-            fill = cover(inside),
-            outline = cover(p.outlineHalf - Math.abs(inside)),
-            rank = toneIndex / (p.tones.length - 1);
-          let colour: number = p.paperTone,
-            elevation: number = p.paperHeight;
-          colour += (p.tones[toneIndex] - colour) * fill;
-          elevation +=
-            (p.lowHeight + (p.highHeight - p.lowHeight) * rank - elevation) *
-            fill;
-          colour += (p.outlineTone - colour) * outline;
-          elevation += (p.outlineHeight - elevation) * outline;
-          color = clamp(colour + p.grainTone * (grainField(u, v) - 0.5));
-          height = clamp(elevation);
-          roughness =
-            p.paperRoughness + (p.shapeRoughness - p.paperRoughness) * fill;
-          occlusion = 1;
+            cell = 1 / count,
+            superformula = (shape: readonly number[], phi: number): number =>
+              (Math.abs(Math.cos((shape[0] * phi) / 4)) ** shape[2] +
+                Math.abs(Math.sin((shape[0] * phi) / 4)) ** shape[3]) **
+              (-1 / shape[1]),
+            // One over the largest radius of every shape, found on 4096 angles.
+            inverseLargest = p.shapes.map((shape) => {
+              let largest = 0;
+              for (let i = 0; i < 4096; i++)
+                largest = Math.max(
+                  largest,
+                  superformula(shape, (i / 4096) * TAU),
+                );
+              return 1 / largest;
+            });
+          return () => {
+            const fx = u * count,
+              fy = v * count,
+              column = Math.floor(fx) % count,
+              row = Math.floor(fy) % count,
+              // The point in uv from the middle of its cell.
+              x = (fx - Math.floor(fx) - 0.5) * cell,
+              y = (fy - Math.floor(fy) - 0.5) * cell,
+              shapeIndex = Math.floor(
+                hash(column, row, seed ^ 0x32503) * p.shapes.length,
+              ),
+              scale =
+                p.scales[
+                  Math.floor(
+                    hash(column, row, seed ^ 0x32504) * p.scales.length,
+                  )
+                ],
+              toneIndex = Math.floor(
+                hash(column, row, seed ^ 0x32505) * p.tones.length,
+              ),
+              boundary =
+                p.fill *
+                (cell / 2) *
+                scale *
+                inverseLargest[shapeIndex] *
+                superformula(p.shapes[shapeIndex], Math.atan2(y, x)),
+              inside = boundary - Math.hypot(x, y),
+              fill = cover(inside),
+              outline = cover(p.outlineHalf - Math.abs(inside)),
+              rank = toneIndex / (p.tones.length - 1);
+            let colour: number = p.paperTone,
+              elevation: number = p.paperHeight;
+            colour += (p.tones[toneIndex] - colour) * fill;
+            elevation +=
+              (p.lowHeight + (p.highHeight - p.lowHeight) * rank - elevation) *
+              fill;
+            colour += (p.outlineTone - colour) * outline;
+            elevation += (p.outlineHeight - elevation) * outline;
+            color = clamp(colour + p.grainTone * (grainField(u, v) - 0.5));
+            height = clamp(elevation);
+            roughness =
+              p.paperRoughness + (p.shapeRoughness - p.paperRoughness) * fill;
+            occlusion = 1;
+          };
         };
+        return setup();
       }
       case 'paleygraphmatrix': {
         const p = proceduralMaterialPresets.paleygraphmatrix,
@@ -68790,77 +68864,82 @@ export function createSurfaceSampler(
         };
       }
       case 'pigskinleather': {
-        const p = proceduralMaterialPresets.pigskinleather,
-          pores = new Float64Array(p.cells * p.cells * 15),
-          grainField = cachedNoise(64, 64, seed ^ 0x1cd11),
-          fineField = cachedNoise(128, 128, seed ^ 0x1cd13);
-        for (let row = 0; row < p.cells; row++)
-          for (let col = 0; col < p.cells; col++) {
-            const angle = TAU * hash(col, row, seed ^ 0x1cd15),
-              radius =
-                p.ringRadius *
-                (1 +
-                  p.scaleVariation * (2 * hash(col, row, seed ^ 0x1cd17) - 1)),
-              cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cd19) - 1),
-              cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cd1b) - 1);
-            for (let j = 0; j < 3; j++) {
-              const id = col * 3 + j,
-                i = ((row * p.cells + col) * 3 + j) * 5,
-                phi = angle + (j * TAU) / 3,
-                r =
-                  p.poreRadius *
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.pigskinleather,
+            pores = new Float64Array(p.cells * p.cells * 15),
+            grainField = cachedNoise(64, 64, seed ^ 0x1cd11),
+            fineField = cachedNoise(128, 128, seed ^ 0x1cd13);
+          for (let row = 0; row < p.cells; row++)
+            for (let col = 0; col < p.cells; col++) {
+              const angle = TAU * hash(col, row, seed ^ 0x1cd15),
+                radius =
+                  p.ringRadius *
                   (1 +
-                    p.radiusVariation *
-                      (2 * hash(id, row, seed ^ 0x1cd1d) - 1)),
-                aspect =
-                  1 +
-                  p.aspectVariation * (2 * hash(id, row, seed ^ 0x1cd1f) - 1),
-                theta = TAU * hash(id, row, seed ^ 0x1cd21),
-                c = Math.cos(theta),
-                s = Math.sin(theta),
-                iy = 1 / (r * r),
-                ix = iy / (aspect * aspect);
-              pores[i] =
-                cx +
-                radius * Math.cos(phi) +
-                p.localJitter * (2 * hash(id, row, seed ^ 0x1cd23) - 1);
-              pores[i + 1] =
-                cy +
-                radius * Math.sin(phi) +
-                p.localJitter * (2 * hash(id, row, seed ^ 0x1cd25) - 1);
-              pores[i + 2] = c * c * ix + s * s * iy;
-              pores[i + 3] = 2 * c * s * (ix - iy);
-              pores[i + 4] = s * s * ix + c * c * iy;
+                    p.scaleVariation *
+                      (2 * hash(col, row, seed ^ 0x1cd17) - 1)),
+                cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cd19) - 1),
+                cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cd1b) - 1);
+              for (let j = 0; j < 3; j++) {
+                const id = col * 3 + j,
+                  i = ((row * p.cells + col) * 3 + j) * 5,
+                  phi = angle + (j * TAU) / 3,
+                  r =
+                    p.poreRadius *
+                    (1 +
+                      p.radiusVariation *
+                        (2 * hash(id, row, seed ^ 0x1cd1d) - 1)),
+                  aspect =
+                    1 +
+                    p.aspectVariation * (2 * hash(id, row, seed ^ 0x1cd1f) - 1),
+                  theta = TAU * hash(id, row, seed ^ 0x1cd21),
+                  c = Math.cos(theta),
+                  s = Math.sin(theta),
+                  iy = 1 / (r * r),
+                  ix = iy / (aspect * aspect);
+                pores[i] =
+                  cx +
+                  radius * Math.cos(phi) +
+                  p.localJitter * (2 * hash(id, row, seed ^ 0x1cd23) - 1);
+                pores[i + 1] =
+                  cy +
+                  radius * Math.sin(phi) +
+                  p.localJitter * (2 * hash(id, row, seed ^ 0x1cd25) - 1);
+                pores[i + 2] = c * c * ix + s * s * iy;
+                pores[i + 3] = 2 * c * s * (ix - iy);
+                pores[i + 4] = s * s * ix + c * c * iy;
+              }
             }
-          }
-        return () => {
-          const x = u * p.cells,
-            y = v * p.cells,
-            i = (Math.floor(y) * p.cells + Math.floor(x)) * 15,
-            fx = fract(x),
-            fy = fract(y);
-          let pits = 0;
-          for (let j = 0; j < 3; j++) {
-            const at = i + j * 5,
-              dx = fx - pores[at],
-              dy = fy - pores[at + 1],
-              q =
-                pores[at + 2] * dx * dx +
-                pores[at + 3] * dx * dy +
-                pores[at + 4] * dy * dy;
-            if (q < 1) {
-              const support = 1 - q;
-              pits += support * support;
+          return () => {
+            const x = u * p.cells,
+              y = v * p.cells,
+              i = (Math.floor(y) * p.cells + Math.floor(x)) * 15,
+              fx = fract(x),
+              fy = fract(y);
+            let pits = 0;
+            for (let j = 0; j < 3; j++) {
+              const at = i + j * 5,
+                dx = fx - pores[at],
+                dy = fy - pores[at + 1],
+                q =
+                  pores[at + 2] * dx * dx +
+                  pores[at + 3] * dx * dy +
+                  pores[at + 4] * dy * dy;
+              if (q < 1) {
+                const support = 1 - q;
+                pits += support * support;
+              }
             }
-          }
-          // Only the three compact pits are owner-local; continuous grain spans cells.
-          const grain = 0.7 * grainField(u, v) + 0.3 * fineField(u, v);
-          color = p.faceTone + p.grainTone * grain - p.poreTone * pits;
-          height = p.baseHeight + p.grainHeight * grain - p.poreDepth * pits;
-          roughness += 0.035 * grain + p.poreRoughness * pits;
-          occlusion = 0.98 - p.poreOcclusion * pits;
-          return;
+            // Only the three compact pits are owner-local; continuous grain spans cells.
+            const grain = 0.7 * grainField(u, v) + 0.3 * fineField(u, v);
+            color = p.faceTone + p.grainTone * grain - p.poreTone * pits;
+            height = p.baseHeight + p.grainHeight * grain - p.poreDepth * pits;
+            roughness += 0.035 * grain + p.poreRoughness * pits;
+            occlusion = 0.98 - p.poreOcclusion * pits;
+            return;
+          };
         };
+        return setup();
       }
       case 'perforatedleather': {
         const p = proceduralMaterialPresets.perforatedleather;
@@ -74062,243 +74141,261 @@ export function createSurfaceSampler(
         };
       }
       case 'cheetahfur': {
-        const p = proceduralMaterialPresets.cheetahfur,
-          pattern = latticeField(
-            grayScott(
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.cheetahfur,
+            pattern = latticeField(
+              grayScott(
+                p.gridSize,
+                p.seedCells,
+                p.feed,
+                p.kill,
+                p.steps,
+                seed ^ p.seedSalt,
+              ),
               p.gridSize,
-              p.seedCells,
-              p.feed,
-              p.kill,
-              p.steps,
-              seed ^ p.seedSalt,
+              p.gridSize,
             ),
-            p.gridSize,
-            p.gridSize,
-          ),
-          warpField = cachedNoise(
-            p.warpCells,
-            p.warpCells,
-            seed ^ (p.seedSalt + 1),
-          ),
-          sizeField = cachedNoise(
-            p.sizeCells,
-            p.sizeCells,
-            seed ^ (p.seedSalt + 2),
-          ),
-          fiberField = cachedNoise(
-            p.fiberColumns,
-            p.fiberRows,
-            seed ^ (p.seedSalt + 3),
-          ),
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ (p.seedSalt + 4),
-          );
-        return () => {
-          // Spots from a periodic Gray-Scott pattern (a lattice sampled with the same
-          // C1 smoothstep blend as the value noise), looked up at a lightly noise-warped
-          // position and thresholded through a smooth tanh step whose level also moves
-          // with a slow noise field, so spot sizes and the lattice regularity vary.
-          // Fur is fibre noise elongated along v plus fine grain.
-          const wu = u + p.warp * (warpField(u, v) - 0.5),
-            wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
-            level =
-              p.threshold + p.thresholdVariation * (sizeField(u, v) - 0.5),
-            spot =
-              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(wu, wv) - level)),
-            fiber = fiberField(u, v),
-            grain = grainField(u, v);
-          color =
-            p.furTone * (1 - spot) +
-            p.spotTone * spot +
-            p.fiberTone * (fiber - 0.5) * (1 - 0.7 * spot) +
-            p.grainTone * (grain - 0.5);
-          height = p.fiberHeight * fiber + p.grainHeight * grain;
-          roughness += p.spotRoughness * spot;
-          return;
+            warpField = cachedNoise(
+              p.warpCells,
+              p.warpCells,
+              seed ^ (p.seedSalt + 1),
+            ),
+            sizeField = cachedNoise(
+              p.sizeCells,
+              p.sizeCells,
+              seed ^ (p.seedSalt + 2),
+            ),
+            fiberField = cachedNoise(
+              p.fiberColumns,
+              p.fiberRows,
+              seed ^ (p.seedSalt + 3),
+            ),
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ (p.seedSalt + 4),
+            );
+          return () => {
+            // Spots from a periodic Gray-Scott pattern (a lattice sampled with the same
+            // C1 smoothstep blend as the value noise), looked up at a lightly noise-warped
+            // position and thresholded through a smooth tanh step whose level also moves
+            // with a slow noise field, so spot sizes and the lattice regularity vary.
+            // Fur is fibre noise elongated along v plus fine grain.
+            const wu = u + p.warp * (warpField(u, v) - 0.5),
+              wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
+              level =
+                p.threshold + p.thresholdVariation * (sizeField(u, v) - 0.5),
+              spot =
+                0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(wu, wv) - level)),
+              fiber = fiberField(u, v),
+              grain = grainField(u, v);
+            color =
+              p.furTone * (1 - spot) +
+              p.spotTone * spot +
+              p.fiberTone * (fiber - 0.5) * (1 - 0.7 * spot) +
+              p.grainTone * (grain - 0.5);
+            height = p.fiberHeight * fiber + p.grainHeight * grain;
+            roughness += p.spotRoughness * spot;
+            return;
+          };
         };
+        return setup();
       }
       case 'turingmaze':
       case 'vermiculation': {
-        const p =
-            kind === 'vermiculation'
-              ? proceduralMaterialPresets.vermiculation
-              : proceduralMaterialPresets.turingmaze,
-          pattern = latticeField(
-            grayScott(
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p =
+              kind === 'vermiculation'
+                ? proceduralMaterialPresets.vermiculation
+                : proceduralMaterialPresets.turingmaze,
+            pattern = latticeField(
+              grayScott(
+                p.gridSize,
+                p.seedCells,
+                p.feed,
+                p.kill,
+                p.steps,
+                seed ^ p.seedSalt,
+              ),
               p.gridSize,
-              p.seedCells,
-              p.feed,
-              p.kill,
-              p.steps,
-              seed ^ p.seedSalt,
+              p.gridSize,
             ),
-            p.gridSize,
-            p.gridSize,
-          ),
-          warpField = cachedNoise(
-            p.warpCells,
-            p.warpCells,
-            seed ^ (p.seedSalt + 1),
-          ),
-          levelField = cachedNoise(
-            p.sizeCells,
-            p.sizeCells,
-            seed ^ (p.seedSalt + 2),
-          ),
-          inkField = cachedNoise(
-            p.sizeCells,
-            p.sizeCells,
-            seed ^ (p.seedSalt + 3),
-          ),
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ (p.seedSalt + 4),
-          );
-        return () => {
-          // Ridges are the labyrinth regime of the same periodic Gray-Scott pattern,
-          // looked up at a lightly warped position and cut by a smooth tanh step whose
-          // level and ink density follow slow noise fields (so ridge width and ink
-          // darkness vary like an uneven print); paper grain is fine noise.
-          const wu = u + p.warp * (warpField(u, v) - 0.5),
-            wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
-            level =
-              p.threshold + p.thresholdVariation * (levelField(u, v) - 0.5),
-            ridge =
-              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(wu, wv) - level)),
-            ink = ridge * (p.inkLevel + p.inkVariation * inkField(u, v)),
-            grain = grainField(u, v);
-          color = p.paperTone - p.inkDepth * ink + p.grainTone * (grain - 0.5);
-          height = p.baseHeight + p.ridgeHeight * ridge + p.grainHeight * grain;
-          roughness += p.inkRoughness * ink;
-          return;
+            warpField = cachedNoise(
+              p.warpCells,
+              p.warpCells,
+              seed ^ (p.seedSalt + 1),
+            ),
+            levelField = cachedNoise(
+              p.sizeCells,
+              p.sizeCells,
+              seed ^ (p.seedSalt + 2),
+            ),
+            inkField = cachedNoise(
+              p.sizeCells,
+              p.sizeCells,
+              seed ^ (p.seedSalt + 3),
+            ),
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ (p.seedSalt + 4),
+            );
+          return () => {
+            // Ridges are the labyrinth regime of the same periodic Gray-Scott pattern,
+            // looked up at a lightly warped position and cut by a smooth tanh step whose
+            // level and ink density follow slow noise fields (so ridge width and ink
+            // darkness vary like an uneven print); paper grain is fine noise.
+            const wu = u + p.warp * (warpField(u, v) - 0.5),
+              wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
+              level =
+                p.threshold + p.thresholdVariation * (levelField(u, v) - 0.5),
+              ridge =
+                0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(wu, wv) - level)),
+              ink = ridge * (p.inkLevel + p.inkVariation * inkField(u, v)),
+              grain = grainField(u, v);
+            color =
+              p.paperTone - p.inkDepth * ink + p.grainTone * (grain - 0.5);
+            height =
+              p.baseHeight + p.ridgeHeight * ridge + p.grainHeight * grain;
+            roughness += p.inkRoughness * ink;
+            return;
+          };
         };
+        return setup();
       }
       case 'petricolonies': {
-        const p = proceduralMaterialPresets.petricolonies,
-          pattern = latticeField(
-            grayScott(
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.petricolonies,
+            pattern = latticeField(
+              grayScott(
+                p.gridSize,
+                p.seedCells,
+                p.feed,
+                p.kill,
+                p.steps,
+                seed ^ p.seedSalt,
+              ),
               p.gridSize,
-              p.seedCells,
-              p.feed,
-              p.kill,
-              p.steps,
-              seed ^ p.seedSalt,
+              p.gridSize,
             ),
-            p.gridSize,
-            p.gridSize,
-          ),
-          warpField = cachedNoise(
-            p.warpCells,
-            p.warpCells,
-            seed ^ (p.seedSalt + 1),
-          ),
-          levelField = cachedNoise(
-            p.sizeCells,
-            p.sizeCells,
-            seed ^ (p.seedSalt + 2),
-          ),
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ (p.seedSalt + 3),
-          ),
-          inverseRim2 = 1 / (p.rimWidth * p.rimWidth);
-        return () => {
-          // Colonies are the spot regime of the periodic Gray-Scott pattern. The fill is
-          // a smooth tanh step, the darker rim is a thin band around the same
-          // iso-level exp(-((pattern - level) / w)^2) (C-infinity), and the dome height
-          // is fill x pattern, so each colony is a rounded bump on flat agar.
-          const wu = u + p.warp * (warpField(u, v) - 0.5),
-            wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
-            value = pattern(wu, wv),
-            level =
-              p.threshold + p.thresholdVariation * (levelField(u, v) - 0.5),
-            fill = 0.5 + 0.5 * Math.tanh(p.sharpness * (value - level)),
-            rimDistance = value - level,
-            rim =
-              Math.exp(-rimDistance * rimDistance * inverseRim2) * (1 - fill),
-            grain = grainField(u, v);
-          color =
-            p.agarTone +
-            p.colonyTone * fill -
-            p.rimTone * rim +
-            p.grainTone * (grain - 0.5);
-          height = p.domeHeight * fill * value + p.grainHeight * grain;
-          roughness += p.colonyRoughness * fill;
-          return;
+            warpField = cachedNoise(
+              p.warpCells,
+              p.warpCells,
+              seed ^ (p.seedSalt + 1),
+            ),
+            levelField = cachedNoise(
+              p.sizeCells,
+              p.sizeCells,
+              seed ^ (p.seedSalt + 2),
+            ),
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ (p.seedSalt + 3),
+            ),
+            inverseRim2 = 1 / (p.rimWidth * p.rimWidth);
+          return () => {
+            // Colonies are the spot regime of the periodic Gray-Scott pattern. The fill is
+            // a smooth tanh step, the darker rim is a thin band around the same
+            // iso-level exp(-((pattern - level) / w)^2) (C-infinity), and the dome height
+            // is fill x pattern, so each colony is a rounded bump on flat agar.
+            const wu = u + p.warp * (warpField(u, v) - 0.5),
+              wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
+              value = pattern(wu, wv),
+              level =
+                p.threshold + p.thresholdVariation * (levelField(u, v) - 0.5),
+              fill = 0.5 + 0.5 * Math.tanh(p.sharpness * (value - level)),
+              rimDistance = value - level,
+              rim =
+                Math.exp(-rimDistance * rimDistance * inverseRim2) * (1 - fill),
+              grain = grainField(u, v);
+            color =
+              p.agarTone +
+              p.colonyTone * fill -
+              p.rimTone * rim +
+              p.grainTone * (grain - 0.5);
+            height = p.domeHeight * fill * value + p.grainHeight * grain;
+            roughness += p.colonyRoughness * fill;
+            return;
+          };
         };
+        return setup();
       }
       case 'hestain': {
-        const p = proceduralMaterialPresets.hestain,
-          pattern = latticeField(
-            grayScott(
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.hestain,
+            pattern = latticeField(
+              grayScott(
+                p.gridSize,
+                p.seedCells,
+                p.feed,
+                p.kill,
+                p.steps,
+                seed ^ p.seedSalt,
+              ),
               p.gridSize,
-              p.seedCells,
-              p.feed,
-              p.kill,
-              p.steps,
-              seed ^ p.seedSalt,
+              p.gridSize,
             ),
-            p.gridSize,
-            p.gridSize,
-          ),
-          warpField = cachedNoise(
-            p.warpCells,
-            p.warpCells,
-            seed ^ (p.seedSalt + 1),
-          ),
-          levelField = cachedNoise(
-            p.sizeCells,
-            p.sizeCells,
-            seed ^ (p.seedSalt + 2),
-          ),
-          mottleField = cachedNoise(
-            p.mottleCells,
-            p.mottleCells,
-            seed ^ (p.seedSalt + 3),
-          ),
-          fiberField = cachedNoise(
-            p.fiberColumns,
-            p.fiberRows,
-            seed ^ (p.seedSalt + 4),
-          ),
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ (p.seedSalt + 5),
-          ),
-          inverseHalo2 = 1 / (p.haloWidth * p.haloWidth);
-        return () => {
-          // Nuclei are the small-spot end of the periodic Gray-Scott pattern (a high
-          // threshold leaves only the cores), a smooth tanh step. The pale halo is a thin
-          // band exp(-((pattern - level + offset) / w)^2) around a lower iso-level,
-          // outside the nucleus. Cytoplasm is mottle noise plus fibre noise stretched
-          // along v and a fine grain.
-          const wu = u + p.warp * (warpField(u, v) - 0.5),
-            wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
-            value = pattern(wu, wv),
-            level =
-              p.threshold + p.thresholdVariation * (levelField(u, v) - 0.5),
-            nucleus = 0.5 + 0.5 * Math.tanh(p.sharpness * (value - level)),
-            haloDistance = value - level + p.haloOffset,
-            halo =
-              Math.exp(-haloDistance * haloDistance * inverseHalo2) *
-              (1 - nucleus),
-            grain = grainField(u, v);
-          color =
-            p.cytoplasmTone +
-            p.mottleTone * (mottleField(u, v) - 0.5) +
-            p.fiberTone * (fiberField(u, v) - 0.5) -
-            p.nucleusTone * nucleus +
-            p.haloTone * halo +
-            p.grainTone * (grain - 0.5);
-          height = p.nucleusHeight * nucleus + p.grainHeight * grain;
-          roughness += p.nucleusRoughness * nucleus;
-          return;
+            warpField = cachedNoise(
+              p.warpCells,
+              p.warpCells,
+              seed ^ (p.seedSalt + 1),
+            ),
+            levelField = cachedNoise(
+              p.sizeCells,
+              p.sizeCells,
+              seed ^ (p.seedSalt + 2),
+            ),
+            mottleField = cachedNoise(
+              p.mottleCells,
+              p.mottleCells,
+              seed ^ (p.seedSalt + 3),
+            ),
+            fiberField = cachedNoise(
+              p.fiberColumns,
+              p.fiberRows,
+              seed ^ (p.seedSalt + 4),
+            ),
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ (p.seedSalt + 5),
+            ),
+            inverseHalo2 = 1 / (p.haloWidth * p.haloWidth);
+          return () => {
+            // Nuclei are the small-spot end of the periodic Gray-Scott pattern (a high
+            // threshold leaves only the cores), a smooth tanh step. The pale halo is a thin
+            // band exp(-((pattern - level + offset) / w)^2) around a lower iso-level,
+            // outside the nucleus. Cytoplasm is mottle noise plus fibre noise stretched
+            // along v and a fine grain.
+            const wu = u + p.warp * (warpField(u, v) - 0.5),
+              wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
+              value = pattern(wu, wv),
+              level =
+                p.threshold + p.thresholdVariation * (levelField(u, v) - 0.5),
+              nucleus = 0.5 + 0.5 * Math.tanh(p.sharpness * (value - level)),
+              haloDistance = value - level + p.haloOffset,
+              halo =
+                Math.exp(-haloDistance * haloDistance * inverseHalo2) *
+                (1 - nucleus),
+              grain = grainField(u, v);
+            color =
+              p.cytoplasmTone +
+              p.mottleTone * (mottleField(u, v) - 0.5) +
+              p.fiberTone * (fiberField(u, v) - 0.5) -
+              p.nucleusTone * nucleus +
+              p.haloTone * halo +
+              p.grainTone * (grain - 0.5);
+            height = p.nucleusHeight * nucleus + p.grainHeight * grain;
+            roughness += p.nucleusRoughness * nucleus;
+            return;
+          };
         };
+        return setup();
       }
       case 'mackerel': {
         const p = proceduralMaterialPresets.mackerel,
@@ -74789,75 +74886,80 @@ export function createSurfaceSampler(
         };
       }
       case 'gameoflife': {
-        const p = proceduralMaterialPresets.gameoflife,
-          size = p.size,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          );
-        // Conway's Game of Life on a size x size torus from a seeded random soup; the
-        // generations are run once while the sampler is built, so every cell is
-        // either alive or dead in the final lattice.
-        let alive = new Uint8Array(size * size),
-          next = new Uint8Array(size * size);
-        for (let y = 0; y < size; y++)
-          for (let x = 0; x < size; x++)
-            alive[y * size + x] = Number(
-              hash(x, y, seed ^ (p.seedSalt + 1)) < p.density,
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.gameoflife,
+            size = p.size,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
             );
-        const lefts = new Int32Array(size),
-          rights = new Int32Array(size);
-        for (let x = 0; x < size; x++) {
-          lefts[x] = (x + size - 1) % size;
-          rights[x] = (x + 1) % size;
-        }
-        for (let generation = 0; generation < p.generations; generation++) {
-          for (let y = 0; y < size; y++) {
-            const above = ((y + size - 1) % size) * size,
-              row = y * size,
-              below = ((y + 1) % size) * size;
-            for (let x = 0; x < size; x++) {
-              const left = lefts[x],
-                right = rights[x],
-                neighbours =
-                  alive[above + left] +
-                  alive[above + x] +
-                  alive[above + right] +
-                  alive[row + left] +
-                  alive[row + right] +
-                  alive[below + left] +
-                  alive[below + x] +
-                  alive[below + right];
-              next[row + x] =
-                neighbours === 3 || (neighbours === 2 && alive[row + x] === 1)
-                  ? 1
-                  : 0;
-            }
+          // Conway's Game of Life on a size x size torus from a seeded random soup; the
+          // generations are run once while the sampler is built, so every cell is
+          // either alive or dead in the final lattice.
+          let alive = new Uint8Array(size * size),
+            next = new Uint8Array(size * size);
+          for (let y = 0; y < size; y++)
+            for (let x = 0; x < size; x++)
+              alive[y * size + x] = Number(
+                hash(x, y, seed ^ (p.seedSalt + 1)) < p.density,
+              );
+          const lefts = new Int32Array(size),
+            rights = new Int32Array(size);
+          for (let x = 0; x < size; x++) {
+            lefts[x] = (x + size - 1) % size;
+            rights[x] = (x + 1) % size;
           }
-          [alive, next] = [next, alive];
-        }
-        const pattern = latticeField(Float64Array.from(alive), size, size);
-        return () => {
-          // The final board is blended with the C1 smoothstep and re-sharpened with
-          // tanh; each cell is an LED-like rounded square cut by cos^2 on both axes.
-          const lit =
-              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
-            cx = Math.cos(Math.PI * size * u),
-            cy = Math.cos(Math.PI * size * v),
-            cell =
-              (0.5 +
-                0.5 * Math.tanh(p.cellSharpness * (cx * cx - p.cellEdge))) *
-              (0.5 + 0.5 * Math.tanh(p.cellSharpness * (cy * cy - p.cellEdge))),
-            grain = grainField(u, v);
-          color =
-            p.offTone +
-            cell * (p.unlitTone + p.litTone * lit) +
-            p.grainTone * (grain - 0.5);
-          height = p.cellHeight * cell + p.grainHeight * grain;
-          roughness += p.litRoughness * lit * cell;
-          return;
+          for (let generation = 0; generation < p.generations; generation++) {
+            for (let y = 0; y < size; y++) {
+              const above = ((y + size - 1) % size) * size,
+                row = y * size,
+                below = ((y + 1) % size) * size;
+              for (let x = 0; x < size; x++) {
+                const left = lefts[x],
+                  right = rights[x],
+                  neighbours =
+                    alive[above + left] +
+                    alive[above + x] +
+                    alive[above + right] +
+                    alive[row + left] +
+                    alive[row + right] +
+                    alive[below + left] +
+                    alive[below + x] +
+                    alive[below + right];
+                next[row + x] =
+                  neighbours === 3 || (neighbours === 2 && alive[row + x] === 1)
+                    ? 1
+                    : 0;
+              }
+            }
+            [alive, next] = [next, alive];
+          }
+          const pattern = latticeField(Float64Array.from(alive), size, size);
+          return () => {
+            // The final board is blended with the C1 smoothstep and re-sharpened with
+            // tanh; each cell is an LED-like rounded square cut by cos^2 on both axes.
+            const lit =
+                0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+              cx = Math.cos(Math.PI * size * u),
+              cy = Math.cos(Math.PI * size * v),
+              cell =
+                (0.5 +
+                  0.5 * Math.tanh(p.cellSharpness * (cx * cx - p.cellEdge))) *
+                (0.5 +
+                  0.5 * Math.tanh(p.cellSharpness * (cy * cy - p.cellEdge))),
+              grain = grainField(u, v);
+            color =
+              p.offTone +
+              cell * (p.unlitTone + p.litTone * lit) +
+              p.grainTone * (grain - 0.5);
+            height = p.cellHeight * cell + p.grainHeight * grain;
+            roughness += p.litRoughness * lit * cell;
+            return;
+          };
         };
+        return setup();
       }
       case 'elementaryautomata': {
         const p = proceduralMaterialPresets.elementaryautomata,
@@ -75857,38 +75959,43 @@ export function createSurfaceSampler(
         };
       }
       case 'sandpileidentity': {
-        const p = proceduralMaterialPresets.sandpileidentity,
-          identity = sandpileIdentity(p.size),
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ (p.seedSalt + 1),
-          ),
-          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.size),
-          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.size),
-          // One lattice per threshold "height >= level" (levels 1 to 3), each shifted around
-          // the torus by the seed; the tone is the number of thresholds a cell passes.
-          fields = [1, 2, 3].map((level) => {
-            const values = new Float64Array(p.size * p.size);
-            for (let y = 0; y < p.size; y++)
-              for (let x = 0; x < p.size; x++)
-                values[
-                  ((y + shiftY) % p.size) * p.size + ((x + shiftX) % p.size)
-                ] = identity[y * p.size + x] >= level ? 1 : 0;
-            return latticeField(values, p.size, p.size);
-          });
-        return () => {
-          // Each threshold map is blended with the C1 smoothstep and re-sharpened with
-          // tanh, so the four height levels keep crisp steps between them.
-          let tone = 0;
-          for (const field of fields)
-            tone += 0.5 + 0.5 * Math.tanh(p.sharpness * (field(u, v) - 0.5));
-          tone /= 3;
-          const grain = grainField(u, v);
-          color = p.baseTone + p.toneSpan * tone + p.grainTone * (grain - 0.5);
-          height = p.toneHeight * tone + p.grainHeight * grain;
-          return;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.sandpileidentity,
+            identity = sandpileIdentity(p.size),
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ (p.seedSalt + 1),
+            ),
+            shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.size),
+            shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.size),
+            // One lattice per threshold "height >= level" (levels 1 to 3), each shifted around
+            // the torus by the seed; the tone is the number of thresholds a cell passes.
+            fields = [1, 2, 3].map((level) => {
+              const values = new Float64Array(p.size * p.size);
+              for (let y = 0; y < p.size; y++)
+                for (let x = 0; x < p.size; x++)
+                  values[
+                    ((y + shiftY) % p.size) * p.size + ((x + shiftX) % p.size)
+                  ] = identity[y * p.size + x] >= level ? 1 : 0;
+              return latticeField(values, p.size, p.size);
+            });
+          return () => {
+            // Each threshold map is blended with the C1 smoothstep and re-sharpened with
+            // tanh, so the four height levels keep crisp steps between them.
+            let tone = 0;
+            for (const field of fields)
+              tone += 0.5 + 0.5 * Math.tanh(p.sharpness * (field(u, v) - 0.5));
+            tone /= 3;
+            const grain = grainField(u, v);
+            color =
+              p.baseTone + p.toneSpan * tone + p.grainTone * (grain - 0.5);
+            height = p.toneHeight * tone + p.grainHeight * grain;
+            return;
+          };
         };
+        return setup();
       }
       case 'multiplicativeorder': {
         const p = proceduralMaterialPresets.multiplicativeorder,
@@ -76041,229 +76148,249 @@ export function createSurfaceSampler(
         };
       }
       case 'isingdomains': {
-        const p = proceduralMaterialPresets.isingdomains,
-          count = p.size * p.size,
-          spins = new Int8Array(count),
-          marks = new Float64Array(count),
-          agree = new Float64Array(count),
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ (p.seedSalt + 1),
-          );
-        // Metropolis dynamics of the two-dimensional Ising model on a size x size torus at
-        // the given temperature (J = k = 1; the critical temperature is about 2.269), from a
-        // random start, with sweeps sweeps in checkerboard order (all cells of one parity
-        // are independent, so the order inside a half-sweep does not matter). A flip that
-        // changes the energy by dE is accepted when dE <= 0 or when a hash-derived uniform
-        // number is below exp(-dE / temperature).
-        for (let cell = 0; cell < count; cell++)
-          spins[cell] =
-            hash(cell % p.size, Math.floor(cell / p.size), seed ^ p.seedSalt) <
-            0.5
-              ? 1
-              : -1;
-        const size = p.size,
-          last = size - 1,
-          acceptSeed = seed ^ (p.seedSalt + 2),
-          // Four +/-1 neighbours give only two positive energy changes.
-          acceptFour = Math.exp(-4 / p.temperature),
-          acceptEight = Math.exp(-8 / p.temperature);
-        for (let sweep = 0; sweep < p.sweeps; sweep++)
-          for (let parity = 0; parity < 2; parity++)
-            for (let y = 0; y < size; y++) {
-              const row = y * size,
-                above = (y === 0 ? last : y - 1) * size,
-                below = (y === last ? 0 : y + 1) * size;
-              // Cells of this row with (x + y) % 2 === parity, in ascending order.
-              for (let x = (y + parity) & 1; x < size; x += 2) {
-                const cell = row + x,
-                  around =
-                    spins[row + (x === last ? 0 : x + 1)] +
-                    spins[row + (x === 0 ? last : x - 1)] +
-                    spins[below + x] +
-                    spins[above + x],
-                  energyChange = 2 * spins[cell] * around;
-                if (
-                  energyChange <= 0 ||
-                  hash(cell, sweep * 2 + parity, acceptSeed) <
-                    (energyChange === 4 ? acceptFour : acceptEight)
-                )
-                  spins[cell] = -spins[cell];
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.isingdomains,
+            count = p.size * p.size,
+            spins = new Int8Array(count),
+            marks = new Float64Array(count),
+            agree = new Float64Array(count),
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ (p.seedSalt + 1),
+            );
+          // Metropolis dynamics of the two-dimensional Ising model on a size x size torus at
+          // the given temperature (J = k = 1; the critical temperature is about 2.269), from a
+          // random start, with sweeps sweeps in checkerboard order (all cells of one parity
+          // are independent, so the order inside a half-sweep does not matter). A flip that
+          // changes the energy by dE is accepted when dE <= 0 or when a hash-derived uniform
+          // number is below exp(-dE / temperature).
+          for (let cell = 0; cell < count; cell++)
+            spins[cell] =
+              hash(
+                cell % p.size,
+                Math.floor(cell / p.size),
+                seed ^ p.seedSalt,
+              ) < 0.5
+                ? 1
+                : -1;
+          const size = p.size,
+            last = size - 1,
+            acceptSeed = seed ^ (p.seedSalt + 2),
+            // Four +/-1 neighbours give only two positive energy changes.
+            acceptFour = Math.exp(-4 / p.temperature),
+            acceptEight = Math.exp(-8 / p.temperature);
+          for (let sweep = 0; sweep < p.sweeps; sweep++)
+            for (let parity = 0; parity < 2; parity++)
+              for (let y = 0; y < size; y++) {
+                const row = y * size,
+                  above = (y === 0 ? last : y - 1) * size,
+                  below = (y === last ? 0 : y + 1) * size;
+                // Cells of this row with (x + y) % 2 === parity, in ascending order.
+                for (let x = (y + parity) & 1; x < size; x += 2) {
+                  const cell = row + x,
+                    around =
+                      spins[row + (x === last ? 0 : x + 1)] +
+                      spins[row + (x === 0 ? last : x - 1)] +
+                      spins[below + x] +
+                      spins[above + x],
+                    energyChange = 2 * spins[cell] * around;
+                  if (
+                    energyChange <= 0 ||
+                    hash(cell, sweep * 2 + parity, acceptSeed) <
+                      (energyChange === 4 ? acceptFour : acceptEight)
+                  )
+                    spins[cell] = -spins[cell];
+                }
               }
-            }
-        for (let y = 0; y < size; y++) {
-          const row = y * size,
-            above = (y === 0 ? last : y - 1) * size,
-            below = (y === last ? 0 : y + 1) * size;
-          for (let x = 0; x < size; x++) {
-            const cell = row + x,
-              spin = spins[cell];
-            marks[cell] = spin > 0 ? 1 : 0;
-            let same = 0;
-            same += spins[row + (x === last ? 0 : x + 1)] === spin ? 1 : 0;
-            same += spins[row + (x === 0 ? last : x - 1)] === spin ? 1 : 0;
-            same += spins[below + x] === spin ? 1 : 0;
-            same += spins[above + x] === spin ? 1 : 0;
-            agree[cell] = same / 4;
-          }
-        }
-        const pattern = latticeField(marks, p.size, p.size),
-          agreeField = latticeField(agree, p.size, p.size);
-        return () => {
-          // The up-spin map is blended with the C1 smoothstep and re-sharpened with tanh;
-          // the fraction of neighbours that agree with a cell darkens the domain walls.
-          const line =
-              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
-            together = agreeField(u, v),
-            grain = grainField(u, v);
-          color =
-            p.baseTone +
-            p.spinTone * line +
-            p.agreeTone * together +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.spinHeight * line +
-            p.agreeHeight * together +
-            p.grainHeight * grain;
-          return;
-        };
-      }
-      case 'cyclicwaves': {
-        const p = proceduralMaterialPresets.cyclicwaves,
-          count = p.size * p.size,
-          tones = new Float64Array(count),
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ (p.seedSalt + 1),
-          );
-        // The cyclic cellular automaton with the von Neumann neighbourhood (the four
-        // neighbours that share an edge, wrapping around the torus), threshold 1 and
-        // states states: a cell in state k moves to state k + 1 (modulo states) when at
-        // least one neighbour is already in state k + 1, and otherwise stays. It starts from
-        // a random state per cell and runs steps synchronous steps, which leaves waves
-        // (every state follows the previous one) around the places where the random start
-        // was locally ordered.
-        let current = new Uint8Array(count),
-          next = new Uint8Array(count);
-        for (let cell = 0; cell < count; cell++)
-          current[cell] = Math.floor(
-            hash(cell % p.size, Math.floor(cell / p.size), seed ^ p.seedSalt) *
-              p.states,
-          );
-        const size = p.size,
-          last = size - 1,
-          successors = new Uint8Array(256);
-        for (let state = 0; state < 256; state++)
-          successors[state] = (state + 1) % p.states;
-        for (let step = 0; step < p.steps; step++) {
           for (let y = 0; y < size; y++) {
             const row = y * size,
               above = (y === 0 ? last : y - 1) * size,
               below = (y === last ? 0 : y + 1) * size;
             for (let x = 0; x < size; x++) {
               const cell = row + x,
-                successor = successors[current[cell]];
-              next[cell] =
-                current[row + (x === last ? 0 : x + 1)] === successor ||
-                current[row + (x === 0 ? last : x - 1)] === successor ||
-                current[below + x] === successor ||
-                current[above + x] === successor
-                  ? successor
-                  : current[cell];
+                spin = spins[cell];
+              marks[cell] = spin > 0 ? 1 : 0;
+              let same = 0;
+              same += spins[row + (x === last ? 0 : x + 1)] === spin ? 1 : 0;
+              same += spins[row + (x === 0 ? last : x - 1)] === spin ? 1 : 0;
+              same += spins[below + x] === spin ? 1 : 0;
+              same += spins[above + x] === spin ? 1 : 0;
+              agree[cell] = same / 4;
             }
           }
-          [current, next] = [next, current];
-        }
-        for (let cell = 0; cell < count; cell++)
-          tones[cell] = current[cell] / (p.states - 1);
-        const toneField = latticeField(tones, p.size, p.size);
-        return () => {
-          // The state map is blended with the C1 smoothstep, so every wave front is a
-          // short ramp from state 7 back to state 0.
-          const tone = toneField(u, v),
-            grain = grainField(u, v);
-          color = p.baseTone + p.toneSpan * tone + p.grainTone * (grain - 0.5);
-          height = p.toneHeight * tone + p.grainHeight * grain;
-          return;
+          const pattern = latticeField(marks, p.size, p.size),
+            agreeField = latticeField(agree, p.size, p.size);
+          return () => {
+            // The up-spin map is blended with the C1 smoothstep and re-sharpened with tanh;
+            // the fraction of neighbours that agree with a cell darkens the domain walls.
+            const line =
+                0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+              together = agreeField(u, v),
+              grain = grainField(u, v);
+            color =
+              p.baseTone +
+              p.spinTone * line +
+              p.agreeTone * together +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.spinHeight * line +
+              p.agreeHeight * together +
+              p.grainHeight * grain;
+            return;
+          };
         };
+        return setup();
+      }
+      case 'cyclicwaves': {
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.cyclicwaves,
+            count = p.size * p.size,
+            tones = new Float64Array(count),
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ (p.seedSalt + 1),
+            );
+          // The cyclic cellular automaton with the von Neumann neighbourhood (the four
+          // neighbours that share an edge, wrapping around the torus), threshold 1 and
+          // states states: a cell in state k moves to state k + 1 (modulo states) when at
+          // least one neighbour is already in state k + 1, and otherwise stays. It starts from
+          // a random state per cell and runs steps synchronous steps, which leaves waves
+          // (every state follows the previous one) around the places where the random start
+          // was locally ordered.
+          let current = new Uint8Array(count),
+            next = new Uint8Array(count);
+          for (let cell = 0; cell < count; cell++)
+            current[cell] = Math.floor(
+              hash(
+                cell % p.size,
+                Math.floor(cell / p.size),
+                seed ^ p.seedSalt,
+              ) * p.states,
+            );
+          const size = p.size,
+            last = size - 1,
+            successors = new Uint8Array(256);
+          for (let state = 0; state < 256; state++)
+            successors[state] = (state + 1) % p.states;
+          for (let step = 0; step < p.steps; step++) {
+            for (let y = 0; y < size; y++) {
+              const row = y * size,
+                above = (y === 0 ? last : y - 1) * size,
+                below = (y === last ? 0 : y + 1) * size;
+              for (let x = 0; x < size; x++) {
+                const cell = row + x,
+                  successor = successors[current[cell]];
+                next[cell] =
+                  current[row + (x === last ? 0 : x + 1)] === successor ||
+                  current[row + (x === 0 ? last : x - 1)] === successor ||
+                  current[below + x] === successor ||
+                  current[above + x] === successor
+                    ? successor
+                    : current[cell];
+              }
+            }
+            [current, next] = [next, current];
+          }
+          for (let cell = 0; cell < count; cell++)
+            tones[cell] = current[cell] / (p.states - 1);
+          const toneField = latticeField(tones, p.size, p.size);
+          return () => {
+            // The state map is blended with the C1 smoothstep, so every wave front is a
+            // short ramp from state 7 back to state 0.
+            const tone = toneField(u, v),
+              grain = grainField(u, v);
+            color =
+              p.baseTone + p.toneSpan * tone + p.grainTone * (grain - 0.5);
+            height = p.toneHeight * tone + p.grainHeight * grain;
+            return;
+          };
+        };
+        return setup();
       }
       case 'aggregationfrost': {
-        const p = proceduralMaterialPresets.aggregationfrost,
-          count = p.size * p.size,
-          occupied = new Uint8Array(count),
-          marks = new Float64Array(count),
-          tones = new Float64Array(count),
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ (p.seedSalt + 1),
-          );
-        // Diffusion-limited aggregation on a size x size torus: the cell at the centre is the
-        // first member; every further particle starts on a random free cell, takes
-        // random steps to one of its four neighbours (wrapping around the torus) and sticks
-        // where it first touches the cluster by an edge. Its step number
-        // is the particle's age, and the tone fades from the centre (age 0) to the tips. A walk
-        // that exceeds maxSteps is abandoned and the particle starts again from a new cell.
-        const centre = (p.size >> 1) * p.size + (p.size >> 1);
-        occupied[centre] = 1;
-        marks[centre] = 1;
-        tones[centre] = 1;
-        const size = p.size,
-          last = size - 1,
-          maxSteps = p.maxSteps,
-          startSeedX = seed ^ p.seedSalt,
-          startSeedY = seed ^ (p.seedSalt + 2),
-          walkSeed = seed ^ (p.seedSalt + 3);
-        // Wraps use `>=` and `=== 0` so a coordinate of exactly size (a hash of 1) still maps
-        // as `% size` did.
-        for (let particle = 1; particle < p.particles; particle++)
-          for (let attempt = 0, stuck = false; !stuck; attempt++) {
-            let x = Math.floor(hash(particle, attempt, startSeedX) * size),
-              y = Math.floor(hash(particle, attempt, startSeedY) * size);
-            if (occupied[y * size + x]) continue;
-            const walkKey = particle * 65537 + attempt;
-            for (let step = 0; step < maxSteps; step++) {
-              const row = y * size;
-              if (
-                occupied[row + (x >= last ? x + 1 - size : x + 1)] === 1 ||
-                occupied[row + (x === 0 ? last : x - 1)] === 1 ||
-                occupied[(y >= last ? y + 1 - size : y + 1) * size + x] === 1 ||
-                occupied[(y === 0 ? last : y - 1) * size + x] === 1
-              ) {
-                const cell = row + x;
-                occupied[cell] = 1;
-                marks[cell] = 1;
-                tones[cell] = 1 - particle / p.particles;
-                stuck = true;
-                break;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.aggregationfrost,
+            count = p.size * p.size,
+            occupied = new Uint8Array(count),
+            marks = new Float64Array(count),
+            tones = new Float64Array(count),
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ (p.seedSalt + 1),
+            );
+          // Diffusion-limited aggregation on a size x size torus: the cell at the centre is the
+          // first member; every further particle starts on a random free cell, takes
+          // random steps to one of its four neighbours (wrapping around the torus) and sticks
+          // where it first touches the cluster by an edge. Its step number
+          // is the particle's age, and the tone fades from the centre (age 0) to the tips. A walk
+          // that exceeds maxSteps is abandoned and the particle starts again from a new cell.
+          const centre = (p.size >> 1) * p.size + (p.size >> 1);
+          occupied[centre] = 1;
+          marks[centre] = 1;
+          tones[centre] = 1;
+          const size = p.size,
+            last = size - 1,
+            maxSteps = p.maxSteps,
+            startSeedX = seed ^ p.seedSalt,
+            startSeedY = seed ^ (p.seedSalt + 2),
+            walkSeed = seed ^ (p.seedSalt + 3);
+          // Wraps use `>=` and `=== 0` so a coordinate of exactly size (a hash of 1) still maps
+          // as `% size` did.
+          for (let particle = 1; particle < p.particles; particle++)
+            for (let attempt = 0, stuck = false; !stuck; attempt++) {
+              let x = Math.floor(hash(particle, attempt, startSeedX) * size),
+                y = Math.floor(hash(particle, attempt, startSeedY) * size);
+              if (occupied[y * size + x]) continue;
+              const walkKey = particle * 65537 + attempt;
+              for (let step = 0; step < maxSteps; step++) {
+                const row = y * size;
+                if (
+                  occupied[row + (x >= last ? x + 1 - size : x + 1)] === 1 ||
+                  occupied[row + (x === 0 ? last : x - 1)] === 1 ||
+                  occupied[(y >= last ? y + 1 - size : y + 1) * size + x] ===
+                    1 ||
+                  occupied[(y === 0 ? last : y - 1) * size + x] === 1
+                ) {
+                  const cell = row + x;
+                  occupied[cell] = 1;
+                  marks[cell] = 1;
+                  tones[cell] = 1 - particle / p.particles;
+                  stuck = true;
+                  break;
+                }
+                const direction = Math.floor(hash(walkKey, step, walkSeed) * 4);
+                if (direction === 0) x = x >= last ? x + 1 - size : x + 1;
+                else if (direction === 1) x = x === 0 ? last : x - 1;
+                else if (direction === 2) y = y >= last ? y + 1 - size : y + 1;
+                else y = y === 0 ? last : y - 1;
               }
-              const direction = Math.floor(hash(walkKey, step, walkSeed) * 4);
-              if (direction === 0) x = x >= last ? x + 1 - size : x + 1;
-              else if (direction === 1) x = x === 0 ? last : x - 1;
-              else if (direction === 2) y = y >= last ? y + 1 - size : y + 1;
-              else y = y === 0 ? last : y - 1;
             }
-          }
-        const pattern = latticeField(marks, p.size, p.size),
-          ageField = latticeField(tones, p.size, p.size);
-        return () => {
-          // The cluster map is blended with the C1 smoothstep and re-sharpened with tanh; the
-          // age tone fades towards the tips of the branches.
-          const line =
-              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
-            age = ageField(u, v),
-            grain = grainField(u, v);
-          color =
-            p.baseTone +
-            p.lineTone * line * (p.ageFloor + (1 - p.ageFloor) * age) +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.lineHeight * line * (0.7 + 0.3 * age) + p.grainHeight * grain;
-          roughness += p.lineRoughness * line;
-          return;
+          const pattern = latticeField(marks, p.size, p.size),
+            ageField = latticeField(tones, p.size, p.size);
+          return () => {
+            // The cluster map is blended with the C1 smoothstep and re-sharpened with tanh; the
+            // age tone fades towards the tips of the branches.
+            const line =
+                0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+              age = ageField(u, v),
+              grain = grainField(u, v);
+            color =
+              p.baseTone +
+              p.lineTone * line * (p.ageFloor + (1 - p.ageFloor) * age) +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.lineHeight * line * (0.7 + 0.3 * age) + p.grainHeight * grain;
+            roughness += p.lineRoughness * line;
+            return;
+          };
         };
+        return setup();
       }
       case 'hammingtable': {
         const p = proceduralMaterialPresets.hammingtable,
@@ -76462,71 +76589,75 @@ export function createSurfaceSampler(
         };
       }
       case 'chromaticant': {
-        const p = proceduralMaterialPresets.chromaticant,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          inverseHalf = 1 / p.kernelHalf,
-          inverseSoft = 1 / p.edgeSoft,
-          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
-          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
-          // A multi-colour Langton's ant on a cells x cells torus, started at the middle of the
-          // blank board heading up: on a cell of colour c it turns right when rule[c] is R and
-          // left when it is L, advances the cell to the colour (c + 1) mod rule.length and
-          // steps forward (wrapping around). After steps moves, a cell's tone is its colour
-          // divided by (rule.length - 1). The seed moves the whole board around the torus.
-          colors = new Uint8Array(p.cells * p.cells),
-          tones = new Float64Array(p.cells * p.cells),
-          turns = Array.from(p.rule, (letter) => (letter === 'R' ? 1 : 3));
-        for (
-          let x = p.cells >> 1, y = p.cells >> 1, heading = 0, step = 0;
-          step < p.steps;
-          step++
-        ) {
-          const cell = y * p.cells + x,
-            color = colors[cell];
-          heading = (heading + turns[color]) & 3;
-          colors[cell] = (color + 1) % p.rule.length;
-          if (heading === 0) y = (y + p.cells - 1) % p.cells;
-          else if (heading === 1) x = (x + 1) % p.cells;
-          else if (heading === 2) y = (y + 1) % p.cells;
-          else x = (x + p.cells - 1) % p.cells;
-        }
-        for (let i = 0; i < colors.length; i++)
-          tones[i] = (p.toneSpan * colors[i]) / (p.rule.length - 1);
-        return () => {
-          // One compact-support rounded-square kernel per cell (a quartic superellipse
-          // through smoothstep, exactly zero before the cell boundary), so the cell
-          // lookup never jumps and the field is C1.
-          const x = fract(u) * p.cells,
-            y = fract(v) * p.cells,
-            col = Math.floor(x),
-            row = Math.floor(y),
-            ax = (x - col - 0.5) * inverseHalf,
-            ay = (y - row - 0.5) * inverseHalf,
-            ax2 = ax * ax,
-            ay2 = ay * ay,
-            s = ax2 * ax2 + ay2 * ay2,
-            mask = smooth(clamp((1 - s) * inverseSoft)),
-            dome = smooth(clamp(1 - s)),
-            tone =
-              tones[
-                ((row + shiftY) % p.cells) * p.cells +
-                  ((col + shiftX) % p.cells)
-              ],
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.chromaticant,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            inverseHalf = 1 / p.kernelHalf,
+            inverseSoft = 1 / p.edgeSoft,
+            shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
+            shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
+            // A multi-colour Langton's ant on a cells x cells torus, started at the middle of the
+            // blank board heading up: on a cell of colour c it turns right when rule[c] is R and
+            // left when it is L, advances the cell to the colour (c + 1) mod rule.length and
+            // steps forward (wrapping around). After steps moves, a cell's tone is its colour
+            // divided by (rule.length - 1). The seed moves the whole board around the torus.
+            colors = new Uint8Array(p.cells * p.cells),
+            tones = new Float64Array(p.cells * p.cells),
+            turns = Array.from(p.rule, (letter) => (letter === 'R' ? 1 : 3));
+          for (
+            let x = p.cells >> 1, y = p.cells >> 1, heading = 0, step = 0;
+            step < p.steps;
+            step++
+          ) {
+            const cell = y * p.cells + x,
+              color = colors[cell];
+            heading = (heading + turns[color]) & 3;
+            colors[cell] = (color + 1) % p.rule.length;
+            if (heading === 0) y = (y + p.cells - 1) % p.cells;
+            else if (heading === 1) x = (x + 1) % p.cells;
+            else if (heading === 2) y = (y + 1) % p.cells;
+            else x = (x + p.cells - 1) % p.cells;
+          }
+          for (let i = 0; i < colors.length; i++)
+            tones[i] = (p.toneSpan * colors[i]) / (p.rule.length - 1);
+          return () => {
+            // One compact-support rounded-square kernel per cell (a quartic superellipse
+            // through smoothstep, exactly zero before the cell boundary), so the cell
+            // lookup never jumps and the field is C1.
+            const x = fract(u) * p.cells,
+              y = fract(v) * p.cells,
+              col = Math.floor(x),
+              row = Math.floor(y),
+              ax = (x - col - 0.5) * inverseHalf,
+              ay = (y - row - 0.5) * inverseHalf,
+              ax2 = ax * ax,
+              ay2 = ay * ay,
+              s = ax2 * ax2 + ay2 * ay2,
+              mask = smooth(clamp((1 - s) * inverseSoft)),
+              dome = smooth(clamp(1 - s)),
+              tone =
+                tones[
+                  ((row + shiftY) % p.cells) * p.cells +
+                    ((col + shiftX) % p.cells)
+                ],
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'rule110': {
         const p = proceduralMaterialPresets.rule110,
@@ -77200,81 +77331,85 @@ export function createSurfaceSampler(
         };
       }
       case 'chessqueens': {
-        const p = proceduralMaterialPresets.chessqueens,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          inverseHalf = 1 / p.kernelHalf,
-          inverseSoft = 1 / p.edgeSoft,
-          solutions: number[][] = [],
-          placed: number[] = [],
-          usedColumn = new Uint8Array(p.cells),
-          usedUp = new Uint8Array(2 * p.cells),
-          usedDown = new Uint8Array(2 * p.cells),
-          tones = new Float64Array(p.cells * p.cells);
-        // Every way of placing cells queens on a cells x cells board so that none attacks another
-        // (one per row, column and diagonal) is found by backtracking row by row (724 of them
-        // for the 10 x 10 board), and the seed picks one of them. The board is drawn as a
-        // chequer of dark squares (tone 0) and light squares, with a glowing tile on every queen.
-        // The board is not shifted around the torus (a shifted board would no longer
-        // be a solution on its diagonals).
-        const place = (row: number): void => {
-          if (row === p.cells) {
-            solutions.push(placed.slice());
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.chessqueens,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            inverseHalf = 1 / p.kernelHalf,
+            inverseSoft = 1 / p.edgeSoft,
+            solutions: number[][] = [],
+            placed: number[] = [],
+            usedColumn = new Uint8Array(p.cells),
+            usedUp = new Uint8Array(2 * p.cells),
+            usedDown = new Uint8Array(2 * p.cells),
+            tones = new Float64Array(p.cells * p.cells);
+          // Every way of placing cells queens on a cells x cells board so that none attacks another
+          // (one per row, column and diagonal) is found by backtracking row by row (724 of them
+          // for the 10 x 10 board), and the seed picks one of them. The board is drawn as a
+          // chequer of dark squares (tone 0) and light squares, with a glowing tile on every queen.
+          // The board is not shifted around the torus (a shifted board would no longer
+          // be a solution on its diagonals).
+          const place = (row: number): void => {
+            if (row === p.cells) {
+              solutions.push(placed.slice());
+              return;
+            }
+            for (let column = 0; column < p.cells; column++) {
+              const up = row + column,
+                down = row - column + p.cells - 1;
+              if (usedColumn[column] || usedUp[up] || usedDown[down]) continue;
+              usedColumn[column] = usedUp[up] = usedDown[down] = 1;
+              placed[row] = column;
+              place(row + 1);
+              usedColumn[column] = usedUp[up] = usedDown[down] = 0;
+            }
+          };
+          place(0);
+          const chosen =
+            solutions[
+              Math.floor(hash(0, 12, seed ^ p.seedSalt) * solutions.length)
+            ];
+          for (let row = 0; row < p.cells; row++)
+            for (let col = 0; col < p.cells; col++)
+              tones[row * p.cells + col] =
+                chosen[row] === col
+                  ? p.queenTone
+                  : (row + col) % 2 === 1
+                    ? p.lightSquare
+                    : 0;
+          return () => {
+            // One compact-support rounded-square kernel per cell (a quartic superellipse
+            // through smoothstep, exactly zero before the cell boundary), so the cell
+            // lookup never jumps and the field is C1.
+            const x = fract(u) * p.cells,
+              y = fract(v) * p.cells,
+              col = Math.floor(x),
+              row = Math.floor(y),
+              ax = (x - col - 0.5) * inverseHalf,
+              ay = (y - row - 0.5) * inverseHalf,
+              ax2 = ax * ax,
+              ay2 = ay * ay,
+              s = ax2 * ax2 + ay2 * ay2,
+              mask = smooth(clamp((1 - s) * inverseSoft)),
+              dome = smooth(clamp(1 - s)),
+              tone = tones[row * p.cells + col],
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
             return;
-          }
-          for (let column = 0; column < p.cells; column++) {
-            const up = row + column,
-              down = row - column + p.cells - 1;
-            if (usedColumn[column] || usedUp[up] || usedDown[down]) continue;
-            usedColumn[column] = usedUp[up] = usedDown[down] = 1;
-            placed[row] = column;
-            place(row + 1);
-            usedColumn[column] = usedUp[up] = usedDown[down] = 0;
-          }
+          };
         };
-        place(0);
-        const chosen =
-          solutions[
-            Math.floor(hash(0, 12, seed ^ p.seedSalt) * solutions.length)
-          ];
-        for (let row = 0; row < p.cells; row++)
-          for (let col = 0; col < p.cells; col++)
-            tones[row * p.cells + col] =
-              chosen[row] === col
-                ? p.queenTone
-                : (row + col) % 2 === 1
-                  ? p.lightSquare
-                  : 0;
-        return () => {
-          // One compact-support rounded-square kernel per cell (a quartic superellipse
-          // through smoothstep, exactly zero before the cell boundary), so the cell
-          // lookup never jumps and the field is C1.
-          const x = fract(u) * p.cells,
-            y = fract(v) * p.cells,
-            col = Math.floor(x),
-            row = Math.floor(y),
-            ax = (x - col - 0.5) * inverseHalf,
-            ay = (y - row - 0.5) * inverseHalf,
-            ax2 = ax * ax,
-            ay2 = ay * ay,
-            s = ax2 * ax2 + ay2 * ay2,
-            mask = smooth(clamp((1 - s) * inverseSoft)),
-            dome = smooth(clamp(1 - s)),
-            tone = tones[row * p.cells + col],
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
-        };
+        return setup();
       }
       case 'cassiniovals': {
         const p = proceduralMaterialPresets.cassiniovals,
@@ -77647,83 +77782,88 @@ export function createSurfaceSampler(
         };
       }
       case 'poissondisk': {
-        const p = proceduralMaterialPresets.poissondisk,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          px: number[] = [],
-          py: number[] = [],
-          bucketOf: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          minSquared = p.minDistance * p.minDistance,
-          radiusSquared = p.discRadius * p.discRadius,
-          inverseSoft = 1 / p.edgeSoft;
-        // Dart throwing on the unit torus: candidate points come from the hash in order and a
-        // candidate is kept when it is at least minDistance (the shortest way around the
-        // torus) from every point kept so far, so the points are random but evenly spread, a
-        // Poisson-disk sample. Each kept point gets a disc of discRadius, less than half of
-        // minDistance, so the discs never touch; the points are filed into buckets x buckets
-        // buckets, wider than a disc, so a lookup only needs the 3 x 3 buckets around it.
-        for (let k = 0; k < p.attempts; k++) {
-          const cx = hash(k, 0, seed ^ p.seedSalt),
-            cy = hash(k, 1, seed ^ p.seedSalt);
-          let free = true;
-          for (let i = 0; i < px.length && free; i++) {
-            let dx = Math.abs(cx - px[i]),
-              dy = Math.abs(cy - py[i]);
-            dx = Math.min(dx, 1 - dx);
-            dy = Math.min(dy, 1 - dy);
-            free = dx * dx + dy * dy >= minSquared;
-          }
-          if (!free) continue;
-          px.push(cx);
-          py.push(cy);
-          bucketOf[
-            Math.floor(cy * p.buckets) * p.buckets + Math.floor(cx * p.buckets)
-          ].push(px.length - 1);
-        }
-        return () => {
-          const fu = fract(u),
-            fv = fract(v),
-            bx = Math.floor(fu * p.buckets),
-            by = Math.floor(fv * p.buckets);
-          let nearest = Infinity;
-          for (let oy = -1; oy <= 1; oy++)
-            for (let ox = -1; ox <= 1; ox++) {
-              const list =
-                bucketOf[
-                  ((by + oy + p.buckets) % p.buckets) * p.buckets +
-                    ((bx + ox + p.buckets) % p.buckets)
-                ];
-              for (const i of list) {
-                let dx = Math.abs(fu - px[i]),
-                  dy = Math.abs(fv - py[i]);
-                dx = Math.min(dx, 1 - dx);
-                dy = Math.min(dy, 1 - dy);
-                nearest = Math.min(nearest, dx * dx + dy * dy);
-              }
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.poissondisk,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            px: number[] = [],
+            py: number[] = [],
+            bucketOf: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            minSquared = p.minDistance * p.minDistance,
+            radiusSquared = p.discRadius * p.discRadius,
+            inverseSoft = 1 / p.edgeSoft;
+          // Dart throwing on the unit torus: candidate points come from the hash in order and a
+          // candidate is kept when it is at least minDistance (the shortest way around the
+          // torus) from every point kept so far, so the points are random but evenly spread, a
+          // Poisson-disk sample. Each kept point gets a disc of discRadius, less than half of
+          // minDistance, so the discs never touch; the points are filed into buckets x buckets
+          // buckets, wider than a disc, so a lookup only needs the 3 x 3 buckets around it.
+          for (let k = 0; k < p.attempts; k++) {
+            const cx = hash(k, 0, seed ^ p.seedSalt),
+              cy = hash(k, 1, seed ^ p.seedSalt);
+            let free = true;
+            for (let i = 0; i < px.length && free; i++) {
+              let dx = Math.abs(cx - px[i]),
+                dy = Math.abs(cy - py[i]);
+              dx = Math.min(dx, 1 - dx);
+              dy = Math.min(dy, 1 - dy);
+              free = dx * dx + dy * dy >= minSquared;
             }
-          // A disc is a function of the squared distance to its point, exactly zero at its
-          // rim, so the field is C1 and at most one disc is ever non-zero.
-          const t = clamp(1 - nearest / radiusSquared),
-            mask = smooth(clamp(t * inverseSoft)),
-            dome = t * t,
-            tone = p.toneSpan * (0.7 + 0.3 * dome),
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+            if (!free) continue;
+            px.push(cx);
+            py.push(cy);
+            bucketOf[
+              Math.floor(cy * p.buckets) * p.buckets +
+                Math.floor(cx * p.buckets)
+            ].push(px.length - 1);
+          }
+          return () => {
+            const fu = fract(u),
+              fv = fract(v),
+              bx = Math.floor(fu * p.buckets),
+              by = Math.floor(fv * p.buckets);
+            let nearest = Infinity;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++) {
+                const list =
+                  bucketOf[
+                    ((by + oy + p.buckets) % p.buckets) * p.buckets +
+                      ((bx + ox + p.buckets) % p.buckets)
+                  ];
+                for (const i of list) {
+                  let dx = Math.abs(fu - px[i]),
+                    dy = Math.abs(fv - py[i]);
+                  dx = Math.min(dx, 1 - dx);
+                  dy = Math.min(dy, 1 - dy);
+                  nearest = Math.min(nearest, dx * dx + dy * dy);
+                }
+              }
+            // A disc is a function of the squared distance to its point, exactly zero at its
+            // rim, so the field is C1 and at most one disc is ever non-zero.
+            const t = clamp(1 - nearest / radiusSquared),
+              mask = smooth(clamp(t * inverseSoft)),
+              dome = t * t,
+              tone = p.toneSpan * (0.7 + 0.3 * dome),
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'graycode': {
         const p = proceduralMaterialPresets.graycode,
@@ -78050,70 +78190,74 @@ export function createSurfaceSampler(
         };
       }
       case 'happynumbers': {
-        const p = proceduralMaterialPresets.happynumbers,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          inverseHalf = 1 / p.kernelHalf,
-          inverseSoft = 1 / p.edgeSoft,
-          shiftX = Math.floor(hash(0, 23, seed ^ p.seedSalt) * p.cells),
-          shiftY = Math.floor(hash(1, 23, seed ^ p.seedSalt) * p.cells),
-          // Happy numbers: replace a number by the sum of the squares of its decimal digits until
-          // it reaches 1 (a happy number, after the counted number of replacements) or 4, which
-          // starts the cycle 4, 16, 37, 58, 89, 145, 42, 20, 4 that every unhappy number falls into.
-          // The cell in row i and column j holds n = 64 i + j + 1 (1 to 4096): an unhappy number
-          // is dark, a happy one glows the brighter the fewer replacements it needs (the number 1
-          // needs none). The seed moves the table around the torus.
-          tones = new Float64Array(p.cells * p.cells);
-        for (let i = 0; i < tones.length; i++) {
-          let n = i + 1,
-            count = 0;
-          while (n !== 1 && n !== 4) {
-            let sum = 0;
-            for (let rest = n; rest > 0; rest = Math.floor(rest / 10))
-              sum += (rest % 10) ** 2;
-            n = sum;
-            count++;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.happynumbers,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            inverseHalf = 1 / p.kernelHalf,
+            inverseSoft = 1 / p.edgeSoft,
+            shiftX = Math.floor(hash(0, 23, seed ^ p.seedSalt) * p.cells),
+            shiftY = Math.floor(hash(1, 23, seed ^ p.seedSalt) * p.cells),
+            // Happy numbers: replace a number by the sum of the squares of its decimal digits until
+            // it reaches 1 (a happy number, after the counted number of replacements) or 4, which
+            // starts the cycle 4, 16, 37, 58, 89, 145, 42, 20, 4 that every unhappy number falls into.
+            // The cell in row i and column j holds n = 64 i + j + 1 (1 to 4096): an unhappy number
+            // is dark, a happy one glows the brighter the fewer replacements it needs (the number 1
+            // needs none). The seed moves the table around the torus.
+            tones = new Float64Array(p.cells * p.cells);
+          for (let i = 0; i < tones.length; i++) {
+            let n = i + 1,
+              count = 0;
+            while (n !== 1 && n !== 4) {
+              let sum = 0;
+              for (let rest = n; rest > 0; rest = Math.floor(rest / 10))
+                sum += (rest % 10) ** 2;
+              n = sum;
+              count++;
+            }
+            tones[i] =
+              n === 1
+                ? p.toneSpan *
+                  (p.happyFloor + (1 - p.happyFloor) * (1 - count / p.longest))
+                : 0;
           }
-          tones[i] =
-            n === 1
-              ? p.toneSpan *
-                (p.happyFloor + (1 - p.happyFloor) * (1 - count / p.longest))
-              : 0;
-        }
-        return () => {
-          // One compact-support rounded-square kernel per cell (a quartic superellipse
-          // through smoothstep, exactly zero before the cell boundary), so the cell
-          // lookup never jumps and the field is C1.
-          const x = fract(u) * p.cells,
-            y = fract(v) * p.cells,
-            col = Math.floor(x),
-            row = Math.floor(y),
-            ax = (x - col - 0.5) * inverseHalf,
-            ay = (y - row - 0.5) * inverseHalf,
-            ax2 = ax * ax,
-            ay2 = ay * ay,
-            s = ax2 * ax2 + ay2 * ay2,
-            mask = smooth(clamp((1 - s) * inverseSoft)),
-            dome = smooth(clamp(1 - s)),
-            tone =
-              tones[
-                ((row + shiftY) % p.cells) * p.cells +
-                  ((col + shiftX) % p.cells)
-              ],
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          return () => {
+            // One compact-support rounded-square kernel per cell (a quartic superellipse
+            // through smoothstep, exactly zero before the cell boundary), so the cell
+            // lookup never jumps and the field is C1.
+            const x = fract(u) * p.cells,
+              y = fract(v) * p.cells,
+              col = Math.floor(x),
+              row = Math.floor(y),
+              ax = (x - col - 0.5) * inverseHalf,
+              ay = (y - row - 0.5) * inverseHalf,
+              ax2 = ax * ax,
+              ay2 = ay * ay,
+              s = ax2 * ax2 + ay2 * ay2,
+              mask = smooth(clamp((1 - s) * inverseSoft)),
+              dome = smooth(clamp(1 - s)),
+              tone =
+                tones[
+                  ((row + shiftY) % p.cells) * p.cells +
+                    ((col + shiftX) % p.cells)
+                ],
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'stringart': {
         const p = proceduralMaterialPresets.stringart,
@@ -78352,209 +78496,223 @@ export function createSurfaceSampler(
         };
       }
       case 'wythoffnim': {
-        const p = proceduralMaterialPresets.wythoffnim,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          inverseHalf = 1 / p.kernelHalf,
-          inverseSoft = 1 / p.edgeSoft,
-          shiftX = Math.floor(hash(0, 28, seed ^ p.seedSalt) * p.cells),
-          shiftY = Math.floor(hash(1, 28, seed ^ p.seedSalt) * p.cells),
-          // Wythoff's game: two piles of x and y counters, a move takes any number from one pile or
-          // the same number from both, and whoever takes the last counter wins. The Grundy value
-          // (nim-value) G(x, y) of a position is the smallest whole number that none of the
-          // positions one move away has: G(0, 0) = 0 and G(x, y) = mex of G(x - k, y), G(x, y - k)
-          // and G(x - k, y - k). The cell in row y and column x holds G(x, y); its tone is G, but
-          // at most 7, over 7. The cells with G = 0 are the positions
-          // the player to move loses. The seed moves the table around the torus.
-          grundy = new Int32Array(p.cells * p.cells),
-          tones = new Float64Array(p.cells * p.cells);
-        for (let y = 0; y < p.cells; y++)
-          for (let x = 0; x < p.cells; x++) {
-            const reachable = new Set<number>();
-            for (let k = 0; k < x; k++) reachable.add(grundy[y * p.cells + k]);
-            for (let k = 0; k < y; k++) reachable.add(grundy[k * p.cells + x]);
-            for (let k = 1; k <= Math.min(x, y); k++)
-              reachable.add(grundy[(y - k) * p.cells + (x - k)]);
-            let value = 0;
-            while (reachable.has(value)) value++;
-            grundy[y * p.cells + x] = value;
-            tones[y * p.cells + x] = (p.toneSpan * Math.min(value, 7)) / 7;
-          }
-        return () => {
-          // One compact-support rounded-square kernel per cell (a quartic superellipse
-          // through smoothstep, exactly zero before the cell boundary), so the cell
-          // lookup never jumps and the field is C1.
-          const x = fract(u) * p.cells,
-            y = fract(v) * p.cells,
-            col = Math.floor(x),
-            row = Math.floor(y),
-            ax = (x - col - 0.5) * inverseHalf,
-            ay = (y - row - 0.5) * inverseHalf,
-            ax2 = ax * ax,
-            ay2 = ay * ay,
-            s = ax2 * ax2 + ay2 * ay2,
-            mask = smooth(clamp((1 - s) * inverseSoft)),
-            dome = smooth(clamp(1 - s)),
-            tone =
-              tones[
-                ((row + shiftY) % p.cells) * p.cells +
-                  ((col + shiftX) % p.cells)
-              ],
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.wythoffnim,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            inverseHalf = 1 / p.kernelHalf,
+            inverseSoft = 1 / p.edgeSoft,
+            shiftX = Math.floor(hash(0, 28, seed ^ p.seedSalt) * p.cells),
+            shiftY = Math.floor(hash(1, 28, seed ^ p.seedSalt) * p.cells),
+            // Wythoff's game: two piles of x and y counters, a move takes any number from one pile or
+            // the same number from both, and whoever takes the last counter wins. The Grundy value
+            // (nim-value) G(x, y) of a position is the smallest whole number that none of the
+            // positions one move away has: G(0, 0) = 0 and G(x, y) = mex of G(x - k, y), G(x, y - k)
+            // and G(x - k, y - k). The cell in row y and column x holds G(x, y); its tone is G, but
+            // at most 7, over 7. The cells with G = 0 are the positions
+            // the player to move loses. The seed moves the table around the torus.
+            grundy = new Int32Array(p.cells * p.cells),
+            tones = new Float64Array(p.cells * p.cells);
+          for (let y = 0; y < p.cells; y++)
+            for (let x = 0; x < p.cells; x++) {
+              const reachable = new Set<number>();
+              for (let k = 0; k < x; k++)
+                reachable.add(grundy[y * p.cells + k]);
+              for (let k = 0; k < y; k++)
+                reachable.add(grundy[k * p.cells + x]);
+              for (let k = 1; k <= Math.min(x, y); k++)
+                reachable.add(grundy[(y - k) * p.cells + (x - k)]);
+              let value = 0;
+              while (reachable.has(value)) value++;
+              grundy[y * p.cells + x] = value;
+              tones[y * p.cells + x] = (p.toneSpan * Math.min(value, 7)) / 7;
+            }
+          return () => {
+            // One compact-support rounded-square kernel per cell (a quartic superellipse
+            // through smoothstep, exactly zero before the cell boundary), so the cell
+            // lookup never jumps and the field is C1.
+            const x = fract(u) * p.cells,
+              y = fract(v) * p.cells,
+              col = Math.floor(x),
+              row = Math.floor(y),
+              ax = (x - col - 0.5) * inverseHalf,
+              ay = (y - row - 0.5) * inverseHalf,
+              ax2 = ax * ax,
+              ay2 = ay * ay,
+              s = ax2 * ax2 + ay2 * ay2,
+              mask = smooth(clamp((1 - s) * inverseSoft)),
+              dome = smooth(clamp(1 - s)),
+              tone =
+                tones[
+                  ((row + shiftY) % p.cells) * p.cells +
+                    ((col + shiftX) % p.cells)
+                ],
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'nimproduct': {
-        const p = proceduralMaterialPresets.nimproduct,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          inverseHalf = 1 / p.kernelHalf,
-          inverseSoft = 1 / p.edgeSoft,
-          shiftX = Math.floor(hash(0, 28, seed ^ p.seedSalt) * p.cells),
-          shiftY = Math.floor(hash(1, 28, seed ^ p.seedSalt) * p.cells),
-          // Nim multiplication, the field product of Conway's nimbers: with a (x) b the smallest
-          // whole number that is not (x' (x) b) xor (a (x) y') xor (x' (x) y') for any x' < a and
-          // y' < b, and 0 (x) b = a (x) 0 = 0. The cell in row a and column b holds a (x) b (0 to
-          // 255 for a, b below 64) and glows when bit 'bit' of it is 1; the seed picks one of the
-          // bits firstBit to firstBit + bitCount - 1 and moves the table around the torus.
-          bit =
-            p.firstBit +
-            Math.floor(hash(2, 29, seed ^ p.seedSalt) * p.bitCount),
-          product = new Uint8Array(p.cells * p.cells),
-          tones = new Float64Array(p.cells * p.cells);
-        const cells = p.cells,
-          seen = new Uint32Array(256);
-        // `seen` holds the id of the last cell that marked a value, so it is never cleared.
-        let stamp = 0;
-        // Nim multiplication is commutative and the rule for (a, b) is the rule for (b, a) with
-        // the operands swapped, so only b <= a is computed and mirrored.
-        for (let a = 1; a < cells; a++)
-          for (let b = 1; b <= a; b++) {
-            stamp++;
-            const rowA = a * cells;
-            for (let x = 0; x < a; x++) {
-              const rowX = x * cells,
-                left = product[rowX + b];
-              for (let y = 0; y < b; y++)
-                seen[left ^ product[rowA + y] ^ product[rowX + y]] = stamp;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.nimproduct,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            inverseHalf = 1 / p.kernelHalf,
+            inverseSoft = 1 / p.edgeSoft,
+            shiftX = Math.floor(hash(0, 28, seed ^ p.seedSalt) * p.cells),
+            shiftY = Math.floor(hash(1, 28, seed ^ p.seedSalt) * p.cells),
+            // Nim multiplication, the field product of Conway's nimbers: with a (x) b the smallest
+            // whole number that is not (x' (x) b) xor (a (x) y') xor (x' (x) y') for any x' < a and
+            // y' < b, and 0 (x) b = a (x) 0 = 0. The cell in row a and column b holds a (x) b (0 to
+            // 255 for a, b below 64) and glows when bit 'bit' of it is 1; the seed picks one of the
+            // bits firstBit to firstBit + bitCount - 1 and moves the table around the torus.
+            bit =
+              p.firstBit +
+              Math.floor(hash(2, 29, seed ^ p.seedSalt) * p.bitCount),
+            product = new Uint8Array(p.cells * p.cells),
+            tones = new Float64Array(p.cells * p.cells);
+          const cells = p.cells,
+            seen = new Uint32Array(256);
+          // `seen` holds the id of the last cell that marked a value, so it is never cleared.
+          let stamp = 0;
+          // Nim multiplication is commutative and the rule for (a, b) is the rule for (b, a) with
+          // the operands swapped, so only b <= a is computed and mirrored.
+          for (let a = 1; a < cells; a++)
+            for (let b = 1; b <= a; b++) {
+              stamp++;
+              const rowA = a * cells;
+              for (let x = 0; x < a; x++) {
+                const rowX = x * cells,
+                  left = product[rowX + b];
+                for (let y = 0; y < b; y++)
+                  seen[left ^ product[rowA + y] ^ product[rowX + y]] = stamp;
+              }
+              let value = 0;
+              while (seen[value] === stamp) value++;
+              product[rowA + b] = value;
+              product[b * cells + a] = value;
             }
-            let value = 0;
-            while (seen[value] === stamp) value++;
-            product[rowA + b] = value;
-            product[b * cells + a] = value;
-          }
-        for (let i = 0; i < tones.length; i++)
-          tones[i] = ((product[i] >> bit) & 1) * p.toneSpan;
-        return () => {
-          // One compact-support rounded-square kernel per cell (a quartic superellipse
-          // through smoothstep, exactly zero before the cell boundary), so the cell
-          // lookup never jumps and the field is C1.
-          const x = fract(u) * p.cells,
-            y = fract(v) * p.cells,
-            col = Math.floor(x),
-            row = Math.floor(y),
-            ax = (x - col - 0.5) * inverseHalf,
-            ay = (y - row - 0.5) * inverseHalf,
-            ax2 = ax * ax,
-            ay2 = ay * ay,
-            s = ax2 * ax2 + ay2 * ay2,
-            mask = smooth(clamp((1 - s) * inverseSoft)),
-            dome = smooth(clamp(1 - s)),
-            tone =
-              tones[
-                ((row + shiftY) % p.cells) * p.cells +
-                  ((col + shiftX) % p.cells)
-              ],
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          for (let i = 0; i < tones.length; i++)
+            tones[i] = ((product[i] >> bit) & 1) * p.toneSpan;
+          return () => {
+            // One compact-support rounded-square kernel per cell (a quartic superellipse
+            // through smoothstep, exactly zero before the cell boundary), so the cell
+            // lookup never jumps and the field is C1.
+            const x = fract(u) * p.cells,
+              y = fract(v) * p.cells,
+              col = Math.floor(x),
+              row = Math.floor(y),
+              ax = (x - col - 0.5) * inverseHalf,
+              ay = (y - row - 0.5) * inverseHalf,
+              ax2 = ax * ax,
+              ay2 = ay * ay,
+              s = ax2 * ax2 + ay2 * ay2,
+              mask = smooth(clamp((1 - s) * inverseSoft)),
+              dome = smooth(clamp(1 - s)),
+              tone =
+                tones[
+                  ((row + shiftY) % p.cells) * p.cells +
+                    ((col + shiftX) % p.cells)
+                ],
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'partitionmod5': {
-        const p = proceduralMaterialPresets.partitionmod5,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          inverseHalf = 1 / p.kernelHalf,
-          inverseSoft = 1 / p.edgeSoft,
-          shiftX = Math.floor(hash(0, 30, seed ^ p.seedSalt) * p.cells),
-          shiftY = Math.floor(hash(1, 30, seed ^ p.seedSalt) * p.cells),
-          // The partition numbers p(n), the ways of writing n as a sum of positive whole numbers
-          // without regard to order, modulo 5, from Euler's pentagonal number recurrence
-          // p(n) = sum over k >= 1 of (-1)^(k+1) (p(n - k (3 k - 1) / 2) + p(n - k (3 k + 1) / 2)),
-          // taken modulo 5 (1, 1, 2, 3, 0, 2, 1, 0, 2, 0, 2, 1, ...). The cell in row i and column j
-          // holds p(64 i + j) mod 5. A cell with remainder 0 glows brightest; the others are dim,
-          // the dimmer the smaller the remainder. The seed moves the table around the torus.
-          residues = new Uint8Array(p.cells * p.cells),
-          tones = new Float64Array(p.cells * p.cells);
-        residues[0] = 1;
-        for (let n = 1; n < residues.length; n++) {
-          let sum = 0;
-          for (let k = 1; (k * (3 * k - 1)) / 2 <= n; k++) {
-            const sign = k % 2 === 1 ? 1 : -1;
-            sum += sign * residues[n - (k * (3 * k - 1)) / 2];
-            if ((k * (3 * k + 1)) / 2 <= n)
-              sum += sign * residues[n - (k * (3 * k + 1)) / 2];
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.partitionmod5,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            inverseHalf = 1 / p.kernelHalf,
+            inverseSoft = 1 / p.edgeSoft,
+            shiftX = Math.floor(hash(0, 30, seed ^ p.seedSalt) * p.cells),
+            shiftY = Math.floor(hash(1, 30, seed ^ p.seedSalt) * p.cells),
+            // The partition numbers p(n), the ways of writing n as a sum of positive whole numbers
+            // without regard to order, modulo 5, from Euler's pentagonal number recurrence
+            // p(n) = sum over k >= 1 of (-1)^(k+1) (p(n - k (3 k - 1) / 2) + p(n - k (3 k + 1) / 2)),
+            // taken modulo 5 (1, 1, 2, 3, 0, 2, 1, 0, 2, 0, 2, 1, ...). The cell in row i and column j
+            // holds p(64 i + j) mod 5. A cell with remainder 0 glows brightest; the others are dim,
+            // the dimmer the smaller the remainder. The seed moves the table around the torus.
+            residues = new Uint8Array(p.cells * p.cells),
+            tones = new Float64Array(p.cells * p.cells);
+          residues[0] = 1;
+          for (let n = 1; n < residues.length; n++) {
+            let sum = 0;
+            for (let k = 1; (k * (3 * k - 1)) / 2 <= n; k++) {
+              const sign = k % 2 === 1 ? 1 : -1;
+              sum += sign * residues[n - (k * (3 * k - 1)) / 2];
+              if ((k * (3 * k + 1)) / 2 <= n)
+                sum += sign * residues[n - (k * (3 * k + 1)) / 2];
+            }
+            residues[n] = ((sum % 5) + 5) % 5;
           }
-          residues[n] = ((sum % 5) + 5) % 5;
-        }
-        for (let i = 0; i < tones.length; i++)
-          tones[i] =
-            p.toneSpan * (residues[i] === 0 ? 1 : p.dimStep * residues[i]);
-        return () => {
-          // One compact-support rounded-square kernel per cell (a quartic superellipse
-          // through smoothstep, exactly zero before the cell boundary), so the cell
-          // lookup never jumps and the field is C1.
-          const x = fract(u) * p.cells,
-            y = fract(v) * p.cells,
-            col = Math.floor(x),
-            row = Math.floor(y),
-            ax = (x - col - 0.5) * inverseHalf,
-            ay = (y - row - 0.5) * inverseHalf,
-            ax2 = ax * ax,
-            ay2 = ay * ay,
-            s = ax2 * ax2 + ay2 * ay2,
-            mask = smooth(clamp((1 - s) * inverseSoft)),
-            dome = smooth(clamp(1 - s)),
-            tone =
-              tones[
-                ((row + shiftY) % p.cells) * p.cells +
-                  ((col + shiftX) % p.cells)
-              ],
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          for (let i = 0; i < tones.length; i++)
+            tones[i] =
+              p.toneSpan * (residues[i] === 0 ? 1 : p.dimStep * residues[i]);
+          return () => {
+            // One compact-support rounded-square kernel per cell (a quartic superellipse
+            // through smoothstep, exactly zero before the cell boundary), so the cell
+            // lookup never jumps and the field is C1.
+            const x = fract(u) * p.cells,
+              y = fract(v) * p.cells,
+              col = Math.floor(x),
+              row = Math.floor(y),
+              ax = (x - col - 0.5) * inverseHalf,
+              ay = (y - row - 0.5) * inverseHalf,
+              ax2 = ax * ax,
+              ay2 = ay * ay,
+              s = ax2 * ax2 + ay2 * ay2,
+              mask = smooth(clamp((1 - s) * inverseSoft)),
+              dome = smooth(clamp(1 - s)),
+              tone =
+                tones[
+                  ((row + shiftY) % p.cells) * p.cells +
+                    ((col + shiftX) % p.cells)
+                ],
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'stirlingparity': {
         const p = proceduralMaterialPresets.stirlingparity,
@@ -78619,80 +78777,84 @@ export function createSurfaceSampler(
         };
       }
       case 'dominotiling': {
-        const p = proceduralMaterialPresets.dominotiling,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          size = p.cells,
-          partner = Int32Array.from(
-            { length: size * size },
-            (_, i) => Math.floor(i / size) * size + ((i % size) ^ 1),
-          ),
-          wrap = (n: number): number => (n + size) % size;
-        // A random domino tiling of the size x size torus (size even): every cell is paired with
-        // one neighbour. It starts as the brick wall of horizontal dominoes (x paired with x xor
-        // 1) and flips are applied one after the other: a random 2 x 2 block (top left corner from
-        // the hash, wrapping round the torus) that holds two parallel dominoes has them turned
-        // through a right angle, so the tiling stays a perfect pairing of the cells all the time.
-        for (let step = 0; step < p.flips; step++) {
-          const x = Math.floor(hash(step, 0, seed ^ p.seedSalt) * size),
-            y = Math.floor(hash(step, 1, seed ^ p.seedSalt) * size),
-            a = y * size + x,
-            b = y * size + wrap(x + 1),
-            c = wrap(y + 1) * size + x,
-            d = wrap(y + 1) * size + wrap(x + 1);
-          if (partner[a] === b && partner[c] === d) {
-            partner[a] = c;
-            partner[c] = a;
-            partner[b] = d;
-            partner[d] = b;
-          } else if (partner[a] === c && partner[b] === d) {
-            partner[a] = b;
-            partner[b] = a;
-            partner[c] = d;
-            partner[d] = c;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.dominotiling,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            size = p.cells,
+            partner = Int32Array.from(
+              { length: size * size },
+              (_, i) => Math.floor(i / size) * size + ((i % size) ^ 1),
+            ),
+            wrap = (n: number): number => (n + size) % size;
+          // A random domino tiling of the size x size torus (size even): every cell is paired with
+          // one neighbour. It starts as the brick wall of horizontal dominoes (x paired with x xor
+          // 1) and flips are applied one after the other: a random 2 x 2 block (top left corner from
+          // the hash, wrapping round the torus) that holds two parallel dominoes has them turned
+          // through a right angle, so the tiling stays a perfect pairing of the cells all the time.
+          for (let step = 0; step < p.flips; step++) {
+            const x = Math.floor(hash(step, 0, seed ^ p.seedSalt) * size),
+              y = Math.floor(hash(step, 1, seed ^ p.seedSalt) * size),
+              a = y * size + x,
+              b = y * size + wrap(x + 1),
+              c = wrap(y + 1) * size + x,
+              d = wrap(y + 1) * size + wrap(x + 1);
+            if (partner[a] === b && partner[c] === d) {
+              partner[a] = c;
+              partner[c] = a;
+              partner[b] = d;
+              partner[d] = b;
+            } else if (partner[a] === c && partner[b] === d) {
+              partner[a] = b;
+              partner[b] = a;
+              partner[c] = d;
+              partner[d] = c;
+            }
           }
-        }
-        return () => {
-          // The cell of the point and its partner give the domino; every domino is a rounded
-          // rectangle (a quartic superellipse through smoothstep) of the two cells, measured from
-          // the middle of the domino, zero before the cell boundary on every side, so the lookup
-          // never jumps and the field is C1.
-          const x = fract(u) * size,
-            y = fract(v) * size,
-            col = Math.floor(x),
-            row = Math.floor(y),
-            other = partner[row * size + col],
-            otherCol = other % size,
-            otherRow = Math.floor(other / size);
-          let stepX = otherCol - col,
-            stepY = otherRow - row;
-          if (stepX > 1) stepX -= size;
-          if (stepX < -1) stepX += size;
-          if (stepY > 1) stepY -= size;
-          if (stepY < -1) stepY += size;
-          const fx = x - col - 0.5 - stepX / 2,
-            fy = y - row - 0.5 - stepY / 2,
-            ax = fx / (p.kernelHalf + Math.abs(stepX) / 2),
-            ay = fy / (p.kernelHalf + Math.abs(stepY) / 2),
-            s = ax ** 4 + ay ** 4,
-            mask = smooth(clamp((1 - s) / p.edgeSoft)),
-            dome = smooth(clamp(1 - s)),
-            tone =
-              p.toneSpan * (stepX === 0 ? p.verticalTone : p.horizontalTone),
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          return () => {
+            // The cell of the point and its partner give the domino; every domino is a rounded
+            // rectangle (a quartic superellipse through smoothstep) of the two cells, measured from
+            // the middle of the domino, zero before the cell boundary on every side, so the lookup
+            // never jumps and the field is C1.
+            const x = fract(u) * size,
+              y = fract(v) * size,
+              col = Math.floor(x),
+              row = Math.floor(y),
+              other = partner[row * size + col],
+              otherCol = other % size,
+              otherRow = Math.floor(other / size);
+            let stepX = otherCol - col,
+              stepY = otherRow - row;
+            if (stepX > 1) stepX -= size;
+            if (stepX < -1) stepX += size;
+            if (stepY > 1) stepY -= size;
+            if (stepY < -1) stepY += size;
+            const fx = x - col - 0.5 - stepX / 2,
+              fy = y - row - 0.5 - stepY / 2,
+              ax = fx / (p.kernelHalf + Math.abs(stepX) / 2),
+              ay = fy / (p.kernelHalf + Math.abs(stepY) / 2),
+              s = ax ** 4 + ay ** 4,
+              mask = smooth(clamp((1 - s) / p.edgeSoft)),
+              dome = smooth(clamp(1 - s)),
+              tone =
+                p.toneSpan * (stepX === 0 ? p.verticalTone : p.horizontalTone),
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'josephus': {
         const p = proceduralMaterialPresets.josephus,
@@ -78751,444 +78913,325 @@ export function createSurfaceSampler(
         };
       }
       case 'schelling': {
-        const p = proceduralMaterialPresets.schelling,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          inverseHalf = 1 / p.kernelHalf,
-          inverseSoft = 1 / p.edgeSoft,
-          size = p.cells,
-          grid = new Uint8Array(size * size),
-          wrap = (n: number): number => (n + size) % size,
-          // Schelling's segregation model on the size by size torus: every cell is empty (0) or holds
-          // an agent of one of two kinds (1 and 2). An agent is happy when at least minSame of the
-          // occupied cells among its 8 neighbours (wrapping round the torus) hold its own kind, or
-          // when it has no occupied neighbour. 'skip' is the cell an agent is leaving: it counts as
-          // empty.
-          happy = (cell: number, kind: number, skip: number): boolean => {
-            const x = cell % size,
-              y = Math.floor(cell / size);
-            let same = 0,
-              occupied = 0;
-            for (let dy = -1; dy <= 1; dy++)
-              for (let dx = -1; dx <= 1; dx++) {
-                if (dx === 0 && dy === 0) continue;
-                const other = wrap(y + dy) * size + wrap(x + dx);
-                if (other === skip || grid[other] === 0) continue;
-                occupied++;
-                same += Number(grid[other] === kind);
-              }
-            return occupied === 0 || same / occupied >= p.minSame;
-          };
-        for (let i = 0; i < grid.length; i++) {
-          const r = hash(i, 0, seed ^ p.seedSalt);
-          grid[i] = r < p.emptyShare ? 0 : r < (1 + p.emptyShare) / 2 ? 1 : 2;
-        }
-        const empties: number[] = [];
-        for (let i = 0; i < grid.length; i++)
-          if (grid[i] === 0) empties.push(i);
-        // Sweeps in cell order: an unhappy agent moves to the first empty cell, counted from a hashed
-        // place in the list of empty cells, where it would be happy. The sweeps stop when nobody moves
-        // or after p.sweeps sweeps.
-        for (let sweep = 0; sweep < p.sweeps; sweep++) {
-          let moved = false;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.schelling,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            inverseHalf = 1 / p.kernelHalf,
+            inverseSoft = 1 / p.edgeSoft,
+            size = p.cells,
+            grid = new Uint8Array(size * size),
+            wrap = (n: number): number => (n + size) % size,
+            // Schelling's segregation model on the size by size torus: every cell is empty (0) or holds
+            // an agent of one of two kinds (1 and 2). An agent is happy when at least minSame of the
+            // occupied cells among its 8 neighbours (wrapping round the torus) hold its own kind, or
+            // when it has no occupied neighbour. 'skip' is the cell an agent is leaving: it counts as
+            // empty.
+            happy = (cell: number, kind: number, skip: number): boolean => {
+              const x = cell % size,
+                y = Math.floor(cell / size);
+              let same = 0,
+                occupied = 0;
+              for (let dy = -1; dy <= 1; dy++)
+                for (let dx = -1; dx <= 1; dx++) {
+                  if (dx === 0 && dy === 0) continue;
+                  const other = wrap(y + dy) * size + wrap(x + dx);
+                  if (other === skip || grid[other] === 0) continue;
+                  occupied++;
+                  same += Number(grid[other] === kind);
+                }
+              return occupied === 0 || same / occupied >= p.minSame;
+            };
           for (let i = 0; i < grid.length; i++) {
-            const kind = grid[i];
-            if (kind === 0 || happy(i, kind, -1)) continue;
-            const start = Math.floor(
-              hash(sweep * grid.length + i, 1, seed ^ p.seedSalt) *
-                empties.length,
-            );
-            for (let k = 0; k < empties.length; k++) {
-              const target = empties[(k + start) % empties.length];
-              if (happy(target, kind, i)) {
-                grid[i] = 0;
-                grid[target] = kind;
-                // Replace the destination with the vacated cell, retaining cell order.
-                let at = (k + start) % empties.length;
-                while (at > 0 && empties[at - 1] > i) {
-                  empties[at] = empties[at - 1];
-                  at--;
+            const r = hash(i, 0, seed ^ p.seedSalt);
+            grid[i] = r < p.emptyShare ? 0 : r < (1 + p.emptyShare) / 2 ? 1 : 2;
+          }
+          const empties: number[] = [];
+          for (let i = 0; i < grid.length; i++)
+            if (grid[i] === 0) empties.push(i);
+          // Sweeps in cell order: an unhappy agent moves to the first empty cell, counted from a hashed
+          // place in the list of empty cells, where it would be happy. The sweeps stop when nobody moves
+          // or after p.sweeps sweeps.
+          for (let sweep = 0; sweep < p.sweeps; sweep++) {
+            let moved = false;
+            for (let i = 0; i < grid.length; i++) {
+              const kind = grid[i];
+              if (kind === 0 || happy(i, kind, -1)) continue;
+              const start = Math.floor(
+                hash(sweep * grid.length + i, 1, seed ^ p.seedSalt) *
+                  empties.length,
+              );
+              for (let k = 0; k < empties.length; k++) {
+                const target = empties[(k + start) % empties.length];
+                if (happy(target, kind, i)) {
+                  grid[i] = 0;
+                  grid[target] = kind;
+                  // Replace the destination with the vacated cell, retaining cell order.
+                  let at = (k + start) % empties.length;
+                  while (at > 0 && empties[at - 1] > i) {
+                    empties[at] = empties[at - 1];
+                    at--;
+                  }
+                  while (at + 1 < empties.length && empties[at + 1] < i) {
+                    empties[at] = empties[at + 1];
+                    at++;
+                  }
+                  empties[at] = i;
+                  moved = true;
+                  break;
                 }
-                while (at + 1 < empties.length && empties[at + 1] < i) {
-                  empties[at] = empties[at + 1];
-                  at++;
-                }
-                empties[at] = i;
-                moved = true;
-                break;
               }
             }
+            if (!moved) break;
           }
-          if (!moved) break;
-        }
-        return () => {
-          // One compact-support rounded-square kernel per cell (a quartic superellipse
-          // through smoothstep, exactly zero before the cell boundary), so the cell
-          // lookup never jumps and the field is C1.
-          const x = fract(u) * p.cells,
-            y = fract(v) * p.cells,
-            col = Math.floor(x),
-            row = Math.floor(y),
-            ax = (x - col - 0.5) * inverseHalf,
-            ay = (y - row - 0.5) * inverseHalf,
-            ax2 = ax * ax,
-            ay2 = ay * ay,
-            s = ax2 * ax2 + ay2 * ay2,
-            mask = smooth(clamp((1 - s) * inverseSoft)),
-            dome = smooth(clamp(1 - s)),
-            tone = (p.toneSpan * grid[row * size + col]) / 2,
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          return () => {
+            // One compact-support rounded-square kernel per cell (a quartic superellipse
+            // through smoothstep, exactly zero before the cell boundary), so the cell
+            // lookup never jumps and the field is C1.
+            const x = fract(u) * p.cells,
+              y = fract(v) * p.cells,
+              col = Math.floor(x),
+              row = Math.floor(y),
+              ax = (x - col - 0.5) * inverseHalf,
+              ay = (y - row - 0.5) * inverseHalf,
+              ax2 = ax * ax,
+              ay2 = ay * ay,
+              s = ax2 * ax2 + ay2 * ay2,
+              mask = smooth(clamp((1 - s) * inverseSoft)),
+              dome = smooth(clamp(1 - s)),
+              tone = (p.toneSpan * grid[row * size + col]) / 2,
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'gabrielgraph': {
-        const p = proceduralMaterialPresets.gabrielgraph,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          px: number[] = [],
-          py: number[] = [],
-          nodeBuckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          edgeBuckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          edges: number[][] = [],
-          minSquared = p.minDistance * p.minDistance,
-          nodeSquared = p.nodeRadius * p.nodeRadius,
-          edgeSquared = p.edgeHalfWidth * p.edgeHalfWidth,
-          inverseSoft = 1 / p.edgeSoft,
-          // The shortest way from a to b round the unit torus, as one coordinate.
-          around = (delta: number): number => delta - Math.round(delta);
-        // Dart throwing on the unit torus as for the Poisson disk (candidates from the hash, kept when
-        // at least minDistance from every point kept so far), then the Gabriel graph of the points:
-        // two points are joined when no third point lies inside the disc that has the segment between
-        // them (the shortest way round the torus) as its diameter. Pairs further apart than maxEdge
-        // are left out. Every edge is filed into the buckets x buckets buckets that a point within
-        // the half width plus half a step of the path could be in, so a lookup needs only the bucket
-        // of the sample.
-        for (let k = 0; k < p.attempts; k++) {
-          const cx = hash(k, 0, seed ^ p.seedSalt),
-            cy = hash(k, 1, seed ^ p.seedSalt);
-          let free = true;
-          for (let i = 0; i < px.length && free; i++) {
-            const dx = around(cx - px[i]),
-              dy = around(cy - py[i]);
-            free = dx * dx + dy * dy >= minSquared;
-          }
-          if (!free) continue;
-          px.push(cx);
-          py.push(cy);
-          nodeBuckets[
-            Math.floor(cy * p.buckets) * p.buckets + Math.floor(cx * p.buckets)
-          ].push(px.length - 1);
-        }
-        const step = 0.25 / p.buckets,
-          reach = p.edgeHalfWidth + step / 2,
-          bucketAt = (x: number, y: number): number =>
-            (Math.floor((y - Math.floor(y)) * p.buckets) % p.buckets) *
-              p.buckets +
-            (Math.floor((x - Math.floor(x)) * p.buckets) % p.buckets);
-        for (let i = 0; i < px.length; i++)
-          for (let j = i + 1; j < px.length; j++) {
-            const dx = around(px[j] - px[i]),
-              dy = around(py[j] - py[i]),
-              length = hypot2(dx, dy);
-            if (length > p.maxEdge) continue;
-            const mx = px[i] + dx / 2,
-              my = py[i] + dy / 2,
-              radiusSquared = (length * length) / 4;
-            let empty = true;
-            for (let k = 0; k < px.length && empty; k++) {
-              if (k === i || k === j) continue;
-              const ex = around(px[k] - mx),
-                ey = around(py[k] - my);
-              empty = ex * ex + ey * ey >= radiusSquared;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.gabrielgraph,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            px: number[] = [],
+            py: number[] = [],
+            nodeBuckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            edgeBuckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            edges: number[][] = [],
+            minSquared = p.minDistance * p.minDistance,
+            nodeSquared = p.nodeRadius * p.nodeRadius,
+            edgeSquared = p.edgeHalfWidth * p.edgeHalfWidth,
+            inverseSoft = 1 / p.edgeSoft,
+            // The shortest way from a to b round the unit torus, as one coordinate.
+            around = (delta: number): number => delta - Math.round(delta);
+          // Dart throwing on the unit torus as for the Poisson disk (candidates from the hash, kept when
+          // at least minDistance from every point kept so far), then the Gabriel graph of the points:
+          // two points are joined when no third point lies inside the disc that has the segment between
+          // them (the shortest way round the torus) as its diameter. Pairs further apart than maxEdge
+          // are left out. Every edge is filed into the buckets x buckets buckets that a point within
+          // the half width plus half a step of the path could be in, so a lookup needs only the bucket
+          // of the sample.
+          for (let k = 0; k < p.attempts; k++) {
+            const cx = hash(k, 0, seed ^ p.seedSalt),
+              cy = hash(k, 1, seed ^ p.seedSalt);
+            let free = true;
+            for (let i = 0; i < px.length && free; i++) {
+              const dx = around(cx - px[i]),
+                dy = around(cy - py[i]);
+              free = dx * dx + dy * dy >= minSquared;
             }
-            if (!empty) continue;
-            const index = edges.length,
-              filed = new Set<number>();
-            edges.push([px[i], py[i], dx, dy, length * length]);
-            for (let s = 0, n = Math.ceil(length / step); s <= n; s++)
-              for (const ox of [-reach, reach])
-                for (const oy of [-reach, reach]) {
-                  const bucket = bucketAt(
-                    px[i] + (dx * s) / n + ox,
-                    py[i] + (dy * s) / n + oy,
-                  );
-                  if (!filed.has(bucket)) {
-                    filed.add(bucket);
-                    edgeBuckets[bucket].push(index);
-                  }
-                }
+            if (!free) continue;
+            px.push(cx);
+            py.push(cy);
+            nodeBuckets[
+              Math.floor(cy * p.buckets) * p.buckets +
+                Math.floor(cx * p.buckets)
+            ].push(px.length - 1);
           }
-        return () => {
-          const fu = fract(u),
-            fv = fract(v),
-            bx = Math.floor(fu * p.buckets),
-            by = Math.floor(fv * p.buckets);
-          // The nodes and the edges are each a union by 1 - product of (1 - t^2) with
-          // t = max(0, 1 - squared distance / squared radius), a function of the squared distance to
-          // a point or to a segment: every t^2 is C1 and exactly zero at the rim, so the union is C1
-          // and the field is C1 even where the pieces overlap.
-          let openNodes = 1,
-            openEdges = 1;
-          for (let oy = -1; oy <= 1; oy++)
-            for (let ox = -1; ox <= 1; ox++)
-              for (const i of nodeBuckets[
-                ((by + oy + p.buckets) % p.buckets) * p.buckets +
-                  ((bx + ox + p.buckets) % p.buckets)
-              ]) {
-                const dx = around(fu - px[i]),
-                  dy = around(fv - py[i]),
-                  t = clamp(1 - (dx * dx + dy * dy) / nodeSquared);
-                openNodes *= 1 - t * t;
+          const step = 0.25 / p.buckets,
+            reach = p.edgeHalfWidth + step / 2,
+            bucketAt = (x: number, y: number): number =>
+              (Math.floor((y - Math.floor(y)) * p.buckets) % p.buckets) *
+                p.buckets +
+              (Math.floor((x - Math.floor(x)) * p.buckets) % p.buckets);
+          for (let i = 0; i < px.length; i++)
+            for (let j = i + 1; j < px.length; j++) {
+              const dx = around(px[j] - px[i]),
+                dy = around(py[j] - py[i]),
+                length = hypot2(dx, dy);
+              if (length > p.maxEdge) continue;
+              const mx = px[i] + dx / 2,
+                my = py[i] + dy / 2,
+                radiusSquared = (length * length) / 4;
+              let empty = true;
+              for (let k = 0; k < px.length && empty; k++) {
+                if (k === i || k === j) continue;
+                const ex = around(px[k] - mx),
+                  ey = around(py[k] - my);
+                empty = ex * ex + ey * ey >= radiusSquared;
               }
-          for (const index of edgeBuckets[by * p.buckets + bx]) {
-            const [x0, y0, dx, dy, lengthSquared] = edges[index],
-              wx = around(fu - x0),
-              wy = around(fv - y0),
-              along = clamp((wx * dx + wy * dy) / lengthSquared),
-              ex = wx - along * dx,
-              ey = wy - along * dy,
-              t = clamp(1 - (ex * ex + ey * ey) / edgeSquared);
-            openEdges *= 1 - t * t;
-          }
-          const total = 1 - openNodes * openEdges,
-            mask = smooth(clamp(total * inverseSoft)),
-            tone =
-              p.toneSpan * (p.edgeTone + (1 - p.edgeTone) * (1 - openNodes)),
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+              if (!empty) continue;
+              const index = edges.length,
+                filed = new Set<number>();
+              edges.push([px[i], py[i], dx, dy, length * length]);
+              for (let s = 0, n = Math.ceil(length / step); s <= n; s++)
+                for (const ox of [-reach, reach])
+                  for (const oy of [-reach, reach]) {
+                    const bucket = bucketAt(
+                      px[i] + (dx * s) / n + ox,
+                      py[i] + (dy * s) / n + oy,
+                    );
+                    if (!filed.has(bucket)) {
+                      filed.add(bucket);
+                      edgeBuckets[bucket].push(index);
+                    }
+                  }
+            }
+          return () => {
+            const fu = fract(u),
+              fv = fract(v),
+              bx = Math.floor(fu * p.buckets),
+              by = Math.floor(fv * p.buckets);
+            // The nodes and the edges are each a union by 1 - product of (1 - t^2) with
+            // t = max(0, 1 - squared distance / squared radius), a function of the squared distance to
+            // a point or to a segment: every t^2 is C1 and exactly zero at the rim, so the union is C1
+            // and the field is C1 even where the pieces overlap.
+            let openNodes = 1,
+              openEdges = 1;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++)
+                for (const i of nodeBuckets[
+                  ((by + oy + p.buckets) % p.buckets) * p.buckets +
+                    ((bx + ox + p.buckets) % p.buckets)
+                ]) {
+                  const dx = around(fu - px[i]),
+                    dy = around(fv - py[i]),
+                    t = clamp(1 - (dx * dx + dy * dy) / nodeSquared);
+                  openNodes *= 1 - t * t;
+                }
+            for (const index of edgeBuckets[by * p.buckets + bx]) {
+              const [x0, y0, dx, dy, lengthSquared] = edges[index],
+                wx = around(fu - x0),
+                wy = around(fv - y0),
+                along = clamp((wx * dx + wy * dy) / lengthSquared),
+                ex = wx - along * dx,
+                ey = wy - along * dy,
+                t = clamp(1 - (ex * ex + ey * ey) / edgeSquared);
+              openEdges *= 1 - t * t;
+            }
+            const total = 1 - openNodes * openEdges,
+              mask = smooth(clamp(total * inverseSoft)),
+              tone =
+                p.toneSpan * (p.edgeTone + (1 - p.edgeTone) * (1 - openNodes)),
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'euclideanmst': {
-        const p = proceduralMaterialPresets.euclideanmst,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          px: number[] = [],
-          py: number[] = [],
-          nodeBuckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          edgeBuckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          edges: number[][] = [],
-          minSquared = p.minDistance * p.minDistance,
-          nodeSquared = p.nodeRadius * p.nodeRadius,
-          edgeSquared = p.edgeHalfWidth * p.edgeHalfWidth,
-          inverseSoft = 1 / p.edgeSoft,
-          // The shortest way from a to b round the unit torus, as one coordinate.
-          around = (delta: number): number => delta - Math.round(delta);
-        // Dart throwing on the unit torus as for the Poisson disk (candidates from the hash, kept when
-        // at least minDistance from every point kept so far), then the Euclidean minimum spanning tree
-        // of the points (shortest distances round the torus, pairs further apart than maxEdge left
-        // out). Every edge is filed into the buckets x buckets buckets that a point within the half
-        // width plus half a step of the path could be in, so a lookup needs only the bucket of the
-        // sample.
-        for (let k = 0; k < p.attempts; k++) {
-          const cx = hash(k, 0, seed ^ p.seedSalt),
-            cy = hash(k, 1, seed ^ p.seedSalt);
-          let free = true;
-          for (let i = 0; i < px.length && free; i++) {
-            const dx = around(cx - px[i]),
-              dy = around(cy - py[i]);
-            free = dx * dx + dy * dy >= minSquared;
-          }
-          if (!free) continue;
-          px.push(cx);
-          py.push(cy);
-          nodeBuckets[
-            Math.floor(cy * p.buckets) * p.buckets + Math.floor(cx * p.buckets)
-          ].push(px.length - 1);
-        }
-        const step = 0.25 / p.buckets,
-          reach = p.edgeHalfWidth + step / 2,
-          bucketAt = (x: number, y: number): number =>
-            (Math.floor((y - Math.floor(y)) * p.buckets) % p.buckets) *
-              p.buckets +
-            (Math.floor((x - Math.floor(x)) * p.buckets) % p.buckets),
-          pairs: number[][] = [],
-          parent = Array.from({ length: px.length }, (_, i) => i),
-          root = (i: number): number => {
-            while (parent[i] !== i) i = parent[i] = parent[parent[i]];
-            return i;
-          };
-        for (let i = 0; i < px.length; i++)
-          for (let j = i + 1; j < px.length; j++) {
-            const dx = around(px[j] - px[i]),
-              dy = around(py[j] - py[i]),
-              length = hypot2(dx, dy);
-            if (length <= p.maxEdge) pairs.push([length, i, j, dx, dy]);
-          }
-        // Kruskal's algorithm: the pairs from the shortest, a pair is kept when it joins two
-        // trees that are still apart, which leaves the minimum spanning tree of the points under
-        // the shortest distances round the torus (a forest if maxEdge cuts the graph apart).
-        pairs.sort((m, n) => m[0] - n[0]);
-        for (const [length, i, j, dx, dy] of pairs) {
-          if (root(i) === root(j)) continue;
-          parent[root(i)] = root(j);
-          const index = edges.length,
-            filed = new Set<number>();
-          edges.push([px[i], py[i], dx, dy, length * length]);
-          for (let s = 0, n = Math.ceil(length / step); s <= n; s++)
-            for (const ox of [-reach, reach])
-              for (const oy of [-reach, reach]) {
-                const bucket = bucketAt(
-                  px[i] + (dx * s) / n + ox,
-                  py[i] + (dy * s) / n + oy,
-                );
-                if (!filed.has(bucket)) {
-                  filed.add(bucket);
-                  edgeBuckets[bucket].push(index);
-                }
-              }
-        }
-        return () => {
-          const fu = fract(u),
-            fv = fract(v),
-            bx = Math.floor(fu * p.buckets),
-            by = Math.floor(fv * p.buckets);
-          // The nodes and the edges are each a union by 1 - product of (1 - t^2) with
-          // t = max(0, 1 - squared distance / squared radius), a function of the squared distance to
-          // a point or to a segment: every t^2 is C1 and exactly zero at the rim, so the union is C1
-          // and the field is C1 even where the pieces overlap.
-          let openNodes = 1,
-            openEdges = 1;
-          for (let oy = -1; oy <= 1; oy++)
-            for (let ox = -1; ox <= 1; ox++)
-              for (const i of nodeBuckets[
-                ((by + oy + p.buckets) % p.buckets) * p.buckets +
-                  ((bx + ox + p.buckets) % p.buckets)
-              ]) {
-                const dx = around(fu - px[i]),
-                  dy = around(fv - py[i]),
-                  t = clamp(1 - (dx * dx + dy * dy) / nodeSquared);
-                openNodes *= 1 - t * t;
-              }
-          for (const index of edgeBuckets[by * p.buckets + bx]) {
-            const [x0, y0, dx, dy, lengthSquared] = edges[index],
-              wx = around(fu - x0),
-              wy = around(fv - y0),
-              along = clamp((wx * dx + wy * dy) / lengthSquared),
-              ex = wx - along * dx,
-              ey = wy - along * dy,
-              t = clamp(1 - (ex * ex + ey * ey) / edgeSquared);
-            openEdges *= 1 - t * t;
-          }
-          const total = 1 - openNodes * openEdges,
-            mask = smooth(clamp(total * inverseSoft)),
-            tone =
-              p.toneSpan * (p.edgeTone + (1 - p.edgeTone) * (1 - openNodes)),
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
-        };
-      }
-      case 'relativeneighborhood': {
-        const p = proceduralMaterialPresets.relativeneighborhood,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          px: number[] = [],
-          py: number[] = [],
-          nodeBuckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          edgeBuckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          edges: number[][] = [],
-          minSquared = p.minDistance * p.minDistance,
-          nodeSquared = p.nodeRadius * p.nodeRadius,
-          edgeSquared = p.edgeHalfWidth * p.edgeHalfWidth,
-          inverseSoft = 1 / p.edgeSoft,
-          // The shortest way from a to b round the unit torus, as one coordinate.
-          around = (delta: number): number => delta - Math.round(delta);
-        // Dart throwing on the unit torus as for the Poisson disk (candidates from the hash, kept when
-        // at least minDistance from every point kept so far), then the relative neighbourhood graph of the
-        // points: two points are joined when no third point is closer to both of them than they are to each
-        // other, i.e. the lune between them is empty (shortest distances round the torus). Pairs further apart
-        // than maxEdge are left out. Every edge is filed into the buckets x buckets buckets that a point within
-        // the half width plus half a step of the path could be in, so a lookup needs only the bucket
-        // of the sample.
-        for (let k = 0; k < p.attempts; k++) {
-          const cx = hash(k, 0, seed ^ p.seedSalt),
-            cy = hash(k, 1, seed ^ p.seedSalt);
-          let free = true;
-          for (let i = 0; i < px.length && free; i++) {
-            const dx = around(cx - px[i]),
-              dy = around(cy - py[i]);
-            free = dx * dx + dy * dy >= minSquared;
-          }
-          if (!free) continue;
-          px.push(cx);
-          py.push(cy);
-          nodeBuckets[
-            Math.floor(cy * p.buckets) * p.buckets + Math.floor(cx * p.buckets)
-          ].push(px.length - 1);
-        }
-        const step = 0.25 / p.buckets,
-          reach = p.edgeHalfWidth + step / 2,
-          bucketAt = (x: number, y: number): number =>
-            (Math.floor((y - Math.floor(y)) * p.buckets) % p.buckets) *
-              p.buckets +
-            (Math.floor((x - Math.floor(x)) * p.buckets) % p.buckets);
-        for (let i = 0; i < px.length; i++)
-          for (let j = i + 1; j < px.length; j++) {
-            const dx = around(px[j] - px[i]),
-              dy = around(py[j] - py[i]),
-              length = hypot2(dx, dy);
-            if (length > p.maxEdge) continue;
-            let empty = true;
-            for (let k = 0; k < px.length && empty; k++) {
-              if (k === i || k === j) continue;
-              const toI = hypot2(around(px[k] - px[i]), around(py[k] - py[i])),
-                toJ = hypot2(around(px[k] - px[j]), around(py[k] - py[j]));
-              empty = Math.max(toI, toJ) >= length;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.euclideanmst,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            px: number[] = [],
+            py: number[] = [],
+            nodeBuckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            edgeBuckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            edges: number[][] = [],
+            minSquared = p.minDistance * p.minDistance,
+            nodeSquared = p.nodeRadius * p.nodeRadius,
+            edgeSquared = p.edgeHalfWidth * p.edgeHalfWidth,
+            inverseSoft = 1 / p.edgeSoft,
+            // The shortest way from a to b round the unit torus, as one coordinate.
+            around = (delta: number): number => delta - Math.round(delta);
+          // Dart throwing on the unit torus as for the Poisson disk (candidates from the hash, kept when
+          // at least minDistance from every point kept so far), then the Euclidean minimum spanning tree
+          // of the points (shortest distances round the torus, pairs further apart than maxEdge left
+          // out). Every edge is filed into the buckets x buckets buckets that a point within the half
+          // width plus half a step of the path could be in, so a lookup needs only the bucket of the
+          // sample.
+          for (let k = 0; k < p.attempts; k++) {
+            const cx = hash(k, 0, seed ^ p.seedSalt),
+              cy = hash(k, 1, seed ^ p.seedSalt);
+            let free = true;
+            for (let i = 0; i < px.length && free; i++) {
+              const dx = around(cx - px[i]),
+                dy = around(cy - py[i]);
+              free = dx * dx + dy * dy >= minSquared;
             }
-            if (!empty) continue;
+            if (!free) continue;
+            px.push(cx);
+            py.push(cy);
+            nodeBuckets[
+              Math.floor(cy * p.buckets) * p.buckets +
+                Math.floor(cx * p.buckets)
+            ].push(px.length - 1);
+          }
+          const step = 0.25 / p.buckets,
+            reach = p.edgeHalfWidth + step / 2,
+            bucketAt = (x: number, y: number): number =>
+              (Math.floor((y - Math.floor(y)) * p.buckets) % p.buckets) *
+                p.buckets +
+              (Math.floor((x - Math.floor(x)) * p.buckets) % p.buckets),
+            pairs: number[][] = [],
+            parent = Array.from({ length: px.length }, (_, i) => i),
+            root = (i: number): number => {
+              while (parent[i] !== i) i = parent[i] = parent[parent[i]];
+              return i;
+            };
+          for (let i = 0; i < px.length; i++)
+            for (let j = i + 1; j < px.length; j++) {
+              const dx = around(px[j] - px[i]),
+                dy = around(py[j] - py[i]),
+                length = hypot2(dx, dy);
+              if (length <= p.maxEdge) pairs.push([length, i, j, dx, dy]);
+            }
+          // Kruskal's algorithm: the pairs from the shortest, a pair is kept when it joins two
+          // trees that are still apart, which leaves the minimum spanning tree of the points under
+          // the shortest distances round the torus (a forest if maxEdge cuts the graph apart).
+          pairs.sort((m, n) => m[0] - n[0]);
+          for (const [length, i, j, dx, dy] of pairs) {
+            if (root(i) === root(j)) continue;
+            parent[root(i)] = root(j);
             const index = edges.length,
               filed = new Set<number>();
             edges.push([px[i], py[i], dx, dy, length * length]);
@@ -79205,53 +79248,194 @@ export function createSurfaceSampler(
                   }
                 }
           }
-        return () => {
-          const fu = fract(u),
-            fv = fract(v),
-            bx = Math.floor(fu * p.buckets),
-            by = Math.floor(fv * p.buckets);
-          // The nodes and the edges are each a union by 1 - product of (1 - t^2) with
-          // t = max(0, 1 - squared distance / squared radius), a function of the squared distance to
-          // a point or to a segment: every t^2 is C1 and exactly zero at the rim, so the union is C1
-          // and the field is C1 even where the pieces overlap.
-          let openNodes = 1,
-            openEdges = 1;
-          for (let oy = -1; oy <= 1; oy++)
-            for (let ox = -1; ox <= 1; ox++)
-              for (const i of nodeBuckets[
-                ((by + oy + p.buckets) % p.buckets) * p.buckets +
-                  ((bx + ox + p.buckets) % p.buckets)
-              ]) {
-                const dx = around(fu - px[i]),
-                  dy = around(fv - py[i]),
-                  t = clamp(1 - (dx * dx + dy * dy) / nodeSquared);
-                openNodes *= 1 - t * t;
-              }
-          for (const index of edgeBuckets[by * p.buckets + bx]) {
-            const [x0, y0, dx, dy, lengthSquared] = edges[index],
-              wx = around(fu - x0),
-              wy = around(fv - y0),
-              along = clamp((wx * dx + wy * dy) / lengthSquared),
-              ex = wx - along * dx,
-              ey = wy - along * dy,
-              t = clamp(1 - (ex * ex + ey * ey) / edgeSquared);
-            openEdges *= 1 - t * t;
-          }
-          const total = 1 - openNodes * openEdges,
-            mask = smooth(clamp(total * inverseSoft)),
-            tone =
-              p.toneSpan * (p.edgeTone + (1 - p.edgeTone) * (1 - openNodes)),
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          return () => {
+            const fu = fract(u),
+              fv = fract(v),
+              bx = Math.floor(fu * p.buckets),
+              by = Math.floor(fv * p.buckets);
+            // The nodes and the edges are each a union by 1 - product of (1 - t^2) with
+            // t = max(0, 1 - squared distance / squared radius), a function of the squared distance to
+            // a point or to a segment: every t^2 is C1 and exactly zero at the rim, so the union is C1
+            // and the field is C1 even where the pieces overlap.
+            let openNodes = 1,
+              openEdges = 1;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++)
+                for (const i of nodeBuckets[
+                  ((by + oy + p.buckets) % p.buckets) * p.buckets +
+                    ((bx + ox + p.buckets) % p.buckets)
+                ]) {
+                  const dx = around(fu - px[i]),
+                    dy = around(fv - py[i]),
+                    t = clamp(1 - (dx * dx + dy * dy) / nodeSquared);
+                  openNodes *= 1 - t * t;
+                }
+            for (const index of edgeBuckets[by * p.buckets + bx]) {
+              const [x0, y0, dx, dy, lengthSquared] = edges[index],
+                wx = around(fu - x0),
+                wy = around(fv - y0),
+                along = clamp((wx * dx + wy * dy) / lengthSquared),
+                ex = wx - along * dx,
+                ey = wy - along * dy,
+                t = clamp(1 - (ex * ex + ey * ey) / edgeSquared);
+              openEdges *= 1 - t * t;
+            }
+            const total = 1 - openNodes * openEdges,
+              mask = smooth(clamp(total * inverseSoft)),
+              tone =
+                p.toneSpan * (p.edgeTone + (1 - p.edgeTone) * (1 - openNodes)),
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
+      }
+      case 'relativeneighborhood': {
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.relativeneighborhood,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            px: number[] = [],
+            py: number[] = [],
+            nodeBuckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            edgeBuckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            edges: number[][] = [],
+            minSquared = p.minDistance * p.minDistance,
+            nodeSquared = p.nodeRadius * p.nodeRadius,
+            edgeSquared = p.edgeHalfWidth * p.edgeHalfWidth,
+            inverseSoft = 1 / p.edgeSoft,
+            // The shortest way from a to b round the unit torus, as one coordinate.
+            around = (delta: number): number => delta - Math.round(delta);
+          // Dart throwing on the unit torus as for the Poisson disk (candidates from the hash, kept when
+          // at least minDistance from every point kept so far), then the relative neighbourhood graph of the
+          // points: two points are joined when no third point is closer to both of them than they are to each
+          // other, i.e. the lune between them is empty (shortest distances round the torus). Pairs further apart
+          // than maxEdge are left out. Every edge is filed into the buckets x buckets buckets that a point within
+          // the half width plus half a step of the path could be in, so a lookup needs only the bucket
+          // of the sample.
+          for (let k = 0; k < p.attempts; k++) {
+            const cx = hash(k, 0, seed ^ p.seedSalt),
+              cy = hash(k, 1, seed ^ p.seedSalt);
+            let free = true;
+            for (let i = 0; i < px.length && free; i++) {
+              const dx = around(cx - px[i]),
+                dy = around(cy - py[i]);
+              free = dx * dx + dy * dy >= minSquared;
+            }
+            if (!free) continue;
+            px.push(cx);
+            py.push(cy);
+            nodeBuckets[
+              Math.floor(cy * p.buckets) * p.buckets +
+                Math.floor(cx * p.buckets)
+            ].push(px.length - 1);
+          }
+          const step = 0.25 / p.buckets,
+            reach = p.edgeHalfWidth + step / 2,
+            bucketAt = (x: number, y: number): number =>
+              (Math.floor((y - Math.floor(y)) * p.buckets) % p.buckets) *
+                p.buckets +
+              (Math.floor((x - Math.floor(x)) * p.buckets) % p.buckets);
+          for (let i = 0; i < px.length; i++)
+            for (let j = i + 1; j < px.length; j++) {
+              const dx = around(px[j] - px[i]),
+                dy = around(py[j] - py[i]),
+                length = hypot2(dx, dy);
+              if (length > p.maxEdge) continue;
+              let empty = true;
+              for (let k = 0; k < px.length && empty; k++) {
+                if (k === i || k === j) continue;
+                const toI = hypot2(
+                    around(px[k] - px[i]),
+                    around(py[k] - py[i]),
+                  ),
+                  toJ = hypot2(around(px[k] - px[j]), around(py[k] - py[j]));
+                empty = Math.max(toI, toJ) >= length;
+              }
+              if (!empty) continue;
+              const index = edges.length,
+                filed = new Set<number>();
+              edges.push([px[i], py[i], dx, dy, length * length]);
+              for (let s = 0, n = Math.ceil(length / step); s <= n; s++)
+                for (const ox of [-reach, reach])
+                  for (const oy of [-reach, reach]) {
+                    const bucket = bucketAt(
+                      px[i] + (dx * s) / n + ox,
+                      py[i] + (dy * s) / n + oy,
+                    );
+                    if (!filed.has(bucket)) {
+                      filed.add(bucket);
+                      edgeBuckets[bucket].push(index);
+                    }
+                  }
+            }
+          return () => {
+            const fu = fract(u),
+              fv = fract(v),
+              bx = Math.floor(fu * p.buckets),
+              by = Math.floor(fv * p.buckets);
+            // The nodes and the edges are each a union by 1 - product of (1 - t^2) with
+            // t = max(0, 1 - squared distance / squared radius), a function of the squared distance to
+            // a point or to a segment: every t^2 is C1 and exactly zero at the rim, so the union is C1
+            // and the field is C1 even where the pieces overlap.
+            let openNodes = 1,
+              openEdges = 1;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++)
+                for (const i of nodeBuckets[
+                  ((by + oy + p.buckets) % p.buckets) * p.buckets +
+                    ((bx + ox + p.buckets) % p.buckets)
+                ]) {
+                  const dx = around(fu - px[i]),
+                    dy = around(fv - py[i]),
+                    t = clamp(1 - (dx * dx + dy * dy) / nodeSquared);
+                  openNodes *= 1 - t * t;
+                }
+            for (const index of edgeBuckets[by * p.buckets + bx]) {
+              const [x0, y0, dx, dy, lengthSquared] = edges[index],
+                wx = around(fu - x0),
+                wy = around(fv - y0),
+                along = clamp((wx * dx + wy * dy) / lengthSquared),
+                ex = wx - along * dx,
+                ey = wy - along * dy,
+                t = clamp(1 - (ex * ex + ey * ey) / edgeSquared);
+              openEdges *= 1 - t * t;
+            }
+            const total = 1 - openNodes * openEdges,
+              mask = smooth(clamp(total * inverseSoft)),
+              tone =
+                p.toneSpan * (p.edgeTone + (1 - p.edgeTone) * (1 - openNodes)),
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
+        };
+        return setup();
       }
       case 'sortingnetwork': {
         const p = proceduralMaterialPresets.sortingnetwork,
@@ -80100,71 +80284,75 @@ export function createSurfaceSampler(
         };
       }
       case 'kaprekar': {
-        const p = proceduralMaterialPresets.kaprekar,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          inverseHalf = 1 / p.kernelHalf,
-          inverseSoft = 1 / p.edgeSoft,
-          shiftX = Math.floor(hash(0, 42, seed ^ p.seedSalt) * p.cells),
-          shiftY = Math.floor(hash(1, 42, seed ^ p.seedSalt) * p.cells),
-          // Kaprekar's routine on 4 digit numbers: sort the digits (leading zeros kept) into the biggest and the
-          // smallest number and subtract, and repeat; the number of subtractions needed to reach 6174 is
-          // shown for the number 100 row + column in the cell in that row and column (0 to 9999 in 100
-          // rows of 100). A tone of 9 steps from dark to bright stands for 0 to 7 subtractions; the ten
-          // repdigits (0000, 1111, ..., 9999) never get there (the subtraction gives 0) and take the darkest
-          // tone. The seed moves the table around the torus.
-          tones = new Float64Array(p.cells * p.cells);
-        for (let number = 0; number < p.cells * p.cells; number++) {
-          let current = number,
-            steps = 0;
-          while (current !== 6174 && steps < 20) {
-            const digits = String(current).padStart(4, '0').split('').sort(),
-              next =
-                Number([...digits].reverse().join('')) -
-                Number(digits.join(''));
-            if (next === 0) {
-              steps = -1;
-              break;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.kaprekar,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            inverseHalf = 1 / p.kernelHalf,
+            inverseSoft = 1 / p.edgeSoft,
+            shiftX = Math.floor(hash(0, 42, seed ^ p.seedSalt) * p.cells),
+            shiftY = Math.floor(hash(1, 42, seed ^ p.seedSalt) * p.cells),
+            // Kaprekar's routine on 4 digit numbers: sort the digits (leading zeros kept) into the biggest and the
+            // smallest number and subtract, and repeat; the number of subtractions needed to reach 6174 is
+            // shown for the number 100 row + column in the cell in that row and column (0 to 9999 in 100
+            // rows of 100). A tone of 9 steps from dark to bright stands for 0 to 7 subtractions; the ten
+            // repdigits (0000, 1111, ..., 9999) never get there (the subtraction gives 0) and take the darkest
+            // tone. The seed moves the table around the torus.
+            tones = new Float64Array(p.cells * p.cells);
+          for (let number = 0; number < p.cells * p.cells; number++) {
+            let current = number,
+              steps = 0;
+            while (current !== 6174 && steps < 20) {
+              const digits = String(current).padStart(4, '0').split('').sort(),
+                next =
+                  Number([...digits].reverse().join('')) -
+                  Number(digits.join(''));
+              if (next === 0) {
+                steps = -1;
+                break;
+              }
+              current = next;
+              steps++;
             }
-            current = next;
-            steps++;
+            tones[number] = (p.toneSpan * (steps + 1)) / 9;
           }
-          tones[number] = (p.toneSpan * (steps + 1)) / 9;
-        }
-        return () => {
-          // One compact-support rounded-square kernel per cell (a quartic superellipse
-          // through smoothstep, exactly zero before the cell boundary), so the cell
-          // lookup never jumps and the field is C1.
-          const x = fract(u) * p.cells,
-            y = fract(v) * p.cells,
-            col = Math.floor(x),
-            row = Math.floor(y),
-            ax = (x - col - 0.5) * inverseHalf,
-            ay = (y - row - 0.5) * inverseHalf,
-            ax2 = ax * ax,
-            ay2 = ay * ay,
-            s = ax2 * ax2 + ay2 * ay2,
-            mask = smooth(clamp((1 - s) * inverseSoft)),
-            dome = smooth(clamp(1 - s)),
-            tone =
-              tones[
-                ((row + shiftY) % p.cells) * p.cells +
-                  ((col + shiftX) % p.cells)
-              ],
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          return () => {
+            // One compact-support rounded-square kernel per cell (a quartic superellipse
+            // through smoothstep, exactly zero before the cell boundary), so the cell
+            // lookup never jumps and the field is C1.
+            const x = fract(u) * p.cells,
+              y = fract(v) * p.cells,
+              col = Math.floor(x),
+              row = Math.floor(y),
+              ax = (x - col - 0.5) * inverseHalf,
+              ay = (y - row - 0.5) * inverseHalf,
+              ax2 = ax * ax,
+              ay2 = ay * ay,
+              s = ax2 * ax2 + ay2 * ay2,
+              mask = smooth(clamp((1 - s) * inverseSoft)),
+              dome = smooth(clamp(1 - s)),
+              tone =
+                tones[
+                  ((row + shiftY) % p.cells) * p.cells +
+                    ((col + shiftX) % p.cells)
+                ],
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'perfectarray': {
         const p = proceduralMaterialPresets.perfectarray,
@@ -80222,530 +80410,549 @@ export function createSurfaceSampler(
         };
       }
       case 'delaunay': {
-        const p = proceduralMaterialPresets.delaunay,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          px: number[] = [],
-          py: number[] = [],
-          nodeBuckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          edgeBuckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          triangleBuckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          edges: number[][] = [],
-          triangles: number[][] = [],
-          knownEdges = new Set<string>(),
-          minSquared = p.minDistance * p.minDistance,
-          nodeSquared = p.nodeRadius * p.nodeRadius,
-          edgeSquared = p.edgeHalfWidth * p.edgeHalfWidth,
-          inverseSeam = 1 / p.seamSoft,
-          // The shortest way from a to b round the unit torus, as one coordinate.
-          around = (delta: number): number => delta - Math.round(delta);
-        // Dart throwing on the unit torus as for the Poisson disk (candidates from the hash, kept when
-        // at least minDistance from every point kept so far), then the Delaunay triangulation of the
-        // points on the torus: a triangle of three points (each other point taken as its nearest image
-        // to the first) belongs to it when no point or image of a point lies inside its circumscribed
-        // circle. Every triangle is found once, from its point of the least index, and filed with
-        // its three sides into the buckets x buckets buckets it can cover, in every one of the 3 x 3
-        // translations that reach into the tile, so a lookup needs only the bucket of the sample.
-        for (let k = 0; k < p.attempts; k++) {
-          const cx = hash(k, 0, seed ^ p.seedSalt),
-            cy = hash(k, 1, seed ^ p.seedSalt);
-          let free = true;
-          for (let i = 0; i < px.length && free; i++) {
-            const dx = around(cx - px[i]),
-              dy = around(cy - py[i]);
-            free = dx * dx + dy * dy >= minSquared;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.delaunay,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            px: number[] = [],
+            py: number[] = [],
+            nodeBuckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            edgeBuckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            triangleBuckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            edges: number[][] = [],
+            triangles: number[][] = [],
+            knownEdges = new Set<string>(),
+            minSquared = p.minDistance * p.minDistance,
+            nodeSquared = p.nodeRadius * p.nodeRadius,
+            edgeSquared = p.edgeHalfWidth * p.edgeHalfWidth,
+            inverseSeam = 1 / p.seamSoft,
+            // The shortest way from a to b round the unit torus, as one coordinate.
+            around = (delta: number): number => delta - Math.round(delta);
+          // Dart throwing on the unit torus as for the Poisson disk (candidates from the hash, kept when
+          // at least minDistance from every point kept so far), then the Delaunay triangulation of the
+          // points on the torus: a triangle of three points (each other point taken as its nearest image
+          // to the first) belongs to it when no point or image of a point lies inside its circumscribed
+          // circle. Every triangle is found once, from its point of the least index, and filed with
+          // its three sides into the buckets x buckets buckets it can cover, in every one of the 3 x 3
+          // translations that reach into the tile, so a lookup needs only the bucket of the sample.
+          for (let k = 0; k < p.attempts; k++) {
+            const cx = hash(k, 0, seed ^ p.seedSalt),
+              cy = hash(k, 1, seed ^ p.seedSalt);
+            let free = true;
+            for (let i = 0; i < px.length && free; i++) {
+              const dx = around(cx - px[i]),
+                dy = around(cy - py[i]);
+              free = dx * dx + dy * dy >= minSquared;
+            }
+            if (!free) continue;
+            px.push(cx);
+            py.push(cy);
+            nodeBuckets[
+              Math.floor(cy * p.buckets) * p.buckets +
+                Math.floor(cx * p.buckets)
+            ].push(px.length - 1);
           }
-          if (!free) continue;
-          px.push(cx);
-          py.push(cy);
-          nodeBuckets[
-            Math.floor(cy * p.buckets) * p.buckets + Math.floor(cx * p.buckets)
-          ].push(px.length - 1);
-        }
-        const step = 0.25 / p.buckets,
-          reach = p.edgeHalfWidth + step / 2,
-          bucketAt = (x: number, y: number): number =>
-            (Math.floor((y - Math.floor(y)) * p.buckets) % p.buckets) *
-              p.buckets +
-            (Math.floor((x - Math.floor(x)) * p.buckets) % p.buckets),
-          addEdge = (
-            a: number,
-            b: number,
-            x0: number,
-            y0: number,
-            dx: number,
-            dy: number,
-          ): void => {
-            const key =
-              a < b
-                ? `${a}_${b}_${Math.round(dx * 1e6)}_${Math.round(dy * 1e6)}`
-                : `${b}_${a}_${Math.round(-dx * 1e6)}_${Math.round(-dy * 1e6)}`;
-            if (knownEdges.has(key)) return;
-            knownEdges.add(key);
-            const length = hypot2(dx, dy),
-              index = edges.length,
-              filed = new Set<number>();
-            edges.push([x0, y0, dx, dy, length * length]);
-            for (let s = 0, n = Math.ceil(length / step); s <= n; s++)
-              for (const ox of [-reach, reach])
-                for (const oy of [-reach, reach]) {
-                  const bucket = bucketAt(
-                    x0 + (dx * s) / n + ox,
-                    y0 + (dy * s) / n + oy,
-                  );
-                  if (!filed.has(bucket)) {
-                    filed.add(bucket);
-                    edgeBuckets[bucket].push(index);
+          const step = 0.25 / p.buckets,
+            reach = p.edgeHalfWidth + step / 2,
+            bucketAt = (x: number, y: number): number =>
+              (Math.floor((y - Math.floor(y)) * p.buckets) % p.buckets) *
+                p.buckets +
+              (Math.floor((x - Math.floor(x)) * p.buckets) % p.buckets),
+            addEdge = (
+              a: number,
+              b: number,
+              x0: number,
+              y0: number,
+              dx: number,
+              dy: number,
+            ): void => {
+              const key =
+                a < b
+                  ? `${a}_${b}_${Math.round(dx * 1e6)}_${Math.round(dy * 1e6)}`
+                  : `${b}_${a}_${Math.round(-dx * 1e6)}_${Math.round(-dy * 1e6)}`;
+              if (knownEdges.has(key)) return;
+              knownEdges.add(key);
+              const length = hypot2(dx, dy),
+                index = edges.length,
+                filed = new Set<number>();
+              edges.push([x0, y0, dx, dy, length * length]);
+              for (let s = 0, n = Math.ceil(length / step); s <= n; s++)
+                for (const ox of [-reach, reach])
+                  for (const oy of [-reach, reach]) {
+                    const bucket = bucketAt(
+                      x0 + (dx * s) / n + ox,
+                      y0 + (dy * s) / n + oy,
+                    );
+                    if (!filed.has(bucket)) {
+                      filed.add(bucket);
+                      edgeBuckets[bucket].push(index);
+                    }
                   }
-                }
-          };
-        for (let i = 0; i < px.length; i++) {
-          // The images of the points within the reach of point i, as offsets from point i.
-          const near: number[][] = [],
-            wide: number[][] = [];
-          for (let k = 0; k < px.length; k++)
-            for (let ty = -1; ty <= 1; ty++)
-              for (let tx = -1; tx <= 1; tx++) {
-                const dx = px[k] + tx - px[i],
-                  dy = py[k] + ty - py[i],
-                  distance = hypot2(dx, dy);
-                if (distance === 0 || distance > 2 * p.maxEdge) continue;
-                wide.push([dx, dy, k, tx, ty]);
-                if (k > i && distance <= p.maxEdge)
-                  near.push([dx, dy, k, tx, ty]);
-              }
-          for (let a = 0; a < near.length; a++)
-            for (let b = a + 1; b < near.length; b++) {
-              const [bx, by] = near[a],
-                [cx, cy] = near[b],
-                twice = 2 * (bx * cy - by * cx);
-              if (Math.abs(twice) < 1e-12) continue;
-              const bb = bx * bx + by * by,
-                cc = cx * cx + cy * cy,
-                ux = (cy * bb - by * cc) / twice,
-                uy = (bx * cc - cx * bb) / twice,
-                radiusSquared = ux * ux + uy * uy;
-              if (radiusSquared > p.maxEdge * p.maxEdge) continue;
-              let empty = true;
-              for (let w = 0; w < wide.length && empty; w++) {
-                const q = wide[w];
-                if (
-                  (q[0] === bx && q[1] === by) ||
-                  (q[0] === cx && q[1] === cy)
-                )
-                  continue;
-                const ex = q[0] - ux,
-                  ey = q[1] - uy;
-                empty = ex * ex + ey * ey > radiusSquared * (1 + 1e-9);
-              }
-              if (!empty) continue;
-              const sorted = [i, near[a][2], near[b][2]].sort((m, n) => m - n),
-                tone =
-                  p.fillLow +
-                  (p.fillHigh - p.fillLow) *
-                    hash(
-                      sorted[0] * 1024 + sorted[1],
-                      sorted[2] + 7,
-                      seed ^ p.seedSalt,
-                    ),
-                x0 = px[i],
-                y0 = py[i];
-              addEdge(i, near[a][2], x0, y0, bx, by);
-              addEdge(i, near[b][2], x0, y0, cx, cy);
-              addEdge(
-                near[a][2],
-                near[b][2],
-                x0 + bx,
-                y0 + by,
-                cx - bx,
-                cy - by,
-              );
+            };
+          for (let i = 0; i < px.length; i++) {
+            // The images of the points within the reach of point i, as offsets from point i.
+            const near: number[][] = [],
+              wide: number[][] = [];
+            for (let k = 0; k < px.length; k++)
               for (let ty = -1; ty <= 1; ty++)
                 for (let tx = -1; tx <= 1; tx++) {
-                  const ax = x0 + tx,
-                    ay = y0 + ty,
-                    left = Math.min(ax, ax + bx, ax + cx),
-                    right = Math.max(ax, ax + bx, ax + cx),
-                    top = Math.min(ay, ay + by, ay + cy),
-                    bottom = Math.max(ay, ay + by, ay + cy);
-                  if (right < 0 || left >= 1 || bottom < 0 || top >= 1)
-                    continue;
-                  const index = triangles.length;
-                  triangles.push([
-                    ax,
-                    ay,
-                    ax + bx,
-                    ay + by,
-                    ax + cx,
-                    ay + cy,
-                    tone,
-                  ]);
-                  for (
-                    let row = Math.max(0, Math.floor(top * p.buckets));
-                    row <=
-                    Math.min(p.buckets - 1, Math.floor(bottom * p.buckets));
-                    row++
-                  )
-                    for (
-                      let col = Math.max(0, Math.floor(left * p.buckets));
-                      col <=
-                      Math.min(p.buckets - 1, Math.floor(right * p.buckets));
-                      col++
-                    )
-                      triangleBuckets[row * p.buckets + col].push(index);
+                  const dx = px[k] + tx - px[i],
+                    dy = py[k] + ty - py[i],
+                    distance = hypot2(dx, dy);
+                  if (distance === 0 || distance > 2 * p.maxEdge) continue;
+                  wide.push([dx, dy, k, tx, ty]);
+                  if (k > i && distance <= p.maxEdge)
+                    near.push([dx, dy, k, tx, ty]);
                 }
-            }
-        }
-        return () => {
-          const fu = fract(u),
-            fv = fract(v),
-            bx = Math.floor(fu * p.buckets),
-            by = Math.floor(fv * p.buckets);
-          // The nodes and the seams are each a union by 1 - product of (1 - t^2) with
-          // t = max(0, 1 - squared distance / squared radius), a function of the squared distance to
-          // a point or to a segment: every t^2 is C1 and exactly zero at the rim, so the union is C1.
-          // The fill tone of the triangle is multiplied by the seam mask, which is exactly zero
-          // on the segment, so the jump of the tone from one triangle to the next is hidden by the
-          // seam and the field stays C1 (the mask rises with the square of the squared distance).
-          let openNodes = 1,
-            openEdges = 1,
-            fill = 0;
-          for (let oy = -1; oy <= 1; oy++)
-            for (let ox = -1; ox <= 1; ox++)
-              for (const i of nodeBuckets[
-                ((by + oy + p.buckets) % p.buckets) * p.buckets +
-                  ((bx + ox + p.buckets) % p.buckets)
-              ]) {
-                const dx = around(fu - px[i]),
-                  dy = around(fv - py[i]),
-                  t = clamp(1 - (dx * dx + dy * dy) / nodeSquared);
-                openNodes *= 1 - t * t;
+            for (let a = 0; a < near.length; a++)
+              for (let b = a + 1; b < near.length; b++) {
+                const [bx, by] = near[a],
+                  [cx, cy] = near[b],
+                  twice = 2 * (bx * cy - by * cx);
+                if (Math.abs(twice) < 1e-12) continue;
+                const bb = bx * bx + by * by,
+                  cc = cx * cx + cy * cy,
+                  ux = (cy * bb - by * cc) / twice,
+                  uy = (bx * cc - cx * bb) / twice,
+                  radiusSquared = ux * ux + uy * uy;
+                if (radiusSquared > p.maxEdge * p.maxEdge) continue;
+                let empty = true;
+                for (let w = 0; w < wide.length && empty; w++) {
+                  const q = wide[w];
+                  if (
+                    (q[0] === bx && q[1] === by) ||
+                    (q[0] === cx && q[1] === cy)
+                  )
+                    continue;
+                  const ex = q[0] - ux,
+                    ey = q[1] - uy;
+                  empty = ex * ex + ey * ey > radiusSquared * (1 + 1e-9);
+                }
+                if (!empty) continue;
+                const sorted = [i, near[a][2], near[b][2]].sort(
+                    (m, n) => m - n,
+                  ),
+                  tone =
+                    p.fillLow +
+                    (p.fillHigh - p.fillLow) *
+                      hash(
+                        sorted[0] * 1024 + sorted[1],
+                        sorted[2] + 7,
+                        seed ^ p.seedSalt,
+                      ),
+                  x0 = px[i],
+                  y0 = py[i];
+                addEdge(i, near[a][2], x0, y0, bx, by);
+                addEdge(i, near[b][2], x0, y0, cx, cy);
+                addEdge(
+                  near[a][2],
+                  near[b][2],
+                  x0 + bx,
+                  y0 + by,
+                  cx - bx,
+                  cy - by,
+                );
+                for (let ty = -1; ty <= 1; ty++)
+                  for (let tx = -1; tx <= 1; tx++) {
+                    const ax = x0 + tx,
+                      ay = y0 + ty,
+                      left = Math.min(ax, ax + bx, ax + cx),
+                      right = Math.max(ax, ax + bx, ax + cx),
+                      top = Math.min(ay, ay + by, ay + cy),
+                      bottom = Math.max(ay, ay + by, ay + cy);
+                    if (right < 0 || left >= 1 || bottom < 0 || top >= 1)
+                      continue;
+                    const index = triangles.length;
+                    triangles.push([
+                      ax,
+                      ay,
+                      ax + bx,
+                      ay + by,
+                      ax + cx,
+                      ay + cy,
+                      tone,
+                    ]);
+                    for (
+                      let row = Math.max(0, Math.floor(top * p.buckets));
+                      row <=
+                      Math.min(p.buckets - 1, Math.floor(bottom * p.buckets));
+                      row++
+                    )
+                      for (
+                        let col = Math.max(0, Math.floor(left * p.buckets));
+                        col <=
+                        Math.min(p.buckets - 1, Math.floor(right * p.buckets));
+                        col++
+                      )
+                        triangleBuckets[row * p.buckets + col].push(index);
+                  }
               }
-          for (const index of edgeBuckets[by * p.buckets + bx]) {
-            const [x0, y0, dx, dy, lengthSquared] = edges[index],
-              wx = around(fu - x0),
-              wy = around(fv - y0),
-              along = clamp((wx * dx + wy * dy) / lengthSquared),
-              ex = wx - along * dx,
-              ey = wy - along * dy,
-              t = clamp(1 - (ex * ex + ey * ey) / edgeSquared);
-            openEdges *= 1 - t * t;
           }
-          for (const index of triangleBuckets[by * p.buckets + bx]) {
-            const [ax, ay, bx2, by2, cx2, cy2, tone] = triangles[index],
-              side0 = (bx2 - ax) * (fv - ay) - (by2 - ay) * (fu - ax),
-              side1 = (cx2 - bx2) * (fv - by2) - (cy2 - by2) * (fu - bx2),
-              side2 = (ax - cx2) * (fv - cy2) - (ay - cy2) * (fu - cx2);
-            if (
-              (side0 >= 0 && side1 >= 0 && side2 >= 0) ||
-              (side0 <= 0 && side1 <= 0 && side2 <= 0)
-            ) {
-              fill = tone;
-              break;
+          return () => {
+            const fu = fract(u),
+              fv = fract(v),
+              bx = Math.floor(fu * p.buckets),
+              by = Math.floor(fv * p.buckets);
+            // The nodes and the seams are each a union by 1 - product of (1 - t^2) with
+            // t = max(0, 1 - squared distance / squared radius), a function of the squared distance to
+            // a point or to a segment: every t^2 is C1 and exactly zero at the rim, so the union is C1.
+            // The fill tone of the triangle is multiplied by the seam mask, which is exactly zero
+            // on the segment, so the jump of the tone from one triangle to the next is hidden by the
+            // seam and the field stays C1 (the mask rises with the square of the squared distance).
+            let openNodes = 1,
+              openEdges = 1,
+              fill = 0;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++)
+                for (const i of nodeBuckets[
+                  ((by + oy + p.buckets) % p.buckets) * p.buckets +
+                    ((bx + ox + p.buckets) % p.buckets)
+                ]) {
+                  const dx = around(fu - px[i]),
+                    dy = around(fv - py[i]),
+                    t = clamp(1 - (dx * dx + dy * dy) / nodeSquared);
+                  openNodes *= 1 - t * t;
+                }
+            for (const index of edgeBuckets[by * p.buckets + bx]) {
+              const [x0, y0, dx, dy, lengthSquared] = edges[index],
+                wx = around(fu - x0),
+                wy = around(fv - y0),
+                along = clamp((wx * dx + wy * dy) / lengthSquared),
+                ex = wx - along * dx,
+                ey = wy - along * dy,
+                t = clamp(1 - (ex * ex + ey * ey) / edgeSquared);
+              openEdges *= 1 - t * t;
             }
-          }
-          const seam = smooth(clamp(openEdges * inverseSeam)),
-            node = 1 - openNodes,
-            cover = 1 - (1 - seam) * (1 - node),
-            tone = p.toneSpan * (fill * seam * (1 - node) + node),
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor - p.gapTone) * cover +
-            tone * 1 +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight *
-              cover *
-              (1 - p.toneHeight + p.toneHeight * (tone / p.toneSpan)) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - cover);
-          return;
+            for (const index of triangleBuckets[by * p.buckets + bx]) {
+              const [ax, ay, bx2, by2, cx2, cy2, tone] = triangles[index],
+                side0 = (bx2 - ax) * (fv - ay) - (by2 - ay) * (fu - ax),
+                side1 = (cx2 - bx2) * (fv - by2) - (cy2 - by2) * (fu - bx2),
+                side2 = (ax - cx2) * (fv - cy2) - (ay - cy2) * (fu - cx2);
+              if (
+                (side0 >= 0 && side1 >= 0 && side2 >= 0) ||
+                (side0 <= 0 && side1 <= 0 && side2 <= 0)
+              ) {
+                fill = tone;
+                break;
+              }
+            }
+            const seam = smooth(clamp(openEdges * inverseSeam)),
+              node = 1 - openNodes,
+              cover = 1 - (1 - seam) * (1 - node),
+              tone = p.toneSpan * (fill * seam * (1 - node) + node),
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor - p.gapTone) * cover +
+              tone * 1 +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight *
+                cover *
+                (1 - p.toneHeight + p.toneHeight * (tone / p.toneSpan)) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - cover);
+            return;
+          };
         };
+        return setup();
       }
       case 'harmonograph': {
-        const p = proceduralMaterialPresets.harmonograph,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          variant =
-            p.variants[
-              Math.floor(hash(0, 46, seed ^ p.seedSalt) * p.variants.length)
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.harmonograph,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            variant =
+              p.variants[
+                Math.floor(hash(0, 46, seed ^ p.seedSalt) * p.variants.length)
+              ],
+            buckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            segments: number[][] = [],
+            // The point of the two-pendulum drawing at time t: the sum of two damped sine waves in x and
+            // two in y, x = 0.5 + A (sin(f0 t + p0) e^(-d0 t) + sin(f1 t + p1) e^(-d1 t)) and the same
+            // with the indices 2 and 3 for y.
+            at = (time: number): number[] => [
+              0.5 +
+                p.amplitude *
+                  (Math.sin(variant[0] * time + variant[4]) *
+                    Math.exp(-variant[8] * time) +
+                    Math.sin(variant[1] * time + variant[5]) *
+                      Math.exp(-variant[9] * time)),
+              0.5 +
+                p.amplitude *
+                  (Math.sin(variant[2] * time + variant[6]) *
+                    Math.exp(-variant[10] * time) +
+                    Math.sin(variant[3] * time + variant[7]) *
+                      Math.exp(-variant[11] * time)),
             ],
-          buckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          segments: number[][] = [],
-          // The point of the two-pendulum drawing at time t: the sum of two damped sine waves in x and
-          // two in y, x = 0.5 + A (sin(f0 t + p0) e^(-d0 t) + sin(f1 t + p1) e^(-d1 t)) and the same
-          // with the indices 2 and 3 for y.
-          at = (time: number): number[] => [
-            0.5 +
-              p.amplitude *
-                (Math.sin(variant[0] * time + variant[4]) *
-                  Math.exp(-variant[8] * time) +
-                  Math.sin(variant[1] * time + variant[5]) *
-                    Math.exp(-variant[9] * time)),
-            0.5 +
-              p.amplitude *
-                (Math.sin(variant[2] * time + variant[6]) *
-                  Math.exp(-variant[10] * time) +
-                  Math.sin(variant[3] * time + variant[7]) *
-                    Math.exp(-variant[11] * time)),
-          ],
-          inverseSoft = 1 / p.edgeSoft,
-          step = 0.5 / p.buckets;
-        // The curve is cut into segments equal steps of time apart and every segment is filed into
-        // the buckets x buckets buckets that a point within its half width plus half a step of its
-        // path could be in, so a lookup needs only the bucket of the sample. The ink gets thinner as
-        // the pendulums die down: the half width of a segment is halfWidth (1 - fade t / duration).
-        let previous = at(0);
-        for (let i = 1; i <= p.segments; i++) {
-          const time = (p.duration * i) / p.segments,
-            next = at(time),
-            half =
-              p.halfWidth *
-              (1 -
-                (p.fade * (time - p.duration / p.segments / 2)) / p.duration),
-            index = segments.length,
-            dx = next[0] - previous[0],
-            dy = next[1] - previous[1],
-            length = hypot2(dx, dy),
-            reach = half + step / 2,
-            filed = new Set<number>();
-          segments.push([
-            previous[0],
-            previous[1],
-            dx,
-            dy,
-            dx * dx + dy * dy,
-            half * half,
-          ]);
-          for (
-            let s = 0, n = Math.max(1, Math.ceil(length / step));
-            s <= n;
-            s++
-          )
-            for (const ox of [-reach, reach])
-              for (const oy of [-reach, reach]) {
-                const bx = Math.floor(
-                    (previous[0] + (dx * s) / n + ox) * p.buckets,
-                  ),
-                  by = Math.floor(
-                    (previous[1] + (dy * s) / n + oy) * p.buckets,
-                  );
-                if (bx < 0 || by < 0 || bx >= p.buckets || by >= p.buckets)
-                  continue;
-                const bucket = by * p.buckets + bx;
-                if (!filed.has(bucket)) {
-                  filed.add(bucket);
-                  buckets[bucket].push(index);
+            inverseSoft = 1 / p.edgeSoft,
+            step = 0.5 / p.buckets;
+          // The curve is cut into segments equal steps of time apart and every segment is filed into
+          // the buckets x buckets buckets that a point within its half width plus half a step of its
+          // path could be in, so a lookup needs only the bucket of the sample. The ink gets thinner as
+          // the pendulums die down: the half width of a segment is halfWidth (1 - fade t / duration).
+          let previous = at(0);
+          for (let i = 1; i <= p.segments; i++) {
+            const time = (p.duration * i) / p.segments,
+              next = at(time),
+              half =
+                p.halfWidth *
+                (1 -
+                  (p.fade * (time - p.duration / p.segments / 2)) / p.duration),
+              index = segments.length,
+              dx = next[0] - previous[0],
+              dy = next[1] - previous[1],
+              length = hypot2(dx, dy),
+              reach = half + step / 2,
+              filed = new Set<number>();
+            segments.push([
+              previous[0],
+              previous[1],
+              dx,
+              dy,
+              dx * dx + dy * dy,
+              half * half,
+            ]);
+            for (
+              let s = 0, n = Math.max(1, Math.ceil(length / step));
+              s <= n;
+              s++
+            )
+              for (const ox of [-reach, reach])
+                for (const oy of [-reach, reach]) {
+                  const bx = Math.floor(
+                      (previous[0] + (dx * s) / n + ox) * p.buckets,
+                    ),
+                    by = Math.floor(
+                      (previous[1] + (dy * s) / n + oy) * p.buckets,
+                    );
+                  if (bx < 0 || by < 0 || bx >= p.buckets || by >= p.buckets)
+                    continue;
+                  const bucket = by * p.buckets + bx;
+                  if (!filed.has(bucket)) {
+                    filed.add(bucket);
+                    buckets[bucket].push(index);
+                  }
                 }
-              }
-          previous = next;
-        }
-        return () => {
-          const fu = fract(u),
-            fv = fract(v),
-            bx = Math.floor(fu * p.buckets),
-            by = Math.floor(fv * p.buckets);
-          // The segments are a union by 1 - product of (1 - t^2) with t = max(0, 1 - squared distance /
-          // squared half width), a function of the squared distance to a segment: every t^2 is C1 and
-          // exactly zero at the rim, so the union is C1 even where the segments overlap.
-          let open = 1;
-          for (const index of buckets[by * p.buckets + bx]) {
-            const [x0, y0, dx, dy, lengthSquared, widthSquared] =
-                segments[index],
-              wx = fu - x0,
-              wy = fv - y0,
-              along =
-                lengthSquared > 0
-                  ? clamp((wx * dx + wy * dy) / lengthSquared)
-                  : 0,
-              ex = wx - along * dx,
-              ey = wy - along * dy,
-              t = clamp(1 - (ex * ex + ey * ey) / widthSquared);
-            open *= 1 - t * t;
+            previous = next;
           }
-          const total = 1 - open,
-            mask = smooth(clamp(total * inverseSoft)),
-            tone = p.toneSpan,
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          return () => {
+            const fu = fract(u),
+              fv = fract(v),
+              bx = Math.floor(fu * p.buckets),
+              by = Math.floor(fv * p.buckets);
+            // The segments are a union by 1 - product of (1 - t^2) with t = max(0, 1 - squared distance /
+            // squared half width), a function of the squared distance to a segment: every t^2 is C1 and
+            // exactly zero at the rim, so the union is C1 even where the segments overlap.
+            let open = 1;
+            for (const index of buckets[by * p.buckets + bx]) {
+              const [x0, y0, dx, dy, lengthSquared, widthSquared] =
+                  segments[index],
+                wx = fu - x0,
+                wy = fv - y0,
+                along =
+                  lengthSquared > 0
+                    ? clamp((wx * dx + wy * dy) / lengthSquared)
+                    : 0,
+                ex = wx - along * dx,
+                ey = wy - along * dy,
+                t = clamp(1 - (ex * ex + ey * ey) / widthSquared);
+              open *= 1 - t * t;
+            }
+            const total = 1 - open,
+              mask = smooth(clamp(total * inverseSoft)),
+              tone = p.toneSpan,
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'lorenzattractor': {
-        const p = proceduralMaterialPresets.lorenzattractor,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          variant =
-            p.variants[
-              Math.floor(hash(0, 47, seed ^ p.seedSalt) * p.variants.length)
-            ],
-          buckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          segments: number[][] = [],
-          steps = Math.round(p.duration / p.timeStep),
-          raw: number[][] = [],
-          inverseSoft = 1 / p.edgeSoft,
-          step = 0.5 / p.buckets;
-        // The Lorenz system x' = sigma (y - x), y' = x (rho - z) - y, z' = x y - beta z is integrated
-        // from the start point of the variant with the classical fourth-order Runge-Kutta method for
-        // steps steps of timeStep, and the path is projected on the plane x-z, y-z or x-y (the last
-        // number of the variant), moved by the centre of its plane and scaled by fit over span (the same for every variant,
-        // so that the position of a point does not depend on the rest of the path, which is chaotic), with the second coordinate upside down so that the first plane stands
-        // up. Every step is a segment, filed into the buckets x buckets buckets that a point within
-        // its half width plus half a step of its path could be in, so a lookup needs only the bucket
-        // of the sample. The ink gets thinner as time goes on: the half width of a segment is
-        // halfWidth (1 - fade (i - 1/2) / steps).
-        {
-          let x = variant[0],
-            y = variant[1],
-            z = variant[2];
-          const derivative = (px: number, py: number, pz: number): number[] => [
-              p.sigma * (py - px),
-              px * (p.rho - pz) - py,
-              px * py - p.beta * pz,
-            ],
-            project = (px: number, py: number, pz: number): number[] =>
-              variant[3] === 0
-                ? [px, pz]
-                : variant[3] === 1
-                  ? [py, pz]
-                  : [px, py];
-          raw.push(project(x, y, z));
-          for (let i = 0; i < steps; i++) {
-            const h = p.timeStep,
-              k1 = derivative(x, y, z),
-              k2 = derivative(
-                x + (h / 2) * k1[0],
-                y + (h / 2) * k1[1],
-                z + (h / 2) * k1[2],
-              ),
-              k3 = derivative(
-                x + (h / 2) * k2[0],
-                y + (h / 2) * k2[1],
-                z + (h / 2) * k2[2],
-              ),
-              k4 = derivative(x + h * k3[0], y + h * k3[1], z + h * k3[2]);
-            x += (h / 6) * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]);
-            y += (h / 6) * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
-            z += (h / 6) * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]);
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.lorenzattractor,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            variant =
+              p.variants[
+                Math.floor(hash(0, 47, seed ^ p.seedSalt) * p.variants.length)
+              ],
+            buckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            segments: number[][] = [],
+            steps = Math.round(p.duration / p.timeStep),
+            raw: number[][] = [],
+            inverseSoft = 1 / p.edgeSoft,
+            step = 0.5 / p.buckets;
+          // The Lorenz system x' = sigma (y - x), y' = x (rho - z) - y, z' = x y - beta z is integrated
+          // from the start point of the variant with the classical fourth-order Runge-Kutta method for
+          // steps steps of timeStep, and the path is projected on the plane x-z, y-z or x-y (the last
+          // number of the variant), moved by the centre of its plane and scaled by fit over span (the same for every variant,
+          // so that the position of a point does not depend on the rest of the path, which is chaotic), with the second coordinate upside down so that the first plane stands
+          // up. Every step is a segment, filed into the buckets x buckets buckets that a point within
+          // its half width plus half a step of its path could be in, so a lookup needs only the bucket
+          // of the sample. The ink gets thinner as time goes on: the half width of a segment is
+          // halfWidth (1 - fade (i - 1/2) / steps).
+          {
+            let x = variant[0],
+              y = variant[1],
+              z = variant[2];
+            const derivative = (
+                px: number,
+                py: number,
+                pz: number,
+              ): number[] => [
+                p.sigma * (py - px),
+                px * (p.rho - pz) - py,
+                px * py - p.beta * pz,
+              ],
+              project = (px: number, py: number, pz: number): number[] =>
+                variant[3] === 0
+                  ? [px, pz]
+                  : variant[3] === 1
+                    ? [py, pz]
+                    : [px, py];
             raw.push(project(x, y, z));
+            for (let i = 0; i < steps; i++) {
+              const h = p.timeStep,
+                k1 = derivative(x, y, z),
+                k2 = derivative(
+                  x + (h / 2) * k1[0],
+                  y + (h / 2) * k1[1],
+                  z + (h / 2) * k1[2],
+                ),
+                k3 = derivative(
+                  x + (h / 2) * k2[0],
+                  y + (h / 2) * k2[1],
+                  z + (h / 2) * k2[2],
+                ),
+                k4 = derivative(x + h * k3[0], y + h * k3[1], z + h * k3[2]);
+              x += (h / 6) * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]);
+              y += (h / 6) * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
+              z += (h / 6) * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]);
+              raw.push(project(x, y, z));
+            }
           }
-        }
-        const scale = p.fit / p.span,
-          centre = p.centres[variant[3]],
-          at = (i: number): number[] => [
-            0.5 + (raw[i][0] - centre[0]) * scale,
-            0.5 - (raw[i][1] - centre[1]) * scale,
-          ];
-        let previous = at(0);
-        for (let i = 1; i <= steps; i++) {
-          const next = at(i),
-            half = p.halfWidth * (1 - (p.fade * (i - 0.5)) / steps),
-            index = segments.length,
-            dx = next[0] - previous[0],
-            dy = next[1] - previous[1],
-            length = hypot2(dx, dy),
-            reach = half + step / 2,
-            filed = new Set<number>();
-          segments.push([
-            previous[0],
-            previous[1],
-            dx,
-            dy,
-            dx * dx + dy * dy,
-            half * half,
-          ]);
-          for (
-            let s = 0, n = Math.max(1, Math.ceil(length / step));
-            s <= n;
-            s++
-          )
-            for (const ox of [-reach, reach])
-              for (const oy of [-reach, reach]) {
-                const bx = Math.floor(
-                    (previous[0] + (dx * s) / n + ox) * p.buckets,
-                  ),
-                  by = Math.floor(
-                    (previous[1] + (dy * s) / n + oy) * p.buckets,
-                  );
-                if (bx < 0 || by < 0 || bx >= p.buckets || by >= p.buckets)
-                  continue;
-                const bucket = by * p.buckets + bx;
-                if (!filed.has(bucket)) {
-                  filed.add(bucket);
-                  buckets[bucket].push(index);
+          const scale = p.fit / p.span,
+            centre = p.centres[variant[3]],
+            at = (i: number): number[] => [
+              0.5 + (raw[i][0] - centre[0]) * scale,
+              0.5 - (raw[i][1] - centre[1]) * scale,
+            ];
+          let previous = at(0);
+          for (let i = 1; i <= steps; i++) {
+            const next = at(i),
+              half = p.halfWidth * (1 - (p.fade * (i - 0.5)) / steps),
+              index = segments.length,
+              dx = next[0] - previous[0],
+              dy = next[1] - previous[1],
+              length = hypot2(dx, dy),
+              reach = half + step / 2,
+              filed = new Set<number>();
+            segments.push([
+              previous[0],
+              previous[1],
+              dx,
+              dy,
+              dx * dx + dy * dy,
+              half * half,
+            ]);
+            for (
+              let s = 0, n = Math.max(1, Math.ceil(length / step));
+              s <= n;
+              s++
+            )
+              for (const ox of [-reach, reach])
+                for (const oy of [-reach, reach]) {
+                  const bx = Math.floor(
+                      (previous[0] + (dx * s) / n + ox) * p.buckets,
+                    ),
+                    by = Math.floor(
+                      (previous[1] + (dy * s) / n + oy) * p.buckets,
+                    );
+                  if (bx < 0 || by < 0 || bx >= p.buckets || by >= p.buckets)
+                    continue;
+                  const bucket = by * p.buckets + bx;
+                  if (!filed.has(bucket)) {
+                    filed.add(bucket);
+                    buckets[bucket].push(index);
+                  }
                 }
-              }
-          previous = next;
-        }
-        return () => {
-          const fu = fract(u),
-            fv = fract(v),
-            bx = Math.floor(fu * p.buckets),
-            by = Math.floor(fv * p.buckets);
-          // The segments are a union by 1 - product of (1 - t^2) with t = max(0, 1 - squared distance /
-          // squared half width), a function of the squared distance to a segment: every t^2 is C1 and
-          // exactly zero at the rim, so the union is C1 even where the segments overlap.
-          let open = 1;
-          for (const index of buckets[by * p.buckets + bx]) {
-            const [x0, y0, dx, dy, lengthSquared, widthSquared] =
-                segments[index],
-              wx = fu - x0,
-              wy = fv - y0,
-              along =
-                lengthSquared > 0
-                  ? clamp((wx * dx + wy * dy) / lengthSquared)
-                  : 0,
-              ex = wx - along * dx,
-              ey = wy - along * dy,
-              t = clamp(1 - (ex * ex + ey * ey) / widthSquared);
-            open *= 1 - t * t;
+            previous = next;
           }
-          const total = 1 - open,
-            mask = smooth(clamp(total * inverseSoft)),
-            tone = p.toneSpan,
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          return () => {
+            const fu = fract(u),
+              fv = fract(v),
+              bx = Math.floor(fu * p.buckets),
+              by = Math.floor(fv * p.buckets);
+            // The segments are a union by 1 - product of (1 - t^2) with t = max(0, 1 - squared distance /
+            // squared half width), a function of the squared distance to a segment: every t^2 is C1 and
+            // exactly zero at the rim, so the union is C1 even where the segments overlap.
+            let open = 1;
+            for (const index of buckets[by * p.buckets + bx]) {
+              const [x0, y0, dx, dy, lengthSquared, widthSquared] =
+                  segments[index],
+                wx = fu - x0,
+                wy = fv - y0,
+                along =
+                  lengthSquared > 0
+                    ? clamp((wx * dx + wy * dy) / lengthSquared)
+                    : 0,
+                ex = wx - along * dx,
+                ey = wy - along * dy,
+                t = clamp(1 - (ex * ex + ey * ey) / widthSquared);
+              open *= 1 - t * t;
+            }
+            const total = 1 - open,
+              mask = smooth(clamp(total * inverseSoft)),
+              tone = p.toneSpan,
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'ellipsebilliard': {
         const p = proceduralMaterialPresets.ellipsebilliard,
@@ -80889,143 +81096,151 @@ export function createSurfaceSampler(
         };
       }
       case 'lsystemplants': {
-        const p = proceduralMaterialPresets.lsystemplants,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          variant =
-            p.variants[
-              Math.floor(hash(0, 50, seed ^ p.seedSalt) * p.variants.length)
-            ],
-          buckets: number[][] = Array.from(
-            { length: p.buckets * p.buckets },
-            () => [],
-          ),
-          segments: number[][] = [],
-          rules = new Map<string, string>(
-            variant[1]
-              .split(';')
-              .map(
-                (rule) =>
-                  [rule.split('=')[0], rule.split('=')[1]] as [string, string],
-              ),
-          ),
-          turn = (variant[2] * Math.PI) / 180,
-          inverseSoft = 1 / p.edgeSoft,
-          step = 0.5 / p.buckets;
-        // The L-system of the variant (axiom, rules 'letter=replacement' separated by ';', angle in
-        // degrees, number of rewrites): every letter of the word is replaced in parallel by its rule
-        // (letters without a rule stay), iterations times. The word is then drawn by a turtle that
-        // starts at the origin heading up: F moves one unit forward and leaves a segment, + and - turn
-        // by the angle to the left and to the right, [ and ] save and restore position and heading,
-        // all other letters do nothing. The figure is moved by the centre of its bounding box and scaled
-        // by fit over its larger side so that it fills the tile, the second coordinate upside down so
-        // that the plant stands up. Every segment is filed into the buckets x buckets buckets that a
-        // point within its half width plus half a step of its path could be in, so a lookup needs only
-        // the bucket of the sample.
-        let word: string = variant[0];
-        for (let i = 0; i < variant[3]; i++)
-          word = [...word]
-            .map((letter) => rules.get(letter) ?? letter)
-            .join('');
-        const lines: number[][] = [],
-          saved: number[][] = [];
-        {
-          let x = 0,
-            y = 0,
-            heading = Math.PI / 2;
-          for (const letter of word) {
-            if (letter === 'F') {
-              const nextX = x + Math.cos(heading),
-                nextY = y + Math.sin(heading);
-              lines.push([x, y, nextX, nextY]);
-              x = nextX;
-              y = nextY;
-            } else if (letter === '+') heading += turn;
-            else if (letter === '-') heading -= turn;
-            else if (letter === '[') saved.push([x, y, heading]);
-            else if (letter === ']') [x, y, heading] = saved.pop() as number[];
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.lsystemplants,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            variant =
+              p.variants[
+                Math.floor(hash(0, 50, seed ^ p.seedSalt) * p.variants.length)
+              ],
+            buckets: number[][] = Array.from(
+              { length: p.buckets * p.buckets },
+              () => [],
+            ),
+            segments: number[][] = [],
+            rules = new Map<string, string>(
+              variant[1]
+                .split(';')
+                .map(
+                  (rule) =>
+                    [rule.split('=')[0], rule.split('=')[1]] as [
+                      string,
+                      string,
+                    ],
+                ),
+            ),
+            turn = (variant[2] * Math.PI) / 180,
+            inverseSoft = 1 / p.edgeSoft,
+            step = 0.5 / p.buckets;
+          // The L-system of the variant (axiom, rules 'letter=replacement' separated by ';', angle in
+          // degrees, number of rewrites): every letter of the word is replaced in parallel by its rule
+          // (letters without a rule stay), iterations times. The word is then drawn by a turtle that
+          // starts at the origin heading up: F moves one unit forward and leaves a segment, + and - turn
+          // by the angle to the left and to the right, [ and ] save and restore position and heading,
+          // all other letters do nothing. The figure is moved by the centre of its bounding box and scaled
+          // by fit over its larger side so that it fills the tile, the second coordinate upside down so
+          // that the plant stands up. Every segment is filed into the buckets x buckets buckets that a
+          // point within its half width plus half a step of its path could be in, so a lookup needs only
+          // the bucket of the sample.
+          let word: string = variant[0];
+          for (let i = 0; i < variant[3]; i++)
+            word = [...word]
+              .map((letter) => rules.get(letter) ?? letter)
+              .join('');
+          const lines: number[][] = [],
+            saved: number[][] = [];
+          {
+            let x = 0,
+              y = 0,
+              heading = Math.PI / 2;
+            for (const letter of word) {
+              if (letter === 'F') {
+                const nextX = x + Math.cos(heading),
+                  nextY = y + Math.sin(heading);
+                lines.push([x, y, nextX, nextY]);
+                x = nextX;
+                y = nextY;
+              } else if (letter === '+') heading += turn;
+              else if (letter === '-') heading -= turn;
+              else if (letter === '[') saved.push([x, y, heading]);
+              else if (letter === ']')
+                [x, y, heading] = saved.pop() as number[];
+            }
           }
-        }
-        const lowX = Math.min(...lines.map((q) => Math.min(q[0], q[2]))),
-          highX = Math.max(...lines.map((q) => Math.max(q[0], q[2]))),
-          lowY = Math.min(...lines.map((q) => Math.min(q[1], q[3]))),
-          highY = Math.max(...lines.map((q) => Math.max(q[1], q[3]))),
-          scale = p.fit / Math.max(highX - lowX, highY - lowY),
-          reach = p.halfWidth + step / 2;
-        for (const line of lines) {
-          const x0 = 0.5 + (line[0] - (lowX + highX) / 2) * scale,
-            y0 = 0.5 - (line[1] - (lowY + highY) / 2) * scale,
-            dx = (line[2] - line[0]) * scale,
-            dy = -(line[3] - line[1]) * scale,
-            length = hypot2(dx, dy),
-            index = segments.length,
-            filed = new Set<number>();
-          segments.push([
-            x0,
-            y0,
-            dx,
-            dy,
-            dx * dx + dy * dy,
-            p.halfWidth * p.halfWidth,
-          ]);
-          for (
-            let s = 0, n = Math.max(1, Math.ceil(length / step));
-            s <= n;
-            s++
-          )
-            for (const ox of [-reach, reach])
-              for (const oy of [-reach, reach]) {
-                const bx = Math.floor((x0 + (dx * s) / n + ox) * p.buckets),
-                  by = Math.floor((y0 + (dy * s) / n + oy) * p.buckets);
-                if (bx < 0 || by < 0 || bx >= p.buckets || by >= p.buckets)
-                  continue;
-                const bucket = by * p.buckets + bx;
-                if (!filed.has(bucket)) {
-                  filed.add(bucket);
-                  buckets[bucket].push(index);
+          const lowX = Math.min(...lines.map((q) => Math.min(q[0], q[2]))),
+            highX = Math.max(...lines.map((q) => Math.max(q[0], q[2]))),
+            lowY = Math.min(...lines.map((q) => Math.min(q[1], q[3]))),
+            highY = Math.max(...lines.map((q) => Math.max(q[1], q[3]))),
+            scale = p.fit / Math.max(highX - lowX, highY - lowY),
+            reach = p.halfWidth + step / 2;
+          for (const line of lines) {
+            const x0 = 0.5 + (line[0] - (lowX + highX) / 2) * scale,
+              y0 = 0.5 - (line[1] - (lowY + highY) / 2) * scale,
+              dx = (line[2] - line[0]) * scale,
+              dy = -(line[3] - line[1]) * scale,
+              length = hypot2(dx, dy),
+              index = segments.length,
+              filed = new Set<number>();
+            segments.push([
+              x0,
+              y0,
+              dx,
+              dy,
+              dx * dx + dy * dy,
+              p.halfWidth * p.halfWidth,
+            ]);
+            for (
+              let s = 0, n = Math.max(1, Math.ceil(length / step));
+              s <= n;
+              s++
+            )
+              for (const ox of [-reach, reach])
+                for (const oy of [-reach, reach]) {
+                  const bx = Math.floor((x0 + (dx * s) / n + ox) * p.buckets),
+                    by = Math.floor((y0 + (dy * s) / n + oy) * p.buckets);
+                  if (bx < 0 || by < 0 || bx >= p.buckets || by >= p.buckets)
+                    continue;
+                  const bucket = by * p.buckets + bx;
+                  if (!filed.has(bucket)) {
+                    filed.add(bucket);
+                    buckets[bucket].push(index);
+                  }
                 }
-              }
-        }
-        return () => {
-          const fu = fract(u),
-            fv = fract(v),
-            bx = Math.floor(fu * p.buckets),
-            by = Math.floor(fv * p.buckets);
-          // The segments are a union by 1 - product of (1 - t^2) with t = max(0, 1 - squared distance /
-          // squared half width), a function of the squared distance to a segment: every t^2 is C1 and
-          // exactly zero at the rim, so the union is C1 even where the segments overlap.
-          let open = 1;
-          for (const index of buckets[by * p.buckets + bx]) {
-            const [x0, y0, dx, dy, lengthSquared, widthSquared] =
-                segments[index],
-              wx = fu - x0,
-              wy = fv - y0,
-              along =
-                lengthSquared > 0
-                  ? clamp((wx * dx + wy * dy) / lengthSquared)
-                  : 0,
-              ex = wx - along * dx,
-              ey = wy - along * dy,
-              t = clamp(1 - (ex * ex + ey * ey) / widthSquared);
-            open *= 1 - t * t;
           }
-          const total = 1 - open,
-            mask = smooth(clamp(total * inverseSoft)),
-            tone = p.toneSpan,
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          return () => {
+            const fu = fract(u),
+              fv = fract(v),
+              bx = Math.floor(fu * p.buckets),
+              by = Math.floor(fv * p.buckets);
+            // The segments are a union by 1 - product of (1 - t^2) with t = max(0, 1 - squared distance /
+            // squared half width), a function of the squared distance to a segment: every t^2 is C1 and
+            // exactly zero at the rim, so the union is C1 even where the segments overlap.
+            let open = 1;
+            for (const index of buckets[by * p.buckets + bx]) {
+              const [x0, y0, dx, dy, lengthSquared, widthSquared] =
+                  segments[index],
+                wx = fu - x0,
+                wy = fv - y0,
+                along =
+                  lengthSquared > 0
+                    ? clamp((wx * dx + wy * dy) / lengthSquared)
+                    : 0,
+                ex = wx - along * dx,
+                ey = wy - along * dy,
+                t = clamp(1 - (ex * ex + ey * ey) / widthSquared);
+              open *= 1 - t * t;
+            }
+            const total = 1 - open,
+              mask = smooth(clamp(total * inverseSoft)),
+              tone = p.toneSpan,
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'pursuitpolygons': {
         const p = proceduralMaterialPresets.pursuitpolygons,
@@ -83219,119 +83434,125 @@ export function createSurfaceSampler(
         };
       }
       case 'mapattractors': {
-        const p = proceduralMaterialPresets.mapattractors,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          variant =
-            p.variants[
-              Math.floor(hash(0, 70, seed ^ p.seedSalt) * p.variants.length)
-            ],
-          kind2 = variant[0],
-          a = variant[1],
-          b = variant[2],
-          c = variant[3],
-          d = variant[4],
-          windowX = variant[5] - variant[7],
-          windowY = variant[6] - variant[7],
-          windowSide = 2 * variant[7],
-          nodes = p.nodes,
-          span = 1 - 2 * p.margin,
-          inverseSoft = 1 / p.edgeSoft,
-          // The density of the orbit of a planar map, kept as a grid of nodes: the orbit of (0.1, 0.1) is followed
-          // for `settle` steps and the next `points` positions are spread bilinearly over the grid, which is blurred
-          // once by [1 2 1] / 4 in each direction and turned into a tone by a logarithm that saturates at a
-          // quarter of the highest density. The maps are Clifford (kind 0): x' = sin(a y) + c cos(a x),
-          // y' = sin(b x) + d cos(b y), and de Jong (kind 1): x' = sin(a y) - cos(b x), y' = sin(c x) - cos(d y).
-          tones = new Float32Array(nodes * nodes);
-        {
-          const counts = new Float64Array(nodes * nodes),
-            temporary = new Float64Array(nodes * nodes);
-          let x = 0.1,
-            y = 0.1;
-          for (let i = -p.settle; i < p.points; i++) {
-            const nextX =
-                kind2 === 0
-                  ? Math.sin(a * y) + c * Math.cos(a * x)
-                  : Math.sin(a * y) - Math.cos(b * x),
-              nextY =
-                kind2 === 0
-                  ? Math.sin(b * x) + d * Math.cos(b * y)
-                  : Math.sin(c * x) - Math.cos(d * y);
-            x = nextX;
-            y = nextY;
-            if (i < 0) continue;
-            const gx = ((x - windowX) / windowSide) * (nodes - 1),
-              gy = ((y - windowY) / windowSide) * (nodes - 1);
-            if (gx < 0 || gy < 0 || gx >= nodes - 1 || gy >= nodes - 1)
-              continue;
-            const ix = Math.floor(gx),
-              iy = Math.floor(gy),
-              tx = gx - ix,
-              ty = gy - iy;
-            counts[iy * nodes + ix] += (1 - tx) * (1 - ty);
-            counts[iy * nodes + ix + 1] += tx * (1 - ty);
-            counts[(iy + 1) * nodes + ix] += (1 - tx) * ty;
-            counts[(iy + 1) * nodes + ix + 1] += tx * ty;
-          }
-          for (let row = 0; row < nodes; row++)
-            for (let column = 0; column < nodes; column++)
-              temporary[row * nodes + column] =
-                0.25 * counts[row * nodes + Math.max(0, column - 1)] +
-                0.5 * counts[row * nodes + column] +
-                0.25 * counts[row * nodes + Math.min(nodes - 1, column + 1)];
-          let highest = 0;
-          for (let row = 0; row < nodes; row++)
-            for (let column = 0; column < nodes; column++) {
-              const blurred =
-                0.25 * temporary[Math.max(0, row - 1) * nodes + column] +
-                0.5 * temporary[row * nodes + column] +
-                0.25 * temporary[Math.min(nodes - 1, row + 1) * nodes + column];
-              counts[row * nodes + column] = blurred;
-              highest = Math.max(highest, blurred);
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.mapattractors,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            variant =
+              p.variants[
+                Math.floor(hash(0, 70, seed ^ p.seedSalt) * p.variants.length)
+              ],
+            kind2 = variant[0],
+            a = variant[1],
+            b = variant[2],
+            c = variant[3],
+            d = variant[4],
+            windowX = variant[5] - variant[7],
+            windowY = variant[6] - variant[7],
+            windowSide = 2 * variant[7],
+            nodes = p.nodes,
+            span = 1 - 2 * p.margin,
+            inverseSoft = 1 / p.edgeSoft,
+            // The density of the orbit of a planar map, kept as a grid of nodes: the orbit of (0.1, 0.1) is followed
+            // for `settle` steps and the next `points` positions are spread bilinearly over the grid, which is blurred
+            // once by [1 2 1] / 4 in each direction and turned into a tone by a logarithm that saturates at a
+            // quarter of the highest density. The maps are Clifford (kind 0): x' = sin(a y) + c cos(a x),
+            // y' = sin(b x) + d cos(b y), and de Jong (kind 1): x' = sin(a y) - cos(b x), y' = sin(c x) - cos(d y).
+            tones = new Float32Array(nodes * nodes);
+          {
+            const counts = new Float64Array(nodes * nodes),
+              temporary = new Float64Array(nodes * nodes);
+            let x = 0.1,
+              y = 0.1;
+            for (let i = -p.settle; i < p.points; i++) {
+              const nextX =
+                  kind2 === 0
+                    ? Math.sin(a * y) + c * Math.cos(a * x)
+                    : Math.sin(a * y) - Math.cos(b * x),
+                nextY =
+                  kind2 === 0
+                    ? Math.sin(b * x) + d * Math.cos(b * y)
+                    : Math.sin(c * x) - Math.cos(d * y);
+              x = nextX;
+              y = nextY;
+              if (i < 0) continue;
+              const gx = ((x - windowX) / windowSide) * (nodes - 1),
+                gy = ((y - windowY) / windowSide) * (nodes - 1);
+              if (gx < 0 || gy < 0 || gx >= nodes - 1 || gy >= nodes - 1)
+                continue;
+              const ix = Math.floor(gx),
+                iy = Math.floor(gy),
+                tx = gx - ix,
+                ty = gy - iy;
+              counts[iy * nodes + ix] += (1 - tx) * (1 - ty);
+              counts[iy * nodes + ix + 1] += tx * (1 - ty);
+              counts[(iy + 1) * nodes + ix] += (1 - tx) * ty;
+              counts[(iy + 1) * nodes + ix + 1] += tx * ty;
             }
-          const reference = p.saturation * highest;
-          for (let i = 0; i < tones.length; i++)
-            tones[i] = Math.min(
-              1,
-              Math.log1p((p.boost * counts[i]) / reference) /
-                Math.log1p(p.boost),
-            );
-        }
-        return () => {
-          const gx = ((fract(u) - p.margin) / span) * (nodes - 1),
-            gy = ((fract(v) - p.margin) / span) * (nodes - 1);
-          let tone = 0;
-          if (gx >= 0 && gy >= 0 && gx < nodes - 1 && gy < nodes - 1) {
-            const ix = Math.floor(gx),
-              iy = Math.floor(gy),
-              // Smoothstep weights, so that the picture is C1 across the nodes.
-              sx = (gx - ix) * (gx - ix) * (3 - 2 * (gx - ix)),
-              sy = (gy - iy) * (gy - iy) * (3 - 2 * (gy - iy)),
-              base = iy * nodes + ix;
-            tone =
-              (1 - sy) * ((1 - sx) * tones[base] + sx * tones[base + 1]) +
-              sy *
-                ((1 - sx) * tones[base + nodes] + sx * tones[base + nodes + 1]);
+            for (let row = 0; row < nodes; row++)
+              for (let column = 0; column < nodes; column++)
+                temporary[row * nodes + column] =
+                  0.25 * counts[row * nodes + Math.max(0, column - 1)] +
+                  0.5 * counts[row * nodes + column] +
+                  0.25 * counts[row * nodes + Math.min(nodes - 1, column + 1)];
+            let highest = 0;
+            for (let row = 0; row < nodes; row++)
+              for (let column = 0; column < nodes; column++) {
+                const blurred =
+                  0.25 * temporary[Math.max(0, row - 1) * nodes + column] +
+                  0.5 * temporary[row * nodes + column] +
+                  0.25 *
+                    temporary[Math.min(nodes - 1, row + 1) * nodes + column];
+                counts[row * nodes + column] = blurred;
+                highest = Math.max(highest, blurred);
+              }
+            const reference = p.saturation * highest;
+            for (let i = 0; i < tones.length; i++)
+              tones[i] = Math.min(
+                1,
+                Math.log1p((p.boost * counts[i]) / reference) /
+                  Math.log1p(p.boost),
+              );
           }
-          const ink = clamp(p.lineTone * tone),
-            mask = smooth(clamp(ink * inverseSoft)),
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor - p.gapTone) * mask +
-            p.toneSpan * ink +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight *
-              clamp(ink) *
-              (1 - p.toneHeight + p.toneHeight * ink) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          return () => {
+            const gx = ((fract(u) - p.margin) / span) * (nodes - 1),
+              gy = ((fract(v) - p.margin) / span) * (nodes - 1);
+            let tone = 0;
+            if (gx >= 0 && gy >= 0 && gx < nodes - 1 && gy < nodes - 1) {
+              const ix = Math.floor(gx),
+                iy = Math.floor(gy),
+                // Smoothstep weights, so that the picture is C1 across the nodes.
+                sx = (gx - ix) * (gx - ix) * (3 - 2 * (gx - ix)),
+                sy = (gy - iy) * (gy - iy) * (3 - 2 * (gy - iy)),
+                base = iy * nodes + ix;
+              tone =
+                (1 - sy) * ((1 - sx) * tones[base] + sx * tones[base + 1]) +
+                sy *
+                  ((1 - sx) * tones[base + nodes] +
+                    sx * tones[base + nodes + 1]);
+            }
+            const ink = clamp(p.lineTone * tone),
+              mask = smooth(clamp(ink * inverseSoft)),
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor - p.gapTone) * mask +
+              p.toneSpan * ink +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight *
+                clamp(ink) *
+                (1 - p.toneHeight + p.toneHeight * ink) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'wallpapergroups': {
         const p = proceduralMaterialPresets.wallpapergroups,
@@ -84197,169 +84418,174 @@ export function createSurfaceSampler(
         };
       }
       case 'errordiffusion': {
-        const p = proceduralMaterialPresets.errordiffusion,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          variant =
-            p.variants[
-              Math.floor(hash(0, 81, seed ^ p.seedSalt) * p.variants.length)
-            ],
-          size = p.cells,
-          plot = 0.5 - p.margin,
-          inverseSoft = 1 / p.edgeSoft,
-          // The weights of each diffusion kernel as [dx, dy, weight] for the cells not yet visited, with the divisor.
-          kernels: { divisor: number; taps: number[][] }[] = [
-            {
-              divisor: 16,
-              taps: [
-                [1, 0, 7],
-                [-1, 1, 3],
-                [0, 1, 5],
-                [1, 1, 1],
-              ],
-            },
-            {
-              divisor: 8,
-              taps: [
-                [1, 0, 1],
-                [2, 0, 1],
-                [-1, 1, 1],
-                [0, 1, 1],
-                [1, 1, 1],
-                [0, 2, 1],
-              ],
-            },
-            {
-              divisor: 48,
-              taps: [
-                [1, 0, 7],
-                [2, 0, 5],
-                [-2, 1, 3],
-                [-1, 1, 5],
-                [0, 1, 7],
-                [1, 1, 5],
-                [2, 1, 3],
-                [-2, 2, 1],
-                [-1, 2, 3],
-                [0, 2, 5],
-                [1, 2, 3],
-                [2, 2, 1],
-              ],
-            },
-            {
-              divisor: 42,
-              taps: [
-                [1, 0, 8],
-                [2, 0, 4],
-                [-2, 1, 2],
-                [-1, 1, 4],
-                [0, 1, 8],
-                [1, 1, 4],
-                [2, 1, 2],
-                [-2, 2, 1],
-                [-1, 2, 2],
-                [0, 2, 4],
-                [1, 2, 2],
-                [2, 2, 1],
-              ],
-            },
-            {
-              divisor: 32,
-              taps: [
-                [1, 0, 8],
-                [2, 0, 4],
-                [-2, 1, 2],
-                [-1, 1, 4],
-                [0, 1, 8],
-                [1, 1, 4],
-                [2, 1, 2],
-              ],
-            },
-            {
-              divisor: 4,
-              taps: [
-                [1, 0, 2],
-                [-1, 1, 1],
-                [0, 1, 1],
-              ],
-            },
-          ],
-          kernel = kernels[variant[0]],
-          // The grey level of the source image in a cell, from 0 (dark) to 1 (light).
-          level = (column: number, row: number): number => {
-            if (variant[1] === 0) return column / (size - 1);
-            if (variant[1] === 1)
-              return (
-                (Math.floor((column * p.stepCount) / size) + 0.5) / p.stepCount
-              );
-            if (variant[1] === 2)
-              return Math.max(
-                0,
-                1 -
-                  hypot2(
-                    (column - (size - 1) / 2) / ((size - 1) / 2),
-                    (row - (size - 1) / 2) / ((size - 1) / 2),
-                  ) /
-                    Math.SQRT2,
-              );
-            return (column + row) / (2 * (size - 1));
-          },
-          lit = new Uint8Array(size * size),
-          pending = new Float64Array(size * size);
-        for (let row = 0; row < size; row++)
-          for (let column = 0; column < size; column++) {
-            const wanted = level(column, row) + pending[row * size + column],
-              on = wanted >= 0.5 ? 1 : 0,
-              error = wanted - on;
-            lit[row * size + column] = on;
-            for (const [dx, dy, weight] of kernel.taps) {
-              const x = column + dx,
-                y = row + dy;
-              if (x >= 0 && x < size && y < size)
-                pending[y * size + x] += (error * weight) / kernel.divisor;
-            }
-          }
-        const litSquared = p.litRadius * p.litRadius,
-          unlitSquared = p.unlitRadius * p.unlitRadius;
-        return () => {
-          const fu = fract(u),
-            fv = fract(v),
-            gridU = ((fu - 0.5) / (2 * plot) + 0.5) * size,
-            gridV = ((fv - 0.5) / (2 * plot) + 0.5) * size,
-            column = Math.min(Math.max(Math.floor(gridU), 0), size - 1),
-            row = Math.min(Math.max(Math.floor(gridV), 0), size - 1),
-            offsetX = gridU - column - 0.5,
-            offsetY = gridV - row - 0.5,
-            squared = offsetX * offsetX + offsetY * offsetY,
-            on = lit[row * size + column] === 1,
-            kernelT = clamp(1 - squared / (on ? litSquared : unlitSquared)),
-            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
-            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
-            boxDistance =
-              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
-              Math.min(Math.max(outsideX, outsideY), 0),
-            inside = smooth(clamp(-boxDistance / p.fade)),
-            ink = clamp(
-              inside * (on ? p.litTone : p.unlitTone) * kernelT * kernelT,
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.errordiffusion,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
             ),
-            mask = smooth(clamp(ink * inverseSoft)),
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor - p.gapTone) * mask +
-            p.toneSpan * ink +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight *
-              clamp(ink) *
-              (1 - p.toneHeight + p.toneHeight * ink) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+            variant =
+              p.variants[
+                Math.floor(hash(0, 81, seed ^ p.seedSalt) * p.variants.length)
+              ],
+            size = p.cells,
+            plot = 0.5 - p.margin,
+            inverseSoft = 1 / p.edgeSoft,
+            // The weights of each diffusion kernel as [dx, dy, weight] for the cells not yet visited, with the divisor.
+            kernels: { divisor: number; taps: number[][] }[] = [
+              {
+                divisor: 16,
+                taps: [
+                  [1, 0, 7],
+                  [-1, 1, 3],
+                  [0, 1, 5],
+                  [1, 1, 1],
+                ],
+              },
+              {
+                divisor: 8,
+                taps: [
+                  [1, 0, 1],
+                  [2, 0, 1],
+                  [-1, 1, 1],
+                  [0, 1, 1],
+                  [1, 1, 1],
+                  [0, 2, 1],
+                ],
+              },
+              {
+                divisor: 48,
+                taps: [
+                  [1, 0, 7],
+                  [2, 0, 5],
+                  [-2, 1, 3],
+                  [-1, 1, 5],
+                  [0, 1, 7],
+                  [1, 1, 5],
+                  [2, 1, 3],
+                  [-2, 2, 1],
+                  [-1, 2, 3],
+                  [0, 2, 5],
+                  [1, 2, 3],
+                  [2, 2, 1],
+                ],
+              },
+              {
+                divisor: 42,
+                taps: [
+                  [1, 0, 8],
+                  [2, 0, 4],
+                  [-2, 1, 2],
+                  [-1, 1, 4],
+                  [0, 1, 8],
+                  [1, 1, 4],
+                  [2, 1, 2],
+                  [-2, 2, 1],
+                  [-1, 2, 2],
+                  [0, 2, 4],
+                  [1, 2, 2],
+                  [2, 2, 1],
+                ],
+              },
+              {
+                divisor: 32,
+                taps: [
+                  [1, 0, 8],
+                  [2, 0, 4],
+                  [-2, 1, 2],
+                  [-1, 1, 4],
+                  [0, 1, 8],
+                  [1, 1, 4],
+                  [2, 1, 2],
+                ],
+              },
+              {
+                divisor: 4,
+                taps: [
+                  [1, 0, 2],
+                  [-1, 1, 1],
+                  [0, 1, 1],
+                ],
+              },
+            ],
+            kernel = kernels[variant[0]],
+            // The grey level of the source image in a cell, from 0 (dark) to 1 (light).
+            level = (column: number, row: number): number => {
+              if (variant[1] === 0) return column / (size - 1);
+              if (variant[1] === 1)
+                return (
+                  (Math.floor((column * p.stepCount) / size) + 0.5) /
+                  p.stepCount
+                );
+              if (variant[1] === 2)
+                return Math.max(
+                  0,
+                  1 -
+                    hypot2(
+                      (column - (size - 1) / 2) / ((size - 1) / 2),
+                      (row - (size - 1) / 2) / ((size - 1) / 2),
+                    ) /
+                      Math.SQRT2,
+                );
+              return (column + row) / (2 * (size - 1));
+            },
+            lit = new Uint8Array(size * size),
+            pending = new Float64Array(size * size);
+          for (let row = 0; row < size; row++)
+            for (let column = 0; column < size; column++) {
+              const wanted = level(column, row) + pending[row * size + column],
+                on = wanted >= 0.5 ? 1 : 0,
+                error = wanted - on;
+              lit[row * size + column] = on;
+              for (const [dx, dy, weight] of kernel.taps) {
+                const x = column + dx,
+                  y = row + dy;
+                if (x >= 0 && x < size && y < size)
+                  pending[y * size + x] += (error * weight) / kernel.divisor;
+              }
+            }
+          const litSquared = p.litRadius * p.litRadius,
+            unlitSquared = p.unlitRadius * p.unlitRadius;
+          return () => {
+            const fu = fract(u),
+              fv = fract(v),
+              gridU = ((fu - 0.5) / (2 * plot) + 0.5) * size,
+              gridV = ((fv - 0.5) / (2 * plot) + 0.5) * size,
+              column = Math.min(Math.max(Math.floor(gridU), 0), size - 1),
+              row = Math.min(Math.max(Math.floor(gridV), 0), size - 1),
+              offsetX = gridU - column - 0.5,
+              offsetY = gridV - row - 0.5,
+              squared = offsetX * offsetX + offsetY * offsetY,
+              on = lit[row * size + column] === 1,
+              kernelT = clamp(1 - squared / (on ? litSquared : unlitSquared)),
+              outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+              outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+              boxDistance =
+                hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+                Math.min(Math.max(outsideX, outsideY), 0),
+              inside = smooth(clamp(-boxDistance / p.fade)),
+              ink = clamp(
+                inside * (on ? p.litTone : p.unlitTone) * kernelT * kernelT,
+              ),
+              mask = smooth(clamp(ink * inverseSoft)),
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor - p.gapTone) * mask +
+              p.toneSpan * ink +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight *
+                clamp(ink) *
+                (1 - p.toneHeight + p.toneHeight * ink) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'diffractionpatterns': {
         const p = proceduralMaterialPresets.diffractionpatterns,
@@ -87020,93 +87246,100 @@ export function createSurfaceSampler(
         };
       }
       case 'excitableautomata': {
-        const p = proceduralMaterialPresets.excitableautomata,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          unsigned = seed >>> 0,
-          variant = unsigned % p.rules.length,
-          group = Math.floor(unsigned / p.rules.length),
-          rule = p.rules[variant],
-          size = p.columns,
-          states = (() => {
-            let current = new Uint8Array(size * size),
-              next = new Uint8Array(size * size);
-            // The random start of the group, the same for every variant of it.
-            for (let j = 0; j < size; j++)
-              for (let i = 0; i < size; i++) {
-                const draw = hash(i, j, group ^ p.seedSalt);
-                current[j * size + i] =
-                  draw < p.firing[rule]
-                    ? 1
-                    : draw < p.firing[rule] + p.refractory[rule]
-                      ? 2
-                      : 0;
-              }
-            for (let step = 0; step < p.steps[variant]; step++) {
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.excitableautomata,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            unsigned = seed >>> 0,
+            variant = unsigned % p.rules.length,
+            group = Math.floor(unsigned / p.rules.length),
+            rule = p.rules[variant],
+            size = p.columns,
+            states = (() => {
+              let current = new Uint8Array(size * size),
+                next = new Uint8Array(size * size);
+              // The random start of the group, the same for every variant of it.
               for (let j = 0; j < size; j++)
                 for (let i = 0; i < size; i++) {
-                  const here = current[j * size + i];
-                  let after = 0;
-                  if (here === 1) after = 2;
-                  else if (here === 0) {
-                    let excited = 0;
-                    for (let dj = -1; dj <= 1; dj++)
-                      for (let di = -1; di <= 1; di++) {
-                        // Brian's Brain counts the 8 neighbours and Greenberg-Hastings the 4 nearest.
-                        if (
-                          (di === 0 && dj === 0) ||
-                          (rule === 1 && di !== 0 && dj !== 0)
-                        )
-                          continue;
-                        excited +=
-                          current[
-                            ((j + dj + size) % size) * size +
-                              ((i + di + size) % size)
-                          ] === 1
+                  const draw = hash(i, j, group ^ p.seedSalt);
+                  current[j * size + i] =
+                    draw < p.firing[rule]
+                      ? 1
+                      : draw < p.firing[rule] + p.refractory[rule]
+                        ? 2
+                        : 0;
+                }
+              for (let step = 0; step < p.steps[variant]; step++) {
+                for (let j = 0; j < size; j++)
+                  for (let i = 0; i < size; i++) {
+                    const here = current[j * size + i];
+                    let after = 0;
+                    if (here === 1) after = 2;
+                    else if (here === 0) {
+                      let excited = 0;
+                      for (let dj = -1; dj <= 1; dj++)
+                        for (let di = -1; di <= 1; di++) {
+                          // Brian's Brain counts the 8 neighbours and Greenberg-Hastings the 4 nearest.
+                          if (
+                            (di === 0 && dj === 0) ||
+                            (rule === 1 && di !== 0 && dj !== 0)
+                          )
+                            continue;
+                          excited +=
+                            current[
+                              ((j + dj + size) % size) * size +
+                                ((i + di + size) % size)
+                            ] === 1
+                              ? 1
+                              : 0;
+                        }
+                      after =
+                        rule === 0
+                          ? excited === 2
+                            ? 1
+                            : 0
+                          : excited >= 1
                             ? 1
                             : 0;
-                      }
-                    after =
-                      rule === 0
-                        ? excited === 2
-                          ? 1
-                          : 0
-                        : excited >= 1
-                          ? 1
-                          : 0;
+                    }
+                    next[j * size + i] = after;
                   }
-                  next[j * size + i] = after;
-                }
-              [current, next] = [next, current];
-            }
-            return current;
-          })(),
-          // The mask of a cell in one direction: 1 inside, 0 at the gap (the position in the cell 0 to 1).
-          inside = (position: number): number =>
-            smooth(
-              clamp(
-                (0.5 - Math.abs(position - 0.5) - p.gapWidth / 2) / p.edgeSoft,
-              ),
-            );
-        return () => {
-          const x = fract(u) * size,
-            y = fract(v) * size,
-            i = Math.floor(x),
-            j = Math.floor(y),
-            mask = inside(x - i) * inside(y - j),
-            state = states[j * size + i],
-            level = state === 1 ? 1 : state === 2 ? 0.4 : 0,
-            cell = p.toneRest + (p.toneExcited - p.toneRest) * level,
-            grain = grainField(u, v);
-          color =
-            p.toneGap + (cell - p.toneGap) * mask + p.grainTone * (grain - 0.5);
-          height = p.cellHeight * mask * (0.25 + 0.75 * level);
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+                [current, next] = [next, current];
+              }
+              return current;
+            })(),
+            // The mask of a cell in one direction: 1 inside, 0 at the gap (the position in the cell 0 to 1).
+            inside = (position: number): number =>
+              smooth(
+                clamp(
+                  (0.5 - Math.abs(position - 0.5) - p.gapWidth / 2) /
+                    p.edgeSoft,
+                ),
+              );
+          return () => {
+            const x = fract(u) * size,
+              y = fract(v) * size,
+              i = Math.floor(x),
+              j = Math.floor(y),
+              mask = inside(x - i) * inside(y - j),
+              state = states[j * size + i],
+              level = state === 1 ? 1 : state === 2 ? 0.4 : 0,
+              cell = p.toneRest + (p.toneExcited - p.toneRest) * level,
+              grain = grainField(u, v);
+            color =
+              p.toneGap +
+              (cell - p.toneGap) * mask +
+              p.grainTone * (grain - 0.5);
+            height = p.cellHeight * mask * (0.25 + 0.75 * level);
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'wireworldcircuits': {
         const p = proceduralMaterialPresets.wireworldcircuits,
@@ -88084,155 +88317,162 @@ export function createSurfaceSampler(
         };
       }
       case 'polyominoes': {
-        const p = proceduralMaterialPresets.polyominoes,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          unsigned = seed >>> 0,
-          variant = unsigned % p.sizes.length,
-          group = Math.floor(unsigned / p.sizes.length),
-          size = p.sizes[variant],
-          free = p.kinds[variant] === 0,
-          cols = p.cols[variant],
-          rows = p.rows[variant],
-          // The eight turns and flips of the cells (x, y) of a shape: bit 0 swaps x and y, bit 1 reverses x and bit 2 reverses y.
-          transform = (cells: number[][], turn: number): number[][] =>
-            cells.map(([x, y]) => {
-              let a = x,
-                b = y;
-              if (turn & 1) [a, b] = [b, a];
-              if (turn & 2) a = -a;
-              if (turn & 4) b = -b;
-              return [a, b];
-            }),
-          // The shape moved so that its least x and least y are 0, with its cells sorted, as a string.
-          normalize = (cells: number[][]): number[][] => {
-            const minX = Math.min(...cells.map(([x]) => x)),
-              minY = Math.min(...cells.map(([, y]) => y));
-            return cells
-              .map(([x, y]) => [x - minX, y - minY])
-              .sort((a, b) => a[1] - b[1] || a[0] - b[0]);
-          },
-          key = (cells: number[][]): string =>
-            cells.map(([x, y]) => `${x},${y}`).join(';'),
-          // Every polyomino of size cells (free: one shape of each class of turns and flips; fixed: each shape moved to the corner) grown cell by cell, with the number of the eight turns and flips that map it onto itself.
-          shapes = (() => {
-            let current = new Map<string, number[][]>([['0,0', [[0, 0]]]]);
-            const classOf = (cells: number[][]): string =>
-              free
-                ? [...Array(8).keys()]
-                    .map((turn) => key(normalize(transform(cells, turn))))
-                    .sort()[0]
-                : key(normalize(cells));
-            for (let step = 1; step < size; step++) {
-              const next = new Map<string, number[][]>();
-              for (const cells of current.values()) {
-                const taken = new Set(cells.map(([x, y]) => `${x},${y}`));
-                for (const [x, y] of cells)
-                  for (const [dx, dy] of [
-                    [1, 0],
-                    [-1, 0],
-                    [0, 1],
-                    [0, -1],
-                  ]) {
-                    if (taken.has(`${x + dx},${y + dy}`)) continue;
-                    const grown = normalize([...cells, [x + dx, y + dy]]),
-                      name = classOf(grown);
-                    if (!next.has(name)) next.set(name, grown);
-                  }
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.polyominoes,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            unsigned = seed >>> 0,
+            variant = unsigned % p.sizes.length,
+            group = Math.floor(unsigned / p.sizes.length),
+            size = p.sizes[variant],
+            free = p.kinds[variant] === 0,
+            cols = p.cols[variant],
+            rows = p.rows[variant],
+            // The eight turns and flips of the cells (x, y) of a shape: bit 0 swaps x and y, bit 1 reverses x and bit 2 reverses y.
+            transform = (cells: number[][], turn: number): number[][] =>
+              cells.map(([x, y]) => {
+                let a = x,
+                  b = y;
+                if (turn & 1) [a, b] = [b, a];
+                if (turn & 2) a = -a;
+                if (turn & 4) b = -b;
+                return [a, b];
+              }),
+            // The shape moved so that its least x and least y are 0, with its cells sorted, as a string.
+            normalize = (cells: number[][]): number[][] => {
+              const minX = Math.min(...cells.map(([x]) => x)),
+                minY = Math.min(...cells.map(([, y]) => y));
+              return cells
+                .map(([x, y]) => [x - minX, y - minY])
+                .sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+            },
+            key = (cells: number[][]): string =>
+              cells.map(([x, y]) => `${x},${y}`).join(';'),
+            // Every polyomino of size cells (free: one shape of each class of turns and flips; fixed: each shape moved to the corner) grown cell by cell, with the number of the eight turns and flips that map it onto itself.
+            shapes = (() => {
+              let current = new Map<string, number[][]>([['0,0', [[0, 0]]]]);
+              const classOf = (cells: number[][]): string =>
+                free
+                  ? [...Array(8).keys()]
+                      .map((turn) => key(normalize(transform(cells, turn))))
+                      .sort()[0]
+                  : key(normalize(cells));
+              for (let step = 1; step < size; step++) {
+                const next = new Map<string, number[][]>();
+                for (const cells of current.values()) {
+                  const taken = new Set(cells.map(([x, y]) => `${x},${y}`));
+                  for (const [x, y] of cells)
+                    for (const [dx, dy] of [
+                      [1, 0],
+                      [-1, 0],
+                      [0, 1],
+                      [0, -1],
+                    ]) {
+                      if (taken.has(`${x + dx},${y + dy}`)) continue;
+                      const grown = normalize([...cells, [x + dx, y + dy]]),
+                        name = classOf(grown);
+                      if (!next.has(name)) next.set(name, grown);
+                    }
+                }
+                current = next;
               }
-              current = next;
+              return [...current.values()].map((cells) => {
+                const own = key(normalize(cells));
+                let stabilizer = 0;
+                for (let turn = 0; turn < 8; turn++)
+                  if (key(normalize(transform(cells, turn))) === own)
+                    stabilizer++;
+                return { cells, stabilizer };
+              });
+            })(),
+            // The panels: shuffled, and for free polyominoes turned by one of the eight turns and flips; as a grid of size by size with the shape at the top left.
+            panels = (() => {
+              const order = shapes.slice();
+              for (let k = order.length - 1; k > 0; k--) {
+                const other = Math.floor(
+                  hash(k, 221, group ^ p.seedSalt) * (k + 1),
+                );
+                [order[k], order[other]] = [order[other], order[k]];
+              }
+              return order.map(({ cells, stabilizer }, k) => {
+                const placed = normalize(
+                    free
+                      ? transform(
+                          cells,
+                          Math.floor(hash(k, 222, group ^ p.seedSalt) * 8),
+                        )
+                      : cells,
+                  ),
+                  grid = new Uint8Array(size * size);
+                for (const [x, y] of placed) grid[y * size + x] = 1;
+                return { grid, level: Math.log2(stabilizer) / 3 };
+              });
+            })(),
+            scale = Math.min(
+              1 / (cols * (size + 2 * p.margin)),
+              1 / (rows * (size + 2 * p.margin)),
+            ),
+            originX = (1 / cols - scale * (size + 2 * p.margin)) / 2,
+            originY = (1 / rows - scale * (size + 2 * p.margin)) / 2,
+            halfGap = p.gapWidth / 2,
+            // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+            edge = (fromEdge: number): number =>
+              smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+          return () => {
+            const tileU = fract(u),
+              tileV = fract(v),
+              col = Math.min(cols - 1, Math.floor(tileU * cols)),
+              row = Math.min(rows - 1, Math.floor(tileV * rows)),
+              index = row * cols + col,
+              grain = grainField(u, v);
+            let mask = 0,
+              level = 0;
+            if (index < panels.length) {
+              const x = (tileU - col / cols - originX) / scale - p.margin,
+                y = (tileV - row / rows - originY) / scale - p.margin,
+                i = Math.floor(x),
+                j = Math.floor(y),
+                { grid } = panels[index];
+              if (
+                i >= 0 &&
+                j >= 0 &&
+                i < size &&
+                j < size &&
+                grid[j * size + i] === 1
+              ) {
+                const fx = x - i,
+                  fy = y - j,
+                  has = (a: number, b: number): boolean =>
+                    a >= 0 &&
+                    b >= 0 &&
+                    a < size &&
+                    b < size &&
+                    grid[b * size + a] === 1;
+                // A side of the cell has a gap when the cell across it is not of the polyomino.
+                mask =
+                  (has(i - 1, j) ? 1 : edge(fx)) *
+                  (has(i + 1, j) ? 1 : edge(1 - fx)) *
+                  (has(i, j - 1) ? 1 : edge(fy)) *
+                  (has(i, j + 1) ? 1 : edge(1 - fy));
+                level = panels[index].level;
+              }
             }
-            return [...current.values()].map((cells) => {
-              const own = key(normalize(cells));
-              let stabilizer = 0;
-              for (let turn = 0; turn < 8; turn++)
-                if (key(normalize(transform(cells, turn))) === own)
-                  stabilizer++;
-              return { cells, stabilizer };
-            });
-          })(),
-          // The panels: shuffled, and for free polyominoes turned by one of the eight turns and flips; as a grid of size by size with the shape at the top left.
-          panels = (() => {
-            const order = shapes.slice();
-            for (let k = order.length - 1; k > 0; k--) {
-              const other = Math.floor(
-                hash(k, 221, group ^ p.seedSalt) * (k + 1),
-              );
-              [order[k], order[other]] = [order[other], order[k]];
-            }
-            return order.map(({ cells, stabilizer }, k) => {
-              const placed = normalize(
-                  free
-                    ? transform(
-                        cells,
-                        Math.floor(hash(k, 222, group ^ p.seedSalt) * 8),
-                      )
-                    : cells,
-                ),
-                grid = new Uint8Array(size * size);
-              for (const [x, y] of placed) grid[y * size + x] = 1;
-              return { grid, level: Math.log2(stabilizer) / 3 };
-            });
-          })(),
-          scale = Math.min(
-            1 / (cols * (size + 2 * p.margin)),
-            1 / (rows * (size + 2 * p.margin)),
-          ),
-          originX = (1 / cols - scale * (size + 2 * p.margin)) / 2,
-          originY = (1 / rows - scale * (size + 2 * p.margin)) / 2,
-          halfGap = p.gapWidth / 2,
-          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
-          edge = (fromEdge: number): number =>
-            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
-        return () => {
-          const tileU = fract(u),
-            tileV = fract(v),
-            col = Math.min(cols - 1, Math.floor(tileU * cols)),
-            row = Math.min(rows - 1, Math.floor(tileV * rows)),
-            index = row * cols + col,
-            grain = grainField(u, v);
-          let mask = 0,
-            level = 0;
-          if (index < panels.length) {
-            const x = (tileU - col / cols - originX) / scale - p.margin,
-              y = (tileV - row / rows - originY) / scale - p.margin,
-              i = Math.floor(x),
-              j = Math.floor(y),
-              { grid } = panels[index];
-            if (
-              i >= 0 &&
-              j >= 0 &&
-              i < size &&
-              j < size &&
-              grid[j * size + i] === 1
-            ) {
-              const fx = x - i,
-                fy = y - j,
-                has = (a: number, b: number): boolean =>
-                  a >= 0 &&
-                  b >= 0 &&
-                  a < size &&
-                  b < size &&
-                  grid[b * size + a] === 1;
-              // A side of the cell has a gap when the cell across it is not of the polyomino.
-              mask =
-                (has(i - 1, j) ? 1 : edge(fx)) *
-                (has(i + 1, j) ? 1 : edge(1 - fx)) *
-                (has(i, j - 1) ? 1 : edge(fy)) *
-                (has(i, j + 1) ? 1 : edge(1 - fy));
-              level = panels[index].level;
-            }
-          }
-          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
-          color =
-            p.toneGap + (tone - p.toneGap) * mask + p.grainTone * (grain - 0.5);
-          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+            const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+            color =
+              p.toneGap +
+              (tone - p.toneGap) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'selfavoidingwalks': {
         const p = proceduralMaterialPresets.selfavoidingwalks,
@@ -88876,199 +89116,205 @@ export function createSurfaceSampler(
         };
       }
       case 'graphatlas': {
-        const p = proceduralMaterialPresets.graphatlas,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          unsigned = seed >>> 0,
-          variant = unsigned % p.vertices.length,
-          group = Math.floor(unsigned / p.vertices.length),
-          count: number = p.vertices[variant],
-          cols = p.cols[variant],
-          rows = p.rows[variant],
-          corners = Array.from({ length: count }, (_, k) => [
-            Math.cos(-Math.PI / 2 + (2 * Math.PI * k) / count),
-            Math.sin(-Math.PI / 2 + (2 * Math.PI * k) / count),
-          ]),
-          // The pair i < j is the bit j (j - 1) / 2 + i of the number of a graph, so a graph of fewer vertices is a graph of more with the same low bits.
-          bitOf = (i: number, j: number): number => (j * (j - 1)) / 2 + i,
-          // The graph with the same edges after the vertices are renamed by turn (the vertex k becomes turn[k]).
-          renamed = (
-            graph: number,
-            turn: number[],
-            vertices: number,
-          ): number => {
-            let result = 0;
-            for (let j = 1; j < vertices; j++)
-              for (let i = 0; i < j; i++)
-                if ((graph >> bitOf(i, j)) & 1) {
-                  const a = turn[i],
-                    b = turn[j];
-                  result |= 1 << bitOf(Math.min(a, b), Math.max(a, b));
-                }
-            return result;
-          },
-          turnsOf = (vertices: number): number[][] => {
-            const found: number[][] = [],
-              turn: number[] = [],
-              used = new Array<boolean>(vertices).fill(false),
-              place = (): void => {
-                if (turn.length === vertices) {
-                  found.push(turn.slice());
-                  return;
-                }
-                for (let k = 0; k < vertices; k++) {
-                  if (used[k]) continue;
-                  used[k] = true;
-                  turn.push(k);
-                  place();
-                  turn.pop();
-                  used[k] = false;
-                }
-              };
-            place();
-            return found;
-          },
-          // Every graph of count vertices up to renaming (kept in graphClassCache, as it takes a moment to find): graphs with one more vertex are made from those with one fewer by joining the new vertex to every subset of the old ones, and each is kept as the least number among its renamings.
-          classes = (() => {
-            const cached = graphClassCache.get(count);
-            if (cached) return cached;
-            let known = new Set<number>([0]);
-            for (let vertices = 2; vertices <= count; vertices++) {
-              const turns = turnsOf(vertices),
-                next = new Set<number>();
-              for (const graph of known)
-                for (let joined = 0; joined < 1 << (vertices - 1); joined++) {
-                  const candidate = graph | (joined << bitOf(0, vertices - 1));
-                  next.add(
-                    Math.min(
-                      ...turns.map((turn) =>
-                        renamed(candidate, turn, vertices),
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.graphatlas,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            unsigned = seed >>> 0,
+            variant = unsigned % p.vertices.length,
+            group = Math.floor(unsigned / p.vertices.length),
+            count: number = p.vertices[variant],
+            cols = p.cols[variant],
+            rows = p.rows[variant],
+            corners = Array.from({ length: count }, (_, k) => [
+              Math.cos(-Math.PI / 2 + (2 * Math.PI * k) / count),
+              Math.sin(-Math.PI / 2 + (2 * Math.PI * k) / count),
+            ]),
+            // The pair i < j is the bit j (j - 1) / 2 + i of the number of a graph, so a graph of fewer vertices is a graph of more with the same low bits.
+            bitOf = (i: number, j: number): number => (j * (j - 1)) / 2 + i,
+            // The graph with the same edges after the vertices are renamed by turn (the vertex k becomes turn[k]).
+            renamed = (
+              graph: number,
+              turn: number[],
+              vertices: number,
+            ): number => {
+              let result = 0;
+              for (let j = 1; j < vertices; j++)
+                for (let i = 0; i < j; i++)
+                  if ((graph >> bitOf(i, j)) & 1) {
+                    const a = turn[i],
+                      b = turn[j];
+                    result |= 1 << bitOf(Math.min(a, b), Math.max(a, b));
+                  }
+              return result;
+            },
+            turnsOf = (vertices: number): number[][] => {
+              const found: number[][] = [],
+                turn: number[] = [],
+                used = new Array<boolean>(vertices).fill(false),
+                place = (): void => {
+                  if (turn.length === vertices) {
+                    found.push(turn.slice());
+                    return;
+                  }
+                  for (let k = 0; k < vertices; k++) {
+                    if (used[k]) continue;
+                    used[k] = true;
+                    turn.push(k);
+                    place();
+                    turn.pop();
+                    used[k] = false;
+                  }
+                };
+              place();
+              return found;
+            },
+            // Every graph of count vertices up to renaming (kept in graphClassCache, as it takes a moment to find): graphs with one more vertex are made from those with one fewer by joining the new vertex to every subset of the old ones, and each is kept as the least number among its renamings.
+            classes = (() => {
+              const cached = graphClassCache.get(count);
+              if (cached) return cached;
+              let known = new Set<number>([0]);
+              for (let vertices = 2; vertices <= count; vertices++) {
+                const turns = turnsOf(vertices),
+                  next = new Set<number>();
+                for (const graph of known)
+                  for (let joined = 0; joined < 1 << (vertices - 1); joined++) {
+                    const candidate =
+                      graph | (joined << bitOf(0, vertices - 1));
+                    next.add(
+                      Math.min(
+                        ...turns.map((turn) =>
+                          renamed(candidate, turn, vertices),
+                        ),
                       ),
+                    );
+                  }
+                known = next;
+              }
+              const sorted = [...known].sort((a, b) => a - b);
+              graphClassCache.set(count, sorted);
+              return sorted;
+            })(),
+            // The edges of a graph and whether it is connected (every vertex reached from the first).
+            edgesOf = (graph: number): number[][] => {
+              const found: number[][] = [];
+              for (let j = 1; j < count; j++)
+                for (let i = 0; i < j; i++)
+                  if ((graph >> bitOf(i, j)) & 1) found.push([i, j]);
+              return found;
+            },
+            connected = (edges: number[][]): boolean => {
+              const reached = new Set([0]);
+              for (let again = true; again;) {
+                again = false;
+                for (const [i, j] of edges)
+                  if (reached.has(i) !== reached.has(j)) {
+                    reached.add(i);
+                    reached.add(j);
+                    again = true;
+                  }
+              }
+              return reached.size === count;
+            },
+            panels = (() => {
+              const found = classes
+                .map(edgesOf)
+                .filter(
+                  (edges) =>
+                    (p.kinds[variant] !== 1 || connected(edges)) &&
+                    (p.kinds[variant] !== 2 ||
+                      edges.length === p.edges[variant]),
+                );
+              for (let k = found.length - 1; k > 0; k--) {
+                const other = Math.floor(
+                  hash(k, 281, group ^ p.seedSalt) * (k + 1),
+                );
+                [found[k], found[other]] = [found[other], found[k]];
+              }
+              return found.map((edges) => {
+                const degrees = new Array<number>(count).fill(0);
+                for (const [i, j] of edges) {
+                  degrees[i]++;
+                  degrees[j]++;
+                }
+                return { edges, degrees };
+              });
+            })(),
+            extent = 1 + p.margin,
+            scale = Math.min(1 / (cols * 2 * extent), 1 / (rows * 2 * extent)),
+            originX = (1 / cols - scale * 2 * extent) / 2,
+            originY = (1 / rows - scale * 2 * extent) / 2,
+            // 1 inside the distance half, 0 outside, 1/2 at half, smoothed over edgeSoft.
+            band = (distance: number, half: number): number =>
+              smooth(clamp((half - distance) / p.edgeSoft + 0.5));
+          return () => {
+            const tileU = fract(u),
+              tileV = fract(v),
+              col = Math.min(cols - 1, Math.floor(tileU * cols)),
+              row = Math.min(rows - 1, Math.floor(tileV * rows)),
+              index = row * cols + col,
+              grain = grainField(u, v);
+            let free = 1,
+              toneSum = 0,
+              heightSum = 0;
+            if (index < panels.length) {
+              const x = (tileU - col / cols - originX) / scale - extent,
+                y = (tileV - row / rows - originY) / scale - extent,
+                { edges, degrees } = panels[index];
+              // The edges below, then the dots over them.
+              let edgeFree = 1;
+              for (const [i, j] of edges) {
+                const [ax, ay] = corners[i],
+                  [bx, by] = corners[j],
+                  dx = bx - ax,
+                  dy = by - ay,
+                  along = Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
                     ),
                   );
-                }
-              known = next;
-            }
-            const sorted = [...known].sort((a, b) => a - b);
-            graphClassCache.set(count, sorted);
-            return sorted;
-          })(),
-          // The edges of a graph and whether it is connected (every vertex reached from the first).
-          edgesOf = (graph: number): number[][] => {
-            const found: number[][] = [];
-            for (let j = 1; j < count; j++)
-              for (let i = 0; i < j; i++)
-                if ((graph >> bitOf(i, j)) & 1) found.push([i, j]);
-            return found;
-          },
-          connected = (edges: number[][]): boolean => {
-            const reached = new Set([0]);
-            for (let again = true; again;) {
-              again = false;
-              for (const [i, j] of edges)
-                if (reached.has(i) !== reached.has(j)) {
-                  reached.add(i);
-                  reached.add(j);
-                  again = true;
-                }
-            }
-            return reached.size === count;
-          },
-          panels = (() => {
-            const found = classes
-              .map(edgesOf)
-              .filter(
-                (edges) =>
-                  (p.kinds[variant] !== 1 || connected(edges)) &&
-                  (p.kinds[variant] !== 2 || edges.length === p.edges[variant]),
-              );
-            for (let k = found.length - 1; k > 0; k--) {
-              const other = Math.floor(
-                hash(k, 281, group ^ p.seedSalt) * (k + 1),
-              );
-              [found[k], found[other]] = [found[other], found[k]];
-            }
-            return found.map((edges) => {
-              const degrees = new Array<number>(count).fill(0);
-              for (const [i, j] of edges) {
-                degrees[i]++;
-                degrees[j]++;
+                edgeFree *=
+                  1 -
+                  band(
+                    hypot2(x - ax - along * dx, y - ay - along * dy),
+                    p.edgeHalf,
+                  );
               }
-              return { edges, degrees };
-            });
-          })(),
-          extent = 1 + p.margin,
-          scale = Math.min(1 / (cols * 2 * extent), 1 / (rows * 2 * extent)),
-          originX = (1 / cols - scale * 2 * extent) / 2,
-          originY = (1 / rows - scale * 2 * extent) / 2,
-          // 1 inside the distance half, 0 outside, 1/2 at half, smoothed over edgeSoft.
-          band = (distance: number, half: number): number =>
-            smooth(clamp((half - distance) / p.edgeSoft + 0.5));
-        return () => {
-          const tileU = fract(u),
-            tileV = fract(v),
-            col = Math.min(cols - 1, Math.floor(tileU * cols)),
-            row = Math.min(rows - 1, Math.floor(tileV * rows)),
-            index = row * cols + col,
-            grain = grainField(u, v);
-          let free = 1,
-            toneSum = 0,
-            heightSum = 0;
-          if (index < panels.length) {
-            const x = (tileU - col / cols - originX) / scale - extent,
-              y = (tileV - row / rows - originY) / scale - extent,
-              { edges, degrees } = panels[index];
-            // The edges below, then the dots over them.
-            let edgeFree = 1;
-            for (const [i, j] of edges) {
-              const [ax, ay] = corners[i],
-                [bx, by] = corners[j],
-                dx = bx - ax,
-                dy = by - ay,
-                along = Math.max(
-                  0,
-                  Math.min(
-                    1,
-                    ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
-                  ),
+              let dotFree = 1,
+                dotTone = 0,
+                dotHeight = 0;
+              for (let k = 0; k < count; k++) {
+                const mask = band(
+                  hypot2(x - corners[k][0], y - corners[k][1]),
+                  p.dotRadius,
                 );
-              edgeFree *=
-                1 -
-                band(
-                  hypot2(x - ax - along * dx, y - ay - along * dy),
-                  p.edgeHalf,
-                );
+                if (mask === 0) continue;
+                const fraction = degrees[k] / (count - 1);
+                dotFree *= 1 - mask;
+                dotTone +=
+                  mask *
+                  (p.dotToneMin + (p.dotToneMax - p.dotToneMin) * fraction);
+                dotHeight += mask * (p.dotBase + p.dotSwing * fraction);
+              }
+              const edgeMask = 1 - edgeFree;
+              toneSum = dotTone + dotFree * edgeMask * p.toneEdge;
+              heightSum = dotHeight + dotFree * edgeMask * p.edgeHeight;
+              free = dotFree * edgeFree;
             }
-            let dotFree = 1,
-              dotTone = 0,
-              dotHeight = 0;
-            for (let k = 0; k < count; k++) {
-              const mask = band(
-                hypot2(x - corners[k][0], y - corners[k][1]),
-                p.dotRadius,
-              );
-              if (mask === 0) continue;
-              const fraction = degrees[k] / (count - 1);
-              dotFree *= 1 - mask;
-              dotTone +=
-                mask *
-                (p.dotToneMin + (p.dotToneMax - p.dotToneMin) * fraction);
-              dotHeight += mask * (p.dotBase + p.dotSwing * fraction);
-            }
-            const edgeMask = 1 - edgeFree;
-            toneSum = dotTone + dotFree * edgeMask * p.toneEdge;
-            heightSum = dotHeight + dotFree * edgeMask * p.edgeHeight;
-            free = dotFree * edgeFree;
-          }
-          const ink = 1 - free;
-          color = p.toneGround * free + toneSum + p.grainTone * (grain - 0.5);
-          height = p.cellHeight * heightSum;
-          occlusion = 1 - p.gapOcclusion * (1 - ink);
-          return;
+            const ink = 1 - free;
+            color = p.toneGround * free + toneSum + p.grainTone * (grain - 0.5);
+            height = p.cellHeight * heightSum;
+            occlusion = 1 - p.gapOcclusion * (1 - ink);
+            return;
+          };
         };
+        return setup();
       }
       case 'rootedtrees': {
         const p = proceduralMaterialPresets.rootedtrees,
@@ -89736,349 +89982,361 @@ export function createSurfaceSampler(
         };
       }
       case 'polyhexes': {
-        const p = proceduralMaterialPresets.polyhexes,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          unsigned = seed >>> 0,
-          variant = unsigned % p.sizes.length,
-          group = Math.floor(unsigned / p.sizes.length),
-          size = p.sizes[variant],
-          free = p.kinds[variant] === 0,
-          cols = p.cols[variant],
-          rows = p.rows[variant],
-          // The cell (q, r) of the lattice has its centre at x = q + r / 2 and y = r times rise, so a row (r) is shifted by half a unit from the one above it; the six neighbours of a cell are given in the order of the angles 0, 60, ..., 300 degrees as seen on the screen (y down), and the radius of a hexagon is top.
-          rise = Math.sqrt(3) / 2,
-          top = 1 / Math.sqrt(3),
-          neighbours = [
-            [1, 0],
-            [0, 1],
-            [-1, 1],
-            [-1, 0],
-            [0, -1],
-            [1, -1],
-          ],
-          // The twelve turns and flips of the cells (q, r): turn % 6 turns by 60 degrees each, and from 6 on the cells are mirrored too.
-          transform = (cells: number[][], turn: number): number[][] =>
-            cells.map(([q, r]) => {
-              let a = q,
-                b = r;
-              for (let k = 0; k < turn % 6; k++) [a, b] = [-b, a + b];
-              if (turn >= 6) [a, b] = [b, a];
-              return [a, b];
-            }),
-          // The shape moved so that its least q and least r are 0, with its cells sorted.
-          normalize = (cells: number[][]): number[][] => {
-            const minQ = Math.min(...cells.map(([q]) => q)),
-              minR = Math.min(...cells.map(([, r]) => r));
-            return cells
-              .map(([q, r]) => [q - minQ, r - minR])
-              .sort((a, b) => a[1] - b[1] || a[0] - b[0]);
-          },
-          key = (cells: number[][]): string =>
-            cells.map(([q, r]) => `${q},${r}`).join(';'),
-          // Every polyhex of size cells (free: one shape of each class of turns and flips; fixed: each shape moved to the corner) grown cell by cell, with the number of the twelve turns and flips that map it onto itself.
-          shapes = (() => {
-            let current = new Map<string, number[][]>([['0,0', [[0, 0]]]]);
-            const classOf = (cells: number[][]): string =>
-              free
-                ? [...Array(12).keys()]
-                    .map((turn) => key(normalize(transform(cells, turn))))
-                    .sort()[0]
-                : key(normalize(cells));
-            for (let step = 1; step < size; step++) {
-              const next = new Map<string, number[][]>();
-              for (const cells of current.values()) {
-                const taken = new Set(cells.map(([q, r]) => `${q},${r}`));
-                for (const [q, r] of cells)
-                  for (const [dq, dr] of neighbours) {
-                    if (taken.has(`${q + dq},${r + dr}`)) continue;
-                    const grown = normalize([...cells, [q + dq, r + dr]]),
-                      name = classOf(grown);
-                    if (!next.has(name)) next.set(name, grown);
-                  }
-              }
-              current = next;
-            }
-            return [...current.values()].map((cells) => {
-              const own = key(normalize(cells));
-              let stabilizer = 0;
-              for (let turn = 0; turn < 12; turn++)
-                if (key(normalize(transform(cells, turn))) === own)
-                  stabilizer++;
-              return { cells, stabilizer };
-            });
-          })(),
-          // The panels: shuffled, and for free polyhexes turned by one of the twelve turns and flips; as a grid of size rows by size columns (the column of a cell is q + floor(r / 2) less the least of them) with the shape at the top left.
-          panels = (() => {
-            const order = shapes.slice();
-            for (let k = order.length - 1; k > 0; k--) {
-              const other = Math.floor(
-                hash(k, 341, group ^ p.seedSalt) * (k + 1),
-              );
-              [order[k], order[other]] = [order[other], order[k]];
-            }
-            return order.map(({ cells, stabilizer }, k) => {
-              const placed = normalize(
-                  free
-                    ? transform(
-                        cells,
-                        Math.floor(hash(k, 342, group ^ p.seedSalt) * 12),
-                      )
-                    : cells,
-                ),
-                shift = Math.min(...placed.map(([q, r]) => q + (r >> 1))),
-                grid = new Uint8Array(size * size);
-              for (const [q, r] of placed)
-                grid[r * size + (q + (r >> 1) - shift)] = 1;
-              return {
-                grid,
-                shift,
-                level: [1, 2, 3, 4, 6, 12].indexOf(stabilizer) / 5,
-              };
-            });
-          })(),
-          width = size + 0.5,
-          height0 = (size - 1) * rise + 2 * top,
-          scale = Math.min(
-            1 / (cols * (width + 2 * p.margin)),
-            1 / (rows * (height0 + 2 * p.margin)),
-          ),
-          originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
-          originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
-          halfGap = p.gapWidth / 2,
-          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in units.
-          edge = (fromEdge: number): number =>
-            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
-        return () => {
-          const tileU = fract(u),
-            tileV = fract(v),
-            col = Math.min(cols - 1, Math.floor(tileU * cols)),
-            row = Math.min(rows - 1, Math.floor(tileV * rows)),
-            index = row * cols + col,
-            grain = grainField(u, v);
-          let mask = 0,
-            level = 0;
-          if (index < panels.length) {
-            const x = (tileU - col / cols - originX) / scale - p.margin,
-              y = (tileV - row / rows - originY) / scale - p.margin,
-              { grid, shift } = panels[index],
-              has = (q: number, r: number): boolean => {
-                const c = q + (r >> 1) - shift;
-                return (
-                  r >= 0 &&
-                  r < size &&
-                  c >= 0 &&
-                  c < size &&
-                  grid[r * size + c] === 1
-                );
-              },
-              // The cell the point is in: the lattice position rounded to the nearest cell in cube coordinates.
-              rf = (y - top) / rise,
-              qf = x - 0.5 + shift - rf / 2,
-              yf = -qf - rf;
-            let q = Math.round(qf),
-              r = Math.round(rf);
-            const s = Math.round(yf),
-              dq = Math.abs(q - qf),
-              dr = Math.abs(r - rf),
-              ds = Math.abs(s - yf);
-            if (dq > dr && dq > ds) q = -s - r;
-            else if (dr > ds) r = -q - s;
-            if (has(q, r)) {
-              const dx = x - (q + r / 2 - shift + 0.5),
-                dy = y - (r * rise + top);
-              mask = 1;
-              for (let k = 0; k < 6; k++) {
-                const [nq, nr] = neighbours[k];
-                if (has(q + nq, r + nr)) continue;
-                // The distance to the side towards neighbour k: half the unit less the distance along its direction.
-                const angle = (k * Math.PI) / 3;
-                mask *= edge(
-                  0.5 - (dx * Math.cos(angle) + dy * Math.sin(angle)),
-                );
-              }
-              level = panels[index].level;
-            }
-          }
-          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
-          color =
-            p.toneGap + (tone - p.toneGap) * mask + p.grainTone * (grain - 0.5);
-          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
-        };
-      }
-      case 'polysticks': {
-        const p = proceduralMaterialPresets.polysticks,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          unsigned = seed >>> 0,
-          variant = unsigned % p.sizes.length,
-          group = Math.floor(unsigned / p.sizes.length),
-          size = p.sizes[variant],
-          free = p.kinds[variant] === 0,
-          cols = p.cols[variant],
-          rows = p.rows[variant],
-          // The eight turns and flips of a point (x, y): bit 0 swaps x and y, bit 1 reverses x and bit 2 reverses y.
-          turnPoint = (x: number, y: number, turn: number): number[] => {
-            let a = x,
-              b = y;
-            if (turn & 1) [a, b] = [b, a];
-            if (turn & 2) a = -a;
-            if (turn & 4) b = -b;
-            return [a, b];
-          },
-          // A stick is [x1, y1, x2, y2] with its first end before its second (by y, then by x).
-          order = (stick: number[]): number[] =>
-            stick[1] < stick[3] ||
-            (stick[1] === stick[3] && stick[0] < stick[2])
-              ? stick
-              : [stick[2], stick[3], stick[0], stick[1]],
-          transform = (sticks: number[][], turn: number): number[][] =>
-            sticks.map(([x1, y1, x2, y2]) =>
-              order([...turnPoint(x1, y1, turn), ...turnPoint(x2, y2, turn)]),
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.polyhexes,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
             ),
-          // The shape moved so that its least x and least y are 0, with its sticks sorted.
-          normalize = (sticks: number[][]): number[][] => {
-            const minX = Math.min(
-                ...sticks.map(([x1, , x2]) => Math.min(x1, x2)),
-              ),
-              minY = Math.min(
-                ...sticks.map(([, y1, , y2]) => Math.min(y1, y2)),
-              );
-            return sticks
-              .map(([x1, y1, x2, y2]) => [
-                x1 - minX,
-                y1 - minY,
-                x2 - minX,
-                y2 - minY,
-              ])
-              .sort((a, b) => a[1] - b[1] || a[0] - b[0] || a[3] - b[3]);
-          },
-          key = (sticks: number[][]): string =>
-            sticks.map((stick) => stick.join(',')).join(';'),
-          // Every polystick of size sticks (free: one shape of each class of turns and flips; fixed: each shape moved to the corner) grown stick by stick, with the number of the eight turns and flips that map it onto itself.
-          shapes = (() => {
-            const classOf = (sticks: number[][]): string =>
-              free
-                ? [...Array(8).keys()]
-                    .map((turn) => key(normalize(transform(sticks, turn))))
-                    .sort()[0]
-                : key(normalize(sticks));
-            let current = new Map<string, number[][]>();
-            for (const first of [
-              [0, 0, 1, 0],
-              [0, 0, 0, 1],
-            ]) {
-              const sticks = normalize([first]);
-              current.set(classOf(sticks), sticks);
-            }
-            for (let step = 1; step < size; step++) {
-              const next = new Map<string, number[][]>();
-              for (const sticks of current.values()) {
-                const taken = new Set(sticks.map((stick) => stick.join(',')));
-                for (const [x1, y1, x2, y2] of sticks)
-                  for (const [x, y] of [
-                    [x1, y1],
-                    [x2, y2],
-                  ])
-                    for (const [dx, dy] of [
-                      [1, 0],
-                      [-1, 0],
-                      [0, 1],
-                      [0, -1],
-                    ]) {
-                      const added = order([x, y, x + dx, y + dy]);
-                      if (taken.has(added.join(','))) continue;
-                      const grown = normalize([...sticks, added]),
+            unsigned = seed >>> 0,
+            variant = unsigned % p.sizes.length,
+            group = Math.floor(unsigned / p.sizes.length),
+            size = p.sizes[variant],
+            free = p.kinds[variant] === 0,
+            cols = p.cols[variant],
+            rows = p.rows[variant],
+            // The cell (q, r) of the lattice has its centre at x = q + r / 2 and y = r times rise, so a row (r) is shifted by half a unit from the one above it; the six neighbours of a cell are given in the order of the angles 0, 60, ..., 300 degrees as seen on the screen (y down), and the radius of a hexagon is top.
+            rise = Math.sqrt(3) / 2,
+            top = 1 / Math.sqrt(3),
+            neighbours = [
+              [1, 0],
+              [0, 1],
+              [-1, 1],
+              [-1, 0],
+              [0, -1],
+              [1, -1],
+            ],
+            // The twelve turns and flips of the cells (q, r): turn % 6 turns by 60 degrees each, and from 6 on the cells are mirrored too.
+            transform = (cells: number[][], turn: number): number[][] =>
+              cells.map(([q, r]) => {
+                let a = q,
+                  b = r;
+                for (let k = 0; k < turn % 6; k++) [a, b] = [-b, a + b];
+                if (turn >= 6) [a, b] = [b, a];
+                return [a, b];
+              }),
+            // The shape moved so that its least q and least r are 0, with its cells sorted.
+            normalize = (cells: number[][]): number[][] => {
+              const minQ = Math.min(...cells.map(([q]) => q)),
+                minR = Math.min(...cells.map(([, r]) => r));
+              return cells
+                .map(([q, r]) => [q - minQ, r - minR])
+                .sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+            },
+            key = (cells: number[][]): string =>
+              cells.map(([q, r]) => `${q},${r}`).join(';'),
+            // Every polyhex of size cells (free: one shape of each class of turns and flips; fixed: each shape moved to the corner) grown cell by cell, with the number of the twelve turns and flips that map it onto itself.
+            shapes = (() => {
+              let current = new Map<string, number[][]>([['0,0', [[0, 0]]]]);
+              const classOf = (cells: number[][]): string =>
+                free
+                  ? [...Array(12).keys()]
+                      .map((turn) => key(normalize(transform(cells, turn))))
+                      .sort()[0]
+                  : key(normalize(cells));
+              for (let step = 1; step < size; step++) {
+                const next = new Map<string, number[][]>();
+                for (const cells of current.values()) {
+                  const taken = new Set(cells.map(([q, r]) => `${q},${r}`));
+                  for (const [q, r] of cells)
+                    for (const [dq, dr] of neighbours) {
+                      if (taken.has(`${q + dq},${r + dr}`)) continue;
+                      const grown = normalize([...cells, [q + dq, r + dr]]),
                         name = classOf(grown);
                       if (!next.has(name)) next.set(name, grown);
                     }
+                }
+                current = next;
               }
-              current = next;
-            }
-            return [...current.values()].map((sticks) => {
-              const own = key(normalize(sticks));
-              let stabilizer = 0;
-              for (let turn = 0; turn < 8; turn++)
-                if (key(normalize(transform(sticks, turn))) === own)
-                  stabilizer++;
-              return { sticks, stabilizer };
-            });
-          })(),
-          // The panels: shuffled, and for free polysticks turned by one of the eight turns and flips.
-          panels = (() => {
-            const shuffled = shapes.slice();
-            for (let k = shuffled.length - 1; k > 0; k--) {
-              const other = Math.floor(
-                hash(k, 351, group ^ p.seedSalt) * (k + 1),
-              );
-              [shuffled[k], shuffled[other]] = [shuffled[other], shuffled[k]];
-            }
-            return shuffled.map(({ sticks, stabilizer }, k) => ({
-              sticks: normalize(
-                free
-                  ? transform(
-                      sticks,
-                      Math.floor(hash(k, 352, group ^ p.seedSalt) * 8),
-                    )
-                  : sticks,
-              ),
-              level: Math.log2(stabilizer) / 3,
-            }));
-          })(),
-          scale = Math.min(
-            1 / (cols * (size + 2 * p.margin)),
-            1 / (rows * (size + 2 * p.margin)),
-          ),
-          originX = (1 / cols - scale * (size + 2 * p.margin)) / 2,
-          originY = (1 / rows - scale * (size + 2 * p.margin)) / 2;
-        return () => {
-          const tileU = fract(u),
-            tileV = fract(v),
-            col = Math.min(cols - 1, Math.floor(tileU * cols)),
-            row = Math.min(rows - 1, Math.floor(tileV * rows)),
-            index = row * cols + col,
-            grain = grainField(u, v);
-          let mask = 0,
-            level = 0;
-          if (index < panels.length) {
-            const x = (tileU - col / cols - originX) / scale - p.margin,
-              y = (tileV - row / rows - originY) / scale - p.margin;
-            let nearest = Infinity;
-            for (const [ax, ay, bx, by] of panels[index].sticks) {
-              const dx = bx - ax,
-                dy = by - ay,
-                along = Math.max(
-                  0,
-                  Math.min(
-                    1,
-                    ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
-                  ),
+              return [...current.values()].map((cells) => {
+                const own = key(normalize(cells));
+                let stabilizer = 0;
+                for (let turn = 0; turn < 12; turn++)
+                  if (key(normalize(transform(cells, turn))) === own)
+                    stabilizer++;
+                return { cells, stabilizer };
+              });
+            })(),
+            // The panels: shuffled, and for free polyhexes turned by one of the twelve turns and flips; as a grid of size rows by size columns (the column of a cell is q + floor(r / 2) less the least of them) with the shape at the top left.
+            panels = (() => {
+              const order = shapes.slice();
+              for (let k = order.length - 1; k > 0; k--) {
+                const other = Math.floor(
+                  hash(k, 341, group ^ p.seedSalt) * (k + 1),
                 );
-              nearest = Math.min(
-                nearest,
-                hypot2(x - ax - along * dx, y - ay - along * dy),
-              );
+                [order[k], order[other]] = [order[other], order[k]];
+              }
+              return order.map(({ cells, stabilizer }, k) => {
+                const placed = normalize(
+                    free
+                      ? transform(
+                          cells,
+                          Math.floor(hash(k, 342, group ^ p.seedSalt) * 12),
+                        )
+                      : cells,
+                  ),
+                  shift = Math.min(...placed.map(([q, r]) => q + (r >> 1))),
+                  grid = new Uint8Array(size * size);
+                for (const [q, r] of placed)
+                  grid[r * size + (q + (r >> 1) - shift)] = 1;
+                return {
+                  grid,
+                  shift,
+                  level: [1, 2, 3, 4, 6, 12].indexOf(stabilizer) / 5,
+                };
+              });
+            })(),
+            width = size + 0.5,
+            height0 = (size - 1) * rise + 2 * top,
+            scale = Math.min(
+              1 / (cols * (width + 2 * p.margin)),
+              1 / (rows * (height0 + 2 * p.margin)),
+            ),
+            originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
+            originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
+            halfGap = p.gapWidth / 2,
+            // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in units.
+            edge = (fromEdge: number): number =>
+              smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+          return () => {
+            const tileU = fract(u),
+              tileV = fract(v),
+              col = Math.min(cols - 1, Math.floor(tileU * cols)),
+              row = Math.min(rows - 1, Math.floor(tileV * rows)),
+              index = row * cols + col,
+              grain = grainField(u, v);
+            let mask = 0,
+              level = 0;
+            if (index < panels.length) {
+              const x = (tileU - col / cols - originX) / scale - p.margin,
+                y = (tileV - row / rows - originY) / scale - p.margin,
+                { grid, shift } = panels[index],
+                has = (q: number, r: number): boolean => {
+                  const c = q + (r >> 1) - shift;
+                  return (
+                    r >= 0 &&
+                    r < size &&
+                    c >= 0 &&
+                    c < size &&
+                    grid[r * size + c] === 1
+                  );
+                },
+                // The cell the point is in: the lattice position rounded to the nearest cell in cube coordinates.
+                rf = (y - top) / rise,
+                qf = x - 0.5 + shift - rf / 2,
+                yf = -qf - rf;
+              let q = Math.round(qf),
+                r = Math.round(rf);
+              const s = Math.round(yf),
+                dq = Math.abs(q - qf),
+                dr = Math.abs(r - rf),
+                ds = Math.abs(s - yf);
+              if (dq > dr && dq > ds) q = -s - r;
+              else if (dr > ds) r = -q - s;
+              if (has(q, r)) {
+                const dx = x - (q + r / 2 - shift + 0.5),
+                  dy = y - (r * rise + top);
+                mask = 1;
+                for (let k = 0; k < 6; k++) {
+                  const [nq, nr] = neighbours[k];
+                  if (has(q + nq, r + nr)) continue;
+                  // The distance to the side towards neighbour k: half the unit less the distance along its direction.
+                  const angle = (k * Math.PI) / 3;
+                  mask *= edge(
+                    0.5 - (dx * Math.cos(angle) + dy * Math.sin(angle)),
+                  );
+                }
+                level = panels[index].level;
+              }
             }
-            mask = smooth(clamp((p.lineHalf - nearest) / p.edgeSoft + 0.5));
-            level = panels[index].level;
-          }
-          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
-          color =
-            p.toneGround * (1 - mask) +
-            tone * mask +
-            p.grainTone * (grain - 0.5);
-          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+            const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+            color =
+              p.toneGap +
+              (tone - p.toneGap) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
+      }
+      case 'polysticks': {
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.polysticks,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            unsigned = seed >>> 0,
+            variant = unsigned % p.sizes.length,
+            group = Math.floor(unsigned / p.sizes.length),
+            size = p.sizes[variant],
+            free = p.kinds[variant] === 0,
+            cols = p.cols[variant],
+            rows = p.rows[variant],
+            // The eight turns and flips of a point (x, y): bit 0 swaps x and y, bit 1 reverses x and bit 2 reverses y.
+            turnPoint = (x: number, y: number, turn: number): number[] => {
+              let a = x,
+                b = y;
+              if (turn & 1) [a, b] = [b, a];
+              if (turn & 2) a = -a;
+              if (turn & 4) b = -b;
+              return [a, b];
+            },
+            // A stick is [x1, y1, x2, y2] with its first end before its second (by y, then by x).
+            order = (stick: number[]): number[] =>
+              stick[1] < stick[3] ||
+              (stick[1] === stick[3] && stick[0] < stick[2])
+                ? stick
+                : [stick[2], stick[3], stick[0], stick[1]],
+            transform = (sticks: number[][], turn: number): number[][] =>
+              sticks.map(([x1, y1, x2, y2]) =>
+                order([...turnPoint(x1, y1, turn), ...turnPoint(x2, y2, turn)]),
+              ),
+            // The shape moved so that its least x and least y are 0, with its sticks sorted.
+            normalize = (sticks: number[][]): number[][] => {
+              const minX = Math.min(
+                  ...sticks.map(([x1, , x2]) => Math.min(x1, x2)),
+                ),
+                minY = Math.min(
+                  ...sticks.map(([, y1, , y2]) => Math.min(y1, y2)),
+                );
+              return sticks
+                .map(([x1, y1, x2, y2]) => [
+                  x1 - minX,
+                  y1 - minY,
+                  x2 - minX,
+                  y2 - minY,
+                ])
+                .sort((a, b) => a[1] - b[1] || a[0] - b[0] || a[3] - b[3]);
+            },
+            key = (sticks: number[][]): string =>
+              sticks.map((stick) => stick.join(',')).join(';'),
+            // Every polystick of size sticks (free: one shape of each class of turns and flips; fixed: each shape moved to the corner) grown stick by stick, with the number of the eight turns and flips that map it onto itself.
+            shapes = (() => {
+              const classOf = (sticks: number[][]): string =>
+                free
+                  ? [...Array(8).keys()]
+                      .map((turn) => key(normalize(transform(sticks, turn))))
+                      .sort()[0]
+                  : key(normalize(sticks));
+              let current = new Map<string, number[][]>();
+              for (const first of [
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+              ]) {
+                const sticks = normalize([first]);
+                current.set(classOf(sticks), sticks);
+              }
+              for (let step = 1; step < size; step++) {
+                const next = new Map<string, number[][]>();
+                for (const sticks of current.values()) {
+                  const taken = new Set(sticks.map((stick) => stick.join(',')));
+                  for (const [x1, y1, x2, y2] of sticks)
+                    for (const [x, y] of [
+                      [x1, y1],
+                      [x2, y2],
+                    ])
+                      for (const [dx, dy] of [
+                        [1, 0],
+                        [-1, 0],
+                        [0, 1],
+                        [0, -1],
+                      ]) {
+                        const added = order([x, y, x + dx, y + dy]);
+                        if (taken.has(added.join(','))) continue;
+                        const grown = normalize([...sticks, added]),
+                          name = classOf(grown);
+                        if (!next.has(name)) next.set(name, grown);
+                      }
+                }
+                current = next;
+              }
+              return [...current.values()].map((sticks) => {
+                const own = key(normalize(sticks));
+                let stabilizer = 0;
+                for (let turn = 0; turn < 8; turn++)
+                  if (key(normalize(transform(sticks, turn))) === own)
+                    stabilizer++;
+                return { sticks, stabilizer };
+              });
+            })(),
+            // The panels: shuffled, and for free polysticks turned by one of the eight turns and flips.
+            panels = (() => {
+              const shuffled = shapes.slice();
+              for (let k = shuffled.length - 1; k > 0; k--) {
+                const other = Math.floor(
+                  hash(k, 351, group ^ p.seedSalt) * (k + 1),
+                );
+                [shuffled[k], shuffled[other]] = [shuffled[other], shuffled[k]];
+              }
+              return shuffled.map(({ sticks, stabilizer }, k) => ({
+                sticks: normalize(
+                  free
+                    ? transform(
+                        sticks,
+                        Math.floor(hash(k, 352, group ^ p.seedSalt) * 8),
+                      )
+                    : sticks,
+                ),
+                level: Math.log2(stabilizer) / 3,
+              }));
+            })(),
+            scale = Math.min(
+              1 / (cols * (size + 2 * p.margin)),
+              1 / (rows * (size + 2 * p.margin)),
+            ),
+            originX = (1 / cols - scale * (size + 2 * p.margin)) / 2,
+            originY = (1 / rows - scale * (size + 2 * p.margin)) / 2;
+          return () => {
+            const tileU = fract(u),
+              tileV = fract(v),
+              col = Math.min(cols - 1, Math.floor(tileU * cols)),
+              row = Math.min(rows - 1, Math.floor(tileV * rows)),
+              index = row * cols + col,
+              grain = grainField(u, v);
+            let mask = 0,
+              level = 0;
+            if (index < panels.length) {
+              const x = (tileU - col / cols - originX) / scale - p.margin,
+                y = (tileV - row / rows - originY) / scale - p.margin;
+              let nearest = Infinity;
+              for (const [ax, ay, bx, by] of panels[index].sticks) {
+                const dx = bx - ax,
+                  dy = by - ay,
+                  along = Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                    ),
+                  );
+                nearest = Math.min(
+                  nearest,
+                  hypot2(x - ax - along * dx, y - ay - along * dy),
+                );
+              }
+              mask = smooth(clamp((p.lineHalf - nearest) / p.edgeSoft + 0.5));
+              level = panels[index].level;
+            }
+            const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+            color =
+              p.toneGround * (1 - mask) +
+              tone * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
+        };
+        return setup();
       }
       case 'alternatingsignmatrices': {
         const p = proceduralMaterialPresets.alternatingsignmatrices,
@@ -90184,137 +90442,143 @@ export function createSurfaceSampler(
         };
       }
       case 'stilllifes': {
-        const p = proceduralMaterialPresets.stilllifes,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          unsigned = seed >>> 0,
-          variant = unsigned % p.widths.length,
-          group = Math.floor(unsigned / p.widths.length),
-          width: number = p.widths[variant],
-          height0: number = p.heights[variant],
-          kind: number = p.kinds[variant],
-          cols = p.cols[variant],
-          rows = p.rows[variant],
-          // Every still life in the box, found by going through all the patterns of the box: with a ring of dead cells around it, a pattern is one when no cell of the ring or the box changes under the rules; each is kept as the number of live neighbours of every live cell (0 for a dead one), and for kind 1 only if its live cells are all joined.
-          panels = (() => {
-            const found: Uint8Array[] = [],
-              pitch = width + 2,
-              grid = new Uint8Array(pitch * (height0 + 2)),
-              counts = new Uint8Array(grid.length),
-              cells = width * height0;
-            for (let pattern = 1; pattern < 2 ** cells; pattern++) {
-              grid.fill(0);
-              for (let k = 0; k < cells; k++)
-                if ((pattern >> k) & 1)
-                  grid[(Math.floor(k / width) + 1) * pitch + (k % width) + 1] =
-                    1;
-              let still = true;
-              for (let y = 0; y < height0 + 2 && still; y++)
-                for (let x = 0; x < pitch; x++) {
-                  let near = 0;
-                  for (let dy = -1; dy <= 1; dy++)
-                    for (let dx = -1; dx <= 1; dx++)
-                      if (
-                        (dx !== 0 || dy !== 0) &&
-                        x + dx >= 0 &&
-                        x + dx < pitch &&
-                        y + dy >= 0 &&
-                        y + dy < height0 + 2
-                      )
-                        near += grid[(y + dy) * pitch + x + dx];
-                  counts[y * pitch + x] = near;
-                  if (
-                    grid[y * pitch + x] === 1
-                      ? near !== 2 && near !== 3
-                      : near === 3
-                  ) {
-                    still = false;
-                    break;
-                  }
-                }
-              if (!still) continue;
-              if (kind === 1) {
-                const alive: number[] = [];
-                for (let k = 0; k < grid.length; k++)
-                  if (grid[k] === 1) alive.push(k);
-                const seen = new Set([alive[0]]),
-                  stack = [alive[0]];
-                while (stack.length > 0) {
-                  const a = stack.pop() as number;
-                  for (const b of alive)
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.stilllifes,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            unsigned = seed >>> 0,
+            variant = unsigned % p.widths.length,
+            group = Math.floor(unsigned / p.widths.length),
+            width: number = p.widths[variant],
+            height0: number = p.heights[variant],
+            kind: number = p.kinds[variant],
+            cols = p.cols[variant],
+            rows = p.rows[variant],
+            // Every still life in the box, found by going through all the patterns of the box: with a ring of dead cells around it, a pattern is one when no cell of the ring or the box changes under the rules; each is kept as the number of live neighbours of every live cell (0 for a dead one), and for kind 1 only if its live cells are all joined.
+            panels = (() => {
+              const found: Uint8Array[] = [],
+                pitch = width + 2,
+                grid = new Uint8Array(pitch * (height0 + 2)),
+                counts = new Uint8Array(grid.length),
+                cells = width * height0;
+              for (let pattern = 1; pattern < 2 ** cells; pattern++) {
+                grid.fill(0);
+                for (let k = 0; k < cells; k++)
+                  if ((pattern >> k) & 1)
+                    grid[
+                      (Math.floor(k / width) + 1) * pitch + (k % width) + 1
+                    ] = 1;
+                let still = true;
+                for (let y = 0; y < height0 + 2 && still; y++)
+                  for (let x = 0; x < pitch; x++) {
+                    let near = 0;
+                    for (let dy = -1; dy <= 1; dy++)
+                      for (let dx = -1; dx <= 1; dx++)
+                        if (
+                          (dx !== 0 || dy !== 0) &&
+                          x + dx >= 0 &&
+                          x + dx < pitch &&
+                          y + dy >= 0 &&
+                          y + dy < height0 + 2
+                        )
+                          near += grid[(y + dy) * pitch + x + dx];
+                    counts[y * pitch + x] = near;
                     if (
-                      !seen.has(b) &&
-                      Math.abs((a % pitch) - (b % pitch)) <= 1 &&
-                      Math.abs(Math.floor(a / pitch) - Math.floor(b / pitch)) <=
-                        1
+                      grid[y * pitch + x] === 1
+                        ? near !== 2 && near !== 3
+                        : near === 3
                     ) {
-                      seen.add(b);
-                      stack.push(b);
+                      still = false;
+                      break;
                     }
+                  }
+                if (!still) continue;
+                if (kind === 1) {
+                  const alive: number[] = [];
+                  for (let k = 0; k < grid.length; k++)
+                    if (grid[k] === 1) alive.push(k);
+                  const seen = new Set([alive[0]]),
+                    stack = [alive[0]];
+                  while (stack.length > 0) {
+                    const a = stack.pop() as number;
+                    for (const b of alive)
+                      if (
+                        !seen.has(b) &&
+                        Math.abs((a % pitch) - (b % pitch)) <= 1 &&
+                        Math.abs(
+                          Math.floor(a / pitch) - Math.floor(b / pitch),
+                        ) <= 1
+                      ) {
+                        seen.add(b);
+                        stack.push(b);
+                      }
+                  }
+                  if (seen.size !== alive.length) continue;
                 }
-                if (seen.size !== alive.length) continue;
+                const panel = new Uint8Array(cells);
+                for (let k = 0; k < cells; k++) {
+                  const at =
+                    (Math.floor(k / width) + 1) * pitch + (k % width) + 1;
+                  if (grid[at] === 1) panel[k] = counts[at] - 1;
+                }
+                found.push(panel);
               }
-              const panel = new Uint8Array(cells);
-              for (let k = 0; k < cells; k++) {
-                const at =
-                  (Math.floor(k / width) + 1) * pitch + (k % width) + 1;
-                if (grid[at] === 1) panel[k] = counts[at] - 1;
+              for (let k = found.length - 1; k > 0; k--) {
+                const other = Math.floor(
+                  hash(k, 371, group ^ p.seedSalt) * (k + 1),
+                );
+                [found[k], found[other]] = [found[other], found[k]];
               }
-              found.push(panel);
-            }
-            for (let k = found.length - 1; k > 0; k--) {
-              const other = Math.floor(
-                hash(k, 371, group ^ p.seedSalt) * (k + 1),
-              );
-              [found[k], found[other]] = [found[other], found[k]];
-            }
-            return found;
-          })(),
-          scale = Math.min(
-            1 / (cols * (width + 2 * p.margin)),
-            1 / (rows * (height0 + 2 * p.margin)),
-          ),
-          originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
-          originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
-          halfGap = p.gapWidth / 2,
-          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
-          edge = (fromEdge: number): number =>
-            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
-        return () => {
-          const tileU = fract(u),
-            tileV = fract(v),
-            col = Math.min(cols - 1, Math.floor(tileU * cols)),
-            row = Math.min(rows - 1, Math.floor(tileV * rows)),
-            index = row * cols + col,
-            grain = grainField(u, v);
-          let mask = 0,
-            level = 1;
-          if (index < panels.length) {
-            const x = (tileU - col / cols - originX) / scale - p.margin,
-              y = (tileV - row / rows - originY) / scale - p.margin,
-              i = Math.floor(x),
-              j = Math.floor(y);
-            if (i >= 0 && j >= 0 && i < width && j < height0) {
-              const stored = panels[index][j * width + i];
-              if (stored !== 0) {
-                const fx = x - i,
-                  fy = y - j;
-                mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy);
-                level = stored - 1;
+              return found;
+            })(),
+            scale = Math.min(
+              1 / (cols * (width + 2 * p.margin)),
+              1 / (rows * (height0 + 2 * p.margin)),
+            ),
+            originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
+            originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
+            halfGap = p.gapWidth / 2,
+            // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+            edge = (fromEdge: number): number =>
+              smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+          return () => {
+            const tileU = fract(u),
+              tileV = fract(v),
+              col = Math.min(cols - 1, Math.floor(tileU * cols)),
+              row = Math.min(rows - 1, Math.floor(tileV * rows)),
+              index = row * cols + col,
+              grain = grainField(u, v);
+            let mask = 0,
+              level = 1;
+            if (index < panels.length) {
+              const x = (tileU - col / cols - originX) / scale - p.margin,
+                y = (tileV - row / rows - originY) / scale - p.margin,
+                i = Math.floor(x),
+                j = Math.floor(y);
+              if (i >= 0 && j >= 0 && i < width && j < height0) {
+                const stored = panels[index][j * width + i];
+                if (stored !== 0) {
+                  const fx = x - i,
+                    fy = y - j;
+                  mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy);
+                  level = stored - 1;
+                }
               }
             }
-          }
-          color =
-            p.toneGround * (1 - mask) +
-            p.tones[level] * mask +
-            p.grainTone * (grain - 0.5);
-          height = p.cellHeight * mask * p.levels[level];
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+            color =
+              p.toneGround * (1 - mask) +
+              p.tones[level] * mask +
+              p.grainTone * (grain - 0.5);
+            height = p.cellHeight * mask * p.levels[level];
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'chorddiagrams': {
         const p = proceduralMaterialPresets.chorddiagrams,
@@ -90473,120 +90737,124 @@ export function createSurfaceSampler(
         };
       }
       case 'gridsplits': {
-        const p = proceduralMaterialPresets.gridsplits,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          unsigned = seed >>> 0,
-          variant = unsigned % p.widths.length,
-          group = Math.floor(unsigned / p.widths.length),
-          width: number = p.widths[variant],
-          height0: number = p.heights[variant],
-          size: number = p.sizes[variant],
-          cols = p.cols[variant],
-          rows = p.rows[variant],
-          cells = width * height0,
-          // The cells next to cell k (by an edge).
-          around = (k: number): number[] => {
-            const x = k % width,
-              y = Math.floor(k / width),
-              next: number[] = [];
-            if (x > 0) next.push(k - 1);
-            if (x < width - 1) next.push(k + 1);
-            if (y > 0) next.push(k - width);
-            if (y < height0 - 1) next.push(k + width);
-            return next;
-          },
-          // Whether the cells of the set (as bits) are in one piece.
-          joined = (set: number): boolean => {
-            const first = Math.log2(set & -set);
-            let seen = 1 << first;
-            const stack = [first];
-            while (stack.length > 0) {
-              for (const b of around(stack.pop() as number))
-                if ((set >> b) & 1 && !((seen >> b) & 1)) {
-                  seen |= 1 << b;
-                  stack.push(b);
-                }
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.gridsplits,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            unsigned = seed >>> 0,
+            variant = unsigned % p.widths.length,
+            group = Math.floor(unsigned / p.widths.length),
+            width: number = p.widths[variant],
+            height0: number = p.heights[variant],
+            size: number = p.sizes[variant],
+            cols = p.cols[variant],
+            rows = p.rows[variant],
+            cells = width * height0,
+            // The cells next to cell k (by an edge).
+            around = (k: number): number[] => {
+              const x = k % width,
+                y = Math.floor(k / width),
+                next: number[] = [];
+              if (x > 0) next.push(k - 1);
+              if (x < width - 1) next.push(k + 1);
+              if (y > 0) next.push(k - width);
+              if (y < height0 - 1) next.push(k + width);
+              return next;
+            },
+            // Whether the cells of the set (as bits) are in one piece.
+            joined = (set: number): boolean => {
+              const first = Math.log2(set & -set);
+              let seen = 1 << first;
+              const stack = [first];
+              while (stack.length > 0) {
+                for (const b of around(stack.pop() as number))
+                  if ((set >> b) & 1 && !((seen >> b) & 1)) {
+                    seen |= 1 << b;
+                    stack.push(b);
+                  }
+              }
+              return seen === set;
+            },
+            // Every split: the sets of size cells that hold cell 0, are in one piece, and leave the other cells in one piece, found by going through all the sets of the board that hold cell 0 (the first bit); each is kept as the region of every cell (0 for the region of cell 0).
+            panels = (() => {
+              const found: Uint8Array[] = [],
+                whole = 2 ** cells - 1;
+              for (let set = 1; set <= whole; set += 2) {
+                let bits = 0;
+                for (let rest = set; rest > 0; rest >>= 1) bits += rest & 1;
+                if (bits !== size || !joined(set) || !joined(whole ^ set))
+                  continue;
+                const regions = new Uint8Array(cells);
+                for (let k = 0; k < cells; k++)
+                  regions[k] = (set >> k) & 1 ? 0 : 1;
+                found.push(regions);
+              }
+              for (let k = found.length - 1; k > 0; k--) {
+                const other = Math.floor(
+                  hash(k, 391, group ^ p.seedSalt) * (k + 1),
+                );
+                [found[k], found[other]] = [found[other], found[k]];
+              }
+              return found;
+            })(),
+            scale = Math.min(
+              1 / (cols * (width + 2 * p.margin)),
+              1 / (rows * (height0 + 2 * p.margin)),
+            ),
+            originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
+            originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
+            halfGap = p.gapWidth / 2,
+            // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+            edge = (fromEdge: number): number =>
+              smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+          return () => {
+            const tileU = fract(u),
+              tileV = fract(v),
+              col = Math.min(cols - 1, Math.floor(tileU * cols)),
+              row = Math.min(rows - 1, Math.floor(tileV * rows)),
+              index = row * cols + col,
+              grain = grainField(u, v);
+            let mask = 0,
+              region = 0;
+            if (index < panels.length) {
+              const x = (tileU - col / cols - originX) / scale - p.margin,
+                y = (tileV - row / rows - originY) / scale - p.margin,
+                i = Math.floor(x),
+                j = Math.floor(y);
+              if (i >= 0 && j >= 0 && i < width && j < height0) {
+                const regions = panels[index],
+                  own = regions[j * width + i],
+                  same = (a: number, b: number): boolean =>
+                    a >= 0 &&
+                    b >= 0 &&
+                    a < width &&
+                    b < height0 &&
+                    regions[b * width + a] === own,
+                  fx = x - i,
+                  fy = y - j;
+                // A side of a cell has a gap unless the cell across it is of the same region.
+                mask =
+                  (same(i - 1, j) ? 1 : edge(fx)) *
+                  (same(i + 1, j) ? 1 : edge(1 - fx)) *
+                  (same(i, j - 1) ? 1 : edge(fy)) *
+                  (same(i, j + 1) ? 1 : edge(1 - fy));
+                region = own;
+              }
             }
-            return seen === set;
-          },
-          // Every split: the sets of size cells that hold cell 0, are in one piece, and leave the other cells in one piece, found by going through all the sets of the board that hold cell 0 (the first bit); each is kept as the region of every cell (0 for the region of cell 0).
-          panels = (() => {
-            const found: Uint8Array[] = [],
-              whole = 2 ** cells - 1;
-            for (let set = 1; set <= whole; set += 2) {
-              let bits = 0;
-              for (let rest = set; rest > 0; rest >>= 1) bits += rest & 1;
-              if (bits !== size || !joined(set) || !joined(whole ^ set))
-                continue;
-              const regions = new Uint8Array(cells);
-              for (let k = 0; k < cells; k++)
-                regions[k] = (set >> k) & 1 ? 0 : 1;
-              found.push(regions);
-            }
-            for (let k = found.length - 1; k > 0; k--) {
-              const other = Math.floor(
-                hash(k, 391, group ^ p.seedSalt) * (k + 1),
-              );
-              [found[k], found[other]] = [found[other], found[k]];
-            }
-            return found;
-          })(),
-          scale = Math.min(
-            1 / (cols * (width + 2 * p.margin)),
-            1 / (rows * (height0 + 2 * p.margin)),
-          ),
-          originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
-          originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
-          halfGap = p.gapWidth / 2,
-          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
-          edge = (fromEdge: number): number =>
-            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
-        return () => {
-          const tileU = fract(u),
-            tileV = fract(v),
-            col = Math.min(cols - 1, Math.floor(tileU * cols)),
-            row = Math.min(rows - 1, Math.floor(tileV * rows)),
-            index = row * cols + col,
-            grain = grainField(u, v);
-          let mask = 0,
-            region = 0;
-          if (index < panels.length) {
-            const x = (tileU - col / cols - originX) / scale - p.margin,
-              y = (tileV - row / rows - originY) / scale - p.margin,
-              i = Math.floor(x),
-              j = Math.floor(y);
-            if (i >= 0 && j >= 0 && i < width && j < height0) {
-              const regions = panels[index],
-                own = regions[j * width + i],
-                same = (a: number, b: number): boolean =>
-                  a >= 0 &&
-                  b >= 0 &&
-                  a < width &&
-                  b < height0 &&
-                  regions[b * width + a] === own,
-                fx = x - i,
-                fy = y - j;
-              // A side of a cell has a gap unless the cell across it is of the same region.
-              mask =
-                (same(i - 1, j) ? 1 : edge(fx)) *
-                (same(i + 1, j) ? 1 : edge(1 - fx)) *
-                (same(i, j - 1) ? 1 : edge(fy)) *
-                (same(i, j + 1) ? 1 : edge(1 - fy));
-              region = own;
-            }
-          }
-          color =
-            p.toneGap * (1 - mask) +
-            p.tones[region] * mask +
-            p.grainTone * (grain - 0.5);
-          height = p.cellHeight * mask * p.levels[region];
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+            color =
+              p.toneGap * (1 - mask) +
+              p.tones[region] * mask +
+              p.grainTone * (grain - 0.5);
+            height = p.cellHeight * mask * p.levels[region];
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'hamiltonpaths': {
         const p = proceduralMaterialPresets.hamiltonpaths,
@@ -92904,91 +93172,96 @@ export function createSurfaceSampler(
         };
       }
       case 'selfreferentialsequences': {
-        const p = proceduralMaterialPresets.selfreferentialsequences,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          unsigned = seed >>> 0,
-          variant = unsigned % p.levelPower.length,
-          group = Math.floor(unsigned / p.levelPower.length),
-          n = p.columns,
-          start = (group * p.startStep) % p.startRange,
-          length = start + n * n,
-          // Terms 0 to length - 1 of the sequence of the variant (the one-based sequences are shifted by one place).
-          terms: number[] = [];
-        if (variant === 0) {
-          const lastSeen = new Map<number, number>();
-          let term = 0;
-          for (let index = 0; index < length; index++) {
-            terms.push(term);
-            const previous = lastSeen.get(term);
-            lastSeen.set(term, index);
-            term = previous === undefined ? 0 : index - previous;
-          }
-        } else if (variant === 1) {
-          terms.push(1);
-          while (terms.length < length) {
-            const m = terms.length;
-            let best = 1;
-            // Count the repetitions of the block of size L that ends the sequence.
-            for (let size = 1; size * (best + 1) <= m; size++) {
-              let count = 1;
-              while ((count + 1) * size <= m) {
-                let same = true;
-                for (let k = 1; k <= size && same; k++)
-                  same = terms[m - count * size - k] === terms[m - k];
-                if (!same) break;
-                count++;
-              }
-              if (count > best) best = count;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.selfreferentialsequences,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            unsigned = seed >>> 0,
+            variant = unsigned % p.levelPower.length,
+            group = Math.floor(unsigned / p.levelPower.length),
+            n = p.columns,
+            start = (group * p.startStep) % p.startRange,
+            length = start + n * n,
+            // Terms 0 to length - 1 of the sequence of the variant (the one-based sequences are shifted by one place).
+            terms: number[] = [];
+          if (variant === 0) {
+            const lastSeen = new Map<number, number>();
+            let term = 0;
+            for (let index = 0; index < length; index++) {
+              terms.push(term);
+              const previous = lastSeen.get(term);
+              lastSeen.set(term, index);
+              term = previous === undefined ? 0 : index - previous;
             }
-            terms.push(best);
+          } else if (variant === 1) {
+            terms.push(1);
+            while (terms.length < length) {
+              const m = terms.length;
+              let best = 1;
+              // Count the repetitions of the block of size L that ends the sequence.
+              for (let size = 1; size * (best + 1) <= m; size++) {
+                let count = 1;
+                while ((count + 1) * size <= m) {
+                  let same = true;
+                  for (let k = 1; k <= size && same; k++)
+                    same = terms[m - count * size - k] === terms[m - k];
+                  if (!same) break;
+                  count++;
+                }
+                if (count > best) best = count;
+              }
+              terms.push(best);
+            }
+          } else {
+            // One-based sequences in the array sequence[1..length].
+            const sequence = [0, 1, 1];
+            for (let index = 3; index <= length; index++)
+              sequence.push(
+                variant === 2
+                  ? sequence[index - sequence[index - 1]] +
+                      sequence[index - sequence[index - 2]]
+                  : sequence[sequence[index - 1]] +
+                      sequence[index - sequence[index - 1]],
+              );
+            for (let index = 1; index <= length; index++)
+              terms.push(2 * sequence[index] - index);
           }
-        } else {
-          // One-based sequences in the array sequence[1..length].
-          const sequence = [0, 1, 1];
-          for (let index = 3; index <= length; index++)
-            sequence.push(
-              variant === 2
-                ? sequence[index - sequence[index - 1]] +
-                    sequence[index - sequence[index - 2]]
-                : sequence[sequence[index - 1]] +
-                    sequence[index - sequence[index - 1]],
-            );
-          for (let index = 1; index <= length; index++)
-            terms.push(2 * sequence[index] - index);
-        }
-        const shown = terms.slice(start, start + n * n),
-          low = Math.min(...shown),
-          high = Math.max(...shown);
-        return () => {
-          const x = fract(u) * n,
-            y = fract(v) * n,
-            i = Math.floor(x),
-            j = Math.floor(y),
-            value = shown[j * n + i],
-            level = ((value - low) / (high - low)) ** p.levelPower[variant],
-            hx = (1 - 2 * p.gap) / 2,
-            qx = Math.abs(x - i - 0.5) - (hx - p.corner),
-            qy = Math.abs(y - j - 0.5) - (hx - p.corner),
-            // The distance to the rounded square of the cell, negative inside.
-            distance =
-              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
-              Math.min(Math.max(qx, qy), 0) -
-              p.corner,
-            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
-            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
-            grain = grainField(u, v);
-          color =
-            p.toneGround * (1 - mask) +
-            tone * mask +
-            p.grainTone * (grain - 0.5);
-          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+          const shown = terms.slice(start, start + n * n),
+            low = Math.min(...shown),
+            high = Math.max(...shown);
+          return () => {
+            const x = fract(u) * n,
+              y = fract(v) * n,
+              i = Math.floor(x),
+              j = Math.floor(y),
+              value = shown[j * n + i],
+              level = ((value - low) / (high - low)) ** p.levelPower[variant],
+              hx = (1 - 2 * p.gap) / 2,
+              qx = Math.abs(x - i - 0.5) - (hx - p.corner),
+              qy = Math.abs(y - j - 0.5) - (hx - p.corner),
+              // The distance to the rounded square of the cell, negative inside.
+              distance =
+                hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+                Math.min(Math.max(qx, qy), 0) -
+                p.corner,
+              mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+              tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+              grain = grainField(u, v);
+            color =
+              p.toneGround * (1 - mask) +
+              tone * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'numbertriangles': {
         const p = proceduralMaterialPresets.numbertriangles,
@@ -93431,75 +93704,79 @@ export function createSurfaceSampler(
         };
       }
       case 'goldbachtable': {
-        const p = proceduralMaterialPresets.goldbachtable,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          inverseHalf = 1 / p.kernelHalf,
-          inverseSoft = 1 / p.edgeSoft,
-          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
-          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
-          // Cell (col, row) holds the even number n = 2 (row * cells + col + 2) (4, 6, 8, ...)
-          // and is toned by its number of Goldbach partitions g(n), the primes p <= n / 2
-          // with n - p prime, scaled by ln(n)^2 / n to remove the overall growth of g (a table
-          // toned by g itself would show a hard seam where it wraps), as (that ratio / its
-          // largest value in the table) raised to toneExponent: the comet of bands left over,
-          // where multiples of 6 and 30 stay higher than their neighbours. The seed moves the
-          // whole table around the torus.
-          count = p.cells * p.cells,
-          limit = 2 * (count + 1),
-          composite = new Uint8Array(limit + 1),
-          scaled = new Float64Array(count),
-          tones = new Float64Array(count);
-        composite[0] = composite[1] = 1;
-        for (let n = 2; n * n <= limit; n++)
-          if (!composite[n])
-            for (let multiple = n * n; multiple <= limit; multiple += n)
-              composite[multiple] = 1;
-        let most = 0;
-        for (let i = 0; i < count; i++) {
-          const n = 2 * (i + 2);
-          let partitions = 0;
-          for (let q = 2; 2 * q <= n; q++)
-            if (!composite[q] && !composite[n - q]) partitions++;
-          scaled[i] = (partitions * Math.log(n) ** 2) / n;
-          most = Math.max(most, scaled[i]);
-        }
-        for (let i = 0; i < count; i++)
-          tones[i] = p.toneSpan * (scaled[i] / most) ** p.toneExponent;
-        return () => {
-          // One compact-support rounded-square kernel per cell (a quartic superellipse
-          // through smoothstep, exactly zero before the cell boundary), so the cell
-          // lookup never jumps and the field is C1.
-          const x = fract(u) * p.cells,
-            y = fract(v) * p.cells,
-            col = Math.floor(x),
-            row = Math.floor(y),
-            ax = (x - col - 0.5) * inverseHalf,
-            ay = (y - row - 0.5) * inverseHalf,
-            ax2 = ax * ax,
-            ay2 = ay * ay,
-            s = ax2 * ax2 + ay2 * ay2,
-            mask = smooth(clamp((1 - s) * inverseSoft)),
-            dome = smooth(clamp(1 - s)),
-            tone =
-              tones[
-                ((row + shiftY) % p.cells) * p.cells +
-                  ((col + shiftX) % p.cells)
-              ],
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.goldbachtable,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            inverseHalf = 1 / p.kernelHalf,
+            inverseSoft = 1 / p.edgeSoft,
+            shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
+            shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
+            // Cell (col, row) holds the even number n = 2 (row * cells + col + 2) (4, 6, 8, ...)
+            // and is toned by its number of Goldbach partitions g(n), the primes p <= n / 2
+            // with n - p prime, scaled by ln(n)^2 / n to remove the overall growth of g (a table
+            // toned by g itself would show a hard seam where it wraps), as (that ratio / its
+            // largest value in the table) raised to toneExponent: the comet of bands left over,
+            // where multiples of 6 and 30 stay higher than their neighbours. The seed moves the
+            // whole table around the torus.
+            count = p.cells * p.cells,
+            limit = 2 * (count + 1),
+            composite = new Uint8Array(limit + 1),
+            scaled = new Float64Array(count),
+            tones = new Float64Array(count);
+          composite[0] = composite[1] = 1;
+          for (let n = 2; n * n <= limit; n++)
+            if (!composite[n])
+              for (let multiple = n * n; multiple <= limit; multiple += n)
+                composite[multiple] = 1;
+          let most = 0;
+          for (let i = 0; i < count; i++) {
+            const n = 2 * (i + 2);
+            let partitions = 0;
+            for (let q = 2; 2 * q <= n; q++)
+              if (!composite[q] && !composite[n - q]) partitions++;
+            scaled[i] = (partitions * Math.log(n) ** 2) / n;
+            most = Math.max(most, scaled[i]);
+          }
+          for (let i = 0; i < count; i++)
+            tones[i] = p.toneSpan * (scaled[i] / most) ** p.toneExponent;
+          return () => {
+            // One compact-support rounded-square kernel per cell (a quartic superellipse
+            // through smoothstep, exactly zero before the cell boundary), so the cell
+            // lookup never jumps and the field is C1.
+            const x = fract(u) * p.cells,
+              y = fract(v) * p.cells,
+              col = Math.floor(x),
+              row = Math.floor(y),
+              ax = (x - col - 0.5) * inverseHalf,
+              ay = (y - row - 0.5) * inverseHalf,
+              ax2 = ax * ax,
+              ay2 = ay * ay,
+              s = ax2 * ax2 + ay2 * ay2,
+              mask = smooth(clamp((1 - s) * inverseSoft)),
+              dome = smooth(clamp(1 - s)),
+              tone =
+                tones[
+                  ((row + shiftY) % p.cells) * p.cells +
+                    ((col + shiftX) % p.cells)
+                ],
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'radicaltable': {
         const p = proceduralMaterialPresets.radicaltable,
@@ -94086,67 +94363,71 @@ export function createSurfaceSampler(
         };
       }
       case 'pisanotable': {
-        const p = proceduralMaterialPresets.pisanotable,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          inverseHalf = 1 / p.kernelHalf,
-          inverseSoft = 1 / p.edgeSoft,
-          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
-          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
-          // Cell (col, row) holds n = row * cells + col + 1 and is toned by the Pisano
-          // period pi(n), the period of the Fibonacci numbers modulo n, relative to its
-          // upper bound 6n: (pi(n) / 6n) raised to toneExponent, so n = 2 * 5^k (the only
-          // numbers that reach the bound) glow and numbers with short periods stay dim.
-          // The seed moves the whole table around the torus.
-          count = p.cells * p.cells,
-          tones = new Float64Array(count);
-        for (let n = 1; n <= count; n++) {
-          const one = 1 % n;
-          let previous = 0,
-            current = one,
-            period = 0;
-          do {
-            const next = (previous + current) % n;
-            previous = current;
-            current = next;
-            period++;
-          } while (previous !== 0 || current !== one);
-          tones[n - 1] = p.toneSpan * (period / (6 * n)) ** p.toneExponent;
-        }
-        return () => {
-          // One compact-support rounded-square kernel per cell (a quartic superellipse
-          // through smoothstep, exactly zero before the cell boundary), so the cell
-          // lookup never jumps and the field is C1.
-          const x = fract(u) * p.cells,
-            y = fract(v) * p.cells,
-            col = Math.floor(x),
-            row = Math.floor(y),
-            ax = (x - col - 0.5) * inverseHalf,
-            ay = (y - row - 0.5) * inverseHalf,
-            ax2 = ax * ax,
-            ay2 = ay * ay,
-            s = ax2 * ax2 + ay2 * ay2,
-            mask = smooth(clamp((1 - s) * inverseSoft)),
-            dome = smooth(clamp(1 - s)),
-            tone =
-              tones[
-                ((row + shiftY) % p.cells) * p.cells +
-                  ((col + shiftX) % p.cells)
-              ],
-            grain = grainField(u, v);
-          color =
-            p.gapTone +
-            (p.toneFloor + tone - p.gapTone) * mask +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
-            p.grainHeight * grain;
-          occlusion = 1 - p.gapOcclusion * (1 - mask);
-          return;
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p = proceduralMaterialPresets.pisanotable,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            inverseHalf = 1 / p.kernelHalf,
+            inverseSoft = 1 / p.edgeSoft,
+            shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
+            shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
+            // Cell (col, row) holds n = row * cells + col + 1 and is toned by the Pisano
+            // period pi(n), the period of the Fibonacci numbers modulo n, relative to its
+            // upper bound 6n: (pi(n) / 6n) raised to toneExponent, so n = 2 * 5^k (the only
+            // numbers that reach the bound) glow and numbers with short periods stay dim.
+            // The seed moves the whole table around the torus.
+            count = p.cells * p.cells,
+            tones = new Float64Array(count);
+          for (let n = 1; n <= count; n++) {
+            const one = 1 % n;
+            let previous = 0,
+              current = one,
+              period = 0;
+            do {
+              const next = (previous + current) % n;
+              previous = current;
+              current = next;
+              period++;
+            } while (previous !== 0 || current !== one);
+            tones[n - 1] = p.toneSpan * (period / (6 * n)) ** p.toneExponent;
+          }
+          return () => {
+            // One compact-support rounded-square kernel per cell (a quartic superellipse
+            // through smoothstep, exactly zero before the cell boundary), so the cell
+            // lookup never jumps and the field is C1.
+            const x = fract(u) * p.cells,
+              y = fract(v) * p.cells,
+              col = Math.floor(x),
+              row = Math.floor(y),
+              ax = (x - col - 0.5) * inverseHalf,
+              ay = (y - row - 0.5) * inverseHalf,
+              ax2 = ax * ax,
+              ay2 = ay * ay,
+              s = ax2 * ax2 + ay2 * ay2,
+              mask = smooth(clamp((1 - s) * inverseSoft)),
+              dome = smooth(clamp(1 - s)),
+              tone =
+                tones[
+                  ((row + shiftY) % p.cells) * p.cells +
+                    ((col + shiftX) % p.cells)
+                ],
+              grain = grainField(u, v);
+            color =
+              p.gapTone +
+              (p.toneFloor + tone - p.gapTone) * mask +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+              p.grainHeight * grain;
+            occlusion = 1 - p.gapOcclusion * (1 - mask);
+            return;
+          };
         };
+        return setup();
       }
       case 'penrosetiling':
       case 'penrosestar':
@@ -94157,226 +94438,233 @@ export function createSurfaceSampler(
       case 'ammannfilled':
       case 'heptagridfilled':
       case 'dodecagridfilled': {
-        const p =
-            kind === 'dodecagridfilled'
-              ? proceduralMaterialPresets.dodecagridfilled
-              : kind === 'heptagridfilled'
-                ? proceduralMaterialPresets.heptagridfilled
-                : kind === 'ammannfilled'
-                  ? proceduralMaterialPresets.ammannfilled
-                  : kind === 'penrosefilled'
-                    ? proceduralMaterialPresets.penrosefilled
-                    : kind === 'dodecagridtiling'
-                      ? proceduralMaterialPresets.dodecagridtiling
-                      : kind === 'heptagridtiling'
-                        ? proceduralMaterialPresets.heptagridtiling
-                        : kind === 'ammannbeenker'
-                          ? proceduralMaterialPresets.ammannbeenker
-                          : kind === 'penrosestar'
-                            ? proceduralMaterialPresets.penrosestar
-                            : proceduralMaterialPresets.penrosetiling,
-          grids = p.offsets.length,
-          grainField = cachedNoise(
-            p.grainCells,
-            p.grainCells,
-            seed ^ p.seedSalt,
-          ),
-          // The seed turns the whole patch by a whole number of 360 / rotationSteps degrees.
-          rotation =
-            (TAU *
-              Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.rotationSteps)) /
-            p.rotationSteps,
-          inverseRadius2 = 1 / (p.threadRadius * p.threadRadius),
-          reach = 0.5 + p.threadRadius,
-          unit = (index: number): [number, number] => [
-            Math.cos((TAU * index) / p.roots),
-            Math.sin((TAU * index) / p.roots),
-          ],
-          edges = new Map<string, [number, number, number, number]>(),
-          tiles: { corners: [number, number][]; tileClass: number }[] = [],
-          fillActive = p.fills.some((tone) => tone > 0),
-          inverseRim = 1 / p.fillRim;
-        // De Bruijn's multigrid construction of a rhombus tiling: the pentagrid (five
-        // grids, fifth roots of unity, offsets summing to 0) gives the Penrose tiling and
-        // four grids with the first four eighth roots of unity give the Ammann-Beenker
-        // tiling of squares and rhombi. Grid j is the set of lines x . e_j = integer +
-        // offsets[j], and every crossing of a line of grid j with one of grid k is one tile. Its four corners are sum_l K_l e_l, where
-        // K_j and K_k take the two integers beside the crossed lines and every other K_l
-        // is ceil(x . e_l - offsets[l]) at the crossing x. Edges shared by two rhombi are
-        // stored once, and only rhombi whose centre lies within patchRadius are kept.
-        for (let j = 0; j < grids; j++)
-          for (let k = j + 1; k < grids; k++)
-            for (let r = -p.gridRange; r <= p.gridRange; r++)
-              for (let s = -p.gridRange; s <= p.gridRange; s++) {
-                const [jx, jy] = unit(j),
-                  [kx, ky] = unit(k),
-                  a = r + p.offsets[j],
-                  b = s + p.offsets[k],
-                  determinant = jx * ky - jy * kx,
-                  x = (a * ky - b * jy) / determinant,
-                  y = (jx * b - kx * a) / determinant,
-                  indices = Array.from({ length: grids }, (_, l) => {
-                    if (l === j) return r;
-                    if (l === k) return s;
-                    const [lx, ly] = unit(l);
-                    return Math.ceil(x * lx + y * ly - p.offsets[l]);
-                  }),
-                  corner = (stepJ: number, stepK: number): [number, number] => {
-                    let px = 0,
-                      py = 0;
-                    for (let l = 0; l < grids; l++) {
-                      const [lx, ly] = unit(l),
-                        index =
-                          indices[l] +
-                          (l === j ? stepJ : 0) +
-                          (l === k ? stepK : 0);
-                      px += index * lx;
-                      py += index * ly;
-                    }
-                    return [px, py];
-                  },
-                  corners = [
-                    corner(0, 0),
-                    corner(1, 0),
-                    corner(1, 1),
-                    corner(0, 1),
-                  ];
+        // Setup runs in its own function: inside the very large `pick` it would never be optimized.
+        const setup = (): (() => void) => {
+          const p =
+              kind === 'dodecagridfilled'
+                ? proceduralMaterialPresets.dodecagridfilled
+                : kind === 'heptagridfilled'
+                  ? proceduralMaterialPresets.heptagridfilled
+                  : kind === 'ammannfilled'
+                    ? proceduralMaterialPresets.ammannfilled
+                    : kind === 'penrosefilled'
+                      ? proceduralMaterialPresets.penrosefilled
+                      : kind === 'dodecagridtiling'
+                        ? proceduralMaterialPresets.dodecagridtiling
+                        : kind === 'heptagridtiling'
+                          ? proceduralMaterialPresets.heptagridtiling
+                          : kind === 'ammannbeenker'
+                            ? proceduralMaterialPresets.ammannbeenker
+                            : kind === 'penrosestar'
+                              ? proceduralMaterialPresets.penrosestar
+                              : proceduralMaterialPresets.penrosetiling,
+            grids = p.offsets.length,
+            grainField = cachedNoise(
+              p.grainCells,
+              p.grainCells,
+              seed ^ p.seedSalt,
+            ),
+            // The seed turns the whole patch by a whole number of 360 / rotationSteps degrees.
+            rotation =
+              (TAU *
+                Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.rotationSteps)) /
+              p.rotationSteps,
+            inverseRadius2 = 1 / (p.threadRadius * p.threadRadius),
+            reach = 0.5 + p.threadRadius,
+            unit = (index: number): [number, number] => [
+              Math.cos((TAU * index) / p.roots),
+              Math.sin((TAU * index) / p.roots),
+            ],
+            edges = new Map<string, [number, number, number, number]>(),
+            tiles: { corners: [number, number][]; tileClass: number }[] = [],
+            fillActive = p.fills.some((tone) => tone > 0),
+            inverseRim = 1 / p.fillRim;
+          // De Bruijn's multigrid construction of a rhombus tiling: the pentagrid (five
+          // grids, fifth roots of unity, offsets summing to 0) gives the Penrose tiling and
+          // four grids with the first four eighth roots of unity give the Ammann-Beenker
+          // tiling of squares and rhombi. Grid j is the set of lines x . e_j = integer +
+          // offsets[j], and every crossing of a line of grid j with one of grid k is one tile. Its four corners are sum_l K_l e_l, where
+          // K_j and K_k take the two integers beside the crossed lines and every other K_l
+          // is ceil(x . e_l - offsets[l]) at the crossing x. Edges shared by two rhombi are
+          // stored once, and only rhombi whose centre lies within patchRadius are kept.
+          for (let j = 0; j < grids; j++)
+            for (let k = j + 1; k < grids; k++)
+              for (let r = -p.gridRange; r <= p.gridRange; r++)
+                for (let s = -p.gridRange; s <= p.gridRange; s++) {
+                  const [jx, jy] = unit(j),
+                    [kx, ky] = unit(k),
+                    a = r + p.offsets[j],
+                    b = s + p.offsets[k],
+                    determinant = jx * ky - jy * kx,
+                    x = (a * ky - b * jy) / determinant,
+                    y = (jx * b - kx * a) / determinant,
+                    indices = Array.from({ length: grids }, (_, l) => {
+                      if (l === j) return r;
+                      if (l === k) return s;
+                      const [lx, ly] = unit(l);
+                      return Math.ceil(x * lx + y * ly - p.offsets[l]);
+                    }),
+                    corner = (
+                      stepJ: number,
+                      stepK: number,
+                    ): [number, number] => {
+                      let px = 0,
+                        py = 0;
+                      for (let l = 0; l < grids; l++) {
+                        const [lx, ly] = unit(l),
+                          index =
+                            indices[l] +
+                            (l === j ? stepJ : 0) +
+                            (l === k ? stepK : 0);
+                        px += index * lx;
+                        py += index * ly;
+                      }
+                      return [px, py];
+                    },
+                    corners = [
+                      corner(0, 0),
+                      corner(1, 0),
+                      corner(1, 1),
+                      corner(0, 1),
+                    ];
+                  if (
+                    hypot2(
+                      (corners[0][0] + corners[2][0]) / 2,
+                      (corners[0][1] + corners[2][1]) / 2,
+                    ) > p.patchRadius
+                  )
+                    continue;
+                  tiles.push({ corners, tileClass: k - j - 1 });
+                  for (let side = 0; side < 4; side++) {
+                    const from = corners[side],
+                      to = corners[(side + 1) % 4],
+                      keyFrom = `${Math.round(from[0] * 1000)},${Math.round(from[1] * 1000)}`,
+                      keyTo = `${Math.round(to[0] * 1000)},${Math.round(to[1] * 1000)}`;
+                    edges.set(
+                      keyFrom < keyTo
+                        ? `${keyFrom}|${keyTo}`
+                        : `${keyTo}|${keyFrom}`,
+                      [from[0], from[1], to[0], to[1]],
+                    );
+                  }
+                }
+          const segmentCount = edges.size,
+            middleX = new Float64Array(segmentCount),
+            middleY = new Float64Array(segmentCount),
+            halfX = new Float64Array(segmentCount),
+            halfY = new Float64Array(segmentCount),
+            cosine = Math.cos(rotation),
+            sine = Math.sin(rotation);
+          let slot = 0;
+          for (const [ax, ay, bx, by] of edges.values()) {
+            const rax = cosine * ax - sine * ay,
+              ray = sine * ax + cosine * ay,
+              rbx = cosine * bx - sine * by,
+              rby = sine * bx + cosine * by;
+            middleX[slot] = (rax + rbx) / 2;
+            middleY[slot] = (ray + rby) / 2;
+            halfX[slot] = (rbx - rax) / 2;
+            halfY[slot] = (rby - ray) / 2;
+            slot++;
+          }
+          // Every tile keeps its rotated corners, centre, orientation (+1 or -1 for the
+          // sign of its area) and the grid-pair class k - j - 1 that picks its fill tone.
+          const tileCorners = new Float64Array(tiles.length * 8),
+            tileCenterX = new Float64Array(tiles.length),
+            tileCenterY = new Float64Array(tiles.length),
+            tileOrient = new Float64Array(tiles.length),
+            tileClass = new Uint8Array(tiles.length);
+          tiles.forEach((tile, t) => {
+            tile.corners.forEach(([cx, cy], c) => {
+              tileCorners[t * 8 + 2 * c] = cosine * cx - sine * cy;
+              tileCorners[t * 8 + 2 * c + 1] = sine * cx + cosine * cy;
+            });
+            const o = t * 8;
+            tileCenterX[t] = (tileCorners[o] + tileCorners[o + 4]) / 2;
+            tileCenterY[t] = (tileCorners[o + 1] + tileCorners[o + 5]) / 2;
+            tileOrient[t] = Math.sign(
+              (tileCorners[o + 2] - tileCorners[o]) *
+                (tileCorners[o + 7] - tileCorners[o + 1]) -
+                (tileCorners[o + 3] - tileCorners[o + 1]) *
+                  (tileCorners[o + 6] - tileCorners[o]),
+            );
+            tileClass[t] = tile.tileClass;
+          });
+          return () => {
+            // Every edge is a thread: a compact-support quartic profile (1 - d^2 / r^2)^2 of
+            // the distance to its segment, exactly zero beyond threadRadius, summed over the
+            // edges (so the vertices where several edges meet are brighter) and squashed by
+            // 1 - exp(-gain * sum). The patch stays inside the tile, so the field is C1 and
+            // periodic.
+            const x = (fract(u) - 0.5) * p.period,
+              y = (fract(v) - 0.5) * p.period;
+            let sum = 0;
+            for (let i = 0; i < segmentCount; i++) {
+              const dx = x - middleX[i],
+                dy = y - middleY[i];
+              if (Math.abs(dx) > reach || Math.abs(dy) > reach) continue;
+              const along =
+                  2 *
+                    clamp(
+                      0.5 +
+                        (0.5 * (dx * halfX[i] + dy * halfY[i])) /
+                          (halfX[i] * halfX[i] + halfY[i] * halfY[i]),
+                    ) -
+                  1,
+                ex = dx - along * halfX[i],
+                ey = dy - along * halfY[i],
+                d2 = (ex * ex + ey * ey) * inverseRadius2;
+              if (d2 < 1) sum += (1 - d2) * (1 - d2);
+            }
+            // A tile with a fill tone is tinted by the product over its four edges of
+            // smooth(distance to the edge / fillRim): it is 0 on every edge (with zero slope)
+            // and 1 beyond fillRim from all of them, so the tints of neighbouring tiles never
+            // jump. A minimum of the four distances would crease along the bisector of the
+            // acute corners, where it is still below fillRim.
+            let fillTone = 0,
+              fillLift = 0;
+            if (fillActive)
+              for (let t = 0; t < tiles.length; t++) {
                 if (
-                  hypot2(
-                    (corners[0][0] + corners[2][0]) / 2,
-                    (corners[0][1] + corners[2][1]) / 2,
-                  ) > p.patchRadius
+                  Math.abs(x - tileCenterX[t]) > 1.2 ||
+                  Math.abs(y - tileCenterY[t]) > 1.2
                 )
                   continue;
-                tiles.push({ corners, tileClass: k - j - 1 });
-                for (let side = 0; side < 4; side++) {
-                  const from = corners[side],
-                    to = corners[(side + 1) % 4],
-                    keyFrom = `${Math.round(from[0] * 1000)},${Math.round(from[1] * 1000)}`,
-                    keyTo = `${Math.round(to[0] * 1000)},${Math.round(to[1] * 1000)}`;
-                  edges.set(
-                    keyFrom < keyTo
-                      ? `${keyFrom}|${keyTo}`
-                      : `${keyTo}|${keyFrom}`,
-                    [from[0], from[1], to[0], to[1]],
+                let weight = 1;
+                for (let side = 0; side < 4 && weight > 0; side++) {
+                  const from = t * 8 + 2 * side,
+                    to = t * 8 + 2 * ((side + 1) % 4);
+                  weight *= smooth(
+                    clamp(
+                      tileOrient[t] *
+                        ((tileCorners[to] - tileCorners[from]) *
+                          (y - tileCorners[from + 1]) -
+                          (tileCorners[to + 1] - tileCorners[from + 1]) *
+                            (x - tileCorners[from])) *
+                        inverseRim,
+                    ),
                   );
                 }
+                if (weight <= 0) continue;
+                fillTone += p.fills[tileClass[t]] * weight;
+                fillLift += weight;
               }
-        const segmentCount = edges.size,
-          middleX = new Float64Array(segmentCount),
-          middleY = new Float64Array(segmentCount),
-          halfX = new Float64Array(segmentCount),
-          halfY = new Float64Array(segmentCount),
-          cosine = Math.cos(rotation),
-          sine = Math.sin(rotation);
-        let slot = 0;
-        for (const [ax, ay, bx, by] of edges.values()) {
-          const rax = cosine * ax - sine * ay,
-            ray = sine * ax + cosine * ay,
-            rbx = cosine * bx - sine * by,
-            rby = sine * bx + cosine * by;
-          middleX[slot] = (rax + rbx) / 2;
-          middleY[slot] = (ray + rby) / 2;
-          halfX[slot] = (rbx - rax) / 2;
-          halfY[slot] = (rby - ray) / 2;
-          slot++;
-        }
-        // Every tile keeps its rotated corners, centre, orientation (+1 or -1 for the
-        // sign of its area) and the grid-pair class k - j - 1 that picks its fill tone.
-        const tileCorners = new Float64Array(tiles.length * 8),
-          tileCenterX = new Float64Array(tiles.length),
-          tileCenterY = new Float64Array(tiles.length),
-          tileOrient = new Float64Array(tiles.length),
-          tileClass = new Uint8Array(tiles.length);
-        tiles.forEach((tile, t) => {
-          tile.corners.forEach(([cx, cy], c) => {
-            tileCorners[t * 8 + 2 * c] = cosine * cx - sine * cy;
-            tileCorners[t * 8 + 2 * c + 1] = sine * cx + cosine * cy;
-          });
-          const o = t * 8;
-          tileCenterX[t] = (tileCorners[o] + tileCorners[o + 4]) / 2;
-          tileCenterY[t] = (tileCorners[o + 1] + tileCorners[o + 5]) / 2;
-          tileOrient[t] = Math.sign(
-            (tileCorners[o + 2] - tileCorners[o]) *
-              (tileCorners[o + 7] - tileCorners[o + 1]) -
-              (tileCorners[o + 3] - tileCorners[o + 1]) *
-                (tileCorners[o + 6] - tileCorners[o]),
-          );
-          tileClass[t] = tile.tileClass;
-        });
-        return () => {
-          // Every edge is a thread: a compact-support quartic profile (1 - d^2 / r^2)^2 of
-          // the distance to its segment, exactly zero beyond threadRadius, summed over the
-          // edges (so the vertices where several edges meet are brighter) and squashed by
-          // 1 - exp(-gain * sum). The patch stays inside the tile, so the field is C1 and
-          // periodic.
-          const x = (fract(u) - 0.5) * p.period,
-            y = (fract(v) - 0.5) * p.period;
-          let sum = 0;
-          for (let i = 0; i < segmentCount; i++) {
-            const dx = x - middleX[i],
-              dy = y - middleY[i];
-            if (Math.abs(dx) > reach || Math.abs(dy) > reach) continue;
-            const along =
-                2 *
-                  clamp(
-                    0.5 +
-                      (0.5 * (dx * halfX[i] + dy * halfY[i])) /
-                        (halfX[i] * halfX[i] + halfY[i] * halfY[i]),
-                  ) -
-                1,
-              ex = dx - along * halfX[i],
-              ey = dy - along * halfY[i],
-              d2 = (ex * ex + ey * ey) * inverseRadius2;
-            if (d2 < 1) sum += (1 - d2) * (1 - d2);
-          }
-          // A tile with a fill tone is tinted by the product over its four edges of
-          // smooth(distance to the edge / fillRim): it is 0 on every edge (with zero slope)
-          // and 1 beyond fillRim from all of them, so the tints of neighbouring tiles never
-          // jump. A minimum of the four distances would crease along the bisector of the
-          // acute corners, where it is still below fillRim.
-          let fillTone = 0,
-            fillLift = 0;
-          if (fillActive)
-            for (let t = 0; t < tiles.length; t++) {
-              if (
-                Math.abs(x - tileCenterX[t]) > 1.2 ||
-                Math.abs(y - tileCenterY[t]) > 1.2
-              )
-                continue;
-              let weight = 1;
-              for (let side = 0; side < 4 && weight > 0; side++) {
-                const from = t * 8 + 2 * side,
-                  to = t * 8 + 2 * ((side + 1) % 4);
-                weight *= smooth(
-                  clamp(
-                    tileOrient[t] *
-                      ((tileCorners[to] - tileCorners[from]) *
-                        (y - tileCorners[from + 1]) -
-                        (tileCorners[to + 1] - tileCorners[from + 1]) *
-                          (x - tileCorners[from])) *
-                      inverseRim,
-                  ),
-                );
-              }
-              if (weight <= 0) continue;
-              fillTone += p.fills[tileClass[t]] * weight;
-              fillLift += weight;
-            }
-          const thread = 1 - Math.exp(-p.gain * sum),
-            grain = grainField(u, v);
-          color =
-            p.baseTone +
-            p.threadTone * thread +
-            fillTone +
-            p.grainTone * (grain - 0.5);
-          height =
-            p.threadHeight * thread +
-            p.fillHeight * fillLift +
-            p.grainHeight * grain;
-          roughness += p.threadRoughness * thread;
-          return;
+            const thread = 1 - Math.exp(-p.gain * sum),
+              grain = grainField(u, v);
+            color =
+              p.baseTone +
+              p.threadTone * thread +
+              fillTone +
+              p.grainTone * (grain - 0.5);
+            height =
+              p.threadHeight * thread +
+              p.fillHeight * fillLift +
+              p.grainHeight * grain;
+            roughness += p.threadRoughness * thread;
+            return;
+          };
         };
+        return setup();
       }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
