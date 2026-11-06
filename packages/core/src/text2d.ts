@@ -184,6 +184,22 @@ export function snapshotTextStyle(options: Text2DOptions): Text2DStyle {
   return Object.freeze(style);
 }
 
+function sameTextStyle(a: Text2DStyle, b: Text2DStyle): boolean {
+  for (const key in a) {
+    if (key === 'stroke' || key === 'shadow') continue;
+    const field = key as keyof Text2DStyle;
+    if (a[field] !== b[field]) return false;
+  }
+  return (
+    a.stroke?.color === b.stroke?.color &&
+    a.stroke?.width === b.stroke?.width &&
+    a.shadow?.color === b.shadow?.color &&
+    a.shadow?.blur === b.shadow?.blur &&
+    a.shadow?.offsetX === b.shadow?.offsetX &&
+    a.shadow?.offsetY === b.shadow?.offsetY
+  );
+}
+
 /** Rasterized browser-shaped full lines, using the ordinary Sprite pipeline. */
 export class Text2D extends Sprite {
   private revision = 0;
@@ -268,9 +284,18 @@ export class Text2D extends Sprite {
     const revision = ++this.revision;
     const text = this.requestedText;
     const style = this.requestedStyle;
-    // Returning to the displayed state supersedes any pending raster without redrawing.
-    if (!force && text === this.content && style === this.displayedStyle)
+    // Equivalent style snapshots also reuse the raster: mounting UI preferences otherwise
+    // redraws every label and uploads it again. Explicit font refresh still bypasses this.
+    if (
+      !force &&
+      text === this.content &&
+      (style === this.displayedStyle ||
+        (this.texture === this.ownedTexture &&
+          sameTextStyle(style, this.displayedStyle)))
+    ) {
+      this.requestedStyle = this.displayedStyle;
       return;
+    }
     let raster: RasterizedCanvas;
     try {
       raster = await Text2D.rasterizeCanvas(text, style);

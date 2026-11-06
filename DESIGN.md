@@ -4751,6 +4751,7 @@ Height map 走 optical texture array 第 6 層（`opticalSample(..., 5).r`），
 
 - Text2D 繼承 Sprite，Canvas2D 只負責 rasterization，輸出 Texture 仍走正式 renderer；不用 DOM overlay 假冒文字繪製。Style 固定、內容非同步更新，latest-request-wins 並釋放過期結果；自有貼圖與外部借用貼圖分開管理，字型需使用者預先載入。尺寸／像素在完整 canvas 配置前檢查。
 - 上述固定 Text2D style／手動 font readiness 是 v1.1 當時基線；P27 現有 transactional styled text layout與typed FontFace／BMFont assets，P41再批准UI layout／widgets／focus，未驗部分依PLAN記pending。
+- 目前 Text2D 對正規化樣式做值比較（stroke／shadow 逐欄比較），相同內容／樣式不再因 snapshot identity 不同而重繪；UI 首次掛載套用未變偏好不會再次上傳文字貼圖。revision 仍先遞增以淘汰 pending 舊結果，外部替換貼圖的 style 更新仍重新發佈自有 raster；明確 `refreshFonts()` 不受相等判斷影響。
 - SceneTimers 使用同一 Game Clock 的模擬 delta，在 subclass update 前推進；候選 Scene／paused／hidden 時不推進。動態 Set 維持註冊順序，tick 不複製整份 timer 列表；新工作延至下一 tick，repeat 每 tick 至多一次、跳過漏掉的週期。Handle 取消清除 callback 參照，Scene teardown 先銷毀 timers。同步 callback exception 走既有 fatal frame error。
 - Pong 的 Text2D／timers 整合不新增 renderer、不加 runtime dependency，不實作物理、文字動畫或編輯器；3D 動畫另屬 P10。既有 v1.0 tag／release 不改動。
 

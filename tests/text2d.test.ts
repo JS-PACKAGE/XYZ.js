@@ -110,6 +110,62 @@ it('returning to displayed text cancels a pending change without redrawing', asy
   label.destroy();
 });
 
+it('reuses an equivalent style raster but still explicitly refreshes fonts', async () => {
+  const label = await Text2D.create('retained', {
+    shadow: { color: '#000000' },
+  });
+  const original = label.texture as CanvasTexture2D;
+  await label.setStyle({
+    shadow: { color: '#000000', blur: 0, offsetX: 0, offsetY: 0 },
+  });
+  expect(original.version).toBe(0);
+  expect(drawn(label)).toEqual(['retained']);
+  await label.refreshFonts();
+  expect(original.version).toBe(1);
+  await label.setStyle({ shadow: { color: '#000000', offsetX: 3 } });
+  expect(label.style.shadow?.offsetX).toBe(3);
+  expect(original.version).toBe(2);
+  label.destroy();
+});
+
+it('returning to displayed style supersedes a pending style change', async () => {
+  const label = await Text2D.create('old', { color: '#ffffff' });
+  const original = label.texture as CanvasTexture2D;
+  const pending = holdFonts();
+  const change = label.setStyle({ color: '#ff0000' });
+  const restore = label.setStyle({ color: '#ffffff' });
+  for (const resolve of pending) resolve();
+  await Promise.all([change, restore]);
+  expect(label.style.color).toBe('#ffffff');
+  expect(original.version).toBe(0);
+  expect(drawn(label)).toEqual(['old']);
+  label.destroy();
+});
+
+it('an equal style still publishes pending text and replaces a borrowed texture', async () => {
+  const label = await Text2D.create('old');
+  const original = label.texture as CanvasTexture2D;
+  const pending = holdFonts();
+  const text = label.setText('latest');
+  const style = label.setStyle({});
+  pending[1]!();
+  await style;
+  pending[0]!();
+  await text;
+  expect(label.text).toBe('latest');
+  expect(drawn(label)).toEqual(['latest']);
+  expect(original.version).toBe(1);
+  fontLoad = async () => [];
+  const shared = new Texture(bitmap());
+  label.view = undefined;
+  label.texture = shared;
+  await label.setStyle({});
+  expect(label.texture).toBe(original);
+  expect(shared.destroyed).toBe(false);
+  label.destroy();
+  shared.destroy();
+});
+
 it('keeps the displayed texture after a failed update', async () => {
   const label = await Text2D.create('retained');
   const original = label.texture as CanvasTexture2D;
