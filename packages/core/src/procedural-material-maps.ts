@@ -121,8 +121,185 @@ function cachedNoise(nx: number, ny: number, seed: number) {
  * 3 x 3 perturbation per seedCells x seedCells jittered cell (so no seed can start a
  * long band) and run for a fixed number of steps. Only additions, subtractions
  * and multiplications are used, so the result is bit-identical across engines. The
- * inhibitor concentration is returned normalised to [0, 1].
+ * inhibitor concentration is returned normalised to [0, 1]. A run can be advanced in
+ * parts (see `generateProceduralMapsSliced`); the result does not depend on how.
  */
+function grayScottKey(
+  size: number,
+  seedCells: number,
+  feed: number,
+  kill: number,
+  steps: number,
+  seed: number,
+): string {
+  return `${size}/${seedCells}/${feed}/${kill}/${steps}/${seed}`;
+}
+
+class GrayScottRun {
+  private u: Float64Array;
+  private v: Float64Array;
+  private nextU: Float64Array;
+  private nextV: Float64Array;
+  private step = 0;
+  constructor(
+    private readonly size: number,
+    seedCells: number,
+    private readonly feed: number,
+    private readonly kill: number,
+    private readonly steps: number,
+    seed: number,
+  ) {
+    const count = size * size;
+    const u = new Float64Array(count).fill(1),
+      v = new Float64Array(count);
+    for (let cy = 0; cy < seedCells; cy++)
+      for (let cx = 0; cx < seedCells; cx++) {
+        const px = Math.floor(((cx + hash(cx, cy, seed)) * size) / seedCells),
+          py = Math.floor(
+            ((cy + hash(cx, cy, seed ^ 0x9e37)) * size) / seedCells,
+          );
+        for (let oy = 0; oy < 3; oy++)
+          for (let ox = 0; ox < 3; ox++) {
+            const i = ((py + oy) % size) * size + ((px + ox) % size);
+            u[i] = 0.5;
+            v[i] = 0.5;
+          }
+      }
+    this.u = u;
+    this.v = v;
+    this.nextU = new Float64Array(count);
+    this.nextV = new Float64Array(count);
+  }
+  /** Runs up to `limit` more steps; true once all have run. */
+  advance(limit: number): boolean {
+    const size = this.size,
+      feed = this.feed,
+      diffuseU = 0.2097,
+      diffuseV = 0.105,
+      feedKill = this.feed + this.kill,
+      stop = Math.min(this.steps, this.step + limit);
+    let u = this.u,
+      v = this.v,
+      nextU = this.nextU,
+      nextV = this.nextV;
+    for (; this.step < stop; this.step++) {
+      for (let y = 0; y < size; y++) {
+        const above = ((y + size - 1) % size) * size,
+          row = y * size,
+          below = ((y + 1) % size) * size;
+        // Carry horizontal neighbours forward without rereading the same cells.
+        let leftU = u[row + size - 1],
+          leftV = v[row + size - 1],
+          cu = u[row],
+          cv = v[row];
+        for (let x = 0; x < size; x++) {
+          const right = row + (x + 1 === size ? 0 : x + 1),
+            rightU = u[right],
+            rightV = v[right],
+            i = row + x,
+            reaction = cu * cv * cv;
+          nextU[i] =
+            cu +
+            diffuseU * (u[above + x] + u[below + x] + leftU + rightU - 4 * cu) -
+            reaction +
+            feed * (1 - cu);
+          nextV[i] =
+            cv +
+            diffuseV * (v[above + x] + v[below + x] + leftV + rightV - 4 * cv) +
+            reaction -
+            feedKill * cv;
+          leftU = cu;
+          leftV = cv;
+          cu = rightU;
+          cv = rightV;
+        }
+      }
+      const swapU = u,
+        swapV = v;
+      u = nextU;
+      v = nextV;
+      nextU = swapU;
+      nextV = swapV;
+    }
+    this.u = u;
+    this.v = v;
+    this.nextU = nextU;
+    this.nextV = nextV;
+    return this.step === this.steps;
+  }
+  /** The normalised inhibitor field; call once, after `advance` returned true. */
+  finish(): Float64Array {
+    const v = this.v,
+      count = v.length;
+    let low = Infinity,
+      high = -Infinity;
+    for (let i = 0; i < count; i++) {
+      low = Math.min(low, v[i]);
+      high = Math.max(high, v[i]);
+    }
+    const span = high - low || 1;
+    for (let i = 0; i < count; i++) v[i] = (v[i] - low) / span;
+    return v;
+  }
+}
+
+/** Finished fields by run key; a field is only read by lattice lookups, so it is shared. */
+const grayScottFields = new Map<string, Float64Array>();
+const grayScottFieldLimit = 8;
+function keepGrayScott(key: string, field: Float64Array): Float64Array {
+  if (grayScottFields.size >= grayScottFieldLimit)
+    grayScottFields.delete(grayScottFields.keys().next().value!);
+  grayScottFields.set(key, field);
+  return field;
+}
+
+/** Presets whose setup calls `grayScott` with their gridSize, seedCells, feed, kill, steps and seed ^ seedSalt. */
+const grayScottKinds = [
+  'cheetahfur',
+  'turingmaze',
+  'vermiculation',
+  'petricolonies',
+  'hestain',
+] as const;
+
+/**
+ * Runs a Gray-Scott preset's field in slices before its (indivisible) sampler setup, which
+ * then finds it kept. Returns the start time of the slice in progress.
+ */
+async function prepareGrayScott(
+  kind: ProceduralMaterialKind,
+  seed: number,
+  sliceMilliseconds: number,
+  sliceStart: number,
+): Promise<number> {
+  if (!(grayScottKinds as readonly string[]).includes(kind)) return sliceStart;
+  const p = proceduralMaterialPresets[kind as (typeof grayScottKinds)[number]],
+    key = grayScottKey(
+      p.gridSize,
+      p.seedCells,
+      p.feed,
+      p.kill,
+      p.steps,
+      seed ^ p.seedSalt,
+    );
+  if (grayScottFields.has(key)) return sliceStart;
+  const run = new GrayScottRun(
+    p.gridSize,
+    p.seedCells,
+    p.feed,
+    p.kill,
+    p.steps,
+    seed ^ p.seedSalt,
+  );
+  while (!run.advance(16))
+    if (performance.now() - sliceStart >= sliceMilliseconds) {
+      await yieldToHost();
+      sliceStart = performance.now();
+    }
+  keepGrayScott(key, run.finish());
+  return sliceStart;
+}
+
 function grayScott(
   size: number,
   seedCells: number,
@@ -131,75 +308,12 @@ function grayScott(
   steps: number,
   seed: number,
 ): Float64Array {
-  const count = size * size,
-    diffuseU = 0.2097,
-    diffuseV = 0.105;
-  let u = new Float64Array(count).fill(1),
-    v = new Float64Array(count),
-    nextU = new Float64Array(count),
-    nextV = new Float64Array(count);
-  for (let cy = 0; cy < seedCells; cy++)
-    for (let cx = 0; cx < seedCells; cx++) {
-      const px = Math.floor(((cx + hash(cx, cy, seed)) * size) / seedCells),
-        py = Math.floor(
-          ((cy + hash(cx, cy, seed ^ 0x9e37)) * size) / seedCells,
-        );
-      for (let oy = 0; oy < 3; oy++)
-        for (let ox = 0; ox < 3; ox++) {
-          const i = ((py + oy) % size) * size + ((px + ox) % size);
-          u[i] = 0.5;
-          v[i] = 0.5;
-        }
-    }
-  const feedKill = feed + kill;
-  for (let step = 0; step < steps; step++) {
-    for (let y = 0; y < size; y++) {
-      const above = ((y + size - 1) % size) * size,
-        row = y * size,
-        below = ((y + 1) % size) * size;
-      // Carry horizontal neighbours forward without rereading the same cells.
-      let leftU = u[row + size - 1],
-        leftV = v[row + size - 1],
-        cu = u[row],
-        cv = v[row];
-      for (let x = 0; x < size; x++) {
-        const right = row + (x + 1 === size ? 0 : x + 1),
-          rightU = u[right],
-          rightV = v[right],
-          i = row + x,
-          reaction = cu * cv * cv;
-        nextU[i] =
-          cu +
-          diffuseU * (u[above + x] + u[below + x] + leftU + rightU - 4 * cu) -
-          reaction +
-          feed * (1 - cu);
-        nextV[i] =
-          cv +
-          diffuseV * (v[above + x] + v[below + x] + leftV + rightV - 4 * cv) +
-          reaction -
-          feedKill * cv;
-        leftU = cu;
-        leftV = cv;
-        cu = rightU;
-        cv = rightV;
-      }
-    }
-    const swapU = u,
-      swapV = v;
-    u = nextU;
-    v = nextV;
-    nextU = swapU;
-    nextV = swapV;
-  }
-  let low = Infinity,
-    high = -Infinity;
-  for (let i = 0; i < count; i++) {
-    low = Math.min(low, v[i]);
-    high = Math.max(high, v[i]);
-  }
-  const span = high - low || 1;
-  for (let i = 0; i < count; i++) v[i] = (v[i] - low) / span;
-  return v;
+  const key = grayScottKey(size, seedCells, feed, kill, steps, seed);
+  const kept = grayScottFields.get(key);
+  if (kept) return kept;
+  const run = new GrayScottRun(size, seedCells, feed, kill, steps, seed);
+  run.advance(steps);
+  return keepGrayScott(key, run.finish());
 }
 
 export interface SurfaceSample {
@@ -102097,13 +102211,18 @@ export async function generateProceduralMapsSliced(
   controls: ProceduralMapControls,
   sliceMilliseconds: number,
 ): Promise<ProceduralMaps> {
-  let sliceStart = performance.now();
+  const sliceStart = await prepareGrayScott(
+    kind,
+    seed,
+    sliceMilliseconds,
+    performance.now(),
+  );
   const build = beginProceduralMaps(kind, size, seed, controls);
-  for (let row = 0; row < size; row++) {
+  for (let row = 0, start = sliceStart; row < size; row++) {
     build.fill(row, row + 1);
-    if (row + 1 < size && performance.now() - sliceStart >= sliceMilliseconds) {
+    if (row + 1 < size && performance.now() - start >= sliceMilliseconds) {
       await yieldToHost();
-      sliceStart = performance.now();
+      start = performance.now();
     }
   }
   return build.finish();
