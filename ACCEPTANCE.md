@@ -17555,3 +17555,45 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Chromium／Firefox／WebKit 的額外原生 smoke 均通過：第一幀前 focus、新掛載控制項、modal entry／逆向 wrap／拒絕越界／restore、scroll reveal 後 focus、移除再註冊的 DOM identity 更換、disabled／hidden 拒絕、原生文字輸入及 Game destroy 清理。這是桌面自動化，不是實體 Safari／裝置或全部無障礙技術認證。
 - 既有 UI／scroll／text-input 三個 test files 共 17 tests、變更程式 ESLint、TypeScript build 及完整 ESM／vendor／CJS build 通過。編譯產物的 Chromium 三 backend regression 與 platform gate 均 PASS；既有 WebXR／device-loss／Canvas2D native-3D SKIP 及 OPM import 分析警告保留。未重跑全套單元測試，未新增只檢查呼叫次數的永久測試。
 - 另以正式 `authoring-lab` Canvas2D 範例目視 Settings modal 的黃色焦點框，操作 Tab／逆向 Tab、循環與 Close settings 後返回 Settings；無 page error，驗證後關閉分頁。初次手動 smoke 誤用 regression fixture 的按鈕名稱，修正為實際介面的 Settings／Close settings 後完成；未將該 timeout 當成產品失敗或通過。
+
+### Canvas2D 幀快取：命中配置與長存 iterator 的記憶體保留
+
+- 以 `ad3895441` 的 `CanvasSpriteSource` 為 before，同一 Vite module graph 僅替換該 module。原先命中會 delete／set Map entry，且持有一個只在淘汰時前進的 iterator；本次改用 snapshot 自身的雙向連結維護 LRU，不在命中時變更 Map。移除長存 iterator，保留相同淘汰順序、canvas 重用、hash collision 處理、256 張／4 Mi px 上限與 unload／version／destroy 清理，沒有新增公開 API 或依賴。
+- Chromium 153.0.8010.12／macOS arm64 的配置診斷：4096 個靜態粒子、4 色、4 層帶 tint／opacity 的 Group2D、16×16 素材、1280×720、DPR 1；120 暖機＋180 量測幀，手動 beginFrame／render／endFrame。CDP 16 KiB heap sampling 包含已回收物件時，總配置估計由 24.256 降至 4.061 MiB，其中 native Map.set 由 18.418 MiB 降至沒有取樣到配置；這不是精確配置計數、GPU 時間或 FPS。
+- 另在暖機後與量測結束強制 GC，並以不保留已回收物件的 sampling 核對。只把 baseline 的長存 iterator 改回淘汰時即取即用、保留原本 hit delete／set 的控制組，也消除了保留量，確認問題不是只來自未及回收的短命物件。下列 heap 增量是該診斷區間的 JS used heap，sampling 數值為估計；保留少量編譯／量測資料，不宣稱零配置或零成長。
+
+| 實作                         | 強制 GC 後 JS heap 增量 MiB | Map.set 保留配置取樣 MiB |
+| ---------------------------- | --------------------------: | -----------------------: |
+| 原長存 iterator＋hit 重排    |                      19.830 |                   18.747 |
+| 僅移除長存 iterator 的控制組 |                       0.338 |                    0.000 |
+| snapshot 連結式 LRU          |                       0.339 |                    0.000 |
+
+- 先後開啟獨立分頁的三瀏覽器 18 組 renderer A/B，及延長至 360 暖機＋360 量測幀的六組 Chromium A/B，都保留相同像素，但 CPU 有雙峰與非單調漂移；不以它們證明穩定 CPU 改善，也不臆測是 JIT 或 OS 排程造成。手動 renderer 探針未走 Game 的 presentation cache，因此不把其中的 ancestor matrix 重算當成正常 Game loop 的新瓶頸。
+- 改在同頁兩個可見 iframe 執行真正 `Game.start()` 排出的 frame callback，共用父頁的原生 RAF timestamp，逐幀交換 before／after 執行順序、逐輪交換 iframe 建立順序。每輪 240 暖機＋240 量測幀，使用正式 `Game.frameWork.totalMs`；hits 為 4096 粒子／4 色，churn 為 512 粒子／512 色以超過 frame cache 容量。兩者均保留四層父節點、1280×720／DPR 1。以下是 CPU frame work，不是 GPU completion；這個探針的 RAF 同時負擔兩個 Game，不能當成單一遊戲 FPS。
+- Chromium 153.0.8010.12、Firefox 155.0、WebKit 26.6 各三輪、兩種工作量，共 18 組，穩態與改變 layer tint／opacity 後的原始 RGBA SHA256 均逐組完全一致，且改變外觀確實改變 hash。全部維持預期 active count，Game／texture destroy 無 page error；另目視同頁兩份粒子畫面。
+
+| Browser／workload／round | Mean 前 ms | Mean 後 ms | p95 前 ms | p95 後 ms |
+| ------------------------ | ---------: | ---------: | --------: | --------: |
+| chromium／hits／1        |      3.807 |      3.801 |     4.800 |     4.200 |
+| chromium／hits／2        |      3.785 |      3.822 |     4.200 |     4.400 |
+| chromium／hits／3        |      3.593 |      3.585 |     3.800 |     3.800 |
+| chromium／churn／1       |      1.909 |      1.889 |     2.100 |     2.100 |
+| chromium／churn／2       |      1.879 |      1.872 |     2.100 |     2.100 |
+| chromium／churn／3       |      2.391 |      2.380 |     2.700 |     2.700 |
+| firefox／hits／1         |      5.554 |      4.750 |     9.000 |     8.000 |
+| firefox／hits／2         |      5.275 |      5.213 |     7.000 |     7.000 |
+| firefox／hits／3         |      3.729 |      3.650 |     5.000 |     4.000 |
+| firefox／churn／1        |      2.658 |      2.567 |     4.000 |     4.000 |
+| firefox／churn／2        |      2.608 |      2.742 |     4.000 |     4.000 |
+| firefox／churn／3        |      2.663 |      2.617 |     4.000 |     3.000 |
+| webkit／hits／1          |      2.033 |      1.887 |     3.000 |     2.000 |
+| webkit／hits／2          |      2.042 |      1.962 |     3.000 |     2.000 |
+| webkit／hits／3          |      2.008 |      1.950 |     2.000 |     2.000 |
+| webkit／churn／1         |      1.288 |      1.354 |     2.000 |     2.000 |
+| webkit／churn／2         |      1.321 |      1.337 |     2.000 |     2.000 |
+| webkit／churn／3         |      1.312 |      1.308 |     2.000 |     2.000 |
+
+- CPU 大致持平或小幅改善，churn 仍有小幅正負波動，沒有普遍加速或 FPS 提升的宣稱。Firefox hits 第一輪 before 出現 155 ms、after 最大 15 ms，但沒有該尖峰的因果 trace，不能據此宣稱先前物理堆疊的 100–200 ms 停頓已修復。主要可重現收益是避免 Map 命中配置與長存 iterator 保留舊儲存。
+- 在既有快取測試中補上跨 source 卸載同時移除最舊／中間／最新 snapshot，以及像素預算一次淘汰多筆的邊界；驗證存活項目順序、重用 canvas 的實際 tint bytes、被移除 canvas 的釋放與 destroy。相關四檔共 30 tests 通過，變更程式 ESLint、TypeScript typecheck、完整 ESM／vendor／CJS build 通過；未重跑全套單元測試。
+- 編譯產物的 Chromium Canvas2D／WebGL2／WebGPU regression 與 platform gate 均 PASS。既有實體 WebXR、WebGPU 公開 device-loss 注入、Canvas2D GPU loss／native 3D／compressed texture 等 SKIP 與 OPM dynamic-import 分析警告如實保留。
+- 實際 Canvas2D showcase 在靜音瀏覽器中目視 Sprite／Primitive，完成首次 unlock、music／SFX、pause／resume、切至 Scene B 停止 nonpersistent music；無 page error，驗證後關閉分頁。不以靜音自動化宣稱實體音訊品質或 Safari／裝置全面認證。

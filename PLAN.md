@@ -29,6 +29,8 @@
 
 UI 的等值 Text2D style 更新沿用 raster；Canvas2D 對小型 tint source 使用有界合併讀回，同尺寸 CPU tint 重繪重用單張有界 ImageData；WebGL2 對一般 Sprite 使用有界上傳與批次配置錯誤檢查，避免逐張 GPU 同步。保留像素、版本更新、失敗清理、卸載與快取上限，不把這些局部改善視為全部掛載卡頓已消除。
 
+Canvas2D frame snapshot 的 LRU 改由既有 snapshot 的前後連結維護，命中不再以 Map delete／set 重排，淘汰直接取最舊節點。保留原有淘汰順序、像素／張數上限與 unload／版本更新／destroy 清理；不擴大 API 或加入依賴。
+
 UI 焦點切換沿用 `synchronizeSemantics()` 的即時更新，移除其前方重複的全場景 accessibility 遍歷；不延後原生 focus、不略過新掛載控制項、modal 或 scroll reveal。
 
 ## 本輪批准追加：可重用程序式 PBR 與 gallery

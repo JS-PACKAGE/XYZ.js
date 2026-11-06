@@ -23,6 +23,9 @@ interface FrameSnapshot {
   readonly canvas: HTMLCanvasElement;
   readonly source: Texture2DSource;
   readonly key: Float64Array;
+  readonly hash: number;
+  previous: FrameSnapshot | undefined;
+  next: FrameSnapshot | undefined;
   pixels: number;
 }
 
@@ -52,9 +55,10 @@ export class CanvasSpriteSource {
    * paint identical pixels, so a snapshot can be drawn again. A hash collision is a miss.
    */
   private readonly frames = new Map<number, FrameSnapshot>();
-  // Consume only entries we immediately evict; the cursor keeps pointing at the LRU frame.
-  // Reuse it rather than leaving a live iterator per cache miss for GC to collect.
-  private readonly frameEviction = this.frames.entries();
+  // Map delete/set churn allocates; a long-lived iterator can retain obsolete
+  // Map storage until eviction advances it. Keep hit recency on the snapshots.
+  private oldestFrame: FrameSnapshot | undefined;
+  private newestFrame: FrameSnapshot | undefined;
   private framePixels = 0;
   private readonly frameKey = new Float64Array(FRAME_KEY_LENGTH);
   private readonly frameWords = new Int32Array(this.frameKey.buffer);
@@ -285,20 +289,20 @@ export class CanvasSpriteSource {
       hash = (Math.imul(hash, 0x01000193) ^ words[i]!) | 0;
     const hit = this.frames.get(hash);
     if (hit && sameKey(hit.key, k)) {
-      // Map order is the recency order: the first entry is the least recently drawn.
-      this.frames.delete(hash);
-      this.frames.set(hash, hit);
+      if (hit !== this.newestFrame) {
+        this.unlinkFrame(hit);
+        this.appendFrame(hit);
+      }
       return hit.canvas;
     }
     const pixels = width * height;
     let canvas: HTMLCanvasElement | undefined;
-    if (hit) canvas = this.dropFrame(hash, hit);
+    if (hit) canvas = this.dropFrame(hit);
     while (
       this.frames.size >= rendering2dLimits.canvasFrameSnapshots ||
       this.framePixels + pixels > rendering2dLimits.canvasFrameSnapshotPixels
     ) {
-      const [oldest, snapshot] = this.frameEviction.next().value!;
-      const evicted = this.dropFrame(oldest, snapshot);
+      const evicted = this.dropFrame(this.oldestFrame!);
       if (canvas) evicted.width = evicted.height = 1;
       else canvas = evicted;
     }
@@ -314,12 +318,17 @@ export class CanvasSpriteSource {
       sourceHeight,
       field ? undefined : source,
     );
-    this.frames.set(hash, {
+    const snapshot: FrameSnapshot = {
       canvas,
       source,
       key: k.slice(),
+      hash,
+      previous: undefined,
+      next: undefined,
       pixels,
-    });
+    };
+    this.frames.set(hash, snapshot);
+    this.appendFrame(snapshot);
     this.framePixels += pixels;
     return canvas;
   }
@@ -458,15 +467,32 @@ export class CanvasSpriteSource {
     cache.set(source, { version: source.version, pixels });
     this.sourcePixelTotal += size;
   }
-  private dropFrame(hash: number, snapshot: FrameSnapshot): HTMLCanvasElement {
-    this.frames.delete(hash);
+  private appendFrame(snapshot: FrameSnapshot): void {
+    snapshot.previous = this.newestFrame;
+    snapshot.next = undefined;
+    if (this.newestFrame) this.newestFrame.next = snapshot;
+    else this.oldestFrame = snapshot;
+    this.newestFrame = snapshot;
+  }
+  private unlinkFrame(snapshot: FrameSnapshot): void {
+    const previous = snapshot.previous,
+      next = snapshot.next;
+    if (previous) previous.next = next;
+    else this.oldestFrame = next;
+    if (next) next.previous = previous;
+    else this.newestFrame = previous;
+    snapshot.previous = snapshot.next = undefined;
+  }
+  private dropFrame(snapshot: FrameSnapshot): HTMLCanvasElement {
+    this.frames.delete(snapshot.hash);
+    this.unlinkFrame(snapshot);
     this.framePixels -= snapshot.pixels;
     return snapshot.canvas;
   }
   private dropFrames(source?: Texture2DSource): void {
-    for (const [hash, snapshot] of this.frames)
+    for (const snapshot of this.frames.values())
       if (!source || snapshot.source === source) {
-        const canvas = this.dropFrame(hash, snapshot);
+        const canvas = this.dropFrame(snapshot);
         canvas.width = canvas.height = 1;
       }
   }

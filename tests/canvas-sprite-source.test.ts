@@ -168,12 +168,91 @@ describe('Canvas2D painted frame snapshots', () => {
       expect(canvases.length - previousCanvases).toBeLessThanOrEqual(
         rendering2dLimits.canvasFrameSnapshots + 1,
       );
-      // An emptied cache must not leave its eviction cursor exhausted.
       if (cycle === 0) source.unload(texture);
       if (cycle === 1)
         texture.update({ width: 8, height: 8 } as HTMLCanvasElement);
     }
     source.destroy();
+    texture.destroy();
+  });
+
+  it('keeps retained frames ordered when unload removes the oldest, middle and newest frames', () => {
+    const a = new CanvasTexture2D({ width: 8, height: 8 } as HTMLCanvasElement),
+      b = new CanvasTexture2D({ width: 8, height: 8 } as HTMLCanvasElement);
+    const source = sprites(),
+      frameA = quad(a, 0, 4),
+      frameB = quad(b, 0, 4),
+      capacity = rendering2dLimits.canvasFrameSnapshots,
+      middle = Math.floor(capacity / 2);
+    const tints = Array.from({ length: capacity + 3 }, (_, i) => [
+      1,
+      i / (capacity + 3),
+      1,
+      1,
+    ]);
+    const removed = new Set([0, middle, capacity - 1]);
+    const frames = tints
+      .slice(0, capacity)
+      .map(
+        (tint, i) =>
+          source.image(
+            removed.has(i) ? a : b,
+            removed.has(i) ? frameA : frameB,
+            tint,
+          ) as unknown as FakeCanvas,
+      );
+    source.unload(a);
+    for (const i of removed)
+      expect([frames[i]!.width, frames[i]!.height]).toEqual([1, 1]);
+
+    // Promote both the oldest and an interior survivor; repeating the newest is a hit.
+    for (const i of [1, middle + 1, middle + 1])
+      expect(source.image(b, frameB, tints[i]!)).toBe(frames[i]);
+    const refilled = tints
+      .slice(capacity)
+      .map((tint) => source.image(a, frameA, tint) as unknown as FakeCanvas);
+    const replacement = source.image(a, frameA, [0.5, 0.5, 0.5, 1]);
+    expect(replacement).toBe(frames[2]);
+    expect(frames[2]!.context.painted.at(-1)!.slice(0, 4)).toEqual(
+      new Uint8ClampedArray([100, 100, 100, 200]),
+    );
+    for (const i of [1, middle + 1])
+      expect(source.image(b, frameB, tints[i]!)).toBe(frames[i]);
+
+    source.destroy();
+    for (const frame of [...frames, ...refilled])
+      expect([frame.width, frame.height]).toEqual([1, 1]);
+    a.destroy();
+    b.destroy();
+  });
+
+  it('evicts multiple least-recent frames to fit the pixel budget', () => {
+    const height = 1024,
+      width = Math.floor(
+        rendering2dLimits.canvasFrameSnapshotPixels / (4 * height),
+      );
+    const texture = new CanvasTexture2D({
+      width: width * 4,
+      height,
+    } as HTMLCanvasElement);
+    const source = sprites(),
+      tint = [1, 1, 1, 1];
+    const quads = Array.from({ length: 4 }, (_, i) =>
+      quad(texture, i * width, width),
+    );
+    const frames = quads.map(
+      (frame) => source.image(texture, frame, tint) as unknown as FakeCanvas,
+    );
+    expect(source.image(texture, quads[0]!, tint)).toBe(frames[0]);
+    const large = source.image(texture, quad(texture, 0, width * 3), tint);
+    expect(large).toBe(frames[1]);
+    expect([frames[1]!.width, frames[1]!.height]).toEqual([width * 3, height]);
+    for (const frame of frames.slice(2))
+      expect([frame.width, frame.height]).toEqual([1, 1]);
+    expect(source.image(texture, quads[0]!, tint)).toBe(frames[0]);
+    source.destroy();
+    for (const frame of frames)
+      expect([frame.width, frame.height]).toEqual([1, 1]);
     texture.destroy();
   });
 
