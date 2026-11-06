@@ -1,4 +1,5 @@
 import {
+  CanvasTexture2D,
   createRenderer,
   EnvironmentMap,
   Geometry,
@@ -537,6 +538,125 @@ function nativeScene(texture: NativeTexture2D, lod: number): Scene {
   );
   return scene;
 }
+async function spriteUploadFailureScenarios(): Promise<void> {
+  if (renderer!.backend !== 'webgl2') return;
+  const gl = canvas.getContext('webgl2')!;
+  const image = (size: number, color: string): HTMLCanvasElement => {
+    const source = document.createElement('canvas');
+    source.width = source.height = size;
+    const context = source.getContext('2d')!;
+    context.fillStyle = color;
+    context.fillRect(0, 0, size, size);
+    return source;
+  };
+  const sources = [
+    new CanvasTexture2D(image(4, '#ff0000')),
+    new CanvasTexture2D(image(4, '#0000ff')),
+    new CanvasTexture2D(image(4, '#ffff00')),
+  ];
+  const scene = new Scene();
+  for (let i = 0; i < sources.length; i++) {
+    const sprite = scene.add(
+      new Sprite({ texture: sources[i], anchor: [0, 0] }),
+    );
+    sprite.position.set(i * 32, 0);
+    sprite.scale.set(i === 0 ? 4 : 8, i === 0 ? 4 : 8);
+  }
+  try {
+    for (const failure of ['allocation', 'source-exception'] as const) {
+      begin(`webgl-sprite-upload-${failure}-rollback`);
+      const baseline = {
+        entries: renderer!.residency.textures.entries,
+        liveBytes: renderer!.residency.textures.liveBytes,
+      };
+      sources[0]!.update(image(4, '#ff0000'));
+      await renderer!.prepareTextures([sources[0]!]);
+      sources[0]!.update(image(8, '#00ff00'));
+      const rejected = sources[failure === 'allocation' ? 0 : 2]!.image;
+      const upload = gl.texImage2D;
+      gl.texImage2D = (...args: unknown[]): void => {
+        if (args.length === 6 && args[5] === rejected) {
+          if (failure === 'source-exception')
+            throw new DOMException(
+              'Intentional source upload rejection',
+              'SecurityError',
+            );
+          // A real GL error leaves the prepared source's old red storage intact.
+          Reflect.apply(upload, gl, [
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            -1,
+            1,
+            0,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            null,
+          ]);
+          return;
+        }
+        Reflect.apply(upload, gl, args);
+      };
+      try {
+        await rejects(async () => {
+          const snapshot = await renderer!.captureScene(scene, 256, 256);
+          snapshot.destroy();
+        }, `${failure} during sprite upload`);
+      } finally {
+        gl.texImage2D = upload;
+      }
+      scenario.metrics.liveTextureBytesAfterFailure =
+        renderer!.residency.textures.liveBytes;
+      scenario.metrics.textureEntriesAfterFailure =
+        renderer!.residency.textures.entries;
+      check(
+        renderer!.residency.textures.entries === baseline.entries + 1 &&
+          renderer!.residency.textures.liveBytes === baseline.liveBytes + 256,
+        'Failed uploads release all new allocations and preserve the prepared source',
+      );
+      check(
+        sources.every((source) => !source.destroyed),
+        'Upload failure does not destroy borrowed sources',
+      );
+      const recovered = await draw(scene);
+      const colors = [
+        [0, 255, 0, 255],
+        [0, 0, 255, 255],
+        [255, 255, 0, 255],
+      ];
+      for (let i = 0; i < colors.length; i++) {
+        const offset = (16 * recovered.width + i * 32 + 16) * 4;
+        check(
+          colors[i]!.every(
+            (value, channel) => recovered.bytes[offset + channel] === value,
+          ),
+          `Retry renders the current pixels of source ${i}, including the resized prepared source`,
+        );
+      }
+      if (failure === 'source-exception') {
+        sources[0]!.update(image(8, '#ff00ff'));
+        const rewritten = await draw(scene),
+          offset = (16 * rewritten.width + 16) * 4;
+        check(
+          [255, 0, 255, 255].every(
+            (value, channel) => rewritten.bytes[offset + channel] === value,
+          ),
+          'A same-size update after recovery replaces the resident pixels',
+        );
+      }
+      for (const source of sources) renderer!.unloadTexture(source);
+      check(
+        renderer!.residency.textures.entries === baseline.entries &&
+          renderer!.residency.textures.liveBytes === baseline.liveBytes,
+        'Explicit unload after retry restores the original residency',
+      );
+    }
+  } finally {
+    scene.destroy();
+    for (const source of sources) source.destroy();
+  }
+}
+
 async function nativeScenarios(): Promise<{
   texture: NativeTexture2D;
   scene: Scene;
@@ -1006,6 +1126,7 @@ async function execute(): Promise<NativeReport> {
       return report;
     }
     renderer.resize(256, 256);
+    await spriteUploadFailureScenarios();
     const white = await ordinaryTexture('#ffffff');
     await renderer.prepareTextures([white]);
     await sortedMirrorScenario(white);

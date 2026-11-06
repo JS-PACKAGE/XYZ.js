@@ -483,6 +483,10 @@ export class WebGL2Renderer implements Renderer {
   private triangleVAO: WebGLVertexArrayObject | undefined;
   private readonly commands = new RenderCommandBuffer2D();
   private readonly textures = new Map<Texture2DSource, CachedTexture>();
+  private readonly pendingTextureUploads = new Map<
+    Texture2DSource,
+    CachedTexture | undefined
+  >();
   private render2D: WebGLRender2D | undefined;
   private readonly geometries = new Map<Geometry, CachedGeometry>();
   private frame = 0;
@@ -1241,6 +1245,25 @@ export class WebGL2Renderer implements Renderer {
           entry.seen = this.frame;
           return entry.resource;
         },
+        readySource: (source) => {
+          if (source.kind === 'render') return this.render2D!.source(source);
+          if (source.destroyed)
+            throw new GraphicsError('Cannot upload a destroyed texture.');
+          let entry = this.textures.get(source);
+          if (!entry) return undefined;
+          if (entry.version !== source.version) {
+            if (
+              source.kind === 'native' ||
+              entry.width !== source.width ||
+              entry.height !== source.height
+            )
+              return undefined;
+            entry = this.cacheTexture(source);
+          } else entry.allocation.touch();
+          entry.seen = this.frame;
+          return entry.resource;
+        },
+        uploadSources: (sources) => this.uploadTextureBatch(sources),
         material: (material) => this.requireNative(material, false).program,
         processor: (processor) => this.requireNative(processor, true).program,
         assertIdle: () => {
@@ -4567,7 +4590,44 @@ export class WebGL2Renderer implements Renderer {
     return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
   }
 
-  private cacheTexture(texture: Texture2DSource): CachedTexture {
+  private checkTextureUpload(): void {
+    const gl = this.gl!,
+      error = gl.getError();
+    if (error !== gl.NO_ERROR)
+      throw new GraphicsError(
+        `WebGL2 texture upload failed (GL error 0x${error.toString(16)}).`,
+      );
+  }
+
+  private uploadTextureBatch(sources: readonly Texture2DSource[]): void {
+    const pending = this.pendingTextureUploads;
+    try {
+      for (const source of sources)
+        if (source.kind !== 'render') this.cacheTexture(source, pending);
+      if (!pending.size) return;
+      this.checkTextureUpload();
+      for (const source of pending.keys()) {
+        const entry = this.textures.get(source)!;
+        entry.version = source.version;
+        entry.width = source.width;
+        entry.height = source.height;
+      }
+    } catch (error) {
+      // Existing entries keep their previous version/size and will retry. New resources
+      // must not survive a failed allocation check, including earlier uploads in this batch.
+      for (const source of pending.keys())
+        if (!pending.get(source))
+          this.textures.get(source)?.allocation.destroy();
+      throw error;
+    } finally {
+      pending.clear();
+    }
+  }
+
+  private cacheTexture(
+    texture: Texture2DSource,
+    pending?: Map<Texture2DSource, CachedTexture | undefined>,
+  ): CachedTexture {
     if (texture.kind === 'render')
       throw new GraphicsError(
         'Render textures are managed by the native 2D target owner.',
@@ -4575,7 +4635,10 @@ export class WebGL2Renderer implements Renderer {
     if (texture.destroyed)
       throw new GraphicsError('Cannot upload a destroyed texture.');
     const existing = this.textures.get(texture);
-    if (existing?.version === texture.version) {
+    if (
+      existing &&
+      (existing.version === texture.version || pending?.has(texture))
+    ) {
       existing.allocation.touch();
       return existing;
     }
@@ -4662,13 +4725,8 @@ export class WebGL2Renderer implements Renderer {
           texture.image,
         );
       this.stats.upload(bytes);
-      if (!rewrite) {
-        const error = gl.getError();
-        if (error !== gl.NO_ERROR)
-          throw new GraphicsError(
-            `WebGL2 texture upload failed (GL error 0x${error.toString(16)}).`,
-          );
-      }
+      const deferred = !rewrite && pending !== undefined;
+      if (!rewrite && !deferred) this.checkTextureUpload();
       const entry = existing ?? {
         resource,
         allocation,
@@ -4678,10 +4736,13 @@ export class WebGL2Renderer implements Renderer {
         width,
         height,
       };
-      entry.version = texture.version;
-      entry.width = width;
-      entry.height = height;
+      if (!deferred) {
+        entry.version = texture.version;
+        entry.width = width;
+        entry.height = height;
+      }
       this.textures.set(texture, entry);
+      if (deferred) pending.set(texture, existing);
       return entry;
     } catch (error) {
       if (!existing) gl.deleteTexture(resource);

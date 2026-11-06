@@ -128,6 +128,8 @@ export interface GLRender2DHooks {
   deleteTarget(target: GLTarget2D): void;
   createProgram(vertex: string, fragment: string, label: string): WebGLProgram;
   source(source: Texture2DSource): WebGLTexture;
+  readySource(source: Texture2DSource): WebGLTexture | undefined;
+  uploadSources(sources: readonly Texture2DSource[]): void;
   material(effect: Material2D): WebGLProgram;
   processor(effect: PostProcessor2D): WebGLProgram;
   assertIdle(): void;
@@ -182,6 +184,7 @@ export class WebGLRender2D {
   private readonly spriteBuffer: WebGLBuffer;
   private spriteData = new Float32Array(28 * 64);
   private spriteCapacity = 0;
+  private readonly uploadSources: Texture2DSource[] = [];
   private readonly blendProgram: Program2D;
   private readonly matrixRows = new Float32Array(20);
   private readonly dependencies: RenderTexture2D[] = [];
@@ -569,6 +572,11 @@ export class WebGLRender2D {
         !(command.object instanceof TilingSprite2D)
       ) {
         const sprite = command.object;
+        let texture = this.hooks.readySource(sprite.texture);
+        if (!texture) {
+          this.uploadSpriteSources(commands, i);
+          texture = this.hooks.source(sprite.texture);
+        }
         const anisotropy = Math.min(
           sprite.sampler?.maxAnisotropy ?? 1,
           this.hooks.maxTextureAnisotropy,
@@ -594,7 +602,7 @@ export class WebGLRender2D {
             break;
           end++;
         }
-        this.drawSprites(commands, i, end, context, continuing);
+        this.drawSprites(commands, i, end, context, continuing, texture);
         afterSprites = true;
         i = end;
         continue;
@@ -668,6 +676,34 @@ export class WebGLRender2D {
     }
     return this.matrix;
   }
+  private uploadSpriteSources(
+    commands: RenderCommandBuffer2D,
+    first: number,
+  ): void {
+    const sources = this.uploadSources,
+      items = commands.items;
+    let previous: Texture2DSource | undefined;
+    try {
+      for (let i = first; i < items.length; i++) {
+        const command = items[i];
+        if (
+          command.kind !== 'sprite' ||
+          command.object.material ||
+          command.object.lighting ||
+          command.object instanceof TilingSprite2D
+        )
+          break;
+        const source = command.object.texture;
+        if (source === previous) continue;
+        if (sources.length === rendering2dLimits.webglTextureUploadBatch) break;
+        sources.push(source);
+        previous = source;
+      }
+      this.hooks.uploadSources(sources);
+    } finally {
+      sources.length = 0;
+    }
+  }
   /**
    * `continuing`: the previous command was a batch drawn here in the same context, so the
    * program, its per-context uniforms, unit 0, the VAO and the instance buffer are still set.
@@ -678,6 +714,7 @@ export class WebGLRender2D {
     end: number,
     context: Context2D,
     continuing: boolean,
+    texture: WebGLTexture,
   ): void {
     const gl = this.gl,
       count = end - first;
@@ -729,7 +766,7 @@ export class WebGLRender2D {
       gl.uniform1i(this.uniform(program, 'tiling'), 0);
       gl.activeTexture(gl.TEXTURE0);
     }
-    gl.bindTexture(gl.TEXTURE_2D, this.hooks.source(sprite.texture));
+    gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.bindSampler(
       0,
       this.sampler(

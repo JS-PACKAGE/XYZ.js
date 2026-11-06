@@ -27,7 +27,7 @@
 
 依使用者要求持續量測卡頓、保留輸出與資源生命週期契約、逐項驗證後提交，不 push，直到使用者停止。使用者確認保留首次 AudioContext unlock 與未預備 WebGL2 shader variant 的同步正確繪製；程序材質改為每 preset 頂層 sampler，避免首次呼叫解析全部實作。量測結果與尚存限制以 [本輪驗收紀錄](ACCEPTANCE.md#2026-11-06-效能中途卡頓點進行中) 為準，不以配置減少或主執行緒切片宣稱 GPU fps 提升。
 
-UI 的等值 Text2D style 更新沿用 raster；Canvas2D 對小型 tint source 使用有界合併讀回，避免逐張 GPU 同步。保留像素、版本更新、卸載與快取上限，不把這些局部改善視為全部掛載卡頓已消除。
+UI 的等值 Text2D style 更新沿用 raster；Canvas2D 對小型 tint source 使用有界合併讀回；WebGL2 對一般 Sprite 使用有界上傳與批次配置錯誤檢查，避免逐張 GPU 同步。保留像素、版本更新、失敗清理、卸載與快取上限，不把這些局部改善視為全部掛載卡頓已消除。
 
 ## 本輪批准追加：可重用程序式 PBR 與 gallery
 
