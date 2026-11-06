@@ -66,6 +66,22 @@ try {
     peakWork = 0;
     frameStart = performance.now();
     observedFrame = 0;
+    // Shared by every box and agent: publishing the bake spawns hundreds of meshes in one
+    // update, and a geometry/material per mesh made that frame tens of milliseconds longer.
+    private readonly unitCube = Geometry.cube(1);
+    private readonly agentSphere = Geometry.sphere(0.25, 12, 8);
+    private readonly materials = new Map<string, TextureMaterial>();
+    private material(
+      color: readonly [number, number, number],
+    ): TextureMaterial {
+      const key = color.join();
+      let material = this.materials.get(key);
+      if (!material) {
+        material = new TextureMaterial({ texture: white, color: [...color] });
+        this.materials.set(key, material);
+      }
+      return material;
+    }
     constructor() {
       super({ navigationWorkBudget: Number(budget.value) });
       this.physics3D.gravity.set(0, 0, 0);
@@ -105,8 +121,8 @@ try {
       physical = false,
     ): Mesh {
       const mesh = new Mesh({
-        geometry: Geometry.cube(1),
-        material: new TextureMaterial({ texture: white, color }),
+        geometry: this.unitCube,
+        material: this.material(color),
         position,
         scale,
       });
@@ -159,11 +175,8 @@ try {
           });
           agent.add(
             new Mesh({
-              geometry: Geometry.sphere(0.25, 12, 8),
-              material: new TextureMaterial({
-                texture: white,
-                color: [0.2, 0.8, 1],
-              }),
+              geometry: this.agentSphere,
+              material: this.material([0.2, 0.8, 1]),
               position: [0, 0, 0],
             }),
           );
