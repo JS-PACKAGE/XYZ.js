@@ -11,7 +11,7 @@ import {
 } from '../../assets/src/worker-jobs.js';
 import { PBRMaterial, type PBRMaterialOptions } from './pbr-material.js';
 import {
-  generateProceduralMaps,
+  generateProceduralMapsSliced,
   type ProceduralMaps,
 } from './procedural-material-maps.js';
 
@@ -3407,12 +3407,13 @@ export class ProceduralMaterial {
     };
     const generate = async (): Promise<ProceduralMaps> => {
       if (pool === undefined)
-        return generateProceduralMaps(kind, size, seed, {
-          contrast,
-          roughnessBias,
-          tint,
-          heightMap: request.heightMap,
-        });
+        return generateProceduralMapsSliced(
+          kind,
+          size,
+          seed,
+          { contrast, roughnessBias, tint, heightMap: request.heightMap },
+          proceduralMaterialLimits.generationSliceMilliseconds,
+        );
       const generated = (
         await pool.submit(proceduralMapsJob, request, { requestBytes: 0 })
           .promise

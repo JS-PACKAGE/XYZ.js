@@ -8,6 +8,11 @@ export const proceduralMaterialLimits = Object.freeze({
   cacheMaxBytes: 1024 * 1024 * 1024,
   cacheDefaultEntries: 32,
   cacheMaxEntries: 4096,
+  /**
+   * Main-thread generation runs rows in slices of about this long and yields to the host
+   * between them, so a large or slow preset does not block frames for its whole build.
+   */
+  generationSliceMilliseconds: 8,
 });
 
 /** Base colors are authored in sRGB; relief is measured in UV units. */

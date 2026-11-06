@@ -102049,17 +102049,72 @@ export function writeNormals(
   }
 }
 
+export interface ProceduralMapControls {
+  contrast?: number;
+  roughnessBias?: number;
+  tint?: readonly [number, number, number];
+  heightMap?: boolean;
+}
+
+/** A map build whose rows are filled in order by `fill` and completed by `finish`. */
+interface ProceduralMapsBuild {
+  fill(start: number, end: number): void;
+  finish(): ProceduralMaps;
+}
+
 export function generateProceduralMaps(
   kind: ProceduralMaterialKind,
   size: number,
   seed: number,
-  controls: {
-    contrast?: number;
-    roughnessBias?: number;
-    tint?: readonly [number, number, number];
-    heightMap?: boolean;
-  } = {},
+  controls: ProceduralMapControls = {},
 ): ProceduralMaps {
+  const build = beginProceduralMaps(kind, size, seed, controls);
+  build.fill(0, size);
+  return build.finish();
+}
+
+/** A macrotask turn without the nested-timer clamp of `setTimeout(0)`. */
+function yieldToHost(): Promise<void> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(null);
+  });
+}
+
+/**
+ * `generateProceduralMaps` with rows filled in slices of about `sliceMilliseconds`,
+ * yielding to the host between slices. The maps are identical; only the sampler setup
+ * and one row are indivisible.
+ */
+export async function generateProceduralMapsSliced(
+  kind: ProceduralMaterialKind,
+  size: number,
+  seed: number,
+  controls: ProceduralMapControls,
+  sliceMilliseconds: number,
+): Promise<ProceduralMaps> {
+  let sliceStart = performance.now();
+  const build = beginProceduralMaps(kind, size, seed, controls);
+  for (let row = 0; row < size; row++) {
+    build.fill(row, row + 1);
+    if (row + 1 < size && performance.now() - sliceStart >= sliceMilliseconds) {
+      await yieldToHost();
+      sliceStart = performance.now();
+    }
+  }
+  return build.finish();
+}
+
+function beginProceduralMaps(
+  kind: ProceduralMaterialKind,
+  size: number,
+  seed: number,
+  controls: ProceduralMapControls,
+): ProceduralMapsBuild {
   const maps: ProceduralMaps = {
     baseColor: new Uint8ClampedArray(size * size * 4),
     normal: new Uint8ClampedArray(size * size * 4),
@@ -102089,53 +102144,58 @@ export function generateProceduralMaps(
     span1 = light[1] - dark1,
     span2 = light[2] - dark2;
   const { baseColor, metallicRoughness, occlusion } = maps;
-  for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++) {
-      sample((x + 0.5) / size, (y + 0.5) / size, surface);
-      const surfaceColor = clamp(0.5 + (surface.color - 0.5) * contrast);
-      const mortar = surface.mortar,
-        open = 1 - mortar;
-      const i = y * size + x,
-        p = i * 4;
-      heights[i] = surface.height;
-      // Tint scales only the surface pigment; mortar/grout keeps its neutral tone.
-      let color0 = dark0 + span0 * surfaceColor,
-        color1 = dark1 + span1 * surfaceColor,
-        color2 = dark2 + span2 * surfaceColor;
-      if (tint !== undefined) {
-        color0 *= tint[0];
-        color1 *= tint[1];
-        color2 *= tint[2];
+  const fill = (start: number, end: number): void => {
+    for (let y = start; y < end; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, surface);
+        const surfaceColor = clamp(0.5 + (surface.color - 0.5) * contrast);
+        const mortar = surface.mortar,
+          open = 1 - mortar;
+        const i = y * size + x,
+          p = i * 4;
+        heights[i] = surface.height;
+        // Tint scales only the surface pigment; mortar/grout keeps its neutral tone.
+        let color0 = dark0 + span0 * surfaceColor,
+          color1 = dark1 + span1 * surfaceColor,
+          color2 = dark2 + span2 * surfaceColor;
+        if (tint !== undefined) {
+          color0 *= tint[0];
+          color1 *= tint[1];
+          color2 *= tint[2];
+        }
+        baseColor[p] = Math.round(color0 * open + 153 * mortar);
+        baseColor[p + 1] = Math.round(color1 * open + 153 * mortar);
+        baseColor[p + 2] = Math.round(color2 * open + 139 * mortar);
+        baseColor[p + 3] = 255;
+        const ao = byte(surface.occlusion);
+        occlusion[p] = occlusion[p + 1] = occlusion[p + 2] = ao;
+        occlusion[p + 3] = 255;
+        metallicRoughness[p] = 255;
+        metallicRoughness[p + 1] = byte(surface.roughness + roughnessBias);
+        metallicRoughness[p + 2] = byte(surface.metallic);
+        metallicRoughness[p + 3] = 255;
       }
-      baseColor[p] = Math.round(color0 * open + 153 * mortar);
-      baseColor[p + 1] = Math.round(color1 * open + 153 * mortar);
-      baseColor[p + 2] = Math.round(color2 * open + 139 * mortar);
-      baseColor[p + 3] = 255;
-      const ao = byte(surface.occlusion);
-      occlusion[p] = occlusion[p + 1] = occlusion[p + 2] = ao;
-      occlusion[p + 3] = 255;
-      metallicRoughness[p] = 255;
-      metallicRoughness[p + 1] = byte(surface.roughness + roughnessBias);
-      metallicRoughness[p + 2] = byte(surface.metallic);
-      metallicRoughness[p + 3] = 255;
+  };
+  const finish = (): ProceduralMaps => {
+    writeNormals(heights, size, maps.normal);
+    if (controls.heightMap) {
+      const height = new Uint8ClampedArray(size * size * 4);
+      let minimum = Infinity;
+      let maximum = -Infinity;
+      for (const value of heights) {
+        minimum = Math.min(minimum, value);
+        maximum = Math.max(maximum, value);
+      }
+      const range = maximum - minimum;
+      for (let i = 0; i < heights.length; i++) {
+        const value = byte(range > 0 ? (heights[i] - minimum) / range : 0.5);
+        const p = i * 4;
+        height[p] = height[p + 1] = height[p + 2] = value;
+        height[p + 3] = 255;
+      }
+      maps.height = height;
     }
-  writeNormals(heights, size, maps.normal);
-  if (controls.heightMap) {
-    const height = new Uint8ClampedArray(size * size * 4);
-    let minimum = Infinity;
-    let maximum = -Infinity;
-    for (const value of heights) {
-      minimum = Math.min(minimum, value);
-      maximum = Math.max(maximum, value);
-    }
-    const range = maximum - minimum;
-    for (let i = 0; i < heights.length; i++) {
-      const value = byte(range > 0 ? (heights[i] - minimum) / range : 0.5);
-      const p = i * 4;
-      height[p] = height[p + 1] = height[p + 2] = value;
-      height[p + 3] = 255;
-    }
-    maps.height = height;
-  }
-  return maps;
+    return maps;
+  };
+  return { fill, finish };
 }
