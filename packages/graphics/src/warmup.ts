@@ -100,7 +100,8 @@ export async function warmupScene(
   for (const effect of scene.effects2D) resources.add(effect);
   for (const effect of scene.effects3D) resources.add(effect);
   const leases: PreparedResourceLease[] = [];
-  let completed = 0,
+  let started = 0,
+    completed = 0,
     chunks = 0,
     released = false;
   const progress = (): WarmupProgress =>
@@ -117,13 +118,41 @@ export async function warmupScene(
     leases.length = 0;
   };
   const iterator = resources.values();
+  const prepare = async (
+    resource: PreparationResource | NativePBRMaterial,
+  ): Promise<void> => {
+    let lease: PreparedResourceLease;
+    if (resource instanceof NativePBRMaterial) {
+      if (!renderer.prepareNativePBRMaterial)
+        throw new UnsupportedGraphicsError(
+          'The selected renderer does not support native physical materials.',
+        );
+      await renderer.prepareNativePBRMaterial(resource);
+      lease = { released: false, release() {} };
+    } else
+      lease = await renderer.prepareResource(resource, {
+        signal: options.signal,
+        scene,
+      });
+    if (options.signal?.aborted || released) {
+      lease.release();
+      options.signal?.throwIfAborted();
+      return;
+    }
+    leases.push(lease);
+    options.signal?.throwIfAborted();
+    if (scene.destroyed)
+      throw new GraphicsError('Scene was destroyed during warmup.');
+    completed++;
+    options.onProgress?.(progress());
+  };
   options.signal?.addEventListener('abort', release, { once: true });
   try {
     options.onProgress?.(progress());
     options.signal?.throwIfAborted();
     if (scene.destroyed)
       throw new GraphicsError('Scene was destroyed during warmup.');
-    while (completed < resources.size) {
+    while (started < resources.size) {
       await new Promise<void>((resolve, reject) => {
         const signal = options.signal;
         const abort = (): void => {
@@ -143,38 +172,24 @@ export async function warmupScene(
         throw new GraphicsError('Scene was destroyed during warmup.');
       chunks++;
       const start = performance.now();
+      // A chunk issues its items one after another, measuring the budget between them, but
+      // does not wait for each to finish before issuing the next: completion includes GPU
+      // work (WebGPU waits for the queue), and waiting per item let one item take a frame or
+      // two, so large scenes warmed at one or two meshes per frame.
+      const pending: Promise<void>[] = [];
       for (
         let items = 0;
-        items < maxItems && completed < resources.size;
+        items < maxItems && started < resources.size;
         items++
       ) {
         options.signal?.throwIfAborted();
-        const resource = iterator.next().value!;
-        let lease: PreparedResourceLease;
-        if (resource instanceof NativePBRMaterial) {
-          if (!renderer.prepareNativePBRMaterial)
-            throw new UnsupportedGraphicsError(
-              'The selected renderer does not support native physical materials.',
-            );
-          await renderer.prepareNativePBRMaterial(resource);
-          lease = { released: false, release() {} };
-        } else
-          lease = await renderer.prepareResource(resource, {
-            signal: options.signal,
-            scene,
-          });
-        if (options.signal?.aborted) {
-          lease.release();
-          options.signal.throwIfAborted();
-        }
-        leases.push(lease);
-        options.signal?.throwIfAborted();
-        if (scene.destroyed)
-          throw new GraphicsError('Scene was destroyed during warmup.');
-        completed++;
-        options.onProgress?.(progress());
+        started++;
+        pending.push(prepare(iterator.next().value!));
         if (performance.now() - start >= maxMilliseconds) break;
       }
+      const results = await Promise.allSettled(pending);
+      for (const result of results)
+        if (result.status === 'rejected') throw result.reason;
     }
     options.signal?.throwIfAborted();
     if (scene.destroyed)
