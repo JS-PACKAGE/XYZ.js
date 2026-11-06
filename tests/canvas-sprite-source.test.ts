@@ -225,4 +225,93 @@ describe('Canvas2D painted frame snapshots', () => {
       100, 200, 200, 200, 100, 199, 199, 200,
     ]);
   });
+
+  it('keeps batched source rows separate across updates, transparent reuse and unload', () => {
+    const storage = new WeakMap<FakeCanvas, Uint8ClampedArray>();
+    const pixels = (canvas: FakeCanvas): Uint8ClampedArray => {
+      let data = storage.get(canvas);
+      if (!data || data.length !== canvas.width * canvas.height * 4) {
+        data = new Uint8ClampedArray(canvas.width * canvas.height * 4);
+        storage.set(canvas, data);
+      }
+      return data;
+    };
+    const bitmap = (
+      width: number,
+      height: number,
+      color?: number[],
+    ): FakeCanvas => {
+      const canvas = new FakeCanvas();
+      canvas.width = width;
+      canvas.height = height;
+      canvas.context.clearRect = () => pixels(canvas).fill(0);
+      canvas.context.drawImage.mockImplementation(
+        (image: FakeCanvas, x: number, y: number) => {
+          const input = pixels(image),
+            output = pixels(canvas);
+          for (let row = 0; row < image.height; row++)
+            for (let col = 0; col < image.width; col++) {
+              const from = (row * image.width + col) * 4,
+                to = ((y + row) * canvas.width + x + col) * 4;
+              // Transparent source-over texels must not erase stale atlas contents.
+              if (input[from + 3] === 0) continue;
+              for (let channel = 0; channel < 4; channel++)
+                output[to + channel] = input[from + channel]!;
+            }
+        },
+      );
+      canvas.context.getImageData.mockImplementation((x, y, w, h) => {
+        const data = new Uint8ClampedArray(w * h * 4),
+          input = pixels(canvas);
+        for (let row = 0; row < h; row++)
+          for (let col = 0; col < w * 4; col++)
+            data[row * w * 4 + col] =
+              input[((y + row) * canvas.width + x) * 4 + col]!;
+        return { data };
+      });
+      if (color)
+        for (let i = 0; i < width * height * 4; i += 4)
+          pixels(canvas).set(color, i);
+      return canvas;
+    };
+    vi.stubGlobal('document', { createElement: () => bitmap(300, 150) });
+    const texture = (w: number, h: number, color?: number[]): CanvasTexture2D =>
+      new CanvasTexture2D(bitmap(w, h, color) as unknown as HTMLCanvasElement);
+    const a = texture(200, 2, [200, 60, 30, 128]),
+      b = texture(100, 3, [40, 160, 20, 255]),
+      transparent = texture(130, 3);
+    const source = sprites(),
+      tint = [0.5, 1, 1, 1];
+    const batch = (textures: CanvasTexture2D[]): void => {
+      source.beginPixelBatch();
+      for (const t of textures)
+        source.queuePixels(t, quad(t, 0, t.width), tint);
+      source.flushPixelBatch();
+    };
+    const expectColor = (t: CanvasTexture2D, color: number[]): void => {
+      const painted = source.image(
+        t,
+        quad(t, 0, t.width),
+        tint,
+      ) as unknown as FakeCanvas;
+      const expected = new Uint8ClampedArray(t.width * t.height * 4);
+      for (let i = 0; i < expected.length; i += 4) expected.set(color, i);
+      expect(painted.context.putImageData.mock.calls.at(-1)![0].data).toEqual(
+        expected,
+      );
+    };
+    batch([a, b]);
+    expectColor(a, [100, 60, 30, 128]);
+    expectColor(b, [20, 160, 20, 255]);
+    b.update(bitmap(70, 5, [80, 20, 100, 64]) as unknown as HTMLCanvasElement);
+    source.unload(a);
+    batch([transparent, b, a]);
+    expectColor(transparent, [0, 0, 0, 0]);
+    expectColor(b, [40, 20, 100, 64]);
+    expectColor(a, [100, 60, 30, 128]);
+    source.destroy();
+    a.destroy();
+    b.destroy();
+    transparent.destroy();
+  });
 });

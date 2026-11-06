@@ -40,6 +40,11 @@ export class CanvasSpriteSource {
     { version: number; pixels: Uint8ClampedArray }
   >();
   private sourcePixelTotal = 0;
+  private readonly pendingPixels = new Map<Texture2DSource, number>();
+  private pixelBatch: HTMLCanvasElement | undefined;
+  private batchX = 0;
+  private batchY = 0;
+  private batchRowHeight = 0;
   private scratch: HTMLCanvasElement | undefined;
   /**
    * Painted frames by key hash. A sub-frame or tint repainted into one shared scratch per
@@ -87,6 +92,99 @@ export class CanvasSpriteSource {
       entry.version = source.version;
     }
     return entry.canvas;
+  }
+  beginPixelBatch(): void {
+    this.pendingPixels.clear();
+    this.batchX = this.batchY = this.batchRowHeight = 0;
+  }
+  canBatchPixels(source: Texture2DSource): boolean {
+    const dimension = rendering2dLimits.canvasReadbackBatchDimension;
+    return (
+      source.kind !== 'render' &&
+      source.kind !== 'native' &&
+      source.width <= dimension &&
+      source.height <= dimension &&
+      this.sourcePixelCache.get(source)?.version !== source.version &&
+      !this.pendingPixels.has(source) &&
+      !(source instanceof Texture && getTextureDistanceField(source))
+    );
+  }
+  /** Collect only small, uncached 1:1 tinted sources; larger/resampled frames stay lazy. */
+  queuePixels(
+    source: Texture2DSource,
+    quad: TextureQuad2D,
+    tint: ArrayLike<number>,
+  ): void {
+    const dimension = rendering2dLimits.canvasReadbackBatchDimension;
+    if (
+      (tint[0] === 1 && tint[1] === 1 && tint[2] === 1) ||
+      !this.canBatchPixels(source)
+    )
+      return;
+    const width = Math.max(1, Math.round(quad.trimWidth * quad.resolution)),
+      height = Math.max(1, Math.round(quad.trimHeight * quad.resolution));
+    if (
+      width * height > rendering2dLimits.canvasFrameSnapshotPixels ||
+      !integerCopy(
+        (quad.ux * source.width) / width,
+        (quad.vx * source.height) / width,
+        (quad.uy * source.width) / height,
+        (quad.vy * source.height) / height,
+        quad.u0 * source.width,
+        quad.v0 * source.height,
+      )
+    )
+      return;
+    let x = this.batchX,
+      y = this.batchY,
+      rowHeight = this.batchRowHeight;
+    if (x + source.width > dimension) {
+      x = 0;
+      y += rowHeight;
+      rowHeight = 0;
+    }
+    // Do not prefetch beyond one atlas: a large scene must not evict an entire live pixel cache.
+    if (y + source.height > dimension) return;
+    this.pendingPixels.set(source, y * dimension + x);
+    this.batchX = x + source.width;
+    this.batchY = y;
+    this.batchRowHeight = Math.max(rowHeight, source.height);
+  }
+  flushPixelBatch(): void {
+    try {
+      if (this.pendingPixels.size < 2) return;
+      const dimension = rendering2dLimits.canvasReadbackBatchDimension;
+      const canvas = (this.pixelBatch ??= document.createElement('canvas'));
+      if (canvas.width !== dimension) canvas.width = dimension;
+      if (canvas.height !== dimension) canvas.height = dimension;
+      const context = canvas.getContext('2d')!;
+      const height = this.batchY + this.batchRowHeight;
+      context.clearRect(0, 0, dimension, height);
+      for (const source of this.pendingPixels.keys()) {
+        const offset = this.pendingPixels.get(source)!;
+        context.drawImage(
+          this.prepare(source),
+          offset % dimension,
+          Math.floor(offset / dimension),
+        );
+      }
+      // Integer 1:1 copies preserve the premultiplied texels. One fence/read replaces N
+      // separate GPU readbacks; each cached source still owns exactly its original pixel area.
+      const atlas = context.getImageData(0, 0, dimension, height).data;
+      for (const source of this.pendingPixels.keys()) {
+        const offset = this.pendingPixels.get(source)!;
+        const pixels = new Uint8ClampedArray(source.width * source.height * 4);
+        for (let row = 0; row < source.height; row++) {
+          const start = (offset + row * dimension) * 4;
+          const target = row * source.width * 4;
+          for (let col = 0; col < source.width * 4; col++)
+            pixels[target + col] = atlas[start + col]!;
+        }
+        this.cachePixels(source, pixels);
+      }
+    } finally {
+      this.pendingPixels.clear();
+    }
   }
   /** `transform` supplies the destination scale; only distance-field textures read it. */
   image(
@@ -251,14 +349,7 @@ export class CanvasSpriteSource {
     // the same premultiplied texels, so it unpremultiplies to the same values at any alpha),
     // so tint those from one read of the source instead of reading back every painted frame.
     const pixels =
-      tinted &&
-      readable &&
-      a === 1 &&
-      d === 1 &&
-      b === 0 &&
-      c === 0 &&
-      Number.isInteger(x) &&
-      Number.isInteger(y)
+      tinted && readable && integerCopy(a, b, c, d, x, y)
         ? this.sourcePixels(readable)
         : undefined;
     if (pixels) {
@@ -322,25 +413,37 @@ export class CanvasSpriteSource {
       }
     }
     if (!entry) {
-      for (const [oldest, cached] of cache) {
-        if (
-          this.sourcePixelTotal + size <=
-          rendering2dLimits.canvasFrameSnapshotPixels
-        )
-          break;
-        cache.delete(oldest);
-        this.sourcePixelTotal -= cached.pixels.length / 4;
-      }
-      entry = {
-        version: source.version,
-        pixels: prepared.canvas
-          .getContext('2d')!
-          .getImageData(0, 0, source.width, source.height).data,
-      };
-      this.sourcePixelTotal += size;
+      const pixels = prepared.canvas
+        .getContext('2d')!
+        .getImageData(0, 0, source.width, source.height).data;
+      this.cachePixels(source, pixels);
+      return pixels;
     }
     cache.set(source, entry);
     return entry.pixels;
+  }
+  private cachePixels(
+    source: Texture2DSource,
+    pixels: Uint8ClampedArray,
+  ): void {
+    const cache = this.sourcePixelCache;
+    const previous = cache.get(source);
+    if (previous) {
+      this.sourcePixelTotal -= previous.pixels.length / 4;
+      cache.delete(source);
+    }
+    const size = pixels.length / 4;
+    for (const oldest of cache.keys()) {
+      if (
+        this.sourcePixelTotal + size <=
+        rendering2dLimits.canvasFrameSnapshotPixels
+      )
+        break;
+      this.sourcePixelTotal -= cache.get(oldest)!.pixels.length / 4;
+      cache.delete(oldest);
+    }
+    cache.set(source, { version: source.version, pixels });
+    this.sourcePixelTotal += size;
   }
   private dropFrame(hash: number, snapshot: FrameSnapshot): HTMLCanvasElement {
     this.frames.delete(hash);
@@ -357,6 +460,7 @@ export class CanvasSpriteSource {
   unload(source: Texture2DSource): void {
     const entry = this.sources.get(source);
     if (entry) entry.canvas.width = entry.canvas.height = 1;
+    this.pendingPixels.delete(source);
     this.sources.delete(source);
     this.dropFrames(source);
     const pixels = this.sourcePixelCache.get(source);
@@ -370,10 +474,31 @@ export class CanvasSpriteSource {
     this.dropFrames();
     if (this.scratch) this.scratch.width = this.scratch.height = 1;
     this.scratch = undefined;
+    this.pendingPixels.clear();
+    if (this.pixelBatch) this.pixelBatch.width = this.pixelBatch.height = 1;
+    this.pixelBatch = undefined;
   }
 }
 
 function sameKey(a: Float64Array, b: Float64Array): boolean {
   for (let i = 0; i < FRAME_KEY_LENGTH; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+function integerCopy(
+  a: number,
+  b: number,
+  c: number,
+  d: number,
+  x: number,
+  y: number,
+): boolean {
+  return (
+    a === 1 &&
+    d === 1 &&
+    b === 0 &&
+    c === 0 &&
+    Number.isInteger(x) &&
+    Number.isInteger(y)
+  );
 }

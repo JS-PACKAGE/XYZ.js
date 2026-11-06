@@ -28,6 +28,8 @@ export const rendering2dLimits = Object.freeze({
   /** Their combined pixels (4 bytes each); a larger single frame repaints a scratch.
    * Also bounds the source pixels read back once per version for tinted copies. */
   canvasFrameSnapshotPixels: 4 * 1024 * 1024,
+  /** One bounded atlas readback for newly tinted small sources per Canvas2D preflight. */
+  canvasReadbackBatchDimension: 256,
   /** WebGPU draws with at least this many quad slots upload instances through a mapped
    * staging buffer; below it `queue.writeBuffer` is as cheap. */
   stagedUploadQuads: 64,

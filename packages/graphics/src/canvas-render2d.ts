@@ -89,7 +89,12 @@ export class CanvasRender2D {
     }
     canvas.width = canvas.height = 1;
   }
-  preflight(commands: RenderCommandBuffer2D, depth = 0): void {
+  preflight(
+    commands: RenderCommandBuffer2D,
+    depth = 0,
+    root?: IsolatedGroup2D,
+  ): void {
+    if (depth === 0) this.sources.beginPixelBatch();
     if (depth > rendering2dLimits.layerDepth)
       throw new RangeError('Canvas2D layer depth exceeds budget.');
     for (const command of commands.items) {
@@ -111,12 +116,46 @@ export class CanvasRender2D {
       if (command.kind === 'sprite') {
         validateSpriteQuad2D(command.object);
         this.sources.prepare(command.object.texture);
+        if (this.sources.canBatchPixels(command.object.texture)) {
+          getRelativeAppearance2D(command.object, root, this.appearance);
+          if (
+            this.appearance[0] !== 1 ||
+            this.appearance[1] !== 1 ||
+            this.appearance[2] !== 1
+          )
+            this.sources.queuePixels(
+              command.object.texture,
+              getSpriteQuad2D(command.object, this.quad),
+              this.appearance,
+            );
+        }
       }
       if (command.kind === 'particles')
         for (let i = 0; i < command.object.activeCount; i++) {
           const slot = command.object.getSlot(command.object.activeSlotAt(i));
           validateTextureQuad2D(slot.texture, slot.view, slot.source);
           this.sources.prepare(slot.texture);
+          if (this.sources.canBatchPixels(slot.texture)) {
+            getRelativeAppearance2D(command.object, root, this.appearance);
+            this.appearance[0] *= slot.tintR;
+            this.appearance[1] *= slot.tintG;
+            this.appearance[2] *= slot.tintB;
+            if (
+              this.appearance[0] !== 1 ||
+              this.appearance[1] !== 1 ||
+              this.appearance[2] !== 1
+            )
+              this.sources.queuePixels(
+                slot.texture,
+                getTextureQuad2D(
+                  slot.texture,
+                  slot.view,
+                  slot.source,
+                  this.quad,
+                ),
+                this.appearance,
+              );
+          }
         }
       if (command.kind === 'layer') {
         if (command.object.filters.length)
@@ -127,9 +166,10 @@ export class CanvasRender2D {
           this.sources.prepare(command.object.mask.texture);
         const bounds = command.object.getLocalBounds();
         this.validateBounds(bounds);
-        this.preflight(command.commands, depth + 1);
+        this.preflight(command.commands, depth + 1, command.object);
       }
     }
+    if (depth === 0) this.sources.flushPixelBatch();
   }
   private validateBounds(bounds: Rect2D): void {
     if (
