@@ -161,6 +161,7 @@ export async function warmupScene(
         } else
           lease = await renderer.prepareResource(resource, {
             signal: options.signal,
+            scene,
           });
         if (options.signal?.aborted) {
           lease.release();

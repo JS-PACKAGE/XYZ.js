@@ -11,6 +11,7 @@ import { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
 import { ParticleLayer2D } from '../../core/src/particles2d/particle-layer2d.js';
 import { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
+import type { Scene } from '../../core/src/scene.js';
 
 export type PreparationResource =
   | Texture2DSource
@@ -25,6 +26,12 @@ export type PreparationResource =
   | PostProcessor2D;
 export interface ResourcePreparationOptions {
   readonly signal?: AbortSignal;
+  /**
+   * Scene a prepared Mesh will be drawn in. Its shadows, contact shadows and environment
+   * select the shader variant, which is then compiled ahead of the mesh's first draw;
+   * without it the variant assumes shadows and an environment.
+   */
+  readonly scene?: Scene;
 }
 interface NativePreparationOperations {
   texture(source: Texture2DSource): void;

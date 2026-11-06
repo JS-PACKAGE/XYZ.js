@@ -465,6 +465,8 @@ export class WebGL2Renderer implements Renderer {
   }
   private triangleProgram: WebGLProgram | undefined;
   private readonly meshPrograms = new Map<number, MeshProgram>();
+  /** Mesh variants compiling in the background for `prepareResource`, by variant bits. */
+  private readonly preparingMeshPrograms = new Map<number, Promise<void>>();
   /** Last key moved to the LRU tail; repeated draws skip re-inserting it. */
   private recentMeshProgram = -1;
   private readonly pendingPrograms = new Set<WebGLProgram>();
@@ -796,6 +798,7 @@ export class WebGL2Renderer implements Renderer {
       throw new GraphicsError(
         'Cannot prepare resources during an active frame.',
       );
+    let preparedMesh: Mesh | undefined;
     return prepareNativeResource(
       this.residency,
       source,
@@ -818,6 +821,7 @@ export class WebGL2Renderer implements Renderer {
           }
         },
         mesh: (mesh) => {
+          preparedMesh = mesh;
           mesh.updateRenderDeformation();
           this.cacheGeometry(mesh.renderGeometry);
           if (mesh instanceof SkinnedMesh) this.cacheSkin(mesh);
@@ -863,6 +867,8 @@ export class WebGL2Renderer implements Renderer {
         post: (post) => this.preparePostProcessor(post),
         complete: async () => {
           this.requireGL().flush();
+          if (preparedMesh)
+            await this.prepareMeshProgram(preparedMesh, options?.scene);
         },
       },
       options,
@@ -5119,6 +5125,63 @@ export class WebGL2Renderer implements Renderer {
       buildMeshFragment(meshShaderFeatures(material, mesh, scene)),
       `mesh ${key.toString(36)}`,
     );
+    return this.finishMeshProgram(gl, key, program);
+  }
+
+  /**
+   * Builds a mesh's program variant without blocking: with KHR_parallel_shader_compile the
+   * link is polled between tasks, so the first draw finds it ready instead of compiling it
+   * synchronously mid-frame. Without the extension it is built here, during preparation.
+   */
+  private prepareMeshProgram(mesh: Mesh, scene?: Scene): Promise<void> {
+    const material = mesh.material;
+    if (isNativeMaterial3D(material)) return Promise.resolve();
+    const gl = this.requireGL();
+    const key = meshShaderVariantBits(material, mesh, scene);
+    if (this.meshPrograms.has(key)) return Promise.resolve();
+    const pending = this.preparingMeshPrograms.get(key);
+    if (pending) return pending;
+    const label = `mesh ${key.toString(36)}`;
+    const program = this.createProgram(
+      gl,
+      buildMeshVertex(),
+      buildMeshFragment(meshShaderFeatures(material, mesh, scene)),
+      label,
+      !!this.parallelCompile,
+    );
+    this.pendingPrograms.add(program);
+    const work = this.waitForProgram(gl, program, label)
+      .then(() => {
+        this.requireGL();
+        this.pendingPrograms.delete(program);
+        // A draw that could not wait built the same variant meanwhile.
+        if (this.meshPrograms.has(key)) {
+          gl.deleteProgram(program);
+          return;
+        }
+        const previous = gl.getParameter(
+          gl.CURRENT_PROGRAM,
+        ) as WebGLProgram | null;
+        this.finishMeshProgram(gl, key, program);
+        gl.useProgram(previous);
+      })
+      .catch((error: unknown) => {
+        // A lost context already deleted every pending program.
+        if (this.pendingPrograms.delete(program)) gl.deleteProgram(program);
+        throw error;
+      })
+      .finally(() => {
+        this.preparingMeshPrograms.delete(key);
+      });
+    this.preparingMeshPrograms.set(key, work);
+    return work;
+  }
+
+  private finishMeshProgram(
+    gl: WebGL2RenderingContext,
+    key: number,
+    program: WebGLProgram,
+  ): MeshProgram {
     try {
       const uniforms: Record<string, WebGLUniformLocation | null> = {};
       for (const name of meshUniformNames)

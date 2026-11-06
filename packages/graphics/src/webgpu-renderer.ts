@@ -297,7 +297,7 @@ export class WebGPURenderer implements Renderer {
         post: (post) => this.preparePostProcessor(post),
         complete: async () => {
           if (source instanceof Mesh && !isNativeMaterial3D(source.material))
-            await this.meshPipeline!.prepareMeshAsync(source);
+            await this.meshPipeline!.prepareMeshAsync(source, options?.scene);
           await device.queue.onSubmittedWorkDone();
           this.requireDevice();
         },
