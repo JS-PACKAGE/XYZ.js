@@ -681,8 +681,6 @@ export class UIFocusManager {
     if (node) {
       for (let parent = node.parent; parent; parent = parent.parent)
         if (parent instanceof UIScrollView) parent.reveal(node);
-      if (this.root.isLive)
-        this.root.boundGame?.accessibility.update(this.root.scene);
       this.root.synchronizeSemantics();
     }
     if (this.root.boundGame) {

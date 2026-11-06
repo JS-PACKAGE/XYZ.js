@@ -29,6 +29,8 @@
 
 UI 的等值 Text2D style 更新沿用 raster；Canvas2D 對小型 tint source 使用有界合併讀回，同尺寸 CPU tint 重繪重用單張有界 ImageData；WebGL2 對一般 Sprite 使用有界上傳與批次配置錯誤檢查，避免逐張 GPU 同步。保留像素、版本更新、失敗清理、卸載與快取上限，不把這些局部改善視為全部掛載卡頓已消除。
 
+UI 焦點切換沿用 `synchronizeSemantics()` 的即時更新，移除其前方重複的全場景 accessibility 遍歷；不延後原生 focus、不略過新掛載控制項、modal 或 scroll reveal。
+
 ## 本輪批准追加：可重用程序式 PBR 與 gallery
 
 使用者批准 additive `ProceduralMaterial`／`ProceduralMaterialKind`／`ProceduralMaterialOptions`，支援 wood／brick／stone／metal／fabric／marble 六種。`create()` 一次生成 deterministic／seamless immutable baseColor／normal／metallicRoughness／occlusion maps；size 為整數 32–1024（預設 256），seed 為無號 32-bit 整數（預設 1）。預設 opaque／repeat、roughness factor 1，metal 的 metallic factor 1、其餘 0。呼叫者擁有預設，可借 `material` 或以 `createMaterial(overrides)` 重用 maps；所有使用者移除後才同步、冪等 `destroy()`，只釋放生成貼圖；`destroyed` 可查，銷毀後不再建立借用材質。

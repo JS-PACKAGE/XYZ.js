@@ -17532,3 +17532,26 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 中英日 README、PLAN、DESIGN、中英技術文件同步；166 個相對檔案連結的 32 個不同目標均存在。pnpm 12 的 exec 曾因既有 node_modules 為 worktree symlink 而在自動安裝步驟失敗，沒有移除或重建該 symlink；改用已安裝且核對版本的工具入口完成上述檢查。
 - 另完成 Chromium 正式 browser regression 的 Canvas2D／WebGL2／WebGPU，均 PASS；實體 WebXR、WebGPU 公開 device-loss 注入、Canvas2D GPU loss／native 3D／compressed texture 等既有 SKIP 如實保留。實際 Canvas2D showcase 在靜音瀏覽器中驗證首次 unlock、music／SFX、pause／resume、切到 Scene B 停止 nonpersistent music，目視 Sprite／Primitive，無 page error，隨後關閉分頁。
 - 本輪八個變更檔的 Prettier check 通過；臨時 tint 變體與一次性量測腳本在驗證完成後移除，量測結果已記錄於上方。
+
+### UI 焦點切換的重複語意同步
+
+- 接續 `da3dbafc6` 的 200-button 真實 Game／Scene UI 探針，Firefox 的 30 次連續 focus move 當次 action 為 26 ms；Gecko profile 指向 accessibility update，其他低頻 shader／procedural cache 淘汰沒有新的熱點證據，保持不動。
+- `UIFocusManager.focus()` 原先在 scroll reveal 後呼叫 accessibility update，緊接的 `synchronizeSemantics()` 又更新相同 scene。只移除前方兩行；保留後者的 modal 設定、原生鏡像與 widget binding，再執行 native focus。不以延後、略過 accessibility 或加入失效快取換取效能。
+- A/B 使用同一個正式 Canvas2D Game、200 個 UIButton、1200×650／DPR 1；兩個分頁逐 RAF 交錯執行，每次 30 次 focus move，20 組暖機後取 60 組，三輪交替建立順序。每個分頁每輪共 2,400 次切換，逐次驗證 root focus 與實際 `document.activeElement`，每輪最終 Canvas PNG 完全一致。前／後每組同步次數為 60／30。下表為 action CPU wall time，包含相同的檢查；不是 GPU submit、單次按鍵延遲或 FPS。
+- 最初直接重編 baseline module 的探針出現 Graphics path 類型錯誤，未計入量測。改為保留 Vite 完整 module graph，只在 served focus 方法還原那兩行，才取得以下九組有效比較。
+
+| Browser／round | Mean 前 ms | Mean 後 ms | p95 前 ms | p95 後 ms |
+| -------------- | ---------: | ---------: | --------: | --------: |
+| Firefox 1      |     15.033 |     11.517 |        16 |        12 |
+| Firefox 2      |     15.583 |     10.800 |        16 |        12 |
+| Firefox 3      |     15.300 |     11.583 |        17 |        13 |
+| Chromium 1     |      9.190 |      6.397 |       9.5 |       6.7 |
+| Chromium 2     |      9.302 |      6.258 |       9.6 |       6.6 |
+| Chromium 3     |      9.162 |      6.225 |       9.5 |       6.5 |
+| WebKit 1       |      7.117 |      4.933 |         8 |         5 |
+| WebKit 2       |      7.133 |      4.900 |         8 |         5 |
+| WebKit 3       |      7.200 |      4.983 |         8 |         6 |
+
+- Chromium／Firefox／WebKit 的額外原生 smoke 均通過：第一幀前 focus、新掛載控制項、modal entry／逆向 wrap／拒絕越界／restore、scroll reveal 後 focus、移除再註冊的 DOM identity 更換、disabled／hidden 拒絕、原生文字輸入及 Game destroy 清理。這是桌面自動化，不是實體 Safari／裝置或全部無障礙技術認證。
+- 既有 UI／scroll／text-input 三個 test files 共 17 tests、變更程式 ESLint、TypeScript build 及完整 ESM／vendor／CJS build 通過。編譯產物的 Chromium 三 backend regression 與 platform gate 均 PASS；既有 WebXR／device-loss／Canvas2D native-3D SKIP 及 OPM import 分析警告保留。未重跑全套單元測試，未新增只檢查呼叫次數的永久測試。
+- 另以正式 `authoring-lab` Canvas2D 範例目視 Settings modal 的黃色焦點框，操作 Tab／逆向 Tab、循環與 Close settings 後返回 Settings；無 page error，驗證後關閉分頁。初次手動 smoke 誤用 regression fixture 的按鈕名稱，修正為實際介面的 Settings／Close settings 後完成；未將該 timeout 當成產品失敗或通過。
