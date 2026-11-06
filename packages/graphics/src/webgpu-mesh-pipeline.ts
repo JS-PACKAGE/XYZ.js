@@ -3267,9 +3267,12 @@ export class WebGPUMeshPipeline {
       : native && native[2]
         ? this.cacheTexture(native[2], false).view
         : this.whiteView;
-    const emissiveSlot = pbr ? pbrEmissiveSlot(material) : undefined;
-    const emissive = emissiveSlot?.texture
-      ? this.cacheTexture(emissiveSlot.texture, false).view
+    // pbrEmissiveSlot's texture, without allocating its slot record per material per render.
+    const emissiveTexture = pbr
+      ? (material.lightmap ?? sources!.emissiveTexture)
+      : undefined;
+    const emissive = emissiveTexture
+      ? this.cacheTexture(emissiveTexture, false).view
       : native && native[3]
         ? this.cacheTexture(native[3], false).view
         : this.whiteView;
@@ -3297,46 +3300,64 @@ export class WebGPUMeshPipeline {
     const optical = pbr
       ? this.cacheOpticalMaps(material)
       : this.emptyOpticalView;
+    // Overwritten in place: `length = 0` would drop the backing store every call.
     const resources = this.materialResources;
-    resources.length = 0;
-    resources.push(
-      base,
-      this.cacheSampler(material.textureSampler),
-      mr,
-      normal,
-      ao,
-      emissive,
-      pbr ? this.cacheSampler(material.metallicRoughnessSampler) : this.sampler,
-      pbr ? this.cacheSampler(material.normalSampler) : this.sampler,
-      pbr ? this.cacheSampler(material.occlusionSampler) : this.sampler,
-      pbr ? this.cacheSampler(material.emissiveSampler) : this.sampler,
-      specular,
-      specularColor,
-      pbr ? this.cacheSampler(material.specularSampler) : this.sampler,
-      pbr ? this.cacheSampler(material.specularColorSampler) : this.sampler,
-      clearcoat,
-      clearcoatRoughness,
-      clearcoatNormal,
-      pbr ? this.cacheSampler(material.clearcoatSampler) : this.sampler,
-      pbr
-        ? this.cacheSampler(material.clearcoatRoughnessSampler)
-        : this.sampler,
-      pbr ? this.cacheSampler(material.clearcoatNormalSampler) : this.sampler,
-      sheenColor,
-      sheenRoughness,
-      pbr ? this.cacheSampler(material.sheenColorSampler) : this.sampler,
-      pbr ? this.cacheSampler(material.sheenRoughnessSampler) : this.sampler,
-      optical,
-    );
-    if (
-      binding &&
-      binding.resources.every(
-        (resource, index) => resource === resources[index],
-      )
-    ) {
-      binding.frame = this.frame;
-      binding.epoch = this.textureEpoch;
-      return binding.group;
+    resources[0] = base;
+    resources[1] = this.cacheSampler(material.textureSampler);
+    resources[2] = mr;
+    resources[3] = normal;
+    resources[4] = ao;
+    resources[5] = emissive;
+    resources[6] = pbr
+      ? this.cacheSampler(material.metallicRoughnessSampler)
+      : this.sampler;
+    resources[7] = pbr
+      ? this.cacheSampler(material.normalSampler)
+      : this.sampler;
+    resources[8] = pbr
+      ? this.cacheSampler(material.occlusionSampler)
+      : this.sampler;
+    resources[9] = pbr
+      ? this.cacheSampler(material.emissiveSampler)
+      : this.sampler;
+    resources[10] = specular;
+    resources[11] = specularColor;
+    resources[12] = pbr
+      ? this.cacheSampler(material.specularSampler)
+      : this.sampler;
+    resources[13] = pbr
+      ? this.cacheSampler(material.specularColorSampler)
+      : this.sampler;
+    resources[14] = clearcoat;
+    resources[15] = clearcoatRoughness;
+    resources[16] = clearcoatNormal;
+    resources[17] = pbr
+      ? this.cacheSampler(material.clearcoatSampler)
+      : this.sampler;
+    resources[18] = pbr
+      ? this.cacheSampler(material.clearcoatRoughnessSampler)
+      : this.sampler;
+    resources[19] = pbr
+      ? this.cacheSampler(material.clearcoatNormalSampler)
+      : this.sampler;
+    resources[20] = sheenColor;
+    resources[21] = sheenRoughness;
+    resources[22] = pbr
+      ? this.cacheSampler(material.sheenColorSampler)
+      : this.sampler;
+    resources[23] = pbr
+      ? this.cacheSampler(material.sheenRoughnessSampler)
+      : this.sampler;
+    resources[24] = optical;
+    if (binding) {
+      let unchanged = true;
+      for (let index = 0; unchanged && index < resources.length; index++)
+        unchanged = binding.resources[index] === resources[index];
+      if (unchanged) {
+        binding.frame = this.frame;
+        binding.epoch = this.textureEpoch;
+        return binding.group;
+      }
     }
     const group = this.device.createBindGroup({
       layout: this.materialLayout,
