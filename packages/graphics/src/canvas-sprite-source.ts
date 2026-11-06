@@ -52,9 +52,14 @@ export class CanvasSpriteSource {
    * paint identical pixels, so a snapshot can be drawn again. A hash collision is a miss.
    */
   private readonly frames = new Map<number, FrameSnapshot>();
+  // Consume only entries we immediately evict; the cursor keeps pointing at the LRU frame.
+  // Reuse it rather than leaving a live iterator per cache miss for GC to collect.
+  private readonly frameEviction = this.frames.entries();
   private framePixels = 0;
   private readonly frameKey = new Float64Array(FRAME_KEY_LENGTH);
   private readonly frameWords = new Int32Array(this.frameKey.buffer);
+  /** putImageData copies these bytes; painted snapshots never borrow this bounded scratch. */
+  private tintPixels: ImageData | undefined;
   private readonly sourceIds = new WeakMap<Texture2DSource, number>();
   private nextSourceId = 0;
   constructor(
@@ -292,7 +297,7 @@ export class CanvasSpriteSource {
       this.frames.size >= rendering2dLimits.canvasFrameSnapshots ||
       this.framePixels + pixels > rendering2dLimits.canvasFrameSnapshotPixels
     ) {
-      const [oldest, snapshot] = this.frames.entries().next().value!;
+      const [oldest, snapshot] = this.frameEviction.next().value!;
       const evicted = this.dropFrame(oldest, snapshot);
       if (canvas) evicted.width = evicted.height = 1;
       else canvas = evicted;
@@ -333,9 +338,6 @@ export class CanvasSpriteSource {
     if (canvas.width !== width) canvas.width = width;
     if (canvas.height !== height) canvas.height = height;
     const context = canvas.getContext('2d')!;
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, width, height);
-    context.imageSmoothingEnabled = false;
     // Invert the central UV basis: packed clockwise frames are unrotated here.
     const a = (quad.ux * sourceWidth) / canvas.width;
     const b = (quad.vx * sourceHeight) / canvas.width;
@@ -353,14 +355,21 @@ export class CanvasSpriteSource {
         ? this.sourcePixels(readable)
         : undefined;
     if (pixels) {
-      const out = context.createImageData(width, height),
-        data = out.data,
+      let out = this.tintPixels;
+      if (!out || out.width !== width || out.height !== height)
+        out = this.tintPixels = context.createImageData(width, height);
+      const data = out.data,
+        r = tint[0]!,
+        g = tint[1]!,
+        b = tint[2]!,
         sw = readable!.width,
+        sh = readable!.height,
         x0 = Math.max(0, x),
         x1 = Math.min(sw, x + width);
+      if (x < 0 || y < 0 || x + width > sw || y + height > sh) data.fill(0);
       for (let row = 0; row < height; row++) {
         const sy = y + row;
-        if (sy < 0 || sy >= readable!.height || x0 >= x1) continue;
+        if (sy < 0 || sy >= sh || x0 >= x1) continue;
         for (
           let o = (row * width + x0 - x) * 4,
             s = (sy * sw + x0) * 4,
@@ -368,15 +377,19 @@ export class CanvasSpriteSource {
           s < end;
           o += 4, s += 4
         ) {
-          data[o] = pixels[s]! * tint[0]!;
-          data[o + 1] = pixels[s + 1]! * tint[1]!;
-          data[o + 2] = pixels[s + 2]! * tint[2]!;
+          data[o] = pixels[s]! * r;
+          data[o + 1] = pixels[s + 1]! * g;
+          data[o + 2] = pixels[s + 2]! * b;
           data[o + 3] = pixels[s + 3]!;
         }
       }
       context.putImageData(out, 0, 0);
       return;
     }
+    // putImageData replaces the full frame; only the drawImage path needs clearing.
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, width, height);
+    context.imageSmoothingEnabled = false;
     context.setTransform(
       d / det,
       -b / det,
@@ -474,6 +487,7 @@ export class CanvasSpriteSource {
     this.dropFrames();
     if (this.scratch) this.scratch.width = this.scratch.height = 1;
     this.scratch = undefined;
+    this.tintPixels = undefined;
     this.pendingPixels.clear();
     if (this.pixelBatch) this.pixelBatch.width = this.pixelBatch.height = 1;
     this.pixelBatch = undefined;

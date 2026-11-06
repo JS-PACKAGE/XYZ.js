@@ -17506,3 +17506,29 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 隔離 build 與其他瀏覽器後，WebKit／Firefox 各三輪交錯 A/B 的完成畫面 PNG 全相同。WebKit 掛載最大 JS 工作中位數 135→141 ms、改名 73→78 ms、重新顯示 17→9 ms；Firefox 分別為 64→47、43→34、65→62 ms。WebKit 部分階段未改善，跨輪絕對耗時亦有波動；本項不宣稱跨瀏覽器一致加速，更不把本機自動化結果擴大為瀏覽器認證。
 - 上傳失敗回歸使用真正 `INVALID_VALUE` 與注入 source `SecurityError`，驗證新配置清理、既有 source 保留、重新上傳後 RGB 像素、同尺寸更新與顯式 unload；不以 mock `getError()` 代替 native GL 錯誤。Typecheck、相關 ESLint、四個相關單元檔共 36 項、build、正式 WebGL2／WebGPU／Canvas2D browser regression、API compatibility 與 ESM／CJS distribution 檢查通過。既有 WebXR／WebGPU loss 注入／Canvas2D native 3D 等 SKIP 維持；未重跑完整單元測試。
 - WebGL2 本輪文件／格式：相關四個程式檔、中英日 README、PLAN、DESIGN、中英技術文件及本紀錄的 Prettier 通過；166 個相對檔案連結指向的 32 個不同目標均存在。未以文件檢查冒稱重新驗證完整 runtime 或全套單元測試。
+- Canvas2D 粒子診斷：正式 particles2d workload 僅在臨時探針中縮為四個 emitter、各 capacity 256，120 warmup／60 measured frames、固定 1/60 simulation；最後 982 active，不代表 32,768 粒子完整 benchmark 已通過。Profile 的主要成本在 `CanvasSpriteSource.paint`，而非 simulation；180 frames 的 native 探針記錄 134,886 次 `createImageData`／`putImageData`，source 僅讀回一次。已撤掉沒有穩定收益的逐 channel 查表實驗，沒有量化 tint 或調低解析度。
+- CPU tint 改為重用單張同尺寸 ImageData，尺寸改變時替換、renderer destroy 解除引用；最多保留 4 Mi px／16 MiB RGBA 暫存，source／frame cache 的既有預算不變。完整像素覆寫不做多餘的 canvas clear；越界空白先清零。RGBA snapshot 仍由 `putImageData` 複製，不共用可變像素；單元 fake 同步改為模擬 native 的複製語義。
+- 僅重用 ImageData、尚未修正淘汰游標的初版 Chromium 三輪交錯粒子 A/B：CPU submit mean 44.405／45.740／47.380→42.180／27.183／44.945 ms；p95 122.3／52.9／94.5→49.4／30.1／72.0 ms。每輪 before／after 最後畫面 PNG 完全相同，無 page error；跨輪有明顯負載波動，不能單憑 Chromium 結果採用此版。
+- 初版 Firefox 六組重複／逐幀交錯量測均退步；拆開 clear 與 buffer 重用後，保留 clear 仍退步、不重用 buffer 則接近原版。Native 計時不足以解釋差距，Gecko CPU profile 指向 `dropFrame` 的 `Map.delete`：180 frames 的該位置 CPU samples 合計約 1,122→2,283 ms；同次 capture 原版有 45 個 GCMinor／19 個 GCMajor marker，重用版只有 20 個 GCMinor。這是觀測到的關聯，不把未驗證的 Gecko 內部機制當成定論。拆出像素 loop 未解決問題，未採用該實驗。
+- 改為保留單一 LRU 淘汰 iterator，僅消費立即移除的 entry，避免每次 miss 建立 iterator；cache 命中移到尾端、unload／source 版本替換與原預算不變。首輪 Firefox 正式 Game 逐幀交錯 A/B 的 CPU submit mean 26.067→15.017 ms、p95 33→16 ms、max 36→17 ms，最後 PNG 相同。兩頁皆在可見 RAF 上逐幀交錯；RAF 間隔包含另一頁工作，不能用此探針宣稱呈現 FPS 提升。
+- 最終版本以 `b672971d6` 的 CanvasSpriteSource 為 before，其他模組相同，三瀏覽器各三輪逐幀交錯；每輪 120 warmup／60 samples，兩頁每步均可見，18 次執行最後皆 982 active，各組 PNG 完全相同且無 page error。以下為 CPU submit（ms），不是 RAF／呈現 fps；九組 mean 都下降，但 Chromium 後兩組 p95 未改善，第三組 max 也較高，保留該限制而不宣稱消除所有尖峰。
+
+| Browser／round | Mean before | Mean after | p95 before | p95 after | Max before | Max after |
+| -------------- | ----------: | ---------: | ---------: | --------: | ---------: | --------: |
+| Firefox 1      |      41.967 |     23.083 |         65 |        30 |         80 |        33 |
+| Firefox 2      |      39.633 |     22.267 |         54 |        24 |         58 |        27 |
+| Firefox 3      |      58.167 |     26.000 |        130 |        35 |        184 |        42 |
+| Chromium 1     |      22.828 |     18.753 |       26.9 |      23.2 |       30.3 |        26 |
+| Chromium 2     |      32.225 |     30.723 |         53 |      53.1 |        282 |     213.8 |
+| Chromium 3     |      35.088 |     31.915 |       53.6 |      59.8 |       57.3 |        71 |
+| WebKit 1       |     168.933 |      9.683 |        194 |        11 |        213 |        11 |
+| WebKit 2       |     168.000 |      9.683 |        194 |        10 |        218 |        10 |
+| WebKit 3       |     195.383 |     10.383 |        274 |        13 |        277 |        15 |
+
+- 最終 Firefox 的另一輪原生計時／Gecko profile：180 frames 的 `createImageData` 134,886→1 次、`clearRect` 135,066→180 次，`putImageData` 仍 134,886 次、source `getImageData` 仍 1 次。`dropFrame` 的 CPU sample 合計由 1,031.180→7.724 ms，不再是主要熱點；這是帶 instrumentation 的診斷，未混入上表無 instrumentation 的效能數字。
+- 最終 Chromium／Firefox／WebKit 的 native 像素探針各比較 1,887,048 個 RGBA channel，五個 phase（含更新、卸載、透明像素與預算淘汰）全為零差異；另各保留 30 張 snapshot 到後續重畫結束再讀回，涵蓋同尺寸重用、32×16／16×32 等面積不同形狀、source 更新與內部越界空白，共 43,520 個 channel 也零差異。後者的越界是內部防禦測試，不擴大公開 frame API。
+- 實際 Chromium 粒子範例以 Canvas2D 執行，目視 Fountain 與 Fire，操作 Burst、Stop emitting、Clear 後 Active particles 為 0／emitting false；無 page error，驗證後關閉分頁。不是只以 unit mock 或空白 canvas 當作畫面證據。
+- 本輪 typecheck、5 個相關 test files／37 tests、變更程式檔 ESLint、完整 ESM／CJS build、Chromium 正式 platform gate 的 Canvas2D／WebGL2／WebGPU、API compatibility 與 distribution check 通過。既有 LRU 測試擴充到 unload 與 source replacement 清空後再次填滿、命中重排及淘汰；未宣稱跑過全套單元測試。Platform gate 不等於實體裝置／Safari 認證；Vite 對既有 OPM dynamic import 的分析警告仍在，未為本優化壓掉警告或改動首次 audio unlock／shader compilation。
+- 中英日 README、PLAN、DESIGN、中英技術文件同步；166 個相對檔案連結的 32 個不同目標均存在。pnpm 12 的 exec 曾因既有 node_modules 為 worktree symlink 而在自動安裝步驟失敗，沒有移除或重建該 symlink；改用已安裝且核對版本的工具入口完成上述檢查。
+- 另完成 Chromium 正式 browser regression 的 Canvas2D／WebGL2／WebGPU，均 PASS；實體 WebXR、WebGPU 公開 device-loss 注入、Canvas2D GPU loss／native 3D／compressed texture 等既有 SKIP 如實保留。實際 Canvas2D showcase 在靜音瀏覽器中驗證首次 unlock、music／SFX、pause／resume、切到 Scene B 停止 nonpersistent music，目視 Sprite／Primitive，無 page error，隨後關閉分頁。
+- 本輪八個變更檔的 Prettier check 通過；臨時 tint 變體與一次性量測腳本在驗證完成後移除，量測結果已記錄於上方。

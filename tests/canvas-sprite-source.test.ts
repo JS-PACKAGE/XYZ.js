@@ -23,11 +23,17 @@ class FakeContext {
       return { data };
     },
   );
-  readonly putImageData = vi.fn();
+  readonly painted: Uint8ClampedArray[] = [];
+  readonly putImageData = vi.fn((image: { data: Uint8ClampedArray }) => {
+    this.painted.push(image.data.slice());
+  });
   readonly drawImage = vi.fn();
   imageSmoothingEnabled = true;
-  createImageData(w: number, h: number): { data: Uint8ClampedArray } {
-    return { data: new Uint8ClampedArray(w * h * 4) };
+  createImageData(
+    width: number,
+    height: number,
+  ): { width: number; height: number; data: Uint8ClampedArray } {
+    return { width, height, data: new Uint8ClampedArray(width * height * 4) };
   }
   setTransform(): void {}
   clearRect(): void {}
@@ -99,7 +105,7 @@ describe('Canvas2D painted frame snapshots', () => {
     const red = [1, 0.5, 0.5, 1];
     const first = source.image(texture, left, red);
     const tinted = first as unknown as FakeCanvas;
-    expect(tinted.context.putImageData.mock.calls[0]![0].data[1]).toBe(100);
+    expect(tinted.context.painted[0]![1]).toBe(100);
     expect(source.image(texture, left, red)).toBe(first);
     expect(paints()).toBe(1);
     expect(source.image(texture, right, red)).not.toBe(first);
@@ -133,33 +139,42 @@ describe('Canvas2D painted frame snapshots', () => {
     expect(paints()).toBe(3);
   });
 
-  it('evicts the least recently drawn snapshot when the budget is full', () => {
-    const texture = new Texture({
+  it('preserves LRU eviction after unloading or replacing the cached source', () => {
+    const texture = new CanvasTexture2D({
       width: 8,
       height: 8,
-      close() {},
-    } as ImageBitmap);
+    } as HTMLCanvasElement);
     const source = sprites();
     const frame = quad(texture, 0, 4);
     const tints = Array.from(
       { length: rendering2dLimits.canvasFrameSnapshots + 1 },
       (_, i) => [1, i / 1024, 1, 1],
     );
-    for (let i = 0; i < tints.length - 1; i++)
-      source.image(texture, frame, tints[i]!);
-    // Drawing the first again makes the second the least recently drawn.
-    source.image(texture, frame, tints[0]!);
-    source.image(texture, frame, tints.at(-1)!);
-    const painted = paints();
-    expect(painted).toBe(tints.length);
-    source.image(texture, frame, tints[0]!);
-    expect(paints()).toBe(painted);
-    source.image(texture, frame, tints[1]!);
-    expect(paints()).toBe(painted + 1);
-    // Evicted canvases are repainted instead of allocated.
-    expect(canvases.length).toBeLessThanOrEqual(
-      rendering2dLimits.canvasFrameSnapshots + 1,
-    );
+    for (let cycle = 0; cycle < 3; cycle++) {
+      const previousCanvases = canvases.length,
+        previousPaints = paints();
+      for (let i = 0; i < tints.length - 1; i++)
+        source.image(texture, frame, tints[i]!);
+      // Drawing the first again makes the second the least recently drawn.
+      source.image(texture, frame, tints[0]!);
+      source.image(texture, frame, tints.at(-1)!);
+      const painted = paints();
+      expect(painted - previousPaints).toBe(tints.length);
+      source.image(texture, frame, tints[0]!);
+      expect(paints()).toBe(painted);
+      source.image(texture, frame, tints[1]!);
+      expect(paints()).toBe(painted + 1);
+      // Evicted canvases are repainted instead of allocated.
+      expect(canvases.length - previousCanvases).toBeLessThanOrEqual(
+        rendering2dLimits.canvasFrameSnapshots + 1,
+      );
+      // An emptied cache must not leave its eviction cursor exhausted.
+      if (cycle === 0) source.unload(texture);
+      if (cycle === 1)
+        texture.update({ width: 8, height: 8 } as HTMLCanvasElement);
+    }
+    source.destroy();
+    texture.destroy();
   });
 
   it('tints 1:1 frames from one read of their source', () => {
@@ -185,8 +200,7 @@ describe('Canvas2D painted frame snapshots', () => {
     expect(paints()).toBe(4);
     expect(readbacks()).toBe(1);
     const written = (canvas: HTMLCanvasElement): Uint8ClampedArray =>
-      (canvas as unknown as FakeCanvas).context.putImageData.mock.calls[0]![0]
-        .data;
+      (canvas as unknown as FakeCanvas).context.painted[0]!;
     // Source pixel (x, y) has red 200 - (y * 8 + x); alpha passes through.
     expect(Array.from(written(left).subarray(0, 8))).toEqual([
       100, 200, 200, 0, 100, 199, 199, 255,
@@ -218,8 +232,7 @@ describe('Canvas2D painted frame snapshots', () => {
     source.image(texture, quad(texture, 0, 4), [0.25, 1, 1, 1]);
     expect(paints()).toBe(3);
     expect(readbacks()).toBe(1);
-    const data = (first as unknown as FakeCanvas).context.putImageData.mock
-      .calls[0]![0].data as Uint8ClampedArray;
+    const data = (first as unknown as FakeCanvas).context.painted[0]!;
     // Red 200 - pixel halves; the partial alpha 200 passes through unchanged.
     expect(Array.from(data.subarray(0, 8))).toEqual([
       100, 200, 200, 200, 100, 199, 199, 200,
@@ -296,9 +309,7 @@ describe('Canvas2D painted frame snapshots', () => {
       ) as unknown as FakeCanvas;
       const expected = new Uint8ClampedArray(t.width * t.height * 4);
       for (let i = 0; i < expected.length; i += 4) expected.set(color, i);
-      expect(painted.context.putImageData.mock.calls.at(-1)![0].data).toEqual(
-        expected,
-      );
+      expect(painted.context.painted.at(-1)).toEqual(expected);
     };
     batch([a, b]);
     expectColor(a, [100, 60, 30, 128]);
