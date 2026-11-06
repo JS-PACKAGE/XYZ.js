@@ -43,6 +43,7 @@ export class CanvasSpriteSource {
     { version: number; pixels: Uint8ClampedArray }
   >();
   private sourcePixelTotal = 0;
+  private newestPixelSource: Texture2DSource | undefined;
   private readonly pendingPixels = new Map<Texture2DSource, number>();
   private pixelBatch: HTMLCanvasElement | undefined;
   private batchX = 0;
@@ -428,8 +429,12 @@ export class CanvasSpriteSource {
     const cache = this.sourcePixelCache;
     let entry = cache.get(source);
     if (entry) {
+      const current = entry.version === source.version;
+      if (current && source === this.newestPixelSource) return entry.pixels;
       cache.delete(source);
-      if (entry.version !== source.version) {
+      if (!current) {
+        if (source === this.newestPixelSource)
+          this.newestPixelSource = undefined;
         this.sourcePixelTotal -= entry.pixels.length / 4;
         entry = undefined;
       }
@@ -442,6 +447,7 @@ export class CanvasSpriteSource {
       return pixels;
     }
     cache.set(source, entry);
+    this.newestPixelSource = source;
     return entry.pixels;
   }
   private cachePixels(
@@ -465,6 +471,7 @@ export class CanvasSpriteSource {
       cache.delete(oldest);
     }
     cache.set(source, { version: source.version, pixels });
+    this.newestPixelSource = source;
     this.sourcePixelTotal += size;
   }
   private appendFrame(snapshot: FrameSnapshot): void {
@@ -502,6 +509,7 @@ export class CanvasSpriteSource {
     this.pendingPixels.delete(source);
     this.sources.delete(source);
     this.dropFrames(source);
+    if (source === this.newestPixelSource) this.newestPixelSource = undefined;
     const pixels = this.sourcePixelCache.get(source);
     if (pixels) {
       this.sourcePixelCache.delete(source);

@@ -300,6 +300,58 @@ describe('Canvas2D painted frame snapshots', () => {
     expect(readbacks()).toBe(4);
   });
 
+  it('preserves source-pixel recency through repeated hits, eviction and unload', () => {
+    const width = 1024,
+      height = rendering2dLimits.canvasFrameSnapshotPixels / (2 * width);
+    const textures = Array.from(
+      { length: 3 },
+      () => new CanvasTexture2D({ width, height } as HTMLCanvasElement),
+    );
+    const [a, b, c] = textures as [
+      CanvasTexture2D,
+      CanvasTexture2D,
+      CanvasTexture2D,
+    ];
+    const source = sprites();
+    let tint = 0.1;
+    const draw = (texture: CanvasTexture2D): void => {
+      tint += 0.01;
+      const canvas = source.image(
+        texture,
+        getTextureQuad2D(
+          texture,
+          undefined,
+          { x: 0, y: 0, width: 1, height: 1 },
+          createTextureQuad2D(),
+        ),
+        [tint, 1, 1, 1],
+      ) as unknown as FakeCanvas;
+      expect(Array.from(canvas.context.painted.at(-1)!)).toEqual([
+        Math.round(200 * tint),
+        200,
+        200,
+        200,
+      ]);
+    };
+    draw(a);
+    draw(b);
+    draw(a);
+    draw(a);
+    expect(readbacks()).toBe(2);
+    draw(c);
+    draw(a);
+    expect(readbacks()).toBe(3);
+    draw(b);
+    expect(readbacks()).toBe(4);
+    source.unload(b);
+    draw(a);
+    expect(readbacks()).toBe(4);
+    draw(b);
+    expect(readbacks()).toBe(5);
+    source.destroy();
+    for (const texture of textures) texture.destroy();
+  });
+
   it('tints semi-transparent 1:1 frames from the same single source read', () => {
     const texture = new CanvasTexture2D({
       width: 8,

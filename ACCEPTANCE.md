@@ -17597,3 +17597,61 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 在既有快取測試中補上跨 source 卸載同時移除最舊／中間／最新 snapshot，以及像素預算一次淘汰多筆的邊界；驗證存活項目順序、重用 canvas 的實際 tint bytes、被移除 canvas 的釋放與 destroy。相關四檔共 30 tests 通過，變更程式 ESLint、TypeScript typecheck、完整 ESM／vendor／CJS build 通過；未重跑全套單元測試。
 - 編譯產物的 Chromium Canvas2D／WebGL2／WebGPU regression 與 platform gate 均 PASS。既有實體 WebXR、WebGPU 公開 device-loss 注入、Canvas2D GPU loss／native 3D／compressed texture 等 SKIP 與 OPM dynamic-import 分析警告如實保留。
 - 實際 Canvas2D showcase 在靜音瀏覽器中目視 Sprite／Primitive，完成首次 unlock、music／SFX、pause／resume、切至 Scene B 停止 nonpersistent music；無 page error，驗證後關閉分頁。不以靜音自動化宣稱實體音訊品質或 Safari／裝置全面認證。
+
+### Canvas2D source pixel cache：最新來源的重複 Map 重排
+
+- Before 為 `e634f9ed4` 的 CanvasSpriteSource；同版本且已是最新來源的 pixel-cache hit 改為直接使用像素，不再 delete／set Map。其他命中仍移到尾端，batch／lazy 插入更新最新來源；版本失效與 unload 清除相符引用，destroy 沿用逐來源卸載。4 Mi px source-pixel 預算、frame cache 上限、RGBA、讀回例外與 borrowed ownership 均不變，沒有新增依賴或 API。
+- Chromium 153.0.8010.12／macOS arm64 的正式 Game 診斷：四層 tint／opacity Group2D、16×16 checker 素材、1280×720／DPR 1；512 或 4096 粒子各使用同數量色彩，240 暖機＋240 量測幀。CDP 16 KiB heap sampling 包含已回收物件，數值是配置量估計而非存活 heap、精確計數或 FPS。兩種工作量在穩態與變更 layer tint／opacity 後的 RGBA hash 均與 before 相同。
+
+| 粒子／色彩數 | 總配置取樣前 MiB | 總配置取樣後 MiB | source-cache delete 前 MiB | source-cache delete 後 MiB |
+| ------------ | ---------------: | ---------------: | -------------------------: | -------------------------: |
+| 512          |           42.634 |           31.910 |                      8.833 |                      0.000 |
+| 4096         |          276.008 |          200.130 |                     72.371 |                      0.000 |
+
+- 不把帶 profiler 的先後執行當成 CPU A/B。4096 案例的 native `putImageData` 仍佔約 13.817 秒的 self samples／240 幀；本修改沒有消除該 native 瓶頸，也沒有把 profiler samples 當成 OS 執行緒 CPU 或 GPU completion。
+- 無 profiler 的配對沿用同頁可見 iframe、真正 Game frame callback、共同原生 RAF timestamp，逐幀交換執行順序、逐輪交換建立順序；每輪 240 暖機＋240 samples。`hits`＝4096 粒子／4 色／1 source；`churn`＝512／512／1；`multi`＝512／512／16 個交替來源；`heavy`＝4096／4096／1。Chromium 153.0.8010.12、Firefox 155.0、WebKit 26.6 各三輪，共 36 組；穩態與外觀變更後的原始 RGBA SHA256 全部逐組一致，active count 正確，destroy 無 page error，並目視配對畫面。下表是 `Game.frameWork.totalMs` wall time，不是呈現 FPS；RAF 同時承擔兩個 Game。
+
+| Browser／workload／round | Mean 前 ms | Mean 後 ms | p95 前 ms | p95 後 ms |
+| ------------------------ | ---------: | ---------: | --------: | --------: |
+| chromium／hits／1        |      3.484 |      3.506 |     3.700 |     3.700 |
+| chromium／hits／2        |      3.414 |      3.422 |     3.600 |     3.600 |
+| chromium／hits／3        |      3.468 |      3.468 |     3.700 |     3.700 |
+| chromium／churn／1       |      1.933 |      1.913 |     2.200 |     2.200 |
+| chromium／churn／2       |      2.153 |      2.139 |     2.600 |     2.500 |
+| chromium／churn／3       |      4.402 |      4.428 |     5.500 |     5.600 |
+| chromium／multi／1       |      4.100 |      4.071 |     4.700 |     4.700 |
+| chromium／multi／2       |      3.275 |      3.346 |     4.900 |     5.000 |
+| chromium／multi／3       |      2.484 |      2.485 |     2.800 |     2.800 |
+| chromium／heavy／1       |    151.118 |    150.918 |   199.700 |   198.100 |
+| chromium／heavy／2       |    200.475 |    202.712 |   247.700 |   254.500 |
+| chromium／heavy／3       |    218.505 |    225.217 |   272.400 |   380.000 |
+| firefox／hits／1         |      9.546 |      9.363 |    14.000 |    13.000 |
+| firefox／hits／2         |      9.208 |      9.292 |    13.000 |    13.000 |
+| firefox／hits／3         |     11.046 |     11.017 |    16.000 |    16.000 |
+| firefox／churn／1        |      5.783 |      5.779 |     8.000 |     8.000 |
+| firefox／churn／2        |      5.921 |      5.746 |     9.000 |     8.000 |
+| firefox／churn／3        |      5.658 |      5.546 |    10.000 |     9.000 |
+| firefox／multi／1        |      5.558 |      5.487 |     9.000 |     8.000 |
+| firefox／multi／2        |      4.846 |      4.896 |     8.000 |     8.000 |
+| firefox／multi／3        |      5.971 |      6.079 |     9.000 |     9.000 |
+| firefox／heavy／1        |      9.671 |      9.583 |    11.000 |    11.000 |
+| firefox／heavy／2        |      9.796 |      9.696 |    11.000 |    11.000 |
+| firefox／heavy／3        |     10.446 |     10.071 |    12.000 |    12.000 |
+| webkit／hits／1          |      2.038 |      1.988 |     3.000 |     2.000 |
+| webkit／hits／2          |      1.988 |      2.038 |     2.000 |     3.000 |
+| webkit／hits／3          |      1.738 |      1.775 |     2.000 |     2.000 |
+| webkit／churn／1         |      1.371 |      1.333 |     2.000 |     2.000 |
+| webkit／churn／2         |      1.417 |      1.321 |     2.000 |     2.000 |
+| webkit／churn／3         |      1.329 |      1.308 |     2.000 |     2.000 |
+| webkit／multi／1         |      1.304 |      1.317 |     2.000 |     2.000 |
+| webkit／multi／2         |      1.283 |      1.329 |     2.000 |     2.000 |
+| webkit／multi／3         |      1.304 |      1.267 |     2.000 |     2.000 |
+| webkit／heavy／1         |     12.654 |     12.629 |    13.000 |    13.000 |
+| webkit／heavy／2         |     13.129 |     13.113 |    14.000 |    14.000 |
+| webkit／heavy／3         |     13.417 |     13.279 |    14.000 |    14.000 |
+
+- CPU 沒有普遍改善，尤其 Chromium heavy 第三輪 mean 218.505→225.217 ms、p95 272.4→380 ms，保留退步與尖峰，不以配置減少宣稱修復全部卡頓。採用理由是消除已量測到的無效 Map 配置；16-source 工作量仍有小幅正負波動，沒有宣稱其加速。
+- 三引擎的原生 Canvas lifecycle probe 均通過：最新來源重複命中、lazy／batch 後版本更新、unload 再用、注入 `SecurityError` 的讀回失敗傳播與重試、其他 source destroy、renderer cleanup 及借用來源未被銷毀。逐步核對實際 tint RGBA，而非只檢查不拋錯。
+- 既有 cache tests 補上兩個 source 填滿像素預算後的重複命中、第三個 source 淘汰及最新來源 unload，檢查讀回次數與實際 tint bytes。初版 fixture 的單邊尺寸超過 asset 上限，改用合法 1024×2048 source／1×1 crop；未變更產品限制。四個相關 test files（canvas-sprite-source、canvas-render2d-tint、render-texture2d、rendering2d-assets）共 23 tests 通過；變更程式 ESLint、tsconfig.check typecheck、完整 ESM／vendor／CJS build 通過，未重跑全套單元測試。
+- 編譯產物的 Chromium Canvas2D／WebGL2／WebGPU regression 與 platform gate 均 PASS。實體 WebXR、公開 WebGPU device-loss 注入、Canvas2D GPU loss／native 3D／compressed texture 等既有 SKIP，以及 OPM dynamic import 分析警告如實保留。
+- 實際 Canvas2D showcase 目視 Sprite／Primitive，操作首次 audio unlock、music／SFX、pause／resume、切 Scene B 停止 nonpersistent music，無 page error，隨後關閉自有瀏覽器。瀏覽器靜音，不宣稱實體聽感或 Safari／裝置全面認證。
