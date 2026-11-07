@@ -91,6 +91,18 @@ function sprites(): CanvasSpriteSource {
     throw new Error('No render targets are drawn.');
   });
 }
+/**
+ * Non-white tints that paint pairwise different frames from the fake pixels (levels
+ * 137–200): per channel, steps of 1/64 move every level's rounded product by 2 or more.
+ */
+function distinctTint(i: number): number[] {
+  return [
+    (i % 64) / 64,
+    (Math.floor(i / 64) % 64) / 64,
+    Math.floor(i / 4096) / 64,
+    1,
+  ];
+}
 
 describe('Canvas2D painted frame snapshots', () => {
   it('redraws an unchanged tinted sub-frame without repainting it', () => {
@@ -148,12 +160,9 @@ describe('Canvas2D painted frame snapshots', () => {
     const frame = quad(texture, 0, 4);
     const capacity = rendering2dLimits.canvasFrameSnapshots;
     // Distinct non-white tints: a white tint takes the untinted path and paints nothing.
-    const tints = Array.from({ length: capacity + 1 }, (_, i) => [
-      1,
-      i / (capacity + 1),
-      1,
-      1,
-    ]);
+    const tints = Array.from({ length: capacity + 1 }, (_, i) =>
+      distinctTint(i),
+    );
     for (let cycle = 0; cycle < 3; cycle++) {
       const previousCanvases = canvases.length,
         previousPaints = paints();
@@ -188,12 +197,9 @@ describe('Canvas2D painted frame snapshots', () => {
       frameB = quad(b, 0, 4),
       capacity = rendering2dLimits.canvasFrameSnapshots,
       middle = Math.floor(capacity / 2);
-    const tints = Array.from({ length: capacity + 3 }, (_, i) => [
-      1,
-      i / (capacity + 3),
-      1,
-      1,
-    ]);
+    const tints = Array.from({ length: capacity + 3 }, (_, i) =>
+      distinctTint(i),
+    );
     const removed = new Set([0, middle, capacity - 1]);
     const frames = tints
       .slice(0, capacity)
@@ -228,6 +234,41 @@ describe('Canvas2D painted frame snapshots', () => {
       expect([frame.width, frame.height]).toEqual([1, 1]);
     a.destroy();
     b.destroy();
+  });
+
+  it('shares one frame between tints that round every source level alike', () => {
+    const texture = new CanvasTexture2D({
+      width: 8,
+      height: 8,
+    } as HTMLCanvasElement);
+    const source = sprites();
+    const frame = quad(texture, 0, 4);
+    // Levels 137–200 times 0.6 have fractional parts of at most 0.4, which 0.6004 raises by
+    // under 0.08, so both round alike; 0.61 moves 200 from 120 to 122 and paints its own.
+    const first = source.image(texture, frame, [0.6, 1, 1, 1]);
+    expect(source.image(texture, frame, [0.6004, 1, 1, 1])).toBe(first);
+    expect(paints()).toBe(1);
+    const second = source.image(texture, frame, [0.61, 1, 1, 1]);
+    expect(second).not.toBe(first);
+    expect(paints()).toBe(2);
+    const painted = (canvas: unknown): Uint8ClampedArray =>
+      (canvas as FakeCanvas).context.painted.at(-1)!;
+    expect(painted(first)[0]).toBe(120);
+    expect(painted(second)[0]).toBe(122);
+    // The same tints through a non-integer copy read the frame back and key on the floats.
+    const scaled = getTextureQuad2D(
+      texture,
+      undefined,
+      { x: 0.5, y: 0, width: 4, height: 8 },
+      createTextureQuad2D(),
+    );
+    const resampled = source.image(texture, scaled, [0.6, 1, 1, 1]);
+    expect(source.image(texture, scaled, [0.6004, 1, 1, 1])).not.toBe(
+      resampled,
+    );
+    expect(paints()).toBe(4);
+    source.destroy();
+    texture.destroy();
   });
 
   it('evicts multiple least-recent frames to fit the pixel budget', () => {

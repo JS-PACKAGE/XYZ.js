@@ -23,13 +23,17 @@ interface FrameSnapshot {
   readonly canvas: HTMLCanvasElement;
   readonly source: Texture2DSource;
   readonly key: Float64Array;
+  /** Tint rounding classes a source-read tint painted; see `tintClasses`. */
+  readonly classes: Uint8ClampedArray | undefined;
   readonly hash: number;
   previous: FrameSnapshot | undefined;
   next: FrameSnapshot | undefined;
   pixels: number;
 }
 
-const FRAME_KEY_LENGTH = 16;
+const FRAME_KEY_LENGTH = 17;
+/** Three channels of up to 256 distinct source levels. */
+const CLASS_BYTES = 768;
 
 /** Renderer-owned source snapshots; views borrow a single versioned upload. */
 export class CanvasSpriteSource {
@@ -40,7 +44,7 @@ export class CanvasSpriteSource {
   /** Source pixels read back once per version for tinted copies, least recently used first. */
   private readonly sourcePixelCache = new Map<
     Texture2DSource,
-    { version: number; pixels: Uint8ClampedArray }
+    { version: number; pixels: Uint8ClampedArray; levels?: Uint8Array }
   >();
   private sourcePixelTotal = 0;
   private newestPixelSource: Texture2DSource | undefined;
@@ -63,6 +67,9 @@ export class CanvasSpriteSource {
   private framePixels = 0;
   private readonly frameKey = new Float64Array(FRAME_KEY_LENGTH);
   private readonly frameWords = new Int32Array(this.frameKey.buffer);
+  private readonly classScratch = new Uint8ClampedArray(CLASS_BYTES);
+  private readonly classWords = new Int32Array(this.classScratch.buffer);
+  private classLength = 0;
   /** putImageData copies these bytes; painted snapshots never borrow this bounded scratch. */
   private tintPixels: ImageData | undefined;
   private readonly sourceIds = new WeakMap<Texture2DSource, number>();
@@ -267,6 +274,22 @@ export class CanvasSpriteSource {
     let id = this.sourceIds.get(source);
     if (id === undefined)
       this.sourceIds.set(source, (id = this.nextSourceId++));
+    // A source-read tint (the `pixels` path in `paint`) depends on the tint only through
+    // each level's rounded product, so such frames are keyed by those classes: a color ramp
+    // yields finitely many frames, where every float tint of it would paint its own.
+    const classes =
+      !field &&
+      (tint[0] !== 1 || tint[1] !== 1 || tint[2] !== 1) &&
+      integerCopy(
+        (quad.ux * sourceWidth) / width,
+        (quad.vx * sourceHeight) / width,
+        (quad.uy * sourceWidth) / height,
+        (quad.vy * sourceHeight) / height,
+        quad.u0 * sourceWidth,
+        quad.v0 * sourceHeight,
+      )
+        ? this.tintClasses(source, tint)
+        : undefined;
     const k = this.frameKey;
     k[0] = id;
     k[1] = source.version;
@@ -281,15 +304,26 @@ export class CanvasSpriteSource {
     k[10] = quad.vy;
     k[11] = width;
     k[12] = height;
-    k[13] = tint[0];
-    k[14] = tint[1];
-    k[15] = tint[2];
+    k[13] = classes ? 0 : tint[0]!;
+    k[14] = classes ? 0 : tint[1]!;
+    k[15] = classes ? 0 : tint[2]!;
+    k[16] = classes ? this.classLength : -1;
     const words = this.frameWords;
     let hash = 0;
     for (let i = 0; i < words.length; i++)
       hash = (Math.imul(hash, 0x01000193) ^ words[i]!) | 0;
+    if (classes) {
+      const classWords = this.classWords,
+        count = (this.classLength + 3) >> 2;
+      for (let i = 0; i < count; i++)
+        hash = (Math.imul(hash, 0x01000193) ^ classWords[i]!) | 0;
+    }
     const hit = this.frames.get(hash);
-    if (hit && sameKey(hit.key, k)) {
+    if (
+      hit &&
+      sameKey(hit.key, k) &&
+      (!classes || sameBytes(hit.classes!, classes, this.classLength))
+    ) {
       if (hit !== this.newestFrame) {
         this.unlinkFrame(hit);
         this.appendFrame(hit);
@@ -323,6 +357,7 @@ export class CanvasSpriteSource {
       canvas,
       source,
       key: k.slice(),
+      classes: classes?.slice(0, this.classLength),
       hash,
       previous: undefined,
       next: undefined,
@@ -450,6 +485,47 @@ export class CanvasSpriteSource {
     this.newestPixelSource = source;
     return entry.pixels;
   }
+  /**
+   * `paint` stores each tinted channel as `Uint8ClampedArray` does `level * tint`, so two
+   * tints paint the same frame exactly when every level present in the source rounds alike.
+   * Those rounded products, per channel, fill `classScratch` (`classLength` bytes) for the
+   * prepared source's cached pixels; undefined when they are not cached (then `paint` reads
+   * back the painted frame instead and the float tint keys it).
+   */
+  private tintClasses(
+    source: Texture2DSource,
+    tint: ArrayLike<number>,
+  ): Uint8ClampedArray | undefined {
+    const pixels = this.sourcePixels(source);
+    if (!pixels) return undefined;
+    const entry = this.sourcePixelCache.get(source)!;
+    let levels = entry.levels;
+    if (!levels) {
+      const seen = new Uint8Array(256);
+      for (let i = 0; i < pixels.length; i += 4)
+        seen[pixels[i]!] = seen[pixels[i + 1]!] = seen[pixels[i + 2]!] = 1;
+      let count = 0;
+      for (let level = 0; level < 256; level++) count += seen[level]!;
+      levels = entry.levels = new Uint8Array(count);
+      for (let level = 0, at = 0; level < 256; level++)
+        if (seen[level]) levels[at++] = level;
+    }
+    const out = this.classScratch,
+      n = levels.length,
+      r = tint[0]!,
+      g = tint[1]!,
+      b = tint[2]!;
+    for (let i = 0; i < n; i++) {
+      const level = levels[i]!;
+      out[i] = level * r;
+      out[n + i] = level * g;
+      out[2 * n + i] = level * b;
+    }
+    // The hash reads whole words; keep the padding deterministic.
+    for (let i = 3 * n; i & 3; i++) out[i] = 0;
+    this.classLength = 3 * n;
+    return out;
+  }
   private cachePixels(
     source: Texture2DSource,
     pixels: Uint8ClampedArray,
@@ -530,6 +606,16 @@ export class CanvasSpriteSource {
 
 function sameKey(a: Float64Array, b: Float64Array): boolean {
   for (let i = 0; i < FRAME_KEY_LENGTH; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function sameBytes(
+  a: Uint8ClampedArray,
+  b: Uint8ClampedArray,
+  length: number,
+): boolean {
+  if (a.length !== length) return false;
+  for (let i = 0; i < length; i++) if (a[i] !== b[i]) return false;
   return true;
 }
 

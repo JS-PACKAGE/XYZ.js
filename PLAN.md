@@ -33,6 +33,8 @@ Canvas2D frame snapshot 的 LRU 改由既有 snapshot 的前後連結維護，�
 
 Canvas2D frame snapshot 張數上限由 256 提高到 4096；記憶體仍由既有 4 Mi px 像素預算約束。不同小型 tint frame 多於舊上限時不再每幀全部 miss 與重新上傳。每幀改變 tint 的情境、LRU 順序與清理不變。
 
+Canvas2D 從來源像素直接 tint 的 frame（整數位移 1:1 複製）改以「來源出現的每個色階 × tint 後的取整值」為快取鍵，取整結果相同的 tint 共用 snapshot。Snapshot 內容與原本逐 tint 繪製的位元組相同；需重新取樣或讀回自身的 frame 仍以 tint 數值為鍵。像素預算、LRU、清理不變。
+
 UI 焦點切換沿用 `synchronizeSemantics()` 的即時更新，移除其前方重複的全場景 accessibility 遍歷；不延後原生 focus、不略過新掛載控制項、modal 或 scroll reveal。
 
 ## 本輪批准追加：可重用程序式 PBR 與 gallery

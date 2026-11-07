@@ -17675,3 +17675,27 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 
 - 範圍為各兩輪（Chromium 量測兩次獨立批次）。Chromium 4 色全命中的 CPU 差異在兩輪間互換方向，視為雜訊，不宣稱改善或退步。Chromium 4096 色上限後仍約 24–27 ms 幀間隔：4096 張不同的小 canvas 逐張 `drawImage` 本身仍昂貴，本修改沒有消除這部分。Playwright 瀏覽器行程 RSS 在新上限下沒有上升（例如 Chromium 1024 色 1156–1236 → 1094–1167 MiB），只作為相對觀察，不是記憶體保證。
 - 測試：既有 LRU 測試的 tint fixture 原為 `i / 1024`，上限變大後會出現白色 tint（走未 tint 路徑），改為 `i / (上限 + 1)`；斷言不變。完整 Vitest 182 files／15485 tests 通過（1230.62 s），build、相關檔案 ESLint 與 Prettier、typecheck 通過。`regression:browser` 的 Chromium canvas2d／webgl2／webgpu 均 PASS，既有 WebXR、WebGPU device-loss 注入與 Canvas2D native 3D SKIP 如實保留。Canvas2D particles2d 範例實際開啟並目視，無 page error。
+
+### 物理堆疊重測（無提交）
+
+- 舊紀錄中「大量物件與碰撞堆疊偶發 100–200 ms 停頓」在 2026-11-07 未重現：400 個 box／circle 掉落堆疊（canvas2d、真 RAF），Firefox／Chromium／WebKit 最大單幀分別 19／15／9 ms。1200 個時是固定步長超載而非偶發卡頓：Firefox 每步約 13 ms（大於 1/120 s），每幀都跑滿 `maxSubSteps` 12 步，約 160 ms／幀；Chromium 尖峰 6 步、約 56 ms。Profile 平坦（`solveVelocity`、`simulate`、`unitAxis`、`refreshPose` 各約一成），Firefox 與 Chromium 分布相近，沒有單一異常熱點。
+- 已嘗試並撤回：SAT 重用「完全相同或完全反向」的軸（該場景約 44% 的軸呼叫可重用，結果可證明逐位相同），交錯 A/B 每幀時間差在 ±3% 雜訊內，不提交。8 秒後 1200 個物體仍 0 個進入休眠；調整休眠門檻是行為變更，未做。
+
+### Canvas2D tint snapshot 以取整類別為鍵
+
+- 卡頓點：Canvas2D 粒子由起始色漸變到結束色，每顆、每幀的 tint 浮點數都不同，frame snapshot 幾乎全數 miss，每顆粒子都重畫並 `putImageData`。事件壓力頁（canvas2d、800×600、6 個 emitter 各 burst 500 顆、1500 個隨機 tint 裝飾 sprite、12 個 tinted SpriteText、200 個物理體）中，burst 後的幀在 Chromium 達 110–116 ms，更新文字的幀 69–86 ms。
+- 修改：`paint` 從來源快取像素 tint 時，以 `Uint8ClampedArray` 存入 `level × tint`；兩個 tint 對來源出現的每個色階取整都相同時，寫入的位元組相同。這類 frame（整數位移 1:1 複製、非 distance field、來源像素已快取）改以各通道的取整結果為鍵（來源色階清單每版本算一次，最多 3×256 bytes），其他 frame 仍以 tint 浮點數為鍵；hash 碰撞照舊比對完整鍵（加類別位元組）才算命中。像素預算、LRU、canvas 重用與清理不變。
+- 固定步長 A/B（同頁固定 RAF 時間戳與 seeded `Math.random`，舊版以 route 改寫同一份 source，前後交錯）。每幀 CPU 為 callback 牆鐘時間，不是 GPU／呈現 FPS：
+
+| Browser／場景                 | 平均前 ms | 平均後 ms | 最大前 ms | 最大後 ms | 畫面 hash              |
+| ----------------------------- | --------: | --------: | --------: | --------: | ---------------------- |
+| Chromium／atlas 粒子（2 輪）  |   668–876 |     15–18 | 1747–2614 |   61–251¹ | 4 個檢查點皆相同       |
+| Chromium／16 px 柔邊粒子      |       510 |       204 |      1357 |       586 | 4 個檢查點皆相同       |
+| Firefox／atlas 粒子（120 幀） |      65.6 |      19.1 |       147 |        47 | 3 個檢查點皆相同       |
+| WebKit／atlas 粒子（120 幀）  |       938 |        17 |      2488 |      451¹ | 最後一幀 7 bytes 不同² |
+
+- ¹ 後者的最大值都在第 0–2 幀（首次讀回與 snapshot 建立）。柔邊粒子有約 120 個不同色階，類別數多，仍保留大量 miss；改善幅度明顯較小。
+- ² WebKit 差異（最大差 18）可重現：同一 variant 重跑完全相同。記錄該像素的全部 `drawImage`，兩邊來源內容 hash、參數與順序完全一致；用同內容的新 canvas 重播得到相同像素，而只要先對來源 canvas 呼叫 `getImageData`，「後」版該像素就變回與「前」版相同。即 WebKit 繪製同內容 canvas 的結果取決於 canvas 的內部狀態（推測為 GPU／CPU backing），不取決於內容；這正是先前記錄的「WebKit 高色彩數場景偶發像素差異」，與本修改寫入的位元組無關。Chromium 與 Firefox 全幀 hash 相同。
+- 真 RAF 事件壓力頁（Chromium，各兩輪交錯）：burst 幀 110–116 → 11–12 ms，文字幀 69–86 → 12 ms，p50 21–22 → 8.7 ms，6 秒內完成幀數 94–101 → 393–394。穩態：particles2d 範例 canvas2d 平均 1.93 → 1.17–1.26 ms；`/benchmarks/particles2d/` canvas2d 平均 318–395 → 64–76 ms；gameplay2d 1.30–1.57 → 1.28–1.50 ms（雜訊內）。
+- 測試：既有兩個 LRU 測試原以 `i / (上限 + 1)` 產生不同 tint，新鍵下相鄰 tint 會取整相同而共用 snapshot，改用 1/64 步距、三通道組合的 tint（保證每個 fixture 色階取整不同）；斷言不變。新增一項：取整相同的 tint 共用 snapshot、不同的另畫一張並寫出正確位元組，非整數位移 frame 仍以 tint 浮點數分開。
+- 驗證：完整 Vitest 182 files／15486 tests 中 15479 通過、7 項失敗，皆為 `tests/procedural-material.test.ts` 的 C1 材質掃描在機器負載下逾時 30 秒（與先前記錄的負載逾時同類，與本修改無關）；以 `-t` 隔離重跑涵蓋這 7 項的 37 項全部通過。`tsc`、相關檔案 ESLint／Prettier、build 通過；`regression:browser` 的 Chromium canvas2d／webgl2／webgpu 均 PASS，既有 WebXR、WebGPU device-loss 注入與 Canvas2D native 3D SKIP 如實保留。Canvas2D particles2d 範例實際開啟並目視粒子噴泉，無 page error。
