@@ -146,10 +146,14 @@ describe('Canvas2D painted frame snapshots', () => {
     } as HTMLCanvasElement);
     const source = sprites();
     const frame = quad(texture, 0, 4);
-    const tints = Array.from(
-      { length: rendering2dLimits.canvasFrameSnapshots + 1 },
-      (_, i) => [1, i / 1024, 1, 1],
-    );
+    const capacity = rendering2dLimits.canvasFrameSnapshots;
+    // Distinct non-white tints: a white tint takes the untinted path and paints nothing.
+    const tints = Array.from({ length: capacity + 1 }, (_, i) => [
+      1,
+      i / (capacity + 1),
+      1,
+      1,
+    ]);
     for (let cycle = 0; cycle < 3; cycle++) {
       const previousCanvases = canvases.length,
         previousPaints = paints();
@@ -166,7 +170,7 @@ describe('Canvas2D painted frame snapshots', () => {
       expect(paints()).toBe(painted + 1);
       // Evicted canvases are repainted instead of allocated.
       expect(canvases.length - previousCanvases).toBeLessThanOrEqual(
-        rendering2dLimits.canvasFrameSnapshots + 1,
+        capacity + 1,
       );
       if (cycle === 0) source.unload(texture);
       if (cycle === 1)

@@ -31,6 +31,8 @@ UI 的等值 Text2D style 更新沿用 raster；Canvas2D 對小型 tint source �
 
 Canvas2D frame snapshot 的 LRU 改由既有 snapshot 的前後連結維護，命中不再以 Map delete／set 重排，淘汰直接取最舊節點。Source pixel cache 對最新來源的同版本命中亦不重排 Map，其他來源仍依最近使用順序移到尾端。保留原有淘汰順序、像素／張數上限與 unload／版本更新／destroy 清理；不擴大 API 或加入依賴。
 
+Canvas2D frame snapshot 張數上限由 256 提高到 4096；記憶體仍由既有 4 Mi px 像素預算約束。不同小型 tint frame 多於舊上限時不再每幀全部 miss 與重新上傳。每幀改變 tint 的情境、LRU 順序與清理不變。
+
 UI 焦點切換沿用 `synchronizeSemantics()` 的即時更新，移除其前方重複的全場景 accessibility 遍歷；不延後原生 focus、不略過新掛載控制項、modal 或 scroll reveal。
 
 ## 本輪批准追加：可重用程序式 PBR 與 gallery

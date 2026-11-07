@@ -14,7 +14,7 @@ XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊�
 
 Text2D 的相同文字／樣式更新會沿用既有 raster，避免 UI 套用未變偏好時重繪與重傳貼圖；字型環境變更請明確使用 `refreshFonts()`。
 
-Canvas2D 對新出現的小型 tint 素材合併讀回像素；暫存大小固定，超出時維持原路徑，降低大量 UI 素材同時進場的讀回停頓。同尺寸的 CPU tint 重繪亦重用 `ImageData` 暫存，不改 RGBA 輸出。已繪製 frame 的快取命中以既有 snapshot 的連結更新使用順序，不再刪除、重插 Map；來源像素快取也略過最新來源的同版本重排。快取上限與淘汰順序不變。
+Canvas2D 對新出現的小型 tint 素材合併讀回像素；暫存大小固定，超出時維持原路徑，降低大量 UI 素材同時進場的讀回停頓。同尺寸的 CPU tint 重繪亦重用 `ImageData` 暫存，不改 RGBA 輸出。已繪製 frame 的快取命中以既有 snapshot 的連結更新使用順序，不再刪除、重插 Map；來源像素快取也略過最新來源的同版本重排。已繪製 frame 的張數上限由 256 提高到 4096（像素預算不變），上百到上千個固定不同顏色的粒子不再每幀全部重畫；淘汰順序不變。
 
 WebGL2 將一般 Sprite 的貼圖上傳分成有界批次，合併配置錯誤檢查以減少同步等待；失敗仍會報錯並清理該批的新配置。
 
@@ -1189,7 +1189,7 @@ Main-thread procedural materials yield between generation slices, with top-level
 
 Text2D reuses its raster for unchanged text/style updates, avoiding redundant redraws/uploads when UI preferences are unchanged. Use `refreshFonts()` explicitly after font-environment changes.
 
-Canvas2D batches pixel readbacks for newly tinted small sources within a fixed staging bound, retaining the original path beyond it to reduce readback stalls when many UI sources appear together. Same-sized CPU tint repaints also reuse an `ImageData` scratch without changing RGBA output. Painted-frame cache hits update recency links on existing snapshots instead of deleting and reinserting Map entries; source-pixel cache hits also skip reordering the newest source at the same version. Cache bounds and eviction order stay unchanged.
+Canvas2D batches pixel readbacks for newly tinted small sources within a fixed staging bound, retaining the original path beyond it to reduce readback stalls when many UI sources appear together. Same-sized CPU tint repaints also reuse an `ImageData` scratch without changing RGBA output. Painted-frame cache hits update recency links on existing snapshots instead of deleting and reinserting Map entries; source-pixel cache hits also skip reordering the newest source at the same version. The painted-frame count limit rose from 256 to 4096 (pixel budget unchanged), so hundreds to thousands of particles with fixed distinct tints no longer repaint every frame. Eviction order stays unchanged.
 
 WebGL2 groups ordinary Sprite texture uploads into bounded batches, sharing allocation error checks to reduce synchronization; failed batches still throw and release their newly allocated textures.
 
@@ -2269,7 +2269,7 @@ XYZ.js はブラウザーのネイティブ API を使う TypeScript ゲーム�
 
 Text2D は文字とスタイルが同じ更新で raster を再利用し、UI 設定が変わらない場合の再描画・再転送を避けます。フォント環境の変更時は明示的に `refreshFonts()` を呼び出してください。
 
-Canvas2D は新しい小型 tint 素材のピクセル読み戻しを固定サイズの領域にまとめ、大量の UI 素材が同時に現れる際の停止時間を抑えます。上限を超える素材は従来の経路を維持します。同サイズの CPU tint 再描画でも `ImageData` の一時領域を再利用し、RGBA 出力は変更しません。描画済みフレームのキャッシュヒットでは、既存スナップショットのリンクで使用順を更新し、Map の削除・再挿入を避けます。ソースピクセルのキャッシュも、最新のソースが同じバージョンなら並べ直しません。キャッシュ上限と削除順序は変更しません。
+Canvas2D は新しい小型 tint 素材のピクセル読み戻しを固定サイズの領域にまとめ、大量の UI 素材が同時に現れる際の停止時間を抑えます。上限を超える素材は従来の経路を維持します。同サイズの CPU tint 再描画でも `ImageData` の一時領域を再利用し、RGBA 出力は変更しません。描画済みフレームのキャッシュヒットでは、既存スナップショットのリンクで使用順を更新し、Map の削除・再挿入を避けます。ソースピクセルのキャッシュも、最新のソースが同じバージョンなら並べ直しません。描画済みフレームの枚数上限を 256 から 4096 に引き上げ（ピクセル予算は変更なし）、異なる固定色を持つ数百〜数千個のパーティクルを毎フレーム再描画しなくなりました。削除順序は変更しません。
 
 WebGL2 は通常の Sprite のテクスチャアップロードを小さなバッチにまとめ、メモリ確保時のエラーチェックを省略せず同期回数を減らします。失敗したバッチではエラーを通知し、新しく確保したテクスチャを解放します。
 

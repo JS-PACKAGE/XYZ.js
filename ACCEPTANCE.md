@@ -17655,3 +17655,23 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 cache tests 補上兩個 source 填滿像素預算後的重複命中、第三個 source 淘汰及最新來源 unload，檢查讀回次數與實際 tint bytes。初版 fixture 的單邊尺寸超過 asset 上限，改用合法 1024×2048 source／1×1 crop；未變更產品限制。四個相關 test files（canvas-sprite-source、canvas-render2d-tint、render-texture2d、rendering2d-assets）共 23 tests 通過；變更程式 ESLint、tsconfig.check typecheck、完整 ESM／vendor／CJS build 通過，未重跑全套單元測試。
 - 編譯產物的 Chromium Canvas2D／WebGL2／WebGPU regression 與 platform gate 均 PASS。實體 WebXR、公開 WebGPU device-loss 注入、Canvas2D GPU loss／native 3D／compressed texture 等既有 SKIP，以及 OPM dynamic import 分析警告如實保留。
 - 實際 Canvas2D showcase 目視 Sprite／Primitive，操作首次 audio unlock、music／SFX、pause／resume、切 Scene B 停止 nonpersistent music，無 page error，隨後關閉自有瀏覽器。瀏覽器靜音，不宣稱實體聽感或 Safari／裝置全面認證。
+
+### Canvas2D frame snapshot 張數上限：256 → 4096
+
+- 原因：4096 個 16×16 粒子使用 1024 或 4096 種固定 tint 時，不同 snapshot 多於舊上限 256，LRU 每幀全數 miss；每個粒子都重畫並 `putImageData`。Chromium 153 all-process trace 中，12 幀每幀 4096 次 `Canvas2DResourceProvider::WritePixels`；約 151 ms 的長幀內有約 108 ms 在 `CommandBufferProxyImpl::WaitForGetOffset`。Trace 有額外開銷，只用來定位等待點，不當成 FPS。
+- 已排除：OffscreenCanvas、`context.reset()` 與重設 `canvas.width` 都沒有降低 `putImageData` 成本；單張 atlas 加子矩形 `drawImage` 很快，但與整張 canvas 的取樣結果不同。Chromium／WebKit 即使加 4 px 外延邊仍有多組縮放、旋轉或子像素差異，最大差值可達 255，因此不採用。CPU-backed（`willReadFrequently`）snapshot 可降低 miss 成本，但命中時每幀重新上傳，RAF 變差，也不採用。
+- 修改：`rendering2dLimits.canvasFrameSnapshots` 由 256 改為 4096；4 Mi px 像素預算、LRU 順序、canvas 重用與 unload／destroy 清理不變。每幀改變 tint 的 frame 仍會 miss，本修改不處理該情境。
+- 量測：正式 Game、canvas2d、1280×720／DPR 1、四層 tint Group2D，ParticleLayer2D 4096 個 16×16 粒子；240 暖機＋240 量測幀，每組獨立啟動瀏覽器。舊上限以 route 改寫同一份 source 取得，兩組畫面 RGBA SHA256 皆相同。數字為 `Game.frameWork.totalMs` 平均與 240 幀牆鐘平均間隔，不是 GPU completion。
+
+| Browser／色彩數 | 平均 CPU 前 ms | 平均 CPU 後 ms | 幀間隔前 ms | 幀間隔後 ms |
+| --------------- | -------------: | -------------: | ----------: | ----------: |
+| Chromium／4     |      3.83–4.77 |      3.88–4.71 | 16.56–16.60 | 16.56–16.68 |
+| Chromium／1024  |     65.97–93.7 |      3.69–3.77 |  99.9–107.3 | 16.59–16.62 |
+| Chromium／4096  |    53.43–89.61 |      4.95–5.61 | 103.6–127.0 |   23.5–27.2 |
+| WebKit／1024    |      6.26–7.05 |      2.26–2.36 | 16.64–16.68 | 16.57–16.60 |
+| WebKit／4096    |      6.22–6.33 |      1.76–1.82 | 16.63–16.63 | 16.63–16.63 |
+| Firefox／1024   |      9.87–9.89 |      5.26–5.28 | 16.62–16.62 |  16.6–16.62 |
+| Firefox／4096   |      9.84–9.89 |       6.45–6.6 | 16.60–16.62 | 16.63–16.63 |
+
+- 範圍為各兩輪（Chromium 量測兩次獨立批次）。Chromium 4 色全命中的 CPU 差異在兩輪間互換方向，視為雜訊，不宣稱改善或退步。Chromium 4096 色上限後仍約 24–27 ms 幀間隔：4096 張不同的小 canvas 逐張 `drawImage` 本身仍昂貴，本修改沒有消除這部分。Playwright 瀏覽器行程 RSS 在新上限下沒有上升（例如 Chromium 1024 色 1156–1236 → 1094–1167 MiB），只作為相對觀察，不是記憶體保證。
+- 測試：既有 LRU 測試的 tint fixture 原為 `i / 1024`，上限變大後會出現白色 tint（走未 tint 路徑），改為 `i / (上限 + 1)`；斷言不變。完整 Vitest 182 files／15485 tests 通過（1230.62 s），build、相關檔案 ESLint 與 Prettier、typecheck 通過。`regression:browser` 的 Chromium canvas2d／webgl2／webgpu 均 PASS，既有 WebXR、WebGPU device-loss 注入與 Canvas2D native 3D SKIP 如實保留。Canvas2D particles2d 範例實際開啟並目視，無 page error。
