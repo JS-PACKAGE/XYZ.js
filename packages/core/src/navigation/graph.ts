@@ -412,17 +412,17 @@ export class NavigationGraph3D {
     let nearest: NavigationNode3D | undefined,
       distance = options.maxDistance;
     for (const node of this.nodes) {
-      if (
-        !node.walkable ||
-        node.clearance! < radius ||
-        Math.abs(node.position.y - position.y) > options.maxVerticalDistance
-      )
+      if (!node.walkable || node.clearance! < radius) continue;
+      const dy = node.position.y - position.y;
+      if (Math.abs(dy) > options.maxVerticalDistance || Math.abs(dy) > distance)
         continue;
-      const candidate = hypot3(
-        node.position.x - position.x,
-        node.position.y - position.y,
-        node.position.z - position.z,
-      );
+      // A coordinate difference bounds the full norm from below. Keep strict
+      // comparisons so radius-boundary hits and stable equal-distance ties survive.
+      const dx = node.position.x - position.x;
+      if (Math.abs(dx) > distance) continue;
+      const dz = node.position.z - position.z;
+      if (Math.abs(dz) > distance) continue;
+      const candidate = hypot3(dx, dy, dz);
       if (candidate < distance || (candidate === distance && !nearest)) {
         nearest = node;
         distance = candidate;

@@ -5134,3 +5134,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   不做也無法做 CDN 內容完整性驗證，於 TECHNICAL／SECURITY 明示。
 - Vendor 仍完整收錄、仍是預設並隨套件發佈；AGENTS 的 vendor 規範不變。
 - 依 AGENTS 規範建立 `[P138]` commit，不 push。
+
+## P139 — Navigation nearest-node projection CPU optimization
+
+- 使用者授權持續效能優化、逐功能驗證後自動提交，不 push、不升版。
+- `NavigationGraph3D.project` 先用目前最近距離作各軸下界排除，仍以原 `hypot3`
+  決定候選；不新增空間索引、快取或公開 API，不改同距選取順序及 inclusive bounds。
+- 硬指標：精確 differential 比對、各軸半徑邊界／同距／零距離測試與既有導航
+  回歸通過；記錄同程序交錯 CPU baseline／candidate 量測，不宣稱 GPU／RAF 改善。
+- 驗證與限制記於 ACCEPTANCE，完成後獨立 `[P139]` commit。

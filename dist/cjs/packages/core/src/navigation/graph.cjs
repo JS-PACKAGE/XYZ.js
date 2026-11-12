@@ -161,9 +161,15 @@ var NavigationGraph3D = class NavigationGraph3D {
 		].every((e) => Number.isFinite(e) && Math.abs(e) <= require_navigation.navigationLimits.coordinateExtent) || n.maxDistance < 0 || n.maxVerticalDistance < 0 || i < 0) throw RangeError(`Projection requires explicit finite distance bounds and agent radius.`);
 		let a, o = n.maxDistance;
 		for (let t of this.nodes) {
-			if (!t.walkable || t.clearance < i || Math.abs(t.position.y - e.y) > n.maxVerticalDistance) continue;
-			let s = require_hypot.hypot3(t.position.x - e.x, t.position.y - e.y, t.position.z - e.z);
-			(s < o || s === o && !a) && (a = t, o = s);
+			if (!t.walkable || t.clearance < i) continue;
+			let s = t.position.y - e.y;
+			if (Math.abs(s) > n.maxVerticalDistance || Math.abs(s) > o) continue;
+			let c = t.position.x - e.x;
+			if (Math.abs(c) > o) continue;
+			let l = t.position.z - e.z;
+			if (Math.abs(l) > o) continue;
+			let u = require_hypot.hypot3(c, s, l);
+			(u < o || u === o && !a) && (a = t, o = u);
 		}
 		return a && Object.freeze({
 			node: a,

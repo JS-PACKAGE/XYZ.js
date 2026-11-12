@@ -148,6 +148,48 @@ describe('bounded weighted navigation', () => {
     ).toThrow(RangeError);
   });
 
+  it.each(['x', 'y', 'z'] as const)(
+    'preserves inclusive projection bounds and stable ties along %s',
+    (axis) => {
+      const along = (value: number) => {
+        const position = new Vector3();
+        position[axis] = value;
+        return position;
+      };
+      const graph = new NavigationGraph3D({
+        nodes: [
+          { id: 'outside', position: along(1 + Number.EPSILON) },
+          { id: 'blocked', position: new Vector3(), walkable: false },
+          { id: 'narrow', position: new Vector3(), clearance: 0.1 },
+          { id: 'corner', position: new Vector3(1, 1, 1) },
+          { id: 'first', position: along(1), clearance: 0.5 },
+          { id: 'tie', position: along(-1), clearance: 0.5 },
+        ],
+        connections: [],
+      });
+      const bounds = {
+        maxDistance: 1,
+        maxVerticalDistance: 1,
+        agentRadius: 0.5,
+      };
+      expect(graph.project(new Vector3(), bounds)).toMatchObject({
+        node: { id: 'first' },
+        distance: 1,
+        revision: 0,
+      });
+      expect(
+        graph.project(new Vector3(), {
+          ...bounds,
+          maxDistance: 1 - Number.EPSILON,
+        }),
+      ).toBeUndefined();
+      expect(
+        graph.project(along(1), { ...bounds, maxDistance: 0 }),
+      ).toMatchObject({ node: { id: 'first' }, distance: 0 });
+      graph.destroy();
+    },
+  );
+
   it('keeps the spatial heuristic admissible for cheap distant and zero-cost directed edges', () => {
     const nodes = [
       { id: 'start', position: new Vector3() },

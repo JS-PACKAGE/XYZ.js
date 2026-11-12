@@ -294,6 +294,10 @@ XYZError
 
 ## 17. 後續熱路徑維護
 
+- `NavigationGraph3D.project` 在計算精確 norm 前，先排除任一座標差超出目前
+  最近距離的候選。Inclusive bounds 與同距時選第一個 authored node 的規則不變；
+  仍為線性掃描，非空間索引。本機 CPU 量測記於 ACCEPTANCE。
+
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。
 - Keyboard 的 editable 過濾只阻止開始追蹤文字輸入；已按住的遊戲鍵即使在輸入框收到 keyup 也必須釋放，避免 focus transition 卡鍵。

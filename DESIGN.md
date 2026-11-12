@@ -5223,3 +5223,12 @@ be HTTPS, or HTTP on the page origin, so an HTTPS page cannot be downgraded to a
 mixed-content CDN and local same-origin hosting keeps working. Validation happens in
 `Game.create` before any renderer is created. Failure at unlock reuses the P137 path
 (`opmState: 'failed'`), so samples and streams survive an unreachable CDN.
+
+## P139 nearest-node projection pruning
+
+`NavigationGraph3D.project` retains its stable linear scan and exact scaled norm.
+Absolute coordinate differences are lower bounds on the norm, so candidates
+strictly outside the current nearest distance are rejected before `hypot3`.
+Equality remains eligible for inclusive radius boundaries and the original
+first-authored-node tie rule. Walkability, clearance, vertical limits and revision
+snapshots remain unchanged; no retained index, additional allocation or public API.

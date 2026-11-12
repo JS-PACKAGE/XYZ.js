@@ -17472,3 +17472,18 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 合併時的真實狀況：該分支與 main 在同一時期各自獨立實作了 38 種**同名**材質（實作內容不同）。這 38 種以 main 的版本為準，我的版本（preset、sampler、測試、文件、驗收段）整批移除，沒有保留兩份；因此新增 330 種，目錄 1189→1519。另外：main 的 `needsDetail` 仍是八百多項 `kind ===` 串，我的分支已改成 `noDetailKinds` Set，合併時採用 Set 並把 main 新增的 303 種併入；`createMaterial` 的 metallic 清單採 main 的 `const kind: string` 寫法並補上我的 `hazardstripes`。`docs/CURRENT.md` 的完整 union 與各文件的總數依最終的 1519 種重新產生；各材質段落中「目前目錄N→N+1種」的字樣是兩條時間線各自當時的紀錄，合併後不再連續，視為歷史記錄。
 - 本機以 1.23.0 驗證：format:check、typecheck、lint、build、check:api-compatibility（737 exports／2810 contracts，另 negative smoke 41 案）、check:package-hygiene 通過；完整 Vitest 182 檔：15476 項通過、1 項失敗（`tests/procedural-material.test.ts` 的 C1 掃描測試，機器負載下 30 秒逾時，與先前已記錄的負載逾時同類）；該檔 `-t "C1"` 隔離重跑 1171 項全過。另跑兩個材質測試檔時又出現 3 項 30 秒逾時（晶片電阻、迷迭香、梭子，負載 12–14），上一輪完整跑中這些項是通過的，也是負載敏感而非斷言失敗；沒有再逐一重跑。
 - 未驗證：瀏覽器／WebGL2／Canvas2D／starter smoke／音訊實機（含 OPM v1.14.0 的 AudioWorklet 播放）、效能與 Worker／cache，不擴大認證範圍。沿既有 CI／Release workflow（推送 tag 後先跑 verify，再封裝 archive 與 SHA256SUMS 並建立 GitHub release）；不做 npm publish，不移動既有 tags。遠端結果以 GitHub 紀錄為準。
+
+## P139 — 2026-11-13 最近節點查詢軸向排除
+
+- `NavigationGraph3D.project` 對候選先比較各軸差與目前最近距離，再沿用原 `hypot3`；維持 inclusive radius、first-authored 同距順序、walkability／clearance／vertical bounds 與 revision，不增加索引／快取／依賴。未修改使用者既有的 physics2d narrowphase／world2d 工作。
+- macOS arm64／Node v26.7.0，以 TypeScript ES2022 transpile 的修改前後正式 graph module 在同程序比對；seed `0x4e4156`、8192 個 seeded nodes、4096 組 query／radius／vertical／clearance 組合，完整 projection（含精確 distance 與 misses）一致。
+- CPU microbenchmark：256 queries／batch、每版本 12 batches warmup，15 輪交錯先後順序，以下為 batch 中位數。Local／global 的 maxDistance 分別為 2／512、vertical bound 8；vertical-filtered 為 2／0.2；agentRadius 0.2。量測同時有定向 Vitest 執行，僅為本機觀察，不是瀏覽器或跨裝置資格。
+
+| 查詢情境          | 修改前 ms | 修改後 ms |
+| ----------------- | --------: | --------: |
+| Local             | 26.611791 | 25.041542 |
+| Global            | 26.319333 | 22.656583 |
+| Vertical-filtered | 17.508541 | 16.322208 |
+
+- `vitest run tests/navigation.test.ts tests/navigation-multilayer.test.ts tests/navigation-mesh.test.ts`：3 檔／30 項通過；新增各軸 inclusive／鄰接浮點邊界／同距／零距離案例。`tsc -p tsconfig.check.json`、定向 ESLint、完整 build（tsc／minify／vendor／CJS）通過。初次定向格式檢查指出新增 if 的換行，已按 Prettier 建議修正；最終文件與格式檢查結果以提交前操作為準。
+- README 三語、PLAN、DESIGN、TECHNICAL 雙語同步。不重新宣稱全套測試／browser／GPU／RAF／GC／音訊驗證；不升版、不 push，依使用者授權獨立提交。
