@@ -17815,3 +17815,36 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   source Prettier、ESM compile/minify、完整 vendor copy、CJS build 通過。
   README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。未跑完整 suite、browser、
   GPU／audio／三 backend runtime；本階段不擴大認證範圍。
+
+## P153 — Unfiltered live ECS iteration（2026-11-13）
+
+- `World.query()` 沒有 component 條件時，直接以原 generator 的 `for…of`／`yield`
+  遍歷 live entity Set，跳過空 stores 陣列與逐 entity 的空篩選流程。
+  不使用 `yield*`，避免 delegate iterator 缺少 `throw` 時改變 consumer exception。
+  有條件 query 的 sparse／dense 分支不變。
+- Node v26.7.0／Darwin arm64；16,384 組混合操作精確比對 live entity 順序、
+  next／return／throw、component 增刪／替換與 destroy。新 regression 另驗證首次
+  next 前新增、yield 間移除／新增、return value、consumer error 與 destroy 後結束。
+- CPU 使用 correctness 之外的獨立 ESM copies，8 warmup batches、15 交替 median；
+  量測未與測試並行。
+
+| Query workload                              | 每 batch queries | Before ms |  After ms |
+| ------------------------------------------- | ---------------: | --------: | --------: |
+| 無條件，0 entities                          |           20,000 |  0.505958 |  0.510625 |
+| 無條件，1 entity                            |           20,000 |  0.762750 |  0.731291 |
+| 無條件，256 entities                        |              512 |  1.805542 |  1.471000 |
+| 無條件，16,384 entities                     |               16 |  4.378667 |  3.744083 |
+| 1 type sparse，16,384 entities／256 matches |              128 |  0.446209 |  0.453917 |
+| 4 types dense，16,384 matches               |               16 | 14.333500 | 14.240833 |
+
+- 多 entity 無條件測項約減少 18.5%／14.5%；空 World 約 +0.9%，sparse control
+  約 +1.7%，不宣稱所有 query 更快。
+- `--expose-gc` retained-heap 測項另載入獨立 modules，先各 warmup 10,000 次
+  next／return，再保留 50,000 個已 yield 一次的無條件 queries，配置前後各 GC；
+  3 輪交替 median：**24,001,512 → 23,601,512 bytes**，少 400,000 bytes。
+  這是該 V8 的整體 retained delta，不以空陣列的假定大小推算，也不宣稱零配置、
+  GC latency 或 fps 提升。
+- `vitest run tests/ecs.test.ts` **13 tests passed**；Typecheck、scoped ESLint、
+  source/test Prettier、ESM compile/minify、完整 vendor copy、CJS build 通過。
+  README 中英日、PLAN、DESIGN、TECHNICAL 中英同步；未執行完整 suite、browser、
+  graphics／audio／三 backend runtime，認證範圍不變。

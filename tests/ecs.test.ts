@@ -164,6 +164,30 @@ describe('World entity and component CRUD', () => {
     },
   );
 
+  it('keeps unfiltered queries lazy and live while preserving iterator completion and errors', () => {
+    const world = new World();
+    const query = world.query();
+    const first = world.createEntity();
+    const removed = world.createEntity();
+    expect(query.next().value).toBe(first);
+    world.removeEntity(removed);
+    const added = world.createEntity();
+    expect(query.next().value).toBe(added);
+    const failure = new Error('consumer failure');
+    expect(() => query.throw!(failure)).toThrow(failure);
+    expect(query.next().done).toBe(true);
+
+    const completed = world.query();
+    expect(completed.next().value).toBe(first);
+    expect(completed.return!(99)).toEqual({ value: 99, done: true });
+    expect([...completed]).toEqual([]);
+
+    const suspended = world.query();
+    expect(suspended.next().value).toBe(first);
+    world.destroy();
+    expect([...suspended]).toEqual([]);
+  });
+
   it('initializes systems in order, defers newly added systems to the next tick, and destroys exactly once', () => {
     const world = new World();
     const calls: string[] = [];

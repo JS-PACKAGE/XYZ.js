@@ -5243,3 +5243,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   其他 stores 與 yield 後 membership 變更的完整 fallback 保留。
 - 硬指標：mixed iterator／CRUD differential、既有 sparse mutation 回歸；
   分別量測 1／2／8／32 types、duplicate 與 dense，記錄退步後獨立 `[P152]` commit。
+
+## P153 — Unfiltered ECS live iteration
+
+- 無 component 條件的 query 直接 yield live Set，省去 stores 配置與空篩選；
+  不使用會改變 iterator throw 語義的 `yield*`。
+- 硬指標：live mutation／return／throw／destroy differential 與回歸，
+  空／小／大 World、filtered controls 的 CPU 與 suspended-query heap 分開量測。
+- 工具、build、文件同步後獨立 `[P153]` commit，不宣稱 query 零配置或 fps 提升。

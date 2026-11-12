@@ -34,6 +34,10 @@ var World = class {
 		return this.components.get(t)?.get(e);
 	}
 	*query(...e) {
+		if (e.length === 0) {
+			for (let e of this.entities) yield e;
+			return;
+		}
 		let t = [];
 		for (let n of e) {
 			let e = this.components.get(n);

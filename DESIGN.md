@@ -5360,3 +5360,12 @@ including duplicate references to the same store in the type list. Skip those
 lookups while retaining checks against all other stores. This invariant applies
 only to the synchronous prepass: revision-triggered live fallback still checks
 every requested store. No extra array or persistent query cache is introduced.
+
+## P153 unfiltered live entity iteration
+
+A query with no component types cannot reject any live entity. Iterate the
+existing entity Set directly within the generator, avoiding an empty store list
+and the per-entity filtering machinery. Keep explicit `for…of` and `yield`:
+`yield*` would delegate `throw` to a Set iterator that has no such method,
+changing the consumer's exception. Lazy start, additions/removals between yields,
+return values and destruction retain the original live-iteration contract.
