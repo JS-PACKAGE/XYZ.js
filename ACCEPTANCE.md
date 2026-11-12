@@ -17605,3 +17605,22 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實際通過：animation-profiles／animation-blend／morph，3 files／48 tests，涵蓋 additive／weight ownership 與 morph 行為；既有測試已覆蓋此路徑，未新增重複測試。Typecheck、定向 ESLint／Prettier、完整 ESM／minify／vendor／CJS build 通過。
 - 僅為 overlay lifecycle 的本機 CPU，不是整個 mixer、GPU deformation 或 fps；未重跑瀏覽器 showcase、GPU／RAF、GC／heap 或音訊，不擴大認證。
 - README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；量測腳本／轉譯模組在提交前移除。使用者 physics source／dist 保持未提交；不 push、不升版。
+
+## P147 — Morph track reads and full-weight overwrite (2026-11-13)
+
+- 範圍：KeyframeTrack 的 partial／additive morph 套用讀取既有 readonly weight view，避免重複公開 get 驗證；一般 full-weight 覆寫使用獨立迴圈，不讀舊值。所有寫入仍經 MorphWeights.set，保留 Float32／有限值驗證及 version。Zero weight 仍先取樣，非 morph 分支不改。
+- 正確性：Node v26.7.0／darwin arm64，舊、新 source 同為 ES2022 transpile，共用 dist dependencies。Seed `0x57454947`，count=0／1／4／64／256 × STEP／LINEAR／CUBICSPLINE，各 1,024 次 sample，共 15,360 組。包含外部 weight set、public keyframe values 改為 NaN、非有限 time／weight、零／負／partial／full weight 與 additive reference；錯誤類別／訊息、最終值與 version 全部精確一致。
+- CPU：LINEAR 兩 key、每批 5,000 samples；各版本預熱 8 批、15 輪交替取中位數，未同跑本輪測試。
+
+| 工作負載                  | 修改前 ms／批 | 修改後 ms／批 | 差異        |
+| ------------------------- | ------------: | ------------: | ----------- |
+| 4 weights／full           |      0.117041 |      0.112708 | 約降低 3.7% |
+| 64 weights／full          |      0.859625 |      0.785042 | 約降低 8.7% |
+| 256 weights／full         |      3.142500 |      2.993167 | 約降低 4.8% |
+| 64 weights／partial 0.25  |      0.900000 |      0.820750 | 約降低 8.8% |
+| 64 weights／additive 0.25 |      0.980459 |      0.963000 | 約降低 1.8% |
+| 64 weights／zero          |      0.294375 |      0.297292 | 約增加 1.0% |
+
+- CPU 為單 track sample／apply，不是整個 mixer 或 fps；小幅結果不作顯著或跨環境主張，zero weight 此輪沒有改善。未測瀏覽器 showcase／GPU／RAF／GC／heap／音訊。
+- 實際通過：animation／animation-profiles／animation-blend／morph，4 files／53 tests；既有測試覆蓋權重路徑，未新增重複測試。Typecheck、定向 ESLint／Prettier、完整 ESM／minify／vendor／CJS build 通過。
+- README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；量測腳本／轉譯模組提交前移除。使用者 physics source／dist 不納入提交，不 push、不升版。

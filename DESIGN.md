@@ -5299,3 +5299,12 @@ existing Float64 pose buffer. Both lengths are fixed to the constructor count,
 so public per-index get validation is redundant here. Element conversion,
 signed zero, external-edit detection, restore writes and version behavior are
 unchanged. Public get/set validation remains intact; no new view or allocation.
+
+## P147 morph track application reads
+
+KeyframeTrack fixes its component count to the MorphWeights count at construction.
+Partial and additive writes read existing values through the same internal view
+as deformation and overlay capture. Full-weight ordinary writes do not depend
+on old values, so a separate loop only sets sampled output. Every write retains
+MorphWeights.set validation, Float32 conversion and version updates. Sampling
+still precedes application, including for zero weight; non-morph paths are unchanged.

@@ -6,11 +6,11 @@ Browser-native TypeScript game engine for 2D and 3D.
 
 **1.23.0 · [Apache-2.0](LICENSE) · npm 尚未發佈 / not published / 未公開**
 
-效能維護：導航與動畫熱路徑減少冗餘計算、配置與查詢，包含 action snapshot 重用及 morph overlay 的唯讀 weight view。精確結果、callback 順序與清理契約不變；本機 CPU 結果、取捨及未驗證範圍見 [ACCEPTANCE](ACCEPTANCE.md)，不以配置減少宣稱幀率提升。
+效能維護：導航與動畫熱路徑減少冗餘計算、配置與查詢，包含 action snapshot 重用、morph weight 讀取與全權重覆寫。精確結果、callback 順序與清理契約不變；本機 CPU 結果、取捨及未驗證範圍見 [ACCEPTANCE](ACCEPTANCE.md)，不以配置減少宣稱幀率提升。
 
-Performance maintenance: navigation and animation reduce redundant computation, allocations and lookups, including cached action snapshots and trusted morph overlay reads. Exact results, callback ordering and cleanup remain intact. Local CPU results, tradeoffs and limits are in [ACCEPTANCE](ACCEPTANCE.md); fewer allocations do not prove higher fps.
+Performance maintenance: navigation and animation reduce redundant computation, allocations and lookups, including cached action snapshots, trusted morph weight reads and full-weight overwrites. Exact results, callback ordering and cleanup remain intact. Local CPU results, tradeoffs and limits are in [ACCEPTANCE](ACCEPTANCE.md); fewer allocations do not prove higher fps.
 
-性能改善：ナビゲーション・アニメーションの冗長な計算、割り当て、検索を削減し、action snapshot の再利用と morph overlay の読み取り専用 weight view を活用します。結果・callback 順序・cleanup 契約は維持します。ローカル CPU の結果・取捨選択・検証範囲は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。割り当て削減は fps 向上の証明ではありません。
+性能改善：ナビゲーション・アニメーションの冗長な計算、割り当て、検索を削減し、action snapshot の再利用、morph weight の読み取り、full-weight 上書きを改善します。結果・callback 順序・cleanup 契約は維持します。ローカル CPU の結果・取捨選択・検証範囲は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。割り当て削減は fps 向上の証明ではありません。
 
 ## 繁體中文
 

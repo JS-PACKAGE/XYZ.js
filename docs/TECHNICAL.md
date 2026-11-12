@@ -320,6 +320,9 @@ These are public error classes, not a promise to rewrap every exception from use
 - Morph overlay reads copy the existing read-only weight view into the existing
   pose buffer; both have the constructor's fixed count. Public indexed get/set
   validation and weight versions are unchanged. CPU lifecycle timings are not fps.
+  Morph track partial/additive application also reads that view; full-weight
+  replacement skips old-value reads. Writes still use validated versioned setters,
+  and zero weight does not bypass the sampling phase.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

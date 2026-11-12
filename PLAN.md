@@ -5196,3 +5196,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 公開 get／set 驗證、Float32 儲存、version 與 pose ownership 不變。
 - 硬指標：含零長／signed zero／極小值的 lifecycle differential、既有 morph 與
   additive 回歸、各 weight 數 CPU 量測；驗收後獨立 `[P146]` commit。
+
+## P147 — Morph track reads and full-weight overwrite
+
+- 一般 partial-weight 與 additive morph track 透過既有 readonly weight view 讀取，
+  full-weight 覆寫不讀舊值；所有寫入仍經公開 set 保留驗證與 version。
+- 硬指標：三種 interpolation／零到大量 weights／public values edits／非有限
+  weight 與 time 的數值、錯誤、version differential；既有動畫與 morph 回歸通過。
+- 分別量測 full／partial／additive／zero weight；工具、build、文件同步後獨立 `[P147]` commit。

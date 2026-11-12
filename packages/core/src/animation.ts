@@ -203,8 +203,9 @@ export class KeyframeTrack {
     if (weight <= 0) return;
     const target = this.target;
     if (target instanceof MorphWeights) {
+      const currentValues = target.values;
       for (let i = 0; i < this.size; i++)
-        target.set(i, target.get(i) + (out[i] - reference[i]) * weight);
+        target.set(i, currentValues[i] + (out[i] - reference[i]) * weight);
     } else if (this.path === 'rotation') {
       this.referenceRotation.set(
         -reference[0],
@@ -248,12 +249,14 @@ export class KeyframeTrack {
     const size = this.size;
     if (weight <= 0) return;
     if (target instanceof MorphWeights) {
-      for (let j = 0; j < size; j++) {
-        const current = target.get(j);
-        target.set(
-          j,
-          weight >= 1 ? out[j] : current + (out[j] - current) * weight,
-        );
+      if (weight >= 1) {
+        for (let j = 0; j < size; j++) target.set(j, out[j]);
+      } else {
+        const currentValues = target.values;
+        for (let j = 0; j < size; j++) {
+          const current = currentValues[j];
+          target.set(j, current + (out[j] - current) * weight);
+        }
       }
     } else if (this.path === 'rotation') {
       const q = target.rotation;

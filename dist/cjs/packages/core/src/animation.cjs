@@ -85,8 +85,10 @@ var KeyframeTrack = class {
 	applyAdditive(e, t, n) {
 		if (t <= 0) return;
 		let o = this.target;
-		if (o instanceof require_morph.MorphWeights) for (let r = 0; r < this.size; r++) o.set(r, o.get(r) + (e[r] - n[r]) * t);
-		else if (this.path === `rotation`) this.referenceRotation.set(-n[0], -n[1], -n[2], n[3]), this.deltaRotation.set(e[0], e[1], e[2], e[3]).normalize(), require_animation_pose.multiplyRotation(this.referenceRotation, this.deltaRotation, this.deltaRotation), require_animation_pose.blendRotation(this.identityRotation, this.deltaRotation, t, this.deltaRotation), require_animation_pose.multiplyRotation(o.rotation, this.deltaRotation, o.rotation);
+		if (o instanceof require_morph.MorphWeights) {
+			let r = o.values;
+			for (let i = 0; i < this.size; i++) o.set(i, r[i] + (e[i] - n[i]) * t);
+		} else if (this.path === `rotation`) this.referenceRotation.set(-n[0], -n[1], -n[2], n[3]), this.deltaRotation.set(e[0], e[1], e[2], e[3]).normalize(), require_animation_pose.multiplyRotation(this.referenceRotation, this.deltaRotation, this.deltaRotation), require_animation_pose.blendRotation(this.identityRotation, this.deltaRotation, t, this.deltaRotation), require_animation_pose.multiplyRotation(o.rotation, this.deltaRotation, o.rotation);
 		else {
 			let r = this.path === `translation` ? o.position : o.scale;
 			this.path === `translation` ? r.set(r.x + (e[0] - n[0]) * t, r.y + (e[1] - n[1]) * t, r.z + (e[2] - n[2]) * t) : r.set(r.x * (1 + (e[0] / n[0] - 1) * t), r.y * (1 + (e[1] / n[1] - 1) * t), r.z * (1 + (e[2] / n[2] - 1) * t));
@@ -95,11 +97,16 @@ var KeyframeTrack = class {
 	apply(e, t) {
 		let n = this.target, r = this.size;
 		if (!(t <= 0)) {
-			if (n instanceof require_morph.MorphWeights) for (let i = 0; i < r; i++) {
-				let r = n.get(i);
-				n.set(i, t >= 1 ? e[i] : r + (e[i] - r) * t);
-			}
-			else if (this.path === `rotation`) {
+			if (n instanceof require_morph.MorphWeights) {
+				if (t >= 1) for (let t = 0; t < r; t++) n.set(t, e[t]);
+				else {
+					let i = n.values;
+					for (let a = 0; a < r; a++) {
+						let r = i[a];
+						n.set(a, r + (e[a] - r) * t);
+					}
+				}
+			} else if (this.path === `rotation`) {
 				let r = n.rotation;
 				if (t < 1) {
 					let n = r.x * e[0] + r.y * e[1] + r.z * e[2] + r.w * e[3] < 0 ? -1 : 1;
