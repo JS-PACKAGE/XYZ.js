@@ -126,6 +126,7 @@ var Timeline = class {
 	timeScale = 1;
 	playing = !1;
 	entries = [];
+	callbacks;
 	labels = /* @__PURE__ */ new Map();
 	touched = /* @__PURE__ */ new Set();
 	repeat;
@@ -168,7 +169,7 @@ var Timeline = class {
 	}
 	call(e, t, n = 0) {
 		let r = this.position(t, n);
-		return this.entries.push({
+		return (this.callbacks ??= []).push({
 			item: void 0,
 			start: r,
 			call: e
@@ -207,8 +208,12 @@ var Timeline = class {
 		for (let e of this.entries) !e.item || r < e.start || (this.touched.add(e), e.item.seek(Math.min(r - e.start, e.item.totalDuration)));
 	}
 	fireCallbacks(e) {
+		if (!this.callbacks) {
+			this.fired = e;
+			return;
+		}
 		let t = this.cursor, n = t > 0 ? Math.floor(Math.max(this.fired, 0) / t) : 0, r = t > 0 ? Math.min(Math.floor(e / t), this.repeat) : 0;
-		for (let i = n; i <= r; i++) for (let n of this.entries) {
+		for (let i = n; i <= r; i++) for (let n of this.callbacks) {
 			if (!n.call) continue;
 			let r = i * t + n.start;
 			r > this.fired && r <= e && n.call();

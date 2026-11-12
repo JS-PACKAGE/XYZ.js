@@ -82,6 +82,8 @@ export declare class Timeline implements Tweenable {
     timeScale: number;
     playing: boolean;
     private readonly entries;
+    /** Callback-only entries never participate in rendering or item resets. */
+    private callbacks;
     private readonly labels;
     /** Items the playhead has reached since the last reset. */
     private readonly touched;

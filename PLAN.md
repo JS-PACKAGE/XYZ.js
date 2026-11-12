@@ -5211,3 +5211,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 完整 target read、external-edit base 複製、restore 與 captured／applied 清理不變。
 - 硬指標：morph／TRS lifecycle differential 含 signed zero 與非有限 TRS；
   未變更／首分量修改／末分量修改分開量測，回歸與工具通過後獨立 `[P148]` commit。
+
+## P149 — Separate Timeline item and callback processing
+
+- Callback entries 採 lazy 獨立清單，不再參與 item render／reset；callback dispatch
+  不再掃描 tween items。沒有 callback 時仍更新 fired watermark。
+- 保留 live append、render 與 dispatch 邊界、repeat／seek／reset／nested 語義。
+- 硬指標：混合操作 differential、新增播放中註冊與 callback mutation 回歸；
+  量測區分 JIT history，記錄收益與退步，通過工具與 build 後獨立 `[P149]` commit。

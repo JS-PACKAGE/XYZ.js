@@ -317,6 +317,9 @@ XYZError
   寫入仍經具驗證與 version 的 set，zero weight 不略過前面的 sampling。
 - Overlay ownership 比較在第一個不同分量就停止；仍完整讀取 target，外部修改
   仍完整複製為新 base，不略過取樣、驗證或寫入。
+- Timeline 將 callback-only entries 與可 render 的 items 分開，首次註冊才配置
+  callback 清單。Dispatch 維持 live insertion order，沒有 callback 時仍推進
+  fired watermark；reset 保留排程。CPU 量測受 JIT history 影響，不只由工作量決定。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

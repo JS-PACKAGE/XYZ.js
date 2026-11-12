@@ -281,6 +281,8 @@ export class Timeline implements Tweenable {
   timeScale = 1;
   playing = false;
   private readonly entries: Entry[] = [];
+  /** Callback-only entries never participate in rendering or item resets. */
+  private callbacks: Entry[] | undefined;
   private readonly labels = new Map<string, number>();
   /** Items the playhead has reached since the last reset. */
   private readonly touched = new Set<Entry>();
@@ -345,7 +347,7 @@ export class Timeline implements Tweenable {
   /** Runs `callback` when playback passes `at` (default: the end); seeking does not run it. */
   call(callback: () => void, at?: number | string, offset = 0): this {
     const start = this.position(at, offset);
-    this.entries.push({ item: undefined, start, call: callback });
+    (this.callbacks ??= []).push({ item: undefined, start, call: callback });
     this.cursor = Math.max(this.cursor, start);
     return this;
   }
@@ -422,13 +424,17 @@ export class Timeline implements Tweenable {
 
   /** Runs callbacks whose absolute time, in any pass, lies in (fired, next]. */
   private fireCallbacks(next: number): void {
+    if (!this.callbacks) {
+      this.fired = next;
+      return;
+    }
     const length = this.cursor;
     const firstPass =
       length > 0 ? Math.floor(Math.max(this.fired, 0) / length) : 0;
     const lastPass =
       length > 0 ? Math.min(Math.floor(next / length), this.repeat) : 0;
     for (let pass = firstPass; pass <= lastPass; pass++)
-      for (const entry of this.entries) {
+      for (const entry of this.callbacks) {
         if (!entry.call) continue;
         const at = pass * length + entry.start;
         if (at > this.fired && at <= next) entry.call();

@@ -169,6 +169,56 @@ describe('Timeline', () => {
     expect(timeline.time).toBe(0);
   });
 
+  it('does not replay earlier times when the first callback is added during playback', () => {
+    const target = { x: 0 };
+    const log: string[] = [];
+    const timeline = new Timeline()
+      .add(Tween.to(target, { x: 8 }, { duration: 1 }))
+      .play();
+    timeline.update(0.5);
+    timeline.call(() => log.push('past'), 0.25);
+    timeline.call(() => log.push('next'), 0.75);
+    timeline.update(0.25);
+    expect(target.x).toBe(6);
+    expect(log).toEqual(['next']);
+  });
+
+  it('dispatches newly appended callbacks live but renders their new items on the next update', () => {
+    const target = { x: 0 };
+    const later = { x: 0 };
+    const log: string[] = [];
+    const timeline = new Timeline();
+    let installed = false;
+    timeline
+      .add(
+        Tween.to(
+          target,
+          { x: 8 },
+          {
+            duration: 1,
+            onUpdate: () => {
+              if (installed) return;
+              installed = true;
+              timeline.call(() => {
+                log.push('from-render');
+                timeline.call(() => log.push('from-callback'), 0.25);
+                timeline.add(Tween.to(later, { x: 8 }, { duration: 1 }), 0);
+              }, 0.25);
+            },
+          },
+        ),
+      )
+      .call(() => log.push('existing'), 0.25)
+      .play();
+    timeline.update(0.25);
+    expect(target.x).toBe(2);
+    expect(later.x).toBe(0);
+    expect(log).toEqual(['existing', 'from-render', 'from-callback']);
+    timeline.update(0.25);
+    expect(later.x).toBe(4);
+    expect(log).toEqual(['existing', 'from-render', 'from-callback']);
+  });
+
   it('rejects unknown labels, negative times and endless children', () => {
     const timeline = new Timeline();
     expect(() =>

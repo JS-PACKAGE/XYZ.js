@@ -326,6 +326,10 @@ These are public error classes, not a promise to rewrap every exception from use
 - Overlay ownership comparisons stop at the first changed component. Complete
   target reads and complete external-edit base copies are retained; this does
   not skip sampling, validation or writes.
+- Timeline keeps callback-only entries separate from renderable items, allocating
+  that list on first registration. Dispatch remains live and insertion-ordered;
+  even without callbacks, playback advances the callback watermark. Reset retains
+  the schedule. CPU measurements depend on JIT history, not just work counts.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

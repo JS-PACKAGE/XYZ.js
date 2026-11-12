@@ -5317,3 +5317,14 @@ so stop the private-buffer comparison there. The complete target read still
 precedes comparison, and external edits still copy the entire scratch pose to
 the new base. No component writes, validation or observable target reads are
 skipped; signed-zero equality and NaN inequality retain the existing semantics.
+
+## P149 separate Timeline work lists
+
+Timeline stores callback-only entries in a lazily allocated list rather than
+mixing them with renderable items. Each entry still has one owner; render/reset
+visit items, and callback dispatch visits callbacks in original insertion order.
+Both lists retain live append behavior. A callback added during render can run
+in that update, while an item added during dispatch waits for the next render.
+The no-callback path still advances the fired watermark, so later registration
+does not replay earlier crossings. Reset keeps the configured schedule. This
+adds one list only to timelines with callbacks, not per-frame allocations.

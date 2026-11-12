@@ -17652,3 +17652,41 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   vendor copy／CJS build 通過。文件格式與變更連結檢查通過。
 - 沿用既有 ownership／callback／外部修改回歸；未重跑全套或 browser。
   沒有公開 API、新配置、依賴或版本變更；暫時量測腳本不納入倉庫。
+
+## P149 — Separate Timeline work lists（2026-11-13）
+
+- Callback-only entries 改存 lazy callback 清單；render／reset 只走 items，
+  dispatch 只走 callbacks。每個 entry 仍僅儲存一次，只有含 callbacks 的 Timeline
+  多一個清單，沒有新增逐幀配置；原 guards、live append 與順序不變。
+- 無 callback 時仍更新 fired watermark。新增兩個回歸：播放後第一次註冊不重播
+  過去 crossing；render 中新增 callback、callback 中新增 callback／item 的
+  當幀順序及下一幀 target 值。
+- 舊／新 TS 共用 dist dependencies，256 scenarios × 64 operations = 16,384
+  組逐步比較 target、event order、time／duration／completion／playing 及錯誤。
+  包含 repeat、nested、seek／reset、外部改值、註冊、callback throw 與 reentrant seek；一致。
+- 本機 Node v26.7.0／darwin arm64；每批 2,000 updates，8 批 warmup、15 輪交錯
+  median。首次與 differential 共用模組，128-item 測項明顯退步。
+  V8 trace 顯示新舊 render 對 seek 的 inline 決策不同；第二組以獨立轉譯模組
+  隔離 differential 的混合／例外／重入訓練。Source 沒有為量測另加特殊分支。
+
+| JIT history         | Items | Callbacks | Before CPU ms | After CPU ms |
+| ------------------- | ----: | --------: | ------------: | -----------: |
+| shared differential |     1 |         0 |      0.119042 |     0.096333 |
+| shared differential |   128 |         0 |      3.688625 |     4.645916 |
+| shared differential |   128 |         4 |      3.612334 |     4.660125 |
+| shared differential |    16 |       128 |      1.450416 |     0.843375 |
+| shared differential |     0 |       128 |      1.049542 |     0.409583 |
+| isolated modules    |     1 |         0 |      0.107083 |     0.098917 |
+| isolated modules    |   128 |         0 |      3.243709 |     3.019125 |
+| isolated modules    |   128 |         4 |      3.337500 |     3.047000 |
+| isolated modules    |    16 |       128 |      1.433084 |     0.893792 |
+| isolated modules    |     0 |       128 |      0.964917 |     0.452834 |
+
+- 隔離樣本的 item-heavy 約下降 7–9%、callback-heavy 約下降 38–53%；保留首次
+  約 26–29% 退步紀錄，不把量測隔離宣稱為所有 JIT history 的退步修復。
+  採用理由是移除不相關清單掃描，受控樣本改善；不保證所有 runtime workload 加速。
+- `tests/tween.test.ts`：1 file／12 tests 通過；typecheck、定向 ESLint／Prettier、
+  ESM compile／minify／vendor copy／CJS build 通過。文件格式、README→ACCEPTANCE
+  相對連結檢查通過。未重跑全套、browser、RAF／GPU、GC 或 heap 量測。
+- 公開 API、版本與依賴不變；CPU 不等同 fps。量測腳本與 trace 提交前移除；
+  使用者 physics source／dist 不納入提交，不 push。
