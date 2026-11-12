@@ -5259,3 +5259,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 硬指標：完整排程／清理 differential，正式 Scene／borrowed resource 回歸；
   teardown CPU 與 cancel／重複 destroy controls 分開量測。
 - 記錄未採用的 deadline branch；工具、build、文件同步後獨立 `[P154]` commit。
+
+## P155 — Release suspended-query component retention
+
+- World teardown 清空 resolved query 仍可能引用的內層 component stores，
+  不只清外層 registry；保持 cleanup callback 邊界與 borrowed values 的 ownership。
+- 硬指標：隔離 Node GC 回歸、CRUD／destroy differential、retained heap 與
+  teardown CPU 分開量測，包含空 stores 與無條件 query controls。
+- 明列 O(component types) teardown 成本；工具、build、文件同步後獨立 `[P155]` commit。

@@ -211,6 +211,8 @@ export class World {
     }
     this.systems.length = 0;
     this.systemEntries.clear();
+    // Suspended queries can still hold the resolved component stores.
+    for (const store of this.components.values()) if (store.size) store.clear();
     this.components.clear();
     this.entities.clear();
     this.revision++;

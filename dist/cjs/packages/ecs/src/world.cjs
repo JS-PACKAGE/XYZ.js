@@ -130,7 +130,9 @@ var World = class {
 				}
 			}
 		}
-		if (this.systems.length = 0, this.systemEntries.clear(), this.components.clear(), this.entities.clear(), this.revision++, e.length) throw AggregateError(e, `World system cleanup failed.`);
+		this.systems.length = 0, this.systemEntries.clear();
+		for (let e of this.components.values()) e.size && e.clear();
+		if (this.components.clear(), this.entities.clear(), this.revision++, e.length) throw AggregateError(e, `World system cleanup failed.`);
 	}
 	compactSystems() {
 		if (this.inactiveSystems === 0) return;

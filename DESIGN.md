@@ -5379,3 +5379,16 @@ release inside the class; the owner immediately performs the promised clear.
 No user callback runs during this pass. The disposed guard and empty-set exit
 preserve idempotence; individual cancellation retains its original delete path.
 Clearing during a running callback still ends the outer live Set iteration.
+
+## P155 release resolved component values on World destruction
+
+Suspended filtered queries hold component Maps resolved before yielding. Clearing
+only the World's outer registry leaves those Maps and their values reachable
+until the generator is resumed or released. After all system cleanup callbacks,
+clear each nonempty component store before dropping the registry and entities.
+This also covers queries created by a throwing cleanup callback without changing
+what callbacks can observe before teardown finishes.
+
+The extra O(component types) destroy work releases these retained values without
+adding per-query bookkeeping. It does not destroy borrowed component objects or
+promise to release every reference held by a suspended generator.

@@ -330,6 +330,9 @@ XYZError
   亦同；其他 stores，以及 revision 改變後 live fallback 的所有檢查仍保留。
 - 無 component 條件的 query 直接遍歷 live entity Set，保留 lazy start、
   yield 間 membership 變更及 generator return／throw；省去空篩選，不代表零配置。
+- World 在 system cleanup 後清空 resolved component stores，即使 suspended query
+  仍引用它們，也不再扣住 component 值；不主動 destroy borrowed values。代價是
+  O(component types) teardown 工作，不增加逐 query 的追蹤成本。
 - Scene timer teardown 釋放所有 handle callback／owner reference 後一次清空
   task Set；單獨取消、callback 順序與 callback 內銷毀的契約不變。
 

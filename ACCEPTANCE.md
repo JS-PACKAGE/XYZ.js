@@ -17898,3 +17898,53 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 | one-shot churn         |                       16 |  0.618209 | 0.594083 |
 
 - mixed-last 約退步 19.7%；不為省略一個表面運算而保留較差的分支。
+
+## P155 — Release component stores retained by suspended queries（2026-11-13）
+
+- 實際重現：World destroy 後，一個尚未繼續執行的有條件 query 仍保留 resolved
+  component Map；隔一個 event-loop turn 後強制 GC，component WeakRef 仍可取值。
+  關閉並釋放 query 後才可回收。這不是仍有 live entity，而是內層 Map 留存值。
+- World 現在於所有 system cleanup callbacks 完成後，清空非空 component stores，
+  再清空外層 registry／entities 與更新 revision。包含 cleanup 拋錯及 callback
+  內建立的 query；不主動 destroy component 值，不改其他 borrower 的引用。
+- Node v26.7.0／Darwin arm64；16,384 組 CRUD／query／destroy 精確比對結果、值、
+  錯誤與 cleanup callback 可見狀態。獨立 Node child-process regression 以
+  `--expose-gc` 驗證 dense／sparse／throwing-cleanup 三條路徑，並在 GC 後才 resume
+  query，避免提前關閉 generator 掩蓋留存。GC flag 不影響 Vitest worker。
+- Test 以 `--experimental-strip-types` 載入正式 World source，沿用現有 execFile
+  child-process 慣例，不依賴舊 dist。此 flag 在最低工具鏈 Node 22.13.0 的
+  [官方文件](https://nodejs.org/download/release/v22.13.0/docs/api/typescript.html)
+  有記載；本階段只實際執行 Node 26.7.0，沒有冒稱跑過 Node 22。
+- Retained heap：與 correctness 分離的獨立 ESM copies，配置前後各跨 event-loop
+  turn 並強制 GC，3 輪交替 median。保留 32 個已 yield 一次、World 已 destroy 的
+  queries；每 World 128 entities、兩種 component，每值含 128 個數字的 Array。
+  sparse 只有 8 個 entities 有 components；GC 量測後才 resume queries。
+
+| Retained workload  | Before bytes | After bytes |
+| ------------------ | -----------: | ----------: |
+| dense filtered     |    9,401,120 |     143,056 |
+| sparse filtered    |      631,904 |      61,144 |
+| unfiltered control |      120,064 |     128,512 |
+
+- dense／sparse 約少 98.5%／90.3%；unfiltered control 沒有原問題且增加 8,448 B，
+  不宣稱所有 query heap 都減少。保留的 query 仍可能握有 World、IDs、type arguments
+  等資料，本修正只移除被 resolved stores 留住的 component 值。
+- CPU 另用獨立 ESM copies、8 warmup／15 輪交替 median；World／component 建立與
+  empty-store 準備在計時外，計時只涵蓋 destroy。沒有並行跑測試。
+
+| Teardown workload         | Owners／entities／component types | Before ms | After ms |
+| ------------------------- | --------------------------------- | --------: | -------: |
+| 空 World                  | 20,000／0／0                      |  1.120750 | 1.114375 |
+| 1 populated store         | 128／128／1                       |  0.007750 | 0.012917 |
+| 8 populated stores        | 128／128／8                       |  0.009959 | 0.039417 |
+| 32 populated stores       | 128／128／32                      |  0.018000 | 0.179792 |
+| 8 stores，entities 已移除 | 128／0／8                         |  0.013084 | 0.022208 |
+
+- 明確代價：destroy 增加 O(component types) 清空工作；32 types 測項約慢 10 倍，
+  該 batch 增加約 0.162 ms／128 Worlds。保留此成本以修正銷毀後的 component
+  留存，不新增 query bookkeeping 或在逐幀 query 加計數成本，不宣稱 teardown 加速。
+- `vitest run tests/ecs.test.ts tests/ecs-retention.test.mjs tests/scene-lazy.test.ts tests/consumers/semantics-v1.12.1.test.ts`
+  **21 tests passed**；Typecheck、scoped ESLint 通過。初次 source Prettier 指出
+  nested for／if 應同一行，格式修正後 check 通過；ESM compile/minify、完整 vendor
+  copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+  未執行完整 suite、browser、graphics／audio／三 backend runtime 或 GC pause 量測。

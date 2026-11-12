@@ -343,6 +343,10 @@ These are public error classes, not a promise to rewrap every exception from use
 - Queries without component types iterate the live entity Set directly, retaining
   lazy start, membership changes between yields and generator return/throw
   semantics. This skips empty filtering work, not all query allocation.
+- World teardown clears resolved component stores after system cleanup, even if
+  suspended queries still reference them. Component values can then be reclaimed
+  without resuming those queries; borrowed values are not destroyed. This adds
+  O(component types) teardown work, not per-frame query bookkeeping.
 - Scene timer teardown releases all handle callbacks and owner references before
   clearing the task Set once. Individual cancellation, callback order and
   destruction during a running callback retain their existing contracts.
