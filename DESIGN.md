@@ -5403,3 +5403,15 @@ releases where applicable. Keep pulseFrame advancement unconditional.
 
 This uses the collections' existing state instead of adding dirty flags. Binding
 evaluation, consumption, reentrant callbacks and context routing remain unchanged.
+
+## P157 raw input and context scratch cleanup
+
+Use size guards for empty keyboard/pointer edge Sets, manager gesture pulses,
+retired contexts and routing scratch Sets. Do not add an early frame return:
+pointer moves and wheel samples can need cleanup without any button edge.
+Always release sample event references, clear the queue, reset wheel deltas and
+advance virtual/context frame state in the existing order.
+
+Routing still clears nonempty claimed sources before each active context and
+nonempty consumed sources before each route; no physical-source reservation leaks
+between layers or frames. Retired contexts still receive their last edge cleanup.

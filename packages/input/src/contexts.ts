@@ -272,7 +272,7 @@ export class InputContexts {
     this.legacy.endFrame();
     for (const context of this.contexts.values()) context.endFrame();
     for (const context of this.retired) context.endFrame();
-    this.retired.clear();
+    if (this.retired.size) this.retired.clear();
   }
 
   /** @internal */
@@ -288,9 +288,9 @@ export class InputContexts {
   }
 
   private route(preserveEdges: boolean): void {
-    this.consumed.clear();
+    if (this.consumed.size) this.consumed.clear();
     for (const context of this.active) {
-      this.claimed.clear();
+      if (this.claimed.size) this.claimed.clear();
       context.update(this.consumed, this.claimed, preserveEdges);
       for (const source of this.claimed) this.consumed.add(source);
     }

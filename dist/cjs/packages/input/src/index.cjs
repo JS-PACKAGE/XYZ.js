@@ -37,7 +37,7 @@ var Keyboard = class {
 		this.down.delete(e.code) && this.released.add(e.code);
 	}
 	endFrame() {
-		this.pressed.clear(), this.released.clear();
+		this.pressed.size && this.pressed.clear(), this.released.size && this.released.clear();
 	}
 	reset() {
 		this.down.clear(), this.pressVersions.clear(), this.endFrame();
@@ -205,7 +205,7 @@ var Pointer = class {
 		this.clearPointer(e.pointerId), t && this.record(e, `cancel`), e.pointerType === `touch` && (this.hovered = !1);
 	}
 	endFrame() {
-		this.pressed.clear(), this.released.clear();
+		this.pressed.size && this.pressed.clear(), this.released.size && this.released.clear();
 		for (let e of this.queued) e.originalEvent = void 0;
 		this.queued.length = 0, this.wheelValues.x = this.wheelValues.y = this.wheelValues.z = 0;
 	}
@@ -314,7 +314,7 @@ var InputManager = class {
 		}
 	}
 	endFrame() {
-		this.keyboard.endFrame(), this.pointer.endFrame(), this.virtual.endFrame(), this.gesturePulses.clear(), this.contexts.endFrame();
+		this.keyboard.endFrame(), this.pointer.endFrame(), this.virtual.endFrame(), this.gesturePulses.size && this.gesturePulses.clear(), this.contexts.endFrame();
 	}
 	reset() {
 		this.keyboard.reset(), this.pointer.reset(), this.gamepadSnapshot = s, this.gamepad.reset(), this.virtual.reset(), this.virtual.endFrame(), this.gesturePulses.clear(), this.contexts.reset();

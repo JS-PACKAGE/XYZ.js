@@ -5275,3 +5275,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 硬指標：managed／unmanaged、press/release、inactive 與重入 differential；
   CPU 分開呈現 idle／held／edge workloads，不宣稱未量測的配置或 fps 改善。
 - 記錄淘汰的 button lookup tables；工具、build、文件同步後獨立 `[P156]` commit。
+
+## P157 — Skip empty raw input and context scratch cleanup
+
+- Raw keyboard／pointer edges、manager gesture pulses 與 context scratch／retired
+  Sets 略過空 clear，不提前 return，保留 sample event／wheel／virtual 清理順序。
+- 硬指標：完整 InputManager event／frame differential 與 pointer／gesture 回歸；
+  Node stand-in CPU 分別量測 idle、edges、moves、context consumption 與 churn。
+- 明列 consuming-heavy control 退步與 browser／hardware 未驗證範圍；
+  工具、build、文件同步後獨立 `[P157]` commit。

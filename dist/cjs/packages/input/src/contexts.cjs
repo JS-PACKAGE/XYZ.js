@@ -127,7 +127,7 @@ var InputContexts = class {
 		this.legacy.endFrame();
 		for (let e of this.contexts.values()) e.endFrame();
 		for (let e of this.retired) e.endFrame();
-		this.retired.clear();
+		this.retired.size && this.retired.clear();
 	}
 	destroy() {
 		if (!this.destroyed) {
@@ -137,9 +137,9 @@ var InputContexts = class {
 		}
 	}
 	route(e) {
-		this.consumed.clear();
+		this.consumed.size && this.consumed.clear();
 		for (let t of this.active) {
-			this.claimed.clear(), t.update(this.consumed, this.claimed, e);
+			this.claimed.size && this.claimed.clear(), t.update(this.consumed, this.claimed, e);
 			for (let e of this.claimed) this.consumed.add(e);
 		}
 		this.legacy.update(this.consumed, void 0, e);

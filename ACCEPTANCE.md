@@ -18004,3 +18004,44 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 儘管後段 button 加速，常用 ABXY action 分別約慢 10.9%／17.7%，故均淘汰。
   沒有將未採用 lookup tables 標為通過完整 differential／runtime 驗收。
   README 中英日、PLAN、DESIGN、TECHNICAL 中英同步本階段的正式改動。
+
+## P157 — Skip empty raw input and context scratch cleanup（2026-11-13）
+
+- Keyboard／Pointer endFrame 略過空 pressed／released Set 的 clear；InputManager
+  endFrame 同樣略過空 gesturePulses。InputContexts 只在非空時 clear retired、
+  route consumed／claimed scratch Sets。共八個既有 clear sites 加 size guard，
+  不新增 dirty flags 或提前 return。
+- Pointer samples 的 originalEvent 仍每 frame 釋放、queue 仍清空、wheel deltas
+  仍歸零；virtual controls、gesture pulses、context edges／retired lifecycle 保留
+  原順序。reset／destroy 的其他清理不動。
+- Node v26.7.0／Darwin arm64；與 P156 分開量測，baseline 已包含 P156。
+  各自獨立 ESM module graphs；CPU 與 correctness graphs 分開，8 warmup／15 輪
+  交替 median，沒有並行跑測試。正式修改與量測 candidate 精確相同。
+- 量測完整 InputManager update／edge queries／endFrame，事件測項包含 Node
+  EventTarget dispatch；使用 headless canvas／CSS stand-ins、固定 gesture clock、
+  空 gamepad snapshot，不是瀏覽器 DOM／硬體輸入量測。一般 setup 在計時外，
+  retired churn 則刻意包含每輪 create／activate／destroy 一個 context 的成本。
+
+| InputManager workload                 | Iterations | Before ms |  After ms |
+| ------------------------------------- | ---------: | --------: | --------: |
+| idle，無 action bindings              |     20,000 |  3.061000 |  1.356208 |
+| held keyboard／pointer                |      2,000 |  0.545167 |  0.344708 |
+| alternating keyboard／pointer edges   |      2,000 |  1.667708 |  1.354292 |
+| pointer moves                         |      2,000 |  0.859917 |  0.695000 |
+| 32 inactive contexts × 8 bindings     |      1,000 |  0.430042 |  0.359208 |
+| 32 consuming contexts × 8 bindings    |      1,000 | 17.885250 | 18.063917 |
+| 32 nonconsuming contexts × 8 bindings |      1,000 | 20.699417 | 19.087125 |
+| retired context churn                 |      1,000 |  1.195625 |  1.093416 |
+
+- consuming-heavy control 約慢 1.0%，不宣稱所有 workloads 都加速。沒有量測
+  allocation counts、heap、GC pause、瀏覽器 RAF 或 CPU submit，不以 CPU microbench
+  冒充 fps 提升或實體裝置認證。
+- 16,384 組正式 InputManager event／frame differential operations 精確一致，
+  包含 CSS 座標、key／pointer edges、gesture callbacks、sample originalEvent 釋放、
+  wheel／virtual values、context activate／deactivate／rebind／retire、blur／visibility、
+  reset／destroy、銷毀後呼叫與 gesture callback 重入 endFrame。
+- `vitest run tests/input.test.ts tests/input-context.test.ts tests/gestures.test.ts tests/gameplay2d-pointer.test.ts tests/gamepad.test.ts`
+  **53 tests passed**；Typecheck、scoped ESLint／Prettier、ESM compile/minify、
+  完整 vendor copy、CJS build 通過。沿用既有 frame／gesture／Scene pointer 回歸。
+  README 中英日、PLAN、DESIGN、TECHNICAL 中英同步；未執行完整 suite、browser、
+  graphics／audio／三 backend runtime 或實體 gamepad 測試。

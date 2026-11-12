@@ -338,6 +338,9 @@ XYZError
 - ActionMap 略過空的 frame-edge、pending-release 與 frame-baseline collections
   清理；非空集合清除順序、單幀 release 與每次 endFrame 的 pulse 遞增不變，
   包含 inactive contexts。
+- Raw input 與 context routing 同樣略過空暫存 Set 的 clear；即使沒有 keyboard／
+  pointer button edge，每 frame 仍釋放 pointer sample event references，並照常
+  清理 wheel、virtual 與 context 狀態。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

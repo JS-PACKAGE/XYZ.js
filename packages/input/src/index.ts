@@ -117,8 +117,8 @@ export class Keyboard {
 
   /** @internal */
   endFrame(): void {
-    this.pressed.clear();
-    this.released.clear();
+    if (this.pressed.size) this.pressed.clear();
+    if (this.released.size) this.released.clear();
   }
 
   /** @internal */
@@ -440,8 +440,8 @@ export class Pointer {
 
   /** @internal */
   endFrame(): void {
-    this.pressed.clear();
-    this.released.clear();
+    if (this.pressed.size) this.pressed.clear();
+    if (this.released.size) this.released.clear();
     for (const sample of this.queued) sample.originalEvent = undefined;
     this.queued.length = 0;
     this.wheelValues.x = this.wheelValues.y = this.wheelValues.z = 0;
@@ -659,7 +659,7 @@ export class InputManager {
     this.keyboard.endFrame();
     this.pointer.endFrame();
     this.virtual.endFrame();
-    this.gesturePulses.clear();
+    if (this.gesturePulses.size) this.gesturePulses.clear();
     this.contexts.endFrame();
   }
 
