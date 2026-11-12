@@ -723,11 +723,11 @@ export class ActionMap {
     preserveEdges = false,
   ): void {
     if (!preserveEdges) {
-      this.edgePressed.clear();
-      this.edgeReleased.clear();
+      if (this.edgePressed.size) this.edgePressed.clear();
+      if (this.edgeReleased.size) this.edgeReleased.clear();
     }
     for (const action of this.pendingReleased) this.edgeReleased.add(action);
-    this.pendingReleased.clear();
+    if (this.pendingReleased.size) this.pendingReleased.clear();
     // Keys and get, not entries: an [key, value] pair per action was allocated every frame.
     for (const action of this.map.keys()) {
       const list = this.map.get(action)!;
@@ -795,18 +795,18 @@ export class ActionMap {
 
   /** @internal */
   endFrame(): void {
-    this.edgePressed.clear();
-    this.edgeReleased.clear();
-    this.frameDown.clear();
+    if (this.edgePressed.size) this.edgePressed.clear();
+    if (this.edgeReleased.size) this.edgeReleased.clear();
+    if (this.frameDown.size) this.frameDown.clear();
     this.pulseFrame++;
   }
 
   /** @internal Inactive contexts still publish queued releases for one frame. */
   updateInactive(): void {
-    this.edgePressed.clear();
-    this.edgeReleased.clear();
+    if (this.edgePressed.size) this.edgePressed.clear();
+    if (this.edgeReleased.size) this.edgeReleased.clear();
     for (const action of this.pendingReleased) this.edgeReleased.add(action);
-    this.pendingReleased.clear();
+    if (this.pendingReleased.size) this.pendingReleased.clear();
   }
 
   /** Plain JSON-safe copy for persisting player rebinding. */

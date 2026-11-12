@@ -5267,3 +5267,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 硬指標：隔離 Node GC 回歸、CRUD／destroy differential、retained heap 與
   teardown CPU 分開量測，包含空 stores 與無條件 query controls。
 - 明列 O(component types) teardown 成本；工具、build、文件同步後獨立 `[P155]` commit。
+
+## P156 — Skip empty input action edge cleanup
+
+- ActionMap frame／inactive paths 只清除非空 edge、pending release 與 frame baseline
+  collections；保留 release 轉交順序、pulseFrame 與 context routing。
+- 硬指標：managed／unmanaged、press/release、inactive 與重入 differential；
+  CPU 分開呈現 idle／held／edge workloads，不宣稱未量測的配置或 fps 改善。
+- 記錄淘汰的 button lookup tables；工具、build、文件同步後獨立 `[P156]` commit。

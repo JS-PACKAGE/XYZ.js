@@ -354,9 +354,9 @@ var ActionMap = class {
 		return this.edgeReleased.has(e);
 	}
 	update(e, t, n = !1) {
-		n || (this.edgePressed.clear(), this.edgeReleased.clear());
+		n || (this.edgePressed.size && this.edgePressed.clear(), this.edgeReleased.size && this.edgeReleased.clear());
 		for (let e of this.pendingReleased) this.edgeReleased.add(e);
-		this.pendingReleased.clear();
+		this.pendingReleased.size && this.pendingReleased.clear();
 		for (let n of this.map.keys()) {
 			let r = this.map.get(n), i = this.managed ? this.frameDown.get(n) ?? this.down.get(n) ?? !1 : this.down.get(n) ?? !1;
 			this.managed && !this.frameDown.has(n) && this.frameDown.set(n, i);
@@ -377,12 +377,12 @@ var ActionMap = class {
 		this.values.clear(), this.down.clear(), this.frameDown.clear(), this.blocked = /* @__PURE__ */ new WeakSet(), this.mutedPressVersions = /* @__PURE__ */ new WeakMap(), this.edgePressed.clear();
 	}
 	endFrame() {
-		this.edgePressed.clear(), this.edgeReleased.clear(), this.frameDown.clear(), this.pulseFrame++;
+		this.edgePressed.size && this.edgePressed.clear(), this.edgeReleased.size && this.edgeReleased.clear(), this.frameDown.size && this.frameDown.clear(), this.pulseFrame++;
 	}
 	updateInactive() {
-		this.edgePressed.clear(), this.edgeReleased.clear();
+		this.edgePressed.size && this.edgePressed.clear(), this.edgeReleased.size && this.edgeReleased.clear();
 		for (let e of this.pendingReleased) this.edgeReleased.add(e);
-		this.pendingReleased.clear();
+		this.pendingReleased.size && this.pendingReleased.clear();
 	}
 	export() {
 		return Object.fromEntries(Array.from(this.map, ([e, t]) => [e, t.map((e) => ({ ...e }))]));

@@ -350,6 +350,9 @@ These are public error classes, not a promise to rewrap every exception from use
 - Scene timer teardown releases all handle callbacks and owner references before
   clearing the task Set once. Individual cancellation, callback order and
   destruction during a running callback retain their existing contracts.
+- ActionMap skips clearing empty frame-edge, pending-release and frame-baseline
+  collections. Nonempty cleanup order, one-frame releases and unconditional
+  endFrame pulse advancement remain unchanged, including inactive contexts.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

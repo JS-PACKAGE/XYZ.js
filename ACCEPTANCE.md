@@ -17948,3 +17948,59 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   nested for／if 應同一行，格式修正後 check 通過；ESM compile/minify、完整 vendor
   copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
   未執行完整 suite、browser、graphics／audio／三 backend runtime 或 GC pause 量測。
+
+## P156 — Skip empty input action edge cleanup（2026-11-13）
+
+- ActionMap 的 update／endFrame／updateInactive 在 edgePressed、edgeReleased、
+  pendingReleased 或 frameDown 為空時略過 clear。非空集合仍於原位置清除，
+  pending releases 仍先轉入當前 edge 集合，pulseFrame 仍每次 endFrame 遞增。
+  不增加 dirty flags，不改 binding、physical-source consumption 或 context 排程。
+- Node v26.7.0／Darwin arm64；before／after 使用獨立 ESM modules，CPU 與
+  correctness 模組分開。8 warmup／15 輪交替 median，沒有並行跑測試。
+  CPU 包含 GamepadState poll、ActionMap update／edge queries／endFrame；
+  inactive case 只做 updateInactive／edge queries／endFrame，setup 在計時外。
+
+| Action workload                   | Actions | Iterations | Before ms |  After ms |
+| --------------------------------- | ------: | ---------: | --------: | --------: |
+| managed empty                     |       0 |     20,000 |  4.644291 |  3.155208 |
+| managed held                      |       1 |      2,000 |  0.551291 |  0.427000 |
+| managed held                      |      32 |      2,000 |  4.163125 |  4.022458 |
+| managed alternating press/release |      32 |      2,000 |  5.149416 |  5.050458 |
+| managed held                      |     128 |      2,000 | 17.693667 | 16.828042 |
+| unmanaged held                    |      32 |      2,000 |  3.233834 |  3.093000 |
+| inactive，無 pending releases     |      32 |     20,000 |  1.542042 |  0.122334 |
+
+- 16,384 組 managed／unmanaged differential operations 精確保留 values、edges、
+  exported bindings、physical-source claims、validation errors 與 gamepad mapping／
+  disconnect state。涵蓋 reset、rebind、unbind、invalid import、baseline、preserveEdges、
+  updateInactive、pending releases、wheel／gesture／virtual／keyboard，以及 keyboard
+  callback 重入 endFrame。正式 context tests 另外涵蓋 priority／consume／生命週期。
+- `vitest run tests/gamepad.test.ts tests/input-context.test.ts tests/input.test.ts`
+  **33 tests passed**；Typecheck、scoped ESLint／Prettier、ESM compile/minify、
+  完整 vendor copy、CJS build 通過。沿用既有 edge／context 回歸，不新增 wiring tests。
+- 沒有量測 heap／GC pause、瀏覽器 RAF 或實體控制器；不把空 clear 的略過宣稱為
+  已量測配置數或 fps 改善，也不擴大 browser／backend／hardware 認證範圍。
+
+### 未採用：gamepad button name lookup tables
+
+- 先比較 BUTTON_NAMES.indexOf 與 module-scoped Map，再比較 null-prototype
+  dictionary＋string type guard；兩者都保留 axis lookup。每個方案各自使用獨立
+  before／after modules、8 warmup／15 輪交替 median。正式 source 從未套用兩方案。
+- button rows 各做 200,000 次 button／isDown／wasPressed／wasReleased 組合，
+  axis control 為 200,000 次 axis／axisWasPressed；action rows 為 32 actions、
+  2,000 次完整 poll／update／value／endFrame。以下是兩次獨立比較，不混用 baseline。
+
+| Workload            | Map before ms | Map after ms | Dictionary before ms | Dictionary after ms |
+| ------------------- | ------------: | -----------: | -------------------: | ------------------: |
+| first button        |      1.660500 |     2.262791 |             1.621125 |            3.853000 |
+| ABXY buttons        |      2.023709 |     2.359625 |             2.008750 |            3.385458 |
+| all buttons         |      5.314000 |     2.421375 |             5.452583 |            3.706833 |
+| last button         |      7.137917 |     1.976542 |             7.222709 |            3.389416 |
+| axes control        |      4.146334 |     4.159625 |             4.160125 |            4.154458 |
+| ABXY actions        |      4.438791 |     4.921333 |             4.376834 |            5.152291 |
+| all-button actions  |      4.947958 |     4.435583 |             5.010000 |            4.768166 |
+| key actions control |      4.088458 |     3.920166 |             4.045542 |            4.098792 |
+
+- 儘管後段 button 加速，常用 ABXY action 分別約慢 10.9%／17.7%，故均淘汰。
+  沒有將未採用 lookup tables 標為通過完整 differential／runtime 驗收。
+  README 中英日、PLAN、DESIGN、TECHNICAL 中英同步本階段的正式改動。

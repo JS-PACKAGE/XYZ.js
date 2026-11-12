@@ -5392,3 +5392,14 @@ what callbacks can observe before teardown finishes.
 The extra O(component types) destroy work releases these retained values without
 adding per-query bookkeeping. It does not destroy borrowed component objects or
 promise to release every reference held by a suspended generator.
+
+## P156 skip empty ActionMap frame cleanup
+
+ActionMap frame cleanup often encounters edge Sets that were already cleared by
+endFrame, or never populated in an inactive context. Check collection size before
+clearing edgePressed, edgeReleased, pendingReleased and frameDown on these paths.
+Nonempty collections are cleared at the same points, after forwarding pending
+releases where applicable. Keep pulseFrame advancement unconditional.
+
+This uses the collections' existing state instead of adding dirty flags. Binding
+evaluation, consumption, reentrant callbacks and context routing remain unchanged.
