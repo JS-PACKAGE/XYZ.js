@@ -5165,3 +5165,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 硬指標：缺省／空／非空選項逐步精確比對，空與非空陣列在 job 建立後變更不影響路徑。
 - 以獨立 Set constructor 計數驗證配置減少，CPU 另行量測，不混稱 GC／FPS 改善。
 - 導航回歸、工具檢查、build 與文件同步後獨立 `[P142]` commit；不 push、不升版。
+
+## P143 — Generation-guarded animation action iteration
+
+- Mixer 保留完整 action snapshot，在每個 action 輪到時才檢查 playing，讓 callback
+  啟動後面的既有 action 仍於同 tick 取樣，不提前過濾 snapshot。
+- clear／destroy 已增加 generation，使舊 snapshot 失效；移除冗餘逐 action Map lookup。
+- 硬指標：mixed play／stop differential、callback 前後順序及 clear 後重建延至下一 tick；
+  inactive／mixed／active CPU 分開量測，動畫回歸與工具檢查通過後獨立 `[P143]` commit。

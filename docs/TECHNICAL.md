@@ -308,6 +308,10 @@ These are public error classes, not a promise to rewrap every exception from use
   Set. Nonempty exclusions are still validated and copied when the job is created;
   mutating either an empty or nonempty caller array later does not affect it.
   Constructor-count reduction does not establish CPU, GC or frame-time gains.
+- `AnimationMixer` uses its existing generation guard instead of repeated action
+  ownership lookups and skips stopped action updates. It still snapshots all
+  actions and tests `playing` at their turn, preserving callback-start ordering
+  and deferring replacements created after a clear until the next update.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

@@ -17535,3 +17535,21 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 此輪只接受暫存物件配置減少；CPU 無加速證據，約慢 0–1.3%，不宣稱 GPU／RAF／GC 或瀏覽器效能改善。
 - 實際通過：導航／jobs／dynamic／scheduler 定向 Vitest 4 files／25 tests（新增一項空與非空 caller 陣列修改後仍保留 job 快照）；typecheck、定向 ESLint、完整 ESM／minify／vendor／CJS build。初次 Prettier check 指出新測試排版，已用 scoped `prettier --write` 修正，非功能失敗。
 - README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；比較腳本／產物只供驗收並於提交前移除。使用者 physics 修改與其 dist 產物排除於此提交，不 push、不升版。
+
+## P143 — Generation-guarded animation action iteration (2026-11-13)
+
+- 範圍：`AnimationMixer.update` 保留完整 running snapshot，但輪到 action 時先檢查 playing；clear／destroy 的既有 generation guard 已保護 snapshot，省略逐 action ownership Map lookup。callback 可同 tick 啟動後面的既有 action；已輪過者或 clear 後建立的 replacement 維持下一 tick 才更新。Standalone action update 的驗證不變。
+- 正確性：Node v26.7.0／darwin arm64；新舊 source 同為 ES2022 transpile、共用 dist dependencies。64 actions，各有獨立 translation target，seed `0x49444c45` 連續 4,096 ticks 隨機 play／stop／delta，每 tick 比對全部 action time／playing／target position，精確一致。
+- CPU：各 fixture 的每個 action 一條 0–1 秒 translation track，tick delta=1/60；每批 2,000 mixer updates、各版本預熱 8 批、15 輪交替先後取中位數，未與本輪測試同跑。
+
+| 工作負載           | 修改前 ms／批 | 修改後 ms／批 | 差異                          |
+| ------------------ | ------------: | ------------: | ----------------------------- |
+| 64 actions／全停止 |      1.433958 |      0.805000 | 約降低 43.9%                  |
+| 64 actions／1 播放 |      1.825542 |      1.233542 | 約降低 32.4%                  |
+| 64 actions／全播放 |      6.428833 |      5.609667 | 約降低 12.7%                  |
+| 1 action／播放     |      0.296208 |      0.295083 | 約降低 0.4%，不作顯著改善主張 |
+
+- 初版只加 playing guard，64 全播放曾慢約 3.7%；確認 ownership 查詢受既有 generation 保護後移除，以上為最終版本重新量測，不混用初版數字。
+- 實際通過：五個 animation／blend／profiles／retarget／root-motion 檔，5 files／61 tests；新增 callback 啟動前／後順序兩項與 clear 後 replacement 一項。Typecheck、定向 ESLint／Prettier、完整 ESM／minify／vendor／CJS build 通過。沒有重跑瀏覽器 showcase、GPU／RAF 或音訊，不擴張 runtime 認證。
+- 同輪 Matrix4 逐欄載入實驗：8,192 組含 self-alias／非有限／signed-zero／混合幅度結果精確，但三組 CPU 無加速，已完整撤回，沒有提交或列為優化成果。
+- README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；量測腳本／轉譯產物於提交前移除。使用者 physics source／dist 變更保持未提交，不 push、不升版。

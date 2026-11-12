@@ -316,7 +316,7 @@ var AnimationMixer = class {
 			for (let e of this.actions.values()) this.running.push(e);
 			for (let n of this.running) {
 				if (this.destroyed || this.paused || this.generation !== t) return;
-				this.actions.get(n.clip) === n && n.update(e);
+				n.playing && n.update(e);
 			}
 			if (this.destroyed || this.paused || this.generation !== t) return;
 			for (let e of this.running) e.supersede();

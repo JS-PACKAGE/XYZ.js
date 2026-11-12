@@ -666,10 +666,11 @@ export class AnimationMixer {
       }
       this.running.length = 0;
       for (const action of this.actions.values()) this.running.push(action);
+      // Clearing owned actions invalidates this snapshot through generation.
       for (const action of this.running) {
         if (this.destroyed || this.paused || this.generation !== generation)
           return;
-        if (this.actions.get(action.clip) === action) action.update(delta);
+        if (action.playing) action.update(delta);
       }
       if (this.destroyed || this.paused || this.generation !== generation)
         return;

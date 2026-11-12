@@ -5260,3 +5260,14 @@ same snapshot semantics without storage. Expansion captures Set presence once
 per node, replacing the prior size check. Configuration, budgets, revisions and
 paths stay unchanged. Constructor counts establish fewer temporary objects,
 not lower retained bytes, GC latency or frame time; CPU results are separate.
+
+## P143 generation-guarded animation action iteration
+
+The mixer still snapshots every registered action after controller evaluation.
+It checks `playing` only at each action's turn, not when building the snapshot:
+callbacks can start a later action during the same tick, while an earlier action
+waits until the next tick. Clearing/destroying owned actions changes generation,
+which is already checked before every visit, so no per-action ownership Map
+lookup is needed. Raising an action only changes future snapshot order.
+Supersede, root-motion, overlay, constraint and finally cleanup remain unchanged.
+The standalone action update API keeps its own delta validation and idle return.

@@ -304,6 +304,9 @@ XYZError
 - Graph search 沒有連線排除項目時，不建立預設陣列與空 Set；非空清單仍在 job
   建立時驗證並複製。之後修改呼叫方空／非空陣列都不影響該次搜尋。建構次數下降
   不等同 CPU、GC 或幀率改善，量測分開記錄。
+- `AnimationMixer` 以既有 generation guard 保護 action snapshot，省略逐 action
+  ownership Map lookup 與停止 action 的 update。仍快照全部 action，到該 action
+  輪到時才判斷 playing，保留 callback 啟動順序；clear 後的新 action 延至下個 tick。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

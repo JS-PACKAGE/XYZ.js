@@ -6,11 +6,11 @@ Browser-native TypeScript game engine for 2D and 3D.
 
 **1.23.0 · [Apache-2.0](LICENSE) · npm 尚未發佈 / not published / 未公開**
 
-導航效能維護：最近節點查詢採軸向排除，零 heuristic 搜尋省略距離運算；無連線排除項目時不建立暫存陣列／Set。精確距離、同距順序與搜尋快照不變；本機 CPU 有快有慢，配置減少不代表幀率提升，見 [ACCEPTANCE](ACCEPTANCE.md)。
+效能維護：導航查詢減少冗餘距離運算與空集合配置；AnimationMixer 在既有 generation 保護下略過閒置 action 與逐 action Map 查詢。精確結果與 callback 順序不變；本機 CPU 結果、取捨及未驗證範圍見 [ACCEPTANCE](ACCEPTANCE.md)，不以配置減少宣稱幀率提升。
 
-Navigation performance maintenance: axis pruning for nearest-node queries, skipped zero-heuristic distance evaluation, and no temporary exclusion array/Set when none is needed. Exact distances, ties and search snapshots stay unchanged. Local CPU results are mixed; fewer allocations do not prove higher fps. See [ACCEPTANCE](ACCEPTANCE.md).
+Performance maintenance: navigation reduces redundant distances and empty collections; AnimationMixer skips idle actions and per-action Map lookups under its existing generation guard. Exact results and callback ordering remain intact. Local CPU results, tradeoffs and limits are in [ACCEPTANCE](ACCEPTANCE.md); fewer allocations do not prove higher fps.
 
-ナビゲーション性能改善：最近傍検索の軸方向除外、ゼロ heuristic の距離計算省略、除外項目なしの一時配列／Set 削減。距離・同距離の選択順序・検索スナップショットは維持します。ローカル CPU の結果は一様ではなく、割り当て削減は fps 向上の証明ではありません。[ACCEPTANCE](ACCEPTANCE.md) を参照してください。
+性能改善：ナビゲーションの冗長な距離計算・空コレクションを削減し、AnimationMixer は既存の generation 保護で停止中 action と action ごとの Map 検索を省略します。結果と callback 順序は維持します。ローカル CPU の結果・取捨選択・検証範囲は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。割り当て削減は fps 向上の証明ではありません。
 
 ## 繁體中文
 

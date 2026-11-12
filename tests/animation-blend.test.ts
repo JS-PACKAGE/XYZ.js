@@ -26,6 +26,56 @@ function slide(
 }
 
 describe('AnimationAction blending', () => {
+  it.each(['before', 'after'] as const)(
+    'starts a dormant action registered %s its callback source at its snapshot turn',
+    (order) => {
+      const target = new Group();
+      const mixer = new AnimationMixer();
+      const pendingClip = slide(target, 0, 8, 2, 'pending');
+      if (order === 'before') mixer.clipAction(pendingClip);
+      const trigger = mixer.clipAction(slide(new Group(), 0, 1, 1, 'trigger'));
+      const pending = mixer.clipAction(pendingClip);
+      trigger.loop = false;
+      trigger.on('finished', () => pending.play()).play();
+      mixer.update(1);
+      const elapsed = order === 'before' ? 0 : 1;
+      expect(pending.time).toBe(elapsed);
+      expect(target.position.x).toBe(elapsed * 4);
+      mixer.update(0.25);
+      expect(pending.time).toBe(elapsed + 0.25);
+      expect(target.position.x).toBe((elapsed + 0.25) * 4);
+      pending.stop();
+      target.position.x = 99;
+      mixer.update(0.25);
+      expect(target.position.x).toBe(99);
+      mixer.destroy();
+    },
+  );
+
+  it('defers replacement actions created by a clearing callback until the next tick', () => {
+    const target = new Group();
+    const mixer = new AnimationMixer();
+    const trigger = mixer.clipAction(slide(new Group(), 0, 1, 1, 'trigger'));
+    const pendingClip = slide(target, 0, 8, 2, 'pending');
+    const pending = mixer.clipAction(pendingClip).play();
+    trigger.loop = false;
+    trigger
+      .on('finished', () => {
+        mixer.clear();
+        mixer.clipAction(pendingClip).play();
+      })
+      .play();
+    mixer.update(1);
+    expect(target.position.x).toBe(0);
+    expect(pending.playing).toBe(false);
+    const replacement = mixer.clipAction(pendingClip);
+    expect(replacement.time).toBe(0);
+    mixer.update(0.25);
+    expect(replacement.time).toBe(0.25);
+    expect(target.position.x).toBe(1);
+    mixer.destroy();
+  });
+
   it('layers a lower-weight action over the pose below it and keeps weight 1 as replace', () => {
     const target = new Group();
     const mixer = new AnimationMixer();
