@@ -221,6 +221,40 @@ describe('bounded weighted navigation', () => {
     expect(zero.findPath('start', 'goal').cost).toBeCloseTo(0.1);
   });
 
+  it('snapshots empty and nonempty connection exclusions before stepped search', () => {
+    const graph = new NavigationGraph3D({
+      nodes: [
+        { id: 'start', position: new Vector3() },
+        { id: 'via', position: new Vector3(1, 0, 0) },
+        { id: 'goal', position: new Vector3(2, 0, 0) },
+      ],
+      connections: [
+        { from: 'start', to: 'goal', cost: 1 },
+        { from: 'start', to: 'via', cost: 1 },
+        { from: 'via', to: 'goal', cost: 1 },
+      ],
+    });
+    const excludedConnections: number[] = [];
+    const direct = graph.createSearch('start', 'goal', { excludedConnections });
+    excludedConnections.push(0);
+    while (direct.status === 'pending') direct.step(1);
+    expect(direct.result!.nodes.map((node) => node.id)).toEqual([
+      'start',
+      'goal',
+    ]);
+    expect(direct.result!.cost).toBe(1);
+    const detour = graph.createSearch('start', 'goal', { excludedConnections });
+    excludedConnections.length = 0;
+    while (detour.status === 'pending') detour.step(1);
+    expect(detour.result!.nodes.map((node) => node.id)).toEqual([
+      'start',
+      'via',
+      'goal',
+    ]);
+    expect(detour.result!.cost).toBe(2);
+    graph.destroy();
+  });
+
   it('traverses undirected edges both ways and rejects ambiguous duplicate connections', () => {
     const nodes = [
       { id: 'a', position: new Vector3() },

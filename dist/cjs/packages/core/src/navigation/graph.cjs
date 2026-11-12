@@ -187,16 +187,19 @@ var NavigationGraph3D = class NavigationGraph3D {
 		if (i === void 0 || a === void 0) throw RangeError(`Unknown navigation endpoint.`);
 		let o = r.agentRadius ?? 0;
 		if (!Number.isFinite(o) || o < 0 || o > require_navigation.navigationLimits.coordinateExtent) throw RangeError(`Navigation agent radius exceeds its nonnegative finite bound.`);
-		let s = r.excludedConnections ?? [];
-		if (s.length > require_navigation.navigationLimits.graphConnections) throw RangeError(`Navigation exclusion budget exceeded.`);
-		for (let e of s) if (!Number.isInteger(e) || e < 0 || e >= this.currentConnections.length) throw RangeError(`Unknown excluded navigation connection.`);
-		let c = new Set(s), l = this.currentRevision, u = this.nodes[a].position;
+		let s = r.excludedConnections, c;
+		if (s != null) {
+			if (s.length > require_navigation.navigationLimits.graphConnections) throw RangeError(`Navigation exclusion budget exceeded.`);
+			for (let e of s) if (!Number.isInteger(e) || e < 0 || e >= this.currentConnections.length) throw RangeError(`Unknown excluded navigation connection.`);
+			s.length !== 0 && (c = new Set(s));
+		}
+		let l = this.currentRevision, u = this.nodes[a].position;
 		return this.searches.create({
 			from: this.nodes[i].walkable && this.nodes[a].walkable && this.nodes[i].clearance >= o && this.nodes[a].clearance >= o ? i : -1,
 			to: a,
 			estimate: (e) => this.heuristic(e, u),
 			expand: (e, t) => {
-				let n = this.currentNodes, r = this.currentConnections, i = t.distance, a = c.size !== 0;
+				let n = this.currentNodes, r = this.currentConnections, i = t.distance, a = c !== void 0;
 				for (let s of this.edges[e]) {
 					let l = r[s.connection], d = n[s.to];
 					if (!l.enabled || !d.walkable || d.clearance < o || l.clearance < o || a && c.has(s.connection)) continue;

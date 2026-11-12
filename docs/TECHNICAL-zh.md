@@ -301,6 +301,9 @@ XYZError
 - `NavigationGraph3D` 的 admissible heuristic scale 為零時直接回傳目前 scale，
   省略 norm，保留 signed zero 與 rebuild 行為；非零 A* 保持原公式。本機量測
   Dijkstra 變快、非零 A* 小幅變慢，詳見 ACCEPTANCE，並非全面加速。
+- Graph search 沒有連線排除項目時，不建立預設陣列與空 Set；非空清單仍在 job
+  建立時驗證並複製。之後修改呼叫方空／非空陣列都不影響該次搜尋。建構次數下降
+  不等同 CPU、GC 或幀率改善，量測分開記錄。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

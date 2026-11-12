@@ -5158,3 +5158,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 不更動非零公式、搜尋順序、成本、修訂失效或工作預算，不新增索引或配置。
 - 硬指標：零／非零圖逐步狀態、expansions、完整路徑精確比較及導航回歸。
 - 記錄兩類 CPU 結果與非零路徑的取捨，不宣稱全面加速；獨立 `[P141]` commit。
+
+## P142 — Empty graph-search exclusion allocations
+
+- 無排除項目的 graph search 不再建立暫存預設陣列或空 Set；有排除項目仍驗證並快照。
+- 硬指標：缺省／空／非空選項逐步精確比對，空與非空陣列在 job 建立後變更不影響路徑。
+- 以獨立 Set constructor 計數驗證配置減少，CPU 另行量測，不混稱 GC／FPS 改善。
+- 導航回歸、工具檢查、build 與文件同步後獨立 `[P142]` commit；不 push、不升版。

@@ -5250,3 +5250,13 @@ cannot change its value, including signed zero. The nonzero formula and search
 ordering remain unchanged. This adds no allocation or cached state; rebuild
 continues to replace the scale normally. Local CPU evidence shows a Dijkstra
 gain and a small nonzero A* slowdown, not universal acceleration.
+
+## P142 optional graph-search exclusion snapshot
+
+No exclusions means no per-query default array and no Set snapshot. A nonempty
+input still validates every index and copies into a private Set before returning
+the job, so later caller edits cannot affect searches. Empty inputs retain the
+same snapshot semantics without storage. Expansion captures Set presence once
+per node, replacing the prior size check. Configuration, budgets, revisions and
+paths stay unchanged. Constructor counts establish fewer temporary objects,
+not lower retained bytes, GC latency or frame time; CPU results are separate.

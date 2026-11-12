@@ -463,17 +463,20 @@ export class NavigationGraph3D {
       throw new RangeError(
         'Navigation agent radius exceeds its nonnegative finite bound.',
       );
-    const exclusions = options.excludedConnections ?? [];
-    if (exclusions.length > navigationLimits.graphConnections)
-      throw new RangeError('Navigation exclusion budget exceeded.');
-    for (const index of exclusions)
-      if (
-        !Number.isInteger(index) ||
-        index < 0 ||
-        index >= this.currentConnections.length
-      )
-        throw new RangeError('Unknown excluded navigation connection.');
-    const excluded = new Set(exclusions);
+    const exclusions = options.excludedConnections;
+    let excluded: Set<number> | undefined;
+    if (exclusions !== undefined && exclusions !== null) {
+      if (exclusions.length > navigationLimits.graphConnections)
+        throw new RangeError('Navigation exclusion budget exceeded.');
+      for (const index of exclusions)
+        if (
+          !Number.isInteger(index) ||
+          index < 0 ||
+          index >= this.currentConnections.length
+        )
+          throw new RangeError('Unknown excluded navigation connection.');
+      if (exclusions.length !== 0) excluded = new Set(exclusions);
+    }
     const revision = this.currentRevision;
     const target = this.nodes[to]!.position;
     return this.searches.create({
@@ -491,7 +494,7 @@ export class NavigationGraph3D {
         const nodes = this.currentNodes,
           connections = this.currentConnections,
           distances = search.distance,
-          checkExcluded = excluded.size !== 0;
+          checkExcluded = excluded !== undefined;
         for (const edge of this.edges[current]!) {
           const connection = connections[edge.connection]!,
             node = nodes[edge.to]!;
@@ -500,7 +503,7 @@ export class NavigationGraph3D {
             !node.walkable ||
             node.clearance! < radius ||
             connection.clearance! < radius ||
-            (checkExcluded && excluded.has(edge.connection))
+            (checkExcluded && excluded!.has(edge.connection))
           )
             continue;
           const distance = distances[current]! + edge.cost;

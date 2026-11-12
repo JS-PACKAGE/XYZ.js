@@ -17518,3 +17518,20 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實際通過：`vitest run tests/navigation.test.ts tests/navigation-jobs.test.ts tests/navigation-dynamic.test.ts tests/navigation-scheduler.test.ts`，4 files／24 tests；`tsc -p tsconfig.check.json`；graph scoped ESLint／Prettier；完整 ESM、minify、vendor copy、CJS build。既有導航測試覆蓋此路徑，未新增重複測試。
 - 同輪拒絕的動畫實驗：STEP／夾住端點的 quaternion 嘗試省略 slerp，但一般插值先後慢約 10%／5%，已撤回全部實驗修改，未列為成果或提交。
 - README 三語、PLAN、DESIGN、TECHNICAL 英／中同步；歷史紀錄不重寫。比較腳本與轉譯模組只作驗收，提交前移除。
+
+## P142 — Empty graph-search exclusion allocations (2026-11-13)
+
+- 範圍：缺省／空 connection exclusion 不再建立預設陣列與空 Set；非空清單仍立即驗證並複製為 Set。空清單改為無儲存的快照，不會受 caller 之後 push 影響。沒有修改公開 API、搜尋排序或預算。
+- 正確性：Node v26.7.0／darwin arm64；舊、新 TypeScript 同為 ES2022 transpile、共用相同 dist dependencies。16×16 格點、256 nodes、右／下相鄰雙向邊 cost=1，seed `0x4558434c` 產生 512 組端點。缺省／空陣列／`[0]` 各 512 搜尋，以 1–8 expansion budget 逐步比較 status、expansions、完整 result，合計 1,536 組精確相同。索引／預算錯誤及既有 null／iterable／錯誤行為也精確比對。
+- 配置證據：CPU 計時之外短暫包裝 Set constructor（finally 還原），各做 512 次搜尋；缺省與空清單各由 512 降為 0，非空維持 512。預設陣列移除由 source change 確認，沒有測 heap bytes／GC pause／FPS。
+- CPU：每批 512 搜尋，各版本預熱 8 批、15 輪交替先後、取中位數；未與本輪測試同跑。Set 包裝在每組計時完成後才啟用，下一組預熱前還原。
+
+| 工作負載        | 修改前 ms／批 | 修改後 ms／批 | Set 建構前／後（每批） |
+| --------------- | ------------: | ------------: | ---------------------: |
+| 缺省 exclusions |      2.237000 |      2.267000 |                 512／0 |
+| 空 exclusions   |      2.211167 |      2.231166 |                 512／0 |
+| 非空 exclusions |      2.669125 |      2.669583 |               512／512 |
+
+- 此輪只接受暫存物件配置減少；CPU 無加速證據，約慢 0–1.3%，不宣稱 GPU／RAF／GC 或瀏覽器效能改善。
+- 實際通過：導航／jobs／dynamic／scheduler 定向 Vitest 4 files／25 tests（新增一項空與非空 caller 陣列修改後仍保留 job 快照）；typecheck、定向 ESLint、完整 ESM／minify／vendor／CJS build。初次 Prettier check 指出新測試排版，已用 scoped `prettier --write` 修正，非功能失敗。
+- README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；比較腳本／產物只供驗收並於提交前移除。使用者 physics 修改與其 dist 產物排除於此提交，不 push、不升版。

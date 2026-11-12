@@ -6,11 +6,11 @@ Browser-native TypeScript game engine for 2D and 3D.
 
 **1.23.0 · [Apache-2.0](LICENSE) · npm 尚未發佈 / not published / 未公開**
 
-導航效能維護：一般與 tiled graph 的最近節點查詢先排除超出軸向距離的候選，保留精確距離與同距順序；一般 graph 的零 heuristic 搜尋省略距離運算。僅有本機 CPU 證據，含非零 A* 的小幅退步，見 [ACCEPTANCE](ACCEPTANCE.md)。
+導航效能維護：最近節點查詢採軸向排除，零 heuristic 搜尋省略距離運算；無連線排除項目時不建立暫存陣列／Set。精確距離、同距順序與搜尋快照不變；本機 CPU 有快有慢，配置減少不代表幀率提升，見 [ACCEPTANCE](ACCEPTANCE.md)。
 
-Navigation performance maintenance: ordinary and tiled graph nearest-node queries prune axis bounds while preserving exact distances and tie order; ordinary graph zero-heuristic searches skip distance evaluation. Local CPU evidence includes a small nonzero A* slowdown; see [ACCEPTANCE](ACCEPTANCE.md).
+Navigation performance maintenance: axis pruning for nearest-node queries, skipped zero-heuristic distance evaluation, and no temporary exclusion array/Set when none is needed. Exact distances, ties and search snapshots stay unchanged. Local CPU results are mixed; fewer allocations do not prove higher fps. See [ACCEPTANCE](ACCEPTANCE.md).
 
-ナビゲーション性能改善：通常・タイル分割グラフの最近傍検索は軸方向の範囲外を除外し、距離と同距離の選択順序を維持します。通常グラフのゼロ heuristic 検索では距離計算を省略します。非ゼロ A* の小幅な低下を含むローカル CPU 測定は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。
+ナビゲーション性能改善：最近傍検索の軸方向除外、ゼロ heuristic の距離計算省略、除外項目なしの一時配列／Set 削減。距離・同距離の選択順序・検索スナップショットは維持します。ローカル CPU の結果は一様ではなく、割り当て削減は fps 向上の証明ではありません。[ACCEPTANCE](ACCEPTANCE.md) を参照してください。
 
 ## 繁體中文
 
