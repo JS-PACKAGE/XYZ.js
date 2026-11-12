@@ -330,6 +330,9 @@ These are public error classes, not a promise to rewrap every exception from use
   that list on first registration. Dispatch remains live and insertion-ordered;
   even without callbacks, playback advances the callback watermark. Reset retains
   the schedule. CPU measurements depend on JIT history, not just work counts.
+- `Actions.delay` reuses a stateless writer across runs; elapsed time, completion,
+  ownership/continuation guards and iteration budgets remain per runtime/queue.
+  Retained-heap reductions do not imply lower CPU cost on every path or higher fps.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

@@ -320,6 +320,9 @@ XYZError
 - Timeline 將 callback-only entries 與可 render 的 items 分開，首次註冊才配置
   callback 清單。Dispatch 維持 live insertion order，沒有 callback 時仍推進
   fired watermark；reset 保留排程。CPU 量測受 JIT history 影響，不只由工作量決定。
+- `Actions.delay` 跨 run 共用無狀態 writer；elapsed、完成狀態、ownership／
+  continuation guard 與 iteration budget 仍屬各自 runtime／queue。
+  Retained heap 減少不代表每條 CPU 路徑都更快，也不代表 fps 提升。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

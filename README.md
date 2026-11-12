@@ -6,11 +6,11 @@ Browser-native TypeScript game engine for 2D and 3D.
 
 **1.23.0 · [Apache-2.0](LICENSE) · npm 尚未發佈 / not published / 未公開**
 
-效能維護：導航與動畫熱路徑減少冗餘計算、配置與查詢，包含 action snapshot 重用、morph／overlay 處理與 Timeline item／callback 分流。精確結果、callback 順序與清理契約不變；本機 CPU 結果、取捨及未驗證範圍見 [ACCEPTANCE](ACCEPTANCE.md)，不以配置減少宣稱幀率提升。
+效能維護：導航、動畫與 action 熱路徑減少冗餘計算、配置與查詢，包含 action snapshot 重用、morph／overlay 處理與 Timeline item／callback 分流。精確結果、callback 順序與清理契約不變；本機 CPU 結果、取捨及未驗證範圍見 [ACCEPTANCE](ACCEPTANCE.md)，不以配置減少宣稱幀率提升。
 
-Performance maintenance: navigation and animation reduce redundant computation, allocations and lookups, including cached action snapshots, morph/overlay processing and separate Timeline item/callback processing. Exact results, callback ordering and cleanup remain intact. Local CPU results, tradeoffs and limits are in [ACCEPTANCE](ACCEPTANCE.md); fewer allocations do not prove higher fps.
+Performance maintenance: navigation, animation and action runtimes reduce redundant computation, allocations and lookups, including cached action snapshots, morph/overlay processing and separate Timeline item/callback processing. Exact results, callback ordering and cleanup remain intact. Local CPU results, tradeoffs and limits are in [ACCEPTANCE](ACCEPTANCE.md); fewer allocations do not prove higher fps.
 
-性能改善：ナビゲーション・アニメーションの冗長な計算、割り当て、検索を削減し、action snapshot の再利用、morph／overlay 処理、Timeline の item／callback 分離を改善します。結果・callback 順序・cleanup 契約は維持します。ローカル CPU の結果・取捨選択・検証範囲は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。割り当て削減は fps 向上の証明ではありません。
+性能改善：ナビゲーション・アニメーション・action の冗長な計算、割り当て、検索を削減し、action snapshot の再利用、morph／overlay 処理、Timeline の item／callback 分離を改善します。結果・callback 順序・cleanup 契約は維持します。ローカル CPU の結果・取捨選択・検証範囲は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。割り当て削減は fps 向上の証明ではありません。
 
 ## 繁體中文
 

@@ -153,6 +153,9 @@ function repeat(action: Action, count: number): Action {
   });
 }
 
+// Delays need no owner state or per-run property writer.
+const applyDelay = (): void => {};
+
 export const Actions = Object.freeze({
   moveTo(
     x: number,
@@ -242,7 +245,7 @@ export const Actions = Object.freeze({
     });
   },
   delay(duration: number): Action {
-    return timed(duration, Easings.linear, () => () => {});
+    return timed(duration, Easings.linear, () => applyDelay);
   },
   call(callback: (owner: ActionOwner) => void): Action {
     if (typeof callback !== 'function')

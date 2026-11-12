@@ -73,6 +73,7 @@ function repeat(e, t) {
 		};
 	});
 }
+var applyDelay = () => {};
 var Actions = Object.freeze({
 	moveTo(t, n, r, i = require_easings.Easings.linear) {
 		return position(t, n, r, i, !1);
@@ -122,7 +123,7 @@ var Actions = Object.freeze({
 		});
 	},
 	delay(t) {
-		return timed(t, require_easings.Easings.linear, () => () => {});
+		return timed(t, require_easings.Easings.linear, () => applyDelay);
 	},
 	call(e) {
 		if (typeof e != `function`) throw TypeError(`Action callback must be a function.`);

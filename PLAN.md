@@ -5219,3 +5219,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 保留 live append、render 與 dispatch 邊界、repeat／seek／reset／nested 語義。
 - 硬指標：混合操作 differential、新增播放中註冊與 callback mutation 回歸；
   量測區分 JIT history，記錄收益與退步，通過工具與 build 後獨立 `[P149]` commit。
+
+## P150 — Shared delay action writer
+
+- `Actions.delay` 共用無狀態 writer，避免每個 run 建立空 writer closure；
+  descriptor capture factory、elapsed、done、context guard 與 iteration budget 不變。
+- 硬指標：完整 queue 操作 differential、既有 delay／repeat／取消／銷毀回歸，
+  分開量測 active／churn／queue CPU 與 live-runtime heap。
+- 保留被撤回的 frame remainder、共享 capture factory 實驗紀錄；
+  工具、build、文件同步後獨立 `[P150]` commit。

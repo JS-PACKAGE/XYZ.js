@@ -17690,3 +17690,41 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   相對連結檢查通過。未重跑全套、browser、RAF／GPU、GC 或 heap 量測。
 - 公開 API、版本與依賴不變；CPU 不等同 fps。量測腳本與 trace 提交前移除；
   使用者 physics source／dist 不納入提交，不 push。
+
+## P150 — Shared delay writer（2026-11-13）
+
+- `Actions.delay` 的空 writer 改為 module-local 共用 callback；保留每個 descriptor
+  的 capture callback、每個 runtime 的 elapsed／done／advance 及原 timed guards。
+- 1,024 scenarios × 16 operations = 16,384 組真實 GameObject／ActionQueue 操作，
+  舊／新 actions 與對應 queue 分別轉譯、共用其餘 dist dependencies。
+  Target、事件順序、handle state、settled promises、continuation visits 與錯誤一致；
+  包含 sequence／parallel／repeat、取消、clear／callback enqueue、銷毀與非法 delta。
+- CPU 使用與 differential 分離的模組；Node v26.7.0／darwin arm64，8 批 warmup、
+  15 輪交錯 median。`--expose-gc` 僅供後續 heap 測項使用，CPU 期間未手動 GC。
+
+| CPU scenario              | Operations per batch | Before ms | After ms |
+| ------------------------- | -------------------: | --------: | -------: |
+| retained active runtimes  |                20000 |  0.330416 | 0.342708 |
+| runtime churn             |                20000 |  0.530083 | 0.440584 |
+| actual queue start/finish |                 8192 |  1.187500 | 1.132917 |
+
+- Churn 約下降 16.9%、queue 約下降 4.6%，active 約慢 3.7%；不宣稱每條 CPU 路徑改善。
+- Heap：保留 80,000 個已 advance 的 live delay runtimes，配置前／後手動 GC，
+  比較 used heap delta；3 輪交錯取 median。這不是 GC latency 或完整遊戲記憶體量測。
+
+| Descriptor ownership       | Before heap delta bytes | After heap delta bytes |
+| -------------------------- | ----------------------: | ---------------------: |
+| shared descriptor          |                17919120 |               13439776 |
+| one descriptor per runtime |                26887176 |               22415480 |
+
+- 兩組約少 4.47–4.48 MB，支持移除每個 runtime 的空 writer closure；不等同 fps。
+- 曾同時共用 capture callback：雖可再降低 unique-descriptor heap，但 queue CPU
+  1.139625→1.410042 ms（約慢 23.7%）；縮小為僅共用 writer，未保留該變體。
+- 本階段也試過略過 FrameAnimation 範圍內的第一個 remainder：24,576 組含精確
+  phase／frame／事件／錯誤比對通過，但 pingpong 0.648500→0.679375 ms、跨圈
+  0.853583→0.892458 ms／32,768 updates，約慢 5%，已完全撤回，未改動畫相位公式。
+- `tests/actions2d.test.ts`：1 file／11 tests 通過；typecheck、定向 ESLint／Prettier、
+  ESM compile／minify／vendor copy／CJS build 通過。沿用既有 delay、重用 descriptor、
+  cancel／destroy／budget 回歸。文件格式、README→ACCEPTANCE 相對連結檢查通過。
+- 未重跑全套或 browser／RAF／GPU／音訊；無公開 API、依賴或版本變更。
+  暫時腳本提交前移除；使用者 physics source／dist 不納入提交，不 push。

@@ -5328,3 +5328,12 @@ in that update, while an item added during dispatch waits for the next render.
 The no-callback path still advances the fired watermark, so later registration
 does not replay earlier crossings. Reset keeps the configured schedule. This
 adds one list only to timelines with callbacks, not per-frame allocations.
+
+## P150 shared stateless delay writer
+
+A delay uses the same timed runtime as other actions but has no property to
+write. Its empty writer can therefore be shared across runs without sharing
+elapsed time, completion or owner state. The descriptor-local capture callback
+remains; sharing that too had a worse measured queue CPU tradeoff. Every step,
+active-context check and easing validation stays in the existing timed path.
+This removes a per-run closure, not the runtime or its stateful advance closure.
