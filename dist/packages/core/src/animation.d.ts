@@ -127,6 +127,7 @@ export declare class AnimationMixer {
     private readonly constraints;
     private readonly overlays;
     private readonly running;
+    private runningDirty;
     private readonly evaluating;
     private readonly rootMotions;
     /** @internal Pending root output is flushed only after callbacks survive the tick. */

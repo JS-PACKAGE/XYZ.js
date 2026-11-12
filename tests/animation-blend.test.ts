@@ -76,6 +76,43 @@ describe('AnimationAction blending', () => {
     mixer.destroy();
   });
 
+  it('applies callback cross-fade ordering to the next snapshot, not the current tick', () => {
+    const target = new Group();
+    const mixer = new AnimationMixer();
+    const trigger = mixer.clipAction(slide(new Group(), 0, 1, 0.5, 'trigger'));
+    const incoming = mixer.clipAction(slide(target, 10, 10, 2, 'incoming'));
+    const outgoing = mixer
+      .clipAction(slide(target, 20, 20, 2, 'outgoing'))
+      .play();
+    trigger.loop = false;
+    trigger.on('finished', () => outgoing.crossFadeTo(incoming, 1)).play();
+    mixer.update(0.5);
+    expect(target.position.x).toBe(20);
+    mixer.update(0.25);
+    expect(target.position.x).toBeCloseTo(12.5);
+    mixer.destroy();
+  });
+
+  it('retains action additions for the next update after a callback throws', () => {
+    const target = new Group();
+    const mixer = new AnimationMixer();
+    mixer.clipAction(slide(target, 10, 10, 2, 'base')).play();
+    mixer.update(0);
+    const trigger = mixer.clipAction(slide(new Group(), 0, 1, 0.5, 'trigger'));
+    trigger.loop = false;
+    trigger
+      .on('finished', () => {
+        mixer.clipAction(slide(target, 20, 20, 2, 'added')).play();
+        throw new Error('callback failure');
+      })
+      .play();
+    expect(() => mixer.update(0.5)).toThrow('callback failure');
+    expect(target.position.x).toBe(10);
+    mixer.update(0);
+    expect(target.position.x).toBe(20);
+    mixer.destroy();
+  });
+
   it('layers a lower-weight action over the pose below it and keeps weight 1 as replace', () => {
     const target = new Group();
     const mixer = new AnimationMixer();

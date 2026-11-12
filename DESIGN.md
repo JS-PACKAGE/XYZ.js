@@ -5271,3 +5271,14 @@ which is already checked before every visit, so no per-action ownership Map
 lookup is needed. Raising an action only changes future snapshot order.
 Supersede, root-motion, overlay, constraint and finally cleanup remain unchanged.
 The standalone action update API keeps its own delta validation and idle return.
+
+## P144 cached ordered action snapshot
+
+The existing running array is retained between ticks because its actions are
+already owned by the mixer Map. Adding an action or raising its layer marks the
+snapshot dirty. Rebuild happens at the original boundary after controller
+evaluation, then clears dirty; mutations during action callbacks affect the
+next boundary, not the active iteration. Finally cleanup no longer empties the
+running array and does not clear dirty after a throwing callback. Clear/destroy
+still empty both collections and reset dirty, releasing the same owned objects.
+Controller snapshots remain transient and unchanged.

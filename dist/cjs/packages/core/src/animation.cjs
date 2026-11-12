@@ -264,6 +264,7 @@ var AnimationMixer = class {
 	constraints = /* @__PURE__ */ new Set();
 	overlays = /* @__PURE__ */ new Map();
 	running = [];
+	runningDirty = !1;
 	evaluating = [];
 	rootMotions = /* @__PURE__ */ new Set();
 	collectRootMotion(e) {
@@ -287,14 +288,14 @@ var AnimationMixer = class {
 	clipAction(e) {
 		if (this.destroyed) throw Error(`AnimationMixer is destroyed.`);
 		let t = this.actions.get(e);
-		return t || (t = new AnimationAction(e), t.mixer = this, this.actions.set(e, t)), t;
+		return t || (t = new AnimationAction(e), t.mixer = this, this.actions.set(e, t), this.runningDirty = !0), t;
 	}
 	addController(e) {
 		if (this.destroyed) throw Error(`AnimationMixer is destroyed.`);
 		return this.controllers.add(e), () => this.controllers.delete(e);
 	}
 	raise(e) {
-		this.actions.get(e.clip) === e && (this.actions.delete(e.clip), this.actions.set(e.clip, e));
+		this.actions.get(e.clip) === e && (this.actions.delete(e.clip), this.actions.set(e.clip, e), this.runningDirty = !0);
 	}
 	update(e) {
 		if (!Number.isFinite(e) || e < 0) throw RangeError(`Animation delta must be nonnegative and finite.`);
@@ -312,8 +313,11 @@ var AnimationMixer = class {
 				if (this.destroyed || this.paused || this.generation !== t) return;
 				this.controllers.has(n) && n.evaluate(e);
 			}
-			this.running.length = 0;
-			for (let e of this.actions.values()) this.running.push(e);
+			if (this.runningDirty) {
+				this.running.length = 0;
+				for (let e of this.actions.values()) this.running.push(e);
+				this.runningDirty = !1;
+			}
 			for (let n of this.running) {
 				if (this.destroyed || this.paused || this.generation !== t) return;
 				n.playing && n.update(e);
@@ -334,7 +338,7 @@ var AnimationMixer = class {
 			}
 		} finally {
 			for (let e of this.rootMotions) e.reset();
-			this.rootMotions.clear(), this.running.length = this.evaluating.length = 0, this.updating = !1;
+			this.rootMotions.clear(), this.evaluating.length = 0, this.updating = !1;
 		}
 	}
 	stopAll() {
@@ -352,7 +356,7 @@ var AnimationMixer = class {
 		for (let e of this.controllers) e.destroy?.();
 		this.controllers.clear();
 		for (let e of this.actions.values()) e.releaseRootMotion(), e.mixer = void 0;
-		this.actions.clear(), this.running.length = this.evaluating.length = 0;
+		this.actions.clear(), this.running.length = this.evaluating.length = 0, this.runningDirty = !1;
 	}
 	destroy() {
 		this.destroyed || (this.destroyed = !0, this.clear());

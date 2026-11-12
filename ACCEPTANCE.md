@@ -17553,3 +17553,21 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實際通過：五個 animation／blend／profiles／retarget／root-motion 檔，5 files／61 tests；新增 callback 啟動前／後順序兩項與 clear 後 replacement 一項。Typecheck、定向 ESLint／Prettier、完整 ESM／minify／vendor／CJS build 通過。沒有重跑瀏覽器 showcase、GPU／RAF 或音訊，不擴張 runtime 認證。
 - 同輪 Matrix4 逐欄載入實驗：8,192 組含 self-alias／非有限／signed-zero／混合幅度結果精確，但三組 CPU 無加速，已完整撤回，沒有提交或列為優化成果。
 - README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；量測腳本／轉譯產物於提交前移除。使用者 physics source／dist 變更保持未提交，不 push、不升版。
+
+## P144 — Reuse unchanged animation action snapshots (2026-11-13)
+
+- 範圍：保留既有 running array，新增 dirty flag；clipAction 新增 action／raise 重排時標記，只在原本 controller evaluation 後的 snapshot 邊界重建。callback 修改不動目前 snapshot，finally 不丟失 dirty；clear／destroy 仍清空 Map 與 snapshot，沒有新增被 mixer 以外物件擁有的參考。
+- 正確性：Node v26.7.0／darwin arm64；新舊 source 同為 ES2022 transpile、共用相同 dist dependencies。64 actions 共用 target，以 layered pose 捕捉排序差異；seed `0x534e4150`，4,096 ticks 隨機 play／stop／delta，每 11 ticks raise、每 257 ticks clear 後重新建立 actions，每 tick 的全部 time／playing 與最終 pose 精確一致。
+- CPU：每 action 一條 0–1 秒 translation track；各自 target，delta=1/60，每批 2,000 updates，8 批預熱、15 輪交替取中位數；最後一組每 tick raise 一個 action，確保仍涵蓋 dirty 重建路徑。量測未與本輪測試同跑。
+
+| 工作負載                          | 修改前 ms／批 | 修改後 ms／批 | 差異                          |
+| --------------------------------- | ------------: | ------------: | ----------------------------- |
+| 64 actions／全停止                |      0.833125 |      0.444208 | 約降低 46.7%                  |
+| 64 actions／1 播放                |      1.368333 |      0.556375 | 約降低 59.3%                  |
+| 64 actions／全播放                |      5.905166 |      5.100208 | 約降低 13.6%                  |
+| 1 action／播放                    |      0.307666 |      0.215750 | 約降低 29.9%                  |
+| 64 actions／1 播放、逐 tick raise |      1.427417 |      1.406458 | 約降低 1.5%，不作顯著改善主張 |
+
+- 實際通過：五個 animation／blend／profiles／retarget／root-motion 檔，5 files／63 tests；新增 callback cross-fade 下一 snapshot 排序、callback 加 action 後拋錯仍於下一 tick 可見兩項。Typecheck、定向 ESLint、完整 ESM／minify／vendor／CJS build 通過。初次 format check 發現新測試長行，已 scoped Prettier write 修正。
+- 僅為本機 Node CPU 證據；未測 heap bytes／GC／瀏覽器 showcase／GPU／RAF／音訊，不將跨 tick array 重用直接稱為幀率提升，也不外推為跨瀏覽器保證。
+- README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；提交前移除量測腳本／轉譯產物。使用者 physics source／dist 變更不納入提交；不 push、不升版。

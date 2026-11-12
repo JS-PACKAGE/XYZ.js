@@ -5173,3 +5173,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - clear／destroy 已增加 generation，使舊 snapshot 失效；移除冗餘逐 action Map lookup。
 - 硬指標：mixed play／stop differential、callback 前後順序及 clear 後重建延至下一 tick；
   inactive／mixed／active CPU 分開量測，動畫回歸與工具檢查通過後獨立 `[P143]` commit。
+
+## P144 — Reuse unchanged animation action snapshots
+
+- action 的加入／raise 標記 snapshot dirty，只在 controller evaluation 後的既有
+  snapshot 邊界重建；未變更時重用，clear／destroy 仍釋放所有 action references。
+- callback 中加入或重排不改目前 tick 的 snapshot；callback 拋錯後 dirty 狀態保留。
+- 硬指標：mixed play／stop／raise／clear／recreate differential、cross-fade 與例外
+  回歸；穩定清單及逐 tick 變更清單皆量測，通過後獨立 `[P144]` commit。

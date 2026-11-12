@@ -586,7 +586,9 @@ export class AnimationMixer {
     AnimationTarget,
     Map<AnimationPath, AnimationPoseOverlay>
   >();
+  // Cached entries remain owned by actions; clear releases both collections.
   private readonly running: AnimationAction[] = [];
+  private runningDirty = false;
   private readonly evaluating: AnimationController[] = [];
   private readonly rootMotions = new Set<AnimationRootMotion>();
 
@@ -628,6 +630,7 @@ export class AnimationMixer {
       action = new AnimationAction(clip);
       action.mixer = this;
       this.actions.set(clip, action);
+      this.runningDirty = true;
     }
     return action;
   }
@@ -642,6 +645,7 @@ export class AnimationMixer {
     if (this.actions.get(action.clip) !== action) return;
     this.actions.delete(action.clip);
     this.actions.set(action.clip, action);
+    this.runningDirty = true;
   }
   update(delta: number): void {
     if (!Number.isFinite(delta) || delta < 0)
@@ -664,8 +668,11 @@ export class AnimationMixer {
           return;
         if (this.controllers.has(controller)) controller.evaluate(delta);
       }
-      this.running.length = 0;
-      for (const action of this.actions.values()) this.running.push(action);
+      if (this.runningDirty) {
+        this.running.length = 0;
+        for (const action of this.actions.values()) this.running.push(action);
+        this.runningDirty = false;
+      }
       // Clearing owned actions invalidates this snapshot through generation.
       for (const action of this.running) {
         if (this.destroyed || this.paused || this.generation !== generation)
@@ -693,7 +700,7 @@ export class AnimationMixer {
     } finally {
       for (const binding of this.rootMotions) binding.reset();
       this.rootMotions.clear();
-      this.running.length = this.evaluating.length = 0;
+      this.evaluating.length = 0;
       this.updating = false;
     }
   }
@@ -720,6 +727,7 @@ export class AnimationMixer {
     }
     this.actions.clear();
     this.running.length = this.evaluating.length = 0;
+    this.runningDirty = false;
   }
   destroy(): void {
     if (this.destroyed) return;
