@@ -17783,3 +17783,35 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 
 - layer 沒有收益，pool local 約退步 4%；不足以保留額外設定轉換，已完整撤回。
   不包含粒子 source 或 API 變更，不宣稱新增粒子／瀏覽器驗證範圍。
+
+## P152 — Sparse query known-store membership（2026-11-13）
+
+- Sparse query 的候選取自 smallest store，在第一次 yield 前的同步 prepass 中
+  必然已屬於該 store；`hasAll` 不再對同一 store 重複 `Map.has`。若 type 重複且
+  指向該 store，也省略這些已知 membership 查詢。其他 stores 仍逐一檢查。
+- 不增加 allocation／cache；排序、revision 邊界與 membership 改變後的 live
+  fallback 原樣保留，fallback 仍檢查所有 stores，不能沿用 prepass 的已知條件。
+- Node v26.7.0／Darwin arm64；16,384 組混合操作精確比對值、順序、錯誤，涵蓋
+  reverse insertion、重複／缺失 types、空 query、yield 間增刪／replacement、
+  iterator return／throw 與 destroy。既有 sparse mutation 回歸足以涵蓋正式變更，
+  未新增只綁定實作的測試。
+- CPU 使用與 correctness 分離的獨立 ESM copies，8 warmup batches、15 輪交替
+  median。16,384 entities；sparse 256 matches，每 batch 128 queries；dense
+  16,384 matches，每 batch 16 queries。量測時未並行跑測試。
+
+| Workload                                   | Before ms |  After ms |
+| ------------------------------------------ | --------: | --------: |
+| sparse，1 type                             |  0.621000 |  0.524375 |
+| sparse，2 distinct types                   |  0.708042 |  0.608458 |
+| sparse，8 distinct types                   |  1.717375 |  1.760375 |
+| sparse，32 distinct types，smallest 排最後 |  7.049458 |  7.101375 |
+| sparse，同一 type 重複 8 次                |  1.634625 |  0.812541 |
+| dense，4 distinct types                    | 15.962166 | 16.077958 |
+
+- 1／2 types 約減少 15.6%／14.1%，重複 type 測項約減少 50.3%；8 distinct types
+  約退步 2.5%，其餘兩項約 +0.7%。保留小型常用 query 的收益，明列額外 identity
+  branch 的取捨，不宣稱所有 workloads 更快，也不換算 fps。
+- `vitest run tests/ecs.test.ts` **12 tests passed**；Typecheck、scoped ESLint、
+  source Prettier、ESM compile/minify、完整 vendor copy、CJS build 通過。
+  README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。未跑完整 suite、browser、
+  GPU／audio／三 backend runtime；本階段不擴大認證範圍。

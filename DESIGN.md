@@ -5351,3 +5351,12 @@ World destruction must also invalidate snapshots after clearing all entities,
 including queries started inside cleanup callbacks. The revision advances before
 any collected cleanup errors are reported, so suspended queries cannot yield
 deleted entity IDs even when destruction throws.
+
+## P152 known membership during sparse prepass
+
+Every sparse candidate comes directly from the smallest component store, before
+any yield can run caller code. Its membership in that store is already known,
+including duplicate references to the same store in the type list. Skip those
+lookups while retaining checks against all other stores. This invariant applies
+only to the synchronous prepass: revision-triggered live fallback still checks
+every requested store. No extra array or persistent query cache is introduced.

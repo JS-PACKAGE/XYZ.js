@@ -45,7 +45,7 @@ var World = class {
 		let i = 0;
 		if (r && r.size * 2 < this.entities.size) {
 			let e = [], n = !0;
-			for (let i of r.keys()) hasAll(t, i) && (e.length && i < e[e.length - 1] && (n = !1), e.push(i));
+			for (let i of r.keys()) hasAll(t, i, r) && (e.length && i < e[e.length - 1] && (n = !1), e.push(i));
 			n || e.sort((e, t) => e - t);
 			let a = this.revision;
 			for (let t = 0; t < e.length && this.revision === a; t++) i = e[t], yield i;
@@ -141,8 +141,11 @@ var World = class {
 		if (this.disposed) throw Error(`World has been destroyed.`);
 	}
 };
-function hasAll(e, t) {
-	for (let n = 0; n < e.length; n++) if (!e[n].has(t)) return !1;
+function hasAll(e, t, n) {
+	for (let r = 0; r < e.length; r++) {
+		let i = e[r];
+		if (i !== n && !i.has(t)) return !1;
+	}
 	return !0;
 }
 //#endregion

@@ -92,7 +92,7 @@ export class World {
       let sorted = true;
       // Component stores contain only live entities; removal deletes from every store.
       for (const entity of smallest.keys()) {
-        if (!hasAll(stores, entity)) continue;
+        if (!hasAll(stores, entity, smallest)) continue;
         if (matches.length && entity < matches[matches.length - 1]!)
           sorted = false;
         matches.push(entity);
@@ -233,8 +233,11 @@ export class World {
 function hasAll(
   stores: readonly Map<Entity, unknown>[],
   entity: Entity,
+  known: Map<Entity, unknown>,
 ): boolean {
-  for (let i = 0; i < stores.length; i++)
-    if (!stores[i]!.has(entity)) return false;
+  for (let i = 0; i < stores.length; i++) {
+    const store = stores[i]!;
+    if (store !== known && !store.has(entity)) return false;
+  }
   return true;
 }

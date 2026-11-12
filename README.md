@@ -6,11 +6,11 @@ Browser-native TypeScript game engine for 2D and 3D.
 
 **1.23.0 · [Apache-2.0](LICENSE) · npm 尚未發佈 / not published / 未公開**
 
-效能維護：導航、動畫、action 與 ECS 熱路徑減少冗餘計算、配置與查詢，包含 action snapshot 重用、morph／overlay 處理、Timeline item／callback 分流，以及只因 membership 改變而失效的 ECS query。精確結果、callback 順序與清理契約保留，並修正 destroy 後的 stale query；本機 CPU 結果、取捨及未驗證範圍見 [ACCEPTANCE](ACCEPTANCE.md)，不以配置減少宣稱幀率提升。
+效能維護：導航、動畫、action 與 ECS 熱路徑減少冗餘計算、配置與查詢，包含 action snapshot 重用、morph／overlay 處理、Timeline item／callback 分流，以及 ECS query 的 membership 失效與候選篩選。精確結果、callback 順序與清理契約保留，並修正 destroy 後的 stale query；本機 CPU 結果、取捨及未驗證範圍見 [ACCEPTANCE](ACCEPTANCE.md)，不以配置減少宣稱幀率提升。
 
-Performance maintenance: navigation, animation, action and ECS runtimes reduce redundant computation, allocations and lookups, including cached action snapshots, morph/overlay processing, separate Timeline item/callback processing and membership-only ECS query invalidation. Exact results and callback ordering remain intact; stale queries after destroy are fixed. Local CPU results, tradeoffs and limits are in [ACCEPTANCE](ACCEPTANCE.md); fewer allocations do not prove higher fps.
+Performance maintenance: navigation, animation, action and ECS runtimes reduce redundant computation, allocations and lookups, including cached action snapshots, morph/overlay processing, separate Timeline item/callback processing and ECS query membership invalidation/filtering. Exact results and callback ordering remain intact; stale queries after destroy are fixed. Local CPU results, tradeoffs and limits are in [ACCEPTANCE](ACCEPTANCE.md); fewer allocations do not prove higher fps.
 
-性能改善：ナビゲーション・アニメーション・action・ECS の冗長な計算、割り当て、検索を削減し、action snapshot の再利用、morph／overlay 処理、Timeline の item／callback 分離、membership 変更時のみの ECS query 無効化を改善します。結果・callback 順序を維持し、destroy 後の stale query を修正します。ローカル CPU の結果・取捨選択・検証範囲は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。割り当て削減は fps 向上の証明ではありません。
+性能改善：ナビゲーション・アニメーション・action・ECS の冗長な計算、割り当て、検索を削減し、action snapshot の再利用、morph／overlay 処理、Timeline の item／callback 分離、ECS query の無効化／候補検査を改善します。結果・callback 順序を維持し、destroy 後の stale query を修正します。ローカル CPU の結果・取捨選択・検証範囲は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。割り当て削減は fps 向上の証明ではありません。
 
 ## 繁體中文
 

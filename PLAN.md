@@ -5236,3 +5236,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 硬指標：混合 CRUD／query differential、值替換與 destroy 回歸，
   分開量測 sparse／dense query、replacement 與 membership 變更成本。
 - 記錄撤回的 particle span 實驗；工具、build、文件同步後獨立 `[P151]` commit。
+
+## P152 — Skip known sparse-query membership
+
+- Sparse prepass 候選已來自 smallest store，不再重查同一 store 的 membership；
+  其他 stores 與 yield 後 membership 變更的完整 fallback 保留。
+- 硬指標：mixed iterator／CRUD differential、既有 sparse mutation 回歸；
+  分別量測 1／2／8／32 types、duplicate 與 dense，記錄退步後獨立 `[P152]` commit。

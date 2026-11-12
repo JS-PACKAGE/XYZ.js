@@ -337,6 +337,9 @@ These are public error classes, not a promise to rewrap every exception from use
   existing component value does not invalidate membership; additions/removals
   still do. Clearing a World invalidates suspended queries, including those
   started by cleanup callbacks and the throwing-cleanup path.
+- Sparse query prepass skips membership checks against its own candidate store,
+  including duplicate type references. Checks against other stores and all
+  membership checks after a revision-triggered live fallback remain intact.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.
