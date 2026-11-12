@@ -294,10 +294,12 @@ These are public error classes, not a promise to rewrap every exception from use
 
 ## 17. Subsequent Hot-Path Maintenance
 
-- `NavigationGraph3D.project` rejects candidates whose absolute coordinate
-  difference exceeds the current nearest distance before evaluating the exact
-  norm. Inclusive bounds and first-authored-node ties are unchanged; this remains
-  a linear scan, not a spatial index. Local CPU measurements are in ACCEPTANCE.
+- `NavigationGraph3D.project` and `NavigationTiledGraph3D.project` reject candidates
+  whose absolute coordinate difference exceeds the current nearest distance before
+  evaluating the exact norm. Inclusive bounds and first-authored-node ties are
+  unchanged; the ordinary graph retains its linear scan, the tiled graph its
+  existing buckets. The tiled query retains the best node index for tie comparison.
+  Local CPU measurements are in ACCEPTANCE.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

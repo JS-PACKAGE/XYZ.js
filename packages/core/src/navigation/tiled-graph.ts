@@ -300,27 +300,28 @@ export class NavigationTiledGraph3D {
         'Tiled projection coordinates must be safe integers.',
       );
     let best: NavigationNode3D | undefined,
+      bestIndex = Infinity,
       distance = options.maxDistance;
     for (let x = minX; x <= maxX; x++)
       for (let z = minZ; z <= maxZ; z++)
         for (const index of this.spatial.get(`${x}:${z}`) ?? []) {
           const node = this.nodes[index]!;
+          if (!node.walkable || node.clearance! < radius) continue;
+          const dy = node.position.y - position.y;
           if (
-            !node.walkable ||
-            node.clearance! < radius ||
-            Math.abs(node.position.y - position.y) > options.maxVerticalDistance
+            Math.abs(dy) > options.maxVerticalDistance ||
+            Math.abs(dy) > distance
           )
             continue;
-          const d = hypot3(
-            node.position.x - position.x,
-            node.position.y - position.y,
-            node.position.z - position.z,
-          );
-          if (
-            d < distance ||
-            (d === distance && (!best || this.ids.get(best.id)! > index))
-          ) {
+          const dx = node.position.x - position.x;
+          if (Math.abs(dx) > distance) continue;
+          const dz = node.position.z - position.z;
+          if (Math.abs(dz) > distance) continue;
+          const d = hypot3(dx, dy, dz);
+          // Buckets are visited spatially, not in authored order.
+          if (d < distance || (d === distance && index < bestIndex)) {
             best = node;
+            bestIndex = index;
             distance = d;
           }
         }

@@ -442,6 +442,59 @@ describe('polygon navigation surfaces', () => {
     graph.destroy();
   });
 
+  it.each(['x', 'y', 'z'] as const)(
+    'keeps tiled projection bounds and authored ties across %s buckets',
+    (axis) => {
+      const along = (value: number) => {
+        const point = new Vector3();
+        point[axis] = value;
+        return point;
+      };
+      const graph = new NavigationTiledGraph3D({
+        tileSize: 1,
+        seams: [],
+        tiles: [
+          {
+            id: 'tile',
+            geometry: {
+              nodes: [
+                { id: 'first', position: along(1) },
+                { id: 'tie', position: along(-1) },
+                { id: 'outside', position: along(1 + Number.EPSILON) },
+                { id: 'corner', position: new Vector3(1, 1, 1) },
+                { id: 'blocked', position: new Vector3(), walkable: false },
+                { id: 'narrow', position: new Vector3(), clearance: 0.1 },
+              ],
+              connections: [],
+            },
+          },
+        ],
+      });
+      const bounds = {
+        maxDistance: 1,
+        maxVerticalDistance: 1,
+        agentRadius: 0.5,
+      };
+      expect(graph.project(new Vector3(), bounds)).toMatchObject({
+        node: { id: NavigationTiledGraph3D.nodeId('tile', 'first') },
+        distance: 1,
+      });
+      expect(
+        graph.project(new Vector3(), {
+          ...bounds,
+          maxDistance: 1 - Number.EPSILON,
+        }),
+      ).toBeUndefined();
+      expect(
+        graph.project(along(1), { ...bounds, maxDistance: 0 }),
+      ).toMatchObject({
+        node: { id: NavigationTiledGraph3D.nodeId('tile', 'first') },
+        distance: 0,
+      });
+      graph.destroy();
+    },
+  );
+
   it('rejects unrepresentable spatial indices instead of hanging on tiny tile sizes', () => {
     expect(
       () =>

@@ -5143,3 +5143,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 硬指標：精確 differential 比對、各軸半徑邊界／同距／零距離測試與既有導航
   回歸通過；記錄同程序交錯 CPU baseline／candidate 量測，不宣稱 GPU／RAF 改善。
 - 驗證與限制記於 ACCEPTANCE，完成後獨立 `[P139]` commit。
+
+## P140 — Tiled navigation nearest-node projection CPU optimization
+
+- 將軸向下界排除套用到 `NavigationTiledGraph3D.project` 的既有 spatial buckets，
+  不改 bucket 搜尋範圍、負座標索引或查詢預算。
+- 用目前最佳 node index 保留 authored 同距順序，避免同距候選再查 ID Map。
+- 硬指標：精確 differential 比對、跨 bucket 同距／各軸 inclusive／零距離測試、
+  定向導航回歸與 CPU 前後量測；驗收後獨立 `[P140]` commit，不 push、不升版。

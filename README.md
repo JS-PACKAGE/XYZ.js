@@ -6,11 +6,11 @@ Browser-native TypeScript game engine for 2D and 3D.
 
 **1.23.0 · [Apache-2.0](LICENSE) · npm 尚未發佈 / not published / 未公開**
 
-導航效能維護：最近節點查詢先排除超出軸向距離的候選，保留精確距離與同距順序；僅有本機 CPU 證據，見 [ACCEPTANCE](ACCEPTANCE.md)。
+導航效能維護：一般與 tiled graph 的最近節點查詢先排除超出軸向距離的候選，保留精確距離與同距順序；僅有本機 CPU 證據，見 [ACCEPTANCE](ACCEPTANCE.md)。
 
-Navigation performance maintenance: nearest-node queries reject candidates outside axis bounds while preserving exact distances and tie order; local CPU evidence only, see [ACCEPTANCE](ACCEPTANCE.md).
+Navigation performance maintenance: ordinary and tiled graph nearest-node queries reject candidates outside axis bounds while preserving exact distances and tie order; local CPU evidence only, see [ACCEPTANCE](ACCEPTANCE.md).
 
-ナビゲーション性能改善：最近傍ノード検索は軸方向の範囲外を先に除外し、距離と同距離の選択順序を維持します。[ACCEPTANCE](ACCEPTANCE.md) はローカル CPU の測定記録です。
+ナビゲーション性能改善：通常・タイル分割グラフの最近傍ノード検索は軸方向の範囲外を先に除外し、距離と同距離の選択順序を維持します。[ACCEPTANCE](ACCEPTANCE.md) はローカル CPU の測定記録です。
 
 ## 繁體中文
 

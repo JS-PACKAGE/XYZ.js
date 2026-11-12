@@ -5232,3 +5232,11 @@ strictly outside the current nearest distance are rejected before `hypot3`.
 Equality remains eligible for inclusive radius boundaries and the original
 first-authored-node tie rule. Walkability, clearance, vertical limits and revision
 snapshots remain unchanged; no retained index, additional allocation or public API.
+
+## P140 tiled projection pruning
+
+The tiled graph applies the same coordinate lower bounds inside existing spatial
+buckets. Bucket traversal is not authored order: a scalar best-node index
+preserves the original global-index tie rule without looking up the best ID.
+Bucket range calculation, query budgets, negative coordinates and exact norm stay
+unchanged; no new index or persistent state.

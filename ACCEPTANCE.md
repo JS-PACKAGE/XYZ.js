@@ -17487,3 +17487,18 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 
 - `vitest run tests/navigation.test.ts tests/navigation-multilayer.test.ts tests/navigation-mesh.test.ts`：3 檔／30 項通過；新增各軸 inclusive／鄰接浮點邊界／同距／零距離案例。`tsc -p tsconfig.check.json`、定向 ESLint、完整 build（tsc／minify／vendor／CJS）通過。初次定向格式檢查指出新增 if 的換行，已按 Prettier 建議修正；最終文件與格式檢查結果以提交前操作為準。
 - README 三語、PLAN、DESIGN、TECHNICAL 雙語同步。不重新宣稱全套測試／browser／GPU／RAF／GC／音訊驗證；不升版、不 push，依使用者授權獨立提交。
+
+## P140 — 2026-11-13 Tiled graph 最近節點候選排除
+
+- 既有 spatial buckets 內加各軸距離下界排除；同距時使用查詢內 best node index，不再查最佳節點的 ID Map。保持 authored 全域順序（非 bucket 順序）、inclusive radius、負座標、vertical／clearance／walkability、revision 與預算；不改公開 API 或 retained state。
+- macOS arm64／Node v26.7.0，正式 tiled module 修改前後以相同 TypeScript ES2022 transpile、共用當次 dist dependencies 做 differential；seed `0x54494c45`、4 tiles × 8192 nodes、tileSize 32、256 seeded queries、4096 組 query／radius／vertical／clearance 組合，完整 projection（含精確 distance 與 misses）一致。
+- CPU：256 queries／batch，每版本 12 batches warmup，15 輪交錯先後順序，下列為中位數。Local／wide maxDistance 為 2／64、vertical bound 8；vertical-filtered 為 2／0.2；agentRadius 0.2。量測先於本輪測試執行，但未控制其他系統負載；僅為本機 CPU microbenchmark。
+
+| 查詢情境          | 修改前 ms | 修改後 ms |
+| ----------------- | --------: | --------: |
+| Local             |  2.871042 |  2.397708 |
+| Wide              | 32.309959 | 30.872333 |
+| Vertical-filtered |  1.650417 |  1.606292 |
+
+- `vitest run tests/navigation-mesh.test.ts`：1 檔／15 項通過，包含新增三軸 inclusive／相鄰浮點邊界／跨 bucket authored ties／零距離。Typecheck、定向 ESLint／source format、完整 build（tsc／minify／vendor／CJS）通過。README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；未重跑整個測試套件／瀏覽器／GPU／RAF／音訊，不擴大認證。
+- 依使用者授權獨立 `[P140]` commit，不 push、不升版；使用者 physics2d source 與其 build 產物排除於提交。

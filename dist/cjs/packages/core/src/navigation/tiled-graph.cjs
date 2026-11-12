@@ -174,16 +174,22 @@ var NavigationTiledGraph3D = class NavigationTiledGraph3D {
 			c,
 			l
 		].every(Number.isSafeInteger)) throw RangeError(`Tiled projection coordinates must be safe integers.`);
-		let u, d = n.maxDistance;
+		let u, d = 1 / 0, f = n.maxDistance;
 		for (let e = o; e <= s; e++) for (let a = c; a <= l; a++) for (let o of this.spatial.get(`${e}:${a}`) ?? []) {
 			let e = this.nodes[o];
-			if (!e.walkable || e.clearance < r || Math.abs(e.position.y - t.y) > n.maxVerticalDistance) continue;
-			let a = require_hypot.hypot3(e.position.x - t.x, e.position.y - t.y, e.position.z - t.z);
-			(a < d || a === d && (!u || this.ids.get(u.id) > o)) && (u = e, d = a);
+			if (!e.walkable || e.clearance < r) continue;
+			let a = e.position.y - t.y;
+			if (Math.abs(a) > n.maxVerticalDistance || Math.abs(a) > f) continue;
+			let s = e.position.x - t.x;
+			if (Math.abs(s) > f) continue;
+			let c = e.position.z - t.z;
+			if (Math.abs(c) > f) continue;
+			let l = require_hypot.hypot3(s, a, c);
+			(l < f || l === f && o < d) && (u = e, d = o, f = l);
 		}
 		return u && Object.freeze({
 			node: u,
-			distance: d,
+			distance: f,
 			revision: this.epoch
 		});
 	}
