@@ -538,6 +538,7 @@ export class NavigationGraph3D {
   }
 
   private heuristic(node: number, target: Readonly<Vector3>): number {
+    if (this.heuristicScale === 0) return this.heuristicScale;
     const position = this.nodes[node]!.position;
     return (
       this.heuristicScale *

@@ -224,6 +224,7 @@ var NavigationGraph3D = class NavigationGraph3D {
 		this.disposed = !0, this.searches.destroy();
 	}
 	heuristic(e, t) {
+		if (this.heuristicScale === 0) return this.heuristicScale;
 		let n = this.nodes[e].position;
 		return this.heuristicScale * require_hypot.hypot3(n.x - t.x, n.y - t.y, n.z - t.z);
 	}

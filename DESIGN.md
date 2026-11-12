@@ -5240,3 +5240,13 @@ buckets. Bucket traversal is not authored order: a scalar best-node index
 preserves the original global-index tie rule without looking up the best ID.
 Bucket range calculation, query budgets, negative coordinates and exact norm stay
 unchanged; no new index or persistent state.
+
+## P141 zero-heuristic graph search
+
+The existing admissible graph heuristic becomes Dijkstra when its scale is zero.
+Return that scale before loading the node or computing its norm. Validated graph
+coordinates are finite and bounded, so multiplying their norm by this scale
+cannot change its value, including signed zero. The nonzero formula and search
+ordering remain unchanged. This adds no allocation or cached state; rebuild
+continues to replace the scale normally. Local CPU evidence shows a Dijkstra
+gain and a small nonzero A* slowdown, not universal acceleration.

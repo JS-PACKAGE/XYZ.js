@@ -17502,3 +17502,19 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 
 - `vitest run tests/navigation-mesh.test.ts`：1 檔／15 項通過，包含新增三軸 inclusive／相鄰浮點邊界／跨 bucket authored ties／零距離。Typecheck、定向 ESLint／source format、完整 build（tsc／minify／vendor／CJS）通過。README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；未重跑整個測試套件／瀏覽器／GPU／RAF／音訊，不擴大認證。
 - 依使用者授權獨立 `[P140]` commit，不 push、不升版；使用者 physics2d source 與其 build 產物排除於提交。
+
+## P141 — Zero-heuristic graph search (2026-11-13)
+
+- 範圍：`NavigationGraph3D` 的 heuristic scale 為零時直接回傳 scale，省略 node 存取與 norm；非零公式與公開 API 不變，保留 signed zero，不新增配置。未碰使用者既有 physics 修改，不 push、不升版。
+- 正確性：Node v26.7.0／darwin arm64。舊、新 TypeScript 同為 ES2022 transpile，使用相同 dist dependencies。32×32 格點圖、1,024 nodes，右／下相鄰雙向邊 cost=1；Dijkstra 版本將第一條空間邊 cost 設為零。LCG seed `0x44494a4b`、128 組端點，兩種圖各 128 搜尋，交錯 1–32 expansion budget，逐步比較 status／expansions 與完整 result，全部精確相同。
+- CPU：每批 128 次完整 findPath；各版本預熱 8 批，15 輪交替先後順序，取中位數。量測時未同跑本輪測試。以下只代表本機 CPU，不是瀏覽器、GPU／RAF、記憶體或跨機保證。
+
+| 工作負載           | 修改前 ms／批 | 修改後 ms／批 | 差異         |
+| ------------------ | ------------: | ------------: | ------------ |
+| 零 scale／Dijkstra |      5.861000 |      4.962583 | 約降低 15.3% |
+| 非零 scale／A*     |      2.152166 |      2.210417 | 約增加 2.7%  |
+
+- 取捨：保留零成本邊搜尋的定向改善；新增分支沒有證明非零 A* 加速，這輪小幅變慢，不宣稱全面改善。
+- 實際通過：`vitest run tests/navigation.test.ts tests/navigation-jobs.test.ts tests/navigation-dynamic.test.ts tests/navigation-scheduler.test.ts`，4 files／24 tests；`tsc -p tsconfig.check.json`；graph scoped ESLint／Prettier；完整 ESM、minify、vendor copy、CJS build。既有導航測試覆蓋此路徑，未新增重複測試。
+- 同輪拒絕的動畫實驗：STEP／夾住端點的 quaternion 嘗試省略 slerp，但一般插值先後慢約 10%／5%，已撤回全部實驗修改，未列為成果或提交。
+- README 三語、PLAN、DESIGN、TECHNICAL 英／中同步；歷史紀錄不重寫。比較腳本與轉譯模組只作驗收，提交前移除。

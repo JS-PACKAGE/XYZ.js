@@ -298,6 +298,9 @@ XYZError
   前，先排除任一座標差超出目前最近距離的候選。Inclusive bounds 與同距時選第一個
   authored node 的規則不變；一般 graph 保持線性掃描，tiled graph 保持原有 buckets，
   以查詢內的最佳 node index 比較同距候選。本機 CPU 量測記於 ACCEPTANCE。
+- `NavigationGraph3D` 的 admissible heuristic scale 為零時直接回傳目前 scale，
+  省略 norm，保留 signed zero 與 rebuild 行為；非零 A* 保持原公式。本機量測
+  Dijkstra 變快、非零 A* 小幅變慢，詳見 ACCEPTANCE，並非全面加速。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

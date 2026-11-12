@@ -5151,3 +5151,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 用目前最佳 node index 保留 authored 同距順序，避免同距候選再查 ID Map。
 - 硬指標：精確 differential 比對、跨 bucket 同距／各軸 inclusive／零距離測試、
   定向導航回歸與 CPU 前後量測；驗收後獨立 `[P140]` commit，不 push、不升版。
+
+## P141 — Zero-heuristic graph search
+
+- 一般 graph 的 heuristic scale 為零時，直接回傳該 scale，省略每個候選的距離運算。
+- 不更動非零公式、搜尋順序、成本、修訂失效或工作預算，不新增索引或配置。
+- 硬指標：零／非零圖逐步狀態、expansions、完整路徑精確比較及導航回歸。
+- 記錄兩類 CPU 結果與非零路徑的取捨，不宣稱全面加速；獨立 `[P141]` commit。
