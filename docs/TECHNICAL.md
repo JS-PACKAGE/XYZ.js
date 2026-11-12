@@ -343,6 +343,9 @@ These are public error classes, not a promise to rewrap every exception from use
 - Queries without component types iterate the live entity Set directly, retaining
   lazy start, membership changes between yields and generator return/throw
   semantics. This skips empty filtering work, not all query allocation.
+- Scene timer teardown releases all handle callbacks and owner references before
+  clearing the task Set once. Individual cancellation, callback order and
+  destruction during a running callback retain their existing contracts.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

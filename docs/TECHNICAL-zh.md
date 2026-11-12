@@ -330,6 +330,8 @@ XYZError
   亦同；其他 stores，以及 revision 改變後 live fallback 的所有檢查仍保留。
 - 無 component 條件的 query 直接遍歷 live entity Set，保留 lazy start、
   yield 間 membership 變更及 generator return／throw；省去空篩選，不代表零配置。
+- Scene timer teardown 釋放所有 handle callback／owner reference 後一次清空
+  task Set；單獨取消、callback 順序與 callback 內銷毀的契約不變。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

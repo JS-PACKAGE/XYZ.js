@@ -5251,3 +5251,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 硬指標：live mutation／return／throw／destroy differential 與回歸，
   空／小／大 World、filtered controls 的 CPU 與 suspended-query heap 分開量測。
 - 工具、build、文件同步後獨立 `[P153]` commit，不宣稱 query 零配置或 fps 提升。
+
+## P154 — Bulk timer ownership teardown
+
+- Owner teardown 先釋放各 handle 的 callback／owner reference，再一次 clear Set；
+  空集合直接結束，單獨 cancel 與 timer 排程不變。
+- 硬指標：完整排程／清理 differential，正式 Scene／borrowed resource 回歸；
+  teardown CPU 與 cancel／重複 destroy controls 分開量測。
+- 記錄未採用的 deadline branch；工具、build、文件同步後獨立 `[P154]` commit。

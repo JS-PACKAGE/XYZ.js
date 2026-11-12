@@ -5369,3 +5369,13 @@ and the per-entity filtering machinery. Keep explicit `for…of` and `yield`:
 `yield*` would delegate `throw` to a Set iterator that has no such method,
 changing the consumer's exception. Lazy start, additions/removals between yields,
 return values and destruction retain the original live-iteration contract.
+
+## P154 bulk timer handle release
+
+Scene timer destruction owns the entire task Set. Release every handle's callback
+and private owner-Set reference, then clear the Set once rather than deleting
+each member individually. A small internal TimerTask operation keeps ownership
+release inside the class; the owner immediately performs the promised clear.
+No user callback runs during this pass. The disposed guard and empty-set exit
+preserve idempotence; individual cancellation retains its original delete path.
+Clearing during a running callback still ends the outer live Set iteration.

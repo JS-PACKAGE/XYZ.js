@@ -21,6 +21,12 @@ class TimerTask implements TimerHandle {
     this.tasks?.delete(this);
     this.tasks = undefined;
   }
+
+  /** Owner teardown clears the whole Set after releasing all handles. */
+  releaseForClear(): void {
+    this.callback = undefined;
+    this.tasks = undefined;
+  }
 }
 
 /** Scene-local simulation seconds, never wall time. */
@@ -90,7 +96,9 @@ export class SceneTimers {
   destroy(): void {
     if (this.disposed) return;
     this.disposed = true;
-    for (const task of this.tasks) task.cancel();
+    if (this.tasks.size === 0) return;
+    for (const task of this.tasks) task.releaseForClear();
+    this.tasks.clear();
   }
 
   private schedule(

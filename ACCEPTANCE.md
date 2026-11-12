@@ -17848,3 +17848,53 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   source/test Prettier、ESM compile/minify、完整 vendor copy、CJS build 通過。
   README 中英日、PLAN、DESIGN、TECHNICAL 中英同步；未執行完整 suite、browser、
   graphics／audio／三 backend runtime，認證範圍不變。
+
+## P154 — Bulk timer teardown（2026-11-13）
+
+- `SceneTimers.destroy` 先保持 disposed guard，再讓每個內部 TimerTask 釋放 callback
+  與 owner-Set reference，最後一次 `Set.clear`，不再逐 task 做 `Set.delete`。
+  空集合直接結束；單獨 `TimerHandle.cancel` 原樣保留。內部 `releaseForClear`
+  封裝 private ownership 釋放，不新增公開 handle 契約，也不執行 callback。
+- Node v26.7.0／Darwin arm64；16,396 組操作精確比對 clock／deadline、tasks、
+  handle active／callback／owner-reference 狀態、callback 順序與錯誤，涵蓋
+  nested scheduling／取消、callback 內 destroy、recursive update、signed zero、
+  subnormal、最大有限值與 overflow。排程及 interval 算式不變。
+- CPU 使用與 correctness 分離的獨立 ESM copies；8 warmup batches、15 輪交替
+  median。各 batch 的 owners／handles 建立排程在計時外，計時只涵蓋 destroy 或
+  cancel；計時後核對所有 handles 已釋放、所有 Sets 為空。未並行跑測試。
+
+| CPU workload              | Owners／每 owner timers | Before ms | After ms |
+| ------------------------- | ----------------------- | --------: | -------: |
+| destroy 空集合            | 20,000／0               |  0.053167 | 0.051375 |
+| destroy 單 timer          | 20,000／1               |  0.432333 | 0.312250 |
+| destroy 64 timers         | 512／64                 |  0.657292 | 0.055916 |
+| destroy 1,024 timers      | 128／1,024              |  2.583750 | 0.188917 |
+| 單獨 cancel control       | 128／1,024              |  2.417708 | 2.440542 |
+| 已 destroy 再呼叫 control | 20,000／0               |  0.061791 | 0.063375 |
+
+- 單 timer 約減少 27.8%，bulk 約減少 91.5–92.7%；cancel control 約 +0.9%，
+  重複 destroy 約 +2.6%。這是 teardown CPU，不是持續更新、GC pause 或 fps 證據；
+  未另量測總 heap／GC allocation。
+- `vitest run tests/scene-timers.test.ts tests/scene-lazy.test.ts tests/consumers/semantics-v1.12.1.test.ts`
+  **15 tests passed**，涵蓋 Scene callback 內清理、lazy ownership 與跨 Scene borrowed
+  texture。Typecheck、scoped ESLint、source Prettier、ESM compile/minify、完整 vendor
+  copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+  未跑完整 suite、browser、實際 graphics／audio／三 backend runtime。
+
+### 未採用的 conditional deadline 實驗
+
+- 曾在暫存模組將 update 內的 `Math.min`／寫入改成「只有更早才寫入」。同樣通過
+  16,396 組精確比對，但未獲穩定收益；正式 source 沒有採用此分支。
+- 同一 CPU methodology；active／mixed 有 1,024 timers（mixed 另有 1 個 active
+  timer），churn 每 cycle schedule 1,024 個 zero-delay one-shots 再 update：
+
+| 已放棄 workload        | 每 batch updates／cycles | Before ms | After ms |
+| ---------------------- | -----------------------: | --------: | -------: |
+| idle                   |                   20,000 |  0.064083 | 0.065208 |
+| single active          |                   20,000 |  0.209333 | 0.212542 |
+| 1,024 active           |                      256 |  1.508542 | 1.530000 |
+| mixed，active 最先插入 |                      256 |  0.305167 | 0.303833 |
+| mixed，active 最後插入 |                      256 |  0.308000 | 0.368667 |
+| one-shot churn         |                       16 |  0.618209 | 0.594083 |
+
+- mixed-last 約退步 19.7%；不為省略一個表面運算而保留較差的分支。

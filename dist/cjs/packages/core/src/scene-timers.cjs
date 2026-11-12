@@ -14,6 +14,9 @@ var TimerTask = class {
 	cancel() {
 		this.callback = void 0, this.tasks?.delete(this), this.tasks = void 0;
 	}
+	releaseForClear() {
+		this.callback = void 0, this.tasks = void 0;
+	}
 };
 var SceneTimers = class {
 	tasks = /* @__PURE__ */ new Set();
@@ -54,9 +57,9 @@ var SceneTimers = class {
 		}
 	}
 	destroy() {
-		if (!this.disposed) {
-			this.disposed = !0;
-			for (let e of this.tasks) e.cancel();
+		if (!this.disposed && (this.disposed = !0, this.tasks.size !== 0)) {
+			for (let e of this.tasks) e.releaseForClear();
+			this.tasks.clear();
 		}
 	}
 	schedule(e, t, n) {
