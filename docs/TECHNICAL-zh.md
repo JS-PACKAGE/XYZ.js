@@ -323,6 +323,9 @@ XYZError
 - `Actions.delay` 跨 run 共用無狀態 writer；elapsed、完成狀態、ownership／
   continuation guard 與 iteration budget 仍屬各自 runtime／queue。
   Retained heap 減少不代表每條 CPU 路徑都更快，也不代表 fps 提升。
+- ECS sparse query snapshot 只含 ID，不含 component 值；替換既有值不使 membership
+  失效，增刪仍會失效。World 清空後 suspended query 結束，包含 cleanup callback
+  內建立的 query 與 cleanup 拋錯分支。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

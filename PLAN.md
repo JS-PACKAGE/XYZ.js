@@ -5228,3 +5228,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   分開量測 active／churn／queue CPU 與 live-runtime heap。
 - 保留被撤回的 frame remainder、共享 capture factory 實驗紀錄；
   工具、build、文件同步後獨立 `[P150]` commit。
+
+## P151 — ECS membership-only query invalidation
+
+- 替換既有 component 值不改 membership revision，避免 sparse query 不必要的全量掃描。
+- 清空 World 時使 suspended query 失效，包含 cleanup callback 建立的 query 與拋錯分支。
+- 硬指標：混合 CRUD／query differential、值替換與 destroy 回歸，
+  分開量測 sparse／dense query、replacement 與 membership 變更成本。
+- 記錄撤回的 particle span 實驗；工具、build、文件同步後獨立 `[P151]` commit。

@@ -59,8 +59,9 @@ export class World {
       store = new Map();
       this.components.set(type, store);
     }
+    const size = store.size;
     store.set(entity, value);
-    this.revision++;
+    if (store.size !== size) this.revision++;
     return value;
   }
 
@@ -208,6 +209,7 @@ export class World {
     this.systemEntries.clear();
     this.components.clear();
     this.entities.clear();
+    this.revision++;
     if (errors.length)
       throw new AggregateError(errors, 'World system cleanup failed.');
   }

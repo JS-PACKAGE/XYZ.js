@@ -17728,3 +17728,58 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   cancel／destroy／budget 回歸。文件格式、README→ACCEPTANCE 相對連結檢查通過。
 - 未重跑全套或 browser／RAF／GPU／音訊；無公開 API、依賴或版本變更。
   暫時腳本提交前移除；使用者 physics source／dist 不納入提交，不 push。
+
+## P151 — ECS membership-only query invalidation（2026-11-13）
+
+- `World.addComponent` 依 `Map.set` 前後 size 判定 membership 是否增加；替換既有值
+  不再使 sparse query 的 entity-ID snapshot 失效。不新增 persistent cache，不改
+  creation order、component 查值、增刪後 live fallback 或公開入口。
+- 調查時實際重現另一個相關 invalidation 缺口：10 entities 中 3 個 sparse matches，
+  query 已 yield ID 2，destroy 後舊版仍 yield `[5, 9]`。現在清空 entities 後遞增
+  revision，結果為 `[]`；cleanup callback 內建立的 suspended query 也失效，
+  即使 cleanup 拋錯仍先完成清空與失效，再回報 AggregateError。
+- Node v26.7.0／Darwin arm64；baseline 與修改版以 TypeScript 轉譯為獨立 ESM。
+  16,384 組混合 CRUD／query 操作精確比對結果、值、錯誤與順序，涵蓋 replacement、
+  undefined value、重複／缺失 component type，以及 yield 間 membership 變更。
+  destroy 後結果的刻意修正另行重現，不混稱為與舊 bug 相同。
+- CPU 使用額外獨立 module copies，與 correctness workload 的 JIT history 分離；
+  8 warmup batches、15 輪交替執行取 median，量測時未並行跑測試。每個 World 有
+  16,384 entities；sparse 為 256 matches，dense 為 16,384 matches。
+
+| CPU workload                        | 每 batch 工作 | Before ms |  After ms |
+| ----------------------------------- | ------------- | --------: | --------: |
+| sparse query，無修改                | 32 queries    |  0.242834 |  0.247875 |
+| sparse query，每次 yield 替換既有值 | 32 queries    |  8.027750 |  0.298000 |
+| dense query，無修改                 | 32 queries    | 18.397292 | 18.227708 |
+| dense query，每次 yield 替換既有值  | 32 queries    | 24.431875 | 24.309500 |
+| 直接替換既有值                      | 16,384 writes |  0.427542 |  0.432958 |
+| 移除再加入 component                | 16,384 pairs  |  0.899542 |  0.912917 |
+
+- 收益集中在 replacement-heavy sparse iteration：避免第一次 replacement 後退回
+  全 entities 掃描，該測項 CPU 約減少 96.3%。其他測項介於約 −0.9% 至 +2.1%；
+  不宣稱全面變快，也不換算 Game Loop／GPU／呈現 fps。
+- 驗證：`vitest run tests/ecs.test.ts` **12 tests passed**，新增 replacement 後仍能
+  看到後續 membership 變更，以及正常／拋錯 cleanup 的 suspended-query 回歸。
+  Typecheck、scoped ESLint、source/test Prettier check、ESM compile/minify、完整 vendor
+  copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步；
+  未執行完整 test suite、瀏覽器、圖形／音訊或三 backend runtime 驗證。
+
+### 本階段撤回的 particle appearance span 實驗
+
+- 嘗試把已複製的 end-size／end-color 轉為 immutable spans，減少插值減法；
+  8,192 組 pool／layer、local／world、source resize、caller options mutation、slot
+  recycle 與錯誤 differential 精確一致。初版 harness 在初始 emit 未捕捉超過
+  coordinate budget 的預期錯誤，修正 harness 的雙邊錯誤比對後才取得上述結果。
+- 同樣採獨立 CPU module copies、8 warmup／15 交替 median；1,024 particles：
+
+| 已撤回 workload    | 每 batch 工作               | Before ms |  After ms |
+| ------------------ | --------------------------- | --------: | --------: |
+| pool local active  | 128 updates                 |  0.989417 |  1.029125 |
+| layer local active | 128 updates                 | 11.768750 | 11.805292 |
+| pool world active  | 128 updates                 |  0.880459 |  0.850083 |
+| layer world active | 128 updates                 | 11.986750 | 12.255834 |
+| pool world churn   | 16 clear/emit/update cycles |  1.616792 |  1.554667 |
+| layer world churn  | 16 clear/emit/update cycles |  4.435125 |  4.534250 |
+
+- layer 沒有收益，pool local 約退步 4%；不足以保留額外設定轉換，已完整撤回。
+  不包含粒子 source 或 API 變更，不宣稱新增粒子／瀏覽器驗證範圍。

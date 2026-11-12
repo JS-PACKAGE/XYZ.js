@@ -122,6 +122,48 @@ describe('World entity and component CRUD', () => {
     world.destroy();
   });
 
+  it('keeps replacement values live without losing later sparse membership changes', () => {
+    const world = new World();
+    const entities = Array.from({ length: 32 }, () => world.createEntity());
+    for (const index of [2, 5, 13])
+      world.addComponent(entities[index]!, Position, new Position(index));
+    const query = world.query(Position);
+    expect(query.next().value).toBe(entities[2]);
+    const replacement = new Position(99);
+    world.addComponent(entities[5]!, Position, replacement);
+    expect(query.next().value).toBe(entities[5]);
+    expect(world.getComponent(entities[5]!, Position)).toBe(replacement);
+    world.removeComponent(entities[13]!, Position);
+    world.addComponent(entities[31]!, Position, new Position(31));
+    expect([...query]).toEqual([entities[31]]);
+    world.destroy();
+  });
+
+  it.each([false, true])(
+    'ends suspended sparse queries after destroy, including a failing cleanup: %s',
+    (fail) => {
+      const world = new World();
+      const entities = Array.from({ length: 10 }, () => world.createEntity());
+      for (const index of [1, 4, 8])
+        world.addComponent(entities[index]!, Position, new Position(index));
+      const query = world.query(Position);
+      expect(query.next().value).toBe(entities[1]);
+      let duringCleanup: IterableIterator<number> | undefined;
+      world.addSystem({
+        update() {},
+        destroy(current) {
+          duringCleanup = current.query(Position);
+          expect(duringCleanup.next().value).toBe(entities[1]);
+          if (fail) throw new Error('cleanup failed');
+        },
+      });
+      if (fail) expect(() => world.destroy()).toThrow(AggregateError);
+      else world.destroy();
+      expect([...query]).toEqual([]);
+      expect([...duringCleanup!]).toEqual([]);
+    },
+  );
+
   it('initializes systems in order, defers newly added systems to the next tick, and destroys exactly once', () => {
     const world = new World();
     const calls: string[] = [];

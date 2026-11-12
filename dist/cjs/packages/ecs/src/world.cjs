@@ -26,7 +26,9 @@ var World = class {
 	addComponent(e, t, n) {
 		if (this.assertAlive(), !this.entities.has(e)) throw RangeError(`Entity does not exist.`);
 		let r = this.components.get(t);
-		return r || (r = /* @__PURE__ */ new Map(), this.components.set(t, r)), r.set(e, n), this.revision++, n;
+		r || (r = /* @__PURE__ */ new Map(), this.components.set(t, r));
+		let i = r.size;
+		return r.set(e, n), r.size !== i && this.revision++, n;
 	}
 	getComponent(e, t) {
 		return this.components.get(t)?.get(e);
@@ -124,7 +126,7 @@ var World = class {
 				}
 			}
 		}
-		if (this.systems.length = 0, this.systemEntries.clear(), this.components.clear(), this.entities.clear(), e.length) throw AggregateError(e, `World system cleanup failed.`);
+		if (this.systems.length = 0, this.systemEntries.clear(), this.components.clear(), this.entities.clear(), this.revision++, e.length) throw AggregateError(e, `World system cleanup failed.`);
 	}
 	compactSystems() {
 		if (this.inactiveSystems === 0) return;

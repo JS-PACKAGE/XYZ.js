@@ -5337,3 +5337,17 @@ elapsed time, completion or owner state. The descriptor-local capture callback
 remains; sharing that too had a worse measured queue CPU tradeoff. Every step,
 active-context check and easing validation stays in the existing timed path.
 This removes a per-run closure, not the runtime or its stateful advance closure.
+
+## P151 ECS membership revision precision
+
+Sparse queries snapshot matching entity IDs, not component values. Replacing a
+value in an existing store entry therefore leaves the snapshot valid. Compare
+the store size across `set` and advance the revision only when membership grows;
+existing entity/component removals and entity creation still invalidate it.
+This keeps replacement-heavy sparse iteration on its existing ordered snapshot
+without adding a persistent cache or changing component lookup semantics.
+
+World destruction must also invalidate snapshots after clearing all entities,
+including queries started inside cleanup callbacks. The revision advances before
+any collected cleanup errors are reported, so suspended queries cannot yield
+deleted entity IDs even when destruction throws.
