@@ -204,7 +204,10 @@ export class AnimationPoseOverlay {
       this.read(this.scratch);
       let unchanged = true;
       for (let i = 0; i < this.output.length; i++)
-        if (this.output[i] !== this.scratch[i]) unchanged = false;
+        if (this.output[i] !== this.scratch[i]) {
+          unchanged = false;
+          break;
+        }
       if (unchanged) {
         if (this.target instanceof MorphWeights) {
           for (let i = 0; i < this.base.length; i++)
@@ -231,7 +234,10 @@ export class AnimationPoseOverlay {
       this.read(this.scratch);
       let unchanged = true;
       for (let i = 0; i < this.output.length; i++)
-        if (this.output[i] !== this.scratch[i]) unchanged = false;
+        if (this.output[i] !== this.scratch[i]) {
+          unchanged = false;
+          break;
+        }
       if (unchanged) return;
       // A callback's external edit becomes the base for any later owned overlay writes.
       this.base.set(this.scratch);

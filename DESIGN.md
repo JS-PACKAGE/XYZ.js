@@ -5308,3 +5308,12 @@ as deformation and overlay capture. Full-weight ordinary writes do not depend
 on old values, so a separate loop only sets sampled output. Every write retains
 MorphWeights.set validation, Float32 conversion and version updates. Sampling
 still precedes application, including for zero weight; non-morph paths are unchanged.
+
+## P148 short-circuit overlay equality checks
+
+Capture and restore only need to know whether every output component still
+matches the current pose. The first unequal component determines that answer,
+so stop the private-buffer comparison there. The complete target read still
+precedes comparison, and external edits still copy the entire scratch pose to
+the new base. No component writes, validation or observable target reads are
+skipped; signed-zero equality and NaN inequality retain the existing semantics.

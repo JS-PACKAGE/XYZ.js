@@ -5204,3 +5204,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 硬指標：三種 interpolation／零到大量 weights／public values edits／非有限
   weight 與 time 的數值、錯誤、version differential；既有動畫與 morph 回歸通過。
 - 分別量測 full／partial／additive／zero weight；工具、build、文件同步後獨立 `[P147]` commit。
+
+## P148 — Short-circuit changed overlay comparisons
+
+- restore／capture 比對私有 pose buffers 時，第一個不相等分量即終止比較。
+- 完整 target read、external-edit base 複製、restore 與 captured／applied 清理不變。
+- 硬指標：morph／TRS lifecycle differential 含 signed zero 與非有限 TRS；
+  未變更／首分量修改／末分量修改分開量測，回歸與工具通過後獨立 `[P148]` commit。

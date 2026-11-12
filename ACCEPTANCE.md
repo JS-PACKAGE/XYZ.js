@@ -17624,3 +17624,31 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - CPU 為單 track sample／apply，不是整個 mixer 或 fps；小幅結果不作顯著或跨環境主張，zero weight 此輪沒有改善。未測瀏覽器 showcase／GPU／RAF／GC／heap／音訊。
 - 實際通過：animation／animation-profiles／animation-blend／morph，4 files／53 tests；既有測試覆蓋權重路徑，未新增重複測試。Typecheck、定向 ESLint／Prettier、完整 ESM／minify／vendor／CJS build 通過。
 - README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；量測腳本／轉譯模組提交前移除。使用者 physics source／dist 不納入提交，不 push、不升版。
+
+## P148 — Overlay equality early exit（2026-11-13）
+
+- 變更：capture／restore 的私有 buffer 比對遇第一個不同分量即停止。
+  仍先完整讀取 target；external edit 仍完整複製 scratch 為 base，清理與寫入不變。
+- 舊／新 TS 分別編譯、共用目前 dist dependencies：18,432 組操作逐步比較
+  morph values／version／captured 及 TRS 分量；含 0、1、4、16、64、256 weights、
+  signed zero、Float32 subnormal、大數及 TRS 的 NaN／Infinity，結果一致。
+- 本機 Node v26.7.0／darwin arm64；每批 5,000 capture／seal／restore cycles，
+  8 批 warmup、15 輪交錯執行取 median，量測期間未同時執行測試。
+
+| Weights | External edit   | Before CPU ms | After CPU ms |
+| ------- | --------------- | ------------: | -----------: |
+| 4       | none            |      0.187833 |     0.190750 |
+| 4       | first component |      0.222500 |     0.216041 |
+| 64      | none            |      1.429334 |     1.412250 |
+| 64      | first component |      0.945291 |     0.700458 |
+| 64      | last component  |      0.913583 |     0.925833 |
+| 256     | first component |      3.489666 |     2.414375 |
+
+- 首分量 external edit 的 64／256 weights 測項 CPU 約下降 25.9%／30.8%。
+  4 weights 未修改及 64 weights 末分量修改約慢 1.6%／1.3%，不宣稱所有路徑加速。
+  這是本機 overlay lifecycle CPU，不是 browser、RAF、GPU、fps 或 GC 證據。
+- `animation-profiles`、`animation-blend`、`morph`：3 files／48 tests 通過。
+  `tsc -p tsconfig.check.json`、變更 source ESLint／Prettier、ESM compile／minify／
+  vendor copy／CJS build 通過。文件格式與變更連結檢查通過。
+- 沿用既有 ownership／callback／外部修改回歸；未重跑全套或 browser。
+  沒有公開 API、新配置、依賴或版本變更；暫時量測腳本不納入倉庫。

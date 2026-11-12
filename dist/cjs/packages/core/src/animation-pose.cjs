@@ -96,7 +96,10 @@ var AnimationPoseOverlay = class {
 		if (this.applied) {
 			this.read(this.scratch);
 			let t = !0;
-			for (let e = 0; e < this.output.length; e++) this.output[e] !== this.scratch[e] && (t = !1);
+			for (let e = 0; e < this.output.length; e++) if (this.output[e] !== this.scratch[e]) {
+				t = !1;
+				break;
+			}
 			if (t) {
 				if (this.target instanceof require_morph.MorphWeights) for (let e = 0; e < this.base.length; e++) this.target.set(e, this.base[e]);
 				else this.path === `rotation` ? this.target.rotation.set(this.base[0], this.base[1], this.base[2], this.base[3]) : (this.path === `translation` ? this.target.position : this.target.scale).set(this.base[0], this.base[1], this.base[2]);
@@ -109,7 +112,10 @@ var AnimationPoseOverlay = class {
 			if (!this.applied) return;
 			this.read(this.scratch);
 			let e = !0;
-			for (let t = 0; t < this.output.length; t++) this.output[t] !== this.scratch[t] && (e = !1);
+			for (let t = 0; t < this.output.length; t++) if (this.output[t] !== this.scratch[t]) {
+				e = !1;
+				break;
+			}
 			if (e) return;
 			this.base.set(this.scratch), this.applied = !1;
 			return;
