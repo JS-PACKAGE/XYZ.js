@@ -17571,3 +17571,20 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實際通過：五個 animation／blend／profiles／retarget／root-motion 檔，5 files／63 tests；新增 callback cross-fade 下一 snapshot 排序、callback 加 action 後拋錯仍於下一 tick 可見兩項。Typecheck、定向 ESLint、完整 ESM／minify／vendor／CJS build 通過。初次 format check 發現新測試長行，已 scoped Prettier write 修正。
 - 僅為本機 Node CPU 證據；未測 heap bytes／GC／瀏覽器 showcase／GPU／RAF／音訊，不將跨 tick array 重用直接稱為幀率提升，也不外推為跨瀏覽器保證。
 - README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；提交前移除量測腳本／轉譯產物。使用者 physics source／dist 變更不納入提交；不 push、不升版。
+
+## P145 — Merge duplicate animation overlay lookup (2026-11-13)
+
+- 範圍：captureOverlay 先解析 channel，再以同一 local reference 判斷 captured 與執行 capture。一般 layer 疊在 additive channel 上時不再查 channel 兩次；新 target 的空 Map 也省略已知 miss。沒有新增 cache／配置／公開 API。
+- 正確性：Node v26.7.0／darwin arm64，舊、新 source 同為 ES2022 transpile，共用 dist dependencies。64 targets、1 additive + 3 ordinary translation layers，seed `0x4f564552`，4,096 ticks 隨機 external pose edits、layer weight 與 delta；每 tick 全部 64 poses 精確一致。
+- 查詢計數：所有 CPU 量測完成後才包裝 Map.prototype.get，finally 還原。對 64 個已 captured channel 各作一次 non-creating capture，Map.get 總數由 192 降到 128，包含 target 與 channel lookup。
+- CPU：每 layer 64 translation tracks、初始 weight=0.25、delta=1/60；每批 1,000 updates、8 批預熱、15 輪交替先後取中位數；未同跑本輪測試，計時中無 Map instrumentation。
+
+| 工作負載                 | 修改前 ms／批 | 修改後 ms／批 |
+| ------------------------ | ------------: | ------------: |
+| 一般 layer               |      1.590208 |      1.586833 |
+| Additive layer           |      4.765250 |      4.652209 |
+| Additive + 3 一般 layers |     16.853333 |     16.367708 |
+
+- CPU 僅小幅下降約 0.2–2.9%，主要確定證據是冗餘 Map 查詢消除；不主張顯著或跨環境加速，未量測 GC／heap／瀏覽器 showcase／GPU／RAF／音訊。
+- 實際通過：animation-blend／animation-profiles／animation-root-motion，3 files／50 tests，涵蓋 additive ownership／外部 pose 修改／清理與 callback；既有測試已覆蓋，未新增重複測試。Typecheck、定向 ESLint／Prettier、完整 ESM／minify／vendor／CJS build 通過。
+- README 三語、PLAN、DESIGN、TECHNICAL 雙語同步，提交前移除量測腳本／轉譯模組。使用者 physics source／dist 變更維持未提交；不 push、不升版。

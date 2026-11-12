@@ -309,6 +309,8 @@ XYZError
   輪到時才判斷 playing，保留 callback 啟動順序；clear 後的新 action 延至下個 tick。
   未變更的 action snapshot 跨 tick 重用，加入／raise 才標記重建；callback 的修改
   於下一個 snapshot 邊界生效，拋錯也不丟失。Clear／destroy 仍釋放 Map 與 snapshot references。
+  Overlay capture 對 channel 只查一次，重用於 ownership 判斷與 capture，避免一般
+  layer 疊在已捕捉的 additive channel 上時重複查詢，沒有新增持久快取。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

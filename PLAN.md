@@ -5181,3 +5181,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - callback 中加入或重排不改目前 tick 的 snapshot；callback 拋錯後 dirty 狀態保留。
 - 硬指標：mixed play／stop／raise／clear／recreate differential、cross-fade 與例外
   回歸；穩定清單及逐 tick 變更清單皆量測，通過後獨立 `[P144]` commit。
+
+## P145 — Merge duplicate animation overlay lookup
+
+- captureOverlay 對 channel 只查一次，重用於 captured 判斷與 capture，不新增快取。
+- 硬指標：含 external pose edits／變動 layer weight 的 differential、既有 ownership
+  回歸及實際 Map.get 計數；CPU 三種 layering 分開量測，不外推 GPU／FPS。
+- 工具檢查、build、文件同步後獨立 `[P145]` commit；不 push、不升版。

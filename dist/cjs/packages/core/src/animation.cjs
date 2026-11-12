@@ -276,11 +276,8 @@ var AnimationMixer = class {
 	}
 	captureOverlay(e, t, r = !0) {
 		if (!r && this.overlays.size === 0) return;
-		let i = this.overlays.get(e);
-		if (!r && !i?.get(t)?.captured) return;
-		i || this.overlays.set(e, i = /* @__PURE__ */ new Map());
-		let a = i.get(t);
-		a || i.set(t, a = new require_animation_pose.AnimationPoseOverlay(e, t)), a.capture();
+		let i = this.overlays.get(e), a = i?.get(t);
+		(r || a?.captured) && (i || this.overlays.set(e, i = /* @__PURE__ */ new Map()), a || i.set(t, a = new require_animation_pose.AnimationPoseOverlay(e, t)), a.capture());
 	}
 	sealOverlay(e, t) {
 		this.overlays.size !== 0 && this.overlays.get(e)?.get(t)?.seal();

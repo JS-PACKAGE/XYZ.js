@@ -611,9 +611,9 @@ export class AnimationMixer {
   ): void {
     if (!create && this.overlays.size === 0) return;
     let paths = this.overlays.get(target);
-    if (!create && !paths?.get(path)?.captured) return;
+    let overlay = paths?.get(path);
+    if (!create && !overlay?.captured) return;
     if (!paths) this.overlays.set(target, (paths = new Map()));
-    let overlay = paths.get(path);
     if (!overlay)
       paths.set(path, (overlay = new AnimationPoseOverlay(target, path)));
     overlay.capture();

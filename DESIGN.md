@@ -5282,3 +5282,11 @@ next boundary, not the active iteration. Finally cleanup no longer empties the
 running array and does not clear dirty after a throwing callback. Clear/destroy
 still empty both collections and reset dirty, releasing the same owned objects.
 Controller snapshots remain transient and unchanged.
+
+## P145 one lookup per overlay capture channel
+
+Resolve the overlay once before testing whether a non-creating call owns the
+channel. Reuse the same local reference for capture; only a missing overlay with
+creation enabled allocates. An ordinary layer over an already captured additive
+channel no longer looks up the channel twice. New target maps also avoid a lookup
+known to miss. No persistent cache, ownership change or sampling shortcut.
