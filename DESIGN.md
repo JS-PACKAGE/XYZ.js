@@ -5290,3 +5290,12 @@ channel. Reuse the same local reference for capture; only a missing overlay with
 creation enabled allocates. An ordinary layer over an already captured additive
 channel no longer looks up the channel twice. New target maps also avoid a lookup
 known to miss. No persistent cache, ownership change or sampling shortcut.
+
+## P146 trusted morph weight view in overlay reads
+
+MorphWeights already exposes an internal read-only Float32 view used by morph
+deformation. AnimationPoseOverlay reads this same view once and copies into its
+existing Float64 pose buffer. Both lengths are fixed to the constructor count,
+so public per-index get validation is redundant here. Element conversion,
+signed zero, external-edit detection, restore writes and version behavior are
+unchanged. Public get/set validation remains intact; no new view or allocation.

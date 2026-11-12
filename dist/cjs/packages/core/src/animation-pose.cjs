@@ -81,8 +81,10 @@ var AnimationPoseOverlay = class {
 		this.base = new Float64Array(r), this.output = new Float64Array(r), this.scratch = new Float64Array(r);
 	}
 	read(t) {
-		if (this.target instanceof require_morph.MorphWeights) for (let e = 0; e < t.length; e++) t[e] = this.target.get(e);
-		else if (this.path === `rotation`) {
+		if (this.target instanceof require_morph.MorphWeights) {
+			let e = this.target.values;
+			for (let n = 0; n < t.length; n++) t[n] = e[n];
+		} else if (this.path === `rotation`) {
 			let e = this.target.rotation;
 			t[0] = e.x, t[1] = e.y, t[2] = e.z, t[3] = e.w;
 		} else {

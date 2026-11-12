@@ -17588,3 +17588,20 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - CPU 僅小幅下降約 0.2–2.9%，主要確定證據是冗餘 Map 查詢消除；不主張顯著或跨環境加速，未量測 GC／heap／瀏覽器 showcase／GPU／RAF／音訊。
 - 實際通過：animation-blend／animation-profiles／animation-root-motion，3 files／50 tests，涵蓋 additive ownership／外部 pose 修改／清理與 callback；既有測試已覆蓋，未新增重複測試。Typecheck、定向 ESLint／Prettier、完整 ESM／minify／vendor／CJS build 通過。
 - README 三語、PLAN、DESIGN、TECHNICAL 雙語同步，提交前移除量測腳本／轉譯模組。使用者 physics source／dist 變更維持未提交；不 push、不升版。
+
+## P146 — Trusted morph overlay weight reads (2026-11-13)
+
+- 範圍：私有 AnimationPoseOverlay.read 取一次既有 MorphWeights.values readonly view，以同樣逐元素 Float32→Float64 複製取代逐元素公開 get 索引驗證。Pose buffer／weights 都固定為建構時 count；沒有新增 buffer，也沒有改公開 get／set、版本或 restore writes。
+- 正確性：Node v26.7.0／darwin arm64；舊、新 source 同為 ES2022 transpile、共用 dist dependencies。Seed `0x4d4f5250`，weight count=0／1／4／16／64／256，各 2,048 次隨機 capture／seal／restore／外部 set，合計 12,288 operations。含 ±0、±Float32 最小 subnormal、±1e30、π；逐步 weight 值、version、captured flag 精確一致。
+- CPU：每批 5,000 完整 overlay cycles（capture→寫入→seal→capture→寫入→seal→restore）；外部修改案例在中途改最後一個 weight。各版本預熱 8 批、15 輪交替先後取中位數，未與本輪測試同跑。
+
+| 工作負載                   | 修改前 ms／批 | 修改後 ms／批 | 差異         |
+| -------------------------- | ------------: | ------------: | ------------ |
+| 4 weights／owned writes    |      0.296792 |      0.188750 | 約降低 36.4% |
+| 64 weights／owned writes   |      3.142542 |      1.340209 | 約降低 57.4% |
+| 256 weights／owned writes  |     12.334791 |      5.160541 | 約降低 58.2% |
+| 64 weights／external edits |      3.182667 |      1.414084 | 約降低 55.6% |
+
+- 實際通過：animation-profiles／animation-blend／morph，3 files／48 tests，涵蓋 additive／weight ownership 與 morph 行為；既有測試已覆蓋此路徑，未新增重複測試。Typecheck、定向 ESLint／Prettier、完整 ESM／minify／vendor／CJS build 通過。
+- 僅為 overlay lifecycle 的本機 CPU，不是整個 mixer、GPU deformation 或 fps；未重跑瀏覽器 showcase、GPU／RAF、GC／heap 或音訊，不擴大認證。
+- README 三語、PLAN、DESIGN、TECHNICAL 雙語同步；量測腳本／轉譯模組在提交前移除。使用者 physics source／dist 保持未提交；不 push、不升版。

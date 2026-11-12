@@ -5188,3 +5188,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 硬指標：含 external pose edits／變動 layer weight 的 differential、既有 ownership
   回歸及實際 Map.get 計數；CPU 三種 layering 分開量測，不外推 GPU／FPS。
 - 工具檢查、build、文件同步後獨立 `[P145]` commit；不 push、不升版。
+
+## P146 — Trusted morph overlay weight reads
+
+- 私有 overlay read 透過既有 readonly MorphWeights.values view 讀取，不再逐元素
+  呼叫公開 get；固定大小 pose buffer 與 weights 的 count 在建構時一致。
+- 公開 get／set 驗證、Float32 儲存、version 與 pose ownership 不變。
+- 硬指標：含零長／signed zero／極小值的 lifecycle differential、既有 morph 與
+  additive 回歸、各 weight 數 CPU 量測；驗收後獨立 `[P146]` commit。

@@ -182,7 +182,9 @@ export class AnimationPoseOverlay {
   }
   private read(out: Float64Array): void {
     if (this.target instanceof MorphWeights) {
-      for (let i = 0; i < out.length; i++) out[i] = this.target.get(i);
+      // Fixed-size weights and pose buffers share the constructor count.
+      const values = this.target.values;
+      for (let i = 0; i < out.length; i++) out[i] = values[i];
     } else if (this.path === 'rotation') {
       const q = this.target.rotation;
       out[0] = q.x;
