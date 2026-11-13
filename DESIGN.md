@@ -5553,3 +5553,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   region Map。只略過零半徑 Map，不另加 cache，不修改 clip／portal／projection 計算。
 - 保留單一 region reader body；兩種 closure 的候選雖有更大的零半徑收益，正半徑
   控制組也有較大成本。正式 CPU、精確差分與 regression fixture 修正見 ACCEPTANCE P170。
+
+## P171 — Numerical identity does not establish useful performance
+
+- Computed homogeneous w 為 1 時略過 division 的候選，仍需重複三個 numerators；
+  一般 affine 收益有限、mixed 退步，且未做正式 consumer probe，故不增加該分支。
+- Euler 的 zero-angle sin 必須保留 signed zero，且 raw dynamic fields 與 literal-zero
+  call sites 不可混為一談；六個 conditional expressions 讓一般多軸 kernel 退步。
+- 兩候選只存在於獨立 temporary modules，正式 math 與公開契約維持原狀。
+  完整量測與限制見 ACCEPTANCE P171，沒有把不一致的 kernel 收益包裝成引擎加速。

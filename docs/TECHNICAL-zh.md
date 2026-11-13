@@ -379,6 +379,10 @@ XYZError
   region Map；正半徑仍保留各 job 的 region snapshots，隔離全域 radius／epoch cache
   的替換。Geometry arithmetic 與公開 ownership 不變；收益、控制組成本與 mixed-job
   驗證見 ACCEPTANCE P170。
+- 3D math 的未採用候選不改正式 Matrix4 point division／Quaternion Euler conversion：
+  exact-w 分支的一般 affine 收益有限，zero-angle trig 分支在多軸 kernel 退步。
+  Dynamic-yaw 收益不能移植成 literal-zero call site 或完整 consumer 的宣稱；
+  完整量測與未驗證範圍見 ACCEPTANCE P171。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

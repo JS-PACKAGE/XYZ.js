@@ -5400,3 +5400,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   約快 12.7–17.9%，one-polygon／正半徑控制組約慢 1.5%／3.5%。
 - 選擇 shared reader；未採兩種 closure 的版本，避免其正半徑約 6.6% 成本。
   新 fixture 修正、完整 CPU／ownership／edit／cancel 證據與限制見 ACCEPTANCE P170。
+
+## P171 — Reject nonuniform 3D numerical fast paths
+
+- Temporary Matrix4 computed-w===1 branch：一般 affine 僅快約 1.5%、mixed 慢約
+  3.7%；不為有限的 kernel 收益重複 numerator expressions，正式 source 不變。
+- Temporary Euler zero-angle branches：dynamic yaw 快約 25%，但 two／three-axis
+  raw kernel 慢約 5.6%／13.7%；正式熱點多為 literal yaw，不套用通用分支。
+- 完整 11 組 CPU、compose probe 與未驗證範圍見 ACCEPTANCE P171；只有文件、
+  不宣稱兩候選完成正式 consumer／browser 認證，不重跑 tests／build。

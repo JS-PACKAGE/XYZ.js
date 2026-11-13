@@ -18826,3 +18826,62 @@ tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
 - 另僅調查、未實作 tiled projection bucket bounds：目前直接讀 caller 的 query
   position，額外 bucket checks／persistent bounds 會引入新的 input reads 與 storage
   tradeoff；沒有證據支持時不套用，亦未對該構想量測或宣稱完成。
+
+## P171 — Rejected homogeneous／Euler fast-path measurements（2026-11-13）
+
+- 僅量測 temporary prototypes，正式 math／runtime／API／dist 完全不變。兩組均用
+  Node v26.7.0／Darwin arm64、獨立 before／after ESM modules、8 warmup／15 輪
+  交替 median，無並行測試；fixtures 在計時外、正式方法呼叫及結果讀取在內。
+  沒有量測 allocation／heap／GC／GPU／fps，未做兩候選的完整行為差分或 browser
+  認證；不以部分 kernel 收益宣稱引擎效能改善。
+
+### Matrix4.transformPoint：computed w === 1 分支
+
+- 保留原 homogeneous w 計算與一般三次 division；只有算出的 w 恰好為 1 才直接
+  返回三個 numerators。不是檢查 last row 就跳過 w，也不以 reciprocal multiply
+  取代任意 denominator 的 division。Temporary variant 多一份 numerator expressions。
+- 每列 500,000 points；同一 runner 讀 1,024 個 points、重用 out、累加 xyz。
+  Identity／affine／perspective／almost-affine 各用一個 matrix；mixed 交替 affine
+  與 perspective。Affine 由正式 compose 建構；almost-affine 設 e[3]=1e-7。
+
+| Workload                  | Before ms | After ms |
+| ------------------------- | --------: | -------: |
+| Identity                  |  2.799584 | 2.786917 |
+| Affine                    |  2.842667 | 2.799416 |
+| Perspective               |  2.888875 | 2.547167 |
+| Almost-affine             |  2.819959 | 2.518500 |
+| Mixed affine／perspective |  2.407792 | 2.496125 |
+
+- 一般 identity／affine 僅快約 0.5–1.5%，mixed 約慢 3.7%；perspective／almost-affine
+  雖在此 runner 快約 10.7–11.8%，其仍走一般 division branch，沒有 profiling 證據
+  解釋差異。不把此形狀差異推論成跨 consumer 的收益；不為有限的 affine kernel 收益
+  重複 numerator code。未跑完整 raycast／decal／soft-body 等 consumer CPU probe。
+
+### Quaternion.setFromEuler：primitive 零角度略過 trig
+
+- 各軸 cos 改為 angle === 0 ? 1 : Math.cos(angle/2)，sin 改為 angle === 0 ? angle :
+  Math.sin(angle/2)，保留 -0 的 sin 值；原四個 Quaternion expressions 不變。
+  Temporary variant 有六個 conditional expressions，正式 source 未採用。
+- 每列 200,000 updates、1,024 個 angles；literal yaw／two-axis／three-axis 分別呼叫
+  (0,a,0)／(0.7a,a,0)／(0.7a,a,0.3a)，dynamic-yaw 讀 Vector3 的 x／y／z fields。
+  Compose 測項把 Euler 寫入接到正式 Matrix4.compose，讀取 matrix 結果，但不是
+  Object3D scene collection／renderer 的 end-to-end 量測。
+
+| Workload              | Before ms | After ms |
+| --------------------- | --------: | -------: |
+| Literal yaw           |  1.842416 | 1.820833 |
+| Two axes, literal z=0 |  3.139458 | 3.316500 |
+| Three axes            |  3.964958 | 4.508000 |
+| Dynamic yaw fields    |  2.995375 | 2.248041 |
+| Literal yaw＋compose  |  2.742791 | 2.648292 |
+| Two axes＋compose     |  4.109500 | 4.048666 |
+
+- Dynamic yaw 快約 25%，literal yaw 約快 1.2%，但 two-axis／three-axis raw kernel
+  約慢 5.6%／13.7%；compose variants 約快 1.5–3.4%。Repository 的 locomotion／
+  moving-support 等正式熱點使用 literal (0,yaw,0)，不因 dynamic-fields 測項而假定
+  它們能得到 25% 收益。缺乏足夠一致的常用路徑收益，故不增加通用方法的分支。
+- 同時確認歷史 ACCEPTANCE 已記錄 unrolled matrix copy／逐欄 multiply 的拒絕量測，
+  沒有重做那些已否決的候選。正式 transforms 保留 mutable fields、aliasing、
+  projective division 與原 arithmetic；本階段只有文件，不重跑 runtime tests／build。
+- README 中英日、PLAN、DESIGN、TECHNICAL 中英同步；文件 Prettier 與現有
+  ACCEPTANCE 相對連結 target 檢查通過。兩候選的 throwaway scripts／modules 已刪除。
