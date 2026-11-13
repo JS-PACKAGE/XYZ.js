@@ -360,6 +360,10 @@ These are public error classes, not a promise to rewrap every exception from use
   lines; consuming each line through the final null match resets its cursor.
   Quoted-field grammar, duplicate-field order, validation and budgets are unchanged,
   as is JSON parsing. CPU measurements and control regressions are in ACCEPTANCE P158.
+- SpriteText preflights each glyph's x/y/right/bottom with scalar finite and
+  inclusive absolute-bound checks before changing any displayed glyph. Out-of-budget
+  text still leaves the previous text, child identities and positions intact;
+  CPU-only layout measurements and rendering limits are in ACCEPTANCE P159.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

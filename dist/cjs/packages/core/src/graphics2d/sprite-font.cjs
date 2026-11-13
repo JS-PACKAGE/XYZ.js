@@ -172,13 +172,8 @@ var SpriteText = class extends require_group2d.Group2D {
 			for (let e of r) {
 				let n = this.font.getGlyph(e);
 				l !== void 0 && (c += this.letterSpacing + this.font.getKerning(l, e));
-				let r = s + c + n.xoffset, i = u + n.yoffset;
-				if (![
-					r,
-					i,
-					r + n.width,
-					i + n.source.height
-				].every((e) => Number.isFinite(e) && Math.abs(e) <= require_graphics2d.graphics2dLimits.dimension)) throw RangeError(`SpriteText layout exceeds its dimension budget.`);
+				let r = s + c + n.xoffset, i = u + n.yoffset, a = r + n.width, d = i + n.source.height;
+				if (!Number.isFinite(r) || Math.abs(r) > require_graphics2d.graphics2dLimits.dimension || !Number.isFinite(i) || Math.abs(i) > require_graphics2d.graphics2dLimits.dimension || !Number.isFinite(a) || Math.abs(a) > require_graphics2d.graphics2dLimits.dimension || !Number.isFinite(d) || Math.abs(d) > require_graphics2d.graphics2dLimits.dimension) throw RangeError(`SpriteText layout exceeds its dimension budget.`);
 				n.source.width && n.source.height && o.push({
 					index: e,
 					x: r,

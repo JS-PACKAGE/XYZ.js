@@ -5428,3 +5428,15 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 16,403 組差分精確一致；text CPU 約快 5.7–8.6%，JSON control 約慢 1.1%。
   不宣稱配置計數、heap、GC 或圖形呈現收益；未採用的兩個 gamepad 候選見
   ACCEPTANCE P158，正式 input code 不變。
+
+## P159 — Scalar glyph bounds preflight
+
+- SpriteText 在變更 glyph sprites 前仍完成完整排版及 budget validation。四個
+  座標 x／y／right／bottom 各自檢查 Number.isFinite 與 absolute dimension 上限，
+  不再為每個 glyph 建立驗證陣列與 every callback；恰好等於正負上限仍合法。
+- right／bottom 仍在執行 bounds predicates 前計算，保留原欄位讀取順序。
+  glyph metric lookup、kerning、wrapping、alignment、page ownership 與實際
+  sprite 變更階段不變。失敗仍保留原文字及 glyph identities／positions。
+- 新 regression 覆蓋恰好右／下緣上限、超界 1 單位與負向 x 超界。
+  Differential 16,384 operations、20 tests 及 CPU 數據見 ACCEPTANCE P159；
+  不將暫存陣列移除等同於實際 heap／GC 或 rendering fps 改善。

@@ -123,6 +123,49 @@ describe('atlas graphics', () => {
     ]);
   });
 
+  it('accepts exact glyph bounds and preserves text when any layout edge exceeds the budget', () => {
+    const image = texture(8, 8);
+    const sheet = SpriteSheet.grid(image, {
+      frameWidth: 8,
+      frameHeight: 8,
+    });
+    const limit = graphics2dLimits.dimension;
+    for (const axis of ['x', 'y'] as const) {
+      const content = axis === 'x' ? 'AA' : 'A\nA';
+      const exactFont = new SpriteFont(sheet, {
+        alphabet: 'A',
+        advance: axis === 'x' ? limit - 8 : 8,
+        lineHeight: axis === 'y' ? limit - 8 : 8,
+      });
+      const exact = new SpriteText(exactFont, content);
+      expect(sprites(exact)[1]!.position[axis] + 8).toBe(limit);
+      exact.destroy();
+
+      const font = new SpriteFont(sheet, {
+        alphabet: 'A',
+        advance: axis === 'x' ? limit - 7 : 8,
+        lineHeight: axis === 'y' ? limit - 7 : 8,
+      });
+      const label = new SpriteText(font, 'A');
+      const original = sprites(label);
+      expect(() => label.setText(content)).toThrow(/dimension budget/);
+      expect(label.text).toBe('A');
+      expect(sprites(label)).toEqual(original);
+      expect(original[0]!.position.x).toBe(0);
+      expect(original[0]!.position.y).toBe(0);
+      label.destroy();
+    }
+    const negative = new SpriteText(
+      new SpriteFont(sheet, { alphabet: 'A', lineHeight: 8 }),
+      'A',
+      { letterSpacing: -limit - 9 },
+    );
+    expect(() => negative.setText('AA')).toThrow(/dimension budget/);
+    expect(negative.text).toBe('A');
+    negative.destroy();
+    image.destroy();
+  });
+
   it('keeps stretch corners fixed, shrinks opposing margins proportionally and reuses children', () => {
     const image = texture(12, 12);
     const nine = new NineSlice(image, {

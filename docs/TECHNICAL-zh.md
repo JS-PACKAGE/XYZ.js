@@ -344,6 +344,9 @@ XYZError
 - Bitmap-font text parser 每份 descriptor 重用一個 global field matcher；
   每行讀到 null 後 cursor 歸零。Quoted fields、重複欄位覆寫順序、validation、
   budgets 與 JSON 路徑不變；CPU 量測及 control 退步見 ACCEPTANCE P158。
+- SpriteText 逐 glyph 以 scalar finite／inclusive absolute-bound 檢查 x／y／
+  right／bottom，再進入顯示 glyph 的變更階段。超界仍保留原文字、child identity
+  與座標；僅 CPU layout 的量測及呈現未驗證範圍見 ACCEPTANCE P159。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

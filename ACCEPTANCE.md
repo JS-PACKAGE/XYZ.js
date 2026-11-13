@@ -18117,3 +18117,65 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 
 - 常見 standard pad 約慢 4.3%，故不保留，也不宣稱完成該候選的完整語義驗收。
   README 中英日、PLAN、DESIGN、TECHNICAL 中英同步正式 font parser 改動。
+
+## P159 — Scalar SpriteText layout bounds（2026-11-13）
+
+- 每個 glyph 的 x／y／right／bottom 改為 scalar Number.isFinite 與 absolute-bound
+  檢查，移除驗證用 array literal／every callback。右／下緣仍在 predicate 前計算，
+  保留原讀取順序、inclusive 上限與 transactional preflight。無 API 或 ownership 變更。
+- Node v26.7.0／Darwin arm64；獨立 before／after ESM modules，CPU 與 correctness
+  modules 分開。8 warmup／15 輪交替 median，無並行測試；setup／cleanup 在計時外，
+  計時包含完整 setText，交替 A／B 文字、既有 sprites 重用及 children size 讀取。
+  字串包含空白與 emoji，code units 不等於 glyph count；未量測實際配置數／heap／GC。
+
+| Code units | Updates | Options              | Before ms | After ms |
+| ---------: | ------: | -------------------- | --------: | -------: |
+|         16 |   1,000 | left                 |  0.941750 | 0.875666 |
+|        128 |     100 | left                 |  1.669458 | 1.600916 |
+|      1,024 |      16 | left                 |  1.116417 | 0.981417 |
+|      1,024 |      16 | center               |  1.014000 | 0.936708 |
+|      1,024 |      16 | wrap 128／breakWords |  1.392000 | 1.321500 |
+|        128 |     100 | wrap 128／right      |  1.045334 | 0.984375 |
+
+- 完整 setText CPU 測項約快 4.1–12.1%；沒有宣稱 browser rendering 或 fps 加速。
+- 4,096 組設定，各 4 次操作，共 16,384 differential operations 精確一致；其中
+  13,483 次為 constructor／update 錯誤路徑。覆蓋 manual／bitmap fonts、Unicode／
+  fallback、signed glyph metrics、kerning、wrapping／alignment、finite／nonfinite
+  spacing、dimension bounds、page／label destruction；比對 error type／message、
+  text、child identity reuse、position／source／scale 與 texture page。
+- 新 regression 驗證恰好右／下緣 dimension 上限接受，超界 1 單位或負向 x 超界
+  拒絕，且既有文字、glyph identity／position 不變。
+- `vitest run tests/graphics2d.test.ts tests/distance-field-font.test.ts
+tests/rendering2d-assets.test.ts` **20 tests passed**；Typecheck、scoped ESLint／
+  Prettier、ESM compile/minify、完整 vendor copy、CJS build 通過。README 中英日、
+  PLAN、DESIGN、TECHNICAL 中英同步。以 formal SpriteText／Sprite objects 執行 CPU
+  layout scenario；未開 browser、未重驗 pixels／三 backend／GPU／audio、未跑完整 suite。
+
+### 未採用：record-kind／allowlist candidates
+
+- 三個 temporary 版本分別與 P158 baseline 比較，正式 bitmap parser 不再修改：
+  trimStart＋search／slice；單次 non-whitespace exec；七個 literal comparisons
+  取代 includes allowlist。各自獨立 process、8 warmup／15 輪交替 median，完整 parse／
+  validation 在計時內。Text 多數收益只有約 1–3%，且 allowlist padded case 退步；
+  不為此增加分支或換寫 grammar，也未宣稱候選完成 whitespace／error differential。
+
+| Candidate         | Glyphs | Kernings | Format／padding                | Parses | Before ms |  After ms |
+| ----------------- | -----: | -------: | ------------------------------ | -----: | --------: | --------: |
+| trimStart＋search |     64 |        0 | text                           |     32 |  2.055916 |  2.003792 |
+| trimStart＋search |  1,024 |        0 | text                           |      4 |  4.148208 |  4.069417 |
+| trimStart＋search |  4,096 |        0 | text                           |      1 |  4.206042 |  4.127208 |
+| trimStart＋search |  4,096 |   16,384 | text                           |      1 | 13.027625 | 12.615750 |
+| trimStart＋search |     64 |       64 | text，Unicode whitespace／CRLF |     32 |  2.966125 |  2.929125 |
+| trimStart＋search |  1,024 |    1,024 | JSON control                   |      8 |  4.284500 |  4.285875 |
+| token exec        |     64 |        0 | text                           |     32 |  2.078084 |  2.053375 |
+| token exec        |  1,024 |        0 | text                           |      4 |  3.874833 |  3.847000 |
+| token exec        |  4,096 |        0 | text                           |      1 |  3.974166 |  3.949458 |
+| token exec        |  4,096 |   16,384 | text                           |      1 | 13.341542 | 13.228584 |
+| token exec        |     64 |       64 | text，Unicode whitespace／CRLF |     32 |  3.098334 |  3.003542 |
+| token exec        |  1,024 |    1,024 | JSON control                   |      8 |  4.276083 |  4.275583 |
+| literal allowlist |     64 |        0 | text                           |     32 |  2.106292 |  2.090083 |
+| literal allowlist |  1,024 |        0 | text                           |      4 |  3.926292 |  3.876167 |
+| literal allowlist |  4,096 |        0 | text                           |      1 |  4.306459 |  4.135500 |
+| literal allowlist |  4,096 |   16,384 | text                           |      1 | 13.443500 | 13.412708 |
+| literal allowlist |     64 |       64 | text，Unicode whitespace／CRLF |     32 |  3.081792 |  3.102792 |
+| literal allowlist |  1,024 |    1,024 | JSON control                   |      8 |  4.342084 |  4.324375 |

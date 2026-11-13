@@ -350,12 +350,17 @@ export class SpriteText extends Group2D {
           pen += this.letterSpacing + this.font.getKerning(previous, index);
         const x = offset + pen + glyph.xoffset,
           y = baseline + glyph.yoffset;
+        const right = x + glyph.width,
+          bottom = y + glyph.source.height;
         if (
-          ![x, y, x + glyph.width, y + glyph.source.height].every(
-            (value) =>
-              Number.isFinite(value) &&
-              Math.abs(value) <= graphics2dLimits.dimension,
-          )
+          !Number.isFinite(x) ||
+          Math.abs(x) > graphics2dLimits.dimension ||
+          !Number.isFinite(y) ||
+          Math.abs(y) > graphics2dLimits.dimension ||
+          !Number.isFinite(right) ||
+          Math.abs(right) > graphics2dLimits.dimension ||
+          !Number.isFinite(bottom) ||
+          Math.abs(bottom) > graphics2dLimits.dimension
         )
           throw new RangeError(
             'SpriteText layout exceeds its dimension budget.',

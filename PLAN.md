@@ -5293,3 +5293,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   約快 5.7–8.6%，JSON control 約慢 1.1%。未量測實際配置數、heap 或 browser fps。
 - firstPressed indexed scan 與 unified gamepad selection loop 測項未證明普遍收益，
   均不套用。完整量測、工具結果及限制見 ACCEPTANCE P158。
+
+## P159 — Scalar SpriteText layout bounds
+
+- 逐 glyph layout 的四座標以 scalar finite／absolute-bound 檢查取代暫存陣列與
+  every callback；保留右／下緣預先計算、inclusive 邊界與 transactional preflight。
+- 16,384 組 differential operations 與 20 項 targeted tests 通過；完整 setText
+  CPU 測項約快 4.1–12.1%。只驗證 CPU layout／glyph 狀態，未重驗 browser pixels。
+- 未保留三個 bitmap record-kind／allowlist 候選；完整數據與限制見 ACCEPTANCE P159。
