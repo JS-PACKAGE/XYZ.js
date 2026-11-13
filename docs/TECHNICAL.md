@@ -7068,3 +7068,11 @@ All eight cycles must restore the exact baseline. The runner allows at most
 60 seconds per cycle, then 60 seconds for terminal teardown, instead of a shared
 180-second deadline. These are hang watchdogs, not performance acceptance budgets:
 slow native software readback cannot excuse missing cycles or weakened assertions.
+
+## P183 Jacobi investigation boundary
+
+Private horizontal-window reuse passed exact output/read-order checks but was
+withdrawn: the Node gain did not translate into a meaningful general win in
+fresh native Chromium Workers. The original single stencil and P178 row/topology
+work remain; candidate measurements and temporary verification are in ACCEPTANCE
+P183. Neither this investigation nor fewer typed reads establish higher FPS.

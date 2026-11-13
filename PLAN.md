@@ -5517,3 +5517,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   不混用不同批次長度／history的before與after，不猜測未profile的JIT原因。
 - 正式source／tests／dist不改，沒有重跑build或GPU／Game runtime；
   三組量測、driver錯誤、逾時及未驗證範圍見ACCEPTANCE P182。
+
+## P183 — Reject private Jacobi sliding windows without a native Worker win
+
+- 私有ping-pong buffer重用left／center／right，首輪caller samples維持原讀序；
+  Node高迭代完整job改善約12–15%，但fresh Chromium Worker高迭代僅約0.3–1%。
+- 正式candidate曾通過bytes／getters、6 tests、typecheck／lint／ESM／CJS及
+  WebGPU正式Worker surface；收益不支持兩份stencil，故source與其四個生成檔撤回。
+- 不改validation、input iterator、border copies、ping-pong parity或P178成果；
+  Node／Worker history差異、Target closed與完整取捨見ACCEPTANCE P183。

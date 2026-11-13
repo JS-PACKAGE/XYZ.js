@@ -5672,3 +5672,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 保留現有radix實作及all-equal-byte pass skip，不為短期小幅收益加入重複敘述。
 - Node、browser短批次與長批次各自保留基準，coarse timer與輸入history不能
   隱藏；沒有確認JIT／tiering根因，也沒有heap、GPU或FPS收益宣稱。
+
+## P183 — Keep one stencil when browser gains do not justify duplication
+
+- 第一輪讀caller-owned heights，不能重排Proxy indexed reads；之後的buffers才
+  private且可重用horizontal samples，仍須維持原加法、乘法與Float32 store順序。
+- 候選精確比對與正式GPU Worker publication通過，但Node的高迭代收益沒有在
+  fresh Chromium Worker重現到足以保留兩份stencil；不從不同history猜測JIT原因。
+- 撤回本輪window與空interior guard，維持P178的單一stencil／完整boundary copies。
+  任何單獨empty-interior候選都必須另量測，不借用本候選的Node收益。

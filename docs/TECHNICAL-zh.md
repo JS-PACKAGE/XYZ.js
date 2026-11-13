@@ -6831,3 +6831,9 @@ binding 的16380 bytes 差異。Empty native scene 同時釋放 packed probe atl
 八輪都必須恢復 exact baseline。Runner 改為每輪最多60秒，terminal teardown
 另最多60秒，不再八輪共用180秒 deadline。這些是 hang watchdog，不是 performance
 acceptance budgets：native software readback 較慢不能免除任何一輪或放寬斷言。
+
+## P183 Jacobi調查邊界
+
+私有horizontal window通過精確output／讀序比較，但Node收益沒有在fresh native
+Chromium Worker形成足夠的一般收益，故撤回候選。維持原單一stencil與P178 row／
+topology成果；候選量測及暫時驗證見ACCEPTANCE P183，不以少typed reads宣稱FPS提升。

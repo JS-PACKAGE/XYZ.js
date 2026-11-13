@@ -19645,3 +19645,64 @@ Node v26.7.0與Chromium150都量完整sort及每次還原input list；Mesh、Geo
 - 初次16×browser batch用evaluate遇到預設30秒transport timeout，沒有取回結果；改用run的明示timeout與8×batch才取得上表。未取回數字不列為證據，也沒有把已執行過的page history稱為fresh。Browser texture按正式destroy清理，Geometry僅CPU物件、不捏造不存在的destroy API。
 - 正式source未採用，沒有重跑unit／build／typecheck、WebGPU／WebGL2／Canvas2D Game或objects3d／showcase；本輪不宣稱實際frame compositing、其他browser／device、heap／GC或FPS改善。
 - README中英日將持續增長的不採用候選名單收斂為ACCEPTANCE入口與history／warmup警告；PLAN、DESIGN與TECHNICAL中英同步，文件Prettier與相對ACCEPTANCE目標檢查。原型／輸出於提交前清理，browser tab與Vite server已關閉，沒有依賴、vendor或persistent-cache變更。
+
+## P183 — Withdraw private Jacobi sliding windows（2026-11-13）
+
+### Candidate, semantic boundary and decision
+
+候選讓pass>0的private ping-pong buffers以left／center／right滑動，將每cell五次typed horizontal/vertical/center讀取降為三次；乘加及Float32 store順序不變。Pass0仍逐次讀caller heights，以保留Proxy indexed reads／errors及共享來源的既有讀取邊界。Columns沒有interior時，後續private pass略過空row迴圈，但仍保留兩個完整copies與每輪swap，包含constructor iterator可觀察性及odd/even parity。
+
+Node高迭代完整job有約12–15%改善，故候選曾套用、格式化、驗證與build；但fresh native Chromium Worker的一般高迭代收益只有約0.3–1%，不支持維護兩份stencil。最後已撤回本輪source patch及其四個ESM／CJS JS／map生成檔，維持P178正式實作。沒有留下新helper／guard／tests／budget或API改動，也沒有回復使用者的其他source／dist修改。
+
+### Node complete-process CPU
+
+Node v26.7.0、TypeScript6.0.3 isolated before／candidate、相同正式dependencies。每case8warmups、15alternating medians；每batch包含validation、allocations、全部smoothing與streams generation，setup不計時，單位milliseconds。Cases依下列順序使用同一functions，沒有先交給它們Proxy輸入；與後面的fresh-worker history分開，不跨表組合baselines。
+
+| Case           | Columns×rows | Iterations | Calls/batch | Before ms | Candidate ms |
+| -------------- | ------------ | ---------: | ----------: | --------: | -----------: |
+| 2x2-two        | 2×2          |          2 |        2000 |  0.260958 |     0.260750 |
+| 3x3-two        | 3×3          |          2 |        1000 |  0.436666 |     0.439041 |
+| 64-zero        | 64×64        |          0 |          20 |  0.818792 |     0.823167 |
+| 64-one         | 64×64        |          1 |          20 |  0.767417 |     0.769541 |
+| 64-two         | 64×64        |          2 |          20 |  0.915167 |     0.912125 |
+| 64-eight       | 64×64        |          8 |          20 |  1.518625 |     1.435583 |
+| 192-two        | 192×192      |          2 |           5 |  2.069500 |     2.063208 |
+| 192-worker     | 192×192      |        192 |           2 | 18.702375 |    15.846250 |
+| 512-two        | 512×512      |          2 |           2 |  5.931000 |     5.895459 |
+| 512-32         | 512×512      |         32 |           2 | 26.190625 |    22.904000 |
+| narrow         | 2×2048       |          8 |          20 |  0.832584 |     0.692875 |
+| wide           | 2048×2       |          8 |          20 |  0.639917 |     0.640458 |
+| smoothing-zero | 128×128      |         32 |          10 |  1.340375 |     1.373583 |
+
+Smoothing-zero使用0，其餘0.37；width17.3、depth9.7、Float32 heights為sin(i*0.39)*3+cos(i*0.17)*5。Smoothing-zero控制組約2.5%退步，沒有隱藏。192²×192與512²×32在Node約少15.3%與12.5%，不能把它們稱為browser／native Worker收益。
+
+### Native Worker complete-process CPU
+
+Chromium150、document.visibilityState=visible，正式WebGPU app已destroy停止RAF後，另外每case建立一個真module Worker，import相同編譯方式的before／formal modules。每case的兩functions各8warmups／15alternating samples；Worker creation／imports／messages不在計時內，計時包含完整process而非stencil-only。Cases不同Worker，不共用Node的tier/input history；所有benchmark Workers逐caseterminate、Blob URL revoke。這不是NativeWorkerPool端到端throughput或worker-startup比較。
+
+| Case           | Columns×rows | Iterations | Calls/batch | Before ms | Candidate ms |
+| -------------- | ------------ | ---------: | ----------: | --------: | -----------: |
+| 64-zero        | 64×64        |          0 |          80 |       8.9 |          8.9 |
+| 64-one         | 64×64        |          1 |          80 |      10.2 |         10.2 |
+| 64-eight       | 64×64        |          8 |          80 |      15.3 |         15.5 |
+| 192-worker     | 192×192      |        192 |           4 |      75.6 |         75.4 |
+| 512-32         | 512×512      |         32 |           4 |     118.3 |        117.1 |
+| narrow         | 2×2048       |          8 |          80 |       9.9 |          9.1 |
+| wide           | 2048×2       |          8 |          80 |       7.8 |          7.9 |
+| smoothing-zero | 128×128      |         32 |          40 |      19.3 |         18.9 |
+
+一般high-iteration近乎持平；narrow約8%改善可能包含empty-interior guard的貢獻，但未在此分離量測，不把全部收益歸給window。64-eight／wide約1.3%退步。不同VM／worker history不是已確認的JIT根因；不為Node-only結果保留兩份公式，empty-interior是否單獨值得採用需另輪量測。
+
+### Temporary formal-source checks and actual surface
+
+- 正式candidate對保存baseline：1,024組cases、5組Proxy observe／iterator-change／index-change／iterator-throw／index-throw，bytes與完整logs／errors一致。再加6組cases（含1024²、2×524288、524288×2最大vertex budget與3×3×512最大iterations）、24個request getter probes及42個valid/invalid boundary inputs，合計比對185,578,584 bytes；來源heights bytes不變。
+- 暫時candidate通過strict typecheck、scoped ESLint／Prettier、既有geometry-processing6 tests，未新增永久tests。ESM／minify／vendor copy／CJS build通過；built root ESM與CJS各6 cases，另509,232 bytes與baseline一致。這些是候選當時的驗證，不把撤回後的文件提交稱為新runtime功能。
+- 正式/examples/cpu-workers/?renderer=webgpu實際initial transfer、17² verify、copy、main thread、invalid input、再次送工作後Destroy均操作成功；publication經原Geometry／Mesh。Transfer inputDetached=true、request589824／result8239128 bytes走transferred，copy inputDetached=false且改走copied；publication counter10598424 bytes，非zero-copy publication或total heap。
+- Initial transfer觀察24 RAF heartbeats、compute182.8ms；copy5 heartbeats、compute82.7ms；main82.3ms。這些是不同cold/warm與publication history的單次observations，絕非before/after效能比較。Verify app以===檢查四streams，UI字樣bit-for-bit不當作signed-zero／NaN-payload byte proof；真正byte proof見上方隔離比較。
+- Main publication後實際canvas screenshot看見綠色起伏terrain；invalid明確Height samples must be finite並保留previous terrain。Destroy前status仍Native worker executing，最後workers／running／queued／admittedBytes全0、completed3／failed2／cancelled0；不冒稱running而非queued取消。Uncaught／console-error entries空，沒有讀取或寫入window.__xyzCpuWorkers來替代surface操作。
+
+### Observed measurement failure, cleanup and limits
+
+- 最初13-case main-thread browser CPU run遇到Runtime.callFunctionOn Target closed，未取得任何完整結果；原因未確認，不猜測OOM或engine regression。關閉該managed tab，改用有界fresh Workers才取得上述八組量測；不宣稱已修好closed-target根因。
+- 候選因收益不足撤回，沒有續跑GL／Canvas2D／showcase或完整test suite，也沒有claim shipped-dist Worker URL、Safari、OS原生可見window、GPU時間、heap／GC、long soak或presentation FPS。P178的其他backend證據保留為當時紀錄，不充作本輪重驗。
+- README中英日、PLAN、DESIGN、TECHNICAL中英與本紀錄同步，文件Prettier及相對ACCEPTANCE目標檢查。全部原型／輸出於提交前清理；CPU／formal tabs與server關閉、實際app pool及額外benchmark Workers已清理，無依賴或vendor變更。
