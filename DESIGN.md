@@ -5582,3 +5582,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   仍由原 admit 計算；guards 不通過保留原路徑，無額外 per-emitter cache。
 - 正式 bytes／partial uploads／reentrant owners／native browser 與 CPU 證據見
   ACCEPTANCE P173，不把 command CPU 收益當作 GPU／fps 改善。
+
+## P174 — Evaluate audio-note traversal changes at the complete loader boundary
+
+- 候選保留排序，把 maximum end 合併到原 map，或以預配置 indexed loop 合併
+  validation／copy／end；只量 kernel 不足以推論 cache-miss HTTP load 的結果。
+- 原 source 與官方 OPM.js 不改。實測包含 readResponse／JSON／official normalization／
+  freeze／cache publication；小檔及不同排列控制組並非一致受益，故保留原設計。
+- 此調查沒有啟動 AudioContext／DSP，不聲稱 native unlock／release／playback 已重驗。
+  完整 CPU-versus-elapsed 區分與兩候選結果見 ACCEPTANCE P174。

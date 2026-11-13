@@ -19066,3 +19066,64 @@ tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
   未因此改動。Temporary page、分頁與 dev server 已清除／關閉。
 - README 中英日、PLAN、DESIGN、TECHNICAL 中英同步；未重驗 audio unlock、auto
   初始化降級、Safari／其他瀏覽器、實機、GPU memory 或 pixel parity，不擴大 certification。
+
+## P174 — Reject fused JSON audio-note traversals（2026-11-13）
+
+- Scope correction：這裡不是 SMF／MIDI file decoder；AudioManager 讀 JSON voice＋notes，
+  note numbers 使用 MIDI 0..127。實際 schedule 已用 cursor／stale-note binary search／
+  八個隔離 slots 的 bounded lookahead；本輪量測 engine-owned JSON note data path，
+  不修改官方 OPM.js、DSP 或 voice／scheduler 公開契約。
+- 原 fetchAudio 以 map 驗證並複製 notes、stable sort，再走訪一次求最大 end time。
+  Temporary map variant 在原 callback 中同時計算 end，保留原 map／sort；indexed
+  variant 先配置同長度 array，以 index loop 驗證／寫入／求 end，再保留原 sort。
+  兩者都只是 prototype，正式 audio source／runtime／dist 完全不變。
+- 先以正式 AudioManager.load 載入 showcase 的 sfx JSON data URL，確認真正官方
+  OPM voice normalization 可在 Node 中執行：公開 version=1、notes／voice frozen、
+  duration=0.2、opmState=locked。沒有替換 adapter、fetch、voice validation 或 DSP。
+- Node v26.7.0／Darwin arm64，獨立 before／map／indexed ESM modules、8 warmup／
+  15 輪交替 median，無並行測試。正式 loopback HTTP server 與原 loader／readResponse／
+  JSON.parse／validation／sort／official voice normalization／freeze／cache publication。
+  不是截取幾行 parser 的 microkernel，也不是純 CPU time；包含真實 HTTP／async elapsed。
+- Payloads／server／每次 cache-miss manager 的 construction 在計時外；正式 load 與
+  asset 結果讀取在內，destroy 在計時外。同一 URL 在不同新 manager 載入，不以已命中
+  cache 的 promise 冒充 parse。所有 payload 不超過現行 1 MiB／16,384 notes budgets；
+  大檔一般 notes=719,880 bytes、ties=622,952 bytes。官方 vendor 不曾改動。
+
+### 未採用：原 map callback 同時累計 maximum end
+
+| Workload              |  Notes | Loads | Before ms |  After ms |
+| --------------------- | -----: | ----: | --------: | --------: |
+| One note              |      1 |   100 |  7.379292 |  7.852083 |
+| Small                 |     16 |    50 |  3.616917 |  3.393333 |
+| Medium                |  1,024 |    10 |  2.459583 |  2.245500 |
+| Large sorted          | 16,384 |     3 |  6.786459 |  6.726583 |
+| Large reversed        | 16,384 |     3 |  7.016875 |  7.757250 |
+| Large shuffled        | 16,384 |     3 | 14.325459 | 14.619250 |
+| Large equal-time ties | 16,384 |     3 |  6.407208 |  6.672541 |
+
+- Small／medium 約快 6.2%／8.7%，但 one-note 約慢 6.4%、reversed 約慢 10.6%，
+  shuffled／ties 也退步。少一次走訪不等於完整 load 更快，不保留此形狀。
+
+### 未採用：預配置 indexed loop 合併 validation／copy／maximum end
+
+| Workload              |  Notes | Loads | Before ms |  After ms |
+| --------------------- | -----: | ----: | --------: | --------: |
+| One note              |      1 |   100 |  6.871958 |  7.207792 |
+| Small                 |     16 |    50 |  3.362875 |  3.369042 |
+| Medium                |  1,024 |    10 |  1.997666 |  1.963875 |
+| Large sorted          | 16,384 |     3 |  6.517792 |  6.527959 |
+| Large reversed        | 16,384 |     3 |  7.025334 |  6.427834 |
+| Large shuffled        | 16,384 |     3 | 14.788292 | 14.863833 |
+| Large equal-time ties | 16,384 |     3 |  6.154417 |  5.920959 |
+
+- Reversed／ties 約快 8.5%／3.8%，但 one-note 約慢 4.9%，其他一般控制組沒有
+  足夠一致的收益。保留原簡單 implementation；不推論未 profiling 的 allocation／
+  array-layout／JIT 原因，也不把不同 run 的 before 絕對時間互相比較。
+- 只用真實載入確認各候選可回傳結果；未做兩個候選的完整 malformed-input／error
+  precedence／ownership 差分，未宣稱候選完成行為驗證。正式程式碼未改，不重跑
+  runtime tests／typecheck／build，也沒有必要為已拒絕候選新增永久 tests。
+- 未啟動 AudioContext／OPM worklets、未聽測、未重驗 unlock／native playback、
+  release tails、showcase、三 backend 或 cold-start latency。這是 note data-loading
+  調查，不是 audio rendering／CPU-only／allocation／heap／GC／fps 認證。
+- README 中英日、PLAN、DESIGN、TECHNICAL 中英同步；文件格式與既有 ACCEPTANCE
+  相對連結 target 檢查通過。Loopback server 已關閉，throwaway scripts／modules 已刪除。

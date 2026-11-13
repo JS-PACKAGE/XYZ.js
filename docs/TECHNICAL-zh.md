@@ -392,6 +392,10 @@ XYZError
   保留 physical bytes／next-tail／revision／sequence／world snapshots。量化 clock
   未通過 guards 時維持原路徑；CPU／實際 native backend 證據與限制見 ACCEPTANCE P173，
   不宣稱 GPU／fps。
+- JSON audio-note validation／copy／maximum end 的合併走訪未採用：包含官方 voice
+  normalization 的 cache-miss HTTP loads 有不同排列／小檔退步，正式 audio／scheduler／
+  vendor DSP 不變。這不是 SMF decoder 或 native playback 認證；完整 elapsed
+  量測與限制見 ACCEPTANCE P174。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

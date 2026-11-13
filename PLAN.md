@@ -5427,3 +5427,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   的 bytes 差分、8 tests、typecheck、scoped lint／format 與 ESM／CJS build 通過。
 - 實際 WebGPU／WebGL2 觸發 fast path、clear／重建／destroy、showcase 通過；
   Canvas2D 的測試字串修正、quantized-clock 邊界與完整限制見 ACCEPTANCE P173。
+
+## P174 — Reject fused JSON audio-note traversals
+
+- 正式音序來源是 JSON voice＋MIDI note numbers，不是 SMF decoder；原 scheduler
+  已有 bounded lookahead，本輪只調查 validation／copy／maximum-end 的合併走訪。
+- 兩種完整 HTTP loader 候選均有一般控制組退步，不保留 map-capture 或 indexed loop；
+  正式 audio／vendor／dist 不變，不重跑 tests／build 或新增候選的永久 tests。
+- 14 組真正官方 voice normalization／loopback load 測量與未驗證的 native audio 範圍
+  見 ACCEPTANCE P174；少一次走訪不等於 load／playback／fps 改善。
