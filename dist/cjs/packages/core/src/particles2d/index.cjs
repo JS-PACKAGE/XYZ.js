@@ -201,6 +201,7 @@ var ParticleEmitter = class extends require_group2d.Group2D {
 		}
 	}
 	advanceSprites(e) {
+		if (this.count === 0) return;
 		let t = this.state, n = this.active, r = this.pool, i = this.startSize[0], a = this.startSize[1], o = this.endSize[0] - i, s = this.endSize[1] - a, c = this.spriteWidth, l = this.spriteHeight, u = this.startColor[0], d = this.startColor[1], f = this.startColor[2], p = this.startColor[3], m = this.endColor[0] - u, h = this.endColor[1] - d, g = this.endColor[2] - f, _ = this.endColor[3] - p, v = 0;
 		for (; v < this.count;) {
 			let y = n[v], b = y * 8, x = t[b + 6] + e, S = t[b + 7];

@@ -5605,6 +5605,12 @@ Verified: unit tests and a Chromium forced WebGPU and forced WebGL2 render of tw
 - Local follows ancestor affine; world captures complete birth world axes/position and transforms birth velocity/acceleration, so existing particles do not follow later parent movement and new births use current parent. Simulation local/world differs from inherited world/screen rendering layer; HUD emitters work without physics. Game pause freezes age; Scene runs particle simulation after physics, never by caller duplicating update.
 - P15–P17 real Game/Scene forced Canvas/GL/GPU:48 assertions/21 screenshots/0 errors, 3 files/40 scoped tests and owned format, source-Vite/procedural atlas/test-only GPU COPY_SRC. Borrowed texture survives teardown until owner cleanup; no published-dist/other-browser/performance claim. [Usage](USAGE.md#15-physics-maps-and-cpu-particles-p15p17).
 
+Current implementation (P176): empty Sprite pools return inside the private
+advance helper, after positive-delta validation and source-dimension reads.
+Their getter errors and subsequent continuous-birth scheduling remain intact;
+target layers and retirement are unchanged. Controlled CPU measurements and
+actual three-backend particle lifecycle limits are in ACCEPTANCE P176, not fps.
+
 ## 26. Native 2D Shader ABI and Lifetime (P20)
 
 - Root Material2D/PostProcessor2D/NativeEffect2DOptions; options require immutable wgsl/glsl strings, each nonempty ≤65,536 characters, optional finite float-representable uniforms≤16. EventTarget descriptors expose wgsl/glsl/destroyed, uniforms Float32Array(16), setUniforms (zero-fill remainder), idempotent destroy with native destroy event. Descriptors are caller-owned, Scene.effects2D and Sprite.material borrow them.

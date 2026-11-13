@@ -19231,3 +19231,74 @@ Chromium 150（macOS managed browser）、可見頁面；暫存 native surface �
 - Showcase 接續開啟 WebGL2 時曾發生 browser.open「Navigating frame was detached」；確認 managed tabs 為空，以 fresh tab／networkidle0 完成剩餘 WebGL2／Canvas2D。工具問題已回報，不把失敗步驟計為通過，亦不宣稱首次開頁穩定性已獲保證。
 - 最初 isolated harness 嘗試 require esbuild，但它不是目前 repo dependency，量測尚未開始即失敗；改用已安裝的 TypeScript 6.0.3 transpileModule 與現有正式 FrameStats／NativeResidency modules，沒有安裝依賴。
 - 暫存 surface、measurement／comparison scripts 已刪除，server／managed tabs 已關閉。沒有重驗 Safari／實機、auto fallback、disjoint/device-loss 的實際 driver 觸發、pixel parity、可聽 audio unlock、native heap／JS allocation counter 或長時間 retention；沒有從 report CPU、source-level buffer reuse 或 GPU latency 宣稱遊戲／GPU／presentation fps 改善。
+
+## P176 — Empty Sprite-pool numeric helper guard（2026-11-13）
+
+### 採用的最小變更
+
+- 調查確認 ParticleEmitter retirement 已是 O(1) swap-remove，ParticleLayer2D 也有 insertion-order-preserving delayed compaction，本輪不改 free-list／draw order／generation／ownership。
+- 只在 private advanceSprites 開頭加入 count===0 的早退。空池不再載入 state／active／pool aliases 與整組尺寸／顏色 spans；沒有建立新快取、資料欄位、配置、公開 API 或另一條粒子實作。
+- 外層 updateSimulation 不改：destroyed／target-destroyed、finite nonnegative dt、zero-delta、refreshSpriteSize 與後續 fraction／birth work 均維持原位置。有效 positive-delta 的來源尺寸 getter／錯誤仍先執行，之後才進入空池 guard；initial／stopped／cleared emitter 仍可正常產生 fractional births 或 emit bursts。
+- Populated Sprite arithmetic、target branch、RNG、slot reuse、destroy buffers／borrowed texture cleanup 不改。P151 被否決的 appearance-span cache 沒有重做。
+
+### 量測邊界與採用結果
+
+Node v26.7.0；完整 updateSimulation(1/60)，每 case 使用獨立 before／candidate instance，setup／pool allocation 在計時外，8 warmups、15 alternating A/B medians。實際 Texture／Sprite／ParticleEmitter／ParticleLayer2D classes 使用 controlled ImageBitmap-shaped dimension fixture（20×10），不是原生 decoded bitmap、renderer、GPU 或完整 Game benchmark。
+
+除 rare-births 外，lifetime 固定 1e12 以保留 active controls；一般 Sprite speed [10,20]、angle [-1,2]、acceleration [4,-2]、start/end size [8,4]／[16,12]、seed17。Rare-births 為 rate0.125／life0.01，主要時間空池；target controls 改用 speed0／acceleration0 的合法靜態資料，避免長時間累積座標超界。各輪同樣次數推進 before／after，結果亦比對 state，不把不同輪的基準數字交叉比較。量測時沒有並行 tests／build／browser。
+
+採用的 helper-local guard：
+
+| Case            | Capacity | Initial active | Target | Ticks/batch | Before ms | After ms |
+| --------------- | -------: | -------------: | ------ | ----------: | --------: | -------: |
+| idle-8          |        8 |              0 | no     |      500000 |  4.538333 | 3.024875 |
+| idle-1024       |     1024 |              0 | no     |      500000 |  4.453250 | 3.000708 |
+| running-no-rate |        8 |              0 | no     |      500000 |  4.592834 | 3.067875 |
+| rare-births     |        8 |              0 | no     |      200000 |  2.118959 | 1.500000 |
+| active-1        |        8 |              1 | no     |      100000 |  1.366458 | 1.380583 |
+| active-8        |        8 |              8 | no     |      100000 |  4.648125 | 4.487375 |
+| active-1024     |     1024 |           1024 | no     |        1000 |  7.768458 | 7.243250 |
+| world-active-8  |        8 |              8 | no     |      100000 |  4.631125 | 4.477291 |
+| target-idle     |        8 |              0 | yes    |      500000 |  2.745709 | 2.693416 |
+| target-active-8 |        8 |              8 | yes    |       10000 |  2.380916 | 2.375083 |
+
+空池／rate0／低 duty 約降低 29.2–33.3% 的這段 CPU elapsed；單粒子約增加 1.0%，8／1,024 粒子及 target controls 沒有同樣退步。這些是 repeated method-call CPU 對照，差異可小至每 tick 奈秒量級；不外推成整個 Scene、GPU、presentation 或遊戲 fps，也不從 source-level work reduction 推論 JS allocation／heap／GC 改善。
+
+### 否決 caller-side guard 與修正 fixture
+
+第一次把 guard 放在 updateSimulation 的 Sprite dispatch：雖然空池快約 33%，單粒子約退步 17.0%、target-idle 約退步 84.9%，故未採用。只記錄實際完成的九列，不把後續失敗列算成通過：
+
+| Case            | Capacity | Initial active | Target | Ticks/batch | Before ms | After ms |
+| --------------- | -------: | -------------: | ------ | ----------: | --------: | -------: |
+| idle-8          |        8 |              0 | no     |      500000 |  3.517042 | 2.364083 |
+| idle-1024       |     1024 |              0 | no     |      500000 |  3.421417 | 2.231500 |
+| running-no-rate |        8 |              0 | no     |      500000 |  3.435500 | 2.241584 |
+| rare-births     |        8 |              0 | no     |      200000 |  1.681083 | 1.157416 |
+| active-1        |        8 |              1 | no     |      100000 |  1.172334 | 1.371459 |
+| active-8        |        8 |              8 | no     |      100000 |  4.429458 | 4.485042 |
+| active-1024     |     1024 |           1024 | no     |        1000 |  7.553292 | 7.649417 |
+| world-active-8  |        8 |              8 | no     |      100000 |  4.423416 | 4.474125 |
+| target-idle     |        8 |              0 | yes    |      500000 |  1.385167 | 2.560709 |
+
+原 target-active 控制資料一直保留粒子並累積 acceleration，最後由正式 validateTransform 正確拋出 RangeError: Particle affine transform exceeds its finite coordinate budget；該列沒有完成 median。將量測 fixture 改為靜態 speed0／acceleration0 後重做 helper-local 候選，沒有放寬、繞過或 suppress 引擎的座標預算。這是 fixture 修正，不是引擎 bug。也沒有將 caller-side 觀察直接歸因到未 profile 的 JIT／inline／layout 根因。
+
+### 正式 source 的行為驗證
+
+- 與修改前獨立 ESM module 比對 64 pairs／128 emitters、8,192 組對照操作；local／world、capacity1–16、emit／start／stop／clear、valid／zero／-0／invalid／enormous deltas，包含重新排空及 births。比對 errors、active/free typed-storage bytes、RNG／fraction／尺寸 cache 與 Sprite visible／position／scale／tint。這不是 native rendering／完整 frame-throughput 驗證。
+- 32 組額外 source width／height getter probes 比對存取順序與 partial-state/error：尺寸改變、throw、getter 中 emit／start／clear／destroy／nested update。guard 沒有提升到來源讀取前，沒有吞掉空池的來源錯誤。所有 pool destroy 後 shared borrowed source 仍存活，最後 owner destroy 的 close counter 僅一次。
+- 既有 tests/particles2d.test.ts：17 tests 通過，已涵蓋 initial／stopped／fractional empty frames、expiry、world/local ancestors、nozzles、reuse／ownership、validation 與 target layer。這次 feature 不額外新增 implementation／wiring tests。
+- typecheck、scope ESLint／Prettier、ESM／minify／vendor copy／CJS build 通過；沒有新增依賴、修改 vendor、執行 install 或完整 test suite。
+
+### 正式三 backend surface 與 cleanup
+
+Chromium 150、可見頁面，正式 /examples/particles2d/ 強制 WebGPU／WebGL2／Canvas2D：初始 world fountain，Stop 等待排空，stopped Burst 80，Clear，Restart，切換 local additive fire，再 Stop 排空。下表是 UI timer 的實際 count 觀察，不是 backend throughput 對照：
+
+| Backend  | Initial | Drained | Stopped burst | Clear | Restart | Local fire | Final drain |
+| -------- | ------: | ------: | ------------: | ----: | ------: | ---------: | ----------: |
+| webgpu   |      82 |       0 |            80 |     0 |      10 |         40 |           0 |
+| webgl2   |      15 |       0 |            80 |     0 |      10 |         40 |           0 |
+| canvas2d |      16 |       0 |            80 |     0 |       5 |         29 |           0 |
+
+- 三 backend 都顯示實際 requested backend，過程 emitting flags／zero／nonzero counts 符合控制；source 的同一個 borrowed glow texture 在 preset destroy/rebuild 後仍可用。實際 WebGPU fire canvas 截圖確認 native additive Sprite 內容。
+- 三 backend 的正式 showcase Scene A → B 與 pagehide cleanup 完成；GPU／GL 保持原 lit cube＋sphere＋2D overlay，Canvas2D 保持其明確 2D-only。粒子與 showcase 的 uncaught／console error／cleanup error entries 均為空。
+- 沒有修改正式範例或新增 package API；沒有聲稱本輪已驗證 native target layers、Safari／實機、auto fallback、pixel parity、audible audio unlock、memory plateau 或 fps 改善。暫存 scripts／modules 已刪除、server／managed tabs 已關閉；README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。

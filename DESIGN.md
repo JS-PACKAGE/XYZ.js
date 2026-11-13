@@ -5603,3 +5603,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 讀取 renderer stats／residency 後才決定 scratch 大小；保留 getter 重入與最新
   renderer records，亦保留 raw RAF 的原始加總順序，不把 GPU latency 當成 fps。
 - 精確差分、CPU 對照、未採用方案與實際 native lifecycle 證據見 ACCEPTANCE P175。
+
+## P176 — Put the empty-pool guard inside the numeric helper
+
+- 空 Sprite pool 只跳過 private advance helper 的常數載入／數值迴圈，不在
+  updateSimulation 的 delta validation、source 尺寸讀取或 rate births 前整體返回。
+- Per-tick resize／source getter errors 與 getter 中的 emit／start／clear／destroy／
+  nested-update 保持原順序；無 active particles 時也不隱藏這些外部觀察。
+- Target layer 分支、已有的 O(1) retirement、stable layer compaction 及 borrower
+  cleanup 均不改；不增加 cache、配置、public fields 或另一套粒子實作。
+- Scope CPU、未採用的 caller guard、精確差分與實際 UI lifecycle 見 ACCEPTANCE P176，
+  不把空池每次 tick 的奈秒差異外推成整個 Game／GPU／presentation fps。

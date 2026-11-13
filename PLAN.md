@@ -5446,3 +5446,13 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 2,056 組 history、32 組 getter／重入 probes、19 tests、typecheck／lint 與
   ESM／CJS build，以及三 backend 的實際 collection／showcase／cleanup 已驗證。
 - CPU 量測、三個未採用候選與工具失敗紀錄見 ACCEPTANCE P175；不宣稱 fps 改善。
+
+## P176 — Skip empty Sprite-pool advance constants
+
+- 在 private `advanceSprites` 開頭以 count=0 早退，不載入無作用的 appearance
+  常數；不改外層 dispatch、positive-delta source 尺寸讀取與 birth 排程。
+- Retirement swap-remove、layer compaction、fraction／RNG／typed state／pool
+  ownership 不改；caller-side guard 因 populated／target 控制組退步而否決。
+- 正式 source 的 8,192 次操作差分、32 組 getter／重入 probes、17 tests、
+  typecheck／lint／ESM／CJS build，及三 backend 粒子／showcase／cleanup 通過。
+- 空池／低 duty CPU 對照、target fixture 超界修正與未驗證範圍見 ACCEPTANCE P176。

@@ -5526,6 +5526,11 @@ glTF：`gltfVariants(asset)` 提供 mappings 與 `.selectVariant(name|undefined)
 - Local承ancestor，worldcapturefullbirthaxes／position／velocity／acceleration，oldbirth不隨parentmove、新birth採newparent。Simulationlocal／world與renderworld／screen分開、HUD可用不physics；pause凍age，Scene在physics後更新、不由caller重複推。
 - 三forcedbackend正式Game48assertions／21screenshots／0errors、3files40tests／ownedformat，sourceVite／proceduralatlas／test-onlyGPU COPY_SRC；borrowedTexture保至ownercleanup。非dist／其他browser／performance；[usage](USAGE-zh.md#15-physicsmaps-與-cpu-particlesp15p17)。
 
+目前（P176）空 Sprite pool 在 private advance helper 內早退；positive delta 的
+validation／source 尺寸讀取與 getter errors 仍先執行，後續 rate births 照常排程。
+Target layer／retirement 不改；scope CPU 對照與三 backend 粒子 lifecycle 的
+實際驗證範圍見 ACCEPTANCE P176，不代表 fps 改善。
+
 ## 26. Native 2D Shader ABI 與 Lifetime（P20）
 
 - Root Material2D／PostProcessor2D／NativeEffect2DOptions：必填immutablewgsl／glsl nonempty各≤65,536chars，optionalfinitefloatrepresentableuniforms≤16。EventTarget descriptor wgsl／glsl／destroyed／uniforms Float32Array16、setUniforms zero-fill、idempotentdestroy發native destroy。Callerowned、Scene.effects2D／Sprite.material借。

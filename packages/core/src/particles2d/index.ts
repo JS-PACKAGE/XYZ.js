@@ -420,6 +420,7 @@ export class ParticleEmitter extends Group2D {
    * expressions (and so every float result) are those of `advance` and `appearance`.
    */
   private advanceSprites(dt: number): void {
+    if (this.count === 0) return;
     const state = this.state,
       active = this.active,
       pool = this.pool;
