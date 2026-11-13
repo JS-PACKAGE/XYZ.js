@@ -409,6 +409,11 @@ These are public error classes, not a promise to rewrap every exception from use
   zero-angle trig branches regressed multi-axis kernels despite dynamic-yaw gains.
   Literal-zero call sites and full consumers must not inherit a dynamic-fields
   benchmark claim; all measurements and verification limits are in ACCEPTANCE P171.
+- GPU particle admission uses a bounded subtraction because head+count is below
+  twice capacity whenever a command is admitted. No power-of-two restriction,
+  extra cache or shader change is introduced; physical command bytes, revisions
+  and partial uploads are unchanged. CPU gains, rejected expiry changes and actual
+  native-backend lifecycle/showcase checks are recorded in ACCEPTANCE P172.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

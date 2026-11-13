@@ -5409,3 +5409,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   raw kernel 慢約 5.6%／13.7%；正式熱點多為 literal yaw，不套用通用分支。
 - 完整 11 組 CPU、compose probe 與未驗證範圍見 ACCEPTANCE P171；只有文件、
   不宣稱兩候選完成正式 consumer／browser 認證，不重跑 tests／build。
+
+## P172 — Bounded subtraction for particle command admission
+
+- Admission 的 head+count < 2*capacity，以一次 bounded subtraction 取代 remainder；
+  非二次冪容量、command bytes、revision 與 native shaders 的契約不變。
+- 三種 burst CPU 約快 2.3–2.5%；136,292 operations／132,180 buffer comparisons
+  精確一致，7 tests、typecheck、scoped lint／format 與 ESM／CJS build 通過。
+- 實際 WebGPU／WebGL2 particles lifecycle、showcase scene switch 與 Canvas2D 明確
+  拒絕通過；expiry conditional-wrap 的容量取捨與所有限制見 ACCEPTANCE P172。

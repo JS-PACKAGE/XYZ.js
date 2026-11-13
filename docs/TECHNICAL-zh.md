@@ -383,6 +383,10 @@ XYZError
   exact-w 分支的一般 affine 收益有限，zero-angle trig 分支在多軸 kernel 退步。
   Dynamic-yaw 收益不能移植成 literal-zero call site 或完整 consumer 的宣稱；
   完整量測與未驗證範圍見 ACCEPTANCE P171。
+- GPU particle admission 的 head+count 在有空位時小於 2*capacity，故以一次 bounded
+  subtraction 代替 remainder；不要求二次冪容量，不增加 cache 或修改 shader。
+  Physical command bytes／revision／partial uploads 不變；CPU、未採用的 expiry
+  改法與實際 native lifecycle／showcase 驗證見 ACCEPTANCE P172。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

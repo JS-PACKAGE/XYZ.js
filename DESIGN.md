@@ -5562,3 +5562,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   call sites 不可混為一談；六個 conditional expressions 讓一般多軸 kernel 退步。
 - 兩候選只存在於獨立 temporary modules，正式 math 與公開契約維持原狀。
   完整量測與限制見 ACCEPTANCE P171，沒有把不一致的 kernel 收益包裝成引擎加速。
+
+## P172 — Use the admission ring's proven bounds, not a power-of-two assumption
+
+- head 與 count 都受 capacity 約束，private admit 僅在有空位時執行；兩者之和
+  小於 2*capacity，故至多減一次 capacity 就等於原 remainder，無需新 mask state。
+- 保存加法與 capacity read 的順序；不改 births／sequence／matrix snapshots／revision，
+  native consumers 的 partial-upload ranges 與完整 physical command bytes 精確相同。
+- 不連帶修改 expiry：conditional wrap 在非二次冪容量有益、二次冪卻退步。
+  只採 admission 的最小變更，完整 CPU／byte／browser 證據與限制見 ACCEPTANCE P172。

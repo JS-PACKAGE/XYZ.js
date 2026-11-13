@@ -18885,3 +18885,94 @@ tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
   projective division 與原 arithmetic；本階段只有文件，不重跑 runtime tests／build。
 - README 中英日、PLAN、DESIGN、TECHNICAL 中英同步；文件 Prettier 與現有
   ACCEPTANCE 相對連結 target 檢查通過。兩候選的 throwaway scripts／modules 已刪除。
+
+## P172 — Bounded subtraction for GPU particle admission（2026-11-13）
+
+- GPUParticleEmitter3D 的 private admit 只有在尚有空位時執行；0 <= head < capacity、
+  0 <= count < capacity，且 capacity <= 65,536，所以 head+count < 2*capacity，
+  並且此整數加法精確。保存原 head／count 加法與一次 capacity read 的順序，再以
+  tail < capacity ? tail : tail-capacity 取代一般 remainder。沒有 bit mask 假設，
+  也適用非二次冪容量；不增加 cache／欄位／runtime dependencies 或公開 API。
+- 只有 admission slot arithmetic 改動；expiry、rate admission／drop-new、seed、
+  birth clocks、world matrices、revision、partial-upload ranges 與 native shaders 不變。
+  ParticleEmitter 2D 的既有 batched Sprite update 沒有重寫，也沒有重做 P151 已拒絕的
+  appearance-span 候選。既有 ring-wrap／chronological admission tests 已涵蓋此路徑，
+  沒有新增只測 implementation wiring 的 tests。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM、8 warmup／15 輪交替 median，
+  無並行測試。正式 emitter／Object3D，沒有替身 GPU 或假的 admission；此為 CPU
+  command maintenance，不是 shader／render／fps 量測。Emitter setup 在計時外，
+  burst 測項含 clear＋正式 burst／matrix snapshot／結果讀取；expiry 的 refill 在計時外。
+  Steady／saturated／idle 都以 dt=1/120 呼叫正式 updateSimulation。
+
+| Workload                        | Capacity | Calls or emitters | Before ms | After ms |
+| ------------------------------- | -------: | ----------------: | --------: | -------: |
+| Burst＋clear                    |    1,024 |         256 calls |  2.219583 | 2.168500 |
+| Burst＋clear                    |    1,000 |         256 calls |  2.174917 | 2.120667 |
+| Burst＋clear                    |   16,384 |          16 calls |  2.205709 | 2.152375 |
+| Expire full rings               |    1,024 |      128 emitters |  0.209542 | 0.210458 |
+| Expire full rings               |    1,000 |      128 emitters |  0.503250 | 0.502917 |
+| Steady rate=600, life=1         |    1,000 |     4,000 updates |  0.310834 | 0.307917 |
+| Saturated rate=10,000, life=0.1 |        7 |     2,000 updates |  0.089625 | 0.089416 |
+| Idle rate=0                     |    1,000 |    10,000 updates |  0.108458 | 0.107959 |
+
+- 三種 burst CPU 約快 2.3–2.5%；steady 約快 0.9%，其餘控制組差異約 ±0.5%。
+  不宣稱省配置或提高 GPU／呈現 fps，沒有量測 allocation count、heap 或 GC pause。
+- 1,028 個 emitters、136,292 operations、20,144 個 errors 精確一致；132,180 次
+  physical command-buffer 比較共涵蓋 3,423,126,240 bytes（不是 retained heap 或 GPU
+  transfer 量）。三個不同 interval consumers 做 58,935 次 partial／full mirror copies，
+  其中 920 次 two-range wrap；每個 mirror 都精確等於自己 emitter 的完整 buffer。
+  6,181 次 native-owner release callbacks 的順序與 reentrant burst 結果一致。
+- 差分涵蓋容量 1／二次冪／非二次冪／65,535／65,536、local／world、固定與極短
+  lifetime、rate 0 至 1,000,000、pose／scale 修改、burst overflow／大 sequence、
+  pause／resume／stop／start／clear／destroy、epoch rebase、invalid counts／delta，
+  比對完整 command bytes、active／dropped counts、clock／shader time、head、revision、
+  狀態、changed ranges、error name／message 與 native-owner callbacks。
+  為避免原 reference 在 short-lifetime、永不填滿 ring 的巨大 stream 中逐 birth 工作，
+  positive-rate 的有限 delta 最多請求 512 births；這不是 huge low-occupancy time skips
+  的完整認證，也沒有在本階段修改該路徑。
+- `vitest run tests/gpu-particles3d.test.ts` **7 tests passed**；Typecheck、scoped
+  ESLint／Prettier、ESM compile/minify、完整 vendor copy 與 CJS build 通過。
+  未重跑完整 suite；README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+- 實際 managed Chromium、強制 WebGPU／WebGL2 的 `/examples/gpu-particles3d/`：
+  screenshot 見藍／橘 local／world plumes，運行超過 ring 首次 wrap 後 pause，
+  兩次 stats reports 的 clock 固定；paused burst 填滿兩個 512-slot pools，drop-new
+  各 4,908；clear→0、restart→新 stream、stop→全部 expiry、stopped manual burst、
+  destroy→0 都通過。兩 backend 的 showcase 也實際顯示 Sprite／Primitive／lit cube
+  與 sphere，Scene A→B 切換通過；頁面與 about:blank teardown 的 error entries 都空。
+  Canvas2D 明確回報 `Canvas2D does not support visible GPU 3D particles.`，error entries
+  與 teardown 也空。分頁與 dev server 已關閉。
+- Browser proof 不是 GPU resource-memory／fps／pixel parity 認證；未重驗 audio unlock、
+  auto 初始化降級、Safari／其他瀏覽器或實機。沒有擴大 backend certification。
+
+### 未採用：expiry 也以 conditional wrap 取代 remainder
+
+- Initial combined variant 同時修改 admission 與 expiry head；相同方法量測如下，
+  只有 CPU prototype，未宣稱做過此候選的獨立完整行為差分。
+
+| Workload                        | Capacity | Calls or emitters | Before ms | After ms |
+| ------------------------------- | -------: | ----------------: | --------: | -------: |
+| Burst＋clear                    |    1,024 |         256 calls |  2.214166 | 2.171083 |
+| Burst＋clear                    |    1,000 |         256 calls |  2.166167 | 2.121875 |
+| Burst＋clear                    |   16,384 |          16 calls |  2.181666 | 2.151750 |
+| Expire full rings               |    1,024 |      128 emitters |  0.209791 | 0.224875 |
+| Expire full rings               |    1,000 |      128 emitters |  0.501416 | 0.215792 |
+| Steady rate=600, life=1         |    1,000 |     4,000 updates |  0.310875 | 0.294917 |
+| Saturated rate=10,000, life=0.1 |        7 |     2,000 updates |  0.086834 | 0.087416 |
+| Idle rate=0                     |    1,000 |    10,000 updates |  0.105125 | 0.108250 |
+
+- 再獨立量測只修改 expiry、保留原 admission 的版本，避免把兩個改動混為一談。
+
+| Workload                        | Capacity | Calls or emitters | Before ms | After ms |
+| ------------------------------- | -------: | ----------------: | --------: | -------: |
+| Burst＋clear                    |    1,024 |         256 calls |  2.214542 | 2.208708 |
+| Burst＋clear                    |    1,000 |         256 calls |  2.191458 | 2.170833 |
+| Burst＋clear                    |   16,384 |          16 calls |  2.200250 | 2.188417 |
+| Expire full rings               |    1,024 |      128 emitters |  0.213125 | 0.223666 |
+| Expire full rings               |    1,000 |      128 emitters |  0.506458 | 0.216292 |
+| Steady rate=600, life=1         |    1,000 |     4,000 updates |  0.313083 | 0.300625 |
+| Saturated rate=10,000, life=0.1 |        7 |     2,000 updates |  0.091375 | 0.089333 |
+| Idle rate=0                     |    1,000 |    10,000 updates |  0.108834 | 0.106666 |
+
+- Expiry-only 的非二次冪容量雖快約 57%，二次冪容量卻慢約 4.9%；combined 的同一
+  控制組慢約 7.2%。保留原 expiry，不把不同容量的收益混成普遍改善；只採較一致的
+  admission 最小變更。未加 persistent mask、不同容量的雙重 loops 或新 API。

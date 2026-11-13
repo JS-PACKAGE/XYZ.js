@@ -186,11 +186,11 @@ var GPUParticleEmitter3D = class extends require_object3d.Object3D {
 		for (; this.count && this.births[this.head] + this.lifetime <= e + 1e-10;) this.head = (this.head + 1) % this.capacity, this.count--;
 	}
 	admit(e, n) {
-		let r = (this.head + this.count) % this.capacity, i = r * 20;
-		this.births[r] = e, this.commands[i] = e - this.epoch, this.commandWords[i + 1] = n >>> 0;
-		let a = this.worldMatrix.elements;
-		for (let e = 0; e < 16; e++) this.commands[i + 4 + e] = a[e];
-		this.count++, this.lastAdmitted = r, this.revision++;
+		let r = this.head + this.count, i = this.capacity, a = r < i ? r : r - i, o = a * 20;
+		this.births[a] = e, this.commands[o] = e - this.epoch, this.commandWords[o + 1] = n >>> 0;
+		let s = this.worldMatrix.elements;
+		for (let e = 0; e < 16; e++) this.commands[o + 4 + e] = s[e];
+		this.count++, this.lastAdmitted = a, this.revision++;
 	}
 	releaseNative() {
 		for (let e of this.resourceOwners) e();

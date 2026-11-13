@@ -367,7 +367,10 @@ export class GPUParticleEmitter3D extends Object3D {
     }
   }
   private admit(at: number, sequence: number): void {
-    const slot = (this.head + this.count) % this.capacity;
+    // Admission has a free slot, so head + count is less than twice capacity.
+    const tail = this.head + this.count;
+    const capacity = this.capacity;
+    const slot = tail < capacity ? tail : tail - capacity;
     const base = slot * GPU_PARTICLE_COMMAND_FLOATS;
     this.births[slot] = at;
     this.commands[base] = at - this.epoch;
