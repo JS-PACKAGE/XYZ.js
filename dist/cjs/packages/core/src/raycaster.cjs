@@ -58,32 +58,36 @@ var Raycaster = class {
 	}
 	instanceMisses(e, t, n, r, i) {
 		let a = e.elements, o = t, s = n, c = o[s] * r.x + o[s + 4] * r.y + o[s + 8] * r.z + o[s + 12], l = o[s + 1] * r.x + o[s + 5] * r.y + o[s + 9] * r.z + o[s + 13], u = o[s + 2] * r.x + o[s + 6] * r.y + o[s + 10] * r.z + o[s + 14], d = a[0] * c + a[4] * l + a[8] * u + a[12], f = a[1] * c + a[5] * l + a[9] * u + a[13], p = a[2] * c + a[6] * l + a[10] * u + a[14], m = r.radius * Math.sqrt(i * induced3x3Norms(o, s)), h = d - this.origin.x, g = f - this.origin.y, _ = p - this.origin.z, v = this.direction, y = g * v.z - _ * v.y, b = _ * v.x - h * v.z, x = h * v.y - g * v.x, S = m * 1.000001 + 1e-6 * (1 + Math.abs(h) + Math.abs(g) + Math.abs(_) + Math.abs(d) + Math.abs(f) + Math.abs(p));
-		return y * y + b * b + x * x > S * S;
+		if (y * y + b * b + x * x > S * S) return !0;
+		let C = h * v.x + g * v.y + _ * v.z;
+		return C + S < this.near || C - S > this.far;
 	}
 	intersectMesh(e, n, r, i) {
 		let a = n.elements, s = require_render_bounds.transformSphere(e.geometry.boundingSphere, n, this.bounds), c = s.x - this.origin.x, l = s.y - this.origin.y, u = s.z - this.origin.z, d = this.direction, f = l * d.z - u * d.y, p = u * d.x - c * d.z, m = c * d.y - l * d.x, h = s.radius * 1.000001 + 1e-6 * (1 + Math.abs(c) + Math.abs(l) + Math.abs(u));
 		if (f * f + p * p + m * m > h * h) return;
-		let g = a[0] * (a[5] * a[10] - a[6] * a[9]) - a[4] * (a[1] * a[10] - a[2] * a[9]) + a[8] * (a[1] * a[6] - a[2] * a[5]);
-		if (!Number.isFinite(g)) return;
-		let _ = g === 0;
-		if (_) this.localOrigin.copy(this.origin), this.localDirection.copy(this.direction);
+		let g = c * d.x + l * d.y + u * d.z;
+		if (g + h < this.near || g - h > this.far) return;
+		let _ = a[0] * (a[5] * a[10] - a[6] * a[9]) - a[4] * (a[1] * a[10] - a[2] * a[9]) + a[8] * (a[1] * a[6] - a[2] * a[5]);
+		if (!Number.isFinite(_)) return;
+		let v = _ === 0;
+		if (v) this.localOrigin.copy(this.origin), this.localDirection.copy(this.direction);
 		else {
 			this.inverse.copy(n).invert(), this.inverse.transformPoint(this.origin, this.localOrigin);
 			let e = this.inverse.elements, t = this.direction;
 			this.localDirection.set(e[0] * t.x + e[4] * t.y + e[8] * t.z, e[1] * t.x + e[5] * t.y + e[9] * t.z, e[2] * t.x + e[6] * t.y + e[10] * t.z);
 		}
-		let v = this.localOrigin.x, y = this.localOrigin.y, b = this.localOrigin.z, x = this.localDirection.x, S = this.localDirection.y, C = this.localDirection.z, { vertices: w, indices: T } = e.geometry;
-		for (let n = 0; n < T.length; n += 3) {
-			let o = T[n] * 8, s = T[n + 1] * 8, c = T[n + 2] * 8, l = w[o], u = w[o + 1], d = w[o + 2], f = w[s], p = w[s + 1], m = w[s + 2], h = w[c], g = w[c + 1], E = w[c + 2];
-			if (_) {
-				let e = a[0] * l + a[4] * u + a[8] * d + a[12], t = a[1] * l + a[5] * u + a[9] * d + a[13], n = a[2] * l + a[6] * u + a[10] * d + a[14], r = a[0] * f + a[4] * p + a[8] * m + a[12], i = a[1] * f + a[5] * p + a[9] * m + a[13], o = a[2] * f + a[6] * p + a[10] * m + a[14], s = a[0] * h + a[4] * g + a[8] * E + a[12], c = a[1] * h + a[5] * g + a[9] * E + a[13], _ = a[2] * h + a[6] * g + a[10] * E + a[14];
-				l = e, u = t, d = n, f = r, p = i, m = o, h = s, g = c, E = _;
+		let y = this.localOrigin.x, b = this.localOrigin.y, x = this.localOrigin.z, S = this.localDirection.x, C = this.localDirection.y, w = this.localDirection.z, { vertices: T, indices: E } = e.geometry;
+		for (let n = 0; n < E.length; n += 3) {
+			let o = E[n] * 8, s = E[n + 1] * 8, c = E[n + 2] * 8, l = T[o], u = T[o + 1], d = T[o + 2], f = T[s], p = T[s + 1], m = T[s + 2], h = T[c], g = T[c + 1], _ = T[c + 2];
+			if (v) {
+				let e = a[0] * l + a[4] * u + a[8] * d + a[12], t = a[1] * l + a[5] * u + a[9] * d + a[13], n = a[2] * l + a[6] * u + a[10] * d + a[14], r = a[0] * f + a[4] * p + a[8] * m + a[12], i = a[1] * f + a[5] * p + a[9] * m + a[13], o = a[2] * f + a[6] * p + a[10] * m + a[14], s = a[0] * h + a[4] * g + a[8] * _ + a[12], c = a[1] * h + a[5] * g + a[9] * _ + a[13], v = a[2] * h + a[6] * g + a[10] * _ + a[14];
+				l = e, u = t, d = n, f = r, p = i, m = o, h = s, g = c, _ = v;
 			}
-			let D = f - l, O = p - u, k = m - d, A = h - l, j = g - u, M = E - d, N = S * M - C * j, P = C * A - x * M, F = x * j - S * A, I = D * N + O * P + k * F;
+			let D = f - l, O = p - u, k = m - d, A = h - l, j = g - u, M = _ - d, N = C * M - w * j, P = w * A - S * M, F = S * j - C * A, I = D * N + O * P + k * F;
 			if (I === 0 || !Number.isFinite(I)) continue;
-			let L = v - l, R = y - u, z = b - d, B = (L * N + R * P + z * F) / I;
+			let L = y - l, R = b - u, z = x - d, B = (L * N + R * P + z * F) / I;
 			if (B < -1e-10 || B > 1 + 1e-10) continue;
-			let V = R * k - z * O, H = z * D - L * k, U = L * O - R * D, W = (x * V + S * H + C * U) / I;
+			let V = R * k - z * O, H = z * D - L * k, U = L * O - R * D, W = (S * V + C * H + w * U) / I;
 			if (W < -1e-10 || B + W > 1 + 1e-10) continue;
 			let G = (A * V + j * H + M * U) / I;
 			if (!Number.isFinite(G) || G < this.near || G > this.far) continue;

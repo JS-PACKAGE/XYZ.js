@@ -360,6 +360,10 @@ XYZError
   on／off 使對應 Set 的快取失效。外層派送保留舊 snapshot，nested dispatch 看到
   mutation；off 不讓 cache 繼續保留移除的 callback。穩定清單／churn 取捨見
   ACCEPTANCE P164。
+- Raycaster 只有在整個 widened bounding-sphere projection interval 都位於 near／far
+  外時才提早排除，不只比較球心；可省略 inverse／triangle scan，instance 也可省掉
+  world matrix composition。Inclusive clip endpoints、singular planar picking 與
+  hit 順序不變；範圍外收益與一般命中的額外成本分開列於 ACCEPTANCE P165。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

@@ -200,7 +200,9 @@ export class Raycaster {
           Math.abs(sx) +
           Math.abs(sy) +
           Math.abs(sz));
-    return cx * cx + cy * cy + cz * cz > reach * reach;
+    if (cx * cx + cy * cy + cz * cz > reach * reach) return true;
+    const along = wx * ray.x + wy * ray.y + wz * ray.z;
+    return along + reach < this.near || along - reach > this.far;
   }
 
   private intersectMesh(
@@ -229,6 +231,9 @@ export class Raycaster {
       sphere.radius * 1.000001 +
       1e-6 * (1 + Math.abs(wx) + Math.abs(wy) + Math.abs(wz));
     if (cx * cx + cy * cy + cz * cz > reach * reach) return;
+    // Cull only when the whole widened sphere lies outside the accepted distance interval.
+    const along = wx * ray.x + wy * ray.y + wz * ray.z;
+    if (along + reach < this.near || along - reach > this.far) return;
     // Singular transforms can still contain a pickable planar triangle: use world coordinates then.
     const determinant =
       e[0] * (e[5] * e[10] - e[6] * e[9]) -

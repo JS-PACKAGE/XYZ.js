@@ -379,6 +379,11 @@ These are public error classes, not a promise to rewrap every exception from use
   on/off invalidates the corresponding listener Set's cache. Active dispatch keeps
   its old snapshot while nested dispatch sees mutations; removed callbacks are not
   retained by the cache. Stable-list and churn tradeoffs are in ACCEPTANCE P164.
+- Raycaster rejects a candidate early only when its entire widened bounding-sphere
+  projection interval lies outside near/far, never from the center alone. This skips
+  inverses/triangle scans, and instance matrix composition where possible, without
+  changing inclusive clipping, singular planar picking or hit order. Range-rejection
+  gains and ordinary-hit overhead are measured separately in ACCEPTANCE P165.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

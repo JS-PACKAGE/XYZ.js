@@ -5346,3 +5346,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   的 GC probe 通過；穩定清單 CPU 約快 4.3–35.1%，逐次 churn 約慢 7.0%。
 - MP4 fragment guard 的 OR 候選各測項略慢，未套用；完整量測、retention proof、
   工具與未驗證範圍見 ACCEPTANCE P164。
+
+## P165 — Conservative raycast distance-interval rejection
+
+- Raycaster 以既有 widened sphere 的 projection interval 排除整體位於 near／far
+  範圍外的 regular meshes／instances；不能只比較 sphere center，保留 grazing、
+  singular planar triangles 與 inclusive clip endpoints。
+- 16,384 組 differential cases、38 項 targeted tests 通過；範圍外 CPU 測項約少
+  33.8–88.4%，控制組最高約慢 2.7%。Zero-direction scalar 候選未有穩定收益，未採用。
+- 八個 sphere-overlap regressions、完整量測、取捨及未驗證範圍見 ACCEPTANCE P165。

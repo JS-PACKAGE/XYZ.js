@@ -5494,3 +5494,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 穩定 snapshots 減少重複 copy，代價是常駐 array references／兩個 private fields，
   以及逐次 listener churn 約 7.0% 的 CPU 退步；沒有宣稱降低 retained heap。
   16,384 組差分、57 tests、64 removed-listener GC proof 與數據見 ACCEPTANCE P164。
+
+## P165 — Ray interval broad phase without center-only clipping
+
+- 保留 radial sphere miss 為第一道判斷；只對未排除候選計算 center projection。
+  projection + widened reach < near 或 projection - widened reach > far，才判定
+  整顆球在有效距離外。沿用既有 induced-norm bounds 與誤差／triangle tolerance padding，
+  不將 sphere center 落在範圍外誤當成整顆 sphere 在外。
+- Regular meshes 可略過 inverse 與 triangle scan；instances 可連 composing world
+  matrix 一併略過。精確 triangle arithmetic、singular fallback、排序與 ownership 不變。
+- 額外 projection／branch 對一般命中可能有少量 CPU 代價，不宣稱普遍加速；
+  量測、16,384 組差分、38 tests 及八個 overlap regressions 見 ACCEPTANCE P165。

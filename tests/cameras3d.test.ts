@@ -426,6 +426,51 @@ describe('exact 3D picking', () => {
     expect(raycaster.intersectObjects([mesh], true, out)).toEqual([]);
   });
 
+  it.each([
+    [false, false, -1],
+    [false, false, 1],
+    [false, true, -1],
+    [false, true, 1],
+    [true, false, -1],
+    [true, false, 1],
+    [true, true, -1],
+    [true, true, 1],
+  ] as const)(
+    'keeps sphere-overlap hits with instanced=%s singular=%s tilt=%i',
+    (instanced, singular, tilt) => {
+      const shared = { geometry: triangle(), material: material() };
+      const mesh = instanced
+        ? new InstancedMesh({ ...shared, count: 1 })
+        : new Mesh(shared);
+      mesh.rotation.setFromEuler(0, (tilt * Math.PI) / 4, 0);
+      mesh.scale.z = singular ? 0 : 1;
+      const target = mesh
+        .updateWorldMatrix()
+        .transformPoint(new Vector3(0.8, -0.75, 0));
+      const ray = new Raycaster();
+      ray.origin.copy(target).add(new Vector3(0, 0, 5));
+      ray.direction.set(0, 0, -7);
+      ray.near = 4.99;
+      ray.far = 5.01;
+      const hits = ray.intersectObjects([mesh]);
+      expect(hits).toHaveLength(1);
+      expect(hits[0].distance).toBeCloseTo(5, 5);
+      expect(hits[0].instanceId).toBe(instanced ? 0 : undefined);
+      expectPoint(hits[0].point, target);
+      // The tilted sphere's center is outside this narrow interval, but its triangle is not.
+      ray.near = ray.far = hits[0].distance;
+      expect(ray.intersectObjects([mesh])).toEqual(hits);
+      ray.near += 0.001;
+      ray.far += 0.002;
+      expect(ray.intersectObjects([mesh])).toEqual([]);
+      ray.near = 0;
+      ray.far = hits[0].distance - 0.001;
+      expect(ray.intersectObjects([mesh])).toEqual([]);
+      mesh.destroy();
+      shared.material.texture.destroy();
+    },
+  );
+
   it('uses updated skeletal deformation before reading triangles', () => {
     const joint = new Group();
     const mesh = new SkinnedMesh({

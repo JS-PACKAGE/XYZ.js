@@ -18457,3 +18457,66 @@ tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
 | AVC   |         1,024 | no          |     64 |  5.317250 | 5.332958 |
 
 - 各測項約慢 0.3–1.7%，故不保留；未宣稱該候選完成 fragmented／error differential。
+
+## P165 — Conservative raycast near/far broad phase（2026-11-13）
+
+- Raycaster 的 regular mesh／instance sphere broad phase，在既有 radial miss 檢查後，
+  以 sphere center 沿射線的 projection ± 既有 widened reach 比較 near／far。
+  只有整個球都在 accepted distance interval 外才略過 inverse／triangle scan；
+  instance 可更早略過 composed matrix。保留 induced-norm sphere、rounding／hit
+  tolerance padding、singular planar fallback、hit distance／順序／instance IDs。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，8 warmup／15 輪交替
+  median、沒有並行測試。正式 intersectObjects／scene traversal／normalization／
+  broad phase／triangles／hit sorting 及結果讀取都在計時內；setup 在外，重用 out array。
+  每次查詢重設四種未正規化 direction，origin 固定；dense cases 為同一三角形重複
+  100 次的 indexed geometry，用以隔離 scan／sort 成本，不代表一般 mesh topology。
+
+| Workload                           | Queries | Before ms | After ms |
+| ---------------------------------- | ------: | --------: | -------: |
+| Empty objects                      | 100,000 |  2.630834 | 2.661500 |
+| One triangle hit                   |  20,000 |  2.235375 | 2.296458 |
+| One radial miss                    |  30,000 |  1.985917 | 2.030459 |
+| 100 radial-miss meshes             |   2,000 |  8.350084 | 8.559458 |
+| 100 coincident triangle hits       |   2,000 |  3.672625 | 3.624084 |
+| 100 instances, one hit             |   2,000 |  3.769291 | 3.791542 |
+| One mesh behind the origin         |  30,000 |  3.084209 | 2.043250 |
+| 100 meshes behind the origin       |   2,000 | 15.337750 | 8.682208 |
+| 100 instances behind the origin    |   2,000 | 17.062625 | 3.613084 |
+| 100 triangles entirely before near |   2,000 |  1.160375 | 0.138875 |
+| 100 triangles entirely beyond far  |   2,000 |  1.175542 | 0.136667 |
+
+- 範圍外測項 CPU 約少 33.8–88.4%；額外 projection／branch 與 code shape 的代價，
+  在控制組約為 -1.3% 至 +2.7% 的時間變動（負值較快）。採用此可明確跳過整段工作的
+  tradeoff，不宣稱所有 scenes 變快，也未量測 allocation counts、heap、GPU 或 fps。
+- 16,384 組 differential cases，8,287 error cases 與有效結果中的 929 hits 精確一致。
+  比對 distances／points／face indices／instance IDs／順序、out identity／內容、
+  normalized direction、iteration events、error name／message。涵蓋 hierarchy／
+  duplicate roots、visibility、reflections／nonuniform／extreme scales、shear、
+  singular parent／regular transforms、near=far／outside intervals、invalid ranges、
+  signed zero／subnormal／huge／NaN／Infinity vectors 與 interrupted iterators。
+  Instance matrices 使用正式可接受的 invertible transforms；singular parent 則保留。
+- 八個 permanent regressions：regular／instanced、regular／singular world matrices、
+  正反 tilt，確認 sphere center 在 narrow clip interval 外但 triangle 在內仍命中；
+  near=far 的實際 hit distance 含端點，略微移動 interval 後正確排除。
+- `vitest run tests/cameras3d.test.ts tests/frustum.test.ts tests/native-skinning.test.ts`
+  **38 tests passed**；Typecheck、scoped ESLint／Prettier、ESM compile/minify、
+  完整 vendor copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英
+  同步。未跑完整 suite、未開 browser／重驗 rendering、三 backend 或 audio；
+  本階段驗證的是正式 CPU picking API，不是 rendered-pixel 或 frame-rate proof。
+
+### 未採用：zero-direction scalar check
+
+- 先量測以三個 zero component comparisons 取代 validation 的 length() === 0；
+  normalize 呼叫不變。正式 source 未採用此候選；沒有聲稱完成其行為差分驗證。
+  同環境、8 warmup／15 輪交替 median，完整 picking queries：
+
+| Workload                     | Queries | Before ms | After ms |
+| ---------------------------- | ------: | --------: | -------: |
+| Empty objects                | 100,000 |  2.620542 | 2.620667 |
+| One triangle hit             |  20,000 |  2.239541 | 2.257666 |
+| One radial miss              |  30,000 |  2.024666 | 2.024458 |
+| 100 radial-miss meshes       |   2,000 |  8.564250 | 8.698000 |
+| 100 coincident triangle hits |   2,000 |  3.654583 | 3.619833 |
+| 100 instances, one hit       |   2,000 |  3.754166 | 3.729084 |
+
+- 約 -1.0% 至 +1.6% 的時間變動，沒有穩定整體收益，故不保留。
