@@ -54,6 +54,8 @@ GL velocity 每pass獨立以實際vertex／index buffer identity省略重複bind
 
 GL motion以既有連續32個float的current／previous matrices，一次更新mat4[2] default uniform；不加copy、subarray、staging或buffer，保留逐pose draw。GL motion updates its existing contiguous current/previous matrices in one mat4[2] default-uniform call, without copy/subarray/staging/buffers; per-pose draws remain. GL motion は既存の連続32-float current／previous matricesを1回のmat4[2] default-uniform更新で送ります。Copy／subarray／staging／bufferは追加せず、poseごとのdrawを維持します。呼び出し削減を全面FPS向上とはしません。
 
+GL 單值uniform直接快取number，省去四元素Float64Array；保留signed zero／NaN與program-location生命週期。Native uniforms／pixels／寫入次數相同，小幅CPU量測不等同全面FPS或heap收益。GL scalar uniforms cache a number instead of a four-element Float64Array, preserving signed zero/NaN and location lifetime; native values/pixels/write counts match, without universal CPU/FPS or heap claims. GL の単一値uniformは4要素Float64Arrayではなくnumberを保持し、signed zero／NaNとlocation寿命を維持します。Native値・pixels・書き込み回数は同じで、全面的CPU／FPS・heap改善とはしません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

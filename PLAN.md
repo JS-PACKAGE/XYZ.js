@@ -5911,3 +5911,18 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   不新增wiring-only test、不降低門檻。隔離build只更新8個runtime/maps與2個精確宣告差異。
 - Scoped檢查、26項測試及unpatched consumers／showcase完成後只提交本階段；
   完整證據與限制見ACCEPTANCE P214。不push、不升版、不宣稱全面FPS提升。
+
+## P215 — Primitive scalar GL uniform cache
+
+- 現行正式GL／PBR profile顯示uniform-cache比較仍在CPU熱路徑；profile只定位，
+  不把取樣耗時當完整submit收益，也不把無法歸屬的native／program samples算成helper成本。
+- uniform1i／uniform1f改為在既有location直接保留number，無需四元素Float64Array；
+  使用原signed-zero比較、NaN重送及cold undefined語意，vector路徑保留原storage。
+- 保留144筆完整native submit paired samples與GPU／小場景對照，不刪除冷啟動outlier；
+  小幅GL方向性結果不構成通用CPU、FPS、GPU-time或heap收益認證。
+- Actual source／built dist×GPU／GL的408組pixels與13 counters相同；GL另逐draw核對
+  真正scalar／sampler uniform值，native所有uniform writes、motion bindings與資源數均相同。
+- 合法保留首次scalar值時，兩AA既有tone-agx threshold均失敗，native讀回與實際RGBA也不同。
+  Source／ESM／CJS通過精確數值邊界對照；既有30項相關測試通過，沒有新增wiring-only test。
+- 隔離正式build只同步單模組4個runtime/maps及1個private-helper宣告；不碰其他產物，
+  不push、不升版。完整原始paired clocks、認證範圍與觀察器限制見ACCEPTANCE P215。

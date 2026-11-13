@@ -13,6 +13,7 @@ export declare class WebGLUniformCache {
     uniform4fv(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, data: Float32Array): void;
     /** Array form for data that never changes: resending the same array is skipped by identity. */
     sharedUniform4fv(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, data: Float32Array): void;
+    private changedSingle;
     private changed;
     uniform1i(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, x: number): void;
     uniform1f(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, x: number): void;

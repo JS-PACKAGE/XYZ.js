@@ -7255,3 +7255,18 @@ Native reflection確認FLOAT_MAT4,size2，並從真實兩個locations各自getUn
 錯誤，不用上傳array重建矩陣冒充shader inputs。完整paired clocks、不利／GPU對照、
 宣告精確遷移與認證限制，見[ACCEPTANCE](../ACCEPTANCE.md) P214。
 不宣稱全面CPU／FPS、GPU-time或heap收益。
+
+## P215 GL 單值uniform快取
+
+uniform1i／uniform1f在program location直接保留一個number，不再配置四元素Float64Array。
+原比較仍區分signed zero，NaN仍每次重送；undefined代表cold location。Single／多component
+storage切換會使另一種sent state失效；vector、copied-array與shared-array其餘契約不變。
+不新增全域ownership cache，不改shader、native uniform寫入次數或公開API。
+
+Actual source／built ESM×GPU／GL的408組before／after frames與13個公開counters相同。
+逐draw以真正active scalar／sampler descriptors及native getUniform獨立核對shader輸入，
+亦確認native API次數與資源平衡。合法只保留首次scalar值時，兩AA既有tone-agx pixels門檻
+均在GL NO_ERROR下失敗，native讀回與實際RGBA也不同，不是只偵測私有Symbol差異。
+Source／built ESM／CJS另核對signed zero、NaN與mutation等精確數值呼叫語意。
+Location內number／typed-word觀察不是heap／GC／VRAM量測；完整144筆paired CPU samples、
+小幅收益、不利／GPU對照與認證限制見[ACCEPTANCE](../ACCEPTANCE.md) P215，不宣稱全面FPS。

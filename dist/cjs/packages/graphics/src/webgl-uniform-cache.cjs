@@ -1,36 +1,41 @@
 //#region dist/packages/graphics/src/webgl-uniform-cache.js
 var e = Symbol(`xyz.sentUniformScalar`);
-var t = Symbol(`xyz.sentUniformVector`);
-var n = Symbol(`xyz.sentUniformShared`);
+var t = Symbol(`xyz.sentUniformSingle`);
+var n = Symbol(`xyz.sentUniformVector`);
+var r = Symbol(`xyz.sentUniformShared`);
 var WebGLUniformCache = class {
-	uniform4fv(e, r, i) {
-		if (!r) return;
-		let a = r, o = a[t];
+	uniform4fv(e, t, i) {
+		if (!t) return;
+		let a = t, o = a[n];
 		if (o?.length === i.length) {
 			let e = 0;
 			for (; e < i.length && same(o[e], i[e]);) e++;
 			if (e === i.length) return;
 			if (i.length <= 16) for (; e < i.length; e++) o[e] = i[e];
 			else o.set(i);
-		} else a[t] = i.slice();
-		a[n] = void 0, e.uniform4fv(r, i);
+		} else a[n] = i.slice();
+		a[r] = void 0, e.uniform4fv(t, i);
 	}
-	sharedUniform4fv(e, r, i) {
-		if (!r) return;
-		let a = r;
-		a[n] !== i && (a[n] = i, a[t] = void 0, e.uniform4fv(r, i));
+	sharedUniform4fv(e, t, i) {
+		if (!t) return;
+		let a = t;
+		a[r] !== i && (a[r] = i, a[n] = void 0, e.uniform4fv(t, i));
 	}
-	changed(t, n, r, i, a) {
-		let o = t, s = o[e];
-		if (!s) o[e] = s = /* @__PURE__ */ new Float64Array(4);
-		else if (same(s[0], n) && same(s[1], r) && same(s[2], i) && same(s[3], a)) return !1;
-		return s[0] = n, s[1] = r, s[2] = i, s[3] = a, !0;
+	changedSingle(n, r) {
+		let i = n, a = i[t];
+		return a !== void 0 && same(a, r) ? !1 : (i[t] = r, i[e] = void 0, !0);
+	}
+	changed(n, r, i, a, o) {
+		let s = n, c = s[e];
+		if (!c) s[e] = c = /* @__PURE__ */ new Float64Array(4);
+		else if (same(c[0], r) && same(c[1], i) && same(c[2], a) && same(c[3], o)) return !1;
+		return s[t] = void 0, c[0] = r, c[1] = i, c[2] = a, c[3] = o, !0;
 	}
 	uniform1i(e, t, n) {
-		t && this.changed(t, n, 0, 0, 0) && e.uniform1i(t, n);
+		t && this.changedSingle(t, n) && e.uniform1i(t, n);
 	}
 	uniform1f(e, t, n) {
-		t && this.changed(t, n, 0, 0, 0) && e.uniform1f(t, n);
+		t && this.changedSingle(t, n) && e.uniform1f(t, n);
 	}
 	uniform2f(e, t, n, r) {
 		t && this.changed(t, n, r, 0, 0) && e.uniform2f(t, n, r);

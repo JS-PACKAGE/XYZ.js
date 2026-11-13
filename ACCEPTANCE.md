@@ -24919,3 +24919,150 @@ showcase compatibility is distinct from dedicated velocity-effect coverage above
 | instance / 6     |           0.141667 |          0.150000 |
 | alternating / 6  |           1.008333 |          1.012500 |
 | single / 6       |           0.016667 |          0.020833 |
+
+## P215 — Primitive scalar GL uniform cache (2026-11-13)
+
+### Decision and scope
+
+- 採用單一私有scalar fast path：uniform1i／uniform1f在既有WebGLUniformLocation上直接保留number，不再為一個component配置四元素Float64Array，也不再比較另外三個固定zero components。沿用same對signed zero的區分；NaN每次重送，undefined是cold sentinel。
+- Single／multi-component切換使另一種sent storage失效；兩個以上components、copied／shared arrays維持原路徑。沒有新的global ownership map、shader、GPU資源、binding／draw變更或公開API。Program relink／context restore仍以新location從cold cache開始。
+- 僅修改webgl-uniform-cache.ts，兩個single setters完整切換；正式build同步單模組ESM／CJS的4個runtime/maps及1個declaration。宣告僅新增private changedSingle，沒有新公開入口、alias、shim或runtime dependency。版本維持1.23.0，不push。
+- 這是可確認的scalar儲存／比較縮減；完整CPU差異小、控制組有波動，不認證通用CPU、FPS、GPU-time、heap、GC或VRAM收益。
+
+### Current production profile, not speedup clocks
+
+- 先對未修改的P214正式GL／PBR路徑取樣：每個cohort實際512次完整beginFrame／render／endFrame；CDP100µs sampling只包住正式submit loop。Module import、初始native完成與warm在外；profiler本身有overhead，不把self time當成before／after CPU benchmark。
+- Profile涵蓋none、shared、unique、instance；none是1000普通PBR meshes且不開motion，其他沿正式velocity路徑。changed包含全部component比較，不把全部sample都歸因於single分支。無URL的program／native samples保留其未知歸屬。
+
+| Cohort   | Total samples | Uniform-cache changed samples | changed sampled self (ms) |
+| -------- | ------------: | ----------------------------: | ------------------------: |
+| none     |          2797 |                           151 |                      23.3 |
+| shared   |          3131 |                           150 |                    23.271 |
+| unique   |          8312 |                           211 |                    32.779 |
+| instance |           794 |                             1 |                     0.152 |
+
+### Actual complete-submit CPU comparison
+
+- Pinned managed Chromium153.0.8010.12，darwin/arm64，desktop automation、visible timing page；非physical device／Safari／Firefox認證。每round交替AB／BA，before與after各啟動fresh browser，各cohort建立並銷毀真正renderer／scene／texture。
+- 使用相同正式public createRenderer／Scene／PBR／Texture；128×128、AA off。None為1000普通meshes、無motion；shared／unique／alternating各1000普通meshes、geometry identity控制不同；instance為一個1000-instance mesh；single為一個mesh。GPU是未使用GL cache的backend控制組。
+- 先4次diagnostic draws確認canonical motion owner、pose／run及真實draws，再撤掉observer；其後6次warm與4批各10次warm，每批外完成native工作。僅24次完整CPU submit在performance.now clocks內；native GPU queue completion／gl.finish、建立／decode、驗證／pixels、teardown都在外。此為CPU enqueue／submit，不是GPU時間或RAF FPS。
+- 共6 paired rounds×6 cohorts×2 variants×2 backends=144筆。先完成全部clock再做獨立native observers／readback，沒有挑有利批次重測。每筆讀取真正served cache module並保留SHA及primitive-marker guard。所有draw／upload counters與native validation對照通過。
+- GL none的首筆before為3.616667ms/submit；保留此outlier與所有不利／持平round，不刪除。下表median是六筆各自median；完整原始paired clocks列於後。GL none六組同向，shared／unique各五組較低一組較高；幅度仍小。
+
+| Backend/cohort     | Before median ms/submit | After median ms/submit | Change |
+| ------------------ | ----------------------: | ---------------------: | -----: |
+| webgl2/none        |                0.850000 |               0.820833 | -3.43% |
+| webgl2/shared      |                1.016667 |               1.006250 | -1.02% |
+| webgl2/unique      |                2.487500 |               2.425000 | -2.51% |
+| webgl2/instance    |                0.235417 |               0.235417 |  0.00% |
+| webgl2/alternating |                1.797917 |               1.768750 | -1.62% |
+| webgl2/single      |                0.012500 |               0.012500 |  0.00% |
+| webgpu/none        |                0.689583 |               0.691667 |  0.30% |
+| webgpu/shared      |                0.843750 |               0.860417 |  1.98% |
+| webgpu/unique      |                1.097917 |               1.097917 | -0.00% |
+| webgpu/instance    |                0.143750 |               0.143750 |  0.00% |
+| webgpu/alternating |                1.029167 |               1.027083 | -0.20% |
+| webgpu/single      |                0.020833 |               0.020833 |  0.00% |
+
+### Independent native semantics and controls
+
+- Fresh final-server epoch：before只freeze實際修改前source及原built ESM cache；after無SDK／shader／renderer overrides，載入canonical source或真正重建dist的統一公開入口。所有renderer／history／PBR shader／framegraph仍為正式實作，不以錄製圖像或JS重建uniforms冒充GPU。
+- Instrumented fixture保留目前24個official scenarios並加2個mixed-geometry controls：每entry／backend有26個、共102 captured frames。Actual source／dist×GL／GPU各自before／after，合計408組frame pairs、26,869,760 bytes RGBA精確相同，13個stable公開counters（含真實draw／upload）亦相同。PNG只作實際surface檢視，不當作效能證據。
+- 每個GL suite在1764個真正native draws前，反射actual active scalar／sampler names／types，再由真正program／location逐一getUniform，float值保留API讀回的float32 words；每suite6876個、source+dist合計13,752組native values精確相同。這個比較不依賴私有cache symbols或待上傳的JS陣列。
+- 同時觀察94個suite累計cached scalar locations：before0個number／376個Float64 words，after94個number／0個Float64 words。這只是每location首次觀察時的sent storage形態，不是94個同時live物件、銷毀後retained heap、配置事件數、總bytes或GC量測。
+- 所有native uniform API次數亦精確相同：每GL suite uniform1i184、uniform1f10、uniform2f8、uniform3f12、uniform4f248、uniform4i4、uniform4fv1114、uniformMatrix4fv2050。Motion子路徑仍62passes／1300poses，bindBuffer300、vertexAttribPointer150、matrix更新1300，前後不變。
+- 每GL suite的建立／刪除都平衡且相同：program38／38、VAO32／32、buffer70／70、texture58／58。Native矩陣兩個實際locations、geometry／depth／VAO／index／draw輸入核對及validation沒有錯誤；WebGPU沒有GL觀察資料，保持獨立pixel／public-counter控制。
+- 合法stale-first-value控制：故意讓single cache只保留首次值，不使用INVALID_OPERATION或context loss。兩AA均在既有tone-agx的100 visibly-changed-pixels門檻得到0而失敗；每AA另外讀到1個真正scalar value不同、1個draw不同、1個實際frame的49,152 RGBA bytes不同，GL NO_ERROR。不是單憑cache representation改變判定失敗，也沒有降低門檻。
+- Throwaway數值契約逐一比較完整native-method呼叫順序／次數／arguments，涵蓋signed zero、NaN、infinities、null／獨立locations、所有scalar／vector methods、copied／shared mutation及single1i／1f形式切換。每artifact105個精確呼叫：source prototype、正式built ESM及CJS皆通過；這不是fake GPU proof，與上述真正native consumers分開記錄。
+- 該數值recorder初次錯誤保留了mutable location物件，deep equality意外比較private Symbol／storage差異而失敗；重新讀取fixture後改為呼叫當下的location.id／argument snapshots，不修改數值、次數、候選或native門檻，完整對照通過。
+
+### Verification and remaining limits
+
+- Source Prettier、ESLint、typecheck通過；既有4個相關files／30 tests通過，包含uniform-cache、motion-blur-object、motion-blur、resource-residency。這不是重跑全suite；沒有新增wiring／storage-shape永久test。
+- 真正tsc→minify-dist→copy-vendor→build-cjs在owned隔離stage完成：minify377 JS、建立720 CJS files，vendor unchanged。Copy前核對canonical source==staged source、五個old outputs仍逐byte相同、private declaration只有一個精確新增；只copy四個runtime/maps與一個d.ts，不覆寫其他產物或使用者physics／world檔案。
+- Unpatched官方source post-effects頁，以及只變更import路徑的真正built-dist consumer，在GPU／GL均各24個scenarios通過，無page／console errors。它們不含native observers，不混稱為上述26-scenario extended fixture。
+- Canonical showcase在GPU／GL均實際切Scene A→B並觸發pagehide，native cleanup數增加，無page／console errors。GL實際PNG已開啟檢視，2D Sprite／Primitive與lit3D cube／sphere可見，audio仍locked。沒有聲稱重新驗證音訊unlock／可聽輸出。
+- 對原根目錄六文件做相對連結及格式檢查；歷史驗收保留原bytes，只append此節。專用temp fixtures／Vite services／build stage於本階段完成後清理，不納入commit。不執行push、version bump或production部署。
+- 本次未重新做Safari／Firefox／physical-device／所有backend認證，未測actual heap／GC／GPU timestamps／RAF fps；native API／slot觀察與短批次CPU只支持以上有限結論。
+
+### All GL paired CPU samples
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           3.616667 |          0.816667 |
+| shared / 1       |           1.033333 |          0.975000 |
+| unique / 1       |           2.691667 |          2.391667 |
+| instance / 1     |           0.233333 |          0.241667 |
+| alternating / 1  |           1.854167 |          1.750000 |
+| single / 1       |           0.012500 |          0.012500 |
+| none / 2         |           0.850000 |          0.820833 |
+| shared / 2       |           0.983333 |          0.970833 |
+| unique / 2       |           2.400000 |          2.429167 |
+| instance / 2     |           0.250000 |          0.229167 |
+| alternating / 2  |           1.754167 |          1.779167 |
+| single / 2       |           0.012500 |          0.012500 |
+| none / 3         |           0.850000 |          0.812500 |
+| shared / 3       |           1.000000 |          0.975000 |
+| unique / 3       |           2.441667 |          2.420833 |
+| instance / 3     |           0.229167 |          0.237500 |
+| alternating / 3  |           1.770833 |          1.754167 |
+| single / 3       |           0.012500 |          0.016667 |
+| none / 4         |           0.845833 |          0.820833 |
+| shared / 4       |           1.000000 |          1.037500 |
+| unique / 4       |           2.475000 |          2.400000 |
+| instance / 4     |           0.237500 |          0.233333 |
+| alternating / 4  |           2.304167 |          1.758333 |
+| single / 4       |           0.016667 |          0.016667 |
+| none / 5         |           0.845833 |          0.829167 |
+| shared / 5       |           1.116667 |          1.095833 |
+| unique / 5       |           2.750000 |          2.541667 |
+| instance / 5     |           0.241667 |          0.237500 |
+| alternating / 5  |           1.787500 |          1.787500 |
+| single / 5       |           0.008333 |          0.012500 |
+| none / 6         |           0.866667 |          0.820833 |
+| shared / 6       |           1.075000 |          1.050000 |
+| unique / 6       |           2.500000 |          2.487500 |
+| instance / 6     |           0.233333 |          0.229167 |
+| alternating / 6  |           1.808333 |          1.808333 |
+| single / 6       |           0.012500 |          0.012500 |
+
+### All unchanged-GPU-backend paired CPU samples
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.675000 |          0.687500 |
+| shared / 1       |           0.833333 |          0.870833 |
+| unique / 1       |           1.095833 |          1.108333 |
+| instance / 1     |           0.145833 |          0.150000 |
+| alternating / 1  |           1.012500 |          1.025000 |
+| single / 1       |           0.020833 |          0.016667 |
+| none / 2         |           0.683333 |          0.812500 |
+| shared / 2       |           0.850000 |          0.858333 |
+| unique / 2       |           1.108333 |          1.087500 |
+| instance / 2     |           0.141667 |          0.145833 |
+| alternating / 2  |           1.058333 |          1.050000 |
+| single / 2       |           0.016667 |          0.020833 |
+| none / 3         |           0.695833 |          0.687500 |
+| shared / 3       |           0.820833 |          0.912500 |
+| unique / 3       |           1.087500 |          1.116667 |
+| instance / 3     |           0.141667 |          0.145833 |
+| alternating / 3  |           1.033333 |          1.008333 |
+| single / 3       |           0.020833 |          0.016667 |
+| none / 4         |           0.691667 |          0.695833 |
+| shared / 4       |           0.887500 |          0.862500 |
+| unique / 4       |           1.079167 |          1.087500 |
+| instance / 4     |           0.145833 |          0.141667 |
+| alternating / 4  |           1.025000 |          1.041667 |
+| single / 4       |           0.016667 |          0.020833 |
+| none / 5         |           0.687500 |          0.695833 |
+| shared / 5       |           0.837500 |          0.858333 |
+| unique / 5       |           1.100000 |          1.079167 |
+| instance / 5     |           0.150000 |          0.137500 |
+| alternating / 5  |           1.020833 |          1.029167 |
+| single / 5       |           0.020833 |          0.020833 |
+| none / 6         |           0.700000 |          0.683333 |
+| shared / 6       |           0.854167 |          0.837500 |
+| unique / 6       |           1.100000 |          1.108333 |
+| instance / 6     |           0.141667 |          0.137500 |
+| alternating / 6  |           1.054167 |          1.000000 |
+| single / 6       |           0.020833 |          0.020833 |

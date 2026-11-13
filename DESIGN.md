@@ -6077,3 +6077,16 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   pixels，兩AA皆失敗；native32-word mismatch是獨立證據。沒有新增實作綁死測試。
 - GPU history／WGSL／GL fragment逐byte不變。Actual source／built dist的program／VAO／
   buffer／texture建立與刪除數保持相同；native matrix APIs減少，不等於heap／GPU-time／FPS收益。
+
+## P215 — One-component uniform values do not need vector storage
+
+- uniform1i／uniform1f的上次值以location上的私有Symbol直接保留number；undefined代表
+  尚未寫入。沿用same比較以區分signed zero，NaN仍每次重送，不改native數值轉換。
+- Single／多component cache切換時清除另一種sent state，不以過期representation略過更新。
+  兩個以上components沿用原Float64Array與比較；copied／shared vector-array路徑不變。
+- 不加renderer-global map或強引用cache；location仍屬於linked program，relink／restore的
+  新location從cold state開始。Shader、GPU資源、uniform API寫入數與公開API不變。
+- Native proof不只檢查私有Symbol：反射真實active scalar／sampler descriptors，於每個
+  真正draw前getUniform，保留float32 bits，另對照pixels、13 counters、native寫入數及cleanup。
+- Suite累計觀察94個cached scalar locations時由376個Float64 words改為94個number slots；
+  這不是同時live objects、總heap、GC或VRAM量測。完整submit收益幅度小，保留全部控制組。

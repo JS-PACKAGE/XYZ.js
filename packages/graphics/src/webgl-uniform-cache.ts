@@ -1,9 +1,11 @@
 const sentScalar = Symbol('xyz.sentUniformScalar');
+const sentSingle = Symbol('xyz.sentUniformSingle');
 const sentVector = Symbol('xyz.sentUniformVector');
 const sentShared = Symbol('xyz.sentUniformShared');
 
 /** A location carrying the last values written through a `WebGLUniformCache`. */
 interface SentLocation {
+  [sentSingle]?: number;
   [sentScalar]?: Float64Array;
   [sentVector]?: Float32Array;
   /** The never-changing array last sent by `sharedUniform4fv`, if that was the last write. */
@@ -56,6 +58,15 @@ export class WebGLUniformCache {
     gl.uniform4fv(location, data);
   }
 
+  private changedSingle(location: WebGLUniformLocation, x: number): boolean {
+    const entry = location as SentLocation;
+    const value = entry[sentSingle];
+    if (value !== undefined && same(value, x)) return false;
+    entry[sentSingle] = x;
+    entry[sentScalar] = undefined;
+    return true;
+  }
+
   private changed(
     location: WebGLUniformLocation,
     x: number,
@@ -73,6 +84,7 @@ export class WebGLUniformCache {
       same(value[3]!, w)
     )
       return false;
+    entry[sentSingle] = undefined;
     value[0] = x;
     value[1] = y;
     value[2] = z;
@@ -85,8 +97,7 @@ export class WebGLUniformCache {
     location: WebGLUniformLocation | null,
     x: number,
   ): void {
-    if (location && this.changed(location, x, 0, 0, 0))
-      gl.uniform1i(location, x);
+    if (location && this.changedSingle(location, x)) gl.uniform1i(location, x);
   }
 
   uniform1f(
@@ -94,8 +105,7 @@ export class WebGLUniformCache {
     location: WebGLUniformLocation | null,
     x: number,
   ): void {
-    if (location && this.changed(location, x, 0, 0, 0))
-      gl.uniform1f(location, x);
+    if (location && this.changedSingle(location, x)) gl.uniform1f(location, x);
   }
 
   uniform2f(

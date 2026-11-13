@@ -7600,3 +7600,22 @@ motion pixels and native previous-matrix readback with GL NO_ERROR.
 See [ACCEPTANCE](../ACCEPTANCE.md) P214 for all paired CPU samples, adverse and GPU
 controls, precise declaration migration, native pixels and certification limits.
 No universal CPU/FPS, GPU-time or heap benefit is claimed.
+
+## P215 scalar GL uniform cache
+
+`uniform1i` and `uniform1f` retain one number directly on their program location,
+instead of allocating four Float64 components. The existing comparison still
+distinguishes signed zero and resends NaN; undefined means a cold location.
+Switching scalar/component storage invalidates the other sent state. Vector,
+copied-array and shared-array paths otherwise retain their existing contracts.
+No global ownership cache, shader, native uniform-write count or public API changes.
+
+Actual source and built ESM consumers have408 exact GPU/GL before/after frame
+pairs and13 unchanged public counters. Native reflection/readback independently
+checks every active scalar/sampler at actual GL draws and exact native API counts.
+A legal stale-first-value control fails the existing tone-agx pixel threshold
+with both AA modes and GL NO_ERROR; native uniform values and RGBA also differ.
+Source/built ESM/CJS numeric call contracts cover signed zeros, NaNs and mutation.
+Retained per-location number/typed-word observations are not heap/GC/VRAM metrics.
+See [ACCEPTANCE](../ACCEPTANCE.md) P215 for all144 paired CPU samples and controls;
+the small observed GL CPU differences do not certify general FPS/performance gains.
