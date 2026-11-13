@@ -5456,3 +5456,15 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 正式 source 的 8,192 次操作差分、32 組 getter／重入 probes、17 tests、
   typecheck／lint／ESM／CJS build，及三 backend 粒子／showcase／cleanup 通過。
 - 空池／低 duty CPU 對照、target fixture 超界修正與未驗證範圍見 ACCEPTANCE P176。
+
+## P177 — Share per-slot particle bounds products
+
+- ParticleLayer2D 的 bounds 每 slot 共用四個 anchor 座標與八個 affine products，
+  保留原四角順序、加法結合、finite checks、local／world slot 與 delayed compaction。
+- 所有暫值只存在本次 slot 計算；source 尺寸與 public matrix callbacks 仍先執行，
+  不跨 call／frame 快取。沿用 GameObject 的共用乘積慣例，不新增 API 或配置。
+- 256 組正式 source history、8,192 次操作、48 組 getter／重入 probes、
+  19 tests、typecheck／lint／ESM／CJS build 通過；三 backend 實際 bounds／
+  layer mutation／clear／restore／ownership cleanup 與 showcase Scene A→B 通過。
+- Scope CPU 約少 4–8%，完整控制組、座標快取候選及未驗證限制見 ACCEPTANCE P177；
+  不宣稱 whole-frame／GPU／presentation fps 或 JS heap 改善。

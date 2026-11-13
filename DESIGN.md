@@ -5614,3 +5614,15 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   cleanup 均不改；不增加 cache、配置、public fields 或另一套粒子實作。
 - Scope CPU、未採用的 caller guard、精確差分與實際 UI lifecycle 見 ACCEPTANCE P176，
   不把空池每次 tick 的奈秒差異外推成整個 Game／GPU／presentation fps。
+
+## P177 — Share affine products without changing the rectangular oracle
+
+- 先完成每 slot 的來源驗證／尺寸讀取及 virtual matrix work，再從私有數值 slot
+  計算 x0／x1／y0／y1 與八個 products。與 GameObject 的既有 bounds 慣例一致，
+  但保留逐角 min／finite guard／max 的原順序及原浮點加法結合。
+- Anchor 下界維持 `0 - anchor`，不改成 unary minus；正負零、鏡射、旋轉、
+  shear、world-slot 轉 local 與 singular inverse 的契約不變。
+- 不採 absolute-extents 近似、不跳過有限值驗證、不持續 cache mutable pose／
+  source 尺寸／public matrix 結果。Slot reuse、stable compaction 與 ownership 不改。
+- 正式數值差分、reentrant probes、兩種 CPU 候選與 native surface 證據見
+  ACCEPTANCE P177；source-level 乘法減半不等於整體 frame-time 減半。

@@ -469,3 +469,65 @@ describe('particle layer draw order', () => {
     }
   });
 });
+
+describe('particle layer affine bounds', () => {
+  it('preserves mirrored corners and local/world slot spaces', () => {
+    const texture = new Texture({
+      width: 20,
+      height: 10,
+      close: vi.fn(),
+    } as unknown as ImageBitmap);
+    const layer = new ParticleLayer2D({ capacity: 1, texture });
+    layer.position.set(10, -3);
+    layer.scale.set(2, -1);
+    const transform = { a: -2, b: 1, c: 0.5, d: 3, tx: 7, ty: -11 };
+    const index = layer.addParticle({ anchor: [0.25, 0.75], transform })!;
+    expect(layer.getLocalBounds()).toEqual({
+      x: -26.75,
+      y: -38.5,
+      width: 45,
+      height: 50,
+    });
+    expect(layer.getWorldBounds()).toEqual({
+      x: -43.5,
+      y: -14.5,
+      width: 90,
+      height: 50,
+    });
+    layer.setTransform(index, { ...transform, space: 'world' });
+    expect(layer.getWorldBounds()).toEqual({
+      x: -26.75,
+      y: -38.5,
+      width: 45,
+      height: 50,
+    });
+    expect(layer.getLocalBounds()).toEqual({
+      x: -18.375,
+      y: -14.5,
+      width: 22.5,
+      height: 50,
+    });
+    layer.destroy();
+    texture.destroy();
+  });
+
+  it('preserves positive-zero minima for zero anchors and negative-zero translation', () => {
+    const texture = new Texture({
+      width: 20,
+      height: 10,
+      close: vi.fn(),
+    } as unknown as ImageBitmap);
+    const layer = new ParticleLayer2D({ capacity: 1, texture });
+    layer.addParticle({
+      anchor: [0, 0],
+      transform: { a: 1, b: 1, c: 1, d: 1, tx: -0, ty: -0, space: 'world' },
+    });
+    const bounds = layer.getWorldBounds();
+    expect(bounds.x).toBe(0);
+    expect(bounds.y).toBe(0);
+    expect(bounds.width).toBe(30);
+    expect(bounds.height).toBe(30);
+    layer.destroy();
+    texture.destroy();
+  });
+});

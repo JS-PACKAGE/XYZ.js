@@ -556,11 +556,21 @@ export class ParticleLayer2D extends GameObject {
           .multiply(this.getSlotWorldMatrix(index, this.worldAffine));
       } else matrix = this.getSlotWorldMatrix(index, this.boundsMatrix);
       const e = matrix.elements;
+      const x0 = (0 - slot.anchorX) * width,
+        x1 = (1 - slot.anchorX) * width,
+        y0 = (0 - slot.anchorY) * height,
+        y1 = (1 - slot.anchorY) * height;
+      const ax0 = e[0] * x0,
+        ax1 = e[0] * x1,
+        cy0 = e[3] * y0,
+        cy1 = e[3] * y1,
+        bx0 = e[1] * x0,
+        bx1 = e[1] * x1,
+        dy0 = e[4] * y0,
+        dy1 = e[4] * y1;
       for (let corner = 0; corner < 4; corner++) {
-        const x = ((corner & 1 ? 1 : 0) - slot.anchorX) * width;
-        const y = ((corner & 2 ? 1 : 0) - slot.anchorY) * height;
-        const px = e[0] * x + e[3] * y + e[6];
-        const py = e[1] * x + e[4] * y + e[7];
+        const px = (corner & 1 ? ax1 : ax0) + (corner & 2 ? cy1 : cy0) + e[6];
+        const py = (corner & 1 ? bx1 : bx0) + (corner & 2 ? dy1 : dy0) + e[7];
         minX = Math.min(minX, px);
         minY = Math.min(minY, py);
         if (!Number.isFinite(px) || !Number.isFinite(py))

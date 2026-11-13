@@ -19302,3 +19302,73 @@ Chromium 150、可見頁面，正式 /examples/particles2d/ 強制 WebGPU／WebG
 - 三 backend 都顯示實際 requested backend，過程 emitting flags／zero／nonzero counts 符合控制；source 的同一個 borrowed glow texture 在 preset destroy/rebuild 後仍可用。實際 WebGPU fire canvas 截圖確認 native additive Sprite 內容。
 - 三 backend 的正式 showcase Scene A → B 與 pagehide cleanup 完成；GPU／GL 保持原 lit cube＋sphere＋2D overlay，Canvas2D 保持其明確 2D-only。粒子與 showcase 的 uncaught／console error／cleanup error entries 均為空。
 - 沒有修改正式範例或新增 package API；沒有聲稱本輪已驗證 native target layers、Safari／實機、auto fallback、pixel parity、audible audio unlock、memory plateau 或 fps 改善。暫存 scripts／modules 已刪除、server／managed tabs 已關閉；README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+
+## P177 — Per-slot affine products for ParticleLayer2D bounds（2026-11-13）
+
+### 採用範圍與數值契約
+
+- ParticleLayer2D.collectBounds 原本每個 corner 重算 anchor 座標與 affine 乘積；現在只在同一 slot 內共用 x0／x1／y0／y1 與八個 products，沿用 GameObject.getWorldBounds 的既有慣例，不建立第二套 bounds API。
+- 原式保留 0 - anchor，不以 unary minus 取代；逐角的 px／py 加法結合、minX／minY、finite guard、maxX／maxY 順序不改。原每 slot 24 次浮點乘法降為 12 次；這是 source-level 算式計數，不是 CPU 指令／配置／fps 量測。
+- 所有共用值在 validateParticleSource、來源 width／height getters 與 public getSlotWorldMatrix／updateWorldMatrix work 後才讀取。Slot anchor getters 是私有 typed storage 的純讀取；沒有把 virtual work、source errors 或 reentrant mutations 提前／隱藏。
+- Stable draw-order compaction、slot lifetime／reuse、local／world 分支、inverse readiness／singular errors、輸出寫入順序、borrowed source 與 renderer 不改。不持續 cache mutable pose／source dimensions，不使用 absolute-extents 近似或跳過 finite checks。
+
+### 完整 public bounds method CPU 對照
+
+Node v26.7.0，TypeScript 6.0.3 transpileModule 產生隔離 before／candidate ESM，使用相同正式 dependencies；8 warmups、15 alternating A/B medians。實際 Layer／Matrix3／Texture classes 搭配 controlled 20×10 ImageBitmap-shaped fixture；這不是 native bitmap decoding、完整 Game、GPU 或 browser throughput benchmark。Texture／layer／slots setup 在計時外，計時包含整次 public getLocalBounds 或 getWorldBounds，沒有並行 build／tests／browser。
+
+除 one-default-out 由 public default parameter 配置 out 外，其餘重用 caller out；empty／one／local-* 使用 getLocalBounds，world-* 的數字 count cases 使用 getWorldBounds；mixed-to-local 與 world-to-local 則為 mixed／all-world slots 的 getLocalBounds。Layer pose 固定 position10,20、scale-1.2,0.7、rotation0.3；每 slot 有不同旋轉／位置、anchor0.2,0.8，world-* 數字 cases 的 slots 本身為 local。
+
+採用的 shared-products 版本：
+
+| Case            | Active slots | Calls/batch | Before ms | After ms |
+| --------------- | -----------: | ----------: | --------: | -------: |
+| empty-local     |            0 |      100000 |  0.507500 | 0.523459 |
+| one-local       |            1 |      100000 |  3.223875 | 3.075041 |
+| one-default-out |            1 |      100000 |  3.621417 | 3.362709 |
+| local-16        |           16 |       10000 |  4.157000 | 3.882750 |
+| local-1024      |         1024 |         300 |  7.827250 | 7.307917 |
+| local-8192      |         8192 |          40 |  8.334042 | 7.719000 |
+| world-1024      |         1024 |         200 |  8.016334 | 7.634333 |
+| world-8192      |         8192 |          30 |  9.655959 | 9.103958 |
+| mixed-to-local  |         1024 |         200 |  6.102167 | 5.628583 |
+| world-to-local  |         1024 |         200 |  6.887416 | 6.357334 |
+
+非空 controls 約少 4.6–7.8% 的 repeated-method CPU elapsed。Empty path 本身未進入新算式，這輪 100,000 calls median 0.507500→0.523459 ms（約增加 3.1%，每 call 差約 0.16 ns），不宣稱 empty control 改善，也不猜測沒有 profile 的 JIT 根因。此局部變更沒有證明 whole-frame／GPU／presentation FPS、JS allocation count、heap／GC 改善。
+
+同時量過只共用四個 anchor 座標、仍逐角重算矩陣乘積的較小候選；完整數值 parity 亦通過，但大粒子與 mixed／world→local controls 的收益較少，未保留。每列 before 是該候選自己的 alternating pair，不跨候選混用基準：
+
+| Case            | Active slots | Calls/batch | Before ms | After ms |
+| --------------- | -----------: | ----------: | --------: | -------: |
+| empty-local     |            0 |      100000 |  0.500875 | 0.512000 |
+| one-local       |            1 |      100000 |  3.224208 | 3.089584 |
+| one-default-out |            1 |      100000 |  3.540417 | 3.353292 |
+| local-16        |           16 |       10000 |  4.184416 | 3.898000 |
+| local-1024      |         1024 |         300 |  7.836250 | 7.378125 |
+| local-8192      |         8192 |          40 |  8.348541 | 7.812916 |
+| world-1024      |         1024 |         200 |  8.007458 | 7.715542 |
+| world-8192      |         8192 |          30 |  9.608042 | 9.269958 |
+| mixed-to-local  |         1024 |         200 |  6.116958 | 5.842334 |
+| world-to-local  |         1024 |         200 |  6.868458 | 6.568917 |
+
+### 正式 source、邊界與 ownership
+
+- 初輪兩個候選共 256 histories、49,152 次 bounds calls，exact deep comparison 包含 signed zero、非整數 affine／anchor、mirroring、shear、local／world slots、pose updates、remove／reuse／clear、空層與 singular inverse errors。
+- 正式檔再次與原版獨立 ESM 比對 256 pairs／512 layers、8,192 次對照操作、32,768 次實際 bounds calls。比對 return-out identity、所有 scalar values（含正負零）及 errors／error 後未寫入的 caller out。不是 source-text matching 或只比較近似 epsilon。
+- 另有 48 組 width／height getter 與 public matrix probes：observe、anchor／transform mutation、remove／clear／destroy、getter throw、nested bounds、resize、matrix 中改 anchor／transform、infinite pose。比對 log 順序、兩次後續 bounds、partial state 與 errors；borrowed textures 都在 layer destroy 後仍存活，最後 owner close 恰一次。
+- tests/particles2d.test.ts 共 19 tests 通過；新增的兩個 consumer-visible regression tests 保護 mirrored affine 的四組 local／world slot bounds 與 zero anchor＋negative-zero translation 的 positive-zero minima（把 0-anchor 改成 unary minus 會改變該 minima）。沒有新增 wiring／source-text tests。
+- Typecheck、scoped ESLint／Prettier、ESM／minify／vendor copy／CJS build 通過；沒有新增依賴、修改 vendor、install 或完整 test suite。
+
+### 實際三 backend surface 與清理
+
+Chromium 150，app document.visibilityState=visible；暫存頁透過正式公開 Game／Scene／CanvasTexture2D／ParticleLayer2D／Matrix3 真正渲染 24 個混合 local／world slots。每個狀態把正式 local／world bounds 與獨立四角 reference 以 Object.is 比對，再寫入 read-only DOM。Renderer 強制 WebGPU／WebGL2／Canvas2D，不是獨立假的 particle renderer，也未注入 app globals 來假造成功。
+
+| Backend  | Initial slots | Mutated pose/anchors | Clear slots | Restore slots | Borrower-before-owner teardown | Showcase           |
+| -------- | ------------: | -------------------: | ----------: | ------------: | ------------------------------ | ------------------ |
+| webgpu   |            24 |                   24 |           0 |            24 | passed                         | Scene A→B          |
+| webgl2   |            24 |                   24 |           0 |            24 | passed                         | Scene A→B          |
+| canvas2d |            24 |                   24 |           0 |            24 | passed                         | Scene A→B, 2D-only |
+
+- Mutation 實際變更 layer position／rotation／mirrored scale，以及每 slot anchor／affine translation；clear 後兩種 bounds 為零，restore 後即時重新計算。各 backend 實際 bounds values 相同，所有非 destroyed 狀態 sourceAlive=true。WebGPU canvas 截圖看得到正式 24-slot 雙色粒子，不是只看 DOM 數字。
+- Explicit Game destroy 後 borrowed source 仍存活，owner 隨後 destroy；pagehide 再 cleanup 不重複釋放。正式 showcase 的 GPU／GL lit 3D＋2D Scene A→B 及 Canvas2D 明確 2D-only Scene A→B 亦通過。六段 run 的 uncaught／console-error entries 均為空。
+- 首次 browser harness 誤用 Node-style assert.equal，工具的 assert 並無該方法，ready 狀態後 harness 失敗；改為標準 JS condition checks 後完成全流程。沒有修改引擎以壓掉錯誤，也不把失敗的 harness 步驟算為通過。
+- 不宣稱 pixel parity、native timing／fps、memory plateau、auto fallback、audio unlock、Safari／實機或其他瀏覽器已重驗。暫存頁／modules／scripts 刪除，server／managed tab 關閉；README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。

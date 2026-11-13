@@ -5611,6 +5611,13 @@ Their getter errors and subsequent continuous-birth scheduling remain intact;
 target layers and retirement are unchanged. Controlled CPU measurements and
 actual three-backend particle lifecycle limits are in ACCEPTANCE P176, not fps.
 
+ParticleLayer2D bounds (P177) share four anchor coordinates and eight affine
+products per slot, after source-dimension reads and public matrix callbacks.
+The original corner order, additions, signed zeros and finite checks remain;
+there is no cross-call pose/source cache or change to local/world slot semantics.
+Exact differential checks, controlled CPU comparisons and actual three-backend
+layer mutation/clear/restore/cleanup limits are in ACCEPTANCE P177, not fps.
+
 ## 26. Native 2D Shader ABI and Lifetime (P20)
 
 - Root Material2D/PostProcessor2D/NativeEffect2DOptions; options require immutable wgsl/glsl strings, each nonempty ≤65,536 characters, optional finite float-representable uniforms≤16. EventTarget descriptors expose wgsl/glsl/destroyed, uniforms Float32Array(16), setUniforms (zero-fill remainder), idempotent destroy with native destroy event. Descriptors are caller-owned, Scene.effects2D and Sprite.material borrow them.

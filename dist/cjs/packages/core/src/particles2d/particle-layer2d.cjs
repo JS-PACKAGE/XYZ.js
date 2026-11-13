@@ -298,11 +298,11 @@ var ParticleLayer2D = class extends require_game_object.GameObject {
 			validateParticleSource(c);
 			let l = c.view?.width ?? c.source?.width ?? (c.texture.kind === `render` ? c.texture.logicalWidth : c.texture.width), u = c.view?.height ?? c.source?.height ?? (c.texture.kind === `render` ? c.texture.logicalHeight : c.texture.height), d;
 			t && c.space === `local` ? d = this.boundsMatrix.copy(this.slotMatrix(s)) : t ? (o ||= (this.inverse.copy(this.updateWorldMatrix()).invert(), !0), d = this.boundsMatrix.copy(this.inverse).multiply(this.getSlotWorldMatrix(s, this.worldAffine))) : d = this.getSlotWorldMatrix(s, this.boundsMatrix);
-			let f = d.elements;
+			let f = d.elements, p = (0 - c.anchorX) * l, m = (1 - c.anchorX) * l, h = (0 - c.anchorY) * u, g = (1 - c.anchorY) * u, _ = f[0] * p, v = f[0] * m, y = f[3] * h, b = f[3] * g, x = f[1] * p, S = f[1] * m, C = f[4] * h, w = f[4] * g;
 			for (let e = 0; e < 4; e++) {
-				let t = ((e & 1 ? 1 : 0) - c.anchorX) * l, o = ((e & 2 ? 1 : 0) - c.anchorY) * u, s = f[0] * t + f[3] * o + f[6], d = f[1] * t + f[4] * o + f[7];
-				if (n = Math.min(n, s), r = Math.min(r, d), !Number.isFinite(s) || !Number.isFinite(d)) throw RangeError(`Particle bounds must remain finite.`);
-				i = Math.max(i, s), a = Math.max(a, d);
+				let t = (e & 1 ? v : _) + (e & 2 ? b : y) + f[6], o = (e & 1 ? S : x) + (e & 2 ? w : C) + f[7];
+				if (n = Math.min(n, t), r = Math.min(r, o), !Number.isFinite(t) || !Number.isFinite(o)) throw RangeError(`Particle bounds must remain finite.`);
+				i = Math.max(i, t), a = Math.max(a, o);
 			}
 		}
 		return e.x = n === 1 / 0 ? 0 : n, e.y = r === 1 / 0 ? 0 : r, e.width = n === 1 / 0 ? 0 : i - n, e.height = r === 1 / 0 ? 0 : a - r, e;

@@ -5531,6 +5531,12 @@ validation／source 尺寸讀取與 getter errors 仍先執行，後續 rate bir
 Target layer／retirement 不改；scope CPU 對照與三 backend 粒子 lifecycle 的
 實際驗證範圍見 ACCEPTANCE P176，不代表 fps 改善。
 
+ParticleLayer2D bounds（P177）在 source 尺寸讀取及 public matrix callbacks 後，
+共用每 slot 的四個 anchor 座標與八個 affine products；保留原四角順序、
+加法結合、正負零及 finite checks。沒有跨 call 的 pose／source cache，
+local／world slot 語義不變。精確差分、scope CPU 及三 backend 的實際
+layer mutation／clear／restore／cleanup 範圍見 ACCEPTANCE P177，不代表 fps。
+
 ## 26. Native 2D Shader ABI 與 Lifetime（P20）
 
 - Root Material2D／PostProcessor2D／NativeEffect2DOptions：必填immutablewgsl／glsl nonempty各≤65,536chars，optionalfinitefloatrepresentableuniforms≤16。EventTarget descriptor wgsl／glsl／destroyed／uniforms Float32Array16、setUniforms zero-fill、idempotentdestroy發native destroy。Callerowned、Scene.effects2D／Sprite.material借。
