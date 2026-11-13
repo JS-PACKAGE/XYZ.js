@@ -7234,3 +7234,24 @@ projection payloads (128 bytes) matched. Separate actual source and built-root
 fixtures passed enable/remove/cleanup, with WebGL2 contact and both GPU/GL showcase
 controls. Existing three unit tests and scoped quality/build checks passed.
 See [ACCEPTANCE](../ACCEPTANCE.md) P194; no heap-size, GC, CPU or FPS gain was measured.
+
+## P195 single-entry Canvas frame-cache hits
+
+After a complete hash/key hit, a sole frame-cache entry is already the most
+recently drawn, but deleting/reinserting it still affects a live Map iterator.
+Texture getters can reenter public rendering during cleanup. The unguarded
+candidate changed observable reads and delayed destroyed-snapshot release.
+
+The adopted version skips the touch only outside cleanup iteration. One private
+boolean preserves the prior nested visit state in try/finally, including errors;
+multi-entry/live-iterator hits retain the original update. No new cache record,
+per-draw allocation, invalidation rule or public API is introduced.
+
+An independent longer built-root run measured roughly 4% less complete manual
+render-submission CPU time for a single tinted cached frame; individual runs
+varied. Helper gains are not whole-frame/FPS gains. Source and built-root proofs
+each matched 12 full-frame pairs, 329 painted-image pairs and 6,223 source/tint
+observations. Nested public render, destroyed-snapshot release and guard recovery
+after an exception also passed. Nine tests include the cleanup regression, and the
+actual Canvas layered UI passed. See [ACCEPTANCE](../ACCEPTANCE.md) P195 for all
+timing controls, mixed results and unmeasured heap/GC, GPU and FPS limits.

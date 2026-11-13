@@ -5799,3 +5799,16 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   同時比對payload、view construction與實際GPU readback；非手製GPU queue或renderer。
 - Permanent cutover另以未覆寫pipeline的source與dist入口執行既有browser fixture。
   配置事件少一個不等於已知heap節省，也不構成CPU、GC或呈現幀率收益證據。
+
+## P195 — A one-entry LRU is already ordered
+
+- 完整hash／key match之後，單entry不改recency order，但delete／set仍會影響存活中的
+  Map iterator；texture getter可重入公開render，不能把兩者視為完全等價。
+- 只在非cleanup iteration的單entry hit省略touch；一個private boolean以try/finally
+  保存先前值，nested結束仍保留outer visit，throw亦復原，不新增MRU pointer或cache record。
+- 多entry、live iterator、hash collision、miss、paint、eviction、version及unload／destroy
+  保持原路徑。無保護版的getter次序與snapshot釋放有差異，已拒絕並加入regression。
+- Proof以正式Game-owned的同一root class receiver借用真實methods；native Canvas
+  畫面、回傳painted pixels、private LRU順序及公開觀察皆比對，非fake context。
+- 純image helper收益與完整render submission分開，timing與觀察另用browser process。
+  Published root亦重測；只稱已量測的單entry CPU收益，不推論heap、GC、GPU或FPS。

@@ -52,6 +52,7 @@ export class CanvasSpriteSource {
   private readonly frameWords = new Int32Array(this.frameKey.buffer);
   private readonly sourceIds = new WeakMap<Texture2DSource, number>();
   private nextSourceId = 0;
+  private visitingFrames = false;
   constructor(
     private readonly renderImage: (
       source: Texture2DSource,
@@ -61,8 +62,14 @@ export class CanvasSpriteSource {
     for (const source of this.sources.keys())
       if (source.destroyed) this.unload(source);
     // Distance-field frames paint from glyph canvases outside `sources`.
-    for (const snapshot of this.frames.values())
-      if (snapshot.source.destroyed) this.dropFrames(snapshot.source);
+    const visitingFrames = this.visitingFrames;
+    this.visitingFrames = true;
+    try {
+      for (const snapshot of this.frames.values())
+        if (snapshot.source.destroyed) this.dropFrames(snapshot.source);
+    } finally {
+      this.visitingFrames = visitingFrames;
+    }
   }
   prepare(source: Texture2DSource): CanvasImageSource {
     if (source.destroyed)
@@ -183,8 +190,11 @@ export class CanvasSpriteSource {
     const hit = this.frames.get(hash);
     if (hit && sameKey(hit.key, k)) {
       // Map order is the recency order: the first entry is the least recently drawn.
-      this.frames.delete(hash);
-      this.frames.set(hash, hit);
+      // A live cleanup iterator must still observe a sole entry's touch.
+      if (this.frames.size > 1 || this.visitingFrames) {
+        this.frames.delete(hash);
+        this.frames.set(hash, hit);
+      }
       return hit.canvas;
     }
     const pixels = width * height;

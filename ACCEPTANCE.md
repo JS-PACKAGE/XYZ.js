@@ -20898,3 +20898,158 @@ Source／built root六張影像的SHA256、draw calls與target byte telemetry亦
 不是timing實驗，不能推論速度提升。本輪未重跑full suite、repo-wide lint、CJS runtime、
 Canvas2D UI、audio unlock、device loss或auto fallback初始化，亦未認證Firefox／Safari
 或physical devices；Canvas2D不支援此3D contact feature，沒有藉此擴大backend契約。
+
+## P195 — Skip single-entry Canvas frame-cache touches while preserving live iterators (2026-11-13)
+
+### Adopted scope and rejected correctness shortcut
+
+先調查剩餘GPU upload views：其餘已是constructor-time view，或mapped staging必要的
+局部copy，沒有把整段capacity copy當成配置優化。沿用P190 retained profile的Canvas image
+方向調查，但該profile不是本LRU branch成本或wall-time收益的證據。
+
+CanvasSpriteSource以hash及完整16個key values命中frame snapshot後，原本都delete／set
+更新Map recency。單entry已是MRU，普通draw可省掉這兩個Map操作。採用版只在
+frames.size >1或visitingFrames時touch原Map；其他命中直接回傳同一native canvas。
+
+**無保護A版拒絕。** Map順序相同不等於live iterator語意相同。Texture source getter可
+在endFrame cleanup重入正式公開game.graphics.render(scene)，而delete／reinsert會讓
+存活中的frames.values iterator再次觀察該entry。A版改變公開getter次數，且若重入draw
+後source被destroy，會漏掉原本本次cleanup可釋放的snapshot。不是可接受的效能交換。
+
+| Native reentry / cleanup observation                        | Original | Unguarded A | Adopted B |
+| ----------------------------------------------------------- | -------: | ----------: | --------: |
+| destroyed getter reads with one public render reentry       |       10 |           9 |        10 |
+| Returned snapshot width after reentrant source destruction  |        1 |          16 |         1 |
+| Returned snapshot height after reentrant source destruction |        1 |          16 |         1 |
+
+B新增一個renderer-owned private boolean，僅在frames iterator存活時設true，以try/finally
+還原先前值。Nested cleanup結束仍保留outer true；metadata getter throw亦正確復原。
+沒有新增MRU pointer、cache record或每draw配置，不省略公開source／tint讀取。原hash
+collision／miss／paint／LRU eviction／version、unload及destroy路徑保持。
+
+新增consumer-visible regression：cleanup getter重入image後destroy source，原回傳的
+snapshot canvas須於同次cleanup縮為1×1；不是斷言private bool或source文字。Native A
+negative control確實留下16×16，original／B皆1×1。原本8 tests的A檢查不能涵蓋此新邊界。
+
+### Native fixture and measurement method
+
+macOS arm64、Node26.7.0、pnpm12.6.0、TypeScript6.0.3、pinned managed Chromium
+153.0.8010.12；desktop automation，不是physical-device或Safari認證。
+
+以正式root Game.create(renderer:canvas2d)建立真正Canvas2DRenderer-owned source cache。
+Before／after均為同一actual root class receiver，借用各自真實image與endFrame methods，
+不是plain object、fake canvas context或替代renderer。B階段兩邊皆由新root constructor建立，
+因此同樣有boolean欄位，隔離method成本；不把此實驗當作instance memory overhead量測。
+
+16×16 native Canvas-generated texture含opaque及semi-transparent區；one為單一tinted frame，
+two為逐Sprite交替兩種tint，grouped為每50 sprites切換兩種tint，full為untinted完整source
+的原快路徑。各Game為1280×720、pixelRatio1，Sprite姿態在timing批次固定。Image模式
+使用從真正初次render捕捉並複製的quad／appearance／placement參數；render模式包含正式
+beginFrame→render(scene)→endFrame。Image helper不等同完整collection／packing／draw。
+
+每variant先80次warmup，13組交錯反向順序的batches取median。Timing不裝getter／Map／paint
+觀察hook，不開profiler；proof另用browser process，沒有同時build或執行tests。下表ms
+是整個指定calls batch的CPU／native submission時間，不是單frame、GPU完成時間或RAF；
+沒有movement、pixel readback或await RAF包含在timing loop。
+
+### Rejected A timing history — not adopted gains
+
+| Run / case                  | Sprites | Mode   | Calls / batch | Before ms | After ms | Gain % |
+| --------------------------- | ------: | ------ | ------------: | --------: | -------: | -----: |
+| A initial / one             |   1,000 | image  |           200 |      14.9 |     10.4 |  30.20 |
+| A initial / one             |   1,000 | render |           100 |      72.2 |     69.4 |   3.88 |
+| A initial / two             |   1,000 | image  |           200 |      14.4 |     14.2 |   1.39 |
+| A initial / two             |   1,000 | render |           100 |      73.5 |     73.1 |   0.54 |
+| A initial / grouped         |   1,000 | image  |           200 |      14.3 |     14.2 |   0.70 |
+| A initial / grouped         |   1,000 | render |           100 |      73.1 |     73.6 |  -0.68 |
+| A initial / full            |   1,000 | image  |           200 |       2.6 |      2.6 |   0.00 |
+| A initial / full            |   1,000 | render |           100 |      65.5 |     65.7 |  -0.31 |
+| A longer independent / full |   1,000 | render |           800 |     491.7 |    492.7 |  -0.20 |
+| A longer independent / two  |   1,000 | render |           800 |     550.1 |    547.3 |   0.51 |
+| A longer independent / one  |  10,000 | render |            80 |     859.2 |    810.1 |   5.71 |
+| A longer independent / one  |   1,000 | render |           800 |     542.5 |    517.9 |   4.53 |
+| A longer independent / one  |   1,000 | image  |          2000 |     128.0 |     96.6 |  24.53 |
+| A built root / one          |   1,000 | image  |          1000 |      64.8 |     47.1 |  27.31 |
+| A built root / one          |   1,000 | render |           500 |     353.6 |    335.6 |   5.09 |
+| A built root / one          |  10,000 | render |            50 |     594.6 |    565.6 |   4.88 |
+| A built root / two          |   1,000 | render |           500 |     377.5 |    369.8 |   2.04 |
+| A built root / full         |   1,000 | render |           500 |     333.8 |    334.8 |  -0.30 |
+
+這些較快數字都不能抵銷上述observable correctness差異。A built root當時已驗證，但後來
+被重入邊界否決；不能將它的4–6%或helper收益當作B的測量結果。A的首次reentry observer
+漏傳fixture-owned texture，補齊observer後才得到上表正確性對照，不是修改產品來隱藏錯誤。
+
+### Adopted B actual built-root timing
+
+Before來自已提交P194的frozen minified Canvas source module；B使用真正目前dist module，
+其餘依賴對齊同一root。方法與constructor shape如上，另開獨立browser作較長確認。
+
+| Run / case                  | Sprites | Mode   | Calls / batch | Before ms | After ms | Gain % |
+| --------------------------- | ------: | ------ | ------------: | --------: | -------: | -----: |
+| B built root / one          |   1,000 | image  |          1000 |      64.2 |     46.8 |  27.10 |
+| B built root / one          |   1,000 | render |           500 |     330.4 |    317.8 |   3.81 |
+| B built root / one          |  10,000 | render |            50 |     590.2 |    589.8 |   0.07 |
+| B built root / two          |   1,000 | render |           500 |     382.4 |    381.2 |   0.31 |
+| B built root / full         |   1,000 | render |           500 |     325.3 |    337.5 |  -3.75 |
+| B longer independent / full |   1,000 | render |           800 |     475.1 |    477.5 |  -0.51 |
+| B longer independent / one  |  10,000 | render |            80 |     852.3 |    815.0 |   4.38 |
+| B longer independent / two  |   1,000 | render |           800 |     542.0 |    540.6 |   0.26 |
+| B longer independent / one  |   1,000 | render |           800 |     548.1 |    525.4 |   4.14 |
+
+B首輪10,000 sprites幾乎持平，full控制組約退步3.75%；沒有丟棄這些結果。獨立較長輪
+單entry的1,000／10,000 sprites分別約改善4.14%／4.38%，full／two約為-0.51%／+0.26%。
+因此只保留「特定單entry完整submit在較長獨立輪有約4%收益」；不稱所有run或控制組皆
+更快，也不將約27%的純helper收益當作整幀收益。不推測JIT／GC為波動原因。
+
+### Final source and built-root proof
+
+停止舊Vite，隔離重建後只複製本module輸出再重啟hmr:false server，避免舊dist transform。
+Source與built-root各執行以下一組完整before／B proof，採用真正兩個production methods：
+
+| Per entry                                         |   Observed |
+| ------------------------------------------------- | ---------: |
+| Complete native frame pairs                       |         12 |
+| Compared full-frame RGBA bytes                    | 44,236,800 |
+| Painted-image pairs                               |        329 |
+| Compared painted-image RGBA bytes                 |    336,896 |
+| Matching public source/tint observations          |      6,223 |
+| 64 single-entry hits: original Map sets / deletes |    64 / 64 |
+| 64 single-entry hits: B Map sets / deletes        |      0 / 0 |
+| Repaints during those hits, either implementation |          0 |
+
+四種frame cases涵蓋旋轉、位移及正式unloadTexture後重畫；另涵蓋單entry→多entry→單entry、
+CanvasTexture2D.update、unload、256-entry LRU滿載、touch oldest後evict second、重畫被淘汰
+者、source/tint Proxy observations與destroy。比較actual native pixels、回傳snapshot、完整
+private key順序，非只檢查長度或未拋錯。每組destroy後觀察的sources／frames Maps皆0，
+不宣稱已量測heap bytes、GC或所有引擎資源總量。
+
+Source／dist的公開render重入皆與original同為10 reads、1 reentry、無error；nested
+callback返回時outer visiting仍true。Reentrant destruction的snapshot皆1×1。故意使
+metadata getter throw保留原exception；finally後visiting false，下一次單entry hit仍無LRU
+Map touch。這些behavioural checks同時排除誤載A或before code，不依賴source-string測試。
+
+最終正式/examples/rendering2d/?renderer=canvas2d確認51 objects，操作cache toggle兩次、
+child edit／invalidate、rect mask、add blend、particles on／off、capture、transition、
+pause／resume／destroy及pagehide，無page／console errors。實際讀取最終Canvas screenshot，
+可見彩色checkerboard、atlas／圖形、Styled FontFace、bitmap字樣與dynamic RGBA atlas；
+另讀built-root tinted Sprite圖，確認旋轉的半透明雙色frames。Canvas仍不提供projective
+mesh能力，未藉此擴充backend契約，也未宣稱與GPU backend exact pixel parity。
+
+### Checks, outputs and limits
+
+- 最終B scoped Prettier、ESLint、typecheck通過；2026-11-13 20:51 Vitest 2檔／9 tests
+  通過，包含新cleanup regression。保留A當時8 tests紀錄，不冒稱當時已涵蓋新邊界。
+- B隔離tsc／minify／vendor copy／CJS build：377 JS由9,358,433至4,011,128 bytes，
+  vendor unchanged，720 CJS files。這是staging total，不是此phase節省量。
+- 只複製canvas-sprite-source的ESM／CJS、兩張maps與d.ts共五檔。Declaration差異guard
+  確認只增加private visitingFrames；沒有新增公開method／export。較大的產物不是收益理由。
+- Source、regression及本module輸出才納入commit，使用者physics／world2d及其他未提交
+  修改與產物不覆寫、不stage。同步README中／英／日、PLAN、DESIGN、technical中／英、
+  本紀錄；格式及inline相對連結檢查，歷史日期／counts不改，版本維持1.23.0。
+- 清理本輪owned A／B variants、hooks、drivers、staging、logs、screenshots、results及
+  Vite service；不留debug hook。依功能建立[P195] commit，不push、不升版。
+
+本輪未重跑full suite、repo-wide lint、CJS runtime、GPU／WebGL UI或showcase、sprites RAF
+benchmark、audio unlock／device loss／auto fallback，未驗證Firefox／Safari、physical devices。
+未量測heap／GC、GPU完成時間、端到端latency或presentation FPS；手動submit batches
+也不是瀏覽器可見RAF排程下的整體FPS量測。

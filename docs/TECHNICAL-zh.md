@@ -6961,3 +6961,17 @@ typed-array的這兩個參數以elements計，bufferOffset以bytes計；仍上�
 另由未覆寫pipeline的正式source／built root執行既有enable／remove／cleanup fixture，
 WebGL2 contact控制組、GPU／GL showcase與3個既有unit tests亦通過。
 詳見[ACCEPTANCE](../ACCEPTANCE.md) P194；未量測heap大小、GC、CPU或FPS收益。
+
+## P195 Canvas單一frame-cache hit不重排LRU
+
+完整hash／key命中的單entry已是MRU，但delete／set仍會影響存活中的Map iterator。
+Texture getter可在cleanup重入公開render；無保護版改變getter次序及destroyed snapshot
+釋放時機，已拒絕。採用版只在非cleanup iteration的單entry hit省略touch，以一個
+private boolean及try/finally保存nested先前狀態，throw亦復原；多筆／live iterator仍touch。
+不新增cache record、每draw配置、失效規則或公開API。
+
+獨立較長built-root量測單entry完整手動render-submit CPU約改善4%，個別輪次仍有差異；
+純helper收益不等同整幀或FPS。Source／built root各12對frame、329對painted images、
+6,223次source／tint觀察相同，nested公開render、destroyed snapshot釋放及error後guard
+復原亦通過。9 tests含cleanup regression，正式Canvas layered UI通過。控制組、混合方向
+數字及未驗證範圍見[ACCEPTANCE](../ACCEPTANCE.md) P195，不推論heap／GC、GPU或FPS收益。

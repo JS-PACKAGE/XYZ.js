@@ -115,6 +115,35 @@ describe('Canvas2D painted frame snapshots', () => {
     expect(paints()).toBe(5);
   });
 
+  it('releases a snapshot destroyed during a reentrant cleanup read', () => {
+    const actual = new Texture({
+      width: 8,
+      height: 8,
+      close() {},
+    } as ImageBitmap);
+    const source = sprites();
+    const tint = [0.5, 1, 1, 1];
+    let armed = false;
+    let reads = 0;
+    const texture = new Proxy(actual, {
+      get(target, property) {
+        const value = Reflect.get(target, property, target) as unknown;
+        if (property === 'destroyed' && armed && ++reads === 2) {
+          source.image(texture, frame, tint);
+          actual.destroy();
+        }
+        return value;
+      },
+    });
+    const frame = quad(texture, 0, 4);
+    const painted = source.image(texture, frame, tint);
+    armed = true;
+    source.endFrame();
+    expect(painted.width).toBe(1);
+    expect(painted.height).toBe(1);
+    source.destroy();
+  });
+
   it('repaints after a source update or unload', () => {
     const texture = new CanvasTexture2D({
       width: 8,

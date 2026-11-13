@@ -16,12 +16,19 @@ var CanvasSpriteSource = class {
 	frameWords = new Int32Array(this.frameKey.buffer);
 	sourceIds = /* @__PURE__ */ new WeakMap();
 	nextSourceId = 0;
+	visitingFrames = !1;
 	constructor(e) {
 		this.renderImage = e;
 	}
 	endFrame() {
 		for (let e of this.sources.keys()) e.destroyed && this.unload(e);
-		for (let e of this.frames.values()) e.source.destroyed && this.dropFrames(e.source);
+		let e = this.visitingFrames;
+		this.visitingFrames = !0;
+		try {
+			for (let e of this.frames.values()) e.source.destroyed && this.dropFrames(e.source);
+		} finally {
+			this.visitingFrames = e;
+		}
 	}
 	prepare(e) {
 		if (e.destroyed) throw new require_errors.GraphicsError(`Cannot prepare a destroyed texture.`);
@@ -56,7 +63,7 @@ var CanvasSpriteSource = class {
 		let y = this.frameWords, b = 0;
 		for (let e = 0; e < y.length; e++) b = Math.imul(b, 16777619) ^ y[e] | 0;
 		let x = this.frames.get(b);
-		if (x && sameKey(x.key, v)) return this.frames.delete(b), this.frames.set(b, x), x.canvas;
+		if (x && sameKey(x.key, v)) return (this.frames.size > 1 || this.visitingFrames) && (this.frames.delete(b), this.frames.set(b, x)), x.canvas;
 		let S = h * g, C;
 		for (x && (C = this.dropFrame(b, x)); this.frames.size >= require_rendering2d.rendering2dLimits.canvasFrameSnapshots || this.framePixels + S > require_rendering2d.rendering2dLimits.canvasFrameSnapshotPixels;) {
 			let [e, t] = this.frames.entries().next().value, n = this.dropFrame(e, t);

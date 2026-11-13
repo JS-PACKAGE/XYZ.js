@@ -14,6 +14,8 @@ Performance maintenance reduces redundant computation, allocations, lookups and 
 
 Private helper、collection 與完整 packing 分開量測；bytes 相同或 bundle 較小，不代表各控制組都更快。Private-helper, collection and complete-packing gains are measured separately; identical bytes or a smaller bundle do not establish faster controls. Private helper・collection・packing 全体を別々に測定し、同じ bytes や小さい bundle だけで全対照条件の高速化を主張しません。
 
+Canvas 單一 frame-cache hit 在一般 draw 略過無效 LRU touch，cleanup iterator 保留原行為；完整 native submit 的收益與控制組另記驗收，不等同 FPS。Canvas single-entry frame-cache hits skip redundant LRU touches outside cleanup iteration; native-submit gains and controls are distinct from FPS. Canvas の単一 frame-cache hit は cleanup iterator の動作を保ちながら通常 draw の不要な LRU touch を省略し、native submit の測定値を FPS と区別します。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

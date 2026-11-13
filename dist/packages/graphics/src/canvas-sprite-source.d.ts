@@ -28,6 +28,7 @@ export declare class CanvasSpriteSource {
     private readonly frameWords;
     private readonly sourceIds;
     private nextSourceId;
+    private visitingFrames;
     constructor(renderImage: (source: Texture2DSource) => CanvasImageSource);
     endFrame(): void;
     prepare(source: Texture2DSource): CanvasImageSource;

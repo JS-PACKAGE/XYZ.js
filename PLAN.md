@@ -5644,3 +5644,16 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   WebGL2 contact控制組及GPU／GL showcase切場景亦通過。
 - 3個既有unit tests、typecheck、scoped lint／format與隔離ESM／CJS build通過。
   僅宣稱少建立view，未量測heap bytes、GC、CPU收益或FPS；詳見ACCEPTANCE P194。
+
+## P195 — Skip a single-entry Canvas frame-cache LRU touch
+
+- Cache只有一筆且完整key命中時，本來就已是MRU；一般draw不執行delete／set。
+  多筆或cleanup iterator存活時仍touch原Map，以一個private boolean及try/finally
+  保存nested狀態，沒有新增cache record、每draw配置或公開API。
+- 拒絕改變getter重入及destroyed snapshot清理的無保護版。安全版獨立較長native
+  submit量測單entry約改善4%，但不是每輪皆相同，多entry／untinted controls大致持平。
+- Source／built root各12對完整frames、329對painted images及6,223次source／tint
+  觀察相同；單entry、多entry、update／unload、LRU eviction及destroy皆涵蓋。
+- 2檔9 tests含新重入cleanup regression、scoped品質檢查、隔離ESM／CJS build及
+  正式Canvas layered UI通過；nested render、error後guard復原與單entry再次命中亦驗證。
+  精確矩陣、量測範圍與未驗證項目見ACCEPTANCE P195，不push、不升版。
