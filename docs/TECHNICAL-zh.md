@@ -6215,6 +6215,10 @@ cache／stream allocation。Scope CPU、精確 bytes 及實際 native Worker
 transfer／copy／publication／reject／cleanup 範圍見 ACCEPTANCE P178，
 不代表 worker 或 fps 保證。
 
+P179未採用第二個Jacobi buffer僅初始化boundary：完整process CPU的收益不足以
+抵銷tiny／skinny控制組取捨，維持原整份typed-array copy。少讀來源不等於
+allocation或native Worker效能改善；兩種input history的實測見ACCEPTANCE P179。
+
 原 P83 finite orthogonal right-down atlas profile 由 P91 擴充：finite／infinite JSON maps、負座標 sparse chunks、可編輯 nested groups、repeat／parallax image layers、atlas animation 與相對 object templates。`parseTiledMap()` 接受陣列與嚴格 uncompressed base64；`TiledLoader` 另做 bounded native gzip／zlib 解壓及 template resolution。Opacity／visibility／offset 沿 group 繼承；animation 由 Scene 管理並隨 lifecycle 暫停。Template cycle／overlapping chunks 明確拒絕。
 
 保留 embedded／external atlas tilesets、八種 GID transform、bounded primitive properties、真 solid-tile／rectangle／circle／convex-polygon collision。`TiledContent.setGid()` 一起更新 display／collision；infinite map 編輯限已匯入 chunk bounding grid。預算包含262144 cells、4096 chunks、128 layers、65536 atlas frames、aggregate8 MiB JSON／32 MiB images。Nonorthogonal／非 right-down、image-collection tilesets、tile／text／polyline／point objects、transparent-color image layers 仍 unsupported，不 silent drop。

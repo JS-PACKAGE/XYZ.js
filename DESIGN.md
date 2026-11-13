@@ -5637,3 +5637,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   transfer lists 或 consumer publication；不新增持續 cache 或 scratch allocations。
 - Narrow／wide strips 與最大 vertex budget 的 bytes 已對照；個別 row／cursor
   候選不如合併版，不能從少乘除直接推論實際收益，詳見 ACCEPTANCE P178。
+
+## P179 — Prefer the native full copy when partial initialization does not win
+
+- Jacobi 第二buffer的interior確實會先完整覆寫，但手動搬boundary仍要配置同尺寸
+  zero-initialized array；少讀來源不等於少allocation／總memory traffic或CPU時間。
+- 可接受的Proxy heights有constructor iterator可觀察行為；候選保留其原copy分支，
+  不能任意消除第二次iterator或改成直接indexed reads。
+- Fresh typed-only量測的tiny／skinny取捨與完整job收益不支持新增初始化迴圈，
+  故維持原copy；不同輸入history的數字分開記錄，詳見ACCEPTANCE P179。

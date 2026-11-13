@@ -6339,6 +6339,11 @@ ownership remain unchanged; no cache or stream allocation is added. Controlled
 CPU results, exact byte comparisons and actual native Worker transfer/copy,
 publication/rejection/cleanup limits are in ACCEPTANCE P178, not worker or fps promises.
 
+P179 did not adopt boundary-only initialization of the second Jacobi buffer:
+complete-process CPU comparisons did not justify its tiny/skinny tradeoffs.
+The original full typed-array copy remains; source-read savings were not an
+allocation or native Worker performance result. See ACCEPTANCE P179.
+
 The original P83 finite orthogonal right-down atlas profile is extended by P91: finite/infinite JSON maps, negative-coordinate sparse chunks, nested editable groups, repeating/parallax image layers, atlas animation and relative object templates. `parseTiledMap()` accepts arrays and strict uncompressed base64; `TiledLoader` additionally performs bounded native gzip/zlib decompression and resolves templates. Nested opacity/visibility/offsets are inherited; animation belongs to Scene and freezes with its lifecycle. Template cycles and overlapping chunks reject explicitly.
 
 Embedded/external atlas tilesets, eight GID transforms, bounded primitive properties and real solid-tile/rectangle/circle/convex-polygon collision remain supported. `TiledContent.setGid()` updates display and collision together; infinite-map edits stay inside the imported chunk bounding grid. Bounds include 262144 cells, 4096 chunks, 128 layers, 65536 atlas frames, aggregate 8 MiB JSON and 32 MiB images. Nonorthogonal/non-right-down maps, image-collection tilesets, tile/text/polyline/point objects and transparent-color image layers remain unsupported, not silently dropped.

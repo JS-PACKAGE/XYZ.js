@@ -5480,3 +5480,13 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   main publication／invalid input／cleanup、showcase 及 Canvas2D 明確拒絕通過。
 - 無平滑網格 CPU 約少 8–11%，高迭代 Jacobi 近乎持平；完整三候選與限制見
   ACCEPTANCE P178，不外推 worker startup、publication、GPU 或 fps。
+
+## P179 — Reject boundary-only Jacobi spare initialization
+
+- 第二個 Jacobi buffer 僅初始化固定邊界的候選通過512組 bytes差分與
+  3組Proxy／iterator probes；但完整process的一般網格收益很小，skinny控制組退步。
+- 原整份typed-array copy與P178正式source／dist不改，不為候選新增永久tests。
+- Fresh plain-typed與先跑過Proxy的history分開量測／記錄，不混用before基準或
+  猜測未profile的JIT根因；完整結果與維持原實作的理由見ACCEPTANCE P179。
+- 本輪正式變更僅文件並檢查格式；原型量測另見紀錄，P178的build／native證據
+  保留為當時紀錄，未冒稱重跑。

@@ -19456,3 +19456,66 @@ Chromium150、正式 /examples/cpu-workers/，GPU／GL 以真正 module Worker �
 - GPU／GL各完成3個worker成功results、invalid後failed1；再送工作立即destroy後failed2、cancelled0且workers/running/queued/admittedBytes全0。這是實際destroy outcome計數，未把它誤稱為cancelled或確認running而非queued的取消。
 - Canvas2D正式範例明確 Initialization failed: 3D requires WebGPU or WebGL2; Canvas2D is unsupported，pool各live counters0；沒有降級假畫3D。GPU／GL正式showcase亦完成lit cube＋sphere＋2D overlay Scene A→B。所有五段run的uncaught／console-error／unload error entries均空。
 - 本輪native頁面使用既有Vite source worker entry；沒有宣稱重新驗證strict shipped-dist Worker URL、Safari／實機、auto fallback、音訊unlock、pixel parity、長時間retention、total heap或GPU／presentation FPS。暫存scripts/modules刪除，server／managed tab關閉；六份README／PLAN／DESIGN／TECHNICAL中英／ACCEPTANCE已同步，README含中英日。
+
+## P179 — Reject boundary-only Jacobi spare initialization（2026-11-13）
+
+### 候選與未採用原因
+
+- Jacobi的第一個next仍完整copy來源；iterations>1時，候選把第二個spare配置為同尺寸zero-initialized Float32Array，只從來源搬固定的top／bottom rows與兩側columns。Interior會在首次讀取前完整覆寫，故一般finite typed samples數值可一致。
+- 候選沒有少配置buffer或少配置array bytes；少讀來源interior不代表CPU／OS總memory traffic必然減少。也沒有把另一個buffer改成caller heights而破壞輸入ownership。
+- decode目前亦接受可正常提供length／index／iterator的Proxy heights。Typed constructor的iterator可觀察，不能因為interior稍後覆寫就消除它；temporary candidate對ArrayBuffer.isView=false保留原整份copy。這是真正執行原行為的對照分支，不是fake worker／fake成功。
+- 一般完整job的收益很小，plain-typed的2×2約慢4.7%、narrow／wide約慢4.6–4.7%、smoothing0約慢2.0%；512²兩輪亦未受益。維持原本boring且完整的native typed-array copy，不新增initializer loops／guards／helper／threshold。
+- 正式geometry-processing source、tests與dist不變；P178的row work／topology cursor保留。沒有修改budget、增加另一套Jacobi實作、用容量特判隱藏退步或新增候選永久tests。
+
+### 量測邊界與typed-only結果
+
+Node v26.7.0、TypeScript6.0.3隔離ESM modules、相同正式dependencies；8warmups／15alternating A/B medians，完整process包含validation、allocation、所有smoothing與output generation，setup不計時，無並行tests／build／browser。Width17.3、depth9.7、smoothing0.37（smoothing-zero為0），heights為sin(i*0.39)*3+cos(i*0.17)*5存入Float32Array。
+
+先完成512組普通Float32Array數值比較後，在fresh Node process只使用plain-typed輸入量測；這輪沒有先把Proxy交給同一process function：
+
+| Case           | Columns×rows | Passes | Calls/batch | Before ms |  After ms |
+| -------------- | ------------ | -----: | ----------: | --------: | --------: |
+| 2x2-two        | 2×2          |      2 |        2000 |  0.354375 |  0.370917 |
+| 3x3-two        | 3×3          |      2 |        1000 |  0.528541 |  0.530375 |
+| 64-two         | 64×64        |      2 |          20 |  0.998167 |  1.003500 |
+| 64-eight       | 64×64        |      8 |          20 |  1.527709 |  1.508167 |
+| 192-zero       | 192×192      |      0 |           5 |  1.657500 |  1.608625 |
+| 192-one        | 192×192      |      1 |           5 |  1.920750 |  1.856417 |
+| 192-two        | 192×192      |      2 |           5 |  2.129750 |  2.110333 |
+| 192-worker     | 192×192      |    192 |           1 |  9.482125 |  9.473917 |
+| 512-two        | 512×512      |      2 |           1 |  2.981375 |  3.004333 |
+| 512-32         | 512×512      |     32 |           1 | 13.213333 | 13.153875 |
+| narrow         | 2×2048       |      8 |          20 |  0.865250 |  0.904958 |
+| wide           | 2048×2       |      8 |          20 |  0.646750 |  0.677375 |
+| smoothing-zero | 128×128      |     32 |          10 |  1.381708 |  1.408916 |
+
+192²×192約9.482125→9.473917ms，不能從如此小的差異宣稱worker／whole-frame改善；零／一輪與smoothing0根本不會進入spare改動，但這些control的實測也有正負差異。沒有把未直接profile的layout／inline／JIT原因當成已確認根因，亦未從source-level copy數推論JS allocations／heap／GC或FPS。
+
+### 混合Proxy-history的獨立控制組
+
+第一輪在同一組process functions上完成512組typed cases後，另先執行3個合法Proxy iterator probes，才開始CPU A/B。其絕對時間與fresh typed-only有很大差異，因此另外保留；不把兩種history的before／after交叉組合，也不假裝第一輪就是單純的native-typed Worker workload：
+
+| Case           | Columns×rows | Passes | Calls/batch |  Before ms |   After ms |
+| -------------- | ------------ | -----: | ----------: | ---------: | ---------: |
+| 2x2-two        | 2×2          |      2 |        2000 |   0.453250 |   0.455583 |
+| 3x3-two        | 3×3          |      2 |        1000 |   0.681625 |   0.696458 |
+| 64-two         | 64×64        |      2 |          20 |   5.291167 |   5.280583 |
+| 64-eight       | 64×64        |      8 |          20 |  16.965666 |  16.986791 |
+| 192-zero       | 192×192      |      0 |           5 |   3.582834 |   3.613042 |
+| 192-one        | 192×192      |      1 |           5 |   7.867750 |   7.887875 |
+| 192-two        | 192×192      |      2 |           5 |  12.709209 |  12.707333 |
+| 192-worker     | 192×192      |    192 |           1 | 178.815166 | 181.859292 |
+| 512-two        | 512×512      |      2 |           1 |  18.905625 |  18.699750 |
+| 512-32         | 512×512      |     32 |           1 | 222.470167 | 224.864917 |
+| narrow         | 2×2048       |      8 |          20 |   2.119250 |   2.168375 |
+| wide           | 2048×2       |      8 |          20 |   1.637708 |   1.712125 |
+| smoothing-zero | 128×128      |     32 |          10 |   3.488041 |   3.361083 |
+
+這裡記錄的是有不同輸入history的真實量測，不據此宣稱已證明某個JIT deoptimization機制。此控制組也未呈現足夠的一般收益：多數cases持平或退步，不能用少數smoothing-zero改善替它通過。
+
+### 行為證據、清理與未驗證範圍
+
+- 每輪512組finite typed輸入，四個streams各輪共7,803,728bytes逐byte相同，原heights bytes不變。Dimensions2–32、iterations0–10、smoothing0／0.37／1、signed-zero與非整數height皆包含；沒有宣稱這已是全部error／concurrency／getter compatibility驗證。
+- 初輪另外3組Proxy probes的constructor iterator／index read logs、輸出bytes與errors一致：observe、每次iterator改boundary、第二次iterator throw。這些probe不新增到永久test suite，也沒有刪掉它們再冒稱混合history的效能沒有差別。
+- Source未採用候選，故本輪沒有重跑build／typecheck／tests／native browser；P178的六項tests、bytes與native Worker／renderer證據是當時紀錄，不以文件更新冒稱重新runtime驗證。沒有native timing、publication、GPU／presentation FPS、heap或allocation counter新證據。
+- README中英日、PLAN、DESIGN、TECHNICAL中英同步；文件Prettier與既有ACCEPTANCE相對目標檢查完成。兩個isolated module directories與measurement script已刪除；本輪沒有server／native tab／agent遺留，無dependency或vendor變更。
