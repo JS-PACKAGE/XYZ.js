@@ -6143,3 +6143,9 @@ fresh native sampling 確認 variant 判斷仍有 self samples，卻不代表任
 `PBRMaterial.sheenColor` 的公開型別是 readonly 屬性加可變三元 tuple；constructor 檢查輸入長度、逐值驗證後，以 spread 複製成未 freeze 的普通 Array。這不等於私有、不可變且永遠長度三的儲存。
 
 P222 的實際來源 helper 對照顯示，公開陣列 push／pop 會被既有 live-length scan 觀察；無條件只讀前三項會改變 shader key。GL 與 GPU 都呼叫同一個 variant helper，不能把其中之一當成未改動控制。候選在計時前否決，沒有為了展開迴圈新增 freeze、持久 cache、setter／API 或相容性 shim。保留現有可觀察行為，不代表新認證第四色通道或任意 material shape；六種狀態與未重驗範圍見 ACCEPTANCE P222。
+
+## P223 — 保留 private array 長度不等於減少 allocation
+
+GL pass binding tracker 已是兩個 private flat arrays；undefined 是未知狀態，null 是合法 texture／sampler 綁定，不能互換。隔離候選只將兩個 length=0 改成 fill(undefined)，仍清除舊 resource references，不改 active unit、attribute invalidation 或 upload／skin 的實際綁定更新。
+
+完整 CPU 結果混合，另做的 native heap sampling 更不支持配置減少：binding/reset 歸因 sampled bytes 每一對都增加。保留 JavaScript array 長度不能直接推定 V8 backing-store 重用或精確 allocation 次數；本輪不推定具體 VM 機制，也不把 sampled bytes 換算 GPU、retained heap 或 FPS。候選未採用，原有短小 reset 不變；完整資料見 ACCEPTANCE P223。

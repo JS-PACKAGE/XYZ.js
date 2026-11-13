@@ -74,6 +74,8 @@ P221 的 fresh native GL profile 後，private shader mask 的 Object.freeze 原
 
 P222 未採用無條件固定 RGB 的 sheen 判斷展開：實際公開陣列修改會改變正式 shader key，三通道候選卻忽略該變化；在語意關卡即否決，沒有新 CPU／FPS 收益宣稱或 runtime 變更。P222 rejects unconditional three-channel sheen unrolling because it changes an observed shader-key result after mutation of the public array; no timing or runtime change is adopted. P222 では公開配列の変更後に既存の shader key と異なる結果になるため、sheen の無条件 RGB 展開を採用せず、速度向上も主張しません。這不是第四色通道契約；詳見 [ACCEPTANCE](./ACCEPTANCE.md) P222。
 
+P223 未採用以 fill(undefined) 保留 GL binding scratch 長度：192-row 完整 CPU 對照結果混合，另十二份 native heap profiles 的 binding/reset 歸因 sampled bytes 每對都增加，正式 source/dist 不改。P223 rejected retaining GL binding scratch lengths: full-submit CPU results were mixed and sampled binding/reset bytes rose in every separate native heap pair. P223 は GL binding scratch 長の保持案を不採用としました。CPU 結果は混在し、別途測定した全ペアで binding/reset の sampled bytes が増えました。這不是精確 allocation count 或 GPU／FPS 量測；詳見 [ACCEPTANCE](./ACCEPTANCE.md) P223。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

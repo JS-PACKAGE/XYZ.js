@@ -5984,3 +5984,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 確認 constructor 驗證三通道輸入，但公開 readonly 屬性持有的是未 freeze、可修改的普通 tuple array；型別不會把陣列方法一起凍結。
 - 以真實 PBRMaterial／Texture 與兩份正式 helper 對照六種資料狀態，證明無條件三通道候選改變現有公開陣列修改後的 shader key，因此在 CPU 計時前否決。
 - 只提交反例與驗證邊界；source/dist／版本不變，不建立第四色通道契約，不 push。數值、環境與未執行項目見 ACCEPTANCE P222。
+
+## P223 — Reject retaining GL binding scratch lengths
+
+- 確認兩個 private flat arrays 的 undefined＝unknown、null＝合法 native 綁定，以及 upload／skin／phase reset 的既有更新點；僅隔離比較 length=0 與 fill(undefined)，不新增 cache。
+- 執行單次固定 192-row 完整 native submit 矩陣，保留全部六輪 AB/BA clocks 與首輪 outlier；GL-only 候選的 GPU 路徑是未改動控制。
+- CPU 結果混合後另做十二份 native heap profiles，兩 workload 各三對、每份 512 full submits。binding/reset 歸因 sampled bytes 全部配對增加，不能支持減少配置的假設。
+- 否決候選，source/dist／版本不變；canvas harness 初次錯誤、全部 paired clocks、allocation 統計與未重驗邊界見 ACCEPTANCE P223。只提交文件，不 push。

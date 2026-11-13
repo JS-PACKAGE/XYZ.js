@@ -7317,3 +7317,7 @@ private shader BIT 保留原本單一 featureOrder 定義與 TypeScript readonly
 ## P222：未採用 sheen 的無條件固定 RGB 展開
 
 `PBRMaterial.sheenColor` 是 readonly 屬性持有可變 tuple，不是 freeze 的固定長度 backing store。constructor 驗證三通道輸入並複製成普通陣列。P222 以實際 material、native 建立的 texture 與兩份正式共用 shader helper 對照：RGB／全零／復原控制一致，但公開陣列 append 正值後，既有 helper 會改變 key，展開候選卻忽略。候選在計時前否決，沒有 runtime、API 或 dist 變更。這是保留既有 key 選擇行為的反例，不是第四色通道契約；兩 renderer 都使用此 helper，沒有新增 renderer、pixel、CPU 或 FPS 成果宣稱。精確語意資料與未重驗範圍見 [ACCEPTANCE](../ACCEPTANCE.md) P222。
+
+## P223：未採用 binding scratch 長度保留
+
+GL binding scratch arrays 維持原本 length-zero reset。隔離候選改以 undefined 填滿兩個 private arrays，仍保留 unknown／null 語意並清除 resource references，不改 active unit／attribute invalidation。固定完整 submit CPU 矩陣混合；另做包含已 GC 物件的 heap sampling 後，每對 bindUnit/resetPassState 歸因 sampled bytes 都增加。array 長度本身不是 backing-store 重用的證據；不推定精確 allocation count、VM 機制、retained heap、GPU 或 FPS 效果。source/dist 與公開契約不變，全部 clocks、sampled-byte 配對、harness 修正與未重驗項目見 [ACCEPTANCE](../ACCEPTANCE.md) P223。
