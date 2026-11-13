@@ -25,6 +25,7 @@ export class WebGPUTemporalPipeline {
   private index = 0;
   private state: TemporalPostState | undefined;
   private views?: WeakMap<GPUTexture, GPUTextureView>;
+  private blitGroups?: WeakMap<GPUTexture, Map<number, GPUBindGroup>>;
 
   constructor(
     private readonly device: GPUDevice,
@@ -260,10 +261,19 @@ export class WebGPUTemporalPipeline {
       cached = { pipeline, layout: pipeline.getBindGroupLayout(0) };
       this.blitPipelines.set(sampleCount, cached);
     }
-    const group = this.device.createBindGroup({
-      layout: cached.layout,
-      entries: [{ binding: 0, resource: this.view(source) }],
-    });
+    let groups = this.blitGroups?.get(source);
+    let group = groups?.get(sampleCount);
+    if (!group) {
+      group = this.device.createBindGroup({
+        layout: cached.layout,
+        entries: [{ binding: 0, resource: this.view(source) }],
+      });
+      if (!groups) {
+        groups = new Map();
+        (this.blitGroups ??= new WeakMap()).set(source, groups);
+      }
+      groups.set(sampleCount, group);
+    }
     const pass = beginTimedRenderPass(encoder, {
       colorAttachments: [
         { view: destination, loadOp: 'load', storeOp: 'store' },
@@ -283,6 +293,7 @@ export class WebGPUTemporalPipeline {
     this.state?.invalidate();
     this.state = undefined;
     this.views = undefined;
+    this.blitGroups = undefined;
     const count =
       (this.scratch ? 8 : 0) + this.history.length * 8 + this.depths.length * 4;
     this.scratch?.destroy();

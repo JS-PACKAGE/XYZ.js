@@ -5933,3 +5933,17 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   Native API query減少不等於driver layout allocation或端到端FPS已改善。
 - Native bad-layout negative保留TAA entries卻換成實際SSR handle，GPU回報binding3不在layout；
   用實際receiver／resource identity與pixels／payload分開驗證，不以mock calls認證。
+
+## P206 — A blit group's source and pipeline key are both part of its identity
+
+- Group只綁一個source default view；contents可更新但GPUTexture identity不能混用。
+  Weak source key避免新增strong borrowed-source欄位；live key的inner Map及groups仍有成本。
+- Inner sample-count key對應P205 pipeline／auto-layout pair。同source跨1／4-sample
+  pipelines不能誤用同group，實際GPU會拒絕來自另一default-layout pipeline的group。
+- ReleaseTarget直接丟棄optional cache，不遍歷pipeline map或在inactive path配新container；
+  view cache照原規則清除，pipeline／layout pair仍保留。不保存destination／swapchain。
+- Consumer proof在native setBindGroup時snapshot實際descriptor的texture identities，
+  不把少掉的createBindGroup列數誤當少draw；240-byte payload及正式RGBA另比。
+- 補充probe使用同Root owner／encoder的實際SSR source及native blue texture，讀回兩個
+  rgba16float targets；wrong source可合法通過GPU validation卻產生相同blue pixels。
+  Sample key negative則由真正native incompatibility拒絕，zero readback不算成功證據。

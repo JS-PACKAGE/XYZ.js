@@ -5777,3 +5777,17 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   不主張穩定整幀、heap、GPU memory或FPS收益。Raw rounds與negative見ACCEPTANCE P205。
 - Scoped4 tests、source checks、隔離build及unpatched consumer／showcase通過；
   五個guarded outputs、僅兩個private declarations，獨立commit、不push、不升版。
+
+## P206 — Reuse blit groups with weak source and sample-count keys
+
+- 正式temporal blit增加lazy WeakMap<source texture, Map<sample count, group>>，
+  key跟既有immutable pipeline cache一致；release直接drop，不新增inactive cleanup配置。
+- 保留source的最新native contents、P204 view cache與P205 pipeline／layout pair；
+  不快取destination或GPU work，不改shader、uniform、draw order及public API。
+- Source／dist×GPU／GL×兩AA設定各23組byte-exact frames，GPU group建立26→21但native uses
+  仍26；另以實際Root owner／encoder驗證不同source及1／4-sample pipelines，不是假device。
+- Wrong sample key會觸發native auto-layout incompatibility；wrong source key的validation
+  雖空，實際HDR pixels仍錯，兩個negative均拒絕。詳細counter／hash／raw rounds見ACCEPTANCE。
+- SSR CPU約-2.33%、combined平，未使用blit的TAA仍約-4.55%，不可歸因本功能；
+  採用理由限native API work減少，不宣稱穩定FPS／heap。Scoped4 tests、source checks、
+  guarded build、unpatched consumer及showcase通過，十二檔獨立commit、不push、不升版。

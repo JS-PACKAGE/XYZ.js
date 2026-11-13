@@ -22661,3 +22661,180 @@ In entries[3], binding index 3 not present in the bind group layout.
 - 未跑full unit suite、CJS runtime、Canvas／audio、device-loss／initialization fallback，
   未認證Firefox／Safari／physical device。未量測heap、GC、native/GPU bytes、GPU time、
   presentation FPS或端到端latency，沒有所有場景加速的主張。
+
+## P206 — Composite-key temporal blit bind groups（2026-11-14）
+
+### 範圍與cache key
+
+- 正式temporal blit加lazy WeakMap<GPUTexture, Map<number, GPUBindGroup>>，source為弱key，
+  inner sample-count key與P205 immutable pipeline／auto-layout pair一致。Group只綁source
+  default view，不綁destination、uniform或其他per-frame資料；native contents保持可更新。
+- Source identity不能混用，default-layout pipeline亦不能跨sample-count誤共用group。
+  ReleaseTarget直接drop optional cache，不遍歷pipeline map、不在inactive cleanup配container；
+  P204 views照常清除、P205 pipeline／layout pairs照常保留。Public API與shader不變。
+- Live source key仍保留inner Map及groups，兩級container有成本；只採用native API work下降，
+  不宣稱net JS allocations、heap／GC、driver allocations或native/GPU bytes已量測下降。
+
+### 真正100-mesh Scene的完整 CPU submit
+
+- Node26.7.0、pnpm12.6.0、TS6.0.3、Chromium153.0.8010.12，darwin/arm64 desktop automation。
+  Canonical source SDK、正式Scene／createRenderer、64²可見page；none／TAA／SSR／combined各100 Mesh。
+- Before凍結P205，after為候選；三次warm observation先加empty blitGroups field使shape一致。
+  共用同Root owner、P205 pipeline／layout Map、P204 view helper及cache-aware release；
+  沒有mock device或在timing中加resource／pixel observers。
+- 每variant六次warm加四組十次warm／flush；六round ABBA，每sample四次warm／flush後計24次
+  submit，flush在timing外，沒有heavy checks併跑。通常偶數中位數及raw rounds如下。
+- **GPU TAA沒有呼叫blit**，約-4.55%是unused-method control，不可歸因本功能；GPU-none約+2.33%。
+  真正active SSR約-2.33%、combined平，GL controls約+1.96～+8.00%；無穩定整幀／FPS收益主張。
+
+| backend | workload | before_ms | after_ms | change_percent | upload_before | upload_after |
+| ------- | -------- | --------- | -------- | -------------- | ------------- | ------------ |
+| webgpu  | none     | 0.089583  | 0.091667 | 2.33           | 7856          | 7856         |
+| webgpu  | taa      | 0.091667  | 0.087500 | -4.55          | 8128          | 8128         |
+| webgpu  | ssr      | 0.089583  | 0.087500 | -2.33          | 8096          | 8096         |
+| webgpu  | combined | 0.087500  | 0.087500 | 0.00           | 8368          | 8368         |
+| webgl2  | none     | 0.104167  | 0.112500 | 8.00           | 4048          | 4048         |
+| webgl2  | taa      | 0.106250  | 0.108333 | 1.96           | 4288          | 4288         |
+| webgl2  | ssr      | 0.104167  | 0.106250 | 2.00           | 4288          | 4288         |
+| webgl2  | combined | 0.141667  | 0.150000 | 5.88           | 4528          | 4528         |
+
+#### Raw native rounds — webgpu
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.116667 |          0.104167 |
+| none / 2         |           0.100000 |          0.104167 |
+| none / 3         |           0.091667 |          0.100000 |
+| none / 4         |           0.087500 |          0.083333 |
+| none / 5         |           0.079167 |          0.079167 |
+| none / 6         |           0.079167 |          0.083333 |
+| taa / 1          |           0.095833 |          0.095833 |
+| taa / 2          |           0.095833 |          0.108333 |
+| taa / 3          |           0.095833 |          0.087500 |
+| taa / 4          |           0.083333 |          0.087500 |
+| taa / 5          |           0.083333 |          0.083333 |
+| taa / 6          |           0.087500 |          0.083333 |
+| ssr / 1          |           0.095833 |          0.083333 |
+| ssr / 2          |           0.087500 |          0.095833 |
+| ssr / 3          |           0.091667 |          0.087500 |
+| ssr / 4          |           0.083333 |          0.091667 |
+| ssr / 5          |           0.083333 |          0.087500 |
+| ssr / 6          |           0.091667 |          0.087500 |
+| combined / 1     |           0.091667 |          0.087500 |
+| combined / 2     |           0.087500 |          0.091667 |
+| combined / 3     |           0.087500 |          0.087500 |
+| combined / 4     |           0.087500 |          0.083333 |
+| combined / 5     |           0.083333 |          0.087500 |
+| combined / 6     |           0.083333 |          0.083333 |
+
+#### Raw native rounds — webgl2
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.112500 |          0.112500 |
+| none / 2         |           0.141667 |          0.133333 |
+| none / 3         |           0.108333 |          0.133333 |
+| none / 4         |           0.095833 |          0.112500 |
+| none / 5         |           0.100000 |          0.112500 |
+| none / 6         |           0.100000 |          0.104167 |
+| taa / 1          |           0.104167 |          0.108333 |
+| taa / 2          |           0.141667 |          0.145833 |
+| taa / 3          |           0.116667 |          0.120833 |
+| taa / 4          |           0.104167 |          0.108333 |
+| taa / 5          |           0.108333 |          0.104167 |
+| taa / 6          |           0.100000 |          0.104167 |
+| ssr / 1          |           0.104167 |          0.100000 |
+| ssr / 2          |           0.100000 |          0.104167 |
+| ssr / 3          |           0.104167 |          0.108333 |
+| ssr / 4          |           0.104167 |          0.100000 |
+| ssr / 5          |           0.137500 |          0.145833 |
+| ssr / 6          |           0.175000 |          0.150000 |
+| combined / 1     |           0.120833 |          0.108333 |
+| combined / 2     |           0.100000 |          0.104167 |
+| combined / 3     |           0.104167 |          0.145833 |
+| combined / 4     |           0.170833 |          0.162500 |
+| combined / 5     |           0.162500 |          0.154167 |
+| combined / 6     |           0.175000 |          0.162500 |
+
+### 正式native consumer與真正pass-use比較
+
+- Source及package-declared /dist/src/index.js×GPU／GL×AA off／on，八個正常suites均通過。
+  每suite23組frames、5,870,592 RGBA bytes逐byte相同；GL AA只是context request，不認證sample count。
+- GPU每suite native createBindGroup26→21，其中六次blit由一個group服務；實際native
+  setBindGroup uses仍26，passes26、views21、layout query1、20次uniform uploads／4,800 bytes及
+  32次release不變。原有TAA／SSR pixel／history thresholds及capture／probe／text assertions維持。
+- Create-time descriptors以WeakMap綁到真正GPUBindGroup，再於真正GPURenderPassEncoder.setBindGroup
+  呼叫當下snapshot實際texture identities；不比較理應減少的creation rows當作少draw證據。
+  Native pipeline／layout／buffer／texture／view／group brands及receivers檢查，hooks仍轉呼intrinsic。
+  Uniform payload按當下複製，正常GPU validation errors空，release後views及blitGroups清除。
+
+| entry  | backend | AA  | framePairs | rgbaBytes | owners | groupsBefore | groupsAfter | actualGroupUses | passes | nativeViews | layoutGets | uniformUploads | uniformBytes | releases | auxReadbacks | auxCreated | auxDestroyed | scenarios |
+| ------ | ------- | --- | ---------- | --------- | ------ | ------------ | ----------- | --------------- | ------ | ----------- | ---------- | -------------- | ------------ | -------- | ------------ | ---------- | ------------ | --------- |
+| source | webgpu  | off | 23         | 5870592   | 1      | 26           | 21          | 26              | 26     | 21          | 1          | 20             | 4800         | 32       | 0            | 0          | 0            | 5         |
+| source | webgpu  | on  | 23         | 5870592   | 1      | 26           | 21          | 26              | 26     | 21          | 1          | 20             | 4800         | 32       | 0            | 0          | 0            | 5         |
+| source | webgl2  | off | 23         | 5870592   | 0      | 0            | 0           | 0               | 0      | 0           | 0          | 0              | 0            | 0        | 0            | 0          | 0            | 5         |
+| source | webgl2  | on  | 23         | 5870592   | 0      | 0            | 0           | 0               | 0      | 0           | 0          | 0              | 0            | 0        | 0            | 0          | 0            | 5         |
+| dist   | webgpu  | off | 23         | 5870592   | 1      | 26           | 21          | 26              | 26     | 21          | 1          | 20             | 4800         | 32       | 0            | 0          | 0            | 5         |
+| dist   | webgpu  | on  | 23         | 5870592   | 1      | 26           | 21          | 26              | 26     | 21          | 1          | 20             | 4800         | 32       | 0            | 0          | 0            | 5         |
+| dist   | webgl2  | off | 23         | 5870592   | 0      | 0            | 0           | 0               | 0      | 0           | 0          | 0              | 0            | 0        | 0            | 0          | 0            | 5         |
+| dist   | webgl2  | on  | 23         | 5870592   | 0      | 0            | 0           | 0               | 0      | 0           | 0          | 0              | 0            | 0        | 0            | 0          | 0            | 5         |
+
+### 不同source與sample count的實際HDR補充consumer
+
+- 另在source／dist的同一實際Root owner／encoder、AA-on正式Scene上，加入owned補充native
+  resource probe，不是standalone renderer／fake shader。真正SSR scratch為source46，另以native
+  clear建立全blue rgba16float source47；同owner依序以1-sample blit兩個source到兩個targets，
+  再走正式4-sample destination。Probe資源僅throwaway hook存在，不進production。
+- 兩個256² rgba16float targets合計1,048,576 bytes readback，先逐byte比較before／after，
+  再保存SHA256。Blue每pixel為exact half-float(0,0,1,1)，Scene target必須不同。Source及dist
+  正常兩variant都符合；23組正式RGBA亦保持相同，不拿aux target冒充正式畫面。
+- 補充suite create groups28→23，native uses28、passes29（含blue clear）、views25、layout queries2，
+  20次uniform uploads／4,800 bytes不變。三個native textures加兩個readback buffers共五個owned
+  resources皆使用後destroy，created5／destroyed5；沒有將這些probe資源計作engine新能力。
+
+| entry  | framePairs | rgbaBytes | owners | groupsBefore | groupsAfter | actualGroupUses | passes | nativeViews | layoutGets | uniformUploads | uniformBytes | releases | auxReadbacks | auxCreated | auxDestroyed | scenarios |
+| ------ | ---------- | --------- | ------ | ------------ | ----------- | --------------- | ------ | ----------- | ---------- | -------------- | ------------ | -------- | ------------ | ---------- | ------------ | --------- |
+| source | 23         | 5870592   | 1      | 28           | 23          | 28              | 29     | 25          | 2          | 20             | 4800         | 32       | 1            | 5          | 5            | 5         |
+| dist   | 23         | 5870592   | 1      | 28           | 23          | 28              | 29     | 25          | 2          | 20             | 4800         | 32       | 1            | 5          | 5            | 5         |
+
+| entry  | variant      | blueValid | different | validationErrors | blueSHA256                                                       | sceneSHA256                                                      |
+| ------ | ------------ | --------- | --------- | ---------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| source | before       | true      | true      | 0                | 3997a892dd41337c6769504fb832d7ace0c21d43a0ad91d0d44f4d9314bc4135 | e8a7aac089815e42c0a5e9d5011393c991265aea356a07019fabbd41231a6f8e |
+| source | after        | true      | true      | 0                | 3997a892dd41337c6769504fb832d7ace0c21d43a0ad91d0d44f4d9314bc4135 | e8a7aac089815e42c0a5e9d5011393c991265aea356a07019fabbd41231a6f8e |
+| source | wrong-source | true      | false     | 0                | 3997a892dd41337c6769504fb832d7ace0c21d43a0ad91d0d44f4d9314bc4135 | 3997a892dd41337c6769504fb832d7ace0c21d43a0ad91d0d44f4d9314bc4135 |
+| dist   | before       | true      | true      | 0                | 3997a892dd41337c6769504fb832d7ace0c21d43a0ad91d0d44f4d9314bc4135 | e8a7aac089815e42c0a5e9d5011393c991265aea356a07019fabbd41231a6f8e |
+| dist   | after        | true      | true      | 0                | 3997a892dd41337c6769504fb832d7ace0c21d43a0ad91d0d44f4d9314bc4135 | e8a7aac089815e42c0a5e9d5011393c991265aea356a07019fabbd41231a6f8e |
+| dist   | wrong-source | true      | false     | 0                | 3997a892dd41337c6769504fb832d7ace0c21d43a0ad91d0d44f4d9314bc4135 | 3997a892dd41337c6769504fb832d7ace0c21d43a0ad91d0d44f4d9314bc4135 |
+
+### 兩種consumer-visible錯誤key皆實際拒絕
+
+- **Wrong sample：** 把actual source的1-sample native group放進4-sample key，兩個actual native
+  pipelines distinct。Native GPU拒絕auto-layout不屬於current pipeline，並非JS mock failure。
+  Invalid encoder後的zero auxiliary readbacks沒有被當作成功或source-key證據。實際首行：
+
+```text
+The current pipeline ([RenderPipeline (unlabeled)]) was created with a default layout, and is not compatible with the [BindGroup (unlabeled)] set at group index 0 which uses a [BindGroupLayout (unlabeled)] that was not created by the pipeline. Either use the bind group layout returned by calling getBindGroupLayout(0) on the pipeline when creating the bind group, or provide an explicit pipeline layout when creating the pipeline.
+```
+
+- **Wrong source：** 把真實blue source group放到Scene source的1-sample key，GPU validation
+  errors仍空、layouts合法，但actual Scene auxiliary pixels變成與blue完全相同，source／dist
+  都由Distinct native sources produced identical auxiliary blit pixels assertion拒絕。
+  這正是不能只看native error或call counts的consumer-visible錯誤；正常Scene SHA與blue不同，
+  wrong-source兩者都變成blue SHA。沒有以source text／bare not-throw或長度成長充測試。
+
+### Checks、build與surface
+
+- Source Prettier unchanged、ESLint、strict typecheck通過；tests/temporal-post.test.ts四tests
+  passed，01:37:17、96ms。未新增只測private cache wiring的unit tests，uncertain composite keys
+  以上述真實HDR readbacks及native incompatibility throwaway scenarios驗證。
+- 隔離build：377 JS 9,361,880→4,012,784 bytes，vendor unchanged，720 CJS。Declaration guard
+  僅新增private blitGroups? field才copy此module五個ESM／CJS／maps／d.ts outputs；不覆蓋使用者
+  physics2d／world2d及其outputs，不改package1.23.0版本或public entry。
+- Unpatched source／dist×GPU／GL四consumer頁各五原有scenarios passed，errors及graphicsEvents空。
+  Showcase兩backend實際Scene A→B、screenshot／pagehide cleanup通過，GPU Scene B image已視讀，
+  2D overlay及3D cube／sphere正常；audio仍locked，沒有宣稱unlock／播放音訊通過。
+- 同步README三語、PLAN、DESIGN、TECHNICAL英／中及本紀錄，檢查六份文件相對連結／格式；
+  提交前停止Vite、移除owned fixtures／scripts，feature十二檔獨立commit、不push、不升版。
+- 未跑full unit suite、CJS runtime、Canvas／audio、device-loss／initialization fallback，
+  未認證Firefox／Safari／physical device。未量測heap、GC、native/GPU bytes、GPU time、
+  presentation FPS或端到端latency，不宣稱所有場景加速。

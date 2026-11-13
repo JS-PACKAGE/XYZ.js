@@ -7106,3 +7106,18 @@ Source／dist×GPU／GL×兩AA設定byte-exact frames通過，native view／bind
 不變；錯拿真實SSR layout給TAA的negative被GPU binding validation拒絕。Scoped4 tests、
 source checks、隔離build及unpatched consumer／showcase通過。Mixed CPU controls及原生
 查詢次數見[ACCEPTANCE](../ACCEPTANCE.md) P205，不宣稱穩定整幀收益。
+
+## P206 複合key temporal blit groups
+
+Blit group以弱source GPUTexture及既有immutable pipeline／auto-layout的sample-count key
+lazy重用。Release直接drop cache，不遍歷pipelines或在inactive cleanup配container；
+live key仍保留inner Map／groups，不宣稱heap、native bytes或FPS收益。
+
+同texture最新contents維持可讀，不同texture identities及default-layout pipelines不能混用。
+Destination／swapchain view／GPU work不進cache，P204 view及P205 pipeline／layout生命週期不變。
+
+Source／dist×GPU／GL×兩AA設定native pass-use與byte-exact frames通過。實際Root owner的
+補充HDR readback能抓出validation沒報錯的wrong source；wrong sample key則被真實GPU
+pipeline compatibility拒絕。Scoped4 tests、source checks、guarded build及unpatched
+consumer／showcase通過。Mixed CPU、unused TAA controls及原生次數見
+[ACCEPTANCE](../ACCEPTANCE.md) P206，不能冒稱穩定整幀提升。

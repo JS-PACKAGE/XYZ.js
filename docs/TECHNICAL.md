@@ -7421,3 +7421,21 @@ with unchanged native view/binding/payload/lifecycle controls. An actual SSR-for
 layout negative failed GPU binding validation. Four scoped tests, source checks,
 isolated build and unpatched consumers/showcase passed. Mixed full-submit controls
 and bounded native query counts are recorded in [ACCEPTANCE](../ACCEPTANCE.md) P205.
+
+## P206 composite-key temporal blit groups
+
+Blit groups are lazily cached by weak source GPUTexture, then by the sample-count
+key of the existing immutable pipeline/auto-layout pair. Release drops the cache
+without iterating pipelines or allocating containers on inactive cleanup. Live
+keys still retain their inner map/groups; no heap/native-byte or FPS gain is claimed.
+
+Source contents remain live, while different texture identities and default-layout
+pipelines must stay distinct. Destinations, swapchain views and GPU work are not
+cached. P204 view and P205 pipeline/layout lifetimes are unchanged.
+
+Native pass-use snapshots and byte-exact frames passed across source/distribution,
+GPU/GL and both AA settings. Actual-owner supplementary HDR readbacks caught a
+wrong source even with no validation error; a wrong sample key failed real GPU
+pipeline compatibility. Four scoped tests, source checks, guarded build and
+unpatched consumers/showcase passed. Small/mixed CPU controls, unused TAA controls
+and bounded API counts are separate in [ACCEPTANCE](../ACCEPTANCE.md) P206.

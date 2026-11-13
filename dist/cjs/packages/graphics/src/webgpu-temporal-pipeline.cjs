@@ -21,6 +21,7 @@ var WebGPUTemporalPipeline = class {
 	index = 0;
 	state;
 	views;
+	blitGroups;
 	constructor(e, n, r) {
 		this.device = e, this.stats = r;
 		let i = e.createShaderModule({ code: require_temporal_post_shaders.temporalWGSL(n, !1) }), a = e.createShaderModule({ code: require_temporal_post_shaders.temporalWGSL(n, !0) }), o = [
@@ -187,24 +188,26 @@ var WebGPUTemporalPipeline = class {
 				layout: t.getBindGroupLayout(0)
 			}, this.blitPipelines.set(i, a);
 		}
-		let o = this.device.createBindGroup({
+		let o = this.blitGroups?.get(n), s = o?.get(i);
+		s || (s = this.device.createBindGroup({
 			layout: a.layout,
 			entries: [{
 				binding: 0,
 				resource: this.view(n)
 			}]
-		}), s = require_gpu_timing.beginTimedRenderPass(t, { colorAttachments: [{
+		}), o || (o = /* @__PURE__ */ new Map(), (this.blitGroups ??= /* @__PURE__ */ new WeakMap()).set(n, o)), o.set(i, s));
+		let c = require_gpu_timing.beginTimedRenderPass(t, { colorAttachments: [{
 			view: r,
 			loadOp: `load`,
 			storeOp: `store`
 		}] });
-		s.setPipeline(a.pipeline), s.setBindGroup(0, o), s.draw(3), s.end();
+		c.setPipeline(a.pipeline), c.setBindGroup(0, s), c.draw(3), c.end();
 	}
 	resize(e, t) {
 		(e !== this.width || t !== this.height) && this.releaseTarget();
 	}
 	releaseTarget() {
-		this.state?.invalidate(), this.state = void 0, this.views = void 0;
+		this.state?.invalidate(), this.state = void 0, this.views = void 0, this.blitGroups = void 0;
 		let e = (this.scratch ? 8 : 0) + this.history.length * 8 + this.depths.length * 4;
 		this.scratch?.destroy();
 		for (let e of this.history) e.destroy();

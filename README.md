@@ -36,6 +36,8 @@ Temporal offscreen default view以texture弱key重用，release時清cache；不
 
 Temporal 保留既有SSR／TAA group layouts，blit auto-layout與pipeline成對快取；只減少重複原生查詢，不宣稱穩定FPS收益。Temporal retains existing SSR/TAA group layouts and pairs each blit pipeline with its auto-layout; fewer native queries are not stable FPS gains. Temporal は既存の SSR／TAA group layout を保持し、blit pipeline と auto-layout を対で保存します。Native 問い合わせの削減であり、安定した FPS 向上とはしません。
 
+Blit bind group以弱source texture及sample-count複合key重用，release清除；原生建立減少不等同heap／FPS收益。Blit bind groups reuse weak source-texture and sample-count keys and clear on release; fewer native creations are not heap/FPS claims. Blit bind group は弱い source texture と sample count の複合キーで再利用し、release 時に破棄します。Native 生成削減を heap／FPS の改善とはしません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
