@@ -21,7 +21,7 @@ function processHeightfieldGeometry(e) {
 	if (s > 0 && c > 0) {
 		let e = new Float32Array(u), t = s > 1 ? new Float32Array(u) : e;
 		for (let i = 0; i < s; i++) {
-			for (let t = 1; t < r - 1; t++) {
+			if (n > 2) for (let t = 1; t < r - 1; t++) {
 				let r = t * n;
 				for (let t = 1; t < n - 1; t++) {
 					let i = r + t;

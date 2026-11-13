@@ -19706,3 +19706,155 @@ Chromium150、document.visibilityState=visible，正式WebGPU app已destroy停�
 - 最初13-case main-thread browser CPU run遇到Runtime.callFunctionOn Target closed，未取得任何完整結果；原因未確認，不猜測OOM或engine regression。關閉該managed tab，改用有界fresh Workers才取得上述八組量測；不宣稱已修好closed-target根因。
 - 候選因收益不足撤回，沒有續跑GL／Canvas2D／showcase或完整test suite，也沒有claim shipped-dist Worker URL、Safari、OS原生可見window、GPU時間、heap／GC、long soak或presentation FPS。P178的其他backend證據保留為當時紀錄，不充作本輪重驗。
 - README中英日、PLAN、DESIGN、TECHNICAL中英與本紀錄同步，文件Prettier及相對ACCEPTANCE目標檢查。全部原型／輸出於提交前清理；CPU／formal tabs與server關閉、實際app pool及額外benchmark Workers已清理，無依賴或vendor變更。
+
+## P184 — Skip empty Jacobi row traversals
+
+- 日期：2026-11-13；版本維持1.23.0。承接P183的撤回結果，獨立比較單一
+  empty-interior guard，不借用sliding-window候選的收益。
+- 正式變更僅在每輪stencil外加 `columns > 2`；合法兩欄網格沒有interior
+  cells，原本仍有 `(rows - 2) × iterations` 次空row traversal。保留原單一
+  stencil、浮點運算順序、兩次source constructor snapshots、每次buffer swap、
+  border值、validation／getter／iterator讀序及輸入ownership，沒有增加配置或cache。
+- 不能把兩欄smoothing直接當成no-op：自訂source iterator可以讓兩次constructor
+  snapshots不同，奇偶pass仍須選取原buffer。新增consumer-visible regression覆蓋
+  兩欄網格1／2／3／4 passes與不同iterator snapshots，來源samples保持不變。
+
+### Node CPU measurements — chosen per-pass guard
+
+Node v26.7.0、darwin/arm64、TypeScript6.0.3隔離編譯，完整function（包含validation、
+allocation、smoothing、normals／UV／indices），每函式8次warmup、15次交錯sample，
+以下為每batch中位數。輸入Float32 heights為sin(i×.39)×3 + cos(i×.17)×5，
+extents17.3×9.7，smoothing .37（smoothing-zero為0）。不包含Proxy instrumentation。
+
+| Case           | Grid    | Passes | Calls/batch | Before ms | Candidate ms |
+| -------------- | ------- | -----: | ----------: | --------: | -----------: |
+| 2x2-two        | 2×2     |      2 |        2000 |  0.297000 |     0.290667 |
+| 3x3-two        | 3×3     |      2 |        1000 |  0.700458 |     0.584125 |
+| 64-zero        | 64×64   |      0 |          20 |  0.957792 |     0.947083 |
+| 64-one         | 64×64   |      1 |          20 |  0.980625 |     0.961375 |
+| 64-two         | 64×64   |      2 |          20 |  1.008583 |     0.993375 |
+| 64-eight       | 64×64   |      8 |          20 |  1.572875 |     1.581959 |
+| 192-two        | 192×192 |      2 |           5 |  2.335084 |     2.375084 |
+| 192-worker     | 192×192 |    192 |           2 | 20.744875 |    20.735875 |
+| 512-two        | 512×512 |      2 |           2 |  7.553708 |     7.782125 |
+| 512-32         | 512×512 |     32 |           2 | 30.701000 |    33.482834 |
+| narrow         | 2×2048  |      8 |          20 |  0.924750 |     0.737500 |
+| narrow-many    | 2×8192  |    128 |           5 |  3.569500 |     0.733791 |
+| narrow-one     | 2×8192  |      1 |          20 |  3.297666 |     3.976417 |
+| near-narrow    | 3×8192  |      8 |           5 |  2.437500 |     1.963209 |
+| wide           | 2048×2  |      8 |          20 |  0.730084 |     0.731208 |
+| smoothing-zero | 128×128 |     32 |          10 |  1.691917 |     1.518291 |
+
+Node一般控制組混合：512²／32約退步9%，narrow-one約退步21%；沒有抹去此代價，
+也沒有從Node結果宣稱一般收益。採用判斷以此瀏覽器引擎的native Worker矩陣為主；
+不將不同VM／history差異推定為已確認的JIT根因。
+
+### Node CPU measurements — rejected hoisted row-end
+
+另一候選以 `columns > 2 ? rows - 1 : 1` 預先決定row end，沒有每pass guard。
+使用另一輪獨立before，不能跨表拼接基準；其完整Node控制組如下。
+
+| Case           | Grid    | Passes | Calls/batch | Before ms | Candidate ms |
+| -------------- | ------- | -----: | ----------: | --------: | -----------: |
+| 2x2-two        | 2×2     |      2 |        2000 |  0.269958 |     0.273542 |
+| 3x3-two        | 3×3     |      2 |        1000 |  0.494125 |     0.507916 |
+| 64-zero        | 64×64   |      0 |          20 |  0.883709 |     0.874291 |
+| 64-one         | 64×64   |      1 |          20 |  0.838916 |     0.909333 |
+| 64-two         | 64×64   |      2 |          20 |  0.928709 |     0.942583 |
+| 64-eight       | 64×64   |      8 |          20 |  1.521458 |     1.515334 |
+| 192-two        | 192×192 |      2 |           5 |  2.077209 |     2.112375 |
+| 192-worker     | 192×192 |    192 |           2 | 18.950542 |    18.958875 |
+| 512-two        | 512×512 |      2 |           2 |  6.112084 |     6.575708 |
+| 512-32         | 512×512 |     32 |           2 | 26.581458 |    26.370709 |
+| narrow         | 2×2048  |      8 |          20 |  0.849084 |     0.693792 |
+| narrow-many    | 2×8192  |    128 |           5 |  3.602042 |     0.661917 |
+| narrow-one     | 2×8192  |      1 |          20 |  2.802416 |     2.617250 |
+| near-narrow    | 3×8192  |      8 |           5 |  1.761583 |     1.763459 |
+| wide           | 2048×2  |      8 |          20 |  0.632208 |     0.640250 |
+| smoothing-zero | 128×128 |     32 |          10 |  1.360667 |     1.372083 |
+
+### Native Chromium Worker CPU — three-way comparison
+
+使用既有playwright-core1.63.0與repository browser-launch helper，Chromium
+153.0.8010.12、darwin/arm64、隔離headed desktop automation，非Safari／實機認證。
+每case新建實際module Worker並import三個隔離函式，各8次warmup、15次sample，
+三方順序循環輪換。計時包含完整function，不含Worker creation／module import／
+message往返；所有完成case的Worker均terminate、Blob URL均revoke。
+同一列三方使用同一case／batch；不同Node／browser矩陣不混用。
+
+| Case           | Grid    | Passes | Calls/batch | Before ms | Guard ms | Row-end ms |
+| -------------- | ------- | -----: | ----------: | --------: | -------: | ---------: |
+| 64-zero        | 64×64   |      0 |          80 |       3.7 |      3.5 |        4.0 |
+| 64-one         | 64×64   |      1 |          80 |       4.1 |      4.1 |        4.0 |
+| 64-eight       | 64×64   |      8 |          80 |       6.9 |      7.0 |        7.0 |
+| 192-worker     | 192×192 |    192 |           2 |      21.4 |     21.4 |       21.4 |
+| 512-two        | 512×512 |      2 |           4 |      15.2 |     15.2 |       15.2 |
+| 512-32         | 512×512 |     32 |           4 |      60.0 |     59.9 |       60.0 |
+| narrow         | 2×2048  |      8 |          80 |       3.4 |      3.0 |        3.2 |
+| narrow-many    | 2×8192  |    128 |          20 |       8.7 |      3.0 |        3.0 |
+| narrow-one     | 2×8192  |      1 |          20 |       3.0 |      2.9 |        2.9 |
+| near-narrow    | 3×8192  |      8 |          10 |       3.7 |      3.7 |        3.8 |
+| wide           | 2048×2  |      8 |          80 |       2.8 |      2.8 |        2.9 |
+| smoothing-zero | 128×128 |     32 |          40 |       6.1 |      6.2 |        6.2 |
+
+選擇單一guard：narrow約改善12%、narrow-many約66%，一般高迭代控制組持平；
+64-eight與smoothing-zero各增加0.1ms，沒有隱藏coarse timer與小幅退步。
+Hoisted row-end沒有額外收益，zero／near-narrow／wide控制組較弱，故不採用。
+
+初次headed Playwright run完成並保存前三列後page關閉；未收到PAGE_CRASH事件，
+根因未確認。加checkpoint後僅接續未完成case，啟用pw:browser診斷，完成其餘九列，
+process exitCode0；三列與九列不是同一次不中斷run，但每case均為fresh Worker。
+Chrome stderr另有GCM DEPRECATED_ENDPOINT，不當作頁面錯誤或引擎根因。
+
+另一managed Chromium150 session只完成一個bounded case：
+2×8192／128、20 calls的before／guard／row-end為8.5／3.1／3.1ms；
+保留獨立VM／history，不混入153矩陣。較長managed run數次Target closed，
+一次persist頁面下一call出現detached frame／Session closed，沒有收到完整結果；
+不冒稱全部測完，也未確認是否屬engine、browser或driver根因。
+Managed工具在headed要求下仍顯示headless描述的不一致已回報，不能據此宣稱OS視窗驗證。
+
+### Correctness and formal source / distribution checks
+
+- 最終正式source與P178原baseline比較：1,024組、34,605,456 bytes；5種Proxy
+  observe／iterator-change／index-change／iterator-throw／index-throw probes。
+- 另外6組包括1024²、2×524288、524288×2的vertex預算邊界、3×3／512及
+  三欄長條等控制，150,973,128 bytes；合計185,578,584 bytes精確一致。
+  24種request getter probes、42種valid／invalid boundary inputs亦比較輸出／錯誤／讀序；
+  並非將這42種輸入全部拒絕。來源samples不變。
+- scoped Prettier、TypeScript check、ESLint通過；
+  `vitest run tests/geometry-processing.test.ts`：7 tests通過（先前6為歷史數）。
+- 執行正式ESM tsc→minify→vendor copy→CJS build通過；公開root ESM與CJS各6組
+  精確比較，合計509,232 bytes，來源不變且輸出不alias來源。
+  沒有更改公開API、依賴、vendor或版本，也未將使用者physics／world2d工作納入commit。
+
+### Actual native Worker / graphics surfaces
+
+另一次repository launcher預設headless Chromium153.0.8010.12 desktop automation，
+開啟正式 `/examples/cpu-workers/`，實際DOM操作與canvas截圖（已檢視terrain像素）：
+
+- 強制webgpu與webgl2各完成384²／384 transfer、17² main／Worker逐元素numeric
+  equality、384² copy、同步main、invalid NaN保留既有terrain，以及pending提交後destroy。
+  UI文案雖說bit-for-bit，其verify handler使用numeric equality；不將其當byte proof。
+- Transfer：input detached、589,824 request bytes、8,239,128 result bytes，
+  request／result copied皆0；copy：input未detached，相同bytes皆copied、transferred皆0。
+  Geometry publication另copy10,598,424 bytes，沒有宣稱零copy。
+- Destroy前status為Native worker executing，僅證明有pending submission，不用文案
+  判定running／queued。兩backend最後workers／running／queued／admittedBytes全0，
+  completed3／failed2／cancelled0；NaN與destroy的失敗不是未處理的page errors。
+- 強制canvas2d明確Initialization failed：3D requires WebGPU or WebGL2；
+  不靜默降級，四個live counters全0、completed／failed／cancelled全0。
+- webgpu與webgl2正式showcase皆從Scene A切到Scene B，status維持lit depth-tested
+  cube／sphere；pagehide cleanup，pageerror與console error皆空。沒有重測可聽輸出或audio unlock。
+
+為覆蓋真正改變的兩欄branch，另使用公開root NativeWorkerPool、正式example module
+Worker entry、heightfieldGeometryJob，提交2×8192／128／.37、65,536-byte input並transfer：
+720,872 result bytes與原baseline逐byte一致，input detached、request／result copied皆0；
+再經公開publishHeightfieldGeometry與Texture／TextureMaterial／Mesh建構，bounds有限、
+49,146 indices、publication copy983,016 bytes。Mesh／texture／pool destroy，並斷言
+workers／running／queued／admittedBytes皆0。此probe的compute1.5ms、elapsed142.4ms
+包含冷啟動／往返，沒有before對照，不能拿來推論端到端收益。
+
+驗證使用Vite source正式入口與example worker，不等同plain deployed dist worker URL認證。
+沒有Safari、Firefox、實體裝置、heap／GPU time／FPS、全套tests或全backend效能認證。
+清理本輪owned scratch、measurement drivers、browser及Vite service；只保留正式guard、
+回歸測試、四個對應geometry生成檔與同步文件，依功能獨立提交且不push。

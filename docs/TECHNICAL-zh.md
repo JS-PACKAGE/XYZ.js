@@ -6837,3 +6837,15 @@ acceptance budgets：native software readback 較慢不能免除任何一輪或�
 私有horizontal window通過精確output／讀序比較，但Node收益沒有在fresh native
 Chromium Worker形成足夠的一般收益，故撤回候選。維持原單一stencil與P178 row／
 topology成果；候選量測及暫時驗證見ACCEPTANCE P183，不以少typed reads宣稱FPS提升。
+
+## P184 空 interior smoothing
+
+兩欄 heightfield 沒有 interior samples；每輪略過原本仍逐 row 執行的空迴圈，
+不複製 stencil。保留兩次 source constructor snapshots 及所有 ping-pong swaps：
+自訂 source iterator 可以產生不同 snapshots，不能直接跳過整段 smoothing setup，
+否則會改變奇偶輪結果。
+
+Chromium 153 真 Worker 的隔離 CPU 批次在 `2×8192／128`、20 calls 為
+8.7→3.0 ms，一般高迭代控制組持平；Node 結果混合，計時不含 Worker 啟動／messages。
+Source／built-root 精確比對、真正狹長 NativeWorkerPool publication、GPU／GL 畫面
+及 cleanup 見 [ACCEPTANCE](../ACCEPTANCE.md) P184，不宣稱配置、端到端延遲、GPU 或 FPS 收益。

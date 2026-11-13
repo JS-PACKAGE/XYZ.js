@@ -99,18 +99,21 @@ export function processHeightfieldGeometry(
     let next: Float32Array = new Float32Array(current);
     let spare: Float32Array = iterations > 1 ? new Float32Array(current) : next;
     for (let pass = 0; pass < iterations; pass++) {
-      for (let row = 1; row < rows - 1; row++) {
-        const offset = row * columns;
-        for (let column = 1; column < columns - 1; column++) {
-          const index = offset + column;
-          next[index] =
-            current[index] * (1 - smoothing) +
-            smoothing *
-              (current[index - 1] +
-                current[index + 1] +
-                current[index - columns] +
-                current[index + columns]) *
-              0.25;
+      // Copies and swaps still run for empty interiors: source iterators may differ.
+      if (columns > 2) {
+        for (let row = 1; row < rows - 1; row++) {
+          const offset = row * columns;
+          for (let column = 1; column < columns - 1; column++) {
+            const index = offset + column;
+            next[index] =
+              current[index] * (1 - smoothing) +
+              smoothing *
+                (current[index - 1] +
+                  current[index + 1] +
+                  current[index - columns] +
+                  current[index + columns]) *
+                0.25;
+          }
         }
       }
       current = next;

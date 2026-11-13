@@ -47,6 +47,32 @@ describe('CPU geometry preprocessing', () => {
     expect(published.geometry.vertices[4 * 8 + 1]).toBe(2);
   });
 
+  it('preserves narrow-strip iterator snapshots across odd and even smoothing passes', () => {
+    const authored = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    for (const iterations of [1, 2, 3, 4]) {
+      const samples = new Float32Array(authored);
+      let copies = 0;
+      const heights = new Proxy(samples, {
+        get(target, key) {
+          if (key === Symbol.iterator)
+            return function* () {
+              const shift = ++copies * 10;
+              for (const sample of target) yield sample + shift;
+            };
+          return Reflect.get(target, key, target);
+        },
+      });
+      const result = processHeightfieldGeometry(
+        terrain(authored, { columns: 2, rows: 5, iterations, heights }),
+      );
+      const shift = iterations % 2 === 0 ? 20 : 10;
+      expect(
+        Array.from(result.positions).filter((_, index) => index % 3 === 1),
+      ).toEqual(authored.map((height) => height + shift));
+      expect(Array.from(samples)).toEqual(authored);
+    }
+  });
+
   it.each([
     [2, 5],
     [5, 2],

@@ -5526,3 +5526,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   WebGPU正式Worker surface；收益不支持兩份stencil，故source與其四個生成檔撤回。
 - 不改validation、input iterator、border copies、ping-pong parity或P178成果；
   Node／Worker history差異、Target closed與完整取捨見ACCEPTANCE P183。
+
+## P184 — Skip empty Jacobi row traversals
+
+- 對合法兩欄 heightfield，每輪以 `columns > 2` 略過沒有 interior cells 的 row loop；
+  維持單一 stencil、完整 source snapshots、buffer swaps 與 odd/even parity。
+- 獨立量測此 guard，不沿用 P183 sliding-window 收益；Chromium 153 native Worker
+  `2×8192／128` 完整工作批次 8.7→3.0 ms，一般高迭代控制組持平。
+- Node 一般控制組結果混合，未採用的 hoisted row-end 候選也保留獨立數據；
+  不宣稱配置、端到端延遲、GPU 或 FPS 收益。
+- 新增兩欄 source-iterator snapshots／parity regression；7 tests、精確差分、
+  ESM／CJS、正式 GPU／GL Worker publication 與 cleanup 通過，細節見 ACCEPTANCE P184。

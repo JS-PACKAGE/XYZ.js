@@ -5681,3 +5681,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   fresh Chromium Worker重現到足以保留兩份stencil；不從不同history猜測JIT原因。
 - 撤回本輪window與空interior guard，維持P178的單一stencil／完整boundary copies。
   任何單獨empty-interior候選都必須另量測，不借用本候選的Node收益。
+
+## P184 — Empty interiors still preserve snapshots and ping-pong parity
+
+- 兩欄網格沒有 interior cells，原 stencil 的 inner loop 雖不執行，仍逐輪掃描
+  `rows - 2` 個空 row。只在每輪外加 `columns > 2`，不複製或重排 stencil。
+- 不將整個 smoothing 視為 no-op：caller heights 的 iterator 可為兩次 constructor
+  snapshots 產生不同值，奇偶輪仍必須選取原 buffer，並保留讀序及 ownership。
+- 相較於 hoisted row-end，單一 guard 在 Chromium 153 native Worker 狹長控制組
+  同樣有效、一般控制組較穩定；Node 混合結果與 browser driver 中斷均明載。
+- 正式 NativeWorkerPool 的兩欄結果另做 byte comparison 與 Geometry／Mesh publication；
+  CPU 計時排除 Worker 啟動與 message 開銷，不能推導使用者延遲或 FPS。

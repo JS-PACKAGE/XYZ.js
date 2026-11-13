@@ -7076,3 +7076,18 @@ withdrawn: the Node gain did not translate into a meaningful general win in
 fresh native Chromium Workers. The original single stencil and P178 row/topology
 work remain; candidate measurements and temporary verification are in ACCEPTANCE
 P183. Neither this investigation nor fewer typed reads establish higher FPS.
+
+## P184 empty-interior smoothing
+
+Two-column heightfields have no interior samples. Each smoothing pass now skips
+the otherwise empty row traversal without duplicating the stencil. Both source
+constructor snapshots and every ping-pong swap remain observable: a custom source
+iterator may produce different snapshots, so skipping all smoothing setup would
+change odd/even results.
+
+The isolated native Chromium 153 Worker CPU batch improved from 8.7 to 3.0 ms for
+`2×8192`, 128 passes, 20 calls; general high-iteration controls were unchanged.
+Node results were mixed, and Worker startup/messages were outside that timing.
+Exact source/built-root comparisons, a real narrow NativeWorkerPool publication,
+WebGPU/WebGL2 surfaces and cleanup are recorded in [ACCEPTANCE](../ACCEPTANCE.md)
+P184. This is not an allocation, end-to-end latency, GPU or FPS claim.
