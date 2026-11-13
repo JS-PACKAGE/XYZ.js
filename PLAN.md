@@ -5751,3 +5751,16 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   buffer成長；門檻不變，用實際GPU防止舊bind group引用舊buffer。
 - Scoped15 tests、source品質／最後browser regression typecheck及隔離build通過；private
   declaration僅新增cache field，不push、不升版，維持獨立功能commit。
+
+## P204 — Reuse default offscreen temporal views by weak texture identity
+
+- 不重用command buffers／passes或上一frame的swapchain view；只在正式temporal pipeline
+  以GPUTexture弱key重用既有六處default offscreen view requests，releaseTarget清cache。
+- Current color／ping-pong history／depth皆依實際texture identity區分，source仍借用；
+  不改uniform payload、shader或SSR／TAA history invalidation，不加bind-group cache。
+- Native source／dist×GPU／GL×兩AA設定，各23組before／after frames逐byte相同；
+  GPU createView呼叫88→21，仍覆蓋20個texture keys，故意誤併ping-pong key會觸發真正GPU錯誤。
+- 完整100-mesh CPU controls僅約2%差異且unused controls亦波動，採用理由限原生API work
+  減少，不宣稱heap、native bytes、GC或穩定整幀／FPS提升。詳細raw rounds見ACCEPTANCE P204。
+- Scoped4 tests、source checks、隔離build與無candidate override consumer／showcase通過；
+  只交付五個guarded outputs及private declarations，獨立commit、不push、不升版。

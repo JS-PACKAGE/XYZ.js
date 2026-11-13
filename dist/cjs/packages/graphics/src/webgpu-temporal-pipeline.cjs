@@ -18,6 +18,7 @@ var WebGPUTemporalPipeline = class {
 	height = 0;
 	index = 0;
 	state;
+	views;
 	constructor(e, n, r) {
 		this.device = e, this.stats = r;
 		let i = e.createShaderModule({ code: require_temporal_post_shaders.temporalWGSL(n, !1) }), a = e.createShaderModule({ code: require_temporal_post_shaders.temporalWGSL(n, !0) }), o = [
@@ -110,6 +111,10 @@ var WebGPUTemporalPipeline = class {
 		let a = this.history[this.index];
 		return this.index = 1 - this.index, a;
 	}
+	view(e) {
+		let t = this.views?.get(e);
+		return t || (t = e.createView(), (this.views ??= /* @__PURE__ */ new WeakMap()).set(e, t)), t;
+	}
 	render(t, r, i, a, o, s) {
 		require_temporal_post.writeTemporalUniforms(this.data, a, o);
 		let c = s ? this.taaUniform : this.uniform;
@@ -117,7 +122,7 @@ var WebGPUTemporalPipeline = class {
 		let l = s ? this.taaPipeline : this.ssrPipeline, u = [
 			{
 				binding: 0,
-				resource: r.createView()
+				resource: this.view(r)
 			},
 			{
 				binding: 1,
@@ -130,21 +135,21 @@ var WebGPUTemporalPipeline = class {
 		];
 		s && u.push({
 			binding: 3,
-			resource: this.history[1 - this.index].createView()
+			resource: this.view(this.history[1 - this.index])
 		}, {
 			binding: 4,
-			resource: this.depths[1 - this.index].createView()
+			resource: this.view(this.depths[1 - this.index])
 		});
 		let d = this.device.createBindGroup({
 			layout: l.getBindGroupLayout(0),
 			entries: u
 		}), f = [{
-			view: (s ? this.history[this.index] : this.scratch).createView(),
+			view: this.view(s ? this.history[this.index] : this.scratch),
 			loadOp: `clear`,
 			storeOp: `store`
 		}];
 		s && f.push({
-			view: this.depths[this.index].createView(),
+			view: this.view(this.depths[this.index]),
 			loadOp: `clear`,
 			storeOp: `store`,
 			clearValue: {
@@ -179,7 +184,7 @@ var WebGPUTemporalPipeline = class {
 			layout: a.getBindGroupLayout(0),
 			entries: [{
 				binding: 0,
-				resource: n.createView()
+				resource: this.view(n)
 			}]
 		}), s = require_gpu_timing.beginTimedRenderPass(t, { colorAttachments: [{
 			view: r,
@@ -192,7 +197,7 @@ var WebGPUTemporalPipeline = class {
 		(e !== this.width || t !== this.height) && this.releaseTarget();
 	}
 	releaseTarget() {
-		this.state?.invalidate(), this.state = void 0;
+		this.state?.invalidate(), this.state = void 0, this.views = void 0;
 		let e = (this.scratch ? 8 : 0) + this.history.length * 8 + this.depths.length * 4;
 		this.scratch?.destroy();
 		for (let e of this.history) e.destroy();

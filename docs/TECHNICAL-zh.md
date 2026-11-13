@@ -7076,3 +7076,18 @@ dynamic offsets、shader與deformable fallback不變，不加strong depth refere
 typecheck及隔離build通過，declaration只加private cache field。原生建立次數、pixels／payload、
 mixed CPU controls與未採用padding trial分列於[ACCEPTANCE](../ACCEPTANCE.md) P203；
 不宣稱heap／GC、GPU時間或FPS收益。
+
+## P204 default offscreen temporal view重用
+
+Temporal pipeline以GPUTexture弱key lazy重用default view，release丟棄cache。Live key
+仍保留其cached view，map／entries本身有成本；只減少原生createView呼叫，不宣稱實測heap、
+native memory或GC下降。未來非default mip／layer descriptor必須重新定義key。
+
+僅處理offscreen source／scratch／ping-pong textures；借用scene depth與blit destination
+不進cache，沒有保存前frame swapchain view或重用encoder／pass／submitted command buffer。
+Current uniform uploads、SSR／TAA history語意及native texture contents維持原樣。
+
+Source／dist×GPU／GL×兩AA設定逐byte frame controls通過，誤併ping-pong key的negative
+被實際GPU usage validation拒絕。Scoped4 tests、source checks、隔離build與無candidate
+override consumer／showcase通過；CPU差異小且controls波動，不宣稱穩定整幀／FPS收益。
+Raw rounds與resource／API證據見[ACCEPTANCE](../ACCEPTANCE.md) P204。

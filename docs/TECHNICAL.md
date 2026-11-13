@@ -7385,3 +7385,21 @@ isolated build passed; declaration changes only by the private cache field.
 Actual native group creation and pixel/payload results, mixed full-submit CPU
 controls and the rejected padding trial are separate in
 [ACCEPTANCE](../ACCEPTANCE.md) P203. No heap/GC, GPU-time or FPS gain is claimed.
+
+## P204 default offscreen temporal view reuse
+
+The temporal pipeline lazily reuses default GPUTextureViews by weak GPUTexture
+identity. Release drops the cache. Live keys retain their cached views and the map
+has a cost; this is fewer native createView calls, not measured heap/native-memory
+or GC reduction. A future nondefault view descriptor needs a different cache key.
+
+Only offscreen source, scratch and ping-pong textures use this path. Borrowed scene
+depth and blit destinations are not cached; swapchain views, command encoders,
+passes and submitted command buffers are not reused. Current uniform uploads,
+SSR/TAA history semantics and native texture contents remain unchanged.
+
+Source/distribution, GPU/GL and both AA settings passed byte-exact frame controls;
+an aliased ping-pong-key negative failed actual GPU usage validation. Four scoped
+tests, source checks, isolated build and unpatched consumers/showcase passed.
+Full-submit CPU controls are small/mixed, not stable frame-time or FPS gains;
+see [ACCEPTANCE](../ACCEPTANCE.md) P204 for raw rounds and resource/API evidence.

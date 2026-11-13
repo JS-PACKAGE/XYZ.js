@@ -19,6 +19,7 @@ export class WebGPUTemporalPipeline {
   private height = 0;
   private index = 0;
   private state: TemporalPostState | undefined;
+  private views?: WeakMap<GPUTexture, GPUTextureView>;
 
   constructor(
     private readonly device: GPUDevice,
@@ -167,6 +168,16 @@ export class WebGPUTemporalPipeline {
     return result;
   }
 
+  private view(texture: GPUTexture): GPUTextureView {
+    // Every caller requests a default offscreen view; borrowed keys stay weak.
+    let view = this.views?.get(texture);
+    if (!view) {
+      view = texture.createView();
+      (this.views ??= new WeakMap()).set(texture, view);
+    }
+    return view;
+  }
+
   private render(
     encoder: GPUCommandEncoder,
     source: GPUTexture,
@@ -182,14 +193,14 @@ export class WebGPUTemporalPipeline {
     this.stats.upload(240);
     const pipeline = taa ? this.taaPipeline : this.ssrPipeline;
     const entries: GPUBindGroupEntry[] = [
-      { binding: 0, resource: source.createView() },
+      { binding: 0, resource: this.view(source) },
       { binding: 1, resource: depth },
       { binding: 2, resource: { buffer } },
     ];
     if (taa)
       entries.push(
-        { binding: 3, resource: this.history[1 - this.index]!.createView() },
-        { binding: 4, resource: this.depths[1 - this.index]!.createView() },
+        { binding: 3, resource: this.view(this.history[1 - this.index]!) },
+        { binding: 4, resource: this.view(this.depths[1 - this.index]!) },
       );
     const group = this.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
@@ -197,14 +208,14 @@ export class WebGPUTemporalPipeline {
     });
     const attachments: GPURenderPassColorAttachment[] = [
       {
-        view: (taa ? this.history[this.index]! : this.scratch!).createView(),
+        view: this.view(taa ? this.history[this.index]! : this.scratch!),
         loadOp: 'clear',
         storeOp: 'store',
       },
     ];
     if (taa)
       attachments.push({
-        view: this.depths[this.index]!.createView(),
+        view: this.view(this.depths[this.index]!),
         loadOp: 'clear',
         storeOp: 'store',
         clearValue: { r: 1, g: 0, b: 0, a: 0 },
@@ -243,7 +254,7 @@ export class WebGPUTemporalPipeline {
     }
     const group = this.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
-      entries: [{ binding: 0, resource: source.createView() }],
+      entries: [{ binding: 0, resource: this.view(source) }],
     });
     const pass = beginTimedRenderPass(encoder, {
       colorAttachments: [
@@ -263,6 +274,7 @@ export class WebGPUTemporalPipeline {
   releaseTarget(): void {
     this.state?.invalidate();
     this.state = undefined;
+    this.views = undefined;
     const count =
       (this.scratch ? 8 : 0) + this.history.length * 8 + this.depths.length * 4;
     this.scratch?.destroy();

@@ -22353,3 +22353,160 @@ While encoding ... SetBindGroup ... While finishing ... CommandEncoder ...
 - 未跑full unit suite、CJS runtime、Canvas／audio、device-loss或initialization fallback，
   未驗證Firefox／Safari或physical device。未量測heap／GC、GPU time、呈現fps或端到端latency；
   native API呼叫減少不等同所有場景加速。
+
+## P204 — Weak-key default offscreen temporal views（2026-11-14）
+
+### 採用範圍與生命週期
+
+- 正式WebGPUTemporalPipeline原本每TAA pass五次default createView、每SSR pass兩次、
+  每blit一次。六處call sites改用同一個private helper，lazy WeakMap以GPUTexture identity
+  區分source、scratch、兩個history及兩個depth textures，releaseTarget直接drop map。
+- GPUTexture descriptor不可變，且這些callers只要求default view；未來若加入mip／layer等
+  非default descriptor，不可把不同view併成同一key。每個live key會保留cached view，
+  map／entries也有成本；沒有新增strong borrowed texture key，不代表量測過heap或GC下降。
+- 已確認正式callers的source為post.colorTexture或SSR scratch等offscreen texture。
+  借用scene depth view及blit destination不進cache，不保存前frame的swapchain view，
+  不重用encoder／pass／submitted command buffer，不新增bind-group cache。
+- View不是contents snapshot：同一native texture的新contents仍可讀；240-byte current
+  uniforms、shader、SSR／TAA history與camera／resize invalidation不變。Public API不變。
+
+### 真正100-mesh Scene的完整 CPU submit
+
+- Node26.7.0、pnpm12.6.0、TS6.0.3；Chromium153.0.8010.12 desktop automation，darwin/arm64。
+  使用canonical static source SDK、正式Scene／createRenderer及native GPU／GL，64²可見page。
+- none／TAA／SSR／combined四mode各100個實際Mesh。Frozen before及candidate render／blit
+  借給真正renderer owner，helper／release共用；三次warm observation先正規化views空field，
+  不拿shape差異充收益。GL及GPU-none沒有使用本GPU owner，都是unused-method controls。
+- 每variant六次warm加四組十次warm／flush；六round交替ABBA，每sample再四次warm及flush，
+  計24次submit，flush在timing外。沒有pixel readback、API observer或heavy checks併跑。
+- 表為六round的通常偶數中位數，raw rounds保留。Active GPU約-2.17～-2.38%，但GPU-none
+  約+2.38%、GL約+1.67～+5.88%，差異小，不宣稱穩定整幀、GPU-time、latency或FPS提升。
+  採用理由限native API work減少，不把物件建立呼叫下降冒充整體JS heap／GC結果。
+
+| backend | workload | before_ms | after_ms | change_percent | upload_before | upload_after |
+| ------- | -------- | --------- | -------- | -------------- | ------------- | ------------ |
+| webgpu  | none     | 0.087500  | 0.089583 | 2.38           | 7856          | 7856         |
+| webgpu  | taa      | 0.095833  | 0.093750 | -2.17          | 8128          | 8128         |
+| webgpu  | ssr      | 0.087500  | 0.085417 | -2.38          | 8096          | 8096         |
+| webgpu  | combined | 0.087500  | 0.085417 | -2.38          | 8368          | 8368         |
+| webgl2  | none     | 0.102083  | 0.106250 | 4.08           | 4048          | 4048         |
+| webgl2  | taa      | 0.125000  | 0.127083 | 1.67           | 4288          | 4288         |
+| webgl2  | ssr      | 0.106250  | 0.112500 | 5.88           | 4288          | 4288         |
+| webgl2  | combined | 0.135417  | 0.141667 | 4.62           | 4528          | 4528         |
+
+#### Raw native rounds — webgpu
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.095833 |          0.100000 |
+| none / 2         |           0.108333 |          0.104167 |
+| none / 3         |           0.091667 |          0.100000 |
+| none / 4         |           0.083333 |          0.079167 |
+| none / 5         |           0.075000 |          0.075000 |
+| none / 6         |           0.075000 |          0.079167 |
+| taa / 1          |           0.100000 |          0.091667 |
+| taa / 2          |           0.108333 |          0.095833 |
+| taa / 3          |           0.091667 |          0.095833 |
+| taa / 4          |           0.083333 |          0.083333 |
+| taa / 5          |           0.079167 |          0.079167 |
+| taa / 6          |           0.145833 |          0.095833 |
+| ssr / 1          |           0.087500 |          0.091667 |
+| ssr / 2          |           0.087500 |          0.087500 |
+| ssr / 3          |           0.091667 |          0.083333 |
+| ssr / 4          |           0.091667 |          0.091667 |
+| ssr / 5          |           0.087500 |          0.083333 |
+| ssr / 6          |           0.087500 |          0.079167 |
+| combined / 1     |           0.087500 |          0.087500 |
+| combined / 2     |           0.087500 |          0.087500 |
+| combined / 3     |           0.087500 |          0.087500 |
+| combined / 4     |           0.087500 |          0.083333 |
+| combined / 5     |           0.087500 |          0.083333 |
+| combined / 6     |           0.087500 |          0.083333 |
+
+#### Raw native rounds — webgl2
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.100000 |          0.108333 |
+| none / 2         |           0.129167 |          0.129167 |
+| none / 3         |           0.137500 |          0.125000 |
+| none / 4         |           0.091667 |          0.104167 |
+| none / 5         |           0.104167 |          0.100000 |
+| none / 6         |           0.100000 |          0.100000 |
+| taa / 1          |           0.120833 |          0.129167 |
+| taa / 2          |           0.120833 |          0.158333 |
+| taa / 3          |           0.125000 |          0.120833 |
+| taa / 4          |           0.129167 |          0.125000 |
+| taa / 5          |           0.137500 |          0.120833 |
+| taa / 6          |           0.125000 |          0.129167 |
+| ssr / 1          |           0.104167 |          0.100000 |
+| ssr / 2          |           0.095833 |          0.120833 |
+| ssr / 3          |           0.104167 |          0.100000 |
+| ssr / 4          |           0.108333 |          0.104167 |
+| ssr / 5          |           0.150000 |          0.145833 |
+| ssr / 6          |           0.137500 |          0.141667 |
+| combined / 1     |           0.104167 |          0.104167 |
+| combined / 2     |           0.100000 |          0.104167 |
+| combined / 3     |           0.095833 |          0.129167 |
+| combined / 4     |           0.166667 |          0.170833 |
+| combined / 5     |           0.166667 |          0.170833 |
+| combined / 6     |           0.166667 |          0.154167 |
+
+### Native identity、payload、pixels與錯誤key負例
+
+- Source與package-declared ESM dist，各GPU／GL及AA off／on設定，八個before／after pair suites
+  全通過。GL的AA為context請求設定，不宣稱瀏覽器一定提供特定sample count。
+- 每suite 23組actual readback frames、5,870,592 RGBA bytes逐byte相同；正式TAA jitter／
+  history reset、camera cut／projection／resize、disable／reenable及moving mesh assertions
+  維持原門檻。SSR需改變pixels，strength0及roughness1需與off相同；owned fixture另涵蓋
+  combined TAA+SSR、SSR切換，以及既有capture／probe／text consumer paths。
+- GPU每suite native createView呼叫88→21，兩側皆覆蓋20個實際texture keys；保留一個跨cache
+  清除仍live的borrowed key，所以21不是假稱全程只建立20views。Bind groups／passes各26、
+  20次uniform uploads／4,800 bytes及32次release完全相同。GL不使用本GPU class。
+- Native GPUTexture／GPUTextureView／GPUBuffer／Device／BindGroup brands及receiver檢查，
+  hooks轉呼真正intrinsic API。Bindings與attachments以實際native texture IDs比較，不比較
+  正應重用的view object creation IDs；240-byte payload按呼叫當下複製，沒有fake resources。
+  每actual GPU draw有validation scope，正常errors空；release後cache／scratch／history／
+  depths清除。未量測native memory回收或GC時機。
+
+| entry  | backend | AA  | framePairs | rgbaBytes | owners | nativeViewsBefore | nativeViewsAfter | textureKeysBefore | textureKeysAfter | bindGroups | passes | uniformUploads | uniformBytes | releases | scenarios |
+| ------ | ------- | --- | ---------- | --------- | ------ | ----------------- | ---------------- | ----------------- | ---------------- | ---------- | ------ | -------------- | ------------ | -------- | --------- |
+| source | webgpu  | off | 23         | 5870592   | 1      | 88                | 21               | 20                | 20               | 26         | 26     | 20             | 4800         | 32       | 5         |
+| source | webgpu  | on  | 23         | 5870592   | 1      | 88                | 21               | 20                | 20               | 26         | 26     | 20             | 4800         | 32       | 5         |
+| source | webgl2  | off | 23         | 5870592   | 0      | 0                 | 0                | 0                 | 0                | 0          | 0      | 0              | 0            | 0        | 5         |
+| source | webgl2  | on  | 23         | 5870592   | 0      | 0                 | 0                | 0                 | 0                | 0          | 0      | 0              | 0            | 0        | 5         |
+| dist   | webgpu  | off | 23         | 5870592   | 1      | 88                | 21               | 20                | 20               | 26         | 26     | 20             | 4800         | 32       | 5         |
+| dist   | webgpu  | on  | 23         | 5870592   | 1      | 88                | 21               | 20                | 20               | 26         | 26     | 20             | 4800         | 32       | 5         |
+| dist   | webgl2  | off | 23         | 5870592   | 0      | 0                 | 0                | 0                 | 0                | 0          | 0      | 0              | 0            | 0        | 5         |
+| dist   | webgl2  | on  | 23         | 5870592   | 0      | 0                 | 0                | 0                 | 0                | 0          | 0      | 0              | 0            | 0        | 5         |
+
+- Source及dist的negative只把兩個ping-pong history texture keys誤併成slot0。Distinct native
+  texture IDs證明requested／returned不同；真正GPU拒絕同pass混合sampling與write usage，
+  不是mock count、source-text assertion或拿zero image冒充成功。首個錯誤如下：
+
+```text
+[Texture (unlabeled 256x256 px, TextureFormat::RGBA16Float)] usage (TextureBinding|RenderAttachment) includes writable usage and another usage in the same synchronization scope.
+ - While validating render pass usage.
+ - While finishing [CommandEncoder (unlabeled)].
+```
+
+### Checks、build與未加candidate override的實際surface
+
+- tests/temporal-post.test.ts四tests passed，00:59:07、100ms；source Prettier unchanged、
+  ESLint及strict typecheck通過。沒有新增只測private cache wiring的unit tests，真正consumer
+  pixel／history assertions及native key-alias negative補足這條路徑的語意驗證。
+- 隔離build：377 JS 9,361,270→4,012,464 bytes，vendor unchanged，720 CJS。Declaration guard
+  證明僅新增private views?與private view helper，才copy這個module的五個ESM／CJS／maps／d.ts
+  outputs；沒有覆蓋使用者physics2d／world2d或其outputs，package version維持1.23.0。
+- 無candidate/prototype override controls，canonical source／dist×GPU／GL四頁各原有五scenarios
+  passed，graphicsEvents與errors均空。Showcase兩backend實際Scene A→B、screenshot與
+  pagehide cleanup通過；已視讀source GPU TAA移動／reset後的實際240² PNG。
+- 首次dist probe把entry猜成不存在的/dist/index.js，Vite500在任何Scene執行前阻止module
+  evaluation，driver等待timeout。Module-only診斷確認500，依package.json的module／exports
+  修正owned fixture為/dist/src/index.js，並將frozen helper的double-slash URL canonicalize。
+  Production未為此改動，四個已通過source suites未重跑，只續跑尚未執行的dist及smoke。
+- 同步README三語、PLAN、DESIGN、TECHNICAL英／中與本紀錄，六份文件檢查相對連結及格式；
+  提交前停止Vite並刪除owned fixtures／scripts，僅feature十二檔獨立commit、不push、不升版。
+- 未跑full unit suite、CJS runtime、Canvas／audio、device-loss／initialization fallback，
+  未認證Firefox／Safari／physical device。沒有heap、GC、native/GPU bytes、GPU time、
+  presentation FPS或端到端latency的量測；不宣稱所有場景加速。

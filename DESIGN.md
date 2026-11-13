@@ -5907,3 +5907,16 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   讓真正Scene在同depth view下由一pose成長至五pose，不用mock counts冒充consumer regression。
 - CPU-submit controls與descriptor／native-group建立次數分列。未採用尾端padding trial，
   不為同一功能順便改upload byte範圍、stats語意、shader或deformation fallback。
+
+## P204 — Default offscreen views follow texture identity, not a ping-pong slot
+
+- 每個caller只要求default GPUTextureView，GPUTexture的immutable descriptor及identity
+  足以作key；若未來加入mip／layer等view descriptor，不得沿用此單一key假設。
+- Lazy WeakMap不加strong borrowed texture key，但live key會保留cached view，map／entries
+  也有成本。ReleaseTarget連同owned scratch／history／depth一併drop cache，不宣稱GC時機。
+- 借用scene depth view與blit destination仍每次傳入，不進cache；正式source是post.colorTexture
+  或owned offscreen texture，沒有保存前frame swapchain view或重播submitted GPU work。
+- View不是texture contents snapshot：current uniforms仍上傳，cached view持續讀取該native
+  texture的最新contents。Before／after payload、native bindings／attachments及pixels分別比較。
+- 正常ping-pong兩texture不可誤併key；alias negative會在同pass混合TextureBinding及
+  RenderAttachment usage，被原生GPU拒絕。現有TAA／SSR consumer assertions不降低。

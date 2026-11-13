@@ -18,11 +18,13 @@ export declare class WebGPUTemporalPipeline {
     private height;
     private index;
     private state;
+    private views?;
     constructor(device: GPUDevice, sampleCount: number, stats: FrameStats);
     private ensure;
     private allocate;
     applyOpaqueSSR(encoder: GPUCommandEncoder, source: GPUTexture, depth: GPUTextureView, state: TemporalPostState, settings: PostProcessingSettings): GPUTexture;
     applyTAA(encoder: GPUCommandEncoder, source: GPUTexture, depth: GPUTextureView, state: TemporalPostState, settings: PostProcessingSettings): GPUTexture;
+    private view;
     private render;
     blit(encoder: GPUCommandEncoder, source: GPUTexture, destination: GPUTextureView, sampleCount?: number): void;
     resize(width: number, height: number): void;

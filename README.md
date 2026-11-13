@@ -32,6 +32,8 @@ Matrix4 copy 同樣展開固定stores，但保留原本兩個buffer各讀一次�
 
 WebGPU motion bind group 以depth view弱key及uniform-buffer epoch重用；減少原生建立次數，不保留借用view的strong key，完整CPU submit不宣稱穩定收益。WebGPU motion bind groups reuse weak depth-view keys within each uniform-buffer epoch; native creations fall without a strong borrowed-view key, not a stable full-submit/FPS claim. WebGPU motion bind group は depth view の弱いキーと uniform-buffer epoch で再利用します。Native 生成回数の削減であり、CPU submit／FPS の安定した向上とはしません。
 
+Temporal offscreen default view以texture弱key重用，release時清cache；不快取swapchain destination，原生API呼叫減少不等同FPS提升。Temporal default offscreen views reuse weak texture keys and clear on release; swapchain destinations are not cached, and fewer native API calls are not an FPS claim. Temporal の default offscreen view を texture の弱いキーで再利用し、release 時に cache を破棄します。Swapchain destination は保存せず、native API 呼び出し削減を FPS 向上とはしません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
