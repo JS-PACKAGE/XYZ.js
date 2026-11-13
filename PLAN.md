@@ -5764,3 +5764,16 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   減少，不宣稱heap、native bytes、GC或穩定整幀／FPS提升。詳細raw rounds見ACCEPTANCE P204。
 - Scoped4 tests、source checks、隔離build與無candidate override consumer／showcase通過；
   只交付五個guarded outputs及private declarations，獨立commit、不push、不升版。
+
+## P205 — Keep owned temporal group layouts with their pipelines
+
+- 沿用WebGPUObjectMotion的constructor-owned readonly layout慣例，保留本來已建立的
+  SSR／TAA group layouts；同一handle供pipeline layout及render-time bind group使用。
+- Blit既有sample-count pipeline cache改存pipeline／auto-layout pair，僅cache miss查詢一次；
+  不另加map、不改shader／uniform／texture view或P204 target-cache生命週期。
+- Source／dist×GPU／GL×兩AA設定各23組byte-exact frames通過，GPU原生layout查詢26→1，
+  view calls／bindings／attachments／payload／release維持；錯拿SSR layout給TAA會被GPU拒絕。
+- 完整CPU submit約2%差異且GL unused controls mixed，採用理由限native API work減少；
+  不主張穩定整幀、heap、GPU memory或FPS收益。Raw rounds與negative見ACCEPTANCE P205。
+- Scoped4 tests、source checks、隔離build及unpatched consumer／showcase通過；
+  五個guarded outputs、僅兩個private declarations，獨立commit、不push、不升版。

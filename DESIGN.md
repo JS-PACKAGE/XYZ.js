@@ -5920,3 +5920,16 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   texture的最新contents。Before／after payload、native bindings／attachments及pixels分別比較。
 - 正常ping-pong兩texture不可誤併key；alias negative會在同pass混合TextureBinding及
   RenderAttachment usage，被原生GPU拒絕。現有TAA／SSR consumer assertions不降低。
+
+## P205 — Layout lifetime follows its immutable pipeline, not the target epoch
+
+- Constructor原有兩次createBindGroupLayout不增加；保留SSR及TAA的各自native handle，
+  避免每pass由pipeline重查。兩者binding contracts不同，不可因共用uniform shape而互換。
+- Blit auto-layout與產生它的pipeline存在同一sample-count cache entry；cache miss一起建立，
+  不引入第二個map或分離key。Render-time直接用cached.layout及cached.pipeline。
+- Target release／resize不改pipeline，故保留owned readonly layouts及blit pair；
+  destroy原有map.clear仍一併丟棄pair。P204弱texture-view cache仍照原規則清除。
+- 每個blit cache entry多一個JS pair record與layout reference，不宣稱heap／GPU bytes下降。
+  Native API query減少不等於driver layout allocation或端到端FPS已改善。
+- Native bad-layout negative保留TAA entries卻換成實際SSR handle，GPU回報binding3不在layout；
+  用實際receiver／resource identity與pixels／payload分開驗證，不以mock calls認證。

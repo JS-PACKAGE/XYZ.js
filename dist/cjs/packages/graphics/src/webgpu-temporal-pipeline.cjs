@@ -7,6 +7,8 @@ var WebGPUTemporalPipeline = class {
 	stats;
 	ssrPipeline;
 	taaPipeline;
+	ssrGroupLayout;
+	taaGroupLayout;
 	uniform;
 	taaUniform;
 	data = /* @__PURE__ */ new Float32Array(60);
@@ -40,7 +42,9 @@ var WebGPUTemporalPipeline = class {
 				visibility: GPUShaderStage.FRAGMENT,
 				buffer: { type: `uniform` }
 			}
-		], s = e.createPipelineLayout({ bindGroupLayouts: [e.createBindGroupLayout({ entries: o })] });
+		];
+		this.ssrGroupLayout = e.createBindGroupLayout({ entries: o });
+		let s = e.createPipelineLayout({ bindGroupLayouts: [this.ssrGroupLayout] });
 		o.push({
 			binding: 3,
 			visibility: GPUShaderStage.FRAGMENT,
@@ -49,8 +53,8 @@ var WebGPUTemporalPipeline = class {
 			binding: 4,
 			visibility: GPUShaderStage.FRAGMENT,
 			texture: { sampleType: `unfilterable-float` }
-		});
-		let c = e.createPipelineLayout({ bindGroupLayouts: [e.createBindGroupLayout({ entries: o })] });
+		}), this.taaGroupLayout = e.createBindGroupLayout({ entries: o });
+		let c = e.createPipelineLayout({ bindGroupLayouts: [this.taaGroupLayout] });
 		this.ssrPipeline = e.createRenderPipeline({
 			layout: s,
 			vertex: {
@@ -141,7 +145,7 @@ var WebGPUTemporalPipeline = class {
 			resource: this.view(this.depths[1 - this.index])
 		});
 		let d = this.device.createBindGroup({
-			layout: l.getBindGroupLayout(0),
+			layout: s ? this.taaGroupLayout : this.ssrGroupLayout,
 			entries: u
 		}), f = [{
 			view: this.view(s ? this.history[this.index] : this.scratch),
@@ -165,8 +169,7 @@ var WebGPUTemporalPipeline = class {
 	blit(t, n, r, i = 1) {
 		let a = this.blitPipelines.get(i);
 		if (!a) {
-			let e = this.device.createShaderModule({ code: `@group(0) @binding(0) var source:texture_2d<f32>; @vertex fn vertexMain(@builtin(vertex_index) i:u32)->@builtin(position) vec4f { let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));return vec4f(p[i],0,1); } @fragment fn fragmentMain(@builtin(position) p:vec4f)->@location(0) vec4f {return textureLoad(source,vec2i(p.xy),0);}` });
-			a = this.device.createRenderPipeline({
+			let e = this.device.createShaderModule({ code: `@group(0) @binding(0) var source:texture_2d<f32>; @vertex fn vertexMain(@builtin(vertex_index) i:u32)->@builtin(position) vec4f { let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));return vec4f(p[i],0,1); } @fragment fn fragmentMain(@builtin(position) p:vec4f)->@location(0) vec4f {return textureLoad(source,vec2i(p.xy),0);}` }), t = this.device.createRenderPipeline({
 				layout: `auto`,
 				vertex: {
 					module: e,
@@ -178,10 +181,14 @@ var WebGPUTemporalPipeline = class {
 					targets: [{ format: `rgba16float` }]
 				},
 				multisample: { count: i }
-			}), this.blitPipelines.set(i, a);
+			});
+			a = {
+				pipeline: t,
+				layout: t.getBindGroupLayout(0)
+			}, this.blitPipelines.set(i, a);
 		}
 		let o = this.device.createBindGroup({
-			layout: a.getBindGroupLayout(0),
+			layout: a.layout,
 			entries: [{
 				binding: 0,
 				resource: this.view(n)
@@ -191,7 +198,7 @@ var WebGPUTemporalPipeline = class {
 			loadOp: `load`,
 			storeOp: `store`
 		}] });
-		s.setPipeline(a), s.setBindGroup(0, o), s.draw(3), s.end();
+		s.setPipeline(a.pipeline), s.setBindGroup(0, o), s.draw(3), s.end();
 	}
 	resize(e, t) {
 		(e !== this.width || t !== this.height) && this.releaseTarget();

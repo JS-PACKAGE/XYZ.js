@@ -8,10 +8,15 @@ import { TemporalPostState, writeTemporalUniforms } from './temporal-post.js';
 export class WebGPUTemporalPipeline {
   private readonly ssrPipeline: GPURenderPipeline;
   private readonly taaPipeline: GPURenderPipeline;
+  private readonly ssrGroupLayout: GPUBindGroupLayout;
+  private readonly taaGroupLayout: GPUBindGroupLayout;
   private readonly uniform: GPUBuffer;
   private readonly taaUniform: GPUBuffer;
   private readonly data = new Float32Array(60);
-  private readonly blitPipelines = new Map<number, GPURenderPipeline>();
+  private readonly blitPipelines = new Map<
+    number,
+    { pipeline: GPURenderPipeline; layout: GPUBindGroupLayout }
+  >();
   private scratch: GPUTexture | undefined;
   private readonly history: GPUTexture[] = [];
   private readonly depths: GPUTexture[] = [];
@@ -49,8 +54,9 @@ export class WebGPUTemporalPipeline {
         buffer: { type: 'uniform' },
       },
     ];
+    this.ssrGroupLayout = device.createBindGroupLayout({ entries });
     const ssrLayout = device.createPipelineLayout({
-      bindGroupLayouts: [device.createBindGroupLayout({ entries })],
+      bindGroupLayouts: [this.ssrGroupLayout],
     });
     entries.push(
       {
@@ -64,8 +70,9 @@ export class WebGPUTemporalPipeline {
         texture: { sampleType: 'unfilterable-float' },
       },
     );
+    this.taaGroupLayout = device.createBindGroupLayout({ entries });
     const taaLayout = device.createPipelineLayout({
-      bindGroupLayouts: [device.createBindGroupLayout({ entries })],
+      bindGroupLayouts: [this.taaGroupLayout],
     });
     this.ssrPipeline = device.createRenderPipeline({
       layout: ssrLayout,
@@ -203,7 +210,7 @@ export class WebGPUTemporalPipeline {
         { binding: 4, resource: this.view(this.depths[1 - this.index]!) },
       );
     const group = this.device.createBindGroup({
-      layout: pipeline.getBindGroupLayout(0),
+      layout: taa ? this.taaGroupLayout : this.ssrGroupLayout,
       entries,
     });
     const attachments: GPURenderPassColorAttachment[] = [
@@ -235,12 +242,12 @@ export class WebGPUTemporalPipeline {
     destination: GPUTextureView,
     sampleCount = 1,
   ): void {
-    let pipeline = this.blitPipelines.get(sampleCount);
-    if (!pipeline) {
+    let cached = this.blitPipelines.get(sampleCount);
+    if (!cached) {
       const module = this.device.createShaderModule({
         code: `@group(0) @binding(0) var source:texture_2d<f32>; @vertex fn vertexMain(@builtin(vertex_index) i:u32)->@builtin(position) vec4f { let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));return vec4f(p[i],0,1); } @fragment fn fragmentMain(@builtin(position) p:vec4f)->@location(0) vec4f {return textureLoad(source,vec2i(p.xy),0);}`,
       });
-      pipeline = this.device.createRenderPipeline({
+      const pipeline = this.device.createRenderPipeline({
         layout: 'auto',
         vertex: { module, entryPoint: 'vertexMain' },
         fragment: {
@@ -250,10 +257,11 @@ export class WebGPUTemporalPipeline {
         },
         multisample: { count: sampleCount },
       });
-      this.blitPipelines.set(sampleCount, pipeline);
+      cached = { pipeline, layout: pipeline.getBindGroupLayout(0) };
+      this.blitPipelines.set(sampleCount, cached);
     }
     const group = this.device.createBindGroup({
-      layout: pipeline.getBindGroupLayout(0),
+      layout: cached.layout,
       entries: [{ binding: 0, resource: this.view(source) }],
     });
     const pass = beginTimedRenderPass(encoder, {
@@ -261,7 +269,7 @@ export class WebGPUTemporalPipeline {
         { view: destination, loadOp: 'load', storeOp: 'store' },
       ],
     });
-    pass.setPipeline(pipeline);
+    pass.setPipeline(cached.pipeline);
     pass.setBindGroup(0, group);
     pass.draw(3);
     pass.end();

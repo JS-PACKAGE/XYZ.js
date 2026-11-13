@@ -34,6 +34,8 @@ WebGPU motion bind group 以depth view弱key及uniform-buffer epoch重用；減�
 
 Temporal offscreen default view以texture弱key重用，release時清cache；不快取swapchain destination，原生API呼叫減少不等同FPS提升。Temporal default offscreen views reuse weak texture keys and clear on release; swapchain destinations are not cached, and fewer native API calls are not an FPS claim. Temporal の default offscreen view を texture の弱いキーで再利用し、release 時に cache を破棄します。Swapchain destination は保存せず、native API 呼び出し削減を FPS 向上とはしません。
 
+Temporal 保留既有SSR／TAA group layouts，blit auto-layout與pipeline成對快取；只減少重複原生查詢，不宣稱穩定FPS收益。Temporal retains existing SSR/TAA group layouts and pairs each blit pipeline with its auto-layout; fewer native queries are not stable FPS gains. Temporal は既存の SSR／TAA group layout を保持し、blit pipeline と auto-layout を対で保存します。Native 問い合わせの削減であり、安定した FPS 向上とはしません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

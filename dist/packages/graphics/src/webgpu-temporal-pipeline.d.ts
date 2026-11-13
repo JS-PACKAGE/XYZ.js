@@ -7,6 +7,8 @@ export declare class WebGPUTemporalPipeline {
     private readonly stats;
     private readonly ssrPipeline;
     private readonly taaPipeline;
+    private readonly ssrGroupLayout;
+    private readonly taaGroupLayout;
     private readonly uniform;
     private readonly taaUniform;
     private readonly data;

@@ -7403,3 +7403,21 @@ an aliased ping-pong-key negative failed actual GPU usage validation. Four scope
 tests, source checks, isolated build and unpatched consumers/showcase passed.
 Full-submit CPU controls are small/mixed, not stable frame-time or FPS gains;
 see [ACCEPTANCE](../ACCEPTANCE.md) P204 for raw rounds and resource/API evidence.
+
+## P205 renderer-owned temporal group layouts
+
+SSR and TAA retain the two group layouts already created by their constructor.
+The same handles define their pipeline layouts and render-time bind groups.
+Blit's existing sample-count cache stores each pipeline with its own auto-layout;
+only a cache miss calls getBindGroupLayout. No second map or shader change is added.
+
+These layouts follow immutable pipelines across target resize/release, while
+P204's weak texture-view cache still clears on release. Existing map.clear drops
+blit pairs at destruction. A pair record/layout reference has a cost; fewer native
+queries do not establish fewer driver allocations, heap/native bytes or FPS gains.
+
+Eight source/distribution, GPU/GL and AA-setting suites passed byte-exact frames,
+with unchanged native view/binding/payload/lifecycle controls. An actual SSR-for-TAA
+layout negative failed GPU binding validation. Four scoped tests, source checks,
+isolated build and unpatched consumers/showcase passed. Mixed full-submit controls
+and bounded native query counts are recorded in [ACCEPTANCE](../ACCEPTANCE.md) P205.

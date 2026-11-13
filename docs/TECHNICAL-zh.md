@@ -7091,3 +7091,18 @@ Source／dist×GPU／GL×兩AA設定逐byte frame controls通過，誤併ping-po
 被實際GPU usage validation拒絕。Scoped4 tests、source checks、隔離build與無candidate
 override consumer／showcase通過；CPU差異小且controls波動，不宣稱穩定整幀／FPS收益。
 Raw rounds與resource／API證據見[ACCEPTANCE](../ACCEPTANCE.md) P204。
+
+## P205 renderer-owned temporal group layouts
+
+SSR／TAA保留constructor本來已建立的兩個group layouts，同一native handle供pipeline
+layout及render-time group使用。Blit既有sample-count cache改存pipeline／auto-layout pair，
+只在cache miss查詢，不加第二個map或修改shader。
+
+Layouts隨immutable pipelines保留至owner生命週期，不因target resize／release失效；
+P204弱texture-view cache照常清除，destroy既有map.clear一併drop blit pairs。Pair record
+與layout reference有成本，不能把native query下降說成heap、driver allocation或FPS收益。
+
+Source／dist×GPU／GL×兩AA設定byte-exact frames通過，native view／binding／payload／cleanup
+不變；錯拿真實SSR layout給TAA的negative被GPU binding validation拒絕。Scoped4 tests、
+source checks、隔離build及unpatched consumer／showcase通過。Mixed CPU controls及原生
+查詢次數見[ACCEPTANCE](../ACCEPTANCE.md) P205，不宣稱穩定整幀收益。
