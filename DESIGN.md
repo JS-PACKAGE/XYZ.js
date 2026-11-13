@@ -5873,3 +5873,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 行為probe和default-shape timing分process；帶accessor history的函式feedback不是一般
   monomorphic getter。與品質job重疊的初次fresh timing只作診斷，採隔離後的結果。
 - 無getMatrixAt的rigid macro controls仍有波動，故不將near-flat完整submit當成已證實收益。
+
+## P201 — Preserve the existing Matrix4 copy snapshot, not a neighboring contract
+
+- Matrix4.copy與getMatrixAt不同，原本已先讀this.elements、再讀other.elements，各一次。
+  展開stores仍用這兩個locals，不順便改成逐component重新取metadata或early self-alias return。
+- 每個element仍read-then-write並由0往15前進；overlap會保留forward propagation，而非
+  TypedArray.set的snapshot。Source index7丟錯時只留下前七個stores，不預讀後續資料。
+- No allocation、沒有新export／shim／validation，也不改Matrix4的其他數值方法或公開型別。
+- Native timing只切換actual Matrix4 prototype method，所有Scene／renderer／history為正式
+  implementation；每個batch外另warm六frames，pixel／payload observers在不同process。
+- 小場景GL反向和instances近持平不隱藏；有界copy／history CPU收益不是全路徑或FPS保證。

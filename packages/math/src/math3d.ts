@@ -158,7 +158,22 @@ export class Matrix4 {
     // Element stores: `TypedArray#set` is a builtin call that costs more than sixteen moves.
     const e = this.elements,
       o = other.elements;
-    for (let i = 0; i < 16; i++) e[i] = o[i]!;
+    e[0] = o[0]!;
+    e[1] = o[1]!;
+    e[2] = o[2]!;
+    e[3] = o[3]!;
+    e[4] = o[4]!;
+    e[5] = o[5]!;
+    e[6] = o[6]!;
+    e[7] = o[7]!;
+    e[8] = o[8]!;
+    e[9] = o[9]!;
+    e[10] = o[10]!;
+    e[11] = o[11]!;
+    e[12] = o[12]!;
+    e[13] = o[13]!;
+    e[14] = o[14]!;
+    e[15] = o[15]!;
     return this;
   }
 

@@ -7342,3 +7342,19 @@ interleaved accessors matched. A fresh isolated Node process measured roughly
 controls were noisy even on unchanged rigid paths, so no macro/FPS improvement is
 claimed. Ninety-six existing tests passed; actual native rendering/picking and
 diagnostic timing limits are recorded in [ACCEPTANCE](../ACCEPTANCE.md) P200.
+
+## P201 unrolled Matrix4 copy
+
+Matrix4.copy keeps its original cached-buffer contract: read this.elements, then
+other.elements, once each. Sixteen forward scalar stores are unrolled without
+changing returned identity, overlapping-view propagation or partial writes when
+a source read throws. Unlike getMatrixAt, rereading metadata per component would
+change this method's existing behavior. No allocation or public API is added.
+
+Six thousand finite payloads and six thousand self-copies matched, with separate
+overlap, accessor-retargeting, throwing-read and nonfinite controls. Isolated Node
+copy CPU improved about 5.2–8.7%; rigid/instance history CPU improved about 4.2/3.4%.
+Complete native-submit results include near-flat instance cases and an adverse
+single-mesh GL result, not a universal or FPS claim. The 103-test check, native
+consumer proofs and timing limits are recorded in [ACCEPTANCE](../ACCEPTANCE.md)
+P201.

@@ -7044,3 +7044,14 @@ return identity、version及forward-overlap語意不變，沒有改成snapshot�
 getter CPU約改善11.9–14.7%，512-instance history約改善2.4%。未使用getter的rigid完整
 submit控制組亦有波動，因此不宣稱macro／FPS改善。96個既有tests通過，原生畫面／picking
 與診斷timing限制見[ACCEPTANCE](../ACCEPTANCE.md) P200。
+
+## P201 展開Matrix4 copy
+
+Matrix4.copy保留原cached-buffer契約：先讀this.elements、再讀other.elements，各一次。
+展開16個forward scalar stores，不改return identity、overlap傳播與source讀取丟錯時的
+partial writes。這點與getMatrixAt不同，不能順便逐component重新讀metadata；無新增配置或API。
+
+6,000筆finite payload及6,000個self-copy案例一致，另驗overlap、accessor retarget、
+throwing read與nonfinite。隔離Node copy CPU約改善5.2–8.7%，rigid／instance history約
+改善4.2%／3.4%；完整native submit保留instances近持平與GL單mesh反向，不宣稱全路徑／FPS。
+103-test check、原生consumer與timing限制見[ACCEPTANCE](../ACCEPTANCE.md) P201。

@@ -26,6 +26,8 @@ Active object-motion 直接寫入clip transforms，省去中間matrix copy；hel
 
 Instance matrix getter 展開固定16個stores，保留逐component accessor／重疊copy語意；改善限於已量測helper，完整native submit控制組有雜訊，不宣稱整幀加速。The fixed instance-matrix copy is unrolled without caching public accessors; measured helper gains are distinct from noisy complete native-submit controls. Instance matrix getter の固定16 storesを展開し、accessor／重複領域 copy の動作を保持します。Helper の改善を full native submit／FPS と混同しません。
 
+Matrix4 copy 同樣展開固定stores，但保留原本兩個buffer各讀一次的契約；helper CPU與完整native submit分列，保留小場景反向結果，不宣稱全路徑／FPS加速。Matrix4 copy also unrolls fixed stores while preserving its single read of each buffer; helper CPU and native-submit controls remain separate, including adverse small-scene results. Matrix4 copy も固定 stores を展開し、両 buffer を一度ずつ読む元の動作を保持します。小規模 scene の逆方向結果も記録し、全経路／FPS の向上とはしません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

@@ -81,8 +81,7 @@ var Matrix4 = class {
 	}
 	copy(e) {
 		let t = this.elements, n = e.elements;
-		for (let e = 0; e < 16; e++) t[e] = n[e];
-		return this;
+		return t[0] = n[0], t[1] = n[1], t[2] = n[2], t[3] = n[3], t[4] = n[4], t[5] = n[5], t[6] = n[6], t[7] = n[7], t[8] = n[8], t[9] = n[9], t[10] = n[10], t[11] = n[11], t[12] = n[12], t[13] = n[13], t[14] = n[14], t[15] = n[15], this;
 	}
 	multiply(e) {
 		let t = this.elements, n = e.elements, r = t[0], i = t[1], a = t[2], o = t[3], s = t[4], c = t[5], l = t[6], u = t[7], d = t[8], f = t[9], p = t[10], m = t[11], h = t[12], g = t[13], _ = t[14], v = t[15], y = n[0], b = n[1], x = n[2], S = n[3], C = n[4], w = n[5], T = n[6], E = n[7], D = n[8], O = n[9], k = n[10], A = n[11], j = n[12], M = n[13], N = n[14], P = n[15];

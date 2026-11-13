@@ -5715,3 +5715,15 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - Full native GPU／GL4096 instances約-0.4%／-1.0%，未呼叫getter的rigid controls卻大幅
   波動，因此不宣稱macro或FPS改善。Native pixels／picking與限制見ACCEPTANCE P200。
 - 只依已量測有界getter改善採用，不push、不升版，維持獨立功能commit。
+
+## P201 — Unroll Matrix4 copy while retaining its cached-buffer contract
+
+- Matrix4.copy原本已cache兩個buffers且無逐call配置；只展開16個stores，保留metadata
+  getter次序、forward overlap、return this及source讀取失敗時的partial writes。
+- 6,000 finite matrices與6,000 self-copy案例逐位相同；overlap、accessor retarget、throwing
+  source及nonfinite values一致，錯誤memmove／重新讀metadata會改變consumer資料。
+- 獨立Node copy helper約改善5.2–8.7%，512個rigid／instance history約改善4.2%／3.4%；
+  四檔103 tests、scoped品質與math-only隔離build通過，declaration不變。
+- Native100rigid上中位數GPU／GL約-9.7%／-5.4%；4096 instances近持平，GL單mesh反向
+  保留。不以helper或有界submit數字宣稱所有場景／backend／FPS改善，詳ACCEPTANCE P201。
+- 維持獨立功能commit、不push、不升版。
