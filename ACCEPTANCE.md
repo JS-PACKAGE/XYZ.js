@@ -18716,3 +18716,50 @@ tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
 
 - Lazy 版 grid 約慢 1.0%，tree／clusters 收益約 1.7–4.1%，不優於較簡單 const
   的正常可用-edge 測項；不保留，未宣稱此候選完成獨立 differential 驗證。
+
+## P169 — Omit the Set for absent tiled exclusions（2026-11-13）
+
+- NavigationTiledGraph3D 在原 Set 建構位置只讀取一次 excludedConnections 欄位；
+  validation 的既有 reads 不變。若這次取得 undefined，不建空 Set，edge filter 以
+  optional has 略過查詢。
+  明確傳入的任何 collection 仍走原 Set snapshot，包括 native empty arrays、覆寫
+  iterator 的 empty arrays、null 的原有 runtime 行為；不以 length=0 取代 iterable
+  consumption，也不改變 validation 與 getter／iterator 的先後及次數。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，8 warmup／15 輪交替
+  median、無並行測試。Fixture setup 在計時外，正式 tiled findPath、Dijkstra、
+  backtrack／publish 與結果 cost／node count 讀取都在內；default 與 explicit exclusions
+  分開量測。Source 省掉 omitted case 的 Set construction，不宣稱已量出實際 heap
+  配置數、retained bytes、GC pause、GPU 或 fps。
+
+| Workload                                             | Searches | Before ms | After ms |
+| ---------------------------------------------------- | -------: | --------: | -------: |
+| Start=goal, omitted exclusions                       |   10,000 |  3.700959 | 3.270583 |
+| Adjacent nodes, omitted exclusions                   |   10,000 |  4.076708 | 4.128125 |
+| Chain 1,024 nodes, omitted exclusions                |       40 |  4.528625 | 4.611833 |
+| 32×32 grid, omitted exclusions                       |       20 |  3.213791 | 3.143375 |
+| 32 clusters × 32 connected nodes, omitted exclusions |        8 |  3.936000 | 3.516666 |
+| 32×32 grid, explicit empty exclusions                |       20 |  3.224542 | 3.287791 |
+| 32×32 grid, one excluded connection                  |       20 |  3.170000 | 3.202334 |
+
+- Trivial／grid／clusters CPU 約快 2.2–11.6%；adjacent／chain 約慢 1.3–1.8%，
+  explicit empty／one-exclusion 控制組約慢 2.0%／1.0%。採用 absence fast path 的取捨，
+  不宣稱每一種查詢都加速；明確提供的 empty collection 不為追逐收益而忽略 iterator。
+- 4,096 個兩 tile 隨機圖、16,384 次 searches、14,776 incremental steps、62,559 筆
+  getter／iterator trace 精確一致。比對 path／cost／revision／frozen result、job
+  status／expansions／slots，以及 error name／message。終態 8,733 found、1,670
+  unreachable、488 invalidated、396 cancelled、4,841 errors；另有 256 次刻意
+  reentrant getter 修改 revision 後，原同步 findPath 已存在的 undefined result，
+  before／after 同樣保留；本階段未把該既有型別／runtime 邊界冒稱修復。
+- Input 覆蓋 omitted／null／empty／nonempty arrays、自訂 empty-array iterator、
+  changing／throwing getters、iterator throw、duck-typed iterable、Uint32Array、
+  native Set 對 invalid collection 的錯誤、caller 在 createSearch 後改動來源、
+  revision re-entry、invalid radius／unknown node、zero／-0／subnormal／large costs。
+- 新 permanent regression 以 length=0 但 iterator yield connection 0 的 array 建立
+  incremental search，再改動 iterator 的外部資料；原 exclusion snapshot 仍讓 path
+  unreachable，之後 omitted 查詢仍正常。既測 iterable consumption，也測建立時 snapshot，
+  不釘死 getter 呼叫次數或內部欄位。
+- `vitest run tests/navigation.test.ts tests/navigation-mesh.test.ts tests/navigation-jobs.test.ts`
+  **32 tests passed**；Typecheck、scoped ESLint／Prettier、ESM compile/minify、完整
+  vendor copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+  未跑完整 suite、未開 browser／重驗 rendering、三 backend 或 audio；NavMesh 與一般
+  NavigationGraph 的 source 均未改動，沒有擴大 certification。

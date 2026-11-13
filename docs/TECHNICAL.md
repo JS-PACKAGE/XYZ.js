@@ -395,6 +395,10 @@ These are public error classes, not a promise to rewrap every exception from use
   expansion, not once per accepted neighbor. This local value never survives an
   expansion; edge arithmetic, path ties and incremental-job budgets are unchanged.
   Enabled-edge gains and all-disabled overhead are recorded in ACCEPTANCE P168.
+- Tiled search skips the exclusion Set only when its construction-time source is
+  undefined. Explicit collections still receive the original immediate Set snapshot,
+  even empty arrays with custom iterators. Validation and options-getter observations
+  remain unchanged; tradeoffs and reentrant limits are recorded in ACCEPTANCE P169.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

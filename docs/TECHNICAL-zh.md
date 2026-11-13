@@ -372,6 +372,9 @@ XYZError
 - NavigationTiledGraph3D 在每次同步 expansion 只讀一次 current distance Map，不為每條
   可用 neighbor 重查；此 local value 不跨 expansion，edge arithmetic、path ties 與
   incremental-job budgets 不變。一般收益與 all-disabled 成本見 ACCEPTANCE P168。
+- Tiled search 只有在原建構位置取得的 source 為 undefined 時省略 exclusion Set；
+  明確提供的 collection 仍立即做原 Set snapshot，即使 length=0 卻有自訂 iterator。
+  Validation／options getter 的觀測不變；取捨與 reentrant 邊界見 ACCEPTANCE P169。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

@@ -208,35 +208,35 @@ var NavigationTiledGraph3D = class NavigationTiledGraph3D {
 	}
 	createSearch(e, t, i = {}) {
 		if (this.validate(e, t, i), this.availableSearchSlots === 0) throw RangeError(`Navigation concurrent search budget exhausted.`);
-		let a = this.ids.get(e), o = this.ids.get(t), s = this.epoch, c = i.agentRadius ?? 0, l = new Set(i.excludedConnections), u = new require_partition_search.PartitionSearch(), d = `search`, f = o, p = -1, m = !1, h = [], g = [];
-		this.nodes[a].walkable && this.nodes[o].walkable && this.nodes[a].clearance >= c && this.nodes[o].clearance >= c && u.offer(a, 0, 0, -1);
-		let _ = new require_partition_search.PartitionNavigationJob(() => {
-			if (d === `search`) {
-				let e = u.take();
-				if (e === void 0) d = `publish`;
-				else if (e === o) m = !0, d = `backtrack`;
+		let a = this.ids.get(e), o = this.ids.get(t), s = this.epoch, c = i.agentRadius ?? 0, l = i.excludedConnections, u = l === void 0 ? void 0 : new Set(l), d = new require_partition_search.PartitionSearch(), f = `search`, p = o, m = -1, h = !1, g = [], _ = [];
+		this.nodes[a].walkable && this.nodes[o].walkable && this.nodes[a].clearance >= c && this.nodes[o].clearance >= c && d.offer(a, 0, 0, -1);
+		let v = new require_partition_search.PartitionNavigationJob(() => {
+			if (f === `search`) {
+				let e = d.take();
+				if (e === void 0) f = `publish`;
+				else if (e === o) h = !0, f = `backtrack`;
 				else {
-					let t = u.distance.get(e);
+					let t = d.distance.get(e);
 					for (let n of this.edges[e]) {
 						let r = this.connections[n.connection], i = this.nodes[n.to];
-						if (!r.enabled || r.clearance < c || !i.walkable || i.clearance < c || l.has(n.connection)) continue;
+						if (!r.enabled || r.clearance < c || !i.walkable || i.clearance < c || u?.has(n.connection)) continue;
 						let a = t + r.cost;
-						a < (u.distance.get(n.to) ?? 1 / 0) && u.offer(n.to, a, a, e);
+						a < (d.distance.get(n.to) ?? 1 / 0) && d.offer(n.to, a, a, e);
 					}
 				}
-			} else if (d === `backtrack`) f >= 0 ? (h.push(f), f = u.parent.get(f)) : (p = h.length - 1, d = `forward`);
-			else if (d === `forward`) p >= 0 ? g.push(this.nodes[h[p--]]) : d = `publish`;
+			} else if (f === `backtrack`) p >= 0 ? (g.push(p), p = d.parent.get(p)) : (m = g.length - 1, f = `forward`);
+			else if (f === `forward`) m >= 0 ? _.push(this.nodes[g[m--]]) : f = `publish`;
 			else {
 				let e = Object.freeze({
-					status: m ? `found` : `unreachable`,
-					nodes: Object.freeze(g),
-					cost: m ? u.distance.get(o) : 1 / 0,
+					status: h ? `found` : `unreachable`,
+					nodes: Object.freeze(_),
+					cost: h ? d.distance.get(o) : 1 / 0,
 					revision: s
 				});
 				return this.paths.add(e), e;
 			}
-		}, () => !this.disposed && s === this.epoch, () => this.jobs.delete(_), (e) => e.status === `found`);
-		return this.jobs.add(_), _;
+		}, () => !this.disposed && s === this.epoch, () => this.jobs.delete(v), (e) => e.status === `found`);
+		return this.jobs.add(v), v;
 	}
 	destroy() {
 		if (!this.disposed) {

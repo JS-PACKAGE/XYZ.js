@@ -5381,3 +5381,13 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 4,096 圖／16,384 searches／12,167 incremental steps 差分與 31 tests 通過。
   Grid／tree／clusters CPU 約快 1.7–5.5%，chain 約慢 0.5%，all-disabled 約慢 3.2%；
   per-edge lazy 候選不採用，完整取捨與驗證範圍見 ACCEPTANCE P168。
+
+## P169 — No exclusion Set when the source is absent
+
+- Tiled search 只有在原 Set 建構位置取得 undefined 時，省略 Set 與 has；
+  explicit collections 仍立即 snapshot，包含覆寫 iterator 的 length=0 arrays。
+  原 validation／getter／iterator 觀測順序不變。
+- 16,384 次 searches、62,559 筆 input trace 差分與 32 tests 通過；
+  trivial／grid／clusters 約快 2.2–11.6%，其餘控制組約慢 1–2%。
+- 新 iterable snapshot regression、原有 reentrant-getter undefined result 邊界、
+  完整 CPU 與驗證限制見 ACCEPTANCE P169。

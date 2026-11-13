@@ -442,6 +442,42 @@ describe('polygon navigation surfaces', () => {
     graph.destroy();
   });
 
+  it('snapshots explicitly supplied empty-array iterators for tiled exclusions', () => {
+    const graph = new NavigationTiledGraph3D({
+      tiles: [
+        {
+          id: 'tile',
+          geometry: {
+            nodes: [
+              { id: 'left', position: new Vector3() },
+              { id: 'right', position: new Vector3(1, 0, 0) },
+            ],
+            connections: [{ from: 'left', to: 'right', cost: 1 }],
+          },
+        },
+      ],
+      seams: [],
+    });
+    const start = NavigationTiledGraph3D.nodeId('tile', 'left'),
+      goal = NavigationTiledGraph3D.nodeId('tile', 'right');
+    expect(graph.findPath(start, goal).cost).toBe(1);
+    let excludedIndex = 0;
+    const exclusions: number[] = [];
+    Object.defineProperty(exclusions, Symbol.iterator, {
+      value: function* () {
+        yield excludedIndex;
+      },
+    });
+    const job = graph.createSearch(start, goal, {
+      excludedConnections: exclusions,
+    });
+    excludedIndex = -1;
+    while (job.status === 'pending') job.step(1);
+    expect(job.result?.status).toBe('unreachable');
+    expect(graph.findPath(start, goal).cost).toBe(1);
+    graph.destroy();
+  });
+
   it.each(['x', 'y', 'z'] as const)(
     'keeps tiled projection bounds and authored ties across %s buckets',
     (axis) => {

@@ -366,7 +366,8 @@ export class NavigationTiledGraph3D {
       to = this.ids.get(goal)!,
       revision = this.epoch,
       radius = options.agentRadius ?? 0;
-    const excluded = new Set(options.excludedConnections),
+    const exclusions = options.excludedConnections;
+    const excluded = exclusions === undefined ? undefined : new Set(exclusions),
       search = new PartitionSearch();
     let phase: 'search' | 'backtrack' | 'forward' | 'publish' = 'search',
       back = to,
@@ -400,7 +401,7 @@ export class NavigationTiledGraph3D {
                 connection.clearance! < radius ||
                 !node.walkable ||
                 node.clearance! < radius ||
-                excluded.has(edge.connection)
+                excluded?.has(edge.connection)
               )
                 continue;
               const distance = currentDistance + connection.cost;

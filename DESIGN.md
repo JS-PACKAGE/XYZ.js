@@ -5534,3 +5534,13 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - Filter／cost arithmetic／parent update／heap ordering／job primitives 的順序不變。
   沒有可用 edge 的 expansion 會多一次 lookup；不為避開這個小成本而在每條可用
   edge 加 lazy-cache branch。各 workloads 的 CPU 與 16,384-search 差分見 ACCEPTANCE P168。
+
+## P169 — Absence is not an explicitly supplied empty iterable
+
+- 在原 exclusion Set 建構的位置 capture 一次 source，只把 undefined 視為可略過
+  Set construction 的 absence。Validation 的既有 reads 不變；不再次讀 options getter。
+- 即使 array.length=0，iterator 仍可能有值或拋錯；所有明確提供的 collections
+  都維持原 Set consumption／snapshot，不以 length 為由忽略 caller 的 iterator。
+  Caller 在 createSearch 之後改變來源，不會改變該 job 的 exclusions。
+- Default filter 的 optional has 與 explicit-source 額外 branch 有 CPU 取捨；
+  16,384 searches、input traces 與完整測量見 ACCEPTANCE P169，不宣稱實測 heap／fps 收益。
