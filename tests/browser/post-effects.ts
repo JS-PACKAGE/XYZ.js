@@ -14,6 +14,8 @@ import {
   VolumetricFogSettings,
   LensFlareSettings,
   MotionBlurSettings,
+  InstancedMesh,
+  Matrix4,
   type RendererPreference,
 } from '../../src/index.js';
 import { frameProofs, errorDetail, type FrameProof } from './frame-proof.js';
@@ -277,6 +279,46 @@ async function run(): Promise<void> {
       const cutSharp = await draw();
       if (changed(cut, cutSharp, 1) > 20)
         throw new Error('Camera cut failed to invalidate blur history.');
+      const instances = new InstancedMesh({
+        geometry: Geometry.cube(0.25),
+        material: mesh.material,
+        count: 4,
+      });
+      const instancePose = new Matrix4();
+      const poseInstances = (offset: number) => {
+        for (let i = 0; i < 4; i++) {
+          instancePose.elements[12] = (i % 2) * 1.2 - 0.8 + offset;
+          instancePose.elements[13] = Math.floor(i / 2) - 0.5;
+          instancePose.elements[14] = 0.6;
+          instances.setMatrixAt(i, instancePose);
+        }
+      };
+      scene.add(instances);
+      blur.perObject = true;
+      blur.strength = 0;
+      scene.camera3D.position.x = 0;
+      poseInstances(0);
+      await draw();
+      poseInstances(0.35);
+      const objectSharp = await draw();
+      poseInstances(0);
+      await draw();
+      blur.strength = 1;
+      poseInstances(0.35);
+      record('instance-motion-static-camera', objectSharp, await draw(), 10);
+      const objectStill = await draw();
+      if (changed(objectSharp, objectStill, 1) > 20)
+        throw new Error(
+          'Static instances retained stale object blur velocity.',
+        );
+      scene.remove(instances);
+      await draw();
+      blur.perObject = false;
+      await draw();
+      blur.perObject = true;
+      await draw();
+      await draw();
+      scene.add(instances);
       stripes.destroy();
       if (proofs.graphicsEvents.length)
         throw new Error(proofs.graphicsEvents.join('\n'));

@@ -15,6 +15,7 @@ var WebGPUObjectMotion = class {
 	data = /* @__PURE__ */ new Float32Array();
 	width = 0;
 	height = 0;
+	dynamicOffsets = [0];
 	constructor(e, n, r) {
 		this.device = e, this.stats = r, this.stride = Math.ceil(128 / e.limits.minUniformBufferOffsetAlignment) * e.limits.minUniformBufferOffsetAlignment, this.layout = e.createBindGroupLayout({ entries: [{
 			binding: 0,
@@ -106,7 +107,7 @@ var WebGPUObjectMotion = class {
 			c.setPipeline(this.pipeline);
 			for (let e = 0; e < o.length; e++) {
 				let t = o[e].mesh, n = a(t);
-				c.setBindGroup(0, this.groupForPass, [e * this.stride]), c.setVertexBuffer(0, n.vertex), c.setIndexBuffer(n.index, `uint32`), c.drawIndexed(t.renderGeometry.indices.length), this.stats.draw(t.renderGeometry.indices.length, 1);
+				this.dynamicOffsets[0] = e * this.stride, c.setBindGroup(0, this.groupForPass, this.dynamicOffsets), c.setVertexBuffer(0, n.vertex), c.setIndexBuffer(n.index, `uint32`), c.drawIndexed(t.renderGeometry.indices.length), this.stats.draw(t.renderGeometry.indices.length, 1);
 			}
 		} finally {
 			c.end(), this.groupForPass = void 0;

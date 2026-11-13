@@ -5812,3 +5812,16 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   畫面、回傳painted pixels、private LRU順序及公開觀察皆比對，非fake context。
 - 純image helper收益與完整render submission分開，timing與觀察另用browser process。
   Published root亦重測；只稱已量測的單entry CPU收益，不推論heap、GC、GPU或FPS。
+
+## P196 — Native command arguments and pass consumers define the lifetime
+
+- Dynamic offset只含一個byte offset，在geometry callback返回後更新，再立即交給
+  原生setBindGroup；pipeline-owned number array不含actor／GPU resource references。
+  不改成Uint32Array overload，不引入額外數值轉換或新的API參數。
+- Proof須在每次native call當下擷取values；spy保留同一mutable argument reference，
+  不能代表GPU command當時消費的offset。以實際移動instances的native pixels驗證。
+- GL drawMeshes的draws正是visibility.color alias；color完成不代表velocity已消費。
+  一般frame的finally在post與2D之後清理，即使throw亦不遺留該清單的actor references。
+- Reflection／planar capture沒有post velocity consumer，capturingProbe路徑仍在
+  color結束清空，不延長那些capture的借用；不新增另一份visible array或scene rescan。
+- 這輪採用理由是省去逐draw numeric array與修正被驗證的GL功能缺陷，沒有CPU／FPS量測。

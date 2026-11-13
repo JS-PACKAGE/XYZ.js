@@ -16,6 +16,8 @@ Private helper、collection 與完整 packing 分開量測；bytes 相同或 bun
 
 Canvas 單一 frame-cache hit 在一般 draw 略過無效 LRU touch，cleanup iterator 保留原行為；完整 native submit 的收益與控制組另記驗收，不等同 FPS。Canvas single-entry frame-cache hits skip redundant LRU touches outside cleanup iteration; native-submit gains and controls are distinct from FPS. Canvas の単一 frame-cache hit は cleanup iterator の動作を保ちながら通常 draw の不要な LRU touch を省略し、native submit の測定値を FPS と区別します。
 
+WebGPU per-object motion 重用 dynamic-offset array，並修正 GL velocity pass 前過早清理可見清單；配置事件與原生畫面驗證見驗收，不宣稱 CPU／FPS 收益。WebGPU per-object motion reuses dynamic-offset storage; GL retains visible meshes until velocity encoding. Native pixel/allocation-event evidence is not a CPU/FPS claim. WebGPU の per-object motion は dynamic-offset array を再利用し、GL の velocity pass 前の早すぎる可視リスト解放を修正します。CPU／FPS 向上の主張ではありません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

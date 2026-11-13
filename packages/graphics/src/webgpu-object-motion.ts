@@ -17,6 +17,7 @@ export class WebGPUObjectMotion {
   private data = new Float32Array(0);
   private width = 0;
   private height = 0;
+  private readonly dynamicOffsets = [0];
 
   constructor(
     private readonly device: GPUDevice,
@@ -139,7 +140,8 @@ export class WebGPUObjectMotion {
       for (let i = 0; i < draws.length; i++) {
         const mesh = draws[i]!.mesh,
           cached = geometry(mesh);
-        pass.setBindGroup(0, this.groupForPass!, [i * this.stride]);
+        this.dynamicOffsets[0] = i * this.stride;
+        pass.setBindGroup(0, this.groupForPass!, this.dynamicOffsets);
         pass.setVertexBuffer(0, cached.vertex);
         pass.setIndexBuffer(cached.index, 'uint32');
         pass.drawIndexed(mesh.renderGeometry.indices.length);

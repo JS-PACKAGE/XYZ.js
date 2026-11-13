@@ -2073,6 +2073,7 @@ export class WebGL2Renderer implements Renderer {
         this.temporalState.invalidate();
         this.objectMotion?.releaseTarget();
       }
+      this.visibility.color.length = 0;
       this.releaseUnused();
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.activeTexture(gl.TEXTURE0);
@@ -3291,7 +3292,8 @@ export class WebGL2Renderer implements Renderer {
     // Also re-establishes what particle drawing leaves unrestored.
     gl.depthMask(true);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    draws.length = 0;
+    // Probe captures have no later velocity pass; ordinary frames release in finally.
+    if (this.capturingProbe) draws.length = 0;
   }
 
   /** Immutable material UV layouts are shared arrays, so a program already holding one skips the upload. */

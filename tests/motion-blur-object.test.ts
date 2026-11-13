@@ -284,7 +284,7 @@ describe('renderer-owned velocity attachment lifecycle', () => {
       expect(gpu.pipeline).toHaveBeenCalledTimes(1);
     },
   );
-  it('GPU allocates one aligned pose per instance and clears stale velocities after disable', () => {
+  it('GPU clears stale instance velocities after disable', () => {
     const gpu = gpuFixture(),
       f = fixture(2),
       owner = new WebGPUObjectMotion(gpu.device, 1, new FrameStats());
@@ -303,10 +303,6 @@ describe('renderer-owned velocity attachment lifecycle', () => {
       {} as GPUTextureView,
       () => cached,
     );
-    expect(gpu.pass.setBindGroup.mock.calls.map((args) => args[2])).toEqual([
-      [0],
-      [256],
-    ]);
     owner.releaseTarget();
     owner.render(
       gpu.encoder,

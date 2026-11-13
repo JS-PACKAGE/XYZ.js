@@ -6975,3 +6975,20 @@ private boolean及try/finally保存nested先前狀態，throw亦復原；多筆�
 6,223次source／tint觀察相同，nested公開render、destroyed snapshot釋放及error後guard
 復原亦通過。9 tests含cleanup regression，正式Canvas layered UI通過。控制組、混合方向
 數字及未驗證範圍見[ACCEPTANCE](../ACCEPTANCE.md) P195，不推論heap／GC、GPU或FPS收益。
+
+## P196 per-object motion offset重用與GL可見清單生命週期
+
+WebGPUObjectMotion每pipeline只保留一個numeric dynamic-offset array，在geometry callback
+返回後、原生setBindGroup前更新；sequence overload與byte offsets不變，參見
+[setBindGroup](https://developer.mozilla.org/en-US/docs/Web/API/GPURenderPassEncoder/setBindGroup)。
+不增加每draw配置，不取得actor或GPU resource所有權。
+
+新增stationary-camera moving-instance browser regression，發現GL drawMeshes將其
+visibility.color alias在velocity pass之前清空。一般frame改由finally在所有consumer
+完成後清理，exception亦不保留該清單refs；reflection／planar capture保持原早期清理。
+這是恢復真正GL object motion，不能把原本未畫velocity的較少工作當成效能優勢。
+
+Source及built-root GPU各56對frames、3,670,016 RGBA bytes與11,264 uniform bytes一致；
+兩pipeline的bound array identities由44降至2。Source／dist正式post-effects、capture、
+layered UI與15個既有unit tests通過。Negative controls及限制見
+[ACCEPTANCE](../ACCEPTANCE.md) P196；未量測heap大小、CPU或FPS收益。

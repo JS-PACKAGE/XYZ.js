@@ -16,6 +16,7 @@ export declare class WebGPUObjectMotion {
     private data;
     private width;
     private height;
+    private readonly dynamicOffsets;
     constructor(device: GPUDevice, samples: number, stats: FrameStats);
     render(encoder: GPUCommandEncoder, meshes: readonly Mesh[], state: TemporalPostState, depth: GPUTextureView, geometry: (mesh: Mesh) => {
         vertex: GPUBuffer;

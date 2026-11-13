@@ -7255,3 +7255,24 @@ observations. Nested public render, destroyed-snapshot release and guard recover
 after an exception also passed. Nine tests include the cleanup regression, and the
 actual Canvas layered UI passed. See [ACCEPTANCE](../ACCEPTANCE.md) P195 for all
 timing controls, mixed results and unmeasured heap/GC, GPU and FPS limits.
+
+## P196 per-object motion offsets and GL visibility lifetime
+
+WebGPUObjectMotion keeps one numeric dynamic-offset array per pipeline and updates
+it immediately after the geometry callback, before each native setBindGroup call.
+The sequence overload and byte-valued offsets are unchanged; see
+[setBindGroup](https://developer.mozilla.org/en-US/docs/Web/API/GPURenderPassEncoder/setBindGroup).
+There is no per-draw offset-array construction or new actor/resource ownership.
+
+A stationary-camera moving-instance browser regression exposed a separate GL
+defect: drawMeshes cleared its visibility.color alias before the velocity pass.
+Ordinary frames now release that list in the frame finally block; reflection and
+planar captures retain their original early clear. An injected velocity-pass
+exception also leaves the list empty. The fix restores actual GL object motion,
+not a faster implementation that silently omits velocity draws.
+
+Source and built-root GPU proofs each matched 56 frame pairs, 3,670,016 RGBA bytes
+and 11,264 uniform bytes. Bound offset-array identities fell from 44 to 2 across
+the two pipelines per entry. Actual source/dist post-effects, capture callers,
+layered surfaces and existing 15 unit tests passed. See [ACCEPTANCE](../ACCEPTANCE.md)
+P196 for negative controls and limits; these are not heap-size, CPU or FPS gains.

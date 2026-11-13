@@ -21053,3 +21053,126 @@ mesh能力，未藉此擴充backend契約，也未宣稱與GPU backend exact pix
 benchmark、audio unlock／device loss／auto fallback，未驗證Firefox／Safari、physical devices。
 未量測heap／GC、GPU完成時間、端到端latency或presentation FPS；手動submit batches
 也不是瀏覽器可見RAF排程下的整體FPS量測。
+
+## P196 — Reuse motion offsets and keep GL visibility through the velocity pass (2026-11-13)
+
+### Allocation scope and native API
+
+WebGPUObjectMotion每draw原本建立[i * stride]，現在使用constructor-owned單元素number
+array，在geometry callback返回後更新index 0，再呼叫相同三參數setBindGroup。依
+[MDN setBindGroup](https://developer.mozilla.org/en-US/docs/Web/API/GPURenderPassEncoder/setBindGroup)，
+sequence內的dynamic offsets以bytes計；沒有改成Uint32Array／start／length overload，
+不引入額外的數值截斷、buffer layout、shader或公開API變更。
+
+一個scratch array只保存數字，不保留actor或GPU handle；每draw無新的offset-array
+construction。這是JS語意上的配置事件減少，不是已量測heap bytes、GC、CPU或FPS。
+GPU仍須做原生API的argument conversion／validation，未宣稱消除了那些內部成本。
+
+### New consumer regression and revealed GL root cause
+
+既有post-effects browser fixture加入四個實際InstancedMesh instances，在靜止camera下
+比較同一位置的sharp／moving blur，接著驗證停止後無stale velocity、移除instances、
+perObject disable／re-enable與history warmup。最後重新加入instances，由Scene正常清理。
+既有camera-motion／camera-cut與其他post-effects assertions及原thresholds不變。
+
+新case minimum為10 changed pixels。故意將所有dynamic offsets固定0，真正WebGPU
+render的instance case得到0 pixels並失敗；不是只對source文字或fake queue做測試。
+
+GL控制組原本同樣得到0，不把它隱藏或改為只測GPU。Native observer確認：四次velocity
+render的reprojectionValid由false轉true，history frame由1到4，post shader已啟用object
+motion且綁定正確texture，但傳入meshCount一直為0。根因是drawMeshes的draws就是
+this.visibility.color alias，color pass末尾清空後，drawPost才呼叫velocity consumer。
+
+修正讓一般frame在renderFrame的finally清空，涵蓋post／2D完成或exception；兩個probe
+capture caller沒有後續velocity pass，仍以既有capturingProbe flag在color結束清理。
+沒有新增visible list、scene rescan、public getters cache或actor ownership。
+修正恢復真正GL velocity draws，不能把原本漏做工作當成CPU效能優勢。
+
+| Actual moving-instance case  | Original GL | Fixed source GL | Fixed built GL | GPU source/build |
+| ---------------------------- | ----------: | --------------: | -------------: | ---------------: |
+| Single-sample changed pixels |           0 |             304 |            304 |              304 |
+| AA-enabled changed pixels    | Not reached |             304 |            304 |              256 |
+
+Original GL在第一個新case失敗，未冒稱當時跑完AA-enabled。GL AA-enabled也不等於已認證
+與WebGPU相同MSAA backing配置，未由個別數字推論跨backend完整pixel parity。
+
+### Actual source and built-root equivalence
+
+macOS arm64、Node26.7.0、pnpm12.6.0、TypeScript6.0.3、pinned managed Chromium
+153.0.8010.12；desktop automation，不是physical-device或Safari認證。
+
+先以scratch method在真正source WebGPUObjectMotion receiver作初次proof；永久cutover後
+停止舊Vite，隔離build、只複製本輪module輸出，再重啟hmr:false server。正式source與dist
+分別使用實際constructor及after method；before借用凍結舊method，仍是同一actual root
+class與同一依賴族。兩邊constructor皆有scratch欄位以隔離method，不是手製receiver或
+fake GPU object，亦不是instance memory overhead實驗。
+
+Proof hook在真正native call當下複製offset values與uniform payload，再原樣委派GPU API。
+不把mutable argument reference於稍後看到的值當作當時command的offset。正常GPU
+validation scopes與page errors皆空；既有frame-proof持續檢查native graphics events。
+
+| Per source or built-root entry             |    Before |     After |
+| ------------------------------------------ | --------: | --------: |
+| Actual pipeline receivers (single / MSAA)  |         2 |         2 |
+| Motion render calls per pipeline           |         8 |         8 |
+| Dynamic-offset binds per pipeline          |        22 |        22 |
+| Bound offset-array identities per pipeline |        22 |         1 |
+| Bound identities across both pipelines     |        44 |         2 |
+| Compared uniform payload bytes             |    11,264 |    11,264 |
+| Matched native frame pairs                 |        56 |        56 |
+| Compared RGBA bytes                        | 3,670,016 | 3,670,016 |
+
+每call offset皆原i×256，三參數arity、binding次序、uniform bytes及全部RGBA完全一致。
+Source及dist各自完成此矩陣，共112對frames；不是僅比對pointer或長度。Zero-draw warmup、
+五個pose slots（plane及四instances）、縮為單plane、disable／re-enable後重新warmup皆涵蓋。
+Observed identity reduction在instrumented proof中成立；未由它推論uninstrumented heap／GC。
+
+### Unmodified production surfaces and cleanup branches
+
+不裝pipeline／queue observer的正式/tests/browser/post-effects.html，source與dist入口各以
+WebGPU及WebGL2完成20 scenarios（兩種AA各10）；Canvas2D原生3D postprocessing rejection
+另完成1 scenario。不是以獨立shader demo或替代renderer代替正式createRenderer路徑。
+
+GL capture兩個直接caller亦驗證：source／dist各public captureReflectionProbe得到六個
+不同的HDR face raw words，capture返回時visibility.color references為0、capturingProbe
+為false。Sample words的15360是raw half-float payload，不是15360 linear radiance。
+正式planar-reflection頁完成9 assertions，capture red pixels268、surface red284，below-plane
+green與excluded blue皆0，camera／visibility恢復及update interval保持。
+
+故意在真實GL velocity pass入口throw一次：原exception到達fixture，20次已觀察render退出
+的visibility.color length皆0，包含失敗退出。不將這個預期failed fixture記為正常render
+通過，也不由單一清單歸零宣稱所有GPU資源／heap已釋放。
+
+三backend正式rendering2d頁：GPU／GL52 objects、Canvas51，cache toggle兩次、child edit／
+invalidate、rect mask、add blend、particles on／off、capture、transition、pause／resume、
+destroy及pagehide皆完成。實際讀取三張layered PNG：checkerboard、atlas／圖形、FontFace／
+bitmap與dynamic RGBA字樣可見，projective quad僅在GPU／GL；Canvas不新增3D能力。
+另讀正式GL single與built GPU MSAA instance PNG，四個boxes及條紋背景可見。
+GPU／GL showcase均由Scene A切B再pagehide，正常頁面無page／console errors。
+
+Throwaway driver錯誤保留說明：首次source/dist negative dispatcher誤把wrong variant選成
+production而使negative意外通過，修正selector後確實以0 changed pixels失敗；沒有放寬
+assertion。正式HTML的report起始無state，第一次driver過早parse空JSON，改為明確等待
+passed／failed。Cube helper誤用nadir option，對照既有fixture後改為正確ground；已通過的
+五組post smoke沿用保存結果，不重跑。這些是observer修正，不是產品fallback或掩蓋錯誤。
+
+### Checks, outputs and unverified limits
+
+- Scoped Prettier、ESLint、typecheck通過；2026-11-13 21:36 Vitest
+  motion-blur-object.test.ts 1檔／15 tests通過。
+- 刪除該unit中以spy保留argument references來pin兩個offset arrays的implementation
+  assertion；保留instance disable／stale-history lifecycle test，不把mock改為echo新實作。
+  新browser regression以真實移動影像補上consumer-visible覆蓋，wrong-offset negative有效。
+- 隔離tsc／minify／vendor copy／CJS build成功：377 JS由9,358,693至4,011,242 bytes，
+  vendor unchanged、720 CJS files；這是staging totals，不是節省量。
+- 只複製webgpu-object-motion ESM／CJS、兩張maps與d.ts五檔，以及webgl2-renderer
+  ESM／CJS與maps四檔，共9檔。Declaration guard只允許GPU private dynamicOffsets，
+  GL declaration unchanged。使用者physics／world2d及其他未提交修改、產物不覆寫、不stage。
+- 同步README中／英／日、PLAN、DESIGN、technical中／英及本紀錄，格式與inline相對連結
+  檢查，歷史日期／counts不變，metadata維持1.23.0。
+- 清理owned scratch variants、hooks、drivers、staging、logs、screenshots、results及Vite；
+  依功能獨立[P196] commit，不push、不升版，不留下debug hook或runtime dependency。
+
+未重跑full suite、repo-wide lint、CJS runtime、RAF benchmark、audio unlock、device loss或
+初始化auto fallback。未驗證Firefox／Safari或physical devices；沒有CPU timing、heap size／
+GC、GPU完成時間、latency或presentation FPS量測，不由JS array事件減少宣稱這些收益。

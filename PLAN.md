@@ -5657,3 +5657,15 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 2檔9 tests含新重入cleanup regression、scoped品質檢查、隔離ESM／CJS build及
   正式Canvas layered UI通過；nested render、error後guard復原與單entry再次命中亦驗證。
   精確矩陣、量測範圍與未驗證項目見ACCEPTANCE P195，不push、不升版。
+
+## P196 — Reuse motion offsets and retain GL visibility through velocity encoding
+
+- WebGPU object-motion以pipeline-owned單元素number array取代每draw的literal，
+  保留同一sequence overload、bytes offset與原生validation，不增加每draw配置。
+- 新增stationary-camera moving-instance真實browser regression，揭露GL color pass
+  過早清空共享visible list；改由一般frame finally清理，probe capture仍維持原清理時機。
+- Source／built root各56對GPU frames、3,670,016 RGBA bytes及11,264 uniform bytes一致；
+  每entry兩pipeline的bound offset array identities由44降至2，不等同heap／CPU量測。
+- 15 unit tests、scoped品質／build、source／dist GPU與GL正式post-effects、GL captures／
+  exception cleanup、三backend layered UI及GPU／GL showcase通過。
+- 細節、negative control、故障觀察與未驗證範圍見ACCEPTANCE P196，不push、不升版。
