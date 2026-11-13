@@ -18604,3 +18604,61 @@ tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
 | Full routing: 100 targets, 64 vertices, all miss |            1,000 | 16.616250 | 16.993042 |
 
 - Full routing 慢約 2.3–4.6%，zigzag 慢約 13.9%；不保留此替代寫法。
+
+## P167 — Reject secondary trig cache and sparse Floyd sift（2026-11-13）
+
+本階段只保留調查紀錄，**沒有正式 runtime source／dist 變更**。兩個候選都因常見
+路徑退步或沒有全流程收益而拒絕，不以「少呼叫函數／少比較」冒充實際加速。
+
+### 未採用：Transform2D secondary-axis trig cache
+
+- 現有 cache 只保留非零 xAngle 的 cosine／sine；temporary variant 在需要不同
+  yAngle 時，把既有 private array 延長三格，重用 yAngle／cosine／sine，不增加
+  每個 Transform 的 cache record。Zero angle 獨立處理，避免 ±0 cache key 混淆。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，8 warmup／15 輪交替
+  median、無並行測試。每次更新 translation；setup 在外，正式 updateMatrix＋
+  transformPoint＋結果累計，或正式 Sprite.containsPoint＋world matrix／inverse／bounds
+  路徑在內。Sprite fixture 只替換測試持有的 compiled Transform variant，沒有改動正式
+  Scene／Sprite 架構或公開 API。各列 100,000 次 calls。
+
+| Workload                                   | Before ms | After ms |
+| ------------------------------------------ | --------: | -------: |
+| Matrix＋point, unrotated                   |  1.016209 | 1.112834 |
+| Matrix＋point, fixed rotation without skew |  0.954333 | 1.133250 |
+| Matrix＋point, static skew                 |  1.544750 | 1.470083 |
+| Matrix＋point, changing x-axis skew only   |  2.627209 | 2.517875 |
+| Matrix＋point, rotating with skew          |  3.298458 | 3.571375 |
+| Sprite.containsPoint, static skew          |  2.903167 | 2.832833 |
+| Sprite.containsPoint, rotating with skew   |  4.515667 | 5.247709 |
+
+- Static skew 僅約快 2.4–4.8%；unrotated／fixed rotation 分別約慢 9.5%／18.7%，
+  rotating Sprite picking 慢約 16.2%。額外 cache／branch 的取捨不划算，未套用，
+  未宣稱此候選完成 alias／getter／reentrant／signed-zero differential 驗證。
+
+### 未採用：PartitionSearch leaf-first Floyd sift
+
+- Dense NavigationSearch 已有 leaf-first down／up sift；temporary variant 讓 sparse
+  PartitionSearch 採同樣方式，先把 hole 移到 leaf，再向上放回 replacement。
+  Stable score／node comparisons 不作代數改寫；它仍需要每次搬移更新 slots Map，
+  不假定 dense typed-array 的收益可直接搬到 sparse Map。
+- 同環境、獨立 before／after ESM modules、8 warmup／15 輪交替 median。
+  Frontier lifecycle 包含 construction、offers、每七個 node 一次 lower-score re-offer、
+  take 至空與取出結果累計。Full tiled graph case 經正式 findPath state machine、
+  sparse Dijkstra、backtrack／forward／publish 與 path cost／node count 讀取；
+  graph setup 在外，沒有以假的 search stub 代替正式 consumer。
+
+| Workload                            | Cycles / searches | Before ms |  After ms |
+| ----------------------------------- | ----------------: | --------: | --------: |
+| Frontier 32 nodes                   |               128 |  0.361916 |  0.375708 |
+| Frontier 1,024 nodes                |                 8 |  1.277750 |  1.354416 |
+| Tiled graph chain, 1,024 nodes      |                40 |  4.133083 |  4.149500 |
+| Tiled graph 32×32 grid              |                20 |  3.260209 |  3.272708 |
+| Tiled graph 4-ary tree, 5,461 nodes |                 8 | 12.281292 | 12.531667 |
+
+- Frontier CPU 約慢 3.8–6.0%；full-search 時間約多 0.4–2.0%，未有收益，故不採用。
+  原 sparse sift／finite-score、lowered re-offer 的 caller 契約不變；未宣稱候選完成
+  ordered-output／NaN／invalid-offer 或 job lifecycle differential 驗證。
+- 本階段沒有 runtime 變更，因此未重跑 Typecheck／ESLint／build／tests／browser。
+  僅執行上述 throwaway CPU benchmarks，並檢查變更文件格式與 README 相對連結。
+  未量測 allocation counts、heap、GC pause、rendering、GPU 或 fps；README 中英日、
+  PLAN、DESIGN、TECHNICAL 中英同步記錄拒絕決策，不標示新能力完成。

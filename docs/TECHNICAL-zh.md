@@ -367,6 +367,8 @@ XYZError
 - HitArea2D 在 cross product 前略過完全位於 query y 上方或下方的 polygon edges；
   endpoint y 相等仍保留原 boundary／crossing arithmetic，不增加 edge storage。
   Convex 收益、全邊 straddle 的額外成本與完整 routing CPU 量測見 ACCEPTANCE P166。
+- Secondary-axis Transform2D trig cache 與 sparse PartitionSearch Floyd-sift
+  候選皆未採用，正式實作不變；ACCEPTANCE P167 記錄 CPU 結果，不冒稱重新驗證 runtime。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

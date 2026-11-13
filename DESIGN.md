@@ -5515,3 +5515,13 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   能排除 edges 的 convex shapes 減少 CPU 工作；全部 straddle 的 shapes 則承擔
   額外 branch。不得把此取捨宣稱為普遍加速或 allocation／fps 改善。
 - 262,144 queries、10 tests、full routing CPU 與未採用候選見 ACCEPTANCE P166。
+
+## P167 — Keep cache and heap tradeoffs evidence-based
+
+- 保留現有 Transform2D primary-angle cache；不因兩軸都可快取，就替所有 transform
+  增加 secondary-axis 分支或 storage。候選在 common unskewed paths 的 CPU 退步，
+  大於 static skew 的有限收益。
+- 保留 sparse PartitionSearch 的 early-stop sift-down。Dense typed arrays 既有的
+  leaf-first Floyd strategy，不能未經量測就套用到每次搬移都要寫 slots Map 的 frontier；
+  本次完整 tiled chain／grid／tree search 亦未見改善。
+- 正式架構未變，沒有擴大認證範圍；兩個未採用候選的 CPU evidence 見 ACCEPTANCE P167。

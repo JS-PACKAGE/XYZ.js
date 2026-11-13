@@ -5365,3 +5365,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   約 13.4%。不新增 cache／storage，也不宣稱所有 polygons 或 fps 改善。
 - Pointer guard 三種改寫與 polygon above/below flags 候選皆未採用；
   量測、取捨及驗證範圍見 ACCEPTANCE P166。
+
+## P167 — Reject unprofitable cache and sparse-sift candidates
+
+- Secondary-axis Transform2D trig cache 的 static skew 收益不足以抵銷常見
+  unrotated／rotation 路徑退步；sparse PartitionSearch 的 Floyd sift 亦未見
+  frontier／完整 tiled path search 收益，均不套用。
+- 本階段只有量測與拒絕決策文件，沒有 runtime source／dist 變更，也未重新
+  執行 tests／build／browser。CPU tables、方法與限制見 ACCEPTANCE P167。

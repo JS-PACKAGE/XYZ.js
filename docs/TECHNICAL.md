@@ -388,6 +388,9 @@ These are public error classes, not a promise to rewrap every exception from use
   cross product. Equal-y endpoints still follow the original boundary and crossing
   arithmetic; no extra edge storage is retained. Convex gains, all-straddling
   overhead and full-routing CPU measurements are recorded in ACCEPTANCE P166.
+- Secondary-axis Transform2D trig caching and sparse PartitionSearch Floyd-sift
+  experiments were rejected; the existing implementations remain unchanged.
+  ACCEPTANCE P167 records their CPU results without claiming runtime revalidation.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.
