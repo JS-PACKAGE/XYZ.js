@@ -7168,3 +7168,20 @@ not establish a stable CPU-submit gain, so production source, tests and builds
 remain unchanged. See [ACCEPTANCE](../ACCEPTANCE.md) P190 for both matrices and
 the visible run-to-run drift. Sampling shares and approximately 60Hz RAF are
 not CPU, GPU-completion, heap or presentation-throughput certifications.
+
+## P191 rejected private GPU quad-writer simplification
+
+All three private callers supply a matrix and constant zero anchor/world flags.
+One scratch variant removed those fixed arguments; another also removed the
+unused undefined-matrix fallback. All callers moved together and the 36-float
+instance ABI, tint, tiling and store order remained unchanged.
+
+Each variant passed seven real Game-owned GPU receiver pairs/84 frames,
+including instance bytes, actual RGBA extraction and public getter ordering.
+The fixed-argument variant also passed the actual rendering2d image-mask,
+multiply, capture, transition and cleanup controls. Separate long timing
+processes still found regressions in complete screen/tinted packing despite
+faster raw writes and ordinary Sprite packing. Both variants were rejected:
+production source, tests and builds remain unchanged. See
+[ACCEPTANCE](../ACCEPTANCE.md) P191 for the full controls and unexecuted checks;
+smaller scratch modules are not an across-workload performance certification.

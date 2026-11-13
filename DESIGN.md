@@ -5755,3 +5755,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   submit存在混合／波動結果，本輪拒絕候選，正式實作維持原樣。
 - Profiler與timing使用不同process；正式benchmark保留movement在CPU submit計時之外，
   不將collection probe（包含movement）與submit、GPU完成時間或RAF頻率混稱。
+
+## P191 — Smaller private call contracts are not automatic CPU wins
+
+- 現有三個private writeQuad caller都提供Matrix3及0／0／false，shader instance ABI
+  不因嘗試縮小callee參數而改動。第二版另外刪除未使用的undefined-matrix fallback。
+- 在scratch版同步遷移packSprite、compositeLayer、drawMask，避免新舊private arity混用；
+  不改tint、tiling或Float32 store次序，不以不合法public inputs測試private contract。
+- 使用真正Game建立的相同class renderer、實際captured draw context與GPU target；
+  觀察proof與timing隔離process，不能以plain object或不同class receiver替代。
+- 兩版輸出皆一致，但完整packing的控制組仍有退步；保留正式implementation，
+  不因局部writer改善或程式碼較小便接受未證實的全面收益。

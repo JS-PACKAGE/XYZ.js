@@ -20469,3 +20469,104 @@ requestAnimationFrame間距，不是GPU／呈現throughput改善證明。
   cutover與layered UI driver不算驗證；沒有聲稱本輪重驗showcase或layered example。
 - 未驗證Firefox／Safari、physical device、heap／GC、audio unlock、GPU time、latency
   或跨backend逐pixel一致；不能由sort-only結果宣稱任一上述項目改善。
+
+## P191 — Reject fixed-argument and required-matrix quad packing variants (2026-11-13)
+
+### Decision and scratch changes
+
+沿用P190 native profile的WebGPU writeQuad熱點（94 self samples），不重新profile或
+把sample share當成收益。正式WebGPURender2D僅有packSprite、compositeLayer、drawMask
+三個private caller，均傳入0／0／false及存在的Matrix3，packages／src／tests沒有其他
+直接writeQuad呼叫。沒有公開API或shader instance layout變更。
+
+- A：移除固定anchorX／anchorY／world參數，保留原store位置並寫入相同0，所有caller
+  同步遷移；不混用新舊arity。Rebased minified scratch module 30,576→30,545 bytes。
+- B：在A之上要求Matrix3，刪除未使用undefined-matrix identity fallback及其過時註解，
+  六個matrix loads／stores仍依原序。Scratch module為30,494 bytes（較before少82）。
+- 以上都僅在throwaway module，沒有把scratch差值冒稱正式bundle節省。Matrix fallback
+  的新contract只用於private caller，不靠不合法public inputs或fake matrix遷就測試。
+
+兩版純write與一般Sprite packing有收益，但完整screen／tinted packing仍有退步，
+B亦未消除控制組問題。因此兩版皆不採用，正式source／tests／dist維持原樣。
+較短private signature或較小module不能代替完整packing的控制組量測。
+
+### Environment and actual GPU proof
+
+2026-11-13，Node 26.7.0、pnpm 12.6.0、TS 6.0.3；project launcher的pinned Playwright
+Chromium 153.0.8010.12，darwin／arm64、headless desktop automation；非Safari或實機認證。
+
+使用真正Game.create({renderer: webgpu})建立GPU device／renderer／canvas，沿既有
+resilient/presented ownership取得實際WebGPURender2D，instanceof正式root class斷言
+通過。兩邊receiver為同一root class，只替換四個真實版本的private method；不是
+plain object、手製renderer、mock device、fake target或不同class的比較。
+
+Texture來自正式sprite PNG；draw context由一次真正render的packSprite呼叫捕捉，
+未自行拼target。plain／tiled／mixed／roundPixels／tinted／screen／image-mask layer
+七組，每組12個frame改position、rotation、tile rotation及camera位置／zoom。
+每frame比較完整instance buffer（含未使用capacity bytes）及公開texture／worldSpace／
+tilePosition／tileScale observations。Vector2的x／y實際為numeric own fields，僅proof
+用等價accessors觀察；timing另起browser，沒有這些hooks。
+
+另以正式renderToTexture／extractPixels比較各組320×180 straight-alpha RGBA，layer
+使用真正image mask及multiply，涵蓋compositeLayer與drawMask。結果如下（每版獨立）：
+
+| Variant           | Fixture pairs | Frames | Instance bytes | Actual GPU RGBA bytes | Public observations |
+| ----------------- | ------------: | -----: | -------------: | --------------------: | ------------------: |
+| A fixed arguments |             7 |     84 |        1548288 |               1612800 |              162304 |
+| B required matrix |             7 |     84 |        1548288 |               1612800 |              162304 |
+
+兩版合計168 frames、3,096,576 instance bytes、3,225,600 RGBA bytes逐byte相同，
+公開觀察次序相同。不是GPU時間、不同backend pixel parity或resource counters歸零證明。
+
+### Native CPU controls
+
+每個fixture有1,000真正Sprite／TilingSprite2D、實際Game-owned GPU renderer。
+write只計原writer；pack計完整packSprite（quad、object matrix、appearance、writer及
+texture kind store），但不含collector、GPU submit或movement，因此不是完整frame。
+保留真正context，roundPixels實際使用其target與bounds。
+
+各組8輪warmup、25個samples，交錯before/after及after/before；A先跑短批次，
+另起process把calls增5倍、反轉case順序；B再以獨立browser跑同一長批次。
+下表為每批median ms，正reduction代表after較快，負值代表退步：
+
+| Fixture / mode | Calls short / long | A short before | A short after | A long before | A long after | B long before | B long after | B reduction |
+| -------------- | -----------------: | -------------: | ------------: | ------------: | -----------: | ------------: | -----------: | ----------: |
+| plain / write  |        1000 / 5000 |           17.0 |          16.4 |          91.2 |         86.6 |          91.3 |         85.7 |        6.1% |
+| tiled / write  |        1000 / 5000 |           18.6 |          17.9 |          95.6 |         94.5 |          92.0 |         88.0 |        4.3% |
+| plain / pack   |         300 / 1500 |           20.1 |          17.8 |         104.4 |         98.1 |         100.7 |         93.8 |        6.9% |
+| tiled / pack   |         300 / 1500 |           17.6 |          18.4 |          93.8 |         93.0 |          91.1 |         91.4 |       -0.3% |
+| mixed / pack   |         300 / 1500 |           18.5 |          18.0 |          97.2 |         98.5 |         101.0 |         92.9 |        8.0% |
+| round / pack   |         300 / 1500 |           19.9 |          19.8 |          92.4 |         91.1 |          93.4 |         90.4 |        3.2% |
+| tinted / pack  |         300 / 1500 |           19.2 |          19.1 |          82.0 |         86.2 |          81.0 |         84.4 |       -4.2% |
+| screen / pack  |         300 / 1500 |           18.2 |          18.0 |          81.1 |         82.7 |          77.7 |         86.5 |      -11.3% |
+
+A長批次plain packing約改善6.0%，screen卻退步約2.0%、tinted約5.1%；B的plain
+約改善6.9%、mixed約8.0%，但screen退步11.3%、tinted約4.2%，tiled接近平手。
+短批次tiled packing的退步沒有在較長批次持續，但不能因此忽略其他控制組退步。
+這些方向混合的差異未定位JIT／register allocation等原因，不捏造機制、不只留有利case。
+
+### Actual source-surface inspection (A only)
+
+正式/examples/rendering2d/?renderer=webgpu的source class prototype借用A的四個
+真實method；clone imports改用同一source actor class，沒有dist/source instanceof混用。
+實際啟動52 scene objects，操作cache toggle兩次、cache edit／update、mask三次
+（rectangle→path→image）、blend兩次（add→multiply）、particles兩次、capture及
+scene transition。各action回報ok，capture實際extract pixels及generate Texture。
+Pause／Resume、Destroy及pagehide完成，pageerror／console error為空。
+
+Canvas screenshot已實際讀取：checkerboard背景、旋轉atlas／graphics／cache／
+projective quad、FontFace與兩種bitmap文字均可見。截圖在transition後，顯示新scene
+的預設mask／blend，不將它誤稱為image-mask／multiply的最終靜態畫面。
+
+### Verification and limits
+
+- 兩版各自通過真實GPU bytes／RGBA／public observations；A實際source UI亦通過。
+- 因完整packing控制組仍有退步，未執行已準備的B source UI及正式sprites CPU-submit
+  A/B driver，不將準備好當成執行過。沒有宣稱B或任一backend的submit／FPS改善。
+- 正式source／tests／dist不改，未重跑unit suite、typecheck、lint、build、published-root
+  cutover、CJS runtime、showcase、其他backend或audio unlock。
+- README中／英／日、PLAN、DESIGN、technical中／英與本紀錄同步；格式及inline相對
+  連結檢查，歷史日期／測試數不改；版本維持1.23.0，不push。
+- 清理本輪scratch modules、candidate、drivers、截圖、results及Vite service，量測不留
+  runtime dependency或debug hook。未認證heap／GC、GPU時間、latency、Safari／Firefox、
+  physical device、跨backend逐pixel一致或presentation throughput。

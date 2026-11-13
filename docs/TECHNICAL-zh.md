@@ -6911,3 +6911,16 @@ Throwaway候選重用既有histogram，只有所有commands同一integer depth�
 量測，CPU submit未有穩定改善，因此不改正式source／tests／dist。
 矩陣與run-to-run波動見[ACCEPTANCE](../ACCEPTANCE.md) P190；sampling佔比及約60Hz
 RAF均不代表CPU、GPU完成時間、heap或呈現throughput認證。
+
+## P191 未採用的private GPU quad writer簡化
+
+三個private caller皆提供Matrix及固定0／0／false。第一版移除固定參數，第二版再
+刪未使用的undefined-matrix fallback；scratch中的所有caller一起遷移，36-float
+instance ABI、tint／tiling及Float32 store次序不變。
+
+兩版各7對／84 frames真正Game-owned GPU receiver的instance bytes、實際RGBA
+readback及公開getters順序皆通過；第一版亦操作正式rendering2d的image mask、
+multiply、capture、transition與cleanup。獨立長批次的純write及一般Sprite packing
+有收益，但完整screen／tinted packing仍有退步，因此兩版皆不採用，正式source、
+tests與dist不改。矩陣與未執行項目見[ACCEPTANCE](../ACCEPTANCE.md) P191，
+不以scratch bundle變小宣稱所有workload更快。

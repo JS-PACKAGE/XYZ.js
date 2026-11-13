@@ -5598,3 +5598,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   另跑18次未開Profiler的正式benchmark，CPU submit無穩定改善，因此不採用。
 - Source／tests／dist保持不變，不把單一改善run、sampling佔比或約60Hz RAF當成收益；
   矩陣、實際submit波動與未驗證範圍見ACCEPTANCE P190。
+
+## P191 — Reject fixed-argument and required-matrix GPU quad packing variants
+
+- 確認WebGPU private writeQuad三個呼叫點的anchor／world參數皆為0／false，
+  Matrix亦必定存在；分別試固定參數消除，以及再移除未使用identity fallback。
+- 兩版各7組／84 frames正式Game-owned GPU receiver，instance bytes、RGBA readback
+  與公開texture／space／tile getters順序皆相同；不是手製renderer或fake target。
+- 純write與一般Sprite packing較快，但長批次screen／tinted等控制組退步；
+  不能由31／82 bytes較小的scratch module推論全面收益，因此兩版均不採用。
+- 正式source／tests／dist不改。第一版正式rendering2d頁面image mask、multiply、
+  capture、transition與cleanup亦通過；完整矩陣與未執行項目見ACCEPTANCE P191。
