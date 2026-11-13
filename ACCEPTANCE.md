@@ -19372,3 +19372,87 @@ Chromium 150，app document.visibilityState=visible；暫存頁透過正式公�
 - Explicit Game destroy 後 borrowed source 仍存活，owner 隨後 destroy；pagehide 再 cleanup 不重複釋放。正式 showcase 的 GPU／GL lit 3D＋2D Scene A→B 及 Canvas2D 明確 2D-only Scene A→B 亦通過。六段 run 的 uncaught／console-error entries 均為空。
 - 首次 browser harness 誤用 Node-style assert.equal，工具的 assert 並無該方法，ready 狀態後 harness 失敗；改為標準 JS condition checks 後完成全流程。沒有修改引擎以壓掉錯誤，也不把失敗的 harness 步驟算為通過。
 - 不宣稱 pixel parity、native timing／fps、memory plateau、auto fallback、audio unlock、Safari／實機或其他瀏覽器已重驗。暫存頁／modules／scripts 刪除，server／managed tab 關閉；README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+
+## P178 — Heightfield row invariants and linear topology cursor（2026-11-13）
+
+### Scope 與採用變更
+
+- 調查 Geometry.boundingSphere 已按 version 快取，沒有因 vertices 是公開 typed array 就誤當不可變而跳過必要掃描，也不重做 P162 被否決的 skin palette short circuit。
+- processHeightfieldGeometry 在每 row 計算上下邊界、三個 row offsets、dz denominator、Z position 與 V，各 column 共用這些 scalar。原高度讀取、除法、hypot3 normalization、Float32 寫入與 UV 算式順序保留，沒有以 reciprocal multiplication 或先 round 再計算取代。
+- 原 row-major cell index base=(row*(columns-1)+column)*6 改成每次實際寫完六個 indices 後 base+=6；原兩個 +Y-wound triangles、輸出順序、buffer sizes 不變。在合法最大 1,048,576 vertices 內 cursor／offsets 的整數可精確表示。
+- Jacobi ping-pong／固定邊界、request decode／finite validation／getter reads、result transfer lists、native worker scheduling 與 publishHeightfieldGeometry 不改。不新增 API、runtime dependency、持續 cache、scratch 或 stream allocation；不因此推論 heap／GC 量測結果。
+
+### 完整 process CPU A/B
+
+Node v26.7.0、TypeScript 6.0.3 transpileModule 隔離 before／candidate，使用相同正式 dependencies。8 warmups、15 alternating A/B medians，包含 decode／sample validation、既有 buffer allocation、全部 smoothing、normals／positions／UVs／topology；不包含 fixture setup、Worker startup／transport 或 Geometry publication。沒有並行 tests／build／browser。
+
+共同 width17.3／depth9.7、smoothing0.37（128-smoothing-zero 明確為0）；heights[i]=sin(i*0.39)*3+cos(i*0.17)*5 後存入 Float32Array。Narrow／wide 與 tiny controls 也執行完整 method，不以 kernel-only 數字冒充完整 job。
+
+採用 row invariants＋linear cursor 的 both 版本：
+
+| Candidate | Case               | Columns×rows | Passes | Calls/batch | Before ms |  After ms |
+| --------- | ------------------ | ------------ | -----: | ----------: | --------: | --------: |
+| both      | tiny-2x2           | 2×2          |      0 |        2000 |  0.251667 |  0.250542 |
+| both      | tiny-3x3           | 3×3          |      2 |        1000 |  0.476250 |  0.461084 |
+| both      | 64-no-smoothing    | 64×64        |      0 |          30 |  1.192584 |  1.070000 |
+| both      | 64-eight-passes    | 64×64        |      8 |          20 |  1.615667 |  1.555500 |
+| both      | 192-no-smoothing   | 192×192      |      0 |           5 |  1.769292 |  1.609375 |
+| both      | 192-worker-example | 192×192      |    192 |           1 |  9.571750 |  9.525583 |
+| both      | 512-no-smoothing   | 512×512      |      0 |           1 |  2.505375 |  2.302958 |
+| both      | 512-32-passes      | 512×512      |     32 |           1 | 13.459625 | 13.246541 |
+| both      | narrow-2x2048      | 2×2048       |      8 |          20 |  0.858166 |  0.866125 |
+| both      | wide-2048x2        | 2048×2       |      8 |          20 |  0.701834 |  0.648208 |
+| both      | 128-smoothing-zero | 128×128      |     32 |          10 |  1.545500 |  1.376917 |
+
+未平滑的 64²／192²／512²，以及 smoothing=0 的128² 約降低 8.1–10.9% CPU elapsed；64²八輪約少3.7%、512²三十二輪約少1.6%，192²×192 Jacobi 僅約少0.5%，不把它稱為顯著改善。2×2048 narrow control 約增加0.9%，不宣稱所有 shape 都受益，也不對未 profile 的 JIT 原因做結論。
+
+個別 row-only 與 cursor-only 候選未保留：row-only 的192²無平滑約退步8.2%，cursor-only 的3²兩輪約退步12.4%；合併版在一般網格與控制組的取捨較好。以下每列使用該候選自己的 before pair，不跨候選混用基準：
+
+| Candidate | Case               | Columns×rows | Passes | Calls/batch | Before ms |  After ms |
+| --------- | ------------------ | ------------ | -----: | ----------: | --------: | --------: |
+| row       | tiny-2x2           | 2×2          |      0 |        2000 |  0.256917 |  0.264334 |
+| cursor    | tiny-2x2           | 2×2          |      0 |        2000 |  0.260541 |  0.268333 |
+| row       | tiny-3x3           | 3×3          |      2 |        1000 |  0.483625 |  0.490167 |
+| cursor    | tiny-3x3           | 3×3          |      2 |        1000 |  0.519625 |  0.583917 |
+| row       | 64-no-smoothing    | 64×64        |      0 |          30 |  1.163917 |  1.138334 |
+| cursor    | 64-no-smoothing    | 64×64        |      0 |          30 |  1.214417 |  1.166709 |
+| row       | 64-eight-passes    | 64×64        |      8 |          20 |  1.674917 |  1.581167 |
+| cursor    | 64-eight-passes    | 64×64        |      8 |          20 |  1.640834 |  1.596750 |
+| row       | 192-no-smoothing   | 192×192      |      0 |           5 |  1.841667 |  1.993333 |
+| cursor    | 192-no-smoothing   | 192×192      |      0 |           5 |  1.784916 |  1.658334 |
+| row       | 192-worker-example | 192×192      |    192 |           1 |  9.588708 |  9.558958 |
+| cursor    | 192-worker-example | 192×192      |    192 |           1 |  9.578792 |  9.606500 |
+| row       | 512-no-smoothing   | 512×512      |      0 |           1 |  2.582375 |  2.398458 |
+| cursor    | 512-no-smoothing   | 512×512      |      0 |           1 |  2.553292 |  2.415459 |
+| row       | 512-32-passes      | 512×512      |     32 |           1 | 13.512292 | 13.444084 |
+| cursor    | 512-32-passes      | 512×512      |     32 |           1 | 13.557583 | 13.416792 |
+| row       | narrow-2x2048      | 2×2048       |      8 |          20 |  0.864959 |  0.856542 |
+| cursor    | narrow-2x2048      | 2×2048       |      8 |          20 |  0.858875 |  0.875209 |
+| row       | wide-2048x2        | 2048×2       |      8 |          20 |  0.692959 |  0.660459 |
+| cursor    | wide-2048x2        | 2048×2       |      8 |          20 |  0.693541 |  0.680667 |
+| row       | 128-smoothing-zero | 128×128      |     32 |          10 |  1.551667 |  1.422583 |
+| cursor    | 128-smoothing-zero | 128×128      |     32 |          10 |  1.529250 |  1.464834 |
+
+### 正式 source 的 bytes／errors／consumer 驗證
+
+- 初輪512組輸入、三個 candidates 共比對7,173,888 bytes；正式 source 再比對1,027 cases（942 valid、85 rejected），positions／normals／uvs／indices 共165,827,096 bytes 完全相同。包含 positive／negative zero、非整數 extents、極小／極大合法 Float32 extents/heights、odd/even iterations、smoothing0／0.37／1、invalid samples／dimensions／extents。
+- 三組最大 vertex-budget cases 為1024×1024、2×524288、524288×2；同時涵蓋方形及兩種 skinny 邊界。所有輸出 buffer 與原 heights 不 alias，來源樣本 bytes 不變；error name／message 與原版相同。
+- 24 組 request getter probes 比對完整 read log、輸出 bytes／errors，涵蓋八個欄位的 observe／throw／changing numeric values 與不同 heights view；不以新增快照或額外 validation 改變既有讀取邊界。
+- tests/geometry-processing.test.ts 共6 tests 通過。新增2×5／5×2 consumer strip cases 保護無 interior smoothing 的 authored heights、analytic sloped normals、每 triangle +Y winding 與完整 projected area，能抓到 cursor 在 row 邊界錯位／退化的可見 topology regression；不是測 wiring／source text 或只看長度。
+- Typecheck、scoped ESLint／Prettier、ESM／minify／vendor copy／CJS build 通過；沒有 install、vendor 修改、完整 test suite 或新的 worker/publication API。
+
+### 正式 native Worker／renderer surface
+
+Chromium150、正式 /examples/cpu-workers/，GPU／GL 以真正 module Worker 處理384² heights／384 Jacobi，publication 經原 Geometry＋Mesh consumer，不是 main-thread fake worker。實際先後操作：initial transfer、17² verify、copy、main thread、invalid input、再送工作後立即 Destroy；最後 pagehide cleanup。下表是單次 lifecycle 觀察，不是效能 before/after、FPS 或 transfer-versus-copy throughput 結論：
+
+| Backend | Initial-transfer RAF heartbeats | Copy RAF heartbeats | Main compute ms | Publication counter bytes | Final workers/running/queued/admittedBytes |
+| ------- | ------------------------------: | ------------------: | --------------: | ------------------------: | ------------------------------------------ |
+| webgpu  |                              16 |                   5 |            87.0 |                  10598424 | 0/0/0/0                                    |
+| webgl2  |                              20 |                   5 |            96.5 |                  10598424 | 0/0/0/0                                    |
+
+- Initial transfer 兩 backend inputDetached=true，requestTransferredBytes589824／resultTransferredBytes8239128，對應 copied counters為0；copy inputDetached=false，這些 bytes 改記入 copied counters、transferred為0。Publication counter另為10,598,424 bytes，並未把 transfer稱為 zero-copy publication 或總 JS/native heap。
+- Verify 兩 backend都顯示 PASS，實際 app comparator對四個 streams逐 value 以===比對；雖然 UI字串寫bit-for-bit，本輪不把這個 comparator冒稱signed-zero/NaN-payload byte proof。真正的 byte proof是上面的隔離正式 source比較。
+- Main-thread output亦經同一consumer publication；invalid samples明確回報 Height samples must be finite，先前terrain保留。WebGPU screenshot是在這些操作後擷取，看到實際綠色立體terrain與原邊界。沒有靠window.__xyzCpuWorkers全域注入／讀取來取代surface觀察。
+- GPU／GL各完成3個worker成功results、invalid後failed1；再送工作立即destroy後failed2、cancelled0且workers/running/queued/admittedBytes全0。這是實際destroy outcome計數，未把它誤稱為cancelled或確認running而非queued的取消。
+- Canvas2D正式範例明確 Initialization failed: 3D requires WebGPU or WebGL2; Canvas2D is unsupported，pool各live counters0；沒有降級假畫3D。GPU／GL正式showcase亦完成lit cube＋sphere＋2D overlay Scene A→B。所有五段run的uncaught／console-error／unload error entries均空。
+- 本輪native頁面使用既有Vite source worker entry；沒有宣稱重新驗證strict shipped-dist Worker URL、Safari／實機、auto fallback、音訊unlock、pixel parity、長時間retention、total heap或GPU／presentation FPS。暫存scripts/modules刪除，server／managed tab關閉；六份README／PLAN／DESIGN／TECHNICAL中英／ACCEPTANCE已同步，README含中英日。

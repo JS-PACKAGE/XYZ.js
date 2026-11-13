@@ -5468,3 +5468,15 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   layer mutation／clear／restore／ownership cleanup 與 showcase Scene A→B 通過。
 - Scope CPU 約少 4–8%，完整控制組、座標快取候選及未驗證限制見 ACCEPTANCE P177；
   不宣稱 whole-frame／GPU／presentation fps 或 JS heap 改善。
+
+## P178 — Share heightfield row work and advance topology linearly
+
+- processHeightfieldGeometry 共用每 row 的上下邊界／offset、dz denominator、
+  Z／V；indices 以既有 row-major 順序的 +6 cursor 寫入，不逐 cell 重算 base。
+- Jacobi／validation／normal 算式與加法順序不改；沒有新陣列、cache、budget、
+  worker protocol 或 Geometry publication 路徑。Geometry sphere 既有 version cache 不改。
+- 正式 1,027 cases／165,827,096 bytes 與 24 getter probes、6 tests、
+  typecheck／lint／ESM／CJS build 通過；native GPU／GL worker transfer／copy、
+  main publication／invalid input／cleanup、showcase 及 Canvas2D 明確拒絕通過。
+- 無平滑網格 CPU 約少 8–11%，高迭代 Jacobi 近乎持平；完整三候選與限制見
+  ACCEPTANCE P178，不外推 worker startup、publication、GPU 或 fps。

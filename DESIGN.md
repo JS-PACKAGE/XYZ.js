@@ -5626,3 +5626,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   source 尺寸／public matrix 結果。Slot reuse、stable compaction 與 ownership 不改。
 - 正式數值差分、reentrant probes、兩種 CPU 候選與 native surface 證據見
   ACCEPTANCE P177；source-level 乘法減半不等於整體 frame-time 減半。
+
+## P178 — Keep row-invariant arithmetic outside the vertex loop
+
+- 已解碼的 numeric dimensions 下，上下 row、row offsets、dz denominator、
+  Z position 與 V 在同 row 不變；共用 scalar 值，保留原除法及高度讀取順序。
+- Index buffer 仍逐 cell 寫原本兩個 +Y-wound triangles，以 +6 cursor 取代
+  `(row * (columns - 1) + column) * 6`。合法 vertex budget 內所有整數都可精確表示。
+- 不重排 Jacobi ping-pong、邊界樣本、request getters／驗證、normal normalization、
+  transfer lists 或 consumer publication；不新增持續 cache 或 scratch allocations。
+- Narrow／wide strips 與最大 vertex budget 的 bytes 已對照；個別 row／cursor
+  候選不如合併版，不能從少乘除直接推論實際收益，詳見 ACCEPTANCE P178。

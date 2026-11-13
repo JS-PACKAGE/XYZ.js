@@ -124,36 +124,43 @@ export function processHeightfieldGeometry(
   const indices = new Uint32Array((columns - 1) * (rows - 1) * 6);
   const stepX = width / (columns - 1);
   const stepZ = depth / (rows - 1);
+  let base = 0;
   for (let row = 0; row < rows; row++) {
+    const offset = row * columns;
+    const up = Math.max(0, row - 1),
+      down = Math.min(rows - 1, row + 1);
+    const upOffset = up * columns,
+      downOffset = down * columns,
+      dzDenominator = (down - up) * stepZ,
+      z = depth / 2 - row * stepZ,
+      v = row / (rows - 1);
     for (let column = 0; column < columns; column++) {
-      const index = row * columns + column;
+      const index = offset + column;
       const left = Math.max(0, column - 1),
         right = Math.min(columns - 1, column + 1);
-      const up = Math.max(0, row - 1),
-        down = Math.min(rows - 1, row + 1);
       const dx =
-        (current[row * columns + right] - current[row * columns + left]) /
+        (current[offset + right] - current[offset + left]) /
         ((right - left) * stepX);
       const dz =
-        (current[up * columns + column] - current[down * columns + column]) /
-        ((down - up) * stepZ);
+        (current[upOffset + column] - current[downOffset + column]) /
+        dzDenominator;
       const length = hypot3(dx, 1, dz);
       positions[index * 3] = column * stepX - width / 2;
       positions[index * 3 + 1] = current[index];
-      positions[index * 3 + 2] = depth / 2 - row * stepZ;
+      positions[index * 3 + 2] = z;
       normals[index * 3] = -dx / length;
       normals[index * 3 + 1] = 1 / length;
       normals[index * 3 + 2] = -dz / length;
       uvs[index * 2] = column / (columns - 1);
-      uvs[index * 2 + 1] = row / (rows - 1);
+      uvs[index * 2 + 1] = v;
       if (column < columns - 1 && row < rows - 1) {
-        const base = (row * (columns - 1) + column) * 6;
         indices[base] = index;
         indices[base + 1] = index + 1;
         indices[base + 2] = index + columns + 1;
         indices[base + 3] = index;
         indices[base + 4] = index + columns + 1;
         indices[base + 5] = index + columns;
+        base += 6;
       }
     }
   }

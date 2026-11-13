@@ -47,6 +47,49 @@ describe('CPU geometry preprocessing', () => {
     expect(published.geometry.vertices[4 * 8 + 1]).toBe(2);
   });
 
+  it.each([
+    [2, 5],
+    [5, 2],
+  ])(
+    'keeps sloped strip normals and triangle winding for %i×%i samples',
+    (columns, rows) => {
+      const heights = Array.from(
+        { length: columns * rows },
+        (_, index) => 2 * (index % columns) - 3 * Math.floor(index / columns),
+      );
+      const result = processHeightfieldGeometry(
+        terrain(heights, {
+          columns,
+          rows,
+          width: columns - 1,
+          depth: rows - 1,
+          iterations: 5,
+        }),
+      );
+      const length = Math.sqrt(14);
+      for (let vertex = 0; vertex < columns * rows; vertex++) {
+        expect(result.positions[vertex * 3 + 1]).toBe(heights[vertex]);
+        expect(result.normals[vertex * 3]).toBeCloseTo(-2 / length, 6);
+        expect(result.normals[vertex * 3 + 1]).toBeCloseTo(1 / length, 6);
+        expect(result.normals[vertex * 3 + 2]).toBeCloseTo(-3 / length, 6);
+      }
+      let projectedArea = 0;
+      for (let triangle = 0; triangle < result.indices.length; triangle += 3) {
+        const a = result.indices[triangle] * 3,
+          b = result.indices[triangle + 1] * 3,
+          c = result.indices[triangle + 2] * 3;
+        const abx = result.positions[b] - result.positions[a],
+          abz = result.positions[b + 2] - result.positions[a + 2],
+          acx = result.positions[c] - result.positions[a],
+          acz = result.positions[c + 2] - result.positions[a + 2];
+        const crossY = abz * acx - abx * acz;
+        expect(crossY).toBeGreaterThan(0);
+        projectedArea += crossY / 2;
+      }
+      expect(projectedArea).toBe((columns - 1) * (rows - 1));
+    },
+  );
+
   it('produces +Y-wound topology and finite normals for a sloped XZ surface with correct UV edges', () => {
     const heights = [2, 5, 8, 0, 3, 6, -2, 1, 4];
     const result = processHeightfieldGeometry(terrain(heights));

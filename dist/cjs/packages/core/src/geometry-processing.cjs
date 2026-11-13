@@ -31,12 +31,12 @@ function processHeightfieldGeometry(e) {
 			u = e, e = t, t = u;
 		}
 	}
-	let d = new Float32Array(l * 3), f = new Float32Array(l * 3), p = new Float32Array(l * 2), m = new Uint32Array((n - 1) * (r - 1) * 6), h = a / (n - 1), g = o / (r - 1);
-	for (let e = 0; e < r; e++) for (let t = 0; t < n; t++) {
-		let s = e * n + t, c = Math.max(0, t - 1), l = Math.min(n - 1, t + 1), _ = Math.max(0, e - 1), v = Math.min(r - 1, e + 1), y = (u[e * n + l] - u[e * n + c]) / ((l - c) * h), b = (u[_ * n + t] - u[v * n + t]) / ((v - _) * g), x = require_hypot.hypot3(y, 1, b);
-		if (d[s * 3] = t * h - a / 2, d[s * 3 + 1] = u[s], d[s * 3 + 2] = o / 2 - e * g, f[s * 3] = -y / x, f[s * 3 + 1] = 1 / x, f[s * 3 + 2] = -b / x, p[s * 2] = t / (n - 1), p[s * 2 + 1] = e / (r - 1), t < n - 1 && e < r - 1) {
-			let r = (e * (n - 1) + t) * 6;
-			m[r] = s, m[r + 1] = s + 1, m[r + 2] = s + n + 1, m[r + 3] = s, m[r + 4] = s + n + 1, m[r + 5] = s + n;
+	let d = new Float32Array(l * 3), f = new Float32Array(l * 3), p = new Float32Array(l * 2), m = new Uint32Array((n - 1) * (r - 1) * 6), h = a / (n - 1), g = o / (r - 1), _ = 0;
+	for (let e = 0; e < r; e++) {
+		let t = e * n, s = Math.max(0, e - 1), c = Math.min(r - 1, e + 1), l = s * n, v = c * n, y = (c - s) * g, b = o / 2 - e * g, x = e / (r - 1);
+		for (let o = 0; o < n; o++) {
+			let s = t + o, c = Math.max(0, o - 1), g = Math.min(n - 1, o + 1), S = (u[t + g] - u[t + c]) / ((g - c) * h), C = (u[l + o] - u[v + o]) / y, w = require_hypot.hypot3(S, 1, C);
+			d[s * 3] = o * h - a / 2, d[s * 3 + 1] = u[s], d[s * 3 + 2] = b, f[s * 3] = -S / w, f[s * 3 + 1] = 1 / w, f[s * 3 + 2] = -C / w, p[s * 2] = o / (n - 1), p[s * 2 + 1] = x, o < n - 1 && e < r - 1 && (m[_] = s, m[_ + 1] = s + 1, m[_ + 2] = s + n + 1, m[_ + 3] = s, m[_ + 4] = s + n + 1, m[_ + 5] = s + n, _ += 6);
 		}
 	}
 	return {
