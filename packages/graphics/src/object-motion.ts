@@ -162,11 +162,10 @@ struct Vertex { @builtin(position) position:vec4f, @location(0) current:vec4f, @
 export const objectMotionGLVertex = `#version 300 es
 precision highp float;
 layout(location=0) in vec3 position;
-uniform mat4 currentClip;
-uniform mat4 previousClip;
+uniform mat4 clipMatrices[2];
 out vec4 currentPosition;
 out vec4 previousPosition;
-void main() { currentPosition=currentClip*vec4(position,1.0); previousPosition=previousClip*vec4(position,1.0);
+void main() { currentPosition=clipMatrices[0]*vec4(position,1.0); previousPosition=clipMatrices[1]*vec4(position,1.0);
  gl_Position=currentPosition; gl_Position.z=2.0*gl_Position.z-gl_Position.w; }
 `;
 export const objectMotionGLFragment = `#version 300 es

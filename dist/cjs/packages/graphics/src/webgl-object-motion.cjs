@@ -7,8 +7,7 @@ var WebGLObjectMotion = class {
 	history = new require_object_motion.ObjectMotionHistory();
 	program;
 	vao;
-	current;
-	previous;
+	clips;
 	depth;
 	texture;
 	framebuffer;
@@ -21,7 +20,7 @@ var WebGLObjectMotion = class {
 		try {
 			if (t.shaderSource(a, require_object_motion.objectMotionGLVertex), t.shaderSource(o, require_object_motion.objectMotionGLFragment), t.compileShader(a), t.compileShader(o), !t.getShaderParameter(a, t.COMPILE_STATUS) || !t.getShaderParameter(o, t.COMPILE_STATUS)) throw new require_errors.GraphicsError(`Object motion shader compilation failed: ${t.getShaderInfoLog(a)} ${t.getShaderInfoLog(o)}`);
 			if (t.attachShader(s, a), t.attachShader(s, o), t.linkProgram(s), !t.getProgramParameter(s, t.LINK_STATUS)) throw new require_errors.GraphicsError(`Object motion program link failed: ${t.getProgramInfoLog(s)}`);
-			this.program = s, this.vao = c, this.current = t.getUniformLocation(s, `currentClip`), this.previous = t.getUniformLocation(s, `previousClip`), this.depth = t.getUniformLocation(s, `opaqueDepth`);
+			this.program = s, this.vao = c, this.clips = t.getUniformLocation(s, `clipMatrices[0]`), this.depth = t.getUniformLocation(s, `opaqueDepth`);
 		} catch (e) {
 			throw t.deleteProgram(s), t.deleteVertexArray(c), e;
 		} finally {
@@ -45,7 +44,7 @@ var WebGLObjectMotion = class {
 		let s, c;
 		for (let e of o) {
 			let t = i(e.mesh);
-			t.vertex !== s && (s = t.vertex, a.bindBuffer(a.ARRAY_BUFFER, s), a.vertexAttribPointer(0, 3, a.FLOAT, !1, 32, 0)), t.index !== c && (c = t.index, a.bindBuffer(a.ELEMENT_ARRAY_BUFFER, c)), a.uniformMatrix4fv(this.current, !1, e.data, 0, 16), a.uniformMatrix4fv(this.previous, !1, e.data, 16, 16), a.drawElements(a.TRIANGLES, e.mesh.renderGeometry.indices.length, a.UNSIGNED_INT, 0), this.stats.draw(e.mesh.renderGeometry.indices.length, 1);
+			t.vertex !== s && (s = t.vertex, a.bindBuffer(a.ARRAY_BUFFER, s), a.vertexAttribPointer(0, 3, a.FLOAT, !1, 32, 0)), t.index !== c && (c = t.index, a.bindBuffer(a.ELEMENT_ARRAY_BUFFER, c)), a.uniformMatrix4fv(this.clips, !1, e.data), a.drawElements(a.TRIANGLES, e.mesh.renderGeometry.indices.length, a.UNSIGNED_INT, 0), this.stats.draw(e.mesh.renderGeometry.indices.length, 1);
 		}
 		return a.bindVertexArray(null), this.texture;
 	}

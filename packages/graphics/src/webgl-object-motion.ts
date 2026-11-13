@@ -13,8 +13,7 @@ export class WebGLObjectMotion {
   private readonly history = new ObjectMotionHistory();
   private readonly program: WebGLProgram;
   private readonly vao: WebGLVertexArrayObject;
-  private readonly current: WebGLUniformLocation | null;
-  private readonly previous: WebGLUniformLocation | null;
+  private readonly clips: WebGLUniformLocation | null;
   private readonly depth: WebGLUniformLocation | null;
   private texture?: WebGLTexture;
   private framebuffer?: WebGLFramebuffer;
@@ -57,8 +56,7 @@ export class WebGLObjectMotion {
         );
       this.program = program;
       this.vao = vao;
-      this.current = gl.getUniformLocation(program, 'currentClip');
-      this.previous = gl.getUniformLocation(program, 'previousClip');
+      this.clips = gl.getUniformLocation(program, 'clipMatrices[0]');
       this.depth = gl.getUniformLocation(program, 'opaqueDepth');
     } catch (error) {
       gl.deleteProgram(program);
@@ -158,8 +156,7 @@ export class WebGLObjectMotion {
         index = cached.index;
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index);
       }
-      gl.uniformMatrix4fv(this.current, false, draw.data, 0, 16);
-      gl.uniformMatrix4fv(this.previous, false, draw.data, 16, 16);
+      gl.uniformMatrix4fv(this.clips, false, draw.data);
       gl.drawElements(
         gl.TRIANGLES,
         draw.mesh.renderGeometry.indices.length,

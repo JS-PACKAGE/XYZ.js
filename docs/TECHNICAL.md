@@ -7578,3 +7578,25 @@ native inputs, pixels and counters. Native binding reductions are reported apart
 from complete-submit clocks and are not heap/GPU-time/universal FPS claims.
 See [ACCEPTANCE](../ACCEPTANCE.md) P213 for original paired samples, native resource
 balance, corrected negative-control scope and unpatched consumer/showcase proof.
+
+## P214 paired GL clip-matrix default uniform
+
+Each existing motion-history pose already owns exactly32 contiguous float32 words:
+current then previous column-major clip matrices. GL now declares
+`uniform mat4 clipMatrices[2]`, obtains element0's location and sends the original
+array with one `uniformMatrix4fv(location, false, data)` call. Constant indices0/1
+retain the original vertex arithmetic. Old separate locations/lookups/calls are
+removed, not kept as aliases. No copy, subarray, staging buffer or new resource.
+
+This is a two-matrix default uniform for one pose, not the rejected128-pose UBO
+scheme. History/WGSL/fragment, pass-local vertex/index elision, per-pose draws,
+public counters and cleanup remain unchanged. Actual source and built distribution
+have408 exact before/after frame pairs and unchanged native resource balance;
+matrix API calls halve while bindings/draws and actual logical data stay the same.
+Native reflection verifies FLOAT_MAT4,size2 and actual getUniform reads BOTH
+elements independently. A legal first-element-only update is rejected by existing
+motion pixels and native previous-matrix readback with GL NO_ERROR.
+
+See [ACCEPTANCE](../ACCEPTANCE.md) P214 for all paired CPU samples, adverse and GPU
+controls, precise declaration migration, native pixels and certification limits.
+No universal CPU/FPS, GPU-time or heap benefit is claimed.

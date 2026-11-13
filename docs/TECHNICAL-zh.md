@@ -7237,3 +7237,21 @@ cleanup不變。沒有常駐cache、staging、pose UBO或新依賴。既有mixed
 counters精確相同。Native binding削減與完整submit clocks分開記錄，不冒充heap、GPU-time
 或全面FPS收益。原始paired samples、native資源平衡、negative-control範圍修正及
 unpatched consumer／showcase證據，見[ACCEPTANCE](../ACCEPTANCE.md) P213。
+
+## P214 GL 兩個clip matrices共用default uniform更新
+
+Motion history 每pose已有32個連續float32 words：current、previous兩個column-major
+matrices。GL改宣告uniform mat4 clipMatrices[2]，取element0 location，以一次
+uniformMatrix4fv(location,false,data)傳送原array；shader固定[0]／[1]保留原乘法。
+舊分開locations／lookup／calls完全移除，不留alias；沒有copy、subarray、staging或新資源。
+
+這是單pose的兩矩陣default uniform，不是已否決的128-pose UBO方案。History／WGSL／
+fragment、逐pass vertex／index省略、逐pose draws、公開counters及cleanup保持原樣。
+Actual source／built dist的408組frames精確相同，native資源建立／刪除也相同；
+matrix API calls減半，但bindings／draws與真正logical data不變。
+
+Native reflection確認FLOAT_MAT4,size2，並從真實兩個locations各自getUniform。
+合法只更新element0時，既有motion pixels及previous-matrix readback在GL NO_ERROR下均拒絕
+錯誤，不用上傳array重建矩陣冒充shader inputs。完整paired clocks、不利／GPU對照、
+宣告精確遷移與認證限制，見[ACCEPTANCE](../ACCEPTANCE.md) P214。
+不宣稱全面CPU／FPS、GPU-time或heap收益。

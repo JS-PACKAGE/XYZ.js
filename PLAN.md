@@ -5896,3 +5896,18 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 既有 mixed-geometry regression 拒絕合法的 equal-capacity wrong-key；不另加 wiring-only test。
 - Scoped品質檢查、26項測試、隔離完整 build、四個unpatched consumers及兩backend showcase
   A→B／pagehide cleanup通過；證據、波動及未驗證限制見 ACCEPTANCE P213。不push、不升版。
+
+## P214 — One default-uniform update for adjacent clip matrices
+
+- ObjectMotionHistory 已為每pose保留32個連續float32 words。GL current／previous改用
+  mat4 clipMatrices[2]，從element0一次上傳原data；不配置subarray、不copy、不加staging。
+- Clean cutover移除兩個舊private locations／lookup／逐矩陣呼叫，shader固定取[0]／[1]；
+  history、WGSL、GL fragment、P213 binding skip、逐pose draw／stats與資源生命週期不變。
+- 先保留144筆actual native完整submit對照，再以active uniform type／size、兩個實際locations
+  的getUniform值及原history32-word payload做獨立native proof，不用source-text echo。
+- Source／真正built dist×GPU／GL的408組frames、pixels與13個counters精確相同；
+  每GL suite matrix calls2600→1300，bindings／資源數不變。保留其他workload與GPU對照波動。
+- 合法只上傳前16個floats的控制，在兩AA被既有instance-motion pixels與native readback拒絕；
+  不新增wiring-only test、不降低門檻。隔離build只更新8個runtime/maps與2個精確宣告差異。
+- Scoped檢查、26項測試及unpatched consumers／showcase完成後只提交本階段；
+  完整證據與限制見ACCEPTANCE P214。不push、不升版、不宣稱全面FPS提升。

@@ -6060,3 +6060,20 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 首版「永遠沿用第一VBO」破壞不同vertex容量而被GL validation拒絕，不冒充合法反例。
   改以相同byte length冒充identity的合法反例，既有mixed-geometry pixels與native fetch
   均失敗，兩AA均無GL error。保留真實consumer門檻，不加implementation-pinning測試。
+
+## P214 — Reuse contiguous pose storage as a two-matrix default uniform
+
+- 原pose data長度固定32個float32，current在前16、previous在後16。GL vertex以
+  uniform mat4 clipMatrices[2]保留同一column-major payload與transpose=false；
+  一次uniformMatrix4fv從[0]更新兩個elements，shader固定以[0]／[1]作相同乘法。
+- 只保留一個private clips location；舊current／previous locations及lookup完全移除，
+  不留alias或雙路徑。這是單pose的default uniform array，不是P212的128-pose UBO pages。
+- 沒有subarray、資料重排、JS staging、新GPU buffer或常駐cache。P213逐pass獨立binding
+  判斷、history／camera invalidation、fragment depth rejection、draw/stat及cleanup不變。
+- Native proof先查真正active FLOAT_MAT4,size2，再從真實[0]／[1]位置分別getUniform，
+  核對每pose32 words、native geometry／depth、實際pixels與13個present counters；
+  不能只從上傳JS array重建第二個矩陣或只檢查「沒報錯」。
+- 合法只更新element0的控制留下錯誤previous matrix，既有consumer得到0／至少10個blur
+  pixels，兩AA皆失敗；native32-word mismatch是獨立證據。沒有新增實作綁死測試。
+- GPU history／WGSL／GL fragment逐byte不變。Actual source／built dist的program／VAO／
+  buffer／texture建立與刪除數保持相同；native matrix APIs減少，不等於heap／GPU-time／FPS收益。

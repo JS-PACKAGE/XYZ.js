@@ -8,8 +8,7 @@ export declare class WebGLObjectMotion {
     private readonly history;
     private readonly program;
     private readonly vao;
-    private readonly current;
-    private readonly previous;
+    private readonly clips;
     private readonly depth;
     private texture?;
     private framebuffer?;

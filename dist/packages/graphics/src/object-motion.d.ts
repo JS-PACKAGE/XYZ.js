@@ -17,5 +17,5 @@ export declare class ObjectMotionHistory {
     invalidate(): void;
 }
 export declare const objectMotionWGSL: (samples: number) => string;
-export declare const objectMotionGLVertex = "#version 300 es\nprecision highp float;\nlayout(location=0) in vec3 position;\nuniform mat4 currentClip;\nuniform mat4 previousClip;\nout vec4 currentPosition;\nout vec4 previousPosition;\nvoid main() { currentPosition=currentClip*vec4(position,1.0); previousPosition=previousClip*vec4(position,1.0);\n gl_Position=currentPosition; gl_Position.z=2.0*gl_Position.z-gl_Position.w; }\n";
+export declare const objectMotionGLVertex = "#version 300 es\nprecision highp float;\nlayout(location=0) in vec3 position;\nuniform mat4 clipMatrices[2];\nout vec4 currentPosition;\nout vec4 previousPosition;\nvoid main() { currentPosition=clipMatrices[0]*vec4(position,1.0); previousPosition=clipMatrices[1]*vec4(position,1.0);\n gl_Position=currentPosition; gl_Position.z=2.0*gl_Position.z-gl_Position.w; }\n";
 export declare const objectMotionGLFragment: string;

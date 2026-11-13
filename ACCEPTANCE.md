@@ -24684,3 +24684,238 @@ effect; dedicated real post-effects scenes above exercise the changed pass.
 | instance / 6     |           0.162500 |          0.145833 |
 | alternating / 6  |           1.054167 |          1.050000 |
 | single / 6       |           0.016667 |          0.020833 |
+
+## P214 — One GL default-uniform update for both clip matrices
+
+- Recorded 2026-11-13T20:33:52.793Z; pinned Chromium153.0.8010.12, darwin/arm64
+  desktop automation. No physical/mobile/Safari/Firefox certification.
+- Adopt a clean two-matrix default-uniform cutover only. No P212 pose UBO/pages,
+  new buffer, cache, subarray, copy, staging, dependency or version bump.
+- Existing real motion/mixed/late-instance consumer regressions already cover
+  this path; no new permanent wiring/source-text/call-count-only test.
+
+### Existing data and minimal implementation
+
+ObjectMotionHistory creates an actual Float32Array(32) per reused draw: current
+then previous column-major matrices. Keep the original shared history arithmetic,
+eligibility, invalidation, WGSL and GL fragment byte-for-byte. GL vertex declares
+uniform mat4 clipMatrices[2], uses constant elements0/1 in the original expressions
+and keeps the original depth/z convention. One location for clipMatrices[0] and
+one uniformMatrix4fv(location,false,draw.data) update both matrices from EXISTING
+contiguous storage. No subarray or JS/native array is newly allocated by the change.
+Remove old private current/previous locations, lookups and two16-word calls; no
+alias, compatibility path, fake fallback or partial migration. P213 local binding
+checks, per-pose draws, stats and target/VAO/program lifetime are unchanged.
+
+### Complete native submit clocks before readback
+
+Six paired AB/BA rounds, fresh serial browsers per variant, six cohorts,24 actual
+full beginFrame/render/endFrame calls per row, original warm work/native completion
+outside clocks. Warm-only observers restore original render before timing.144
+rows cover GL plus untouched GPU; preserve spikes/adverse/quantized rows and never
+retime for favorable results. The exact two canonical source modules are frozen
+per variant, actual constructors/framegraph/shaders/resources remain native. Guard
+actual served class AND shader identity and record SHA256 outside clocks:
+
+- GL class before d6398cdc10023c738bcb7f8d203b1d1a00791495e8cea0622785a2facded0bce
+- GL class after b22ad0b1a9f41d1565ab20e70f4987683ef173da103433cdf9013aebfa571334
+- Shared before4193377f07591d920bd012565689893443f02150fb5aebecb97de22efbd38ad7
+- Shared after433fc19e766dcb6e2030799209b75ab79a5e96698688dc5da1d2069a7774eb41
+
+Median milliseconds per actual full submit; uploads retain buffer/texture semantics:
+
+| backend | workload    | before_ms | after_ms | change_percent | upload_before | upload_after |
+| ------- | ----------- | --------- | -------- | -------------- | ------------- | ------------ |
+| webgl2  | none        | 0.831250  | 0.856250 | 3.01           | 4048          | 4048         |
+| webgl2  | shared      | 1.025000  | 0.995833 | -2.85          | 4048          | 4048         |
+| webgl2  | unique      | 2.420833  | 2.452083 | 1.29           | 4048          | 4048         |
+| webgl2  | instance    | 0.245833  | 0.237500 | -3.39          | 4048          | 4048         |
+| webgl2  | alternating | 1.787500  | 1.806250 | 1.05           | 4048          | 4048         |
+| webgl2  | single      | 0.012500  | 0.012500 | 0.00           | 4048          | 4048         |
+| webgpu  | none        | 0.681250  | 0.687500 | 0.92           | 7856          | 7856         |
+| webgpu  | shared      | 0.854167  | 0.845833 | -0.98          | 135856        | 135856       |
+| webgpu  | unique      | 1.075000  | 1.097917 | 2.13           | 135856        | 135856       |
+| webgpu  | instance    | 0.141667  | 0.141667 | -0.00          | 135856        | 135856       |
+| webgpu  | alternating | 1.039583  | 1.031250 | -0.80          | 135856        | 135856       |
+| webgpu  | single      | 0.018750  | 0.020833 | 11.11          | 7984          | 7984         |
+
+GL shared and instance are lower in5/6 pairs each. Unique and alternating are
+lower in2/6 pairs; unique has one equal. Keep their adverse medians, unmodified
+none-control drift and all untouched GPU shifts; no general CPU speedup follows
+from halving one native API. Native calls are not heap/GC/GPU time or presentation
+FPS, and default matrix uniform bytes were never part of buffer/texture uploadBytes.
+No claimed bandwidth reduction or new counted uploads.
+
+### Actual production source/dist, not a source-only stand-in
+
+After scoped quality and an isolated complete build, freeze original actual
+source/class shader and original minified distribution modules for BEFORE only.
+Fresh AFTER server has NO module override: serve actual changed source and actually
+built distribution. The observer imports each entry's canonical GL class and
+forwards real methods. Native active-uniform reflection must return
+clipMatrices[0], FLOAT_MAT4(type35676), size2. Query BOTH real locations, then
+read actual getUniform values independently, not reconstructed from JS uploads.
+Match every32 float32 words, actual VAO position/index inputs, opaque depth,
+history order and callback geometry. No mock buffers, fake matrices or renderer.
+
+| entry  | backend | frames | rgbaBytes | nativeGLPasses | nativeGLPoses |
+| ------ | ------- | ------ | --------- | -------------- | ------------- |
+| source | webgl2  | 102    | 6717440   | 62             | 1300          |
+| source | webgpu  | 102    | 6717440   | 0              | 0             |
+| dist   | webgl2  | 102    | 6717440   | 62             | 1300          |
+| dist   | webgpu  | 102    | 6717440   | 0              | 0             |
+
+408 presented-frame pairs,26,869,760 RGBA bytes are exactly equal within each
+entry/backend, with bothAA and all26 extended-effects scenarios per run. Actual
+drawCalls/uploadBytes and all11 PRESENT stable counters match; missing/undefined
+fields do not count as proof. Keep original moving/still thresholds, geometry
+mixes, last129th instance, FXAA/TAA, resize/growth, toggles and cleanup paths.
+The GL observer's zero counts on GPU are honest GPU pixel/counter CONTROL rows,
+not invented GPU pose-fetch evidence. Each GL suite decodes1300 actual poses
+across62 motion calls with zero native input mismatches.
+
+Actual native motion APIs per GL source/dist suite:
+
+| API                 | before | after |
+| ------------------- | ------ | ----- |
+| uniformMatrix4fv    | 2600   | 1300  |
+| bindBuffer          | 300    | 300   |
+| vertexAttribPointer | 150    | 150   |
+| drawElements        | 1300   | 1300  |
+| uniform1i           | 62     | 62    |
+
+Native arrays/layouts are the intended ABI change, not a pixel/counter change.
+Before uses two separate default mat4 locations; after uses one active mat4[2].
+Every draw still represents one pose, its current/previous values match exactly,
+and P213 native vertex/index transitions remain equal. Resource creation/deletion
+is IDENTICAL before/after in each GL suite: programs38/38, VAOs32/32, buffers70/70,
+textures58/58. No lifetime/storage reduction or heap/GPU-memory metric is claimed.
+
+### Legal previous-half corruption and actual consumer pixels
+
+An isolated negative uploads only the first16 floats at array element0 with the
+legal WebGL2 offset/length overload, leaving the previous element at its wrong
+existing value. Keep correct program, geometry, depth, draws and original test
+thresholds. In independent AAoff/AAon pages, all9 preceding scenarios pass, then
+the EXISTING instance-motion-static-camera test fails with0 changed blur pixels
+(needs10). Each has17 actual native32-word mismatches, GL NO_ERROR, no context
+loss/page errors. This catches the missing previous matrix in both real uniform
+readback and consumer pixels; metadata/length checks alone are insufficient.
+No product input is special-cased and no threshold is lowered.
+
+### Unpatched surfaces and narrow quality/build
+
+Four actual source/dist×GPU/GL effects consumers each pass24 scenarios, including
+bothAA, with no motion observer or after-side module override. Source uses the
+actual repository post-effects page; dist is its SDK-import-only clone. Actual
+showcase GPU/GL Scene A→B uses the real button; no page/console errors. Native
+pagehide deletion deltas:
+
+| backend | buffers | textures | programs | devices |
+| ------- | ------- | -------- | -------- | ------- |
+| webgpu  | 22      | 14       | 0        | 1       |
+| webgl2  | 10      | 5        | 15       | 0       |
+
+GL Scene B PNG opened/visually inspected. Audio stays locked and is not tested;
+showcase compatibility is distinct from dedicated velocity-effect coverage above.
+
+- Two source Prettier31ms/9ms unchanged, scoped ESLint and strict typecheck pass.
+- 26 relevant tests in3 files (motion-blur-object, motion-blur, resource-residency)
+  pass at04:29:14,2.10s; no existing contract regression is narrowed.
+- Isolated full TypeScript/minify/vendor/CJS build passes:377 JS,
+  9,364,339→4,013,402 bytes,720 CJS files, vendor unchanged. Build-size figures
+  are not runtime allocation/heap/FPS metrics.
+- Guard both exact source files and all10 original target bytes before copy.
+  Declarations must differ ONLY in the private current/previous→clips field and
+  the actual GL vertex string literal; other history/WGSL/fragment declarations
+  stay exact. Copy only8 runtime/maps + those2 declarations. Protected user
+  narrowphase/world source/dist are never copied, reverted or staged.
+- Six existing docs format/relative-link checked before commit. README now names
+  unchanged matrix PAYLOAD, not obsolete separate uniform locations. P01–P213
+  history remains intact. Stop/remove only owned diagnostics/build/servers before
+  the scoped commit; no push/version bump.
+- Not rerun: full tests, advanced scenes, Canvas/audio, context/device loss,
+  initialization fallback, CJS runtime or other browser/device certification.
+  No universal CPU/FPS, GPU-time, heap/GC or end-to-end latency claim.
+
+### Original paired rounds — GL
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           1.250000 |          0.870833 |
+| shared / 1       |           1.037500 |          0.987500 |
+| unique / 1       |           2.420833 |          2.379167 |
+| instance / 1     |           0.241667 |          0.245833 |
+| alternating / 1  |           1.795833 |          1.808333 |
+| single / 1       |           0.012500 |          0.016667 |
+| none / 2         |           0.854167 |          0.833333 |
+| shared / 2       |           1.029167 |          0.975000 |
+| unique / 2       |           2.420833 |          2.408333 |
+| instance / 2     |           0.245833 |          0.241667 |
+| alternating / 2  |           1.779167 |          1.808333 |
+| single / 2       |           0.012500 |          0.012500 |
+| none / 3         |           0.825000 |          0.812500 |
+| shared / 3       |           1.000000 |          0.991667 |
+| unique / 3       |           2.416667 |          2.475000 |
+| instance / 3     |           0.254167 |          0.237500 |
+| alternating / 3  |           1.750000 |          1.933333 |
+| single / 3       |           0.012500 |          0.012500 |
+| none / 4         |           0.825000 |          0.875000 |
+| shared / 4       |           1.020833 |          1.033333 |
+| unique / 4       |           2.445833 |          2.500000 |
+| instance / 4     |           0.245833 |          0.237500 |
+| alternating / 4  |           1.816667 |          1.804167 |
+| single / 4       |           0.012500 |          0.012500 |
+| none / 5         |           0.825000 |          0.841667 |
+| shared / 5       |           1.020833 |          1.000000 |
+| unique / 5       |           2.429167 |          2.429167 |
+| instance / 5     |           0.245833 |          0.237500 |
+| alternating / 5  |           1.800000 |          1.758333 |
+| single / 5       |           0.016667 |          0.012500 |
+| none / 6         |           0.837500 |          0.887500 |
+| shared / 6       |           1.041667 |          1.004167 |
+| unique / 6       |           2.408333 |          2.595833 |
+| instance / 6     |           0.245833 |          0.233333 |
+| alternating / 6  |           1.750000 |          1.800000 |
+| single / 6       |           0.012500 |          0.012500 |
+
+### Original paired rounds — untouched GPU control
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.683333 |          0.687500 |
+| shared / 1       |           0.833333 |          0.866667 |
+| unique / 1       |           1.054167 |          1.062500 |
+| instance / 1     |           0.137500 |          0.141667 |
+| alternating / 1  |           1.020833 |          1.037500 |
+| single / 1       |           0.020833 |          0.020833 |
+| none / 2         |           0.683333 |          0.679167 |
+| shared / 2       |           0.854167 |          0.870833 |
+| unique / 2       |           1.075000 |          1.129167 |
+| instance / 2     |           0.141667 |          0.141667 |
+| alternating / 2  |           1.041667 |          1.054167 |
+| single / 2       |           0.016667 |          0.020833 |
+| none / 3         |           0.679167 |          0.683333 |
+| shared / 3       |           0.850000 |          0.841667 |
+| unique / 3       |           1.070833 |          1.070833 |
+| instance / 3     |           0.141667 |          0.137500 |
+| alternating / 3  |           1.041667 |          1.033333 |
+| single / 3       |           0.016667 |          0.016667 |
+| none / 4         |           0.691667 |          0.695833 |
+| shared / 4       |           0.854167 |          0.845833 |
+| unique / 4       |           1.075000 |          1.108333 |
+| instance / 4     |           0.141667 |          0.145833 |
+| alternating / 4  |           1.037500 |          1.012500 |
+| single / 4       |           0.025000 |          0.020833 |
+| none / 5         |           0.679167 |          0.687500 |
+| shared / 5       |           0.858333 |          0.841667 |
+| unique / 5       |           1.075000 |          1.087500 |
+| instance / 5     |           0.145833 |          0.133333 |
+| alternating / 5  |           1.062500 |          1.029167 |
+| single / 5       |           0.020833 |          0.020833 |
+| none / 6         |           0.670833 |          0.700000 |
+| shared / 6       |           0.870833 |          0.845833 |
+| unique / 6       |           1.087500 |          1.137500 |
+| instance / 6     |           0.141667 |          0.150000 |
+| alternating / 6  |           1.008333 |          1.012500 |
+| single / 6       |           0.016667 |          0.020833 |
