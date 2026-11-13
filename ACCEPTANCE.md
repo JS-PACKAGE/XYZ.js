@@ -24170,3 +24170,280 @@ Index buffer was not set.
 - Not run: full unit suite, CJS runtime, Canvas/audio, device-loss/initialization fallback,
   Firefox/Safari or physical-device certification. No heap/GC/native/GPU-memory, GPU time,
   presentation FPS or end-to-end latency measurement; no universal speedup claim.
+
+## P212 — Rejected GL pose pages; verified late-instance regression
+
+- Recorded 2026-11-13T20:07:11.222Z; pinned Chromium153.0.8010.12 on darwin/arm64, desktop automation.
+- Decision: reject both GL UBO/page runtime candidates. Only the public late-instance
+  consumer regression and these documents change; production source, distribution,
+  shaders, API, dependencies and version1.23.0 remain unchanged. No push.
+- This is a rejected optimization investigation, not a shipped runtime speedup,
+  GPU-time/FPS/heap result, or physical/mobile/Safari/Firefox certification.
+
+### Isolated hypotheses and clock protocol
+
+Core WebGL2 has no core firstInstance. Repointing eight pose attributes for every
+geometry run was avoided by prototyping aligned128-pose std140 UBO pages, actual
+UNIFORM_BUFFER_OFFSET_ALIGNMENT and a distinct binding3 (existing mesh bindings
+0/1/2 are not overwritten). Preserve original logical history, eligibility, depth
+rejection, native geometry-buffer/index-count identity and callback order; split
+runs at page boundaries without sorting. Pack complete32-word current/previous
+matrices and upload once, not per pose. Extra JS staging and native storage are
+at least16KiB each and grow by capacity; they are not free.
+
+A always uses drawElementsInstanced, including single-instance segments. B uses
+ordinary drawElements for an actual one-instance segment and instanced calls only
+for multiple instances, with the same shader/page inputs (non-instanced
+gl_InstanceID=0). Neither candidate is adopted.
+
+Each backend/candidate has6 paired AB/BA rounds, fresh serial browsers per variant,
+six cohorts,24 full native beginFrame/render/endFrame calls per row, existing warm
+work and native completion outside clocks. Actual constructors/framegraph/shaders
+are used through exact source module overrides, not mock renderers, per-clock
+prototype replacement or standalone fake-GPU draw loops. No heavy readback/profile
+overlaps clocks. Keep every row, including large none-control spikes. A has144
+rows (GL+untouched GPU); the correctly served B has72 GL rows.
+
+A medians (CPU milliseconds per full submit):
+
+| backend | workload    | before_ms | after_ms | change_percent | upload_before | upload_after |
+| ------- | ----------- | --------- | -------- | -------------- | ------------- | ------------ |
+| webgl2  | none        | 0.850000  | 0.837500 | -1.47          | 4048          | 4048         |
+| webgl2  | shared      | 1.083333  | 0.962500 | -11.15         | 4048          | 132048       |
+| webgl2  | unique      | 2.420833  | 2.547917 | 5.25           | 4048          | 132048       |
+| webgl2  | instance    | 0.260417  | 0.114583 | -56.00         | 4048          | 132048       |
+| webgl2  | alternating | 1.804167  | 1.843750 | 2.19           | 4048          | 132048       |
+| webgl2  | single      | 0.012500  | 0.012500 | -0.00          | 4048          | 4176         |
+
+B medians (same counter definitions; separately measured, never pooled with A):
+
+| backend | workload    | before_ms | after_ms | change_percent | upload_before | upload_after |
+| ------- | ----------- | --------- | -------- | -------------- | ------------- | ------------ |
+| webgl2  | none        | 0.943750  | 0.883333 | -6.40          | 4048          | 4048         |
+| webgl2  | shared      | 1.120833  | 1.018750 | -9.11          | 4048          | 132048       |
+| webgl2  | unique      | 2.531250  | 2.664583 | 5.27           | 4048          | 132048       |
+| webgl2  | instance    | 0.262500  | 0.110417 | -57.94         | 4048          | 132048       |
+| webgl2  | alternating | 1.843750  | 1.881250 | 2.03           | 4048          | 132048       |
+| webgl2  | single      | 0.012500  | 0.012500 | 0.00           | 4048          | 4176         |
+
+Untouched GPU control for A; its unrelated drift is not an optimization:
+
+| backend | workload    | before_ms | after_ms | change_percent | upload_before | upload_after |
+| ------- | ----------- | --------- | -------- | -------------- | ------------- | ------------ |
+| webgpu  | none        | 0.695833  | 0.702083 | 0.90           | 7856          | 7856         |
+| webgpu  | shared      | 0.847917  | 0.845833 | -0.25          | 135856        | 135856       |
+| webgpu  | unique      | 1.056250  | 1.052083 | -0.39          | 135856        | 135856       |
+| webgpu  | instance    | 0.145833  | 0.141667 | -2.86          | 135856        | 135856       |
+| webgpu  | alternating | 1.010417  | 1.008333 | -0.21          | 135856        | 135856       |
+| webgpu  | single      | 0.016667  | 0.020833 | 25.00          | 7984          | 7984         |
+
+For1000 poses the actual logical/native runs are shared1, unique1000, instance1
+and alternating803; page segmentation is8/1000/8/808, respectively. Total actual
+geometry+velocity draws are shared2000→1008, unique2000→2000, instance1001→9,
+alternating2000→1808; single remains2. Actual counted buffer bytes increase
+4048→132048 for1000 active poses, or4048→4176 for one. The original default
+matrix uniforms were excluded by the existing buffer/texture uploadBytes contract;
+these figures are not a comparable bandwidth reduction/increase measurement.
+Adverse unique/alternating controls plus extra persistent storage reject both
+broad cutovers despite real bulk benefits; no source fallback or numeric threshold
+is added merely to hide those controls.
+
+### Corrected dev-server cache attribution
+
+Updating the owned frozen candidate file did not invalidate Vite's canonical
+transformed module: override load did not register that external file as a watch
+dependency. Native observation proved70 drawElementsInstanced/1 plus32 /4 were
+still served. Preserve those72 replay rows separately; they do NOT measure B and
+are never pooled into its result. The earlier92/102-frame proofs from that epoch
+are correctly attributed to A. This is a harness attribution issue, not a runtime
+fix or silently favorable retry. Stop both servers, start fresh module epochs,
+require the actual served transformed module to have the expected arity branch,
+and record its SHA256 outside clocks in every correctly served B timing row:
+
+- Before: b71d6165ba5ae655f1fc3aa2be22db30ae95971a8dda8d9b186d13d9a7d0cce1
+- B: f74afee51d04e97f9f4828ebd388607f92a41b8a60af01e7b14976eb21004214
+
+The later actual native trace verifies B's100 ordinary /1 draws and42 /4,8 /121,
+8 /8 instanced draws, rather than trusting a filesystem rewrite to identify code.
+
+### Actual native input, pixels and a meaningful negative
+
+B vs original:102 presented-frame pairs,6,717,440 RGBA bytes exactly equal, both
+AA modes,26 extended-effects scenarios per variant. Keep original minimum/still
+thresholds, mixed geometry, FXAA/TAA, resize/growth, disable/re-enable and cleanup
+paths. These are isolated source-candidate results, NOT a distribution build.
+
+Actual native getUniform reads the old current/previous matrices. The new path
+uses native getBufferSubData, actual active std140 member offsets, matrix/array
+strides, program block binding and actual indexed buffer range. On this driver
+there are256 separate active matrix members, array stride0 and matrix stride16;
+do not fabricate a128-byte GL array-stride query. The actual block is16384 bytes,
+and a second-page range begins at16384. Expand each actual draw/instance and
+compare every32 float32 words, native position/index buffers and logical callback
+order against real history. All1300 poses across62 velocity calls match with zero
+fetch errors. Native motion draws1300→158; true pose buffer bytes0→166400 (uniform
+bytes excluded on the original path), maximum native capacity32768. Full suite
+creates/deletes buffers70/70→76/76;38/38 programs,32/32 VAOs and58/58 textures
+remain balanced. The extra six buffers are explicitly included, not called a
+resource reduction. These are call/resource counts, not allocation or GPU clocks.
+
+A new consumer case has129 actual instances with only the last one moving;
+retain existing smaller/larger mixed geometry and then verify a stationary frame.
+Blur needs at least10 changed pixels, while the still frame allows at most20.
+A legal negative aliases the second-page buffer range to offset0. In independent
+single/MSAA pages all11 preceding scenarios pass, then the new case fails with
+0 blur pixels (needs10). Each has24 native fetch mismatches, GL NO_ERROR and no
+context loss/page errors; both frame readback and native input proof detect the
+wrong data. No fake buffer, lowered threshold or validation-only assertion is used.
+
+The retained test is named late-instance-motion-static-camera, not a page-ABI test:
+its contract is consumer motion/still pixels, not128-page geometry, draw counts,
+resource wiring, shader text, or a specific batching algorithm. Actual source
+page and real existing dist SDK import-only clone, with no motion observer or
+renderer substitution, each run24 post-effects scenarios including both AA modes:
+
+| entry  | backend | scenarios | single_pixels | msaa_pixels | pageErrors |
+| ------ | ------- | --------- | ------------- | ----------- | ---------- |
+| source | webgpu  | 24        | 236           | 196         | 0          |
+| source | webgl2  | 24        | 236           | 236         | 0          |
+| dist   | webgpu  | 24        | 236           | 196         | 0          |
+| dist   | webgl2  | 24        | 236           | 236         | 0          |
+
+The actual source GPU PNG was opened and visually inspected. Only within-backend
+before/candidate pixel equality is claimed; GPU/MSAA and GL pixels need not match.
+
+### Narrow verification and unchanged boundaries
+
+- Permanent regression Prettier48ms, scoped ESLint and strict typecheck passed.
+- Motion-blur-object, motion-blur and resource-residency:26 tests in3 files passed
+  at04:03:47,1.88s. No wiring-only mock test was added.
+- No install/build was rerun: runtime/dependencies/distribution were unchanged;
+  the existing real P211 distribution was exercised above. Showcase/audio/advanced
+  suites and other browser engines were not rerun or newly certified this phase.
+- Six updated documents are format/relative-link checked before commit; historical
+  P01–P211 counts/dates are retained. Temporary servers, candidates and fixtures
+  are stopped/removed before the scoped commit. User physics/world changes remain
+  excluded. No push or version bump.
+
+### Original paired rounds — A GL
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.858333 |          0.820833 |
+| shared / 1       |           1.133333 |          0.970833 |
+| unique / 1       |           2.391667 |          2.533333 |
+| instance / 1     |           0.258333 |          0.120833 |
+| alternating / 1  |           1.787500 |          1.837500 |
+| single / 1       |           0.012500 |          0.012500 |
+| none / 2         |           0.833333 |          0.866667 |
+| shared / 2       |           1.054167 |          0.958333 |
+| unique / 2       |           2.395833 |          2.520833 |
+| instance / 2     |           0.262500 |          0.112500 |
+| alternating / 2  |           1.766667 |          1.820833 |
+| single / 2       |           0.012500 |          0.012500 |
+| none / 3         |           0.845833 |          0.841667 |
+| shared / 3       |           1.062500 |          0.958333 |
+| unique / 3       |           2.420833 |          2.562500 |
+| instance / 3     |           0.245833 |          0.108333 |
+| alternating / 3  |           1.812500 |          1.850000 |
+| single / 3       |           0.012500 |          0.012500 |
+| none / 4         |           0.862500 |          0.833333 |
+| shared / 4       |           1.162500 |          0.966667 |
+| unique / 4       |           2.595833 |          2.525000 |
+| instance / 4     |           0.250000 |          0.125000 |
+| alternating / 4  |           2.112500 |          1.820833 |
+| single / 4       |           0.016667 |          0.012500 |
+| none / 5         |           0.854167 |          0.829167 |
+| shared / 5       |           1.100000 |          0.950000 |
+| unique / 5       |           2.504167 |          2.633333 |
+| instance / 5     |           0.266667 |          0.112500 |
+| alternating / 5  |           1.804167 |          1.900000 |
+| single / 5       |           0.016667 |          0.012500 |
+| none / 6         |           0.833333 |          0.845833 |
+| shared / 6       |           1.066667 |          1.120833 |
+| unique / 6       |           2.420833 |          2.737500 |
+| instance / 6     |           0.262500 |          0.116667 |
+| alternating / 6  |           1.804167 |          1.875000 |
+| single / 6       |           0.012500 |          0.012500 |
+
+### Original paired rounds — B GL, served identity guarded
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           2.741667 |          0.845833 |
+| shared / 1       |           1.037500 |          0.966667 |
+| unique / 1       |           2.487500 |          2.545833 |
+| instance / 1     |           0.258333 |          0.158333 |
+| alternating / 1  |           1.845833 |          1.875000 |
+| single / 1       |           0.012500 |          0.008333 |
+| none / 2         |           0.904167 |          0.875000 |
+| shared / 2       |           1.066667 |          0.970833 |
+| unique / 2       |           2.454167 |          2.545833 |
+| instance / 2     |           0.258333 |          0.116667 |
+| alternating / 2  |           1.887500 |          1.875000 |
+| single / 2       |           0.012500 |          0.016667 |
+| none / 3         |           0.841667 |          0.904167 |
+| shared / 3       |           1.100000 |          1.012500 |
+| unique / 3       |           2.491667 |          2.645833 |
+| instance / 3     |           0.266667 |          0.104167 |
+| alternating / 3  |           1.833333 |          1.945833 |
+| single / 3       |           0.012500 |          0.012500 |
+| none / 4         |           0.945833 |          0.854167 |
+| shared / 4       |           1.150000 |          1.141667 |
+| unique / 4       |           2.570833 |          2.683333 |
+| instance / 4     |           0.275000 |          0.108333 |
+| alternating / 4  |           1.841667 |          1.875000 |
+| single / 4       |           0.012500 |          0.012500 |
+| none / 5         |           0.941667 |          0.925000 |
+| shared / 5       |           1.141667 |          1.033333 |
+| unique / 5       |           2.579167 |          2.729167 |
+| instance / 5     |           0.258333 |          0.108333 |
+| alternating / 5  |           1.833333 |          1.887500 |
+| single / 5       |           0.012500 |          0.012500 |
+| none / 6         |           0.995833 |          0.891667 |
+| shared / 6       |           1.162500 |          1.025000 |
+| unique / 6       |           2.575000 |          2.691667 |
+| instance / 6     |           0.266667 |          0.112500 |
+| alternating / 6  |           1.970833 |          1.908333 |
+| single / 6       |           0.008333 |          0.016667 |
+
+### Original paired rounds — untouched GPU control
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.704167 |          0.712500 |
+| shared / 1       |           0.837500 |          0.866667 |
+| unique / 1       |           1.062500 |          1.045833 |
+| instance / 1     |           0.154167 |          0.179167 |
+| alternating / 1  |           1.058333 |          1.012500 |
+| single / 1       |           0.016667 |          0.016667 |
+| none / 2         |           0.679167 |          0.691667 |
+| shared / 2       |           0.850000 |          0.854167 |
+| unique / 2       |           1.045833 |          1.058333 |
+| instance / 2     |           0.137500 |          0.141667 |
+| alternating / 2  |           0.987500 |          1.000000 |
+| single / 2       |           0.016667 |          0.016667 |
+| none / 3         |           0.691667 |          0.687500 |
+| shared / 3       |           0.820833 |          0.829167 |
+| unique / 3       |           1.058333 |          1.050000 |
+| instance / 3     |           0.145833 |          0.145833 |
+| alternating / 3  |           1.041667 |          1.033333 |
+| single / 3       |           0.020833 |          0.020833 |
+| none / 4         |           0.729167 |          0.658333 |
+| shared / 4       |           0.845833 |          0.820833 |
+| unique / 4       |           1.054167 |          1.054167 |
+| instance / 4     |           0.150000 |          0.141667 |
+| alternating / 4  |           1.012500 |          1.004167 |
+| single / 4       |           0.020833 |          0.020833 |
+| none / 5         |           0.700000 |          0.741667 |
+| shared / 5       |           0.850000 |          0.845833 |
+| unique / 5       |           1.066667 |          1.050000 |
+| instance / 5     |           0.145833 |          0.141667 |
+| alternating / 5  |           1.008333 |          0.987500 |
+| single / 5       |           0.016667 |          0.025000 |
+| none / 6         |           0.679167 |          0.716667 |
+| shared / 6       |           0.866667 |          0.845833 |
+| unique / 6       |           1.037500 |          1.054167 |
+| instance / 6     |           0.141667 |          0.137500 |
+| alternating / 6  |           1.000000 |          1.029167 |
+| single / 6       |           0.016667 |          0.020833 |

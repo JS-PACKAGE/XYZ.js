@@ -6028,3 +6028,18 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   firstInstance清零時，GPU validation合法，但新增consumer得到零blur pixels，不能只檢查「不報錯」。
 - CPU完整submit與native counters分開，保留兩個否決候選及所有control波動；不以API次數、
   padding減少或微小single場景變化冒充全面FPS／GPU／heap收益。
+
+## P212 — Rejected GL std140 pages and late-instance consumer coverage
+
+- GL 128-pose std140 UBO 是隔離候選，不是目前架構。它使用獨立 binding3、實際
+  UNIFORM_BUFFER_OFFSET_ALIGNMENT、原 native geometry identity／順序與跨頁 run 切分；
+  native 回讀核對真正 block offsets、matrix strides、indexed range 及每pose32個 float32 words。
+- 第一版一律用 instanced draw；第二版單一 pose 用普通 drawElements、多 pose 才用 instanced。
+  兩版都保留 unique／alternating 的不利 CPU 對照，不以 bulk 改善當作全面收益。
+- 新 JS staging 與 native buffer 至少各16KiB；每1000 poses 增加128,000個已計數 buffer
+  bytes，不等於原 matrix uniforms 沒有傳資料。基於回退及儲存代價，兩版均否決；
+  production GL 仍用原 uniforms／逐pose draw，沒有新增 UBO slot、cache 或資源生命週期。
+- 永久回歸只約束 consumer-visible pixels：129個 instances 僅末位有位移，仍保留原 mixed
+  geometry，移動需有 blur、靜止需清除。測試不要求 page 大小、uniform ABI 或 draw 次數。
+- 合法 page-zero alias 使新增 case 得到0／至少10個 pixels並失敗，GL native error 為0；
+  native fetch mismatch 為另一份獨立證據。錯誤輸入不能靠 validation-only 測試抓出。

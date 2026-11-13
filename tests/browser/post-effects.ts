@@ -348,6 +348,45 @@ async function run(): Promise<void> {
         throw new Error(
           'Static mixed geometry retained stale object velocity.',
         );
+      // Moving the last instance must not be replaced by an earlier still pose.
+      const lateInstances = scene.add(
+        new InstancedMesh({
+          geometry: Geometry.cube(0.12),
+          material: mesh.material,
+          count: 129,
+        }),
+      );
+      const latePose = new Matrix4();
+      const poseLate = (offset: number) => {
+        for (let i = 0; i < 129; i++) {
+          const last = i === 128;
+          latePose.elements[0] =
+            latePose.elements[5] =
+            latePose.elements[10] =
+              last ? 3 : 1;
+          latePose.elements[12] = last ? -0.4 + offset : (i % 13) * 0.23 - 1.38;
+          latePose.elements[13] = last
+            ? 0.85
+            : Math.floor(i / 13) * 0.23 - 1.035;
+          latePose.elements[14] = last ? 1.1 : 0.5;
+          lateInstances.setMatrixAt(i, latePose);
+        }
+      };
+      blur.strength = 0;
+      poseLate(0);
+      await draw();
+      poseLate(0.35);
+      const lateSharp = await draw();
+      poseLate(0);
+      await draw();
+      blur.strength = 1;
+      poseLate(0.35);
+      record('late-instance-motion-static-camera', lateSharp, await draw(), 10);
+      const lateStill = await draw();
+      if (changed(lateSharp, lateStill, 1) > 20)
+        throw new Error('Static late instance retained stale object velocity.');
+      scene.remove(lateInstances);
+      lateInstances.destroy();
       scene.remove(smaller);
       scene.remove(larger);
       smaller.destroy();

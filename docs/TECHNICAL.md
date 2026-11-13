@@ -7539,3 +7539,21 @@ both AA modes and unpatched consumers/showcase. The new pixel regression rejects
 legal but wrong firstInstance=0. Full CPU rounds, rejected microcandidates, native
 counts and certification limits are in [ACCEPTANCE](../ACCEPTANCE.md) P211.
 No universal FPS, heap, GPU-time or physical-device improvement is claimed.
+
+## P212 rejected GL pose-page experiment
+
+The production GL velocity shader, uniforms, draw loop and resource lifetime remain
+unchanged. Two isolated 128-pose std140 UBO prototypes were rejected: their bulk
+shared/instanced benefits did not justify adverse unique/alternating controls and
+extra persistent JS/native storage. New buffer bytes would increase `uploadBytes`;
+the existing buffer/texture counter never included default matrix-uniform payloads.
+Neither the proposal nor its measured CPU benefit is a shipped runtime feature.
+
+The retained public consumer regression moves only the last of129 instances and
+then holds still, without changing existing mixed-geometry or pixel thresholds.
+It passes on the actual source/distribution with forced WebGPU/WebGL2 and both AA
+modes. A legal wrong-page prototype fails the new minimum10-pixel blur threshold
+with no GL error; actual native buffer/uniform fetches independently detect the
+wrong poses. It does not pin page size, shader ABI or batching implementation.
+See [ACCEPTANCE](../ACCEPTANCE.md) P212 for paired clocks, native pixel/readback
+evidence, the stale dev-module attribution correction and certification limits.

@@ -7206,3 +7206,18 @@ stationary-frame pixels與source／dist、兩AA、unpatched consumer／showcase�
 新增pixel regression能拒絕GPU合法但firstInstance=0的錯誤。完整CPU rounds、否決候選、
 native counts及認證限制見[ACCEPTANCE](../ACCEPTANCE.md) P211，不宣稱全面FPS、heap、
 GPU-time或physical-device收益。
+
+## P212 否決 GL pose 分頁候選
+
+正式 GL velocity shader、uniforms、draw loop 與資源生命週期保持原樣。兩個隔離的
+128-pose std140 UBO 候選雖改善 bulk shared／instance，仍讓 unique／alternating 退步，
+且需要額外常駐 JS／native 區域，因此均未採用。新 buffer bytes 會增加 uploadBytes；
+原 buffer／texture counter 不含 default matrix uniforms，不能把計數增加當作同口徑頻寬差。
+候選與其 CPU 收益不是已發佈的 runtime 功能。
+
+保留的公開 consumer regression 只移動129個 instances 的末位，接著維持靜止；既有 mixed
+geometry 與 pixel 門檻不變。實際 source／dist、強制 GPU／GL 與兩 AA 均通過。合法但錯誤的
+page binding 讓新測試得0／至少10個 blur pixels，GL error仍為0；native uniforms／buffer
+fetch 是獨立的錯誤證據。測試不綁死 page 大小、shader ABI 或 batching 實作。
+完整 paired clocks、native pixels／readback、dev-server stale module 歸因修正與認證限制，
+見[ACCEPTANCE](../ACCEPTANCE.md) P212；不宣稱 runtime 加速。

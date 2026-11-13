@@ -5868,3 +5868,16 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   仍會讓blur錯誤；刪除只把兩個poses綁成兩draws的mock實作斷言，不改既有pixel門檻。
 - Source／dist×GPU／GL兩AA及unpatched consumer／showcase驗證，完整證據與限制見ACCEPTANCE P211。
   GL路徑未改，不宣稱GPU time、heap、physical-device認證或全面FPS提升；不push、不升版。
+
+## P212 — Reject broad GL pose pages; retain late-instance pixels
+
+- 調查正式 GL object-motion 的逐pose matrix uniforms／draw。Core WebGL2 無 firstInstance，
+  原型改用對齊的 128-pose std140 pages、獨立 binding3，按原順序切相鄰 native geometry runs。
+- 先量完整 native submit，再做 native uniforms／buffer readback 與實際 pixel proof；
+  不用 mock、替換 renderer 或回填舊 counters。兩種 draw API 候選均未採用。
+- Shared／instance 改善不掩蓋 unique／alternating 退步，也不隱藏額外 JS／native 常駐區與
+  uploadBytes 計數範圍差異。原 source、dist、WGSL／GLSL、版本及 runtime API 不變。
+- 保留真正 consumer regression：129 個 instances 僅末位移動，之後靜止；兩 AA 的 blur 最少
+  10 pixels、stationary 最多20 pixels。合法但錯誤的 page-zero binding 讓新增 case 失敗。
+- 實際 source／dist×GPU／GL 各24個 post-effects scenarios，以及26項針對性測試通過。
+  證據、否決數據與 Vite stale-module 歸因修正見 ACCEPTANCE P212；不宣稱 runtime 加速。

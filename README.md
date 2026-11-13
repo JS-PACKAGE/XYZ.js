@@ -48,6 +48,8 @@ Object-motion pass以實際buffer identity省略重複vertex／index binding，�
 
 WebGPU object-motion將相鄰同native geometry poses改為128-byte instanced vertex stream；保留history與順序，draw／upload counters如實反映提交量，GL仍走原路徑。WebGPU object-motion uses 128-byte instanced pose streams for adjacent native geometry, preserving history/order; counters reflect real draws/uploads, while GL is unchanged. WebGPU object-motion は隣接する同一 native geometry の pose を128-byte instance streamにまとめ、historyと順序を維持します。GLは従来経路のままです。CPU submit測量不代表全面FPS提升。
 
+GL pose 分頁 UBO 批次候選因 unique geometry 退步與額外常駐儲存未採用；原 GL runtime 不變，保留末位 instance 運動／靜止的畫面回歸測試。The GL paged-pose UBO candidate was rejected for unique-geometry regressions and extra persistent storage; the original GL runtime remains, with a last-instance motion/still pixel regression. GL pose 分頁 UBO 案は unique geometry の性能低下と追加の常駐領域により不採用です。GL runtime は変更せず、末尾 instance の移動／静止 pixel 回帰テストを残します。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
