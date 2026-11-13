@@ -118,6 +118,20 @@ var GPUParticleEmitter3D = class extends require_object3d.Object3D {
 			let r = Math.floor(n + 1e-10), i = this.clock + (1 - this.fraction) / this.rate;
 			this.fraction = Math.max(0, n - r), r && this.updateWorldMatrix();
 			let a = 0, o = Math.max(1, Math.ceil(this.lifetime * this.rate - 1e-9));
+			if (r > this.capacity && o < this.capacity) {
+				let e = this.capacity, t = i + (r - 1) / this.rate, n = Math.max(1, t) * 2 ** -52 * 8, o = Math.ceil((this.lifetime + n) * this.rate) + 1;
+				if (this.count + o < e) {
+					let t = !0;
+					for (let n = 0; n < this.count; n++) if (this.births[(this.head + n) % e] > i) {
+						t = !1;
+						break;
+					}
+					if (t) {
+						let t = r - e;
+						this.head = (this.head + this.count + t % e) % e, this.count = 0, this.revision = Math.min(2 ** 53 - 1 + 1, this.revision + t), a = t;
+					}
+				}
+			}
 			for (; a < r;) {
 				let e = i + a / this.rate;
 				if (this.expire(e), this.count < this.capacity) this.admit(e, this.sequence + a), a++;

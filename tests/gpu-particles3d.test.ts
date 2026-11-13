@@ -92,6 +92,50 @@ describe('GPU particle emission command lifecycle', () => {
     }
   });
 
+  it('publishes the complete final ring after low-occupancy catch-up with old live commands', () => {
+    const emitter = new GPUParticleEmitter3D({
+      capacity: 7,
+      rate: 100,
+      lifetime: 0.01,
+      space: 'world',
+    });
+    const mirror = new Float32Array(emitter.commandData.length),
+      ranges = new Int32Array(4);
+    let version = -1;
+    for (let phase = 0; phase < 2; phase++) {
+      emitter.position.set(phase + 1, 2, -3);
+      emitter.updateSimulation(10);
+      const limit = (phase + 1) * 1000,
+        words = new Uint32Array(emitter.commandData.buffer);
+      expect(emitter.droppedCount).toBe(0);
+      expect(commands(emitter).map((command) => command.sequence)).toEqual([
+        limit - 1,
+      ]);
+      for (let slot = 0; slot < emitter.capacity; slot++) {
+        const sequence = limit - 1 - ((limit - 1 - slot) % emitter.capacity);
+        const base = slot * GPU_PARTICLE_COMMAND_FLOATS;
+        expect(words[base + 1]).toBe(sequence);
+        expect(emitter.commandData[base]).toBe(
+          Math.fround(phase * 10 + 0.01 + (sequence - phase * 1000) / 100),
+        );
+        const matrix = Array.from(
+          emitter.commandData.subarray(base + 4, base + 20),
+        );
+        expect(matrix.slice(12, 15)).toEqual([phase + 1, 2, -3]);
+      }
+      const changed = emitter.changedCommandRanges(version, ranges);
+      if (changed < 0) mirror.set(emitter.commandData);
+      for (let i = 0; i < changed; i++) {
+        const first = ranges[i * 2] * GPU_PARTICLE_COMMAND_FLOATS;
+        const end = first + ranges[i * 2 + 1] * GPU_PARTICLE_COMMAND_FLOATS;
+        mirror.set(emitter.commandData.subarray(first, end), first);
+      }
+      version = emitter.commandVersion;
+      expect(new Uint32Array(mirror.buffer)).toEqual(words);
+    }
+    emitter.destroy();
+  });
+
   it('retains world birth affine transforms through ancestor motion and samples new births at the new pose', () => {
     const parent = new Object3D();
     parent.position.set(3, 4, 5);

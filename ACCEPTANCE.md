@@ -18976,3 +18976,93 @@ tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
 - Expiry-only 的非二次冪容量雖快約 57%，二次冪容量卻慢約 4.9%；combined 的同一
   控制組慢約 7.2%。保留原 expiry，不把不同容量的收益混成普遍改善；只採較一致的
   admission 最小變更。未加 persistent mask、不同容量的雙重 loops 或新 API。
+
+## P173 — Skip overwritten low-occupancy particle stream prefixes（2026-11-13）
+
+- Root cause：原 GPUParticleEmitter3D 的 saturated-stream cycle skip 需要 ring 滿載；
+  short-lifetime、持續有空位的 stream 仍為每個 requested birth 寫 command，即使最後
+  只剩一個 active command。正式 API 的 standalone baseline 如下；8 warmup／15 輪
+  median，capacity=1,024、rate=1,000,000、lifetime=1e-9，所有列最後 active=1、drop=0。
+
+| Delta | Calls per batch | Requested births per batch | Baseline ms |
+| ----- | --------------: | -------------------------: | ----------: |
+| 0.001 |           1,000 |                  1,000,000 |    9.547166 |
+| 1/60  |              60 |                  1,000,000 |    9.572292 |
+| 0.1   |              10 |                  1,000,000 |    9.553375 |
+| 1     |               1 |                  1,000,000 |    9.545959 |
+| 10    |               1 |                 10,000,000 |   95.521208 |
+
+- 正式變更只在 requested>capacity、period<capacity 且保守 non-saturation guard 通過時，
+  跳過會被覆寫的 prefix。Guard 包含 birth／expiry rounding span
+  max(1,lastBirth)*Number.EPSILON*8、額外一個 fresh arrival 的界限，以及
+  count+ceil((lifetime+span)*rate)+1 < capacity。並逐一確認現有 birth 不晚於 start，
+  避免 future-dated 舊命令阻擋後續 expiry。
+- 當所有新 arrivals 都可 admission，初始 count 與後續 expiry 不改變 next-tail 的
+  推進數；以 skipped % capacity 推進 tail，清除暫態 count，再實際執行最後完整一圈。
+  保守 lifespan 界限讓舊命令／prefix 在最後一圈結束前過期，該完整一圈也確實覆寫
+  所有 physical slots。因此不是只保留 active commands、忽略 inactive bytes 的近似。
+  Revision 同步補上 skipped admissions，並保留原 repeated ++ 在 2**53 的飽和行為。
+- 不改 shaders、partial-upload API、drop-new、seed／sequence、clock arithmetic 或
+  world-matrix snapshot；不新增 cache／欄位／dependency。Guards 不通過時保留原路徑，
+  不宣稱所有 occupancy／time ranges 都可跳過。通過時 prefix maintenance 以 capacity
+  為界，而不是逐個重播 requested births。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，8 warmup／15 輪交替
+  median、無並行測試。以下 A/B 在同程序的 4,096 次 prototype checks 之後量測；與
+  standalone probe 的 warm-up／feedback 情境不同，不跨表比較絕對 before times，亦
+  不推論未 profiling 的 JIT 原因。Emitter setup 在計時外，正式 updateSimulation／
+  admission／expiry／matrix snapshot／結果讀取在內，不是 GPU 或 fps 量測。
+- 前七列 capacity=1,024、rate=1,000,000；normal 為 capacity=1,000／rate=600，
+  saturated 為 capacity=7／rate=10,000，idle 為 capacity=1,000／rate=0。
+
+| Workload                   | Lifetime | Delta |  Calls |  Before ms |  After ms |
+| -------------------------- | -------: | ----: | -----: | ---------: | --------: |
+| Small-step control         |     1e-9 | 0.001 |  1,000 |  19.894625 | 18.987125 |
+| Low occupancy, 60 Hz       |     1e-9 |  1/60 |     60 |  19.501375 |  1.176167 |
+| Low-occupancy catch-up     |   0.0001 |   0.1 |     10 |  15.707458 |  0.163833 |
+| Million-birth catch-up     |   0.0001 |     1 |      1 |  15.701084 |  0.016333 |
+| Ten-million-birth catch-up |   0.0001 |    10 |      1 | 156.623625 |  0.017667 |
+| High-occupancy control     |   0.0009 |   0.1 |     10 |  15.669208 | 15.595875 |
+| Crowded control            |     0.01 |   0.1 |     10 |   0.196459 |  0.195333 |
+| Normal-rate control        |        1 | 1/120 |  4,000 |   0.397459 |  0.399292 |
+| Saturated control          |      0.1 | 1/120 |  2,000 |   0.068542 |  0.068667 |
+| Idle control               |        1 | 1/120 | 10,000 |   0.051208 |  0.048875 |
+
+- 四種可跳過的低佔用測項 CPU 約少 94–99.99%；normal-rate／saturated 控制組約慢
+  0.5%／0.2%，其餘控制組約快 0.5–4.6%。這是特定 command-maintenance 工作量，
+  不是 rendering／GPU 加速；沒有量測配置數、heap、GC pause 或呈現 fps。
+- 4,098 emitters、151,578 operations、21,160 errors 精確一致；135,186 次 physical
+  buffer 比較涵蓋 3,080,411,760 bytes（不是 retained heap 或 GPU transfer）。三個
+  cadence 的 consumers 做 86,286 次 partial／full mirror copies，其中 1,900 次
+  two-range wrap；mirror 均與各自完整 buffer 一致。8,575 次 native-owner release／
+  reentrant burst 與 32,521 次合法 updateWorldMatrix override calls 的 traces 一致。
+- 涵蓋 capacity 1／二次冪／非二次冪／65,535／65,536、local／world、最小正 rate 至
+  1,000,000、EPSILON lifetime、不同 occupancy、相鄰 doubles 的 delta、clock 0 至
+  MAX_SAFE_INTEGER 附近、epoch rebase、pause／resume／stop／start／clear／destroy、
+  oversized／invalid burst、invalid delta、pose／scale 與完整 errors／states／ranges。
+  隨機有限 delta 的 reference 工作量最多約 8*capacity+1 births，另有四次各一千萬
+  births 的完整 before／after buffer 比對，涵蓋 local／world、既有 live commands、
+  uint32 sequence wrap 與跨 1,024 s epoch。另以 56 組 isolated arithmetic checks
+  驗證 bulk revision 與原 repeated ++ 的 2**53 邊界，不冒稱實際跑了該數量的 admissions。
+- 另直接確認 quantized-clock guard 保留原 admission 結果：clock=2**52、capacity=8、
+  rate=10、life=0.6、delta=2，before／after 的 active／dropped／head／revision 均一致；
+  不因 nominal period 低於 capacity 就假定每次 arrival 可 admission，也沒有在本階段
+  修正或重新認證原極大 clock 的時間量化行為。
+- 新 regression 連續兩次 catch-up，中間保有 live command 並改 world pose；驗證整個
+  physical ring 的 seed sequence／Float32 births／matrix snapshots、active commands 與
+  upload mirror，能抓出少寫一圈、漏算舊 count／tail 或 stale uploads 的 consumer bugs。
+  `vitest run tests/gpu-particles3d.test.ts` **8 tests passed**；Typecheck、scoped
+  ESLint／Prettier、ESM compile/minify、完整 vendor copy、CJS build 通過。未跑完整 suite。
+- 實際 managed Chromium 的 temporary public-API page，強制 WebGPU／WebGL2，
+  capacity=4,096、rate=1,000,000、life=0.001 的 local／world emitters 各做十秒 catch-up，
+  freeze 後 screenshot 見藍／橘 plumes、各 1,000 active／10,000,000 revision；再次
+  catch-up、clear→0、重新 catch-up→1,000、destroy→0 都通過。兩 backend 的 showcase
+  Sprite／Primitive／lit cube／sphere 與 Scene A→B 也實際通過，頁面與 about:blank
+  cleanup 的 uncaught error entries 都空。沒有以 CPU stub 或假的 native module 代替。
+- Canvas2D 初次 exact-text wait 超時：臨時頁的 runtime error handler 額外加 `error:`，
+  所以不是 bare message。隨後直接讀取 surface 與 console，實際為
+  `error: Canvas2D does not support visible GPU 3D particles.`，並有預期的
+  `UnsupportedGraphicsError`／runtime paused fatal-error console record；uncaught error
+  entries 與 teardown entries 空。這是測試端字串假設，不是引擎拒絕失效，正式 source
+  未因此改動。Temporary page、分頁與 dev server 已清除／關閉。
+- README 中英日、PLAN、DESIGN、TECHNICAL 中英同步；未重驗 audio unlock、auto
+  初始化降級、Safari／其他瀏覽器、實機、GPU memory 或 pixel parity，不擴大 certification。

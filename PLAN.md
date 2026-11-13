@@ -5418,3 +5418,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   精確一致，7 tests、typecheck、scoped lint／format 與 ESM／CJS build 通過。
 - 實際 WebGPU／WebGL2 particles lifecycle、showcase scene switch 與 Canvas2D 明確
   拒絕通過；expiry conditional-wrap 的容量取捨與所有限制見 ACCEPTANCE P172。
+
+## P173 — Skip overwritten low-occupancy particle stream prefixes
+
+- 在保守 occupancy／rounding guards 下跳過最終會被覆寫的 prefix，仍實際寫入最後
+  完整 command ring，保留 tail、revision、inactive bytes、seed 與 world snapshots。
+- 特定低佔用 catch-up CPU 約少 94–99.99%；151,578 operations、四次一千萬 births
+  的 bytes 差分、8 tests、typecheck、scoped lint／format 與 ESM／CJS build 通過。
+- 實際 WebGPU／WebGL2 觸發 fast path、clear／重建／destroy、showcase 通過；
+  Canvas2D 的測試字串修正、quantized-clock 邊界與完整限制見 ACCEPTANCE P173。

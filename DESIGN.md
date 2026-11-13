@@ -5571,3 +5571,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   native consumers 的 partial-upload ranges 與完整 physical command bytes 精確相同。
 - 不連帶修改 expiry：conditional wrap 在非二次冪容量有益、二次冪卻退步。
   只採 admission 的最小變更，完整 CPU／byte／browser 證據與限制見 ACCEPTANCE P172。
+
+## P173 — Skip history only when the final full ring proves it unobservable
+
+- 以包含浮點誤差的 fresh-arrival 上界加既有 count 證明不會飽和；舊 births 不可晚於
+  stream start。不能只用 nominal lifetime*rate 判斷，極大 clock 的量化會破壞該假設。
+- 先保存 next-tail 的推進數，再實際重播最後 capacity 個 arrivals，讓所有 physical
+  slots 被覆寫、舊 prefix 也已過期。不是忽略 inactive bytes 或只重建 active particles。
+- Bulk revision 保留原 ++ 在 2**53 的飽和，uint32 sequence／birth／world matrices
+  仍由原 admit 計算；guards 不通過保留原路徑，無額外 per-emitter cache。
+- 正式 bytes／partial uploads／reentrant owners／native browser 與 CPU 證據見
+  ACCEPTANCE P173，不把 command CPU 收益當作 GPU／fps 改善。

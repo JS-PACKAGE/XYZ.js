@@ -248,6 +248,37 @@ export class GPUParticleEmitter3D extends Object3D {
       if (requested) this.updateWorldMatrix();
       let index = 0;
       const period = Math.max(1, Math.ceil(this.lifetime * this.rate - 1e-9));
+      if (requested > this.capacity && period < this.capacity) {
+        const capacity = this.capacity;
+        const lastBirth = start + (requested - 1) / this.rate;
+        // Bound division, birth-time addition and expiry rounding conservatively.
+        const roundingSpan = Math.max(1, lastBirth) * Number.EPSILON * 8;
+        const freshBound =
+          Math.ceil((this.lifetime + roundingSpan) * this.rate) + 1;
+        if (this.count + freshBound < capacity) {
+          // Future-dated old commands could hold newer ones behind them.
+          let pastBirths = true;
+          for (let j = 0; j < this.count; j++) {
+            if (this.births[(this.head + j) % capacity] > start) {
+              pastBirths = false;
+              break;
+            }
+          }
+          if (pastBirths) {
+            const skipped = requested - capacity;
+            // Keep the next slot; the remaining full ring replaces every stale command.
+            this.head =
+              (this.head + this.count + (skipped % capacity)) % capacity;
+            this.count = 0;
+            // Repeated ++ stops advancing once it reaches 2**53.
+            this.revision = Math.min(
+              Number.MAX_SAFE_INTEGER + 1,
+              this.revision + skipped,
+            );
+            index = skipped;
+          }
+        }
+      }
       while (index < requested) {
         const birth = start + index / this.rate;
         this.expire(birth);
