@@ -382,7 +382,15 @@ export class AnimationAction {
   /** @internal Set by the mixer so crossFadeTo can order the layers. */
   mixer: AnimationMixer | undefined;
 
+  private loopSnapshot: readonly AnimationListener[] | undefined;
+  private finishedSnapshot: readonly AnimationListener[] | undefined;
+
   constructor(readonly clip: AnimationClip) {}
+
+  private invalidateListenerSnapshot(listeners: Set<AnimationListener>): void {
+    if (listeners === this.listeners.loop) this.loopSnapshot = undefined;
+    else this.finishedSnapshot = undefined;
+  }
 
   /** Compatibility switch for `loopMode`: true repeats, false plays once. */
   get loop(): boolean {
@@ -413,11 +421,15 @@ export class AnimationAction {
     return this.clip.duration > 0 ? this.clipTime / this.clip.duration : 0;
   }
   on(event: AnimationEventType, listener: AnimationListener): this {
-    this.listeners[event].add(listener);
+    const listeners = this.listeners[event];
+    listeners.add(listener);
+    this.invalidateListenerSnapshot(listeners);
     return this;
   }
   off(event: AnimationEventType, listener: AnimationListener): this {
-    this.listeners[event].delete(listener);
+    const listeners = this.listeners[event];
+    listeners.delete(listener);
+    this.invalidateListenerSnapshot(listeners);
     return this;
   }
 
@@ -556,10 +568,14 @@ export class AnimationAction {
       this.mixer?.sealOverlay(track.target, track.path);
     }
     if (wraps > 0)
-      for (const listener of [...this.listeners.loop]) listener(this);
+      for (const listener of (this.loopSnapshot ??= [...this.listeners.loop]))
+        listener(this);
     if (finished) {
       this.playing = false;
-      for (const listener of [...this.listeners.finished]) listener(this);
+      for (const listener of (this.finishedSnapshot ??= [
+        ...this.listeners.finished,
+      ]))
+        listener(this);
     } else if (
       this.fadeTarget === 0 &&
       this.fadeRate === 0 &&

@@ -5337,3 +5337,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 16,384 組 differential cases 與 38 項 targeted tests 通過；完整 demux 的
   Node transport-shim CPU 測項約快 2.7–5.6%，未宣稱 decode／playback 收益。
 - 六個 duplicate-box regression、量測與限制見 ACCEPTANCE P163。
+
+## P164 — Reuse AnimationAction listener snapshots
+
+- loop／finished 事件各自 lazy 建立 readonly snapshot，on／off 依實際 listener Set
+  identity 使對應快取失效。派送期間的 mutation／nested update 仍各持有原 snapshot。
+- 16,384 組 differential operations、57 項 targeted tests 與 64 個 off 後 listener
+  的 GC probe 通過；穩定清單 CPU 約快 4.3–35.1%，逐次 churn 約慢 7.0%。
+- MP4 fragment guard 的 OR 候選各測項略慢，未套用；完整量測、retention proof、
+  工具與未驗證範圍見 ACCEPTANCE P164。

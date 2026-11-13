@@ -375,6 +375,10 @@ These are public error classes, not a promise to rewrap every exception from use
   Required-box lookup scans without a result array and still rejects both missing
   and duplicate boxes. ACCEPTANCE P162–P163 record full-demux CPU measurements using
   the Node chunk transport shim, not native WebCodecs decoding or playback.
+- AnimationAction lazily reuses immutable loop/finished listener snapshots until
+  on/off invalidates the corresponding listener Set's cache. Active dispatch keeps
+  its old snapshot while nested dispatch sees mutations; removed callbacks are not
+  retained by the cache. Stable-list and churn tradeoffs are in ACCEPTANCE P164.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

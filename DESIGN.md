@@ -5482,3 +5482,15 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   與 chunk ownership。原 root／nested missing／duplicate 的 RangeError 契約保留。
 - 16,384 組差分、38 tests 與約 2.7–5.6% 的 Node 完整 demux CPU 收益見
   ACCEPTANCE P163；未量測配置計數、native WebCodecs 或 rendering fps。
+
+## P164 — Per-event immutable callback snapshots
+
+- AnimationAction 以 loop／finished 兩個 optional array fields 保存 lazy snapshot；
+  不額外配置每 action 的 cache record。on／off 後依 listener Set identity 使對應
+  field 回到 undefined；不更改原 Set 的 callback identity／順序／重複註冊契約。
+- 每次 for-of 仍先取得自己的 immutable snapshot reference：callback 內移除或
+  新增 listener 只影響後續／nested dispatch，不改變已開始的外層清單。Listener
+  拋錯仍立即中斷當次派送；off 立即釋放 cache 引用，不等下一次 emit 才移除。
+- 穩定 snapshots 減少重複 copy，代價是常駐 array references／兩個 private fields，
+  以及逐次 listener churn 約 7.0% 的 CPU 退步；沒有宣稱降低 retained heap。
+  16,384 組差分、57 tests、64 removed-listener GC proof 與數據見 ACCEPTANCE P164。

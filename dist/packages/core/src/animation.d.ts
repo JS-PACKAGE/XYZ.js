@@ -81,7 +81,10 @@ export declare class AnimationAction {
     private successor;
     /** @internal Set by the mixer so crossFadeTo can order the layers. */
     mixer: AnimationMixer | undefined;
+    private loopSnapshot;
+    private finishedSnapshot;
     constructor(clip: AnimationClip);
+    private invalidateListenerSnapshot;
     /** Compatibility switch for `loopMode`: true repeats, false plays once. */
     get loop(): boolean;
     set loop(value: boolean);

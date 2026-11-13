@@ -18398,3 +18398,62 @@ tests/native-skinning.test.ts` **32 tests passed**；Typecheck、scoped ESLint�
   **38 tests passed**；Typecheck、scoped ESLint／Prettier、ESM compile/minify、完整
   vendor copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
   未跑完整 suite、未開 browser／重驗 native WebCodecs、三 backend 或 audio。
+
+## P164 — Reuse AnimationAction listener snapshots（2026-11-13）
+
+- AnimationAction 各以一個 optional field lazy 保存 loop／finished readonly listener
+  snapshot；on／off 後以實際 listener Set identity 使對應 field 失效。不另建 cache
+  record，仍保留 Set 的重複註冊、移除、順序與原輸入 key coercion 行為。
+  即使 callback 變動 listener 或 nested update，外層 for-of 仍使用開始時的 snapshot。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，CPU 與 correctness
+  modules 分開；8 warmup／15 輪交替 median、無並行測試。Setup 在計時外，正式
+  Action.update、translation track sampling、listener calls 與 pose 結果讀取在計時內。
+  每次 update 跨完整 1-second clip，finished cases 每次先 stop／play；這是密集
+  事件成本測項，不代表一般每 frame 都有 loop／finished event。
+
+| Event    | Listeners | Tracks | Updates | Every-update on/off churn | Before ms | After ms |
+| -------- | --------: | -----: | ------: | ------------------------- | --------: | -------: |
+| loop     |         0 |      1 | 100,000 | no                        |  2.576625 | 2.117375 |
+| loop     |         1 |      1 | 100,000 | no                        |  2.716792 | 2.234166 |
+| loop     |         8 |      1 | 100,000 | no                        |  3.723083 | 2.804375 |
+| loop     |        64 |      1 | 100,000 | no                        | 12.138125 | 7.883583 |
+| finished |         8 |      1 | 100,000 | no                        |  3.754125 | 2.863875 |
+| loop     |         8 |      8 |  20,000 | no                        |  2.793833 | 2.674584 |
+| loop     |         8 |      1 | 100,000 | yes                       |  5.954375 | 6.370500 |
+
+- 穩定清單約快 4.3–35.1%；每次派送都 on／off 的 churn 約慢 7.0%，因 cache
+  每次都失效仍需重建。取捨是多兩個 private fields 與 lazy retained snapshot arrays，
+  換取穩定事件清單不再重複 copy；未量測實際配置數／heap 總量／GC pause 或 fps。
+- 16,384 differential operations、4,238 errors、5,212 callback calls 精確一致；
+  比對 loop／finished、on／off／duplicate／reinsertion、callback mutation、bounded
+  nested update、callback throw、invalid names／times／deltas、boxed event keys、
+  once／repeat／pingpong、reverse／overflow／fade／weight 及 pose／action state。
+- 新 permanent regression 分別驗證 loop／finished：外層 snapshot 仍呼叫已移除
+  listener、nested dispatch 看到新 listener、後續 dispatch／移除全部／重複 on 正確，
+  callback 移除自己再拋錯後，下次派送不保留舊 callback。
+- 獨立 `node --expose-gc` probe，before／after 各 32 個 actions，loop／finished 各半；
+  先派送建立 snapshot，再 off，保持全部 64 actions 強可達且不再次派送。
+  經 event-loop turns＋GC 後，64 個 removed-listener WeakRefs 全部釋放。
+  此為解除 callback retention proof，不是 aggregate heap 或 GC 效能量測。
+- `vitest run tests/animation.test.ts tests/animation-blend.test.ts
+tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
+  **57 tests passed**；Typecheck、scoped ESLint／Prettier、ESM compile/minify、
+  完整 vendor copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英
+  同步；未跑完整 suite、未開 browser／重驗 rendering、三 backend 或 audio。
+
+### 未採用：MP4 fragmented-container literal OR guard
+
+- Temporary variant 將每 box 的 fragmented-type array.includes guard 改為三個 literal
+  OR comparisons；完整 demux 的 Node chunk-shim CPU，同環境 8 warmup／15 輪
+  交替 median，fixture 建立在計時外。正式 MP4 source 未修改。
+
+| Codec | Ignored boxes | Audio track | Parses | Before ms | After ms |
+| ----- | ------------: | ----------- | -----: | --------: | -------: |
+| AVC   |             0 | no          |  4,000 |  7.860583 | 7.923625 |
+| VP9   |             0 | no          |  4,000 |  6.952083 | 7.053000 |
+| AV1   |             0 | no          |  4,000 |  6.984834 | 7.103208 |
+| AVC   |             0 | yes         |  2,000 |  4.913750 | 4.948875 |
+| AVC   |            64 | no          |  1,000 |  6.987084 | 7.038000 |
+| AVC   |         1,024 | no          |     64 |  5.317250 | 5.332958 |
+
+- 各測項約慢 0.3–1.7%，故不保留；未宣稱該候選完成 fragmented／error differential。

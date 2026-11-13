@@ -167,8 +167,13 @@ var AnimationAction = class {
 	};
 	successor;
 	mixer;
+	loopSnapshot;
+	finishedSnapshot;
 	constructor(e) {
 		this.clip = e;
+	}
+	invalidateListenerSnapshot(e) {
+		e === this.listeners.loop ? this.loopSnapshot = void 0 : this.finishedSnapshot = void 0;
 	}
 	get loop() {
 		return this.loopMode !== `once`;
@@ -192,10 +197,12 @@ var AnimationAction = class {
 		return this.clip.duration > 0 ? this.clipTime / this.clip.duration : 0;
 	}
 	on(e, t) {
-		return this.listeners[e].add(t), this;
+		let n = this.listeners[e];
+		return n.add(t), this.invalidateListenerSnapshot(n), this;
 	}
 	off(e, t) {
-		return this.listeners[e].delete(t), this;
+		let n = this.listeners[e];
+		return n.delete(t), this.invalidateListenerSnapshot(n), this;
 	}
 	play() {
 		return this.playing = !0, this;
@@ -253,10 +260,10 @@ var AnimationAction = class {
 			let n = o * (this.mask?.weight(t.target, t.path) ?? 1);
 			n <= 0 || (this.mixer?.captureOverlay(t.target, t.path, !!this.references), t.sample(this.clipTime, n, this.references?.[e]), this.mixer?.sealOverlay(t.target, t.path));
 		}
-		if (a > 0) for (let e of [...this.listeners.loop]) e(this);
+		if (a > 0) for (let e of this.loopSnapshot ??= [...this.listeners.loop]) e(this);
 		if (i) {
 			this.playing = !1;
-			for (let e of [...this.listeners.finished]) e(this);
+			for (let e of this.finishedSnapshot ??= [...this.listeners.finished]) e(this);
 		} else this.fadeTarget === 0 && this.fadeRate === 0 && this.fade === 0 && this.stop();
 		return !0;
 	}

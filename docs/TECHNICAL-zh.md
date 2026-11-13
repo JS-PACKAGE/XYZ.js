@@ -356,6 +356,10 @@ XYZError
   offsets 與 sample／config 獨立 copies。Required-box 查詢以單次掃描取代 result
   array，仍拒絕 missing／duplicate boxes。ACCEPTANCE P162–P163 的完整 demux
   CPU 量測使用 Node chunk transport shim，不代表 native WebCodecs decode／playback。
+- AnimationAction lazy 重用 loop／finished 的 immutable listener snapshots；
+  on／off 使對應 Set 的快取失效。外層派送保留舊 snapshot，nested dispatch 看到
+  mutation；off 不讓 cache 繼續保留移除的 callback。穩定清單／churn 取捨見
+  ACCEPTANCE P164。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

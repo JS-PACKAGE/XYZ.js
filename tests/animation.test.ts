@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AnimationAction,
   AnimationClip,
   AnimationMixer,
   KeyframeTrack,
@@ -119,4 +120,62 @@ describe('transform animation', () => {
     ).toThrow(/strictly increasing/);
     expect(() => mixer.update(-1)).toThrow(RangeError);
   });
+  it.each(['loop', 'finished'] as const)(
+    'preserves %s listener snapshots across mutation, nested dispatch and errors',
+    (event) => {
+      const target = new Group();
+      const action = new AnimationAction(
+        new AnimationClip('callbacks', [
+          new KeyframeTrack(target, 'translation', [0, 1], [0, 0, 0, 1, 0, 0]),
+        ]),
+      );
+      action.loop = event === 'loop';
+      const fire = () => action.stop().play().update(1);
+      const calls: string[] = [];
+      let mutate = false,
+        nested = false;
+      const second = () => calls.push('second');
+      const added = () => calls.push('added');
+      const first = () => {
+        calls.push(nested ? 'nested:first' : 'first');
+        if (!mutate || nested) return;
+        mutate = false;
+        action.off(event, second).on(event, added);
+        nested = true;
+        fire();
+        nested = false;
+      };
+      action.on(event, first).on(event, second);
+      fire();
+      expect(calls.splice(0)).toEqual(['first', 'second']);
+      mutate = true;
+      fire();
+      expect(calls.splice(0)).toEqual([
+        'first',
+        'nested:first',
+        'added',
+        'second',
+      ]);
+      fire();
+      expect(calls.splice(0)).toEqual(['first', 'added']);
+      action.off(event, first).off(event, added);
+      fire();
+      expect(calls).toEqual([]);
+      action.on(event, second).on(event, second);
+      fire();
+      expect(calls.splice(0)).toEqual(['second']);
+      action.off(event, second);
+      const failure = new Error('listener failure');
+      const throwing = () => {
+        action.off(event, throwing);
+        throw failure;
+      };
+      action.on(event, throwing).on(event, added);
+      expect(fire).toThrow(failure);
+      expect(calls).toEqual([]);
+      fire();
+      expect(calls).toEqual(['added']);
+      target.destroy();
+    },
+  );
 });
