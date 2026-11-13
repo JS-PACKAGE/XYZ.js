@@ -20023,3 +20023,79 @@ webgpu／webgl2的正式showcase另從Scene A切到Scene B並pagehide cleanup。
 沒有重測audio unlock／可聽輸出，也未認證Safari、Firefox、實機、全backend效能、
 plain deployed dist URL或原生GPU resource計數歸零；Destroy文案不冒充資源計數證明。
 清理owned scratch／measurement drivers／browser／Vite service，依功能獨立提交且不push。
+
+## P187 — Reject skeletal corner-product reuse after fixture isolation
+
+- 日期：2026-11-13；版本維持1.23.0。本輪未修改正式source／tests／dist，保留P186。
+- 參考P177既有pattern，候選在每joint預算18個endpoint products，再以原corner
+  次序與原left-associated addition組合XYZ；不改min／max、padding、Float32 input、
+  palette、input getters、weights／morph或ownership。只是prototype，沒有新增API。
+- 原八corners每joint有72個乘法expression，候選18個；但少expression不是CPU收益證明。
+  兩種native fixture設計之後，完整palette／bounds沒有足以保留約30行展開的穩定收益，
+  故不採用，也不猜測未profile的JIT／register／cache根因。
+
+### Native complete workloads — separate classes
+
+Chromium153.0.8010.12、darwin/arm64、既有playwright-core1.63.0／repository launcher，
+預設headless desktop automation，非Safari／實機認證。Baseline為P186後的正式實作；
+沒有將P186刪除unused CPU blend row的收益重複算進本候選。
+兩方獨立真bitmap／Texture／Geometry／joints／SkinnedMesh fixtures，各8個warmup
+batches、15個交錯sample。計時包含pose edits與完整updateRenderDeformation，或
+指定的updateSkin；fixture／bitmap建構及GPU提交不計時。每case均destroy owned資源。
+
+| Joints | Grid    | Influences / nonzero | Mode            | Calls/batch | Before ms | Candidate ms |
+| -----: | ------- | -------------------- | --------------- | ----------: | --------: | -----------: |
+|     16 | 16×16   | 4 / 4                | palette         |       10000 |      18.0 |         17.2 |
+|     16 | 16×16   | 8 / 8                | palette         |       10000 |      18.1 |         17.6 |
+|     64 | 16×16   | 4 / 1                | palette         |        3000 |      20.9 |         20.2 |
+|     64 | 16×16   | 4 / 4                | palette         |        3000 |      20.6 |         19.7 |
+|    128 | 16×16   | 8 / 8                | palette         |        1500 |      21.1 |         19.9 |
+|     64 | 16×16   | 8 / 8                | palette + morph |        1000 |      22.1 |         21.9 |
+|     16 | 128×128 | 4 / 4                | skin            |           4 |       4.3 |          4.3 |
+|     16 | 128×128 | 8 / 8                | skin            |           4 |       6.2 |          6.2 |
+|     16 | 16×16   | 4 / 4                | static          |       10000 |       8.5 |          8.1 |
+|    128 | 16×16   | 8 / 8                | static          |        1500 |      10.2 |          9.7 |
+
+Palette rows表面約改善3–6%，但static控制組根本不呼叫refreshAnimatedBounds，
+也改善約5%；不能將此差異全算成bounds優化。沒有調整輸入去隱藏控制組結果。
+
+### Native complete workloads — same class, method-only isolation
+
+另一獨立browser process使用相同baseline class建構兩方，setup時各自將真實
+before／candidate refreshAnimatedBounds方法裝在相同own-property位置；其餘
+constructor／updateRenderDeformation／updateSkin及field layout相同。
+這只是throwaway measurement instrumentation，不是mock、fallback或新正式hook。
+同樣完整warmup／15 samples／獨立fixtures，使用自己的before，不能跨表拼接。
+
+| Joints | Grid    | Influences / nonzero | Mode            | Calls/batch | Before ms | Candidate ms |
+| -----: | ------- | -------------------- | --------------- | ----------: | --------: | -----------: |
+|     16 | 16×16   | 4 / 4                | palette         |       10000 |      17.4 |         17.1 |
+|     16 | 16×16   | 8 / 8                | palette         |       10000 |      17.4 |         17.3 |
+|     64 | 16×16   | 4 / 1                | palette         |        3000 |      20.9 |         20.5 |
+|     64 | 16×16   | 4 / 4                | palette         |        3000 |      20.2 |         20.1 |
+|    128 | 16×16   | 8 / 8                | palette         |        1500 |      20.5 |         20.6 |
+|     64 | 16×16   | 8 / 8                | palette + morph |        1000 |      21.9 |         21.8 |
+|     16 | 128×128 | 4 / 4                | skin            |           4 |       4.2 |          4.3 |
+|     16 | 128×128 | 8 / 8                | skin            |           4 |       6.5 |          6.2 |
+|     16 | 16×16   | 4 / 4                | static          |       10000 |       8.3 |          8.3 |
+|    128 | 16×16   | 8 / 8                | static          |        1500 |      10.1 |         10.1 |
+
+Static controls此輪持平，但palette結果多為0–2%，128-joint稍退步；large CPU mirror
+四lane增加0.1ms、八lane減少0.3ms，也不當成穩定的bounds-only收益。
+採用判斷以完整相關workload與controls為準，不僅以72→18的算式數量判定。
+
+### Correctness and verification limits
+
+兩種設計各18 pairs／360 mutation frames，22,487,040 bytes output一致，
+25,551,360 bytes caller geometry／tangent／joint-index／weight snapshots保持原樣；
+各11,520 joint update observations讀序一致，bounds用Object.is比較，包含signed zero。
+覆蓋four／eight influences、sparse／dense weights、signed morphs、mesh inverse、
+nonuniform／reflected／collapsed joints與unchanged CPU mirror versions。
+同class設計保留完整proof，沒有以移除斷言或縮小cases讓比較通過。
+
+上述是隔離實作搭配正式built classes的CPU proof，不是最終source root／Game畫面
+重新驗收；兩個run的pageerror／console error皆空，沒有runtime driver失敗。
+本輪沒有production change，未重跑typecheck／lint／unit suites／build，也未宣稱
+GPU／GL／Canvas2D surface、audio unlock、CJS runtime、Node CPU、heap、GPU time、
+端到端latency或FPS重新驗證。P186的歷史驗證保留原範圍與數字。
+清理owned scratch／drivers／browser／Vite service，僅同步文件並獨立提交，不push。

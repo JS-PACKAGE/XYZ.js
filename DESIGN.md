@@ -5711,3 +5711,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 保留signed morph-before-skin、nonuniform／reflected／collapsed transforms、
   normal／tangent frames、conservative bounds、mirror versions及borrowed joints。
 - CPU mirror只在exact queries需要時更新；完整workload收益不能冒充一般draw FPS。
+
+## P187 — Control class fixtures before attributing corner arithmetic gains
+
+- 預算private affine box endpoint products可維持IEEE加法次序，但3D多出18個
+  locals與展開敘述，不應只因乘法expression減少就保留。
+- 兩個class的完整workload比較若連不走候選的static path也改善，不能全歸因於
+  bounds。以相同class及相同own-property位置承載兩個真實方法，隔離此變因後，
+  palette收益不足，故維持原實作；沒有確認JIT、register或cache根因。
+- P177的2D採用與P186的CPU mirror採用保持不變；不同候選／VM的baseline不混算。

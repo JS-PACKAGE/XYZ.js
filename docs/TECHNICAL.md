@@ -7114,3 +7114,12 @@ influences; unchanged mirrors and palette-only controls were flat. Formal source
 and built ESM roots passed byte/ownership comparisons, and actual WebGPU/WebGL2
 animated glTF picking and cleanup passed. See [ACCEPTANCE](../ACCEPTANCE.md) P186
 for controls and limits; this is not a general GPU-skinning or FPS claim.
+
+## P187 skeletal bounds investigation
+
+Endpoint-product reuse retained the original corner/addition order but did not
+justify a production change. Separate-class measurements also sped up static
+controls that never called the candidate. A second, same-class method-isolated
+comparison left static controls flat but showed only small mixed palette gains.
+Both complete differential proofs passed. See [ACCEPTANCE](../ACCEPTANCE.md)
+P187 for the independent matrices; expression counts are not CPU or FPS proof.

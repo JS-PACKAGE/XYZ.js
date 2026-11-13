@@ -6868,3 +6868,10 @@ Native Chromium完整CPU workload在密集四／八influences改善約4–9%，u
 mirror與palette-only控制組持平。正式source／built ESM root的bytes／ownership、
 實際WebGPU／WebGL2 animated glTF picking及cleanup通過；控制組與限制見
 [ACCEPTANCE](../ACCEPTANCE.md) P186，不宣稱一般GPU skinning或FPS提升。
+
+## P187 skeletal bounds 調查
+
+Endpoint products重用保留原corner／加法次序，但兩class矩陣連未呼叫候選的static
+控制組也改善，不能全算成bounds收益。相同class、只隔離真實method後，static持平，
+palette仍只有微幅混合差異，故未改正式程式。兩種完整差分通過，獨立矩陣與限制見
+[ACCEPTANCE](../ACCEPTANCE.md) P187；乘法expression數量不是CPU或FPS證明。

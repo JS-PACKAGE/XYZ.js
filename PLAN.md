@@ -5556,3 +5556,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 正式source／built ESM root合計約45MB逐byte比較、15個既有tests、
   typecheck／lint／ESM／CJS build，以及正式GPU／GL glTF picking／cleanup通過。
   詳細控制組、輸入ownership與未驗證範圍見ACCEPTANCE P186。
+
+## P187 — Reject skeletal corner-product reuse after fixture isolation
+
+- 參考P177的endpoint product重用，維持八corner與加法次序，72→18乘法expression；
+  但完整palette矩陣的名目3–6%收益同時出現在未走bounds的static控制組。
+- 另用相同class、只替換真實candidate method的獨立fixtures，static持平，
+  palette多為0–2%混合差異；收益不足以保留展開，正式source／tests／dist不改。
+- 兩種設計各通過完整bytes／bounds／input ownership／joint observations比較；
+  不借用P186收益、不宣稱FPS，矩陣與未驗證範圍見ACCEPTANCE P187。
