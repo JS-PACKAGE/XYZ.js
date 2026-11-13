@@ -61,48 +61,59 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 	sort() {
 		let e = this.items, t = e.length;
 		if (t < 2) return;
-		let n = 1 / 0, r = -1 / 0;
-		for (let i = 0; i < t; i++) {
-			let t = e[i].z;
+		let n = e[0], r = n.z;
+		if (!Number.isSafeInteger(r)) {
+			e.sort(compareCommands2D);
+			return;
+		}
+		let i = n.screen, o = 1;
+		for (; o < t; o++) {
+			let t = e[o];
+			if (t.z !== r || t.screen !== i) break;
+		}
+		if (o === t) return;
+		let s = r, c = r;
+		for (; o < t; o++) {
+			let t = e[o].z;
 			if (!Number.isSafeInteger(t)) {
 				e.sort(compareCommands2D);
 				return;
 			}
-			t < n && (n = t), t > r && (r = t);
+			t < s && (s = t), t > c && (c = t);
 		}
-		let i = r - n + 1;
-		if (!Number.isSafeInteger(2 * i * t)) {
+		let l = c - s + 1;
+		if (!Number.isSafeInteger(2 * l * t)) {
 			e.sort(compareCommands2D);
 			return;
 		}
 		this.sortSlots.length < t && (this.sortSlots = new Float64Array(Math.max(t, this.sortSlots.length * 2, 2 * require_rendering2d.rendering2dLimits.sortBuckets)));
-		let o = this.sortOutput;
-		for (; o.length < t;) o.push(e[0]);
-		if (i <= require_rendering2d.rendering2dLimits.sortBuckets) {
-			let r = this.sortSlots;
-			r.fill(0, 0, 2 * i);
-			for (let a = 0; a < t; a++) {
-				let t = e[a];
-				r[(t.screen ? i : 0) + (t.z - n)]++;
+		let u = this.sortOutput;
+		for (; u.length < t;) u.push(e[0]);
+		if (l <= require_rendering2d.rendering2dLimits.sortBuckets) {
+			let n = this.sortSlots;
+			n.fill(0, 0, 2 * l);
+			for (let r = 0; r < t; r++) {
+				let t = e[r];
+				n[(t.screen ? l : 0) + (t.z - s)]++;
 			}
-			for (let e = 0, t = 0; e < 2 * i; e++) {
-				let n = r[e];
-				r[e] = t, t += n;
+			for (let e = 0, t = 0; e < 2 * l; e++) {
+				let r = n[e];
+				n[e] = t, t += r;
 			}
-			for (let a = 0; a < t; a++) {
-				let t = e[a];
-				o[r[(t.screen ? i : 0) + (t.z - n)]++] = e[a];
+			for (let r = 0; r < t; r++) {
+				let t = e[r];
+				u[n[(t.screen ? l : 0) + (t.z - s)]++] = e[r];
 			}
-			for (let n = 0; n < t; n++) e[n] = o[n];
+			for (let n = 0; n < t; n++) e[n] = u[n];
 			return;
 		}
-		let s = this.sortSlots.subarray(0, t);
-		for (let r = 0; r < t; r++) {
-			let a = e[r];
-			s[r] = ((a.screen ? i : 0) + (a.z - n)) * t + r, o[r] = e[r];
+		let d = this.sortSlots.subarray(0, t);
+		for (let n = 0; n < t; n++) {
+			let r = e[n];
+			d[n] = ((r.screen ? l : 0) + (r.z - s)) * t + n, u[n] = e[n];
 		}
-		s.sort();
-		for (let n = 0; n < t; n++) e[n] = o[s[n] % t];
+		d.sort();
+		for (let n = 0; n < t; n++) e[n] = u[d[n] % t];
 	}
 	collectDetachedObjects(e) {
 		this.traversal.length = 0;

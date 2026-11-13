@@ -6934,3 +6934,17 @@ nested／detached與例外路徑，命令樹、185,664次公開觀察及釋放re
 完整native collector長批次多數持平或較慢，1,000 moving world／screen分別約退步
 2.9%／6.5%，因此拒絕候選，正式source／tests／dist不改。完整控制組及未執行項目見
 [ACCEPTANCE](../ACCEPTANCE.md) P192；不是heap／GC量測，也不推論所有Array.fill都慢。
+
+## P193 同key 2D command prefix
+
+先驗證first depth，再掃描同一private depth／space的prefix；全段相同即已有穩定
+append order，不需要histogram／重排。遇不相同key時，以firstZ作min／max，從該index
+接續原range scan，不重掃prefix或逐項讀後段space。Mixed spaces、late mismatch、
+fractional／nonfinite fallback及exact integer packing保持原順序，公開actor觀察不變。
+
+Uniform buffer將scratch擴容延至真正需要sort時；source／built root皆檢查此transition，
+不只比對輸出。獨立native矩陣與真正built root的平面同key collection CPU約改善9–15%，
+mixed／fallback控制組大致持平，不宣稱全面加速。全程space-mask版因控制組退步而拒絕。
+16 tests、source／build命令proof及三backend正式layered surface通過；
+矩陣、signed-zero量測波動及獨立的當前benchmark RAF／submit紀錄見
+[ACCEPTANCE](../ACCEPTANCE.md) P193，不宣稱FPS、GPU完成時間或heap／GC改善。

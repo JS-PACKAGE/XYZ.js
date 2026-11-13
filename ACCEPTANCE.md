@@ -20641,3 +20641,176 @@ submit、GPU完成時間或FPS量測。10,000 probe座標wrap在同viewport，�
 - 清理本輪scratch modules、drivers、candidate、results與Vite service；沒有runtime
   dependency或debug hooks。未量測heap／GC、GPU、latency、Safari／Firefox、physical
   devices、跨backend pixel parity或presentation throughput。
+
+## P193 — Continue the range scan after a uniform command-key prefix (2026-11-13)
+
+### Adopted algorithm and rejected attempt
+
+正式RenderCommandBuffer2D.sort增加uniform-key prefix；同時保留原histogram／exact
+Float64 packed-key／comparison fallback。沒有新增公開API、dependency、cache record
+或可調常數。Source增加15行，所有backend仍由正式collector使用同一buffer。
+
+先驗證firstZ為safe integer，後續private depth === firstZ已證明整數性，同時比較
+private screen flag。全段相同時已有穩定append order，直接返回，不做min/max／
+histogram／redistribution及scratch擴容。首個不相同key則由原range loop包含處理，
+以firstZ作min／max，從該index接續，不重掃prefix或對後段逐項額外讀space。
+
+這不是P190在histogram之後的guard，也不是先做另一個general ordered比較scan。
+公開worldSpace／worldZIndex仍於append依舊順序讀取一次，其他actor getters／callbacks
+不省略；只重用已捕捉的private keys。Mixed spaces仍world-before-screen且ties穩定。
+First／late fractional、nonfinite、unsafe packed range走原fallback；±0為既有stable tie。
+
+先試的A版在既有min/max loop每項累積space bitmask，uniform路徑雖快，wide控制組
+退步4.9%，故不採用。B版改為上述prefix／range continuation，避免multi-depth後段
+的逐項space成本。兩版prototype與正式root的數字分開，不借用A或P190結果宣稱B收益。
+
+### Environment and correctness proof
+
+Node 26.7.0、TS 6.0.3、pnpm 12.6.0；project launcher pinned Playwright Chromium
+153.0.8010.12、darwin／arm64 headless desktop automation；非Safari／實體裝置認證。
+相同正式root-class buffer，只借用真實版本sort，真正Scene／Sprite／Texture／
+IsolatedGroup2D及collector；沒有fake actor／buffer或不同receiver class混入比較。
+
+A及初版B各15對／450 frames；增加late mismatch後B為18對／540 frames，包含
+world／screen／mixed、single high safe integer／negative／±0、5／16／4096 depths、
+fractional／unsafe／derived nonfinite depth，nested／detached、growth／shrink／empty
+及controlled bounds exceptions。命令kind／identity／nested order、公開hierarchy／bounds
+觀察一致；error後buffer清空且能重用，released membership無actor refs、無Scene.add
+side effect。這些reference checks不是heap／GC量測。
+
+採用後，以真正source及built ESM root各自比較凍結的before method，fresh Vite在
+產物寫入後重啟，避免P188的舊dist transform。正式proof不是只載入scratch candidate：
+
+| Entry  | Pairs | Frames | Commands compared | Public observations |
+| ------ | ----: | -----: | ----------------: | ------------------: |
+| source |    18 |    540 |             79284 |              290196 |
+| dist   |    18 |    540 |             79284 |              290196 |
+
+Source＋build合計1,080 frames、158,568 commands、580,392次公開觀察。另用64個
+uniform commands檢查真正載入的新guard，再將第一個sprite切成screen，兩邊順序相同
+且scratch正常配置。Source與built root均有相同結果：
+
+| State                  | Before typed slot bytes | Current typed slot bytes | Before output array length | Current output array length |
+| ---------------------- | ----------------------: | -----------------------: | -------------------------: | --------------------------: |
+| Uniform depth / space  |                     512 |                        0 |                         64 |                           0 |
+| Mixed-space transition |                     512 |                      512 |                         64 |                          64 |
+
+只證明這些private buffers延後擴容；output length不是backing-store bytes，不推論
+整體heap、GC次數或零配置。Constructor既有空array／view亦未刪除。
+
+### Native exploratory CPU matrices
+
+Proof與timing分別啟動browser，避免getter／error hooks污染；正式same-class fixtures
+採8輪warmup、25個交錯before/after順序samples。Moving計pose＋完整collection，
+static只collection，sort-only只作診斷；不含renderer submit或GPU完成時間。
+10,000 probe座標wrap於同viewport，不修改正式1,000-sprite benchmark。
+
+A／B各獨立browser process，下表各自before與after是每批median ms，不跨process
+直接相減；有利及不利控制組均保留。
+
+| Workload                               | Calls | A mask before | A mask after | B prefix before | B prefix after |
+| -------------------------------------- | ----: | ------------: | -----------: | --------------: | -------------: |
+| 1,000 world / moving                   |  1000 |          47.8 |         44.1 |            47.9 |           45.2 |
+| 10,000 world / moving                  |   100 |          50.7 |         50.2 |            50.3 |           50.5 |
+| 1,000 world / static                   |  2000 |          81.5 |         75.3 |            86.6 |           81.3 |
+| 1,000 screen / moving                  |  1000 |          51.5 |         48.5 |            51.2 |           48.3 |
+| 1,000 mixed / moving                   |  1000 |          53.6 |         54.8 |            51.5 |           52.3 |
+| 1,000 few / moving                     |  1000 |          55.1 |         56.2 |            51.6 |           51.6 |
+| 1,000 wide / moving                    |  1000 |          57.4 |         60.2 |            54.4 |           54.9 |
+| 1,000 fractional / moving              |  1000 |         123.0 |        121.3 |           115.7 |          118.8 |
+| 1,000 unsafe / moving                  |  1000 |         106.8 |         99.7 |            93.0 |           91.2 |
+| 1,000 world / 5 boundaries / moving    |  1000 |          63.7 |         57.5 |            62.2 |           56.4 |
+| 1,000 single-high / moving             |  1000 |          61.6 |         55.3 |            62.0 |           56.7 |
+| 1,000 signed-zero / moving             |  1000 |          61.8 |         55.4 |            62.1 |           56.1 |
+| 1,000 world / 50 boundaries / moving   |   100 |           7.6 |          6.8 |             7.3 |            6.3 |
+| 1,000 world / 250 boundaries / moving  |   100 |          11.2 |          9.4 |            11.5 |            9.5 |
+| 1,000 world / 1000 boundaries / moving |   100 |          21.6 |         20.7 |            21.1 |           20.2 |
+| 1,000 world / sort                     | 10000 |          56.6 |         13.9 |            59.2 |           13.9 |
+| 10,000 world / sort                    |  1000 |          63.9 |         11.7 |            63.4 |           13.8 |
+
+B初版的few-depth平手、wide約退步0.9%，相較A的額外後段space成本較小；
+但fractional約退步2.7%，不由單次矩陣推論全面收益。Sort-only約少76–78%時間，
+亦不能冒稱完整frame少相同比例。
+
+### Independent longer matrix and actual published root
+
+另起process反轉case順序、calls加倍，之後真正built root再以相同規格另起process。
+每列仍8輪warmup／25 samples；兩組baseline各自配對，不混用較有利baseline。
+
+| Workload                               | Calls | Confirmation before | Confirmation after | Built-root before | Built-root after | Built-root reduction |
+| -------------------------------------- | ----: | ------------------: | -----------------: | ----------------: | ---------------: | -------------------: |
+| 1,000 world / 1000 boundaries / moving |   200 |                40.5 |               39.1 |              40.3 |             40.0 |                 0.7% |
+| 1,000 signed-zero / moving             |  2000 |               123.5 |              129.9 |             107.5 |            107.5 |                 0.0% |
+| 1,000 single-high / moving             |  2000 |               124.7 |              112.5 |             130.1 |            116.9 |                10.1% |
+| 1,000 world / 5 boundaries / moving    |  2000 |               122.0 |              116.3 |             126.2 |            120.2 |                 4.8% |
+| 1,000 unsafe / moving                  |  2000 |               193.4 |              196.4 |             200.1 |            196.6 |                 1.7% |
+| 1,000 fractional / moving              |  2000 |               244.1 |              246.5 |             246.2 |            245.3 |                 0.4% |
+| 1,000 wide / moving                    |  2000 |               124.8 |              121.1 |             138.0 |            136.7 |                 0.9% |
+| 1,000 few / moving                     |  2000 |               121.3 |              120.0 |             126.7 |            126.3 |                 0.3% |
+| 1,000 mixed / moving                   |  2000 |               127.9 |              120.5 |             104.5 |            106.1 |                -1.5% |
+| 1,000 screen / moving                  |  2000 |               115.1 |              102.8 |             106.8 |             95.8 |                10.3% |
+| 1,000 world / static                   |  4000 |               199.2 |              165.4 |             192.0 |            163.1 |                15.1% |
+| 10,000 world / moving                  |   200 |               122.5 |              105.2 |             117.4 |            102.5 |                12.7% |
+| 1,000 world / moving                   |  2000 |               130.3 |              111.9 |             117.5 |            107.3 |                 8.7% |
+
+Built root平面uniform world／screen／static及10,000 world約改善8.7／10.3／15.1／12.7%，
+故範圍性描述為約9–15% collection CPU。5 boundaries改善4.8%，1,000 boundaries僅0.7%。
+Mixed-depth／fractional／unsafe等控制大致持平，mixed-space退步1.5%；不稱每列皆快。
+±0在初版有收益、confirmation退步5.2%、built root持平，明確保留這種方向混合；
+不捏造JIT、register allocation或GC原因，也不把它當成所有±0 workload的保證。
+
+最後一筆才發生不相同key的獨立B矩陣，避免未包含mismatch或重掃prefix的錯誤：
+
+| Late mismatch   | Calls | Before ms | Prefix ms |
+| --------------- | ----: | --------: | --------: |
+| late-depth      |  1000 |      47.2 |      46.8 |
+| late-fractional |  1000 |      51.0 |      51.1 |
+| late-space      |  1000 |      52.2 |      52.3 |
+
+上述接近平手；真正source／built proof亦包含這些case，但未把prototype timing
+冒稱built-root late-case timing。
+
+### Actual backend UI and current benchmark telemetry
+
+三backend正式rendering2d頁面（GPU／GL 52 objects、Canvas 51 objects）操作cache
+toggle兩次、edit／update、rectangle mask、add blend、particles on／off、capture、
+transition、Pause／Resume、Destroy及pagehide。GPU／GL showcase Scene A→B與
+pagehide亦通過；沒有console error／pageerror，不宣稱resource counters歸零。
+
+三張actual canvas screenshot均實際讀取：checkerboard背景、atlas／graphics／cache、
+FontFace與bitmap文字可見；GPU／GL有projective quad，Canvas按正式分支不建立它。
+本輪不是跨backend逐pixel比較，也未聲稱重驗所有mask／blend型別。
+
+另以未改動的正式/benchmarks/sprites/及當前production source（沒有借用method或
+Profiler）各backend完成1,000 moving sprites、120 warmup＋600 measured frames；
+全程可見、logical／backing 1280×720、pixelRatio 1、errors空。
+以下僅當前telemetry，沒有配對baseline，不能當成端到端加速證據；movement在
+CPU submit外，submit不是GPU完成時間。RAF mean單位ms：
+
+| Backend  | RAF mean | CPU submit mean | CPU submit p95 |
+| -------- | -------: | --------------: | -------------: |
+| webgpu   |  16.6658 |          1.1397 |         1.4000 |
+| webgl2   |  16.6660 |          1.1515 |         1.4000 |
+| canvas2d |  16.6660 |          2.7432 |         4.6000 |
+
+不把約16.666ms RAF反推為GPU／呈現throughput提升，也不與P190不同process／
+時間的telemetry做虛假的before/after。
+
+### Verification and delivery
+
+- Source與consumer-order regression的Prettier check、scoped ESLint、typecheck通過。
+  gameplay2d-core共16 tests通過（15既有＋1新增），包含uniform／mixed轉換、late depth
+  與late space key變更；測的是使用者可見繪製順序，不pin private scratch或source text。
+- User-safe隔離完整ESM／CJS build：377 JS由9,358,047→4,010,992 bytes、720 CJS檔；
+  declaration cmp相同，vendor不改。僅複製render2d-contract的ESM／CJS及兩張maps，
+  不覆寫使用者physics／world2d或其他dist。上述staging totals不是本phase節省量。
+- Source及built root正式proof、實際scratch載入狀態、published CPU matrix及實際
+  UI／benchmark皆完成；scratch prototype較before多157 bytes，不用bundle變小作採用理由。
+- 同步README中／英／日、PLAN、DESIGN、technical中／英及本紀錄；文件格式／inline
+  相對連結檢查，歷史日期與test counts不改，版本維持1.23.0，不push。
+- 清理本輪scratch modules、candidate variants、drivers、build staging、logs、截圖、
+  results及Vite service；不留下runtime dependency或debug hook。
+
+未重跑full suite、repo-wide lint、Node效能、CJS runtime、audio unlock／device loss／
+auto fallback初始化，未驗證Safari／Firefox、physical devices、heap／GC、GPU時間、
+端到端latency或presentation FPS。以上collection CPU收益不能替代這些未驗證項目。

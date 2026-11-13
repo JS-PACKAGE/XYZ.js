@@ -7199,3 +7199,23 @@ roughly 2.9%/6.5% regressions for 1,000 moving world/screen sprites. The variant
 was rejected; production source, tests and builds remain unchanged.
 See [ACCEPTANCE](../ACCEPTANCE.md) P192 for all controls and unexecuted checks.
 This is not a heap/GC measurement or a general claim about Array.fill.
+
+## P193 uniform-key 2D command prefix
+
+The sorter verifies the first depth, scans equal private depth/space keys, and
+returns immediately when the whole buffer already has stable append order.
+On a mismatch, the original min/max scan resumes at that index with firstZ as
+both bounds. It neither rescans the prefix nor inspects later spaces during
+range discovery. Mixed spaces, late mismatches, fractional/nonfinite fallback
+and exact integer packing retain their ordering. Public actor observations
+are unchanged.
+
+Uniform buffers defer scratch growth until an actual redistribution is needed.
+Source and built-root checks explicitly verified that transition, not just
+output equality. Independent native matrices and the real built root measured
+roughly 9–15% less flat uniform-key collection CPU time; mixed/fallback controls
+were essentially flat, not universally faster. A full-pass space-mask attempt
+was rejected. Sixteen tests, source/build command proofs and all three actual
+layered backend surfaces passed. See [ACCEPTANCE](../ACCEPTANCE.md) P193 for all
+matrices, signed-zero timing variation and separate current benchmark RAF/submit
+telemetry. These are not FPS, GPU-completion or heap/GC improvement claims.

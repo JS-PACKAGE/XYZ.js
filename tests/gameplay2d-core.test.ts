@@ -317,6 +317,49 @@ describe('2D composed scene ownership', () => {
     image.destroy();
   });
 
+  it('keeps one-depth ties stable across uniform spaces and late key changes', () => {
+    const scene = new Scene();
+    const image = texture(4, 4);
+    const sprites = Array.from({ length: 4 }, () =>
+      scene.add(new Sprite({ texture: image, position: [2, 2], zIndex: 0 })),
+    );
+    const commands = new RenderCommandBuffer2D();
+    for (const uniform of [undefined, 'world', 'screen', undefined] as const) {
+      sprites.forEach((sprite, index) => {
+        sprite.space = uniform ?? (index % 2 === 0 ? 'screen' : 'world');
+      });
+      collectRenderCommands2D(scene, 32, 32, commands);
+      expect(commands.items.map((command) => command.object)).toEqual(
+        uniform ? sprites : [sprites[1], sprites[3], sprites[0], sprites[2]],
+      );
+    }
+    sprites.forEach((sprite) => {
+      sprite.space = 'world';
+    });
+    sprites[3]!.zIndex = -1;
+    collectRenderCommands2D(scene, 32, 32, commands);
+    expect(commands.items.map((command) => command.object)).toEqual([
+      sprites[3],
+      sprites[0],
+      sprites[1],
+      sprites[2],
+    ]);
+    sprites[3]!.zIndex = 0;
+    sprites.forEach((sprite, index) => {
+      sprite.space = index < 3 ? 'screen' : 'world';
+    });
+    collectRenderCommands2D(scene, 32, 32, commands);
+    expect(commands.items.map((command) => command.object)).toEqual([
+      sprites[3],
+      sprites[0],
+      sprites[1],
+      sprites[2],
+    ]);
+    commands.destroy();
+    scene.destroy();
+    image.destroy();
+  });
+
   it('collects each isolation boundary once with its own members, order and visibility', () => {
     const scene = new Scene();
     const image = texture(4, 4);

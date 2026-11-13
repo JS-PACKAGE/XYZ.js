@@ -153,10 +153,25 @@ export class RenderCommandBuffer2D {
     const items = this.items,
       count = items.length;
     if (count < 2) return;
-    let min = Infinity,
-      max = -Infinity;
-    for (let i = 0; i < count; i++) {
-      const z = (items[i] as unknown as PooledCommand2D).z;
+    const first = items[0] as unknown as PooledCommand2D,
+      firstZ = first.z;
+    if (!Number.isSafeInteger(firstZ)) {
+      items.sort(compareCommands2D);
+      return;
+    }
+    const firstScreen = first.screen;
+    let index = 1;
+    // Equal keys are already stable, and equality to firstZ proves integer safety.
+    for (; index < count; index++) {
+      const command = items[index] as unknown as PooledCommand2D;
+      if (command.z !== firstZ || command.screen !== firstScreen) break;
+    }
+    if (index === count) return;
+    // Continue at the mismatch: do not rescan the uniform prefix or its spaces.
+    let min = firstZ,
+      max = firstZ;
+    for (; index < count; index++) {
+      const z = (items[index] as unknown as PooledCommand2D).z;
       if (!Number.isSafeInteger(z)) {
         items.sort(compareCommands2D);
         return;

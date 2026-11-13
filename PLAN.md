@@ -5620,3 +5620,16 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   不因個別nested或10,000 case較快便採用；正式source／tests／dist不改。
 - 完整矩陣及未執行項目見ACCEPTANCE P192；既有P167 secondary-axis trig cache
   已有拒絕紀錄，不重新量測同候選冒充新發現。
+
+## P193 — Continue the depth scan after a uniform-key prefix
+
+- 同depth且同space的prefix只比較private snapshot keys；遇首個不相同key後，
+  從該index繼續既有min/max scan，不重掃prefix，也不逐項額外讀後段spaces。
+- 全部key相同便保留穩定append order，略過histogram／重排及scratch擴容；
+  mixed spaces、fractional／nonfinite、wide range的原排序與fallback保持。
+- 先拒絕wide控制組退步的全程space-mask版，再以獨立長批次及真正built root
+  確認prefix版；平面uniform-key collection CPU約改善9–15%，不宣稱各控制組皆加速。
+- Source／dist各18組540 frames、scratch實際載入狀態、16 tests、typecheck／lint、
+  隔離ESM／CJS build及三backend正式layered UI／benchmark通過。
+- 詳細矩陣、混合方向數字與RAF／CPU submit分開紀錄見ACCEPTANCE P193；不宣稱FPS、
+  heap／GC或GPU完成時間改善，版本不變。

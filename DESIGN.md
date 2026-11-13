@@ -5775,3 +5775,16 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   仍須釋放member references，buffer之後可正常重用。
 - Native多控制組未有一致收益，保留原loop；不將native builtin的名稱當成效能保證，
   也不因內部reference檢查通過便宣稱已量測heap／GC。
+
+## P193 — Prove a uniform prefix once, then continue the existing range scan
+
+- First depth先驗證safe integer；後續strict-equal keys已證明相同integer depth與space，
+  不重新驗證其整數性。只讀append已捕捉的private keys，不快取或省略公開actor getters。
+- 首個不相同key由原min/max scan包含處理；prefix的min／max皆firstZ，不從0重掃。
+  第一個fractional／nonfinite及後段unsafe depth仍走原comparison fallback。
+- 同depth不代表同space；混合world／screen仍穩定排序，late mismatch亦不能遺漏。
+  ±0相等只造成穩定tie，沒有改變depth減法或Float64 integer packing。
+- Uniform全段直接返回，將scratch擴容延至真正需要sort；mixed transition會正常配置。
+  這不同於P190在histogram之後返回，也不是舊general ordered比較掃描。
+- 全程space-mask候選會增加multi-depth項目的private讀取，wide控制組退步故拒絕；
+  prefix版沒有後段逐項space成本。只宣稱已量測的collection CPU收益，不混同FPS。
