@@ -5391,3 +5391,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   trivial／grid／clusters 約快 2.2–11.6%，其餘控制組約慢 1–2%。
 - 新 iterable snapshot regression、原有 reentrant-getter undefined result 邊界、
   完整 CPU 與驗證限制見 ACCEPTANCE P169。
+
+## P170 — Reuse immutable zero-radius NavMesh regions
+
+- radius === 0（含 -0）直接取既有 immutable surface，不建立 per-search region Map；
+  正半徑保留各 job 的 region snapshots，避免 mixed-radius interleaving 互相污染。
+- 16,384 searches／46,644 steps 差分與 34 tests 通過；零半徑 corridor／grid
+  約快 12.7–17.9%，one-polygon／正半徑控制組約慢 1.5%／3.5%。
+- 選擇 shared reader；未採兩種 closure 的版本，避免其正半徑約 6.6% 成本。
+  新 fixture 修正、完整 CPU／ownership／edit／cancel 證據與限制見 ACCEPTANCE P170。

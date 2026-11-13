@@ -223,6 +223,65 @@ describe('polygon navigation surfaces', () => {
     mesh.destroy();
   });
 
+  it.each([
+    { name: 'positive zero', radius: 0 },
+    { name: 'negative zero', radius: -0 },
+  ])(
+    '$name uses uninflated surfaces alongside a positive-radius job',
+    ({ radius }) => {
+      const mesh = new NavigationMesh3D({
+        polygons: [0, 1, 2].map((index) => ({
+          id: String(index),
+          clearanceHeight: 2,
+          vertices: [
+            new Vector3(index * 2, 0, 0),
+            new Vector3(index * 2 + 2, 0, 0),
+            new Vector3(index * 2 + 2, 0, 0.2),
+            new Vector3(index * 2, 0, 0.2),
+          ],
+        })),
+      });
+      const from = new Vector3(1, 0, 0.001),
+        to = new Vector3(5, 0, 0.001);
+      expect(
+        mesh.findPath(from, to, { ...query, agentRadius: 0.11 }).status,
+      ).toBe('unreachable');
+      const pointJob = mesh.createSearch(from, to, {
+          ...query,
+          agentRadius: radius,
+        }),
+        wideJob = mesh.createSearch(from, to, { ...query, agentRadius: 0.005 });
+      for (
+        let step = 0;
+        step < 256 &&
+        (pointJob.status === 'pending' || wideJob.status === 'pending');
+        step++
+      ) {
+        if (pointJob.status === 'pending') pointJob.step(1);
+        if (wideJob.status === 'pending') wideJob.step(1);
+      }
+      expect(wideJob.result?.status).toBe('found');
+      expect(pointJob.result?.status).toBe('found');
+      expect(pointJob.result?.cost).toBe(4);
+      expect(pointJob.result?.polygons.map((polygon) => polygon.id)).toEqual([
+        '0',
+        '1',
+        '2',
+      ]);
+      expect(
+        pointJob.result?.waypoints.map(({ position }) => [
+          position.x,
+          position.y,
+          position.z,
+        ]),
+      ).toEqual([
+        [1, 0, 0.001],
+        [5, 0, 0.001],
+      ]);
+      mesh.destroy();
+    },
+  );
+
   it('smooths only traversable clearance-safe corridors around a reentrant corner', () => {
     const mesh = new NavigationMesh3D({
       polygons: [

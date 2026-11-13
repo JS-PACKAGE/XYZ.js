@@ -460,8 +460,10 @@ export class NavigationMesh3D {
     const revision = this.epoch,
       radius = options.agentRadius ?? 0;
     const search = new PartitionSearch();
-    const regions = new Map<number, Region>();
+    // Zero-radius regions are immutable surfaces and need no per-search cache.
+    const regions = radius === 0 ? undefined : new Map<number, Region>();
     const region = (index: number): Region => {
+      if (!regions) return this.geometry[index]!.surface;
       let value = regions.get(index);
       if (!value) {
         value = this.region(index, radius);

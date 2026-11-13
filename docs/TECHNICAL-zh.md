@@ -375,6 +375,10 @@ XYZError
 - Tiled search 只有在原建構位置取得的 source 為 undefined 時省略 exclusion Set；
   明確提供的 collection 仍立即做原 Set snapshot，即使 length=0 卻有自訂 iterator。
   Validation／options getter 的觀測不變；取捨與 reentrant 邊界見 ACCEPTANCE P169。
+- NavMesh 零半徑（含 -0）搜尋直接讀既有 immutable surface，不另建 per-search
+  region Map；正半徑仍保留各 job 的 region snapshots，隔離全域 radius／epoch cache
+  的替換。Geometry arithmetic 與公開 ownership 不變；收益、控制組成本與 mixed-job
+  驗證見 ACCEPTANCE P170。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。

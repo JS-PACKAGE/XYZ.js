@@ -197,7 +197,8 @@ var NavigationMesh3D = class {
 	createSearch(t, i, s) {
 		if (this.assertLive(), this.validateQuery(t, s), this.validateQuery(i, s), this.availableSearchSlots === 0) throw RangeError(`Navigation concurrent search budget exhausted.`);
 		t = new require_math3d.Vector3(t.x, t.y, t.z), i = new require_math3d.Vector3(i.x, i.y, i.z), s = { ...s };
-		let c = this.epoch, l = s.agentRadius ?? 0, u = new require_partition_search.PartitionSearch(), d = /* @__PURE__ */ new Map(), region = (e) => {
+		let c = this.epoch, l = s.agentRadius ?? 0, u = new require_partition_search.PartitionSearch(), d = l === 0 ? void 0 : /* @__PURE__ */ new Map(), region = (e) => {
+			if (!d) return this.geometry[e].surface;
 			let t = d.get(e);
 			return t || (t = this.region(e, l), d.set(e, t)), t;
 		}, f = [this.candidates(t, s.maxDistance), this.candidates(i, s.maxDistance)], p = [], m = /* @__PURE__ */ new Map(), h = [], g = [], _ = [], v = [], y = [], b = [], x = `projection`, S = 0, C = 0, w = -1, T = 0, E = 0, D = 0, O = !1, k = 0, resetCandidate = () => {

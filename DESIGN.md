@@ -5544,3 +5544,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   Caller 在 createSearch 之後改變來源，不會改變該 job 的 exclusions。
 - Default filter 的 optional has 與 explicit-source 額外 branch 有 CPU 取捨；
   16,384 searches、input traces 與完整測量見 ACCEPTANCE P169，不宣稱實測 heap／fps 收益。
+
+## P170 — Zero-radius regions already are immutable geometry
+
+- 原 region helper 對 radius === 0 直接返回 polygon.surface；搜尋時再把同一引用存入
+  Map 沒有提供額外 snapshot 隔離，故零半徑直接讀 geometry[index].surface。
+- 正半徑不同：全域 radius／epoch cache 可被另一個 job 改寫，因此仍保留各搜尋自己的
+  region Map。只略過零半徑 Map，不另加 cache，不修改 clip／portal／projection 計算。
+- 保留單一 region reader body；兩種 closure 的候選雖有更大的零半徑收益，正半徑
+  控制組也有較大成本。正式 CPU、精確差分與 regression fixture 修正見 ACCEPTANCE P170。

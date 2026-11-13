@@ -399,6 +399,11 @@ These are public error classes, not a promise to rewrap every exception from use
   undefined. Explicit collections still receive the original immediate Set snapshot,
   even empty arrays with custom iterators. Validation and options-getter observations
   remain unchanged; tradeoffs and reentrant limits are recorded in ACCEPTANCE P169.
+- NavMesh zero-radius searches (including -0) read the existing immutable surface
+  directly, without a per-search region Map. Positive radii retain per-search
+  region snapshots when other jobs replace the global radius/epoch cache.
+  Geometry arithmetic and public ownership are unchanged; measured gains,
+  control regressions and mixed-job verification are recorded in ACCEPTANCE P170.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

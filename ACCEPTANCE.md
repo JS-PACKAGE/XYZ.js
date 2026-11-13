@@ -18763,3 +18763,66 @@ tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
   vendor copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
   未跑完整 suite、未開 browser／重驗 rendering、三 backend 或 audio；NavMesh 與一般
   NavigationGraph 的 source 均未改動，沒有擴大 certification。
+
+## P170 — Reuse immutable zero-radius NavMesh regions（2026-11-13）
+
+- NavigationMesh3D 在 radius === 0（包含 -0）時，不建立 per-search regions Map；
+  同一個 region reader 直接返回 geometry[index].surface。這正是原 private region
+  helper 對零半徑的結果，沒有改變 surface identity／ownership 或 geometry arithmetic。
+  正半徑仍保留 per-search Map，以免交錯 radius queries 改寫全域 cache 後，失去該 job
+  已取用的 region snapshots。沒有新增跨查詢 state 或新公開 API。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，8 warmup／15 輪交替
+  median、無並行測試。Mesh／endpoint／options setup 在計時外，正式 findPath 的
+  projection、Dijkstra、corridor／smoothing、publish 與結果讀取在內；region／portal
+  caches 經 warmup。零半徑與正半徑分開量測，沒有以假的 portal 或 queue 取代正式路徑。
+
+| Workload                       | Searches | Before ms | After ms |
+| ------------------------------ | -------: | --------: | -------: |
+| One polygon, radius 0          |    2,000 |  1.678333 | 1.702958 |
+| Corridor 16 polygons, radius 0 |      200 |  1.319792 | 1.152375 |
+| 8×8 grid, radius 0             |      100 |  1.949833 | 1.601584 |
+| 16×16 grid, radius 0           |       30 |  2.118583 | 1.740958 |
+| 8×8 grid, radius 0.2           |      100 |  2.177292 | 2.253042 |
+
+- Corridor／grid 的零半徑 CPU 約快 12.7–17.9%；one-polygon 約慢 1.5%，正半徑
+  控制組約慢 3.5%。採用較簡單 shared reader＋Map absence branch 的取捨，不宣稱
+  所有 searches 加速。Source 不再建零半徑 regions Map，未量測實際配置數、heap、
+  GC pause、GPU 或 fps，也不以省 Map 宣稱整體 memory／frame-rate 收益。
+- 1,024 個隨機 meshes、16,384 searches、46,644 次 incremental steps 精確一致。
+  終態 6,067 found、3,917 unreachable、3,840 invalidated、1,024 cancelled、1,536
+  errors；比對 polygons／waypoints／link details／cost／revision／visited／frozen arrays、
+  job status／expansions／result／available slots 與 error name／message。
+  涵蓋 triangle／quad、兩種 winding、holes、coplanar／bent slopes、overlapping floors、
+  explicit directed／bidirectional links、0／-0／omitted／positive／invalid radii、
+  headroom、三個 mixed-radius jobs 交錯 step、polygon／link edits、cancel、destroy，
+  以及 caller 在 constructor／createSearch 後修改 vertices／endpoints／options。
+- 新兩個 regressions 分別用 0／-0：先以會封住狹道的正半徑填入 cache，再交錯零半徑
+  與可通過的小正半徑 job，確認零半徑仍保留原 corridor／cost／貼近外牆的 endpoints。
+  初版 fixture 對 radius 0.05 預期 found，但兩個 cases 實際回報 unreachable；依既有
+  conservative corner clearance 改用 0.005，並把 endpoints z 改為 0.001，未改正式
+  clearance／portal 判定。修正 fixture 後，targeted tests 全數通過。
+- `vitest run tests/navigation.test.ts tests/navigation-mesh.test.ts tests/navigation-jobs.test.ts`
+  **34 tests passed**；Typecheck、scoped ESLint／Prettier、ESM compile/minify、完整
+  vendor copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+  未跑完整 suite、未開 browser／重驗 rendering、三 backend 或 audio；TiledGraph 的
+  source 本階段不變，沒有擴大 certification。
+
+### 未採用：每次搜尋選擇不同 region reader closures
+
+- Temporary variant 依有無 regions Map 選擇兩個不同 arrow bodies，零半徑 reader
+  不需逐次判斷；正半徑 reader 保持原邏輯。相同 full-search fixtures、8 warmup／
+  15 輪交替 median；正式 source 未採此形狀，未宣稱候選完成獨立行為差分。
+
+| Workload                       | Searches | Before ms | After ms |
+| ------------------------------ | -------: | --------: | -------: |
+| One polygon, radius 0          |    2,000 |  1.715417 | 1.690791 |
+| Corridor 16 polygons, radius 0 |      200 |  1.292666 | 1.091375 |
+| 8×8 grid, radius 0             |      100 |  1.946583 | 1.511666 |
+| 16×16 grid, radius 0           |       30 |  2.106917 | 1.602541 |
+| 8×8 grid, radius 0.2           |      100 |  2.191000 | 2.335416 |
+
+- 零半徑 corridor／grid 雖快約 15.6–23.9%，正半徑控制組卻慢約 6.6%；選擇
+  程式碼更小、控制組退步較少的 shared-reader 版本。不推論未量測的 JIT 原因。
+- 另僅調查、未實作 tiled projection bucket bounds：目前直接讀 caller 的 query
+  position，額外 bucket checks／persistent bounds 會引入新的 input reads 與 storage
+  tradeoff；沒有證據支持時不套用，亦未對該構想量測或宣稱完成。
