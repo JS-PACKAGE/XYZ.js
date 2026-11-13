@@ -80,10 +80,10 @@ var BitmapFontLoader = class BitmapFontLoader {
 				chars: [],
 				kernings: []
 			};
-			let r = a.pages, i = a.chars, o = a.kernings;
-			for (let s of n.split(/\r?\n/u)) {
-				if (!s.trim()) continue;
-				let n = s.trim().split(/\s/u, 1)[0];
+			let r = a.pages, i = a.chars, o = a.kernings, s = /(\w+)=(?:"([^"\r\n]*)"|([^\s]+))/gu;
+			for (let c of n.split(/\r?\n/u)) {
+				if (!c.trim()) continue;
+				let n = c.trim().split(/\s/u, 1)[0];
 				if (![
 					`info`,
 					`common`,
@@ -93,14 +93,14 @@ var BitmapFontLoader = class BitmapFontLoader {
 					`kernings`,
 					`kerning`
 				].includes(n)) throw new require_texture.AssetError(`Unsupported bitmap font record.`);
-				let c = {};
-				for (let e of s.matchAll(/(\w+)=(?:"([^"\r\n]*)"|([^\s]+))/gu)) c[e[1]] = e[2] ?? Number(e[3]);
-				if ((n === `info` || n === `common`) && (a[n] = c), n === `page`) {
-					let n = c.id;
-					if (!Number.isInteger(n) || n < 0 || n >= require_rendering2d.rendering2dLimits.fontPages || r[n] !== void 0 || typeof c.file != `string`) throw new require_texture.AssetError(`Invalid bitmap page record.`);
-					r[n] = c.file;
+				let l = {}, u;
+				for (; (u = s.exec(c)) !== null;) l[u[1]] = u[2] ?? Number(u[3]);
+				if ((n === `info` || n === `common`) && (a[n] = l), n === `page`) {
+					let n = l.id;
+					if (!Number.isInteger(n) || n < 0 || n >= require_rendering2d.rendering2dLimits.fontPages || r[n] !== void 0 || typeof l.file != `string`) throw new require_texture.AssetError(`Invalid bitmap page record.`);
+					r[n] = l.file;
 				}
-				if (n === `char` && i.push(c), n === `kerning` && o.push(c), i.length > require_rendering2d.rendering2dLimits.fontGlyphs || o.length > require_rendering2d.rendering2dLimits.atlasFrames) throw new require_texture.AssetError(`Bitmap font records exceed their budget.`);
+				if (n === `char` && i.push(l), n === `kerning` && o.push(l), i.length > require_rendering2d.rendering2dLimits.fontGlyphs || o.length > require_rendering2d.rendering2dLimits.atlasFrames) throw new require_texture.AssetError(`Bitmap font records exceed their budget.`);
 			}
 		} else throw new require_texture.AssetError(`Unsupported bitmap font format.`);
 		if (!a || typeof a != `object` || Array.isArray(a)) throw new require_texture.AssetError(`Invalid bitmap font descriptor.`);

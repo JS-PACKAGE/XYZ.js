@@ -5415,3 +5415,16 @@ advance virtual/context frame state in the existing order.
 Routing still clears nonempty claimed sources before each active context and
 nonempty consumed sources before each route; no physical-source reservation leaks
 between layers or frames. Retired contexts still receive their last edge cleanup.
+
+## P158 — Descriptor-local field matching
+
+- BitmapFontLoader 的 text branch 在逐行迴圈外建立 field RegExp，每行 exec
+  到 null，利用 global matcher 的 lastIndex reset 從下一行開頭繼續解析。
+  Pattern 不匹配空字串，保留原 gu flags、quoted／unquoted field grammar
+  與重複欄位覆寫順序；不以跨呼叫共享 matcher 引入 descriptor 間的狀態。
+- JSON、record／glyph／page／kerning validation、UTF-8 byte budgets、載圖與
+  ownership cleanup 不變。新 regression 覆蓋跨行欄位、Unicode filenames、
+  metrics／kerning、錯誤後下一份 descriptor。
+- 16,403 組差分精確一致；text CPU 約快 5.7–8.6%，JSON control 約慢 1.1%。
+  不宣稱配置計數、heap、GC 或圖形呈現收益；未採用的兩個 gamepad 候選見
+  ACCEPTANCE P158，正式 input code 不變。

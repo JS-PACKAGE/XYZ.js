@@ -356,6 +356,10 @@ These are public error classes, not a promise to rewrap every exception from use
 - Raw input and context routing also skip empty transient Set clears. Frame
   cleanup still releases pointer sample event references and resets wheel,
   virtual and context state even when no keyboard or pointer button edge exists.
+- Bitmap-font text parsing reuses a descriptor-local global field matcher across
+  lines; consuming each line through the final null match resets its cursor.
+  Quoted-field grammar, duplicate-field order, validation and budgets are unchanged,
+  as is JSON parsing. CPU measurements and control regressions are in ACCEPTANCE P158.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

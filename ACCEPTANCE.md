@@ -18045,3 +18045,75 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   完整 vendor copy、CJS build 通過。沿用既有 frame／gesture／Scene pointer 回歸。
   README 中英日、PLAN、DESIGN、TECHNICAL 中英同步；未執行完整 suite、browser、
   graphics／audio／三 backend runtime 或實體 gamepad 測試。
+
+## P158 — Reuse bitmap descriptor field matcher（2026-11-13）
+
+- AngelCode text parser 每份 descriptor 建立一個 local field RegExp，逐行以 exec
+  讀取欄位，不再每行建立 regex literal 並呼叫 matchAll。Pattern 保留原 gu flags
+  與 quoted／unquoted grammar；每行 exec 到 null 後 lastIndex 歸零，下一行重用。
+  Matcher 不跨 descriptor 共用；JSON 路徑、數值驗證與資源 budgets 不變。
+- Node v26.7.0／Darwin arm64；獨立 before／after ESM modules，CPU 與 correctness
+  modules 分開。8 warmup／15 輪交替 median，沒有並行跑測試；descriptor 建立在
+  計時外，計時包含完整 parse／validation 與 glyph／kerning 結果讀取。
+
+| Descriptor                 | Glyphs | Kernings | Parses | Before ms |  After ms |
+| -------------------------- | -----: | -------: | -----: | --------: | --------: |
+| text                       |     64 |        0 |     32 |  1.939916 |  1.810125 |
+| text                       |  1,024 |        0 |      4 |  3.572959 |  3.371084 |
+| text                       |  4,096 |        0 |      1 |  3.732041 |  3.455542 |
+| text，kerning budget       |  4,096 |   16,384 |      1 | 12.653958 | 11.700833 |
+| text，Unicode quotes／CRLF |     64 |       64 |     32 |  3.127625 |  2.857167 |
+| JSON control               |  1,024 |    1,024 |      8 |  3.968667 |  4.012958 |
+
+- text 約快 5.7–8.6%，JSON control 約慢 1.1%；不宣稱 JSON 加速，也沒有量測
+  engine 實際 allocation counts、heap、GC pause 或 fps。
+- 16,403 組 differential cases：9,220 successful results、7,183 errors 的型別／
+  message／cause 精確一致；涵蓋 quoted／empty fields、field order、Unicode／CRLF、
+  畸形 records、JSON、parse-after-error，及恰好／超過 8 MiB、4,096 glyphs、16,384
+  kernings 上限。新 text regression 驗證跨行欄位、空行、Unicode page filenames、
+  glyph metrics、kerning、重複 page 錯誤及下一份 descriptor 的獨立解析。
+- `vitest run tests/rendering2d-assets.test.ts tests/distance-field-font.test.ts`
+  **15 tests passed**；Typecheck、scoped ESLint 通過。初次新 test 的 Prettier
+  check 提示格式，修正後 check 通過；ESM compile/minify、完整 vendor copy、CJS
+  build 通過。未執行完整 suite、browser／graphics／audio／三 backend runtime；
+  本階段修改 descriptor parsing，沒有宣稱重驗字型視覺呈現。
+
+### 未採用：firstPressed callback-free scan
+
+- 將 find callback 改為仍呼叫 wasPressed 的 indexed loop，沒有直接讀取內部
+  button arrays。只有 temporary variant，正式 source 從未套用；8 warmup／15 輪
+  交替 median。scan rows 各 200,000 calls，poll rows 各 20,000 poll＋scan。
+
+| Workload              | Before ms |  After ms |
+| --------------------- | --------: | --------: |
+| no press              | 24.271125 | 24.435000 |
+| first button          |  1.150750 |  0.823708 |
+| middle button         |  8.321458 |  8.593833 |
+| last button           | 24.510708 | 24.298375 |
+| held without new edge | 24.501875 | 25.030125 |
+| wasPressed override   | 10.923292 | 10.486250 |
+| poll first button     |  4.954666 |  4.941750 |
+| poll last button      |  6.558250 |  6.600167 |
+
+- 完整 poll 無實質收益，部分 scan 退步，故不保留；未宣稱完成此候選的完整
+  override／error differential 驗證。
+
+### 未採用：unified gamepad selection loop
+
+- 將 select 的 local usable closure 與兩條選擇路徑合成 loop，保留 locked-index
+  的第一筆匹配即決定結果。只有 temporary variant，未套用正式 source；8 warmup／
+  15 輪交替 median，每項 100,000 poll＋index／button queries。
+
+| Workload                | Before ms |  After ms |
+| ----------------------- | --------: | --------: |
+| empty snapshots         |  3.171333 |  3.085708 |
+| four null slots         |  3.298291 |  3.308917 |
+| standard pad            | 16.345541 | 17.056542 |
+| sparse standard pad     | 16.966500 | 16.619333 |
+| preferred index         | 16.544166 | 16.219750 |
+| missing preferred index |  7.907333 |  7.886083 |
+| custom mapped pad       | 20.397459 | 19.449084 |
+| unsupported pad         |  8.293916 |  7.814875 |
+
+- 常見 standard pad 約慢 4.3%，故不保留，也不宣稱完成該候選的完整語義驗收。
+  README 中英日、PLAN、DESIGN、TECHNICAL 中英同步正式 font parser 改動。

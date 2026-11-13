@@ -188,6 +188,7 @@ export class BitmapFontLoader {
       const pages = record.pages as string[];
       const chars = record.chars as unknown[];
       const kernings = record.kernings as unknown[];
+      const fieldPattern = /(\w+)=(?:"([^"\r\n]*)"|([^\s]+))/gu;
       for (const line of source.split(/\r?\n/u)) {
         if (!line.trim()) continue;
         const kind = line.trim().split(/\s/u, 1)[0]!;
@@ -204,7 +205,8 @@ export class BitmapFontLoader {
         )
           throw new AssetError('Unsupported bitmap font record.');
         const fields: Record<string, unknown> = {};
-        for (const match of line.matchAll(/(\w+)=(?:"([^"\r\n]*)"|([^\s]+))/gu))
+        let match: RegExpExecArray | null;
+        while ((match = fieldPattern.exec(line)) !== null)
           fields[match[1]!] = match[2] ?? Number(match[3]);
         if (kind === 'info' || kind === 'common') record[kind] = fields;
         if (kind === 'page') {

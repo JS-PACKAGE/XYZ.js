@@ -5284,3 +5284,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   Node stand-in CPU 分別量測 idle、edges、moves、context consumption 與 churn。
 - 明列 consuming-heavy control 退步與 browser／hardware 未驗證範圍；
   工具、build、文件同步後獨立 `[P157]` commit。
+
+## P158 — Bitmap descriptor field matcher reuse
+
+- AngelCode text parser 改以每份 descriptor 的 local RegExp／exec 讀取各行欄位，
+  保留 grammar、flags、record 順序與 budgets；JSON parser 不變。
+- 16,403 組結果／錯誤 differential 與 15 項 targeted tests 通過；text CPU 測項
+  約快 5.7–8.6%，JSON control 約慢 1.1%。未量測實際配置數、heap 或 browser fps。
+- firstPressed indexed scan 與 unified gamepad selection loop 測項未證明普遍收益，
+  均不套用。完整量測、工具結果及限制見 ACCEPTANCE P158。

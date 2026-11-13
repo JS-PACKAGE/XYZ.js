@@ -126,6 +126,53 @@ describe('TextureView2D', () => {
 });
 
 describe('bounded parsers and transactional loaders', () => {
+  it('parses quoted text fields across records and keeps later descriptors independent', () => {
+    const text = [
+      'info face="A Font" size=16',
+      'common lineHeight=20 base=15 scaleW=32 scaleH=32 pages=2 packed=0',
+      'page id=0 file="font main.png"',
+      '',
+      '\tpage id=1 file="字形𐐷.png"',
+      'chars count=2',
+      'char id=65 page=0 x=1 y=2 width=4 height=6 xoffset=-1 yoffset=-2 xadvance=5 chnl=15',
+      'char id=86 page=1 x=4 y=2 width=5 height=6 xoffset=0 yoffset=-2 xadvance=6 chnl=15',
+      'kernings count=1',
+      'kerning first=65 second=86 amount=-2',
+    ].join('\r\n');
+    const parsed = BitmapFontLoader.parse(text);
+    expect(parsed).toMatchObject({
+      size: 16,
+      lineHeight: 20,
+      base: 15,
+      width: 32,
+      height: 32,
+    });
+    expect(parsed.pages).toEqual(['font main.png', '字形𐐷.png']);
+    expect(
+      parsed.glyphs.map((glyph) => [
+        glyph.id,
+        glyph.page,
+        glyph.x,
+        glyph.y,
+        glyph.width,
+        glyph.height,
+        glyph.xoffset,
+        glyph.yoffset,
+        glyph.xadvance,
+      ]),
+    ).toEqual([
+      [65, 0, 1, 2, 4, 6, -1, -2, 5],
+      [86, 1, 4, 2, 5, 6, 0, -2, 6],
+    ]);
+    expect(parsed.kernings).toEqual([{ first: 65, second: 86, amount: -2 }]);
+    expect(() =>
+      BitmapFontLoader.parse(text.replace('page id=1', 'page id=0')),
+    ).toThrow(AssetError);
+    expect(
+      BitmapFontLoader.parse(text.replace('size=16', 'size=24')).size,
+    ).toBe(24);
+  });
+
   it('reports malformed bitmap-font kerning records as domain errors', () => {
     const json = JSON.stringify({
       distanceField: undefined,
