@@ -7021,3 +7021,15 @@ stale blur；把invalidate改成no-op的negative會在真GPU／GL畫面失敗。
 Node active controls有小幅正負差異，不等同整幀或所有路徑加速。15 tests、scoped build、
 production-method lifecycle controls及GPU／GL showcase通過。原始rounds、getter重入與
 heap／GC、GPU、frame／FPS未驗證範圍見[ACCEPTANCE](../ACCEPTANCE.md) P198。
+
+## P199 直接寫入object-motion clip products
+
+Private writer將兩個clip matrix products直接寫入draw.data，保持Matrix4.multiply的運算
+次序與最後Float32 rounding。輸入是renderer-owned matrices，不與draw storage overlap；
+省去原VP copies、result set及dead clip scratch，不改Matrix4公開API或一般aliasing契約。
+
+24,000筆finite-input offset payload逐位相同。Node active-history helper約改善15.8–22.4%，
+完整source manual native CPU submit另測：100 rigid meshes的GPU／GL上中位數約改善
+3.1%／5.9%；4096 instances GPU約改善7.4%，GL約慢0.5%，單mesh持平。這些有界CPU
+submission不是RAF、GPU完成時間或presentation FPS。Native pixels／payload及正式surface
+證據與限制見[ACCEPTANCE](../ACCEPTANCE.md) P199。

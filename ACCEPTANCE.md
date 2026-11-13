@@ -21408,3 +21408,170 @@ moving／stopped cases；不以獨立shader或替代renderer冒充正式架構�
 heap／GC、端到端latency或presentation FPS。未重跑full suite、repo-wide lint、CJS runtime、
 Canvas2D runtime、audio unlock、device loss、auto fallback；未認證Firefox／Safari／physical
 hardware，也未藉此擴充object motion對skinned／morph／native deformation的既有fallback。
+
+## P199 — Pack active object-motion clip products directly (2026-11-13)
+
+### Private change and exact arithmetic scope
+
+ObjectMotionHistory原本每個valid rigid／instance draw先clip.copy(currentVP).multiply(world)，
+再以TypedArray.set複製到draw.data；previousVP／previousWorld再做一次。新private writer
+直接寫兩個Float32 products於offset0／16，省掉兩次16-value VP copy、兩次result set及
+不再使用的clip Matrix4 scratch。這不是原本逐draw有Matrix4配置；scratch原已重用，現在
+移除的是constructor持有的Matrix4及其16-float storage，不由source結構換算heap節省。
+
+保持Matrix4.multiply的column-major加乘次序，左側16個Float32 inputs先cache，右側逐
+column取四值。輸入本來就是Float32，不移除任何額外高精度input rounding；products最後
+各只寫一次Float32 storage。沒有identity／affine特判、重新結合運算或epsilon近似。
+
+此helper不export，實際callers的renderer-owned matrices不與draw.data overlap；不擴充
+通用aliasing契約，不改Matrix4公開API／既有multiply self-alias behavior。World getter、
+instance pose讀取、previous-world更新、rigid exclusions、lazy invalidate及GPU layout皆不變。
+
+### Arithmetic and consumer behavior probes
+
+Seed0x8f31c2a7，以真正Matrix4 Float32 storage建立12,000對finite bit-pattern matrices，
+包含+0／-0、identity及高低exponents；offset0與16共24,000筆64-byte payload，與原
+copy＋multiply逐位相同，另一半sentinel保持。Finite inputs仍可產生Float32 overflow，亦按
+原結果比較。另反轉兩矩陣順序，有11,996對結果不同，負向能區別乘法順序而非只看長度。
+未由這個有限input proof宣稱非有限值payload或輸出重疊是新支援的公開能力。
+
+10組actual-root history payload對照亦相同，含warmup、移動、reset、camera／geometry失效與
+missing frames；getter重入invalidate仍保留讀取次數及無跨reset velocity的原語意。以
+frame0略過reset的wrong control仍會產生x velocity1，不把P198已修正配置重新引入。
+
+### Node active helper CPU, independent of full rendering
+
+Node26.7.0／TypeScript6.0.3、darwin arm64；真正當時dist history receivers借用frozen
+before／candidate methods，兩邊same class／shape。每variant warm1000 calls；六輪AB／BA。
+Inactive批250000、active1批15000、active100批700、512instances批150；下表皆排序第4／6
+的上中位數，不是constructor／frame timing。兩邊constructor當時皆有clip，故不把其移除
+算進hot-loop結果；inactive invalidate body本身未改，微幅方向只是控制組原值。
+
+| Node history helper / ns per call |    Before |     After |  Change |
+| --------------------------------- | --------: | --------: | ------: |
+| Inactive control                  |     17.22 |     17.54 |  +1.87% |
+| Active one rigid mesh             |    132.44 |    109.81 | -17.09% |
+| Active 100 rigid meshes           | 11,592.14 |  8,998.93 | -22.37% |
+| Active 512 instances              | 44,058.33 | 37,107.77 | -15.78% |
+
+### Actual source GPU / GL complete manual CPU submission
+
+Managed Chromium153.0.8010.12、desktop automation，page visible，GPU／GL分別獨立process，
+無pixel／identity／payload observers同時量測，亦無其他build／tests競爭。透過public
+createRenderer／Scene／PBRMaterial與真正native backend，postProcessing及perObject blur
+啟用，64×64、antialiasfalse。Rigid1／100用共享cube geometry；4096 instances以64×64
+排列，並非一個mesh當作4096 motion draws的空路徑。
+
+初始化三幀後，capture wrapper即還原，只在實際history instance切換before／production build
+method。為舊body在兩邊補同一clip field、保持root receiver shape；不使用fake object／GPU。
+每variant四批各10 warmframes，timed每批24次beginFrame／render／endFrame，六輪AB／BA。
+GPU queue.onSubmittedWorkDone與GL finish在timing之外，validation scope／GL error檢查亦在
+批次後；計時包含完整CPU submission及native API／可能backpressure，不是單純JS算術。
+
+實際最後frame drawCalls為rigid1=2、rigid100=200、instances4096=4097，確認color與per-object
+velocity都有執行。所有native validation及page／console errors空。取上中位數：
+
+| Backend / full CPU submit ms |   Before |    After | Change |
+| ---------------------------- | -------: | -------: | -----: |
+| GPU / rigid1                 | 0.029167 | 0.029167 |   Flat |
+| GPU / rigid100               | 0.133333 | 0.129167 | -3.13% |
+| GPU / instances4096          | 1.066667 | 0.987500 | -7.42% |
+| GL / rigid1                  | 0.020833 | 0.020833 |   Flat |
+| GL / rigid100                | 0.141667 | 0.133333 | -5.88% |
+| GL / instances4096           | 0.837500 | 0.841667 | +0.50% |
+
+原六輪資料保留，不重測挑選GL4096的方向。短batch／timer granularity令小差異受限，
+近持平的GL instance控制組不被寫成加速；Node helper收益也不代替完整提交結果。
+
+| Backend / case          | Round | Before ms/submit | After ms/submit |
+| ----------------------- | ----: | ---------------: | --------------: |
+| webgpu / rigid-1        |     1 |         0.075000 |        0.037500 |
+| webgpu / rigid-1        |     2 |         0.037500 |        0.037500 |
+| webgpu / rigid-1        |     3 |         0.025000 |        0.029167 |
+| webgpu / rigid-1        |     4 |         0.029167 |        0.029167 |
+| webgpu / rigid-1        |     5 |         0.025000 |        0.025000 |
+| webgpu / rigid-1        |     6 |         0.025000 |        0.025000 |
+| webgpu / rigid-100      |     1 |         0.129167 |        0.129167 |
+| webgpu / rigid-100      |     2 |         0.154167 |        0.279167 |
+| webgpu / rigid-100      |     3 |         0.150000 |        0.145833 |
+| webgpu / rigid-100      |     4 |         0.112500 |        0.108333 |
+| webgpu / rigid-100      |     5 |         0.112500 |        0.112500 |
+| webgpu / rigid-100      |     6 |         0.133333 |        0.108333 |
+| webgpu / instances-4096 |     1 |         1.054167 |        1.004167 |
+| webgpu / instances-4096 |     2 |         1.066667 |        0.987500 |
+| webgpu / instances-4096 |     3 |         1.066667 |        0.987500 |
+| webgpu / instances-4096 |     4 |         1.070833 |        0.983333 |
+| webgpu / instances-4096 |     5 |         1.058333 |        1.000000 |
+| webgpu / instances-4096 |     6 |         1.075000 |        0.987500 |
+| webgl2 / rigid-1        |     1 |         0.029167 |        0.037500 |
+| webgl2 / rigid-1        |     2 |         0.037500 |        0.029167 |
+| webgl2 / rigid-1        |     3 |         0.020833 |        0.020833 |
+| webgl2 / rigid-1        |     4 |         0.020833 |        0.016667 |
+| webgl2 / rigid-1        |     5 |         0.016667 |        0.016667 |
+| webgl2 / rigid-1        |     6 |         0.016667 |        0.020833 |
+| webgl2 / rigid-100      |     1 |         0.141667 |        0.133333 |
+| webgl2 / rigid-100      |     2 |         0.158333 |        0.158333 |
+| webgl2 / rigid-100      |     3 |         0.191667 |        0.170833 |
+| webgl2 / rigid-100      |     4 |         0.129167 |        0.129167 |
+| webgl2 / rigid-100      |     5 |         0.125000 |        0.129167 |
+| webgl2 / rigid-100      |     6 |         0.129167 |        0.125000 |
+| webgl2 / instances-4096 |     1 |         0.854167 |        0.854167 |
+| webgl2 / instances-4096 |     2 |         0.837500 |        0.841667 |
+| webgl2 / instances-4096 |     3 |         0.841667 |        0.850000 |
+| webgl2 / instances-4096 |     4 |         0.837500 |        0.841667 |
+| webgl2 / instances-4096 |     5 |         0.837500 |        0.837500 |
+| webgl2 / instances-4096 |     6 |         0.833333 |        0.833333 |
+
+這是source入口的manual CPU submit，不是sprites benchmark、可見RAF排程、GPU completion
+或presentation FPS。未對built-root／CJS宣稱量到同一CPU百分比；未測heap／GC或latency。
+
+### Actual source and built native pixels / payloads
+
+隔離build只複製本輪module後才啟fresh hmr:false server。Canonical static imports確保actual
+root history class相同，before借frozen body、after真正production body。為before需要，在
+兩邊instance加入同一probe-only clip field，不偽造class；後述no-observer controls不加該field，
+驗證產品constructor與actual production method在沒有obsolete scratch時正常。
+
+正式post-effects架構延伸的同一fixture涵蓋camera／post effects、四instance靜止camera motion、
+停止、移除／重新加入、disable／re-enable以及停用期間改pose後fresh history。
+
+| Entry / backend | Matched frame pairs | RGBA bytes compared | Actual history owners |
+| --------------- | ------------------: | ------------------: | --------------------: |
+| Source GPU      |                  72 |           4,718,592 |                     2 |
+| Source GL       |                  72 |           4,718,592 |                     2 |
+| Built GPU       |                  72 |           4,718,592 |                     2 |
+| Built GL        |                  72 |           4,718,592 |                     2 |
+
+每個entry的single／AA-enabled各36frames，合計288對、18,874,368 RGBA bytes完全一致；
+每次history build的frame／count／32-float draw payload、scenario changed pixels及reset清理
+也相同。GPU每frame validation scope皆空，GL使用正式native readPixels與graphics guard；
+不由AA-enabled稱GL與GPU有相同MSAA backing或跨backend exact pixel parity。
+
+GPU nonempty data釋放各4次、空轉空無替換及history reset無空map（皆P198行為）保持。
+不把這些既有配置事件重複算為P199新增收益，private clip field沒有遺留到產品。
+
+真native negative將previous product誤寫成current product，四組entry／backend皆在single
+第23frame使moving-instance case變0 visibly changed pixels、minimum10而失敗；不是私有
+field assertion在阻擋，也不是降低positive threshold。Wrong只用於owned fixture。
+
+### Unmodified production controls, visual proof and checks
+
+沒有history／GPU pipeline overrides、沒有補clip的source／dist GPU／GL controls四組各22
+scenarios通過，含AA兩種各11。真正GPU／GL showcase Scene A→B及pagehide cleanup正常，
+page／console errors空。已讀built GPU AA resume PNG及GL showcase Scene B：條紋／cube
+邊緣、sprite／primitive／lit cube／sphere可見；audio仍locked，不冒稱unlock／播放。
+
+- 2026-11-13 22:50 scoped Prettier／ESLint、strict typecheck與
+  motion-blur-object.test.ts 1檔15 tests通過。沒有新增wiring／implementation-pinning tests。
+- 隔離tsc／minify／vendor copy／CJS build成功，377 JS由9,359,636至4,011,620 bytes，
+  vendor unchanged，720 CJS files；為staging totals，不是節省量或load-time收益。
+- Declaration guard只允許刪除obsolete private clip。只複製object-motion ESM／CJS及兩maps、
+  d.ts共5檔，其他module及使用者physics／world2d產物不覆寫、不stage。公開API不增減。
+- README中／英／日、PLAN、DESIGN、technical中／英與本紀錄同步、格式及inline相對連結
+  檢查，保留歷史counts／日期、metadata1.23.0、不加runtime dependency。
+- 刪除owned candidate／arithmetic／native variants、bench、drivers、staging、logs、PNGs與
+  results，停止本輪Vite，依功能獨立[P199] commit、不push、不升版。
+
+未重跑full suite、repo-wide lint、CJS runtime、Canvas2D、audio unlock、device loss或auto
+fallback；未認證Firefox／Safari／physical hardware，不擴大skinned／morph／native-deformed
+motion的原fallback範圍。CPU submit不能推出GPU完成時間、端到端latency或FPS提升。

@@ -5692,3 +5692,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   Node active controls有小幅正負差異，未宣稱整幀、heap或FPS收益。
 - 15 tests、scoped品質／隔離build、四組無pipeline override lifecycle及GPU／GL showcase
   通過；reentrant getter與stale-history negatives及限制見ACCEPTANCE P198，不push、不升版。
+
+## P199 — Write active motion clip products directly
+
+- Private writer以原Matrix4.multiply的加乘次序直接寫Float32 draw storage，省掉兩次VP copy、
+  兩次result set及不再使用的clip scratch；不改Matrix4公開API或rigid／deformation契約。
+- 12,000 finite Float32 matrix pairs、兩offset共24,000筆packed payload逐位相同；反轉乘法
+  的negative有11,996對不同。Node active helper控制組約-15.8%至-22.4%。
+- Source完整manual native CPU submit：100rigid GPU約-3.1%／GL約-5.9%，4096 instances
+  GPU約-7.4%／GL約+0.5%，單mesh持平。不將短批次或helper收益當FPS／所有backend加速。
+- Native pixel／history payload、negative與production-method surface證據及限制見
+  ACCEPTANCE P199；維持獨立功能commit、不push、不升版。

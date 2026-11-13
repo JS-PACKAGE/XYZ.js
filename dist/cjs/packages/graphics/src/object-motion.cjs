@@ -4,12 +4,18 @@ const require_native_material3d = require("../../core/src/native-material3d.cjs"
 const require_instanced_mesh = require("../../core/src/instanced-mesh.cjs");
 const require_skinned_mesh = require("../../core/src/skinned-mesh.cjs");
 //#region dist/packages/graphics/src/object-motion.js
+function writeClipTransform(e, t, n, r) {
+	let i = n.elements, a = r.elements, o = i[0], s = i[1], c = i[2], l = i[3], u = i[4], d = i[5], f = i[6], p = i[7], m = i[8], h = i[9], g = i[10], _ = i[11], v = i[12], y = i[13], b = i[14], x = i[15];
+	for (let n = 0; n < 4; n++) {
+		let r = n * 4, i = a[r], S = a[r + 1], C = a[r + 2], w = a[r + 3];
+		e[t + r] = o * i + u * S + m * C + v * w, e[t + r + 1] = s * i + d * S + h * C + y * w, e[t + r + 2] = c * i + f * S + g * C + b * w, e[t + r + 3] = l * i + p * S + _ * C + x * w;
+	}
+}
 var ObjectMotionHistory = class {
 	poses;
 	frame = 0;
 	world = new require_math3d.Matrix4();
 	instance = new require_math3d.Matrix4();
-	clip = new require_math3d.Matrix4();
 	draws = [];
 	count = 0;
 	build(e, a) {
@@ -32,7 +38,7 @@ var ObjectMotionHistory = class {
 					t || (t = {
 						mesh: o,
 						data: /* @__PURE__ */ new Float32Array(32)
-					}, this.draws.push(t)), t.mesh = o, t.data.set(this.clip.copy(a.currentVP).multiply(this.world).elements, 0), t.data.set(this.clip.copy(a.previousVP).multiply(e).elements, 16), this.count++;
+					}, this.draws.push(t)), t.mesh = o, writeClipTransform(t.data, 0, a.currentVP, this.world), writeClipTransform(t.data, 16, a.previousVP, e), this.count++;
 				}
 				e || (s.matrices[r] = e = new require_math3d.Matrix4()), e.copy(this.world);
 			}

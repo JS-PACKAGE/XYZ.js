@@ -11,7 +11,6 @@ export declare class ObjectMotionHistory {
     private frame;
     private readonly world;
     private readonly instance;
-    private readonly clip;
     private readonly draws;
     private count;
     build(meshes: readonly Mesh[], state: TemporalPostState): readonly ObjectMotionDraw[];

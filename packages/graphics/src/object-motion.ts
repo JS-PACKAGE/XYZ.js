@@ -19,13 +19,50 @@ export interface ObjectMotionDraw {
   data: Float32Array;
 }
 
+/** Clip inputs and draw storage are distinct; preserve Matrix4.multiply's arithmetic order. */
+function writeClipTransform(
+  out: Float32Array,
+  offset: number,
+  left: Matrix4,
+  right: Matrix4,
+): void {
+  const a = left.elements,
+    b = right.elements;
+  const a00 = a[0]!,
+    a01 = a[1]!,
+    a02 = a[2]!,
+    a03 = a[3]!;
+  const a10 = a[4]!,
+    a11 = a[5]!,
+    a12 = a[6]!,
+    a13 = a[7]!;
+  const a20 = a[8]!,
+    a21 = a[9]!,
+    a22 = a[10]!,
+    a23 = a[11]!;
+  const a30 = a[12]!,
+    a31 = a[13]!,
+    a32 = a[14]!,
+    a33 = a[15]!;
+  for (let column = 0; column < 4; column++) {
+    const i = column * 4;
+    const b0 = b[i]!,
+      b1 = b[i + 1]!,
+      b2 = b[i + 2]!,
+      b3 = b[i + 3]!;
+    out[offset + i] = a00 * b0 + a10 * b1 + a20 * b2 + a30 * b3;
+    out[offset + i + 1] = a01 * b0 + a11 * b1 + a21 * b2 + a31 * b3;
+    out[offset + i + 2] = a02 * b0 + a12 * b1 + a22 * b2 + a32 * b3;
+    out[offset + i + 3] = a03 * b0 + a13 * b1 + a23 * b2 + a33 * b3;
+  }
+}
+
 /** Renderer-owned rigid pose history. No object/material/geometry ownership is transferred. */
 export class ObjectMotionHistory {
   private poses?: WeakMap<Mesh, PoseHistory>;
   private frame = 0;
   private readonly world = new Matrix4();
   private readonly instance = new Matrix4();
-  private readonly clip = new Matrix4();
   private readonly draws: ObjectMotionDraw[] = [];
   private count = 0;
 
@@ -77,14 +114,8 @@ export class ObjectMotionHistory {
             this.draws.push(draw);
           }
           draw.mesh = mesh;
-          draw.data.set(
-            this.clip.copy(state.currentVP).multiply(this.world).elements,
-            0,
-          );
-          draw.data.set(
-            this.clip.copy(state.previousVP).multiply(previous).elements,
-            16,
-          );
+          writeClipTransform(draw.data, 0, state.currentVP, this.world);
+          writeClipTransform(draw.data, 16, state.previousVP, previous);
           this.count++;
         }
         if (!previous) pose.matrices[index] = previous = new Matrix4();

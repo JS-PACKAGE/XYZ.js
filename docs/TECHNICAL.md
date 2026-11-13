@@ -7311,3 +7311,20 @@ Isolated inactive cleanup on a real released GPU owner measured 42.4 → 19.6 ns
 a universal speedup. Fifteen tests, scoped build, production-method lifecycle
 controls and GPU/GL showcase passed. See [ACCEPTANCE](../ACCEPTANCE.md) P198 for raw
 rounds, reentrant-getter proof and unmeasured frame/FPS, heap/GC and GPU limits.
+
+## P199 direct object-motion clip packing
+
+A private writer stores the two clip-matrix products directly in draw.data,
+preserving Matrix4.multiply's arithmetic order and final Float32 rounding. Its
+renderer-owned matrix inputs do not overlap draw storage. The old VP copies,
+result set calls and unused clip scratch are removed; Matrix4's public API and
+general aliasing behavior are unchanged.
+
+Twenty-four thousand finite-input offset payload comparisons were bit-identical.
+Node active-history helper CPU improved about 15.8–22.4%; actual source manual
+native submission was measured separately. With 100 rigid meshes, GPU/GL upper
+medians improved about 3.1%/5.9%; with 4096 instances, GPU improved about 7.4% while
+GL was about 0.5% slower. Single-mesh controls were flat. These bounded CPU-submit
+results are not RAF, GPU-completion or presentation-FPS measurements. Native
+pixel/payload proofs and surface limits are recorded in
+[ACCEPTANCE](../ACCEPTANCE.md) P199.

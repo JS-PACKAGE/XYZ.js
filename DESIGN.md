@@ -5850,3 +5850,15 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - Timing以真正GPU owner及live device、已釋放targets為前提，只計CPU cleanup call。
   Native pixels／history payload與配置觀察在另一process，不讓observer混入timing。
 - Active helper控制組與inactive收益分列；小幅正負差異不改寫成全路徑或FPS提升。
+
+## P199 — Keep clip arithmetic, remove the intermediate representation
+
+- Renderer-owned clip inputs和draw.data是分離storage；私有writer先cache左矩陣16個Float32
+  values，再逐column讀右側四值，保持Matrix4.multiply的column-major加乘次序。
+- 每個product只在最終寫入draw.data時做Float32 rounding；原輸入本來就是Float32，
+  省略copy不會移除額外的高精度輸入rounding。沒有identity／affine fast path或改變乘法順序。
+- Helper不export，不擴充Matrix4 API／general aliasing契約；移除dead clip field與constructor
+  scratch，而非保留相容shim。前後兩個clip products及previous-pose更新時機不變。
+- Node helper、完整native CPU submit和帶pixel／payload observer的proof使用不同process；
+  native A/B為舊method還原clip field到兩邊同一actual root class shape，不把該probe欄位留產品。
+- Full-submit timings有resolution／batch限制；GL4096的微幅反方向保留，不以helper數字代替。
