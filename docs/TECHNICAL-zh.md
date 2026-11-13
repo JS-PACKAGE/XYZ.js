@@ -6992,3 +6992,16 @@ Source及built-root GPU各56對frames、3,670,016 RGBA bytes與11,264 uniform by
 兩pipeline的bound array identities由44降至2。Source／dist正式post-effects、capture、
 layered UI與15個既有unit tests通過。Negative controls及限制見
 [ACCEPTANCE](../ACCEPTANCE.md) P196；未量測heap大小、CPU或FPS收益。
+
+## P197 原生occlusion query offset storage
+
+WebGPUOcclusionBackend每backend重用一個numeric dynamic-offset array，每query仍以同一
+三參數sequence overload綁定index×256的byte offset。各QueryFrame的uniforms、group、
+query set、readback buffer與非同步records所有權及排程不變。
+
+Source及built-root各28對GPU frames（2,752,512 RGBA bytes）及12,800 uniform bytes一致；
+single與AA-enabled兩個真正backend receiver的50 binds由50個array identities降至2個。
+Native query zero／nonzero、禁用／重啟與camera／occluder／membership invalidation亦相同；
+故意將offset全設0會剔除真正可見的藍物件並失敗。13個既有visibility tests、scoped build
+通過，正式surface、探針修正與限制見[ACCEPTANCE](../ACCEPTANCE.md) P197，不推論heap
+大小、CPU或FPS改善。

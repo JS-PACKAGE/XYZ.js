@@ -13,6 +13,7 @@ var WebGPUOcclusionBackend = class {
 	shader;
 	vertex;
 	index;
+	dynamicOffsets = [0];
 	destroyed = !1;
 	generation = 0;
 	failure = void 0;
@@ -133,7 +134,7 @@ struct Proxy { viewProjection: mat4x4<f32>, minimum: vec4<f32>, maximum: vec4<f3
 		});
 		try {
 			g.setViewport(0, 0, s, c, 0, 1), g.setPipeline(p), g.setVertexBuffer(0, this.vertex), g.setIndexBuffer(this.index, `uint16`);
-			for (let e = 0; e < d.count; e++) g.setBindGroup(0, d.group, [e * 256]), g.beginOcclusionQuery(e), g.drawIndexed(require_occlusion_proxy.occlusionProxyIndices.length), g.endOcclusionQuery();
+			for (let e = 0; e < d.count; e++) this.dynamicOffsets[0] = e * 256, g.setBindGroup(0, d.group, this.dynamicOffsets), g.beginOcclusionQuery(e), g.drawIndexed(require_occlusion_proxy.occlusionProxyIndices.length), g.endOcclusionQuery();
 		} finally {
 			g.end();
 		}

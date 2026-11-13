@@ -21176,3 +21176,109 @@ passed／failed。Cube helper誤用nadir option，對照既有fixture後改為�
 未重跑full suite、repo-wide lint、CJS runtime、RAF benchmark、audio unlock、device loss或
 初始化auto fallback。未驗證Firefox／Safari或physical devices；沒有CPU timing、heap size／
 GC、GPU完成時間、latency或presentation FPS量測，不由JS array事件減少宣稱這些收益。
+
+## P197 — Reuse native occlusion dynamic-offset storage (2026-11-13)
+
+### Change and preserved contracts
+
+WebGPUOcclusionBackend原每query draw的[i * 256]改為constructor-owned單元素number
+array，在setBindGroup前更新。保留三參數sequence overload、byte offsets、binding／query
+index與draw次序；不改成Uint32Array，不新增數值轉換、shader、depthCompare或公開API。
+各QueryFrame仍有自己的uniforms、group、query、resolve、readback、data及records；沒有
+以共用scratch取代非同步frame storage，afterSubmit／generation／optional-failure策略不變。
+
+只保存一個number，不新增actor或GPU resource retention。採用理由是刪除逐query JS array
+construction；observed bound-array identities不等同uninstrumented heap／GC或CPU收益。
+Before／after同一真正class constructor皆包含新scratch欄位，隔離method與shape；不是
+constructor memory overhead比較，未將before未綁定的scratch計為bound array。
+
+### Canonical receiver and native proof
+
+macOS arm64、Node26.7.0、pnpm12.6.0、TypeScript6.0.3、managed Chromium153.0.8010.12，
+desktop automation，非physical devices或Safari認證。
+
+先以computed dynamic imports建立observer，兩次owner guard都得到0 receivers，因此
+拒絕採用那些看似passed的畫面，沒有把它們當before／after證據。Network trace顯示Vite
+為computed URL增加?import，與renderer static import成為不同module identity；只改副檔名
+未解決。正式fixture改為source／dist各自canonical static imports，確實觀察到兩個真正
+WebGPUOcclusionBackend receivers，after是production method、before只借用凍結舊method。
+同入口的visibilityLimits／proxy／gpu-timing依賴也保持一致，不使用fake renderer／device。
+
+Native command hook在每call當下複製offset values及arity，原樣委派GPU API；query
+buffer的getMappedRange只呼叫原生一次，再複製回傳payload，不增加重疊native mappings。
+保留原mapAsync promise，等原生readback與產品callback完成才進下一個semantic stage。
+Packed uniform bytes取自真正QueryFrame.data的當次有效範圍，不冒稱另做GPU uniform-buffer
+readback；原writeBuffer傳入同一data buffer及count×256的範圍，程式路徑未改。
+
+| Per source or built-root entry                 |    Before |     After |
+| ---------------------------------------------- | --------: | --------: |
+| Actual backend receivers (single / AA-enabled) |         2 |         2 |
+| Encoded observations including disabled stage  |        28 |        28 |
+| Native dynamic-offset binds                    |        50 |        50 |
+| Bound offset-array identities                  |        50 |         2 |
+| Packed uniform bytes compared                  |    12,800 |    12,800 |
+| Completed native query readbacks               |        26 |        26 |
+| Exact native RGBA frame pairs                  |        28 |        28 |
+| Compared RGBA bytes                            | 2,752,512 | 2,752,512 |
+
+Source及built root各自完成全矩陣，RGBA逐位、packed uniforms、offsets／arity／query draw
+次序、case stats完全一致；readback比較每slot的zero／nonzero語意，不把平台回傳的
+nonzero值當成可攜的精確sample coverage。這輪實際隱藏slot0、可見slot1為[0,1]。
+原生GPU validation scope、正常page／console errors皆空。
+
+### Consumer-visible behavior and negative control
+
+每種AA以14個真正Scene frames涵蓋initial pending、settled proof、禁用、重啟／warmup、
+移動遮蔽物／恢復、移動camera、移除／重新加入candidate及settled history。
+
+| Native observation (both source and dist) | Single | AA-enabled |
+| ----------------------------------------- | -----: | ---------: |
+| Visible blue pixels                       |    110 |        110 |
+| Settled hidden meshes culled              |      1 |          1 |
+| Disabled query culls                      |      0 |          0 |
+| Green pixels after moving wall            |     36 |         42 |
+| Culls after moving wall                   |      0 |          0 |
+| Restored wall settled culls               |      1 |          1 |
+
+初次camera／occluder／membership變更立即撤回舊proof，之後才接受新native結果。
+另以全offset0的真GPU variant做negative：source／dist各在第二frame錯誤cull2、blue pixels
+由110變0、drawCalls由正常2變1，consumer assertion如預期失敗。未降低門檻或只比較counts
+增加；有真正可見的物件會因offset錯誤消失。
+
+不改pipeline／queue／query methods的額外正式renderer controls，source及built root各28個
+cases均通過；只由既有frameProofs取得native submitted canvas，私有frame state只作等待
+readback完成，不以mock代替。Actual backend仍由public createRenderer選取。
+
+### Public UI and probe correction
+
+真正/examples/world-visibility/?renderer=webgpu：關閉moving與queries後15個RAF callbacks
+間native query pass counter維持8→8，重啟後繼續增加；改distance25／orbit25、移動遮蔽物、
+Replace HLOD proxy及pagehide cleanup完成。最後counter27，info為160 instances、distance25、
+native occlusion enabled，正常page／console errors空；RAF callbacks不是FPS benchmark。
+
+首次UI的init observer在about:blank再次執行，該origin沒有GPUCommandEncoder而throw。
+這是probe error，不改引擎；observer加typeof guard只處理非GPU頁，world頁仍強制等待真
+query pass。已通過的source／dist no-override controls保存並跳過，只重做該UI／cleanup。
+GPU／GL showcase亦完成Scene A→B與pagehide，無page／console errors。
+
+已讀source single-settled PNG、built AA moved-wall PNG及正式world-visibility UI PNG：
+amber wall與visible blue box存在；移開wall確實露出green box；真範例可見地面、shadow、
+LOD／HLOD與藍色instances。不是只憑文字status或獨立shader demo宣稱rendering通過。
+
+### Checks, distribution and limits
+
+- 2026-11-13 22:02 scoped Prettier／ESLint、strict typecheck與
+  render-visibility.test.ts 1檔13 tests通過，沒有新增implementation-pinning unit tests。
+- 停舊server後隔離tsc／minify／vendor copy／CJS build成功，377 JS由9,358,779至
+  4,011,302 bytes、720 CJS files；這是staging totals，不是節省量，vendor unchanged。
+- Declaration guard只允許新增private dynamicOffsets。僅複製occlusion ESM／CJS與兩maps、
+  d.ts共5檔；新server才跑built-root proof。使用者physics／world2d與其產物不覆寫、不stage。
+- 同步README中／英／日、PLAN、DESIGN、technical中／英與本驗收；檢查格式及inline相對
+  連結，保留歷史counts／日期，維持1.23.0、不加runtime dependency。
+- 清理owned baseline／wrong variants、observers、native fixtures、drivers、staging、logs、
+  screenshots與results，停止本輪Vite，依功能獨立[P197] commit，不push、不升版。
+
+本輪逐frame等待readback，以隔離前後case；未宣稱驗證query-ring飽和或多frame同時mapping
+的新能力。未重跑full suite、repo-wide lint、CJS runtime、sprites RAF、audio unlock、device
+loss或auto fallback；未認證Firefox／Safari／physical devices。沒有CPU timing、heap／GC、
+GPU完成時間、latency或presentation FPS量測，不由array identities下降宣稱上述收益。

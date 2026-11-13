@@ -5825,3 +5825,15 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - Reflection／planar capture沒有post velocity consumer，capturingProbe路徑仍在
   color結束清空，不延長那些capture的借用；不新增另一份visible array或scene rescan。
 - 這輪採用理由是省去逐draw numeric array與修正被驗證的GL功能缺陷，沒有CPU／FPS量測。
+
+## P197 — Dynamic offsets are encoded values, not asynchronous array ownership
+
+- Occlusion backend只在native setBindGroup前更新同一單元素number array；每個QueryFrame
+  仍持有自己的uniforms／group／query／resolve／readback與records。沒有共用那些非同步資料。
+- 每query原i×256的byte offsets、三參數sequence overload及begin／end query次序保持；
+  不新增typed-array conversion或改變可選culling的失敗時全可見策略。
+- Proof必須patch實際renderer依賴的同一class；Vite computed dynamic import的query URL
+  可產生不同module identity，observer沒有receiver時直接拒絕，而非把原生畫面通過當A/B。
+- 改以canonical static imports，before借用凍結method、after使用真正production method；
+  在native呼叫當下擷取offset值，以真GPU readback及visible／hidden pixels確認消費語意。
+- 採用的是逐query JS array construction減少，非已證明CPU時間、heap大小或FPS改善。

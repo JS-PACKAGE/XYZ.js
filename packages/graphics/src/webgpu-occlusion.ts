@@ -49,6 +49,7 @@ export class WebGPUOcclusionBackend implements OcclusionProofSource {
   private readonly shader: GPUShaderModule;
   private readonly vertex: GPUBuffer;
   private readonly index: GPUBuffer;
+  private readonly dynamicOffsets = [0];
   private destroyed = false;
   private generation = 0;
   /** Readback failure disables optional culling and leaves all objects visible. */
@@ -211,7 +212,8 @@ export class WebGPUOcclusionBackend implements OcclusionProofSource {
       pass.setVertexBuffer(0, this.vertex);
       pass.setIndexBuffer(this.index, 'uint16');
       for (let i = 0; i < frame.count; i++) {
-        pass.setBindGroup(0, frame.group, [i * 256]);
+        this.dynamicOffsets[0] = i * 256;
+        pass.setBindGroup(0, frame.group, this.dynamicOffsets);
         pass.beginOcclusionQuery(i);
         pass.drawIndexed(occlusionProxyIndices.length);
         pass.endOcclusionQuery();

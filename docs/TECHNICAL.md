@@ -7276,3 +7276,19 @@ and 11,264 uniform bytes. Bound offset-array identities fell from 44 to 2 across
 the two pipelines per entry. Actual source/dist post-effects, capture callers,
 layered surfaces and existing 15 unit tests passed. See [ACCEPTANCE](../ACCEPTANCE.md)
 P196 for negative controls and limits; these are not heap-size, CPU or FPS gains.
+
+## P197 native occlusion offset storage
+
+WebGPUOcclusionBackend reuses one numeric dynamic-offset array per backend. Each
+query still binds its original byte offset (index × 256) through the same
+three-argument sequence overload. QueryFrame uniforms, groups, query sets,
+readback buffers and asynchronous records remain independently owned and unchanged.
+
+Source and built-root native proofs each matched 28 frame pairs (2,752,512 RGBA
+bytes) and 12,800 uniform bytes. The 50 binds used 50 arrays before, two after,
+across single-sample and AA-enabled backend receivers. Native zero/nonzero query
+results, disabled/re-enabled culling and camera/occluder/membership invalidation
+also matched. A deliberately wrong all-zero offset variant removed a genuinely
+visible object and failed. Thirteen existing visibility tests and the scoped build
+passed; [ACCEPTANCE](../ACCEPTANCE.md) P197 records actual-surface verification,
+probe corrections and limits. Array events are not a heap-size, CPU or FPS result.

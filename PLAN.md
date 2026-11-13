@@ -5669,3 +5669,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 15 unit tests、scoped品質／build、source／dist GPU與GL正式post-effects、GL captures／
   exception cleanup、三backend layered UI及GPU／GL showcase通過。
 - 細節、negative control、故障觀察與未驗證範圍見ACCEPTANCE P196，不push、不升版。
+
+## P197 — Reuse native occlusion dynamic-offset storage
+
+- WebGPUOcclusionBackend以單一private number array取代每query draw的offset literal；
+  setBindGroup sequence overload、byte offsets、query index、in-flight storage與readback不變。
+- 真正source／built root各28對GPU frames、2,752,512 RGBA bytes、12,800 uniform bytes
+  完全一致，50 binds的array identities由50降至2（single及AA各一個backend）。
+- Native readback的zero／nonzero proof、禁用／重啟、camera／occluder／membership變更均
+  驗證；故意固定offset0確實把可見藍物件剔除，避免空路徑或fake receiver的假通過。
+- 13個既有visibility tests、scoped品質／隔離build通過；完整surface與限制見ACCEPTANCE
+  P197，不以array events推論CPU／heap／GPU或FPS，不push、不升版。

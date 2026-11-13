@@ -18,6 +18,8 @@ Canvas 單一 frame-cache hit 在一般 draw 略過無效 LRU touch，cleanup it
 
 WebGPU per-object motion 重用 dynamic-offset array，並修正 GL velocity pass 前過早清理可見清單；配置事件與原生畫面驗證見驗收，不宣稱 CPU／FPS 收益。WebGPU per-object motion reuses dynamic-offset storage; GL retains visible meshes until velocity encoding. Native pixel/allocation-event evidence is not a CPU/FPS claim. WebGPU の per-object motion は dynamic-offset array を再利用し、GL の velocity pass 前の早すぎる可視リスト解放を修正します。CPU／FPS 向上の主張ではありません。
 
+WebGPU occlusion query 也重用 numeric offset array；原生 query readback、可見／遮蔽物件與畫面對照見驗收，未宣稱 CPU／FPS 改善。WebGPU occlusion queries also reuse numeric offset storage, verified with native readback and visible/hidden objects, without a CPU/FPS claim. WebGPU の occlusion query も numeric offset array を再利用し、native readback と可視／遮蔽物体で検証します。CPU／FPS 向上の主張ではありません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

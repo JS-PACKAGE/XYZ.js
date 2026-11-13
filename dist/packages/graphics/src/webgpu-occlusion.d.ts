@@ -13,6 +13,7 @@ export declare class WebGPUOcclusionBackend implements OcclusionProofSource {
     private readonly shader;
     private readonly vertex;
     private readonly index;
+    private readonly dynamicOffsets;
     private destroyed;
     private generation;
     /** Readback failure disables optional culling and leaves all objects visible. */
