@@ -280,14 +280,16 @@ export class SkinnedMesh extends Mesh {
         const index = vertex * this.influencesPerVertex + influence;
         if (this.weights[index] === 0) continue;
         const offset = this.jointIndices[index] * 6;
-        for (let axis = 0; axis < 3; axis++) {
-          const value = this.bindVertices[vertex * 8 + axis];
-          bounds[offset + axis] = Math.min(bounds[offset + axis], value);
-          bounds[offset + 3 + axis] = Math.max(
-            bounds[offset + 3 + axis],
-            value,
-          );
-        }
+        const position = vertex * 8;
+        const x = this.bindVertices[position];
+        bounds[offset] = Math.min(bounds[offset], x);
+        bounds[offset + 3] = Math.max(bounds[offset + 3], x);
+        const y = this.bindVertices[position + 1];
+        bounds[offset + 1] = Math.min(bounds[offset + 1], y);
+        bounds[offset + 4] = Math.max(bounds[offset + 4], y);
+        const z = this.bindVertices[position + 2];
+        bounds[offset + 2] = Math.min(bounds[offset + 2], z);
+        bounds[offset + 5] = Math.max(bounds[offset + 5], z);
       }
   }
 

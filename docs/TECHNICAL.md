@@ -7123,3 +7123,17 @@ controls that never called the candidate. A second, same-class method-isolated
 comparison left static controls flat but showed only small mixed palette gains.
 Both complete differential proofs passed. See [ACCEPTANCE](../ACCEPTANCE.md)
 P187 for the independent matrices; expression counts are not CPU or FPS proof.
+
+## P188 morph influence bounds
+
+Influence bounds now update XYZ explicitly for each nonzero influence. Public
+weight/joint-index reads and each axis's private Float32 read, `Math.min` store
+and `Math.max` store retain their order. No allocation, snapshot or dirty cache
+is added; the complete GPU palette and exact CPU query mirror remain unchanged.
+
+Native CPU sampling identified this path in signed-morph updates. Separate,
+same-class timing processes measured roughly 2–9% less complete morph-palette
+CPU time in the actual built ESM root, with non-morph controls essentially flat.
+Source/build byte proofs, existing tests and actual GPU/GL picking passed.
+See [ACCEPTANCE](../ACCEPTANCE.md) P188 for both matrices and the discarded
+stale-Vite result. Sampling shares are not timing gains or an FPS certification.

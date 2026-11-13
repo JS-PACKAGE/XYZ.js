@@ -6875,3 +6875,15 @@ Endpoint products重用保留原corner／加法次序，但兩class矩陣連未�
 控制組也改善，不能全算成bounds收益。相同class、只隔離真實method後，static持平，
 palette仍只有微幅混合差異，故未改正式程式。兩種完整差分通過，獨立矩陣與限制見
 [ACCEPTANCE](../ACCEPTANCE.md) P187；乘法expression數量不是CPU或FPS證明。
+
+## P188 morph influence bounds
+
+每個非零influence的XYZ bounds改為明確展開；公開weights／joint indices的讀取，
+以及每軸private Float32讀取、Math.min store、Math.max store皆維持原順序。
+不新增配置、snapshot或dirty cache，完整GPU palette與exact CPU query mirror不變。
+
+Native CPU sampling定位signed-morph熱路徑後，以分離觀察proof的相同class矩陣量測；
+真正built ESM root的完整morph palette CPU更新約改善2–9%，非morph控制大致持平。
+Source／build bytes、既有tests及實際GPU／GL picking通過；兩種矩陣、曾作廢的
+Vite舊dist結果與限制見[ACCEPTANCE](../ACCEPTANCE.md) P188，不以sampling佔比宣稱
+CPU收益，也不宣稱FPS或GPU時間提升。

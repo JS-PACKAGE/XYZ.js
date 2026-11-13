@@ -5565,3 +5565,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   palette多為0–2%混合差異；收益不足以保留展開，正式source／tests／dist不改。
 - 兩種設計各通過完整bytes／bounds／input ownership／joint observations比較；
   不借用P186收益、不宣稱FPS，矩陣與未驗證範圍見ACCEPTANCE P187。
+
+## P188 — Profile and unroll morph influence bounds
+
+- Native CPU sampling將signed morph的influence bounds定位為主要self samples來源；
+  只展開非零influence的XYZ三軸，保留weights／joint indices與逐軸min／max順序。
+- 相同class、獨立timing process的prototype與真正built root矩陣皆有收益；
+  發佈root的morph palette CPU更新約改善2–9%，非morph控制組大致持平。
+- Source／built ESM約45MB輸出逐byte相同，公開influence讀取順序、15個既有tests、
+  typecheck／lint、隔離ESM／CJS build及正式GPU／GL picking／cleanup通過。
+- 觀察proof不混入timing process；曾送出舊dist的Vite量測作廢並重啟後重驗。
+  詳細矩陣及限制見ACCEPTANCE P188，不宣稱GPU時間、heap或FPS提升。

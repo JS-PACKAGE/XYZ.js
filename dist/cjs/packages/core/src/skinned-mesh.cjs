@@ -134,11 +134,12 @@ var SkinnedMesh = class extends require_mesh.Mesh {
 		for (let t = 0; t < this.bindVertices.length / 8; t++) for (let n = 0; n < this.influencesPerVertex; n++) {
 			let r = t * this.influencesPerVertex + n;
 			if (this.weights[r] === 0) continue;
-			let i = this.jointIndices[r] * 6;
-			for (let n = 0; n < 3; n++) {
-				let r = this.bindVertices[t * 8 + n];
-				e[i + n] = Math.min(e[i + n], r), e[i + 3 + n] = Math.max(e[i + 3 + n], r);
-			}
+			let i = this.jointIndices[r] * 6, a = t * 8, o = this.bindVertices[a];
+			e[i] = Math.min(e[i], o), e[i + 3] = Math.max(e[i + 3], o);
+			let s = this.bindVertices[a + 1];
+			e[i + 1] = Math.min(e[i + 1], s), e[i + 4] = Math.max(e[i + 4], s);
+			let c = this.bindVertices[a + 2];
+			e[i + 2] = Math.min(e[i + 2], c), e[i + 5] = Math.max(e[i + 5], c);
 		}
 	}
 	refreshAnimatedBounds() {

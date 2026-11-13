@@ -20099,3 +20099,112 @@ nonuniform／reflected／collapsed joints與unchanged CPU mirror versions。
 GPU／GL／Canvas2D surface、audio unlock、CJS runtime、Node CPU、heap、GPU time、
 端到端latency或FPS重新驗證。P186的歷史驗證保留原範圍與數字。
 清理owned scratch／drivers／browser／Vite service，僅同步文件並獨立提交，不push。
+
+## P188 — Profile-guided morph influence bounds（2026-11-13）
+
+### Scope and decision
+
+採用每個非零influence的XYZ bounds展開，production source只增加兩行。
+公開weights／joint indices仍先讀；每軸仍依序讀private Float32座標、Math.min store、
+Math.max store，再處理下一軸。沒有改成條件比較、重排influences、增加配置、snapshot
+或dirty cache。P186的12分量CPU blend、完整16分量GPU palette、morph-before-skin、
+conservative sphere及deformation／mirror版本契約不變。
+
+### Native CPU sampling identifies the path, not the gain
+
+Chromium 153.0.8010.12，darwin/arm64，project Playwright launcher的desktop automation。
+使用實際built ESM root、Geometry／SkinnedMesh／MorphTargets／Object3D及真實bitmap；
+fixture建立與warmup在recording之外，window只執行pose加updateRenderDeformation。
+依[Chrome DevTools Profiler schema](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/json/js_protocol.json)
+先enable／setSamplingInterval，再start／stop；要求100µs interval，不假設實際採樣週期
+完全相同。以下是self sample counts／shares，不是精確CPU耗時或候選加速比。
+
+| Workload              | Grid | Joints | Influences / active | Calls | Total samples | Influence-bounds self samples |  Share |
+| --------------------- | ---: | -----: | ------------------- | ----: | ------------: | ----------------------------: | -----: |
+| small-palette-control |   16 |     64 | 8 / 8               | 30000 |          1722 |                             0 |  0.00% |
+| small-signed-morph    |   16 |     64 | 8 / 8               | 30000 |          5548 |                          2452 | 44.20% |
+| medium-signed-morph   |   64 |     16 | 4 / 4               |  3000 |          3975 |                          1673 | 42.09% |
+| large-signed-morph    |  128 |     16 | 8 / 8               |   500 |          3741 |                          2257 | 60.33% |
+
+### Separate native timing processes
+
+兩組均使用同一個before class建立獨立fixtures，在相同own-property位置放入真實
+before／candidate method；不是mock或no-op。Prototype候選按正式Vite minifier設定
+產生；published組直接取真正built root的method。兩組各自使用新browser process，
+不先執行Proxy／getter觀察proof或Profiler。每case各8個warmup batches、15個交錯
+AB／BA samples，表列完整batch median milliseconds；fixture建立不計，pose計入。
+
+palette=morph／palette／bounds CPU準備，不執行exact CPU mirror或GPU submit；skin=
+updateSkin完整CPU query mirror；static=重複unchanged query。signed morph案例交替
+負／正權重，包含nonuniform／reflected／collapsed transforms。兩組資料各自比較，
+不能把不同run的baseline相減當成收益。
+
+| Grid | Joints | Influences / active | Mode            | Calls | Prototype before ms | Prototype after ms | Published before ms | Published after ms |
+| ---: | -----: | ------------------- | --------------- | ----: | ------------------: | -----------------: | ------------------: | -----------------: |
+|   16 |     64 | 4 / 1               | palette + morph |  1000 |                15.4 |               15.1 |                15.4 |               15.1 |
+|   16 |     64 | 4 / 4               | palette + morph |  1000 |                18.0 |               17.6 |                18.0 |               17.6 |
+|   16 |     64 | 8 / 1               | palette + morph |  1000 |                16.4 |               15.8 |                16.8 |               16.0 |
+|   16 |     64 | 8 / 8               | palette + morph |  1000 |                22.1 |               21.2 |                22.1 |               21.4 |
+|   64 |     16 | 4 / 4               | palette + morph |   100 |                15.8 |               15.1 |                15.8 |               15.1 |
+|   64 |     16 | 8 / 8               | palette + morph |   100 |                22.4 |               21.0 |                22.3 |               20.9 |
+|  128 |     16 | 4 / 1               | palette + morph |    20 |                 9.8 |                9.2 |                 9.4 |                9.0 |
+|  128 |     16 | 4 / 4               | palette + morph |    20 |                12.5 |               11.9 |                12.4 |               11.9 |
+|  128 |     16 | 8 / 1               | palette + morph |    20 |                10.4 |                9.6 |                10.5 |                9.6 |
+|  128 |     16 | 8 / 8               | palette + morph |    20 |                18.1 |               16.9 |                17.7 |               16.7 |
+|  128 |     16 | 8 / 8               | skin + morph    |     4 |                 9.8 |                9.7 |                 9.8 |                9.6 |
+|   16 |     64 | 8 / 8               | palette         |  3000 |                20.4 |               20.5 |                20.4 |               20.3 |
+|   16 |     64 | 8 / 8               | static          |  3000 |                 9.3 |                9.3 |                 9.2 |                9.2 |
+|  128 |     16 | 8 / 8               | skin            |     4 |                 7.0 |                7.0 |                 7.0 |                7.0 |
+
+真正published root的10個morph palette cases約改善2–9%；morph加CPU mirror的完整
+workload改善約2%，非morph controls大致持平。這是CPU準備成本，不是GPU時間、
+配置數、heap或呈現FPS的量測。未以微幅control差異推導一般情境收益。
+
+### Discarded observation and stale-loader measurements
+
+- 初版把公開weights／joint-index Proxy觀察proof與timing放在同一process，完整
+  workload時間顯著較大；該矩陣不作一般typed-array輸入的效能依據。
+  [INFERENCE] 觀察可能改變inline-cache／JIT執行歷史，沒有認證底層原因。
+- 第一次published-root量測幾乎無差異；調查直接確認磁碟上是新XYZ method，
+  同一Vite server的HTTP response卻仍是舊axis loop。該root proof／timing作廢，
+  不因bytes相同就冒稱測到新產物。停止server、建立全新server後，另以獨立browser
+  重做真正built-root proof及上表published timing。Source proof與source-based UI
+  未受該dist loader cache影響；不以cache-busting測到別的入口替代正式root。
+
+### Exact behavior and release-path verification
+
+以下兩個正式入口各18 pairs、360 mutation frames；source直接建立source root的
+SkinnedMesh，published直接建立重啟server後built root的SkinnedMesh。完整比較
+geometry vertices／tangents／indices、render bind data、完整palette、normalized
+weights／indices、sphere Object.is及版本；caller geometry／tangent／weight／index
+snapshots不變。公開weights／joint-index Proxy讀序和joint update讀序亦完全相同。
+
+| Actual entry                | Pairs | Frames | Output bytes compared | Caller input bytes checked | Joint observations | Weight/index observations |
+| --------------------------- | ----: | -----: | --------------------: | -------------------------: | -----------------: | ------------------------: |
+| source                      |    18 |    360 |            22,487,040 |                 25,551,360 |             11,520 |                 1,772,480 |
+| published ESM after restart |    18 |    360 |            22,487,040 |                 25,551,360 |             11,520 |                 1,772,480 |
+
+範圍包括four／eight influences、sparse／dense、signed morphs、mesh inverse、
+nonuniform／reflected／collapsed transforms，以及unchanged mirror不dirty。
+另外prototype隔離method的完整proof亦通過，但不混入上述正式入口合計。
+
+- Pinned pnpm 12.6.0透過npx使用（本機沒有pnpm executable）；source Prettier check、
+  scoped ESLint、tsconfig.check typecheck通過。兩個既有test files
+  native-skinning／tangent合計15 tests通過，未新增只驗wiring或source text的test。
+- 在owned temporary build tree執行正式tsc→minify→vendor copy→CJS pipeline：
+  377 JavaScript files由9,357,153→4,010,770 bytes，CJS產生720 files。
+  Public SkinnedMesh declaration與原檔cmp相同，只回寫本功能四個ESM／CJS code／map
+  outputs；其他使用者source／dist修改未被整包build覆蓋，也未納入提交。
+- 正式advanced3d在強制WebGPU與WebGL2皆two RAF→Pause→實際canvas picking→Resume→
+  Destroy完成；兩者pick均為glTF mesh、distance 12.97。實際canvas screenshots
+  已目視檢查綠色skinned ribbon、金屬球、24個藍色instances與陰影。
+  Destroy handler回報完成，未認證resource counter歸零。
+- Canvas2D明確顯示2D-only，不提交3D scene；showcase兩backend的Scene A→B及pagehide
+  cleanup通過，pageerror／console error皆空。這不是mock renderer驗證。
+- README中／英／日摘要、PLAN、DESIGN、technical中／英與本紀錄同步；文件相對連結
+  與格式另作檢查。版本仍為1.23.0，不push。
+
+本輪沒有重跑full unit suite、repo-wide lint、Node效能矩陣、audio unlock、CJS runtime、
+Safari／Firefox或physical-device認證；也沒有GPU time、heap／GC、端到端latency、
+RAF／presentation FPS數據。歷史驗收數字不改寫，不將sampling佔比或兩行展開當成
+通用收益證明。

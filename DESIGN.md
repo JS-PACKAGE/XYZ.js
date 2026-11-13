@@ -5720,3 +5720,15 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   bounds。以相同class及相同own-property位置承載兩個真實方法，隔離此變因後，
   palette收益不足，故維持原實作；沒有確認JIT、register或cache根因。
 - P177的2D採用與P186的CPU mirror採用保持不變；不同候選／VM的baseline不混算。
+
+## P188 — Keep influence observations ordered while unrolling private axes
+
+- 先profile完整signed-morph更新，再僅展開每個非零influence的三軸bounds更新；
+  不快取公開weights／joint indices，不把頂點讀取移到這些觀察之前。
+- 每軸仍依序讀private Float32座標、Math.min store、Math.max store，再處理下一軸；
+  保留NaN／signed-zero語義，不重排influences，不新增配置、snapshot或dirty cache。
+- Public GPU palette、CPU mirror、morph-before-skin、conservative sphere及版本契約不變。
+- Getter／Proxy觀察proof與效能量測使用不同browser process，避免把觀察workload
+  的執行歷史當成一般輸入；其確切JIT機制未認證。
+- 發佈root須真的載入目前產物：本輪確認Vite曾回傳舊dist method，該組資料作廢，
+  重啟server後才通過正式root差分及獨立timing。原始碼正確不等於loader已更新。
