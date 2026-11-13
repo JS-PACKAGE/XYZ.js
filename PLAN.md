@@ -5508,3 +5508,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 保留既有error collection及aggregate-error／consumer-detach-before-disposal契約，
   不新增optional狀態，不宣稱未量測的heap／GC／native decode收益。
 - 正式source／tests／dist不改；完整批次median與未重跑範圍見ACCEPTANCE P181。
+
+## P182 — Reject unrolled draw-sort histogram after sustained browser controls
+
+- Radix histogram的八次迴圈展開候選通過2,048組精確排序差分；Node與短browser
+  批次小幅改善，但較長Chromium完整sort在一般／large控制組退步約5–8%。
+- 保留原迴圈、threshold、stable ties、NaN fallback及ownership清理；
+  不混用不同批次長度／history的before與after，不猜測未profile的JIT原因。
+- 正式source／tests／dist不改，沒有重跑build或GPU／Game runtime；
+  三組量測、driver錯誤、逾時及未驗證範圍見ACCEPTANCE P182。

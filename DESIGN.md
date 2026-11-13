@@ -5664,3 +5664,11 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   large controls近乎持平；沒有足夠收益支付optional bookkeeping的額外狀態。
 - 保留原實作，不把source-level constructor減少視為已量測配置或FPS收益；
   settled自訂acquisition與native fetch／decode的證據邊界見ACCEPTANCE P181。
+
+## P182 — Prefer sustained sort evidence over unrolled source
+
+- 八個IEEE-byte histogram increments可依原順序展開，但少index算式不保證完整
+  sort較快；經較長且已warm的browser batches，一般與large案例反而退步。
+- 保留現有radix實作及all-equal-byte pass skip，不為短期小幅收益加入重複敘述。
+- Node、browser短批次與長批次各自保留基準，coarse timer與輸入history不能
+  隱藏；沒有確認JIT／tiering根因，也沒有heap、GPU或FPS收益宣稱。

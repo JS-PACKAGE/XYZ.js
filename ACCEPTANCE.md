@@ -19591,3 +19591,57 @@ One-borrow約4.2%退步，其餘一般／large控制組收益混合且絕對差�
 - ResourcePool與AssetLoader皆為正式classes，custom requests則是隔離的deterministic ownership fixtures；不把這些fixtures稱為實際browser texture／audio／native-resource驗證，也不宣稱deduplication的全部競爭情況都已覆蓋。
 - Source未採用，沒有重跑unit／build／typecheck／native resource-lifecycle；既有runtime證據保留為當時紀錄，本輪只新增Node候選量測、differential與文件。
 - README中英日、PLAN、DESIGN、TECHNICAL中英同步，文件Prettier與相對ACCEPTANCE目標檢查。Isolated modules、proof／CPU outputs及driver於提交前刪除，沒有server／native tab、依賴或vendor變更。
+
+## P182 — Retain loop-based draw-sort histogram（2026-11-13）
+
+### Candidate and complete-sort boundary
+
+候選只把private radixOrder中每個key的八次byte histogram迴圈，依原順序展開為八條increments並共用byte offset；keys、stable pass、threshold128、NaN fallback及分類／距離callbacks皆不改。TypeScript6.0.3隔離before／after modules使用相同正式dist dependencies，正式DrawSorter／tests／dist未修改。
+
+Node v26.7.0與Chromium150都量完整sort及每次還原input list；Mesh、Geometry、TextureMaterial是正式classes，使用真正bounding-sphere-center distance，非只量histogram。Fixture建構、預備class/module與cleanup不在計時內。每case8warmups、15組交替順序samples取median，單位為每batch wall milliseconds。Node bitmap只提供CPU不會用到的metadata；browser使用實際fetch／decode的ImageBitmap，但fetch／decode不在計時內。沒有並行build／tests／RAF workload。
+
+### Node and initial short browser batches
+
+短browser timing約0.1ms量化，在2–4ms batch上不足以支持小幅收益；所有控制組保留如下，不把不同process／batch的before／after交叉相減：
+
+| Case              | Meshes | Sorts/batch | Node before ms | Node candidate ms | Short browser before ms | Short browser candidate ms |
+| ----------------- | -----: | ----------: | -------------: | ----------------: | ----------------------: | -------------------------: |
+| empty             |      0 |       10000 |       0.017584 |          0.034333 |                     0.0 |                        0.1 |
+| one               |      1 |       10000 |       0.523083 |          0.524250 |                     0.6 |                        0.5 |
+| small-32          |     32 |        2000 |       2.936334 |          2.952750 |                     3.0 |                        3.1 |
+| below-radix-127   |    127 |         500 |       3.808833 |          3.912959 |                     4.0 |                        3.9 |
+| radix-128         |    128 |         500 |       2.799541 |          2.753833 |                     2.9 |                        2.8 |
+| normal-1000       |   1000 |         100 |       3.967666 |          3.870750 |                     4.1 |                        4.0 |
+| normal-mixed-1000 |   1000 |         100 |       2.811375 |          2.768208 |                     3.0 |                        2.8 |
+| large-20000       |  20000 |           5 |       4.453750 |          4.388291 |                     4.5 |                        4.3 |
+| large-mixed-20000 |  20000 |           5 |       3.231833 |          3.113417 |                     3.1 |                        3.0 |
+| equal-3000        |   3000 |          40 |       4.196584 |          4.011000 |                     4.4 |                        4.2 |
+| opaque-3000       |   3000 |         100 |       1.100875 |          1.111083 |                     1.0 |                        1.1 |
+
+### Longer, already-warmed browser history
+
+較長batch在同一browser page經過前述短batch與一次未取回結果的16×batch後量測，故不是fresh-page結果。下表是有實際取回結果的8×batch，各版本仍有自己的8warmups／15alternating samples；document.visibilityState=visible、實際UA為Chromium150，browser error entries為空。工具open回覆為「headless browser (visible, shared)」且已回報其headed歧義，不以此宣稱已確認OS原生可見window或整個Game renderer。
+
+| Case              | Meshes | Sorts/batch | Browser before ms | Browser candidate ms |
+| ----------------- | -----: | ----------: | ----------------: | -------------------: |
+| empty             |      0 |       80000 |               0.3 |                  0.3 |
+| one               |      1 |       80000 |               6.3 |                  6.3 |
+| small-32          |     32 |       16000 |              38.9 |                 38.3 |
+| below-radix-127   |    127 |        4000 |              45.0 |                 44.8 |
+| radix-128         |    128 |        4000 |              51.0 |                 53.5 |
+| normal-1000       |   1000 |         800 |              66.7 |                 72.1 |
+| normal-mixed-1000 |   1000 |         800 |              47.2 |                 50.0 |
+| large-20000       |  20000 |          40 |              69.1 |                 73.3 |
+| large-mixed-20000 |  20000 |          40 |              48.2 |                 51.0 |
+| equal-3000        |   3000 |         320 |              64.9 |                 61.0 |
+| opaque-3000       |   3000 |         800 |              11.8 |                 11.8 |
+
+長batch的128／一般1000／large20000控制組約5–8%退步；equal case改善不足以補償一般排序。較短batch與Node的小幅收益不支持採用；維持原本迴圈，不宣稱已確認JIT／tiering／inline的根因，也不從少算式推論heap、GPU或presentation FPS。
+
+### Exact order, observed failures and limits
+
+- 2,048組deterministic differential cases以實際Mesh subclass覆寫distance取得adversarial numbers，同時對照原版與獨立stable comparator。包含empty、single、127／128／129 threshold、mixed opaque、等距／signed zero、subnormal、正負Infinity、負距離、NaN fallback及reused sorter，最終identity順序完全相同。這是候選proof，不新增永久tests，也未宣稱覆蓋所有throwing/reentrant custom callbacks。
+- Node計時與JSON輸出完成後，driver錯誤假設Geometry有destroy而在cleanup throw；移除不存在的呼叫後，只執行原本尚未執行的proof，沒有重跑該Node CPU batch或把driver失敗隱藏成全命令成功。
+- 初次16×browser batch用evaluate遇到預設30秒transport timeout，沒有取回結果；改用run的明示timeout與8×batch才取得上表。未取回數字不列為證據，也沒有把已執行過的page history稱為fresh。Browser texture按正式destroy清理，Geometry僅CPU物件、不捏造不存在的destroy API。
+- 正式source未採用，沒有重跑unit／build／typecheck、WebGPU／WebGL2／Canvas2D Game或objects3d／showcase；本輪不宣稱實際frame compositing、其他browser／device、heap／GC或FPS改善。
+- README中英日將持續增長的不採用候選名單收斂為ACCEPTANCE入口與history／warmup警告；PLAN、DESIGN與TECHNICAL中英同步，文件Prettier與相對ACCEPTANCE目標檢查。原型／輸出於提交前清理，browser tab與Vite server已關閉，沒有依賴、vendor或persistent-cache變更。
