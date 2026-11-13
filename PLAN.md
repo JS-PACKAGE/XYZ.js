@@ -5946,3 +5946,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   使用實際類別與正式GraphicsError的直接寫入／retire callback對照，兩案皆改變eviction受害者。
 - 因契約失敗而否決，未進行CPU／native benchmark；正式source／dist不改。
   精確步驟與觀察見ACCEPTANCE P217；只提交決策文件，不push／升版。
+
+## P218 — Reject number-tuple GL uniform storage
+
+- 僅隔離替換private四值Float64Array為number tuple；signed zero／NaN比較、
+  P215單值number cache、Float32 vector／shared路徑與所有失效程式不變。
+- 192筆完整native submit涵蓋八個cohort及六輪AB／BA；GPU為未變更runtime對照。
+  GL結果混合，沒有穩定收益；105筆raw數值呼叫一致不足以支持採用或宣稱GPU／heap收益。
+- 否決候選，source／dist不改；精確矩陣與未重驗範圍見ACCEPTANCE P218，不push／升版。

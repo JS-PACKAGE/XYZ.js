@@ -6108,3 +6108,11 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   兩者預算、entries、liveBytes、evictions相同。只核對統計不能證明資源生命週期等價。
 - 維持每次touch遞增clock及寫入lastUsed，不封裝或縮減既有可寫能力來配合候選。
   此候選在語意檢查即否決，沒有CPU、heap、GPU、pixels或FPS收益證據。
+
+## P218 — A numeric tuple is not automatically a faster cache
+
+- 四值vector uniform cache的Float64Array可在隔離原型中換成固定number tuple，
+  但相同的JS number精度及呼叫序列，不代表相同heap成本或更快的native submit。
+- 原型以四個NaN初值建立tuple，後續寫入與比較不變；不推定JIT的elements表示或配置數。
+  固定完整矩陣結果混合，因此保留既有Float64Array，不為小幅個別cohort改善切換儲存慣例。
+- GPU未使用這個GL cache，其量測只作未變更runtime對照；沒有把控制組波動歸因於候選。

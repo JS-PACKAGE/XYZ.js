@@ -7638,3 +7638,12 @@ Skipping stamps changed actual eviction victims in both direct-write and callbac
 comparisons, even though budget, live bytes, entries and eviction counts matched.
 The prototype was rejected before CPU or native benchmarking; source and dist are
 unchanged. See [ACCEPTANCE](../ACCEPTANCE.md) P217 for the exact consumer proof.
+
+## P218 rejected number-tuple vector uniform storage
+
+GL vector scalar-form uniforms retain four-value Float64Array cache storage.
+A fixed-number-tuple prototype preserved the exact numerical call contract but
+had mixed results across 192 native submit timing rows; unchanged GPU runtime
+provided a control, not candidate speedup evidence. No heap, JIT-layout or
+dedicated native pixel/lifecycle proof was made. See [ACCEPTANCE](../ACCEPTANCE.md)
+P218 for every paired timing row and the rejected prototype's exact scope.

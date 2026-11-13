@@ -7286,3 +7286,11 @@ Map查詢減少不等同CPU、heap或GPU-state證據；全部原始CPU對照、�
 eviction受害者，即使budget、liveBytes、entries及evictions相同也不等價。
 候選在語意檢查即否決，未進行CPU或native benchmark，source與dist不變。
 精確消費者對照見[ACCEPTANCE](../ACCEPTANCE.md) P217。
+
+## P218 未採用number tuple vector uniform儲存
+
+GL vector scalar-form uniform維持四值Float64Array快取；固定number tuple原型
+雖保留數值呼叫契約，192筆完整native submit結果仍混合，故不採用。
+GPU為未變更runtime控制組，不是候選加速證據；未量heap或驗證JIT layout，
+也未另做native pixels／lifecycle重驗。完整paired timing與範圍見
+[ACCEPTANCE](../ACCEPTANCE.md) P218。
