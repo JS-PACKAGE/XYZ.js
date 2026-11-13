@@ -7476,3 +7476,22 @@ layout into FXAA failed native sampler/uniform binding validation. Six scoped te
 source checks, guarded outputs and unpatched consumers/showcase passed. Complete
 mixed CPU controls and bounded native API counts are in [ACCEPTANCE](../ACCEPTANCE.md)
 P208, not a stable full-submit speedup claim.
+
+## P209 existing owned post-source view
+
+Without an explicit source, post groups reuse the default color view already owned
+by the current post target. Explicit TAA history textures still create their own
+views. This one-expression change adds no field, container, cache or cleanup path;
+target release already clears the owned view. The destination/swapchain argument
+is a different resource and is never used as this source.
+
+Native comparisons remove exactly the redundant owned-source view calls, retaining
+all explicit-source calls, group resources/uses, 336-byte uploads and target cleanup.
+Real object velocity, TAA+object, LUT/FXAA recreation and resize paths passed exact
+presented-byte comparisons. A legal native always-owned alias passed the original
+functional thresholds but failed the golden RGBA comparison, proving the explicit
+source distinction matters beyond validation.
+
+Six scoped tests, source checks, unchanged declarations, four guarded runtime
+outputs and unpatched consumers/showcase passed. Mixed CPU controls and bounded API
+work are in [ACCEPTANCE](../ACCEPTANCE.md) P209; no stable heap or FPS gain is claimed.

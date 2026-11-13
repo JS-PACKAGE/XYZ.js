@@ -23237,3 +23237,199 @@ Binding entry buffer not set.
 - Not run: full unit suite, CJS runtime, Canvas/audio, device-loss/initialization fallback,
   Firefox/Safari or physical-device certification. No heap/GC/native/GPU-memory, GPU time,
   presentation FPS or end-to-end latency measurement; no universal speedup claim.
+
+## P209 — Reuse the existing owned post-source view without another cache
+
+### Decision and verified call path
+
+- Adopt one source-binding expression in WebGPUPostPipeline.render: an explicit source
+  still uses its own createView; otherwise use the owned target's existing default view.
+  No new field, cache, map, container, public ABI, native resource or cleanup path is added.
+- Mesh caller inspection confirms only active TAA passes a separate history source.
+  Per-object blur without TAA passes native velocity and no source, rebuilding a group;
+  LUT replacement can also rebuild it. SSR is blitted back to owned color before final post,
+  not passed as a separate final source. Steady SSR without velocity/LUT changes therefore
+  is not an active final-post source-view creation cohort.
+- The existing owned this.view is not the render view argument (destination/swapchain).
+  Target already creates its default source view and clears it on release/replacement.
+  Explicit history cannot be substituted with the owned target even though both are valid
+  rgba16float inputs; native validation alone cannot prove the intended image was sampled.
+- Adopt only bounded native API work elimination, not stable CPU/FPS or heap/GC/native-memory
+  improvement. Reusing an existing reference does not establish a measured memory saving.
+
+### Environment and complete actual-renderer CPU controls
+
+- Node26.7.0, TypeScript6.0.3, pnpm12.6.0; pinned Chromium153.0.8010.12 desktop automation on
+  darwin/arm64, not physical-device/Safari certification. Static canonical SDK imports use
+  /src/index.ts and package-declared /dist/src/index.js, with actual root-owned native class.
+- Source before/after methods borrow the actual owner/pipelines/device; no fake GPU or
+  standalone renderer. Both include all P203–P208 behavior. Timings run before payload/pixel
+  observers, GPU then GL in separate browser processes, visible64² canvas and100 real Meshes.
+- Five cohorts: steady post, camera-only blur, object blur, TAA+object, FXAA+object. Steady
+  and camera-only blur do not rebuild default-source groups each steady frame; TAA+object
+  is an unchanged explicit-source control. Object modes draw100 geometry plus100 velocity
+  draws on both backends; this is not a100-total-draw workload.
+- Six paired rounds alternate AB/BA order; each sample times24 complete begin/render/end
+  CPU submissions. Warmup/native completion/GL finish remain outside the timed interval.
+  All120 raw rows are retained without favourable retiming or omitted controls.
+
+| backend | workload    | before_ms | after_ms | change_percent | upload_before | upload_after | actual_draws |
+| ------- | ----------- | --------- | -------- | -------------- | ------------- | ------------ | ------------ |
+| webgpu  | none        | 0.089583  | 0.089583 | 0.00           | 7856          | 7856         | 100          |
+| webgpu  | camera      | 0.089583  | 0.089583 | 0.00           | 7856          | 7856         | 100          |
+| webgpu  | object      | 0.112500  | 0.112500 | 0.00           | 33456         | 33456        | 200          |
+| webgpu  | taa-object  | 0.110417  | 0.108333 | -1.89          | 33728         | 33728        | 200          |
+| webgpu  | fxaa-object | 0.110417  | 0.104167 | -5.66          | 33456         | 33456        | 200          |
+| webgl2  | none        | 0.110417  | 0.110417 | 0.00           | 4048          | 4048         | 100          |
+| webgl2  | camera      | 0.108333  | 0.108333 | 0.00           | 4048          | 4048         | 100          |
+| webgl2  | object      | 0.129167  | 0.139583 | 8.06           | 4048          | 4048         | 200          |
+| webgl2  | taa-object  | 0.152083  | 0.150000 | -1.37          | 4288          | 4288         | 200          |
+| webgl2  | fxaa-object | 0.145833  | 0.147917 | 1.43           | 4048          | 4048         | 200          |
+
+- Object CPU is flat; FXAA+object is slightly lower, but unchanged TAA+object and unused GL
+  controls also move. Rounded negative zero is displayed as zero only; raw rounds are below.
+  No stable causal whole-submit improvement or presentation FPS gain is inferred.
+
+#### Raw WebGPU rounds
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.112500 |          0.104167 |
+| none / 2         |           0.100000 |          0.104167 |
+| none / 3         |           0.091667 |          0.095833 |
+| none / 4         |           0.083333 |          0.083333 |
+| none / 5         |           0.087500 |          0.083333 |
+| none / 6         |           0.075000 |          0.079167 |
+| camera / 1       |           0.095833 |          0.100000 |
+| camera / 2       |           0.120833 |          0.091667 |
+| camera / 3       |           0.083333 |          0.100000 |
+| camera / 4       |           0.079167 |          0.087500 |
+| camera / 5       |           0.137500 |          0.079167 |
+| camera / 6       |           0.079167 |          0.083333 |
+| object / 1       |           0.112500 |          0.116667 |
+| object / 2       |           0.137500 |          0.125000 |
+| object / 3       |           0.112500 |          0.112500 |
+| object / 4       |           0.116667 |          0.112500 |
+| object / 5       |           0.108333 |          0.112500 |
+| object / 6       |           0.108333 |          0.108333 |
+| taa-object / 1   |           0.116667 |          0.120833 |
+| taa-object / 2   |           0.112500 |          0.108333 |
+| taa-object / 3   |           0.104167 |          0.108333 |
+| taa-object / 4   |           0.108333 |          0.108333 |
+| taa-object / 5   |           0.112500 |          0.112500 |
+| taa-object / 6   |           0.104167 |          0.108333 |
+| fxaa-object / 1  |           0.104167 |          0.104167 |
+| fxaa-object / 2  |           0.112500 |          0.104167 |
+| fxaa-object / 3  |           0.108333 |          0.108333 |
+| fxaa-object / 4  |           0.112500 |          0.104167 |
+| fxaa-object / 5  |           0.112500 |          0.108333 |
+| fxaa-object / 6  |           0.108333 |          0.104167 |
+
+#### Raw WebGL2 unused controls
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.120833 |          0.125000 |
+| none / 2         |           0.112500 |          0.125000 |
+| none / 3         |           0.108333 |          0.108333 |
+| none / 4         |           0.104167 |          0.112500 |
+| none / 5         |           0.154167 |          0.100000 |
+| none / 6         |           0.104167 |          0.108333 |
+| camera / 1       |           0.108333 |          0.112500 |
+| camera / 2       |           0.112500 |          0.112500 |
+| camera / 3       |           0.108333 |          0.108333 |
+| camera / 4       |           0.112500 |          0.104167 |
+| camera / 5       |           0.108333 |          0.108333 |
+| camera / 6       |           0.108333 |          0.100000 |
+| object / 1       |           0.116667 |          0.129167 |
+| object / 2       |           0.133333 |          0.141667 |
+| object / 3       |           0.125000 |          0.137500 |
+| object / 4       |           0.120833 |          0.125000 |
+| object / 5       |           0.141667 |          0.145833 |
+| object / 6       |           0.141667 |          0.141667 |
+| taa-object / 1   |           0.125000 |          0.120833 |
+| taa-object / 2   |           0.154167 |          0.145833 |
+| taa-object / 3   |           0.150000 |          0.154167 |
+| taa-object / 4   |           0.154167 |          0.150000 |
+| taa-object / 5   |           0.154167 |          0.150000 |
+| taa-object / 6   |           0.150000 |          0.154167 |
+| fxaa-object / 1  |           0.145833 |          0.145833 |
+| fxaa-object / 2  |           0.141667 |          0.158333 |
+| fxaa-object / 3  |           0.150000 |          0.150000 |
+| fxaa-object / 4  |           0.145833 |          0.145833 |
+| fxaa-object / 5  |           0.154167 |          0.158333 |
+| fxaa-object / 6  |           0.145833 |          0.141667 |
+
+### Applied native work, explicit-source control and exact pixels
+
+- Eight source/distribution × GPU/GL × AA off/on advanced suites retain existing TAA/history
+  reset, SSR/combined/toggle, capture/abort, spatial probe and Text3D consumer thresholds.
+- Four whole post-effects suites each cover both AA modes with LUT identity/cool, tones,
+  fog/occlusion, flare, camera/cut and instance motion. Owned fixture additionally renders
+  actual TAA+object velocity, disables TAA, exercises FXAA toggles/recreation and target
+  sizes128²→160×128→128². Original thresholds are unchanged, including real FXAA pixel delta.
+- After delegates to the actual applied class; frozen parent methods run on the same real
+  native owner before. Native view rows classify default-owned versus explicit source at
+  actual GPUTexture.createView. The entire after row list must equal before minus exactly
+  default-owned source rows created during render. No target/LUT/empty-velocity/FXAA or
+  explicit-history view calls may disappear.
+- Actual input/source/velocity identities, group descriptors and actual setBindGroup uses,
+  layout queries, attachments, every336-byte upload, target release/native destroy records
+  and presented RGBA compare exactly. Different JS view handles are not confused with
+  different native textures; destination/swapchain views are not cached.
+
+| entry  | backend | AA   | consumer | frame_pairs | RGBA_bytes | views_before | views_after | owned_calls_removed | explicit_before | explicit_after | source_and_velocity | owned_and_velocity | layout_gets | groups | actual_uses | passes | uploads | uniform_bytes | releases | destroys |
+| ------ | ------- | ---- | -------- | ----------- | ---------- | ------------ | ----------- | ------------------- | --------------- | -------------- | ------------------- | ------------------ | ----------- | ------ | ----------- | ------ | ------- | ------------- | -------- | -------- |
+| source | webgpu  | off  | advanced | 23          | 5870592    | 54           | 54          | 0                   | 14              | 14             | 0                   | 0                  | 1           | 18     | 19          | 19     | 19      | 6384          | 12       | 8        |
+| source | webgpu  | on   | advanced | 23          | 5870592    | 54           | 54          | 0                   | 14              | 14             | 0                   | 0                  | 1           | 18     | 19          | 19     | 19      | 6384          | 12       | 8        |
+| source | webgpu  | both | effects  | 82          | 5406720    | 128          | 84          | 44                  | 4               | 4              | 4                   | 38                 | 4           | 62     | 92          | 92     | 82      | 27552         | 14       | 24       |
+| source | webgl2  | off  | advanced | 23          | 5870592    | 0            | 0           | 0                   | 0               | 0              | 0                   | 0                  | 0           | 0      | 0           | 0      | 0       | 0             | 0        | 0        |
+| source | webgl2  | on   | advanced | 23          | 5870592    | 0            | 0           | 0                   | 0               | 0              | 0                   | 0                  | 0           | 0      | 0           | 0      | 0       | 0             | 0        | 0        |
+| source | webgl2  | both | effects  | 82          | 5406720    | 0            | 0           | 0                   | 0               | 0              | 0                   | 0                  | 0           | 0      | 0           | 0      | 0       | 0             | 0        | 0        |
+| dist   | webgpu  | off  | advanced | 23          | 5870592    | 54           | 54          | 0                   | 14              | 14             | 0                   | 0                  | 1           | 18     | 19          | 19     | 19      | 6384          | 12       | 8        |
+| dist   | webgpu  | on   | advanced | 23          | 5870592    | 54           | 54          | 0                   | 14              | 14             | 0                   | 0                  | 1           | 18     | 19          | 19     | 19      | 6384          | 12       | 8        |
+| dist   | webgpu  | both | effects  | 82          | 5406720    | 128          | 84          | 44                  | 4               | 4              | 4                   | 38                 | 4           | 62     | 92          | 92     | 82      | 27552         | 14       | 24       |
+| dist   | webgl2  | off  | advanced | 23          | 5870592    | 0            | 0           | 0                   | 0               | 0              | 0                   | 0                  | 0           | 0      | 0           | 0      | 0       | 0             | 0        | 0        |
+| dist   | webgl2  | on   | advanced | 23          | 5870592    | 0            | 0           | 0                   | 0               | 0              | 0                   | 0                  | 0           | 0      | 0           | 0      | 0       | 0             | 0        | 0        |
+| dist   | webgl2  | both | effects  | 82          | 5406720    | 0            | 0           | 0                   | 0               | 0              | 0                   | 0                  | 0           | 0      | 0           | 0      | 0       | 0             | 0        | 0        |
+
+- Twelve normal suites compare512 frame pairs and68,591,616 presented RGBA bytes exactly,
+  with identical drawCalls/uploadBytes and clean native GPU scopes. Each GPU effects suite
+  includes explicit-source+velocity and owned-source+velocity paths; every advanced GPU
+  explicit-source view call remains present. GL never enters the changed class.
+
+### Legal native source alias rejected only by actual presented pixels
+
+| entry  | consumer | original_state | native_errors | native_aliases | RGBA_mismatch_frames | RGBA_mismatch_bytes | result                    |
+| ------ | -------- | -------------- | ------------- | -------------- | -------------------- | ------------------- | ------------------------- |
+| source | advanced | passed         | 0             | 14             | 3                    | 3529                | rejected-by-native-pixels |
+| source | effects  | passed         | 0             | 4              | 2                    | 37311               | rejected-by-native-pixels |
+| dist   | advanced | passed         | 0             | 14             | 3                    | 3529                | rejected-by-native-pixels |
+| dist   | effects  | passed         | 0             | 4              | 2                    | 37311               | rejected-by-native-pixels |
+
+- Negative substitutes the actual owned color view for explicit native TAA history in the
+  real createBindGroup descriptor. Actual native handles are distinct, layout/resources
+  remain legal, and all native validation scopes are empty.
+- The original consumer thresholds still report passed in all four negatives. Exact actual
+  presented RGBA nevertheless differs from the correct candidate with matching dimensions,
+  drawCalls and uploadBytes. The host rejects these image mismatches, not a private-field
+  echo or API-count assertion. Do not misreport these as native validation failures or as
+  original functional-test failures; the stronger golden-byte comparison catches them.
+
+### Quality, distribution and certification limits
+
+- Source Prettier unchanged, scoped ESLint and strict typecheck passed. Existing temporal-post
+  and volumetric-post files:6 tests passed at02:29:22,1.67s; no wiring-only tests added.
+- Isolated build compiled/minified377 JS files9,362,673→4,013,047 bytes and built720 CJS files.
+  Declaration guard requires exact unchanged post .d.ts; only four ESM/map/CJS/map runtime
+  outputs were copied. No declaration was rewritten or staged; unrelated user source/dist
+  changes remain excluded.
+- Unpatched source/distribution × GPU/GL advanced controls each pass five real scenarios,
+  with no page/console errors. Actual GPU/GL showcase Scene A→B and pagehide cleanup pass;
+  screenshot is captured, audio remains locked and is not verified.
+- Sync README Chinese/English/Japanese, PLAN, DESIGN, technical English/Chinese and this
+  record. Timing/proof Vite are stopped; owned fixtures/scripts/build stage are removed
+  before the eleven-file feature commit. No push, version bump or new runtime dependency.
+- Not run: full unit suite, CJS runtime, Canvas/audio, device-loss/initialization fallback,
+  Firefox/Safari or physical-device certification. No heap/GC/native/GPU-memory, GPU time,
+  presentation FPS or end-to-end latency measurement; no universal speedup claim.

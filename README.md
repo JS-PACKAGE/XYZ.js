@@ -42,6 +42,8 @@ Temporal SSR／TAA bind group以弱source／depth key、history slot及target ep
 
 Post／FXAA的auto-layout各自lazy保留至pipeline owner結束，跨target重建仍重用；只減少native查詢，不宣稱穩定整幀收益。Post/FXAA auto-layouts are retained lazily per immutable pipeline across target recreation; fewer native queries are not proven full-submit/FPS gains. Post／FXAA の auto-layout は各 immutable pipeline ごとに遅延保持し、target 再生成でも再利用します。Native 問い合わせ削減を安定した CPU submit／FPS 向上とはしません。
 
+未指定external source時，post直接重用既有owned color view，不加cache；explicit TAA history保持原路徑。Post reuses its existing owned color view when no explicit source is supplied, without a new cache; explicit TAA histories keep their original path. Explicit source がない post は既存の owned color view をそのまま使い、新しい cache は追加しません。Explicit TAA history の経路は変更しません。Native 呼び出し削減を安定した FPS 向上とはしません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

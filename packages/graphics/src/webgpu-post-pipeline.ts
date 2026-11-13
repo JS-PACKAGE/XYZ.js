@@ -282,7 +282,7 @@ export class WebGPUPostPipeline {
       group = this.device.createBindGroup({
         layout: (this.layout ??= this.pipeline.getBindGroupLayout(0)),
         entries: [
-          { binding: 0, resource: (source ?? this.texture!).createView() },
+          { binding: 0, resource: source ? source.createView() : this.view! },
           { binding: 1, resource: { buffer: this.buffer! } },
           { binding: 2, resource: depth ?? this.depthView! },
           { binding: 3, resource: this.ensureLUT(lut).createView() },

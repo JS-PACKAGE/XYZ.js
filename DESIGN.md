@@ -5979,3 +5979,18 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   native post handle，GPU在createBindGroup驗證拒絕，不是只比私有cache欄位。
 - Consumer probe覆蓋single／MSAA、FXAA pixels及重建、target resize、LUT／tone／fog／flare
   及camera／instance motion；完整CPU controls另記，不以小幅或unused變化冒稱整幀收益。
+
+## P209 — Reuse an owned view before adding another resource cache
+
+- Post target已持有同texture的default GPUTextureView；無explicit source時直接使用，
+  不另建WeakMap、last-source field或epoch。Target release本來就清this.view並destroy texture。
+- Render的view argument仍是當前destination／swapchain，不能當source；owned this.view與它
+  生命週期不同。Explicit TAA history source仍建立其自身view，不能無條件換成owned color。
+- Mesh caller只在TAA enabled時傳source；per-object blur的velocity會讓default-source group
+  重建，LUT替換亦可能重建。SSR先寫回owned color，本來就不是另一個final source key。
+- Native proof要求after creations恰好等於before移除owned-source render rows；explicit
+  source rows、actual group resources／uses、uniforms、attachments與target cleanup皆不變。
+- 另以真實owned view誤綁explicit history作negative；native validation與原功能門檻仍通過，
+  但實際presented bytes錯誤。資源合法與數張圖「看起來有變」不足以證明source選擇正確。
+- 不宣稱native view呼叫減少等於heap／driver memory或FPS下降；既有strong owned view
+  reference沒有增加，CPU active／unused cohorts及raw rounds另記。

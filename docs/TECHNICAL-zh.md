@@ -7152,3 +7152,19 @@ Source／dist兩AA模式的actual native／pixel比較、FXAA toggle／recreatio
 把真正post layout誤用於FXAA會被native sampler／uniform binding驗證拒絕。Scoped6 tests、
 source checks、guarded outputs及unpatched consumer／showcase通過；完整mixed CPU controls與
 原生API次數見[ACCEPTANCE](../ACCEPTANCE.md) P208，不宣稱穩定整幀收益。
+
+## P209 既有owned post-source view
+
+未傳explicit source時，post group直接使用當前post target早已持有的default color view；
+explicit TAA history texture仍建立自己的view。一個expression修改，不增加field、container、
+cache或cleanup；target release本來就會清owned view。Destination／swapchain argument是
+另一個resource，不能拿來當此source。
+
+Native對照只移除冗餘owned-source view呼叫，所有explicit-source呼叫、group resources／uses、
+336-byte uploads及target cleanup保持相同。實際object velocity、TAA+object、LUT／FXAA重建與
+resize的presented bytes皆相同。Always-owned negative雖通過native validation與原功能門檻，
+卻無法通過golden RGBA比較，證明explicit source不能混用。
+
+Scoped6 tests、source checks、完全相同declarations、四個guarded runtime outputs及unpatched
+consumer／showcase通過。Mixed CPU controls與bounded API work見[ACCEPTANCE](../ACCEPTANCE.md)
+P209，不宣稱穩定heap或FPS收益。

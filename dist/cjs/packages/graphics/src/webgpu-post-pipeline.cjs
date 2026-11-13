@@ -210,7 +210,7 @@ var WebGPUPostPipeline = class WebGPUPostPipeline {
 			entries: [
 				{
 					binding: 0,
-					resource: (s ?? this.texture).createView()
+					resource: s ? s.createView() : this.view
 				},
 				{
 					binding: 1,

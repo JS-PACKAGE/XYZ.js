@@ -5821,3 +5821,18 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   只限native API work，raw rounds見ACCEPTANCE P208，不宣稱穩定FPS／heap／driver配置收益。
 - Scoped6 tests、source checks、guarded build與unpatched consumer／showcase通過；
   僅兩個private declarations及五個post outputs，十二檔獨立commit、不push、不升版。
+
+## P209 — Reuse the existing owned post color view
+
+- 正式post render僅改source binding的一個expression：有explicit source照常createView，
+  沒有則使用target早已持有的this.view；不增加field、cache、container或cleanup。
+- Caller只有TAA提供history source；SSR會blit回owned color，per-object blur另給velocity，
+  故default-source group重建不需要再對同texture建立相同default view。
+- Source／dist×GPU／GL的advanced及post-effects byte-exact；實際TAA+object explicit input、
+  default+velocity、LUT／FXAA重建及target resize皆覆蓋，只少owned-source view呼叫。
+- Always-owned negative的GPU validation與原consumer門檻都仍通過，但native presented
+  RGBA與正確輸出不同，證明explicit source不可誤改；不是只檢查私有欄位。
+- Object CPU平、FXAA+object略快，explicit-source及GL controls亦波動；採用理由限native
+  work消除，完整raw rounds及scope見ACCEPTANCE P209，不宣稱穩定FPS／heap收益。
+- Scoped6 tests、source checks、guarded build與unpatched consumer／showcase通過；
+  declarations完全不變，只複製四個post runtime outputs，十一檔獨立commit、不push、不升版。
