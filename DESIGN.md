@@ -6116,3 +6116,10 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 原型以四個NaN初值建立tuple，後續寫入與比較不變；不推定JIT的elements表示或配置數。
   固定完整矩陣結果混合，因此保留既有Float64Array，不為小幅個別cohort改善切換儲存慣例。
 - GPU未使用這個GL cache，其量測只作未變更runtime對照；沒有把控制組波動歸因於候選。
+
+## P219 — Fewer source arithmetic expressions are not a CPU result
+
+- a===b保留NaN一律重送，a!==0保留非零快速路徑；零分支的Object.is在標準number下
+  可保存正負零契約，但不能只憑source不再有reciprocal expressions就宣稱JIT指令減少。
+- 固定native矩陣沒有完整路徑收益，未變更GPU控制亦有波動；不以此確定intrinsic或division
+  的單一機器層級成本。維持原比較式，不改cache表示、不增加分支、欄位或API。

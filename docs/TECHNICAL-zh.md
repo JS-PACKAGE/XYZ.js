@@ -7294,3 +7294,10 @@ GL vector scalar-form uniform維持四值Float64Array快取；固定number tuple
 GPU為未變更runtime控制組，不是候選加速證據；未量heap或驗證JIT layout，
 也未另做native pixels／lifecycle重驗。完整paired timing與範圍見
 [ACCEPTANCE](../ACCEPTANCE.md) P218。
+
+## P219 未採用零分支Object.is比較
+
+GL uniform cache維持原signed-zero比較式。零分支Object.is原型保留105筆raw數值呼叫，
+但192筆完整native submit沒有收益；未變更GPU對照亦有波動，不從source運算數
+推定JIT指令或機器層級原因。Runtime檔案不變；全部paired CPU資料與native
+pixels／lifecycle、heap、FPS的未驗證範圍見[ACCEPTANCE](../ACCEPTANCE.md) P219。

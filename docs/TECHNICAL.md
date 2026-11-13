@@ -7647,3 +7647,12 @@ had mixed results across 192 native submit timing rows; unchanged GPU runtime
 provided a control, not candidate speedup evidence. No heap, JIT-layout or
 dedicated native pixel/lifecycle proof was made. See [ACCEPTANCE](../ACCEPTANCE.md)
 P218 for every paired timing row and the rejected prototype's exact scope.
+
+## P219 rejected zero-sign Object.is comparison
+
+The GL uniform cache retains its original signed-zero-aware comparison.
+A zero-only Object.is branch preserved 105 raw numerical calls but provided no
+gain across 192 complete native submit timing rows. Unchanged GPU controls also
+varied; source expression counts do not establish JIT instructions or CPU causes.
+No runtime files changed. See [ACCEPTANCE](../ACCEPTANCE.md) P219 for every paired
+timing and the explicit native pixel/lifecycle, heap and FPS nonclaims.

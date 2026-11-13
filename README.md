@@ -62,6 +62,8 @@ Residency 連續touch的recency-store省略案不採用：公開可寫lastUsed�
 
 GL vector uniform的number tuple候選未採用：完整native submit結果混合，維持Float64Array儲存；數值呼叫對照不等於GPU／heap證據。A number-tuple GL vector-uniform cache was rejected after mixed complete-native-submit results; Float64Array storage remains. Numerical call parity is not GPU or heap proof. GL vector uniformのnumber tuple案はnative submitの結果が混在するため不採用とし、Float64Arrayを維持します。数値呼び出しの一致をGPU・heapの証明とはしません。
 
+GL signed-zero比較的Object.is候選未採用：數值對照一致，但完整native submit沒有收益；維持原比較式，不推定JIT指令或FPS改善。A zero-sign Object.is prototype preserved numerical calls but did not improve complete native submit; the original comparison remains, without JIT-instruction or FPS claims. GLのsigned-zero比較にObject.isを使う案は数値呼び出しが一致してもnative submitの利益がないため不採用です。元の比較式を維持し、JIT命令やFPS改善を推定しません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

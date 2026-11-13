@@ -5954,3 +5954,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 192筆完整native submit涵蓋八個cohort及六輪AB／BA；GPU為未變更runtime對照。
   GL結果混合，沒有穩定收益；105筆raw數值呼叫一致不足以支持採用或宣稱GPU／heap收益。
 - 否決候選，source／dist不改；精確矩陣與未重驗範圍見ACCEPTANCE P218，不push／升版。
+
+## P219 — Reject a zero-sign Object.is branch
+
+- 僅在a===b且a為零時，以Object.is取代兩個source reciprocal expressions；
+  NaN重送、所有儲存、cache ownership與失效程式不變，不推定實際machine instructions。
+- 192筆完整native submit及105筆raw數值呼叫對照完成；GL無收益，GPU未變更對照亦有波動。
+  不為較少source運算或個別cohort量測重跑，維持既有比較式。
+- 候選否決，source／dist不改；完整矩陣與未重驗範圍見ACCEPTANCE P219，不push／升版。
