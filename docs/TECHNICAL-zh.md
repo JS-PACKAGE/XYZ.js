@@ -6122,6 +6122,10 @@ World／local rest-rotation 與 parent-frame translation correction 保留 STEP�
 
 Lease／scope.attach(detach) 登記 synchronous consumer teardown，先 detach 才 last-resource dispose。Detach 失敗保留資源與 failing callback 供 retry，以 AggregateError 回報，不能釋放 live borrower。CancelPending 僅取消 acquisition；owner 先移除 consumers 再 release。Texture acquisition 持既有 decoded-cache lease；pool destruction 不 destroy unrelated caller services。
 
+P181保留lease release原error collection：使用settled shared acquisitions的完整
+scope bookkeeping量測不支持lazy array。Ownership／retry／abort traces與CPU控制組
+見ACCEPTANCE P181；不代表native fetch／decode或heap／GC量測。
+
 `AssetManifest.acquire(pool,selections,{signal?,scope?})` 回 scoped ManifestLease，aliases／groups 共用 acquisition 而不重複 ownership。Content build／rebuild options 接受 resourcePool／resources，新建或 fork candidate scope，經 factory context 傳入，僅由 owned Scene／subtree adopt；failure／cancel rollback。RebuildContentScene 先建 fresh unpublished candidate，再 Game.setScene prepare／原子 publish；**不**把 legacy in-place Serializer.restore 宣稱為 atomic transaction。失敗保留 old active Scene，borrowed services 仍 caller-owned。
 
 `new AssetManifest(options)` 先驗 shape 再讀取，由載入的 JSON 建立時以 `TypeError`（options／entry 非物件、`entries` 非陣列、alias 非字串、`owned` 非 boolean、font 缺 `options`、`bundles` 非 record 或成員非陣列）或既有 `RangeError`（預算／alias／acquisition）拒絕，不再出現一般屬性存取錯誤。Truthy 但非 boolean 的 `owned` 會被拒絕，因為先前載入與釋放對它的判斷不一致。

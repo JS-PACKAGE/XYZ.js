@@ -5655,3 +5655,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   constructor；但filled-row與large控制組的CPU取捨不支持保留，亦未量測heap／GC。
 - 不跨arranged／natural／dimension覆寫或重入快取padding／alignment／focus。
   兩候選差分與量測見ACCEPTANCE P180，正式設計維持原本實作。
+
+## P181 — Retain eager error bookkeeping without a measured scope win
+
+- Lease release的consumer detachment、failure retry、retirement及ownership disposal
+  順序不可為了error array配置改動；12組isolated traces與errors保持一致。
+- Lazy error collection的public scope量測有正負差異，one-borrow反而退步，
+  large controls近乎持平；沒有足夠收益支付optional bookkeeping的額外狀態。
+- 保留原實作，不把source-level constructor減少視為已量測配置或FPS收益；
+  settled自訂acquisition與native fetch／decode的證據邊界見ACCEPTANCE P181。

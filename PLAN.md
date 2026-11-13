@@ -5499,3 +5499,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   column／row-fill／large控制組收益不足或退步；不以source-level少Set冒稱heap改善。
 - 正式UI layout／scroll／tests／dist不改，沒有重跑unit／build／browser。
 - 兩候選完整數字、實際測量範圍及未驗證限制見ACCEPTANCE P180。
+
+## P181 — Reject lazy lease release-error collection
+
+- ResourceLease.release的error array改為第一次error才建立，12組ownership／
+  detach retry／reentrant／async subscription probes一致，但public scoped
+  create／borrow／settled acquire／release控制組沒有一致CPU收益。
+- 保留既有error collection及aggregate-error／consumer-detach-before-disposal契約，
+  不新增optional狀態，不宣稱未量測的heap／GC／native decode收益。
+- 正式source／tests／dist不改；完整批次median與未重跑範圍見ACCEPTANCE P181。

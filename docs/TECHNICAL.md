@@ -6256,6 +6256,11 @@ These P58–P70 additions are included in **v1.10 / 1.10.0**, not changes to ear
 
 Lease/scope `attach(detach)` registers synchronous consumer removal before last-resource disposal. Failed detachment retains the resource and failing callback for retry; release reports aggregate errors rather than freeing a live borrower's resource. `cancelPending` aborts acquisition only; owner teardown removes consumers before `release`. Texture acquisitions hold existing decoded-cache leases. Pool destruction releases scopes, not unrelated caller-owned services.
 
+P181 retained eager lease release-error collection: complete scope bookkeeping
+with settled shared acquisitions did not consistently benefit from a lazy array.
+Ownership/retry/abort traces and CPU controls are in ACCEPTANCE P181; this was
+not a native fetch/decode or heap/GC measurement.
+
 `AssetManifest.acquire(pool, selections, {signal?,scope?})` returns a scoped `ManifestLease`; aliases/groups resolve shared acquisitions without duplicating ownership. Content build/rebuild options accept `resourcePool` or `resources`; candidate scopes are fresh/forked, passed through factory context, adopted only by their owned Scene/subtree and rolled back on failure/cancellation. `rebuildContentScene` restores into a fresh unpublished candidate, then `game.setScene(candidate.scene)` prepares and atomically publishes it. This does **not** turn legacy in-place `Serializer.restore` into an atomic transaction. The old active Scene survives candidate failure; explicit borrowed services stay caller-owned.
 
 `new AssetManifest(options)` validates shapes before reading them, so a manifest built from loaded JSON fails with `TypeError` (non-object options/entries, non-array `entries`, non-string aliases, non-boolean `owned`, missing font `options`, non-record `bundles` or non-array bundle members) or the existing `RangeError` budget/alias/acquisition checks, never a generic property-access crash. A truthy non-boolean `owned` is rejected because loading and release previously disagreed on it.

@@ -19562,3 +19562,32 @@ A的一般column／row-fill／overlay及large控制組多數退步約1–5%；B�
 - 各候選另外4組override probes比較natural／dimension／arranged順序、exception、arranged修改parent layout與nested reflow，logs／errors／最終layout一致。這不是永久tests，也未宣稱涵蓋所有自訂override。
 - 正式source未採用，沒有重跑unit／build／typecheck／native UI／scroll／virtual-list／semantic browser；本輪Node CPU與isolated differential不能證明GPU、presentation FPS、heap、GC或其他browser／device收益。
 - README中英日、PLAN、DESIGN與TECHNICAL中英同步，文件Prettier及相對ACCEPTANCE目標檢查；本輪原型與輸出於提交前清理。沒有新增依賴、vendor改動或正式persistent cache。
+
+## P181 — Retain eager ResourceLease release-error collection
+
+日期：2026-07-23。Lazy error-array原型未採用；正式assets source、tests與dist不改。
+
+### Public scope CPU boundary
+
+候選只把ResourceLease.release原本的`errors = []`改成第一個caught error才建立array，並對最終length作optional檢查，沒有改detach／retirement／ownership順序。使用TypeScript6.0.3轉出的isolated before／candidate與相同正式dist dependencies；Node v26.7.0、8warmups、15組交替順序samples median，單位為每batch wall milliseconds。
+
+每次計時涵蓋public createScope、各borrow或await acquire、release及其scope bookkeeping；pool／AssetLoader建構、建立一個持續存活的settled shared acquisition anchor及最後pool destroy在計時外。Acquire cases共用同一個borrowed custom ResourceRequest，不包含native fetch／decode或第一次cache miss；不能稱為完整pool生命週期或實際texture loading量測。
+
+| Case           | Leases/scope | Scopes/batch | Before ms | Candidate ms |
+| -------------- | -----------: | -----------: | --------: | -----------: |
+| empty-scope    |            0 |         3000 |  6.085959 |     5.968792 |
+| one-borrow     |            1 |         3000 |  6.267292 |     6.530834 |
+| normal-borrow  |           16 |          300 |  0.915333 |     0.901416 |
+| large-borrow   |         1024 |           10 |  0.727167 |     0.729458 |
+| one-acquire    |            1 |          300 |  0.739125 |     0.725292 |
+| normal-acquire |           16 |           30 |  0.241375 |     0.244792 |
+| large-acquire  |          256 |            3 |  0.276125 |     0.276542 |
+
+One-borrow約4.2%退步，其餘一般／large控制組收益混合且絕對差異很小；empty-scope沒有lease release改動也有波動。未量測實際heap allocations／GC，不能把source-level少一個array constructor換算成已證明的配置或frame改善。因此維持原error collection，避免為沒有一致收益的候選增加optional狀態。
+
+### Ownership／error evidence and limits
+
+- 兩個版本各12組完整traces以strict deep comparison相同：empty、normal、failed detach retry、reentrant release、attach during detachment、retirement error、owned、borrowed、factory failure、claimed partial failure、subscriber abort及claimed-value mismatch。比較detach／dispose順序、released狀態、request getter logs、error name／message／aggregate contents及async subscriber結果。
+- ResourcePool與AssetLoader皆為正式classes，custom requests則是隔離的deterministic ownership fixtures；不把這些fixtures稱為實際browser texture／audio／native-resource驗證，也不宣稱deduplication的全部競爭情況都已覆蓋。
+- Source未採用，沒有重跑unit／build／typecheck／native resource-lifecycle；既有runtime證據保留為當時紀錄，本輪只新增Node候選量測、differential與文件。
+- README中英日、PLAN、DESIGN、TECHNICAL中英同步，文件Prettier與相對ACCEPTANCE目標檢查。Isolated modules、proof／CPU outputs及driver於提交前刪除，沒有server／native tab、依賴或vendor變更。
