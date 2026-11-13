@@ -19522,7 +19522,7 @@ Node v26.7.0、TypeScript6.0.3隔離ESM modules、相同正式dependencies；8wa
 
 ## P180 — Retain UI callback layout and eager fill bookkeeping
 
-日期：2026-07-23。兩個獨立原型均未採用；正式`UIElement`、scroll、tests與dist未修改。
+日期：2026-11-13。兩個獨立原型均未採用；正式`UIElement`、scroll、tests與dist未修改。
 
 ### 比較邊界與結果
 
