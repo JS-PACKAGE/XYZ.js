@@ -5472,3 +5472,13 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   description 仍獨立複製；不改 codec、table、budget、truncation 或錯誤分支。
 - 16,384 組差分及 32 tests 見 ACCEPTANCE P162。CPU 量測沿用 Node 的 chunk
   transport shim，不能推導 native WebCodecs decode 或影片呈現效能。
+
+## P163 — Singleton lookup without a result array
+
+- demuxMP4 的 one helper 掃描 parser 自行建立的 Box[]，保留第一個匹配 reference，
+  第二個匹配即走原 invalid error；掃描結束沒有匹配亦拒絕。合法輸入仍掃描
+  完整 sibling list，以證明唯一性，而不是單純 find 第一個匹配。
+- 不改 box tree parsing、optional boxes、codec records、sample tables、budgets
+  與 chunk ownership。原 root／nested missing／duplicate 的 RangeError 契約保留。
+- 16,384 組差分、38 tests 與約 2.7–5.6% 的 Node 完整 demux CPU 收益見
+  ACCEPTANCE P163；未量測配置計數、native WebCodecs 或 rendering fps。

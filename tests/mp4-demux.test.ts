@@ -234,6 +234,16 @@ describe('bounded MP4 demux', () => {
     expect(config.codec).toBe('avc1.42001e');
     expect(chunks.map(contents)).toEqual([[11, 12], [21, 22, 23], [31]]);
   });
+  it.each(['ftyp', 'moov', 'stsd', 'stsz', 'stts', 'stsc'])(
+    'rejects duplicate %s singleton boxes',
+    (type) => {
+      const bytes =
+        type === 'ftyp' || type === 'moov'
+          ? cat(fixture(), box(type))
+          : fixture({ extra: box(type) });
+      expect(() => demuxMP4(bytes)).toThrow(RangeError);
+    },
+  );
   it.each(['moof', 'traf', 'mvex'])('rejects fragmented %s', (type) =>
     expect(() => demuxMP4(cat(fixture(), box(type)))).toThrow(AssetError),
   );

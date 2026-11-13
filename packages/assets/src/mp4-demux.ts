@@ -109,9 +109,14 @@ export function demuxMP4(
     return boxes;
   };
   const one = (boxes: Box[], type: string): Box => {
-    const matches = boxes.filter((box) => box.type === type);
-    if (matches.length !== 1) invalid();
-    return matches[0]!;
+    let match: Box | undefined;
+    for (const box of boxes) {
+      if (box.type !== type) continue;
+      if (match) invalid();
+      match = box;
+    }
+    if (!match) invalid();
+    return match;
   };
   const full = (box: Box, version = 0): number => {
     need(box.start, 4, box.end);

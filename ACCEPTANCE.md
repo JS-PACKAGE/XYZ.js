@@ -18365,3 +18365,36 @@ tests/native-skinning.test.ts` **32 tests passed**；Typecheck、scoped ESLint�
 
 - 1-slot／16-backlog 約慢 3.8%，收益不一致；未套用正式 source、未宣稱 native
   Worker 加速，也未完成該候選的 cancellation／supersession／protocol 語義驗收。
+
+## P163 — Strict singleton MP4 box scan（2026-11-13）
+
+- one helper 以單次掃描保留唯一 Box reference，不再建立 filter result array。
+  第二個匹配即走原 invalid error；沒有匹配亦拒絕。合法輸入仍完整掃描 sibling
+  list 證明唯一性；不改 parse tree、optional boxes、codec／sample／budget 與 copies。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，CPU 與 correctness
+  modules 分開；8 warmup／15 輪交替 median、無並行測試。沿用現有 synthetic MP4
+  fixtures 與複製 payload 的 Node EncodedVideoChunk transport shim。Fixture 建立
+  在計時外，完整 demux／validation／三個 sample chunks 與結果讀取在計時內。
+
+| Codec | Ignored boxes | Audio track | Parses | Before ms | After ms |
+| ----- | ------------: | ----------- | -----: | --------: | -------: |
+| AVC   |             0 | no          |  4,000 |  8.303916 | 7.849584 |
+| VP9   |             0 | no          |  4,000 |  7.589292 | 7.165542 |
+| AV1   |             0 | no          |  4,000 |  7.423667 | 7.006958 |
+| AVC   |             0 | yes         |  2,000 |  5.130167 | 4.887167 |
+| AVC   |            64 | no          |  1,000 |  7.263542 | 6.921041 |
+| AVC   |         1,024 | no          |     64 |  5.505667 | 5.359166 |
+
+- 完整 demux CPU 約快 2.7–5.6%；未量測實際 allocation counts／heap／GC、native
+  WebCodecs overhead、decode／playback、browser rendering 或 fps。
+- 16,384 differential cases，5,815 successful outputs／10,569 errors 精確一致；
+  root／sample-table duplicates、missing required boxes、ignored boxes、AVC／VP9／
+  AV1、audio／co64／timing、truncated／mutated／fragmented data 與 nonzero byteOffset。
+  比對 config、chunk payload／type／timestamp／duration、error constructor／message／
+  cause；成功後清空 caller bytes，再確認兩 lane 的 config／chunks ownership copies。
+- 六個 permanent regression cases 分別重複 ftyp／moov／stsd／stsz／stts／stsc，
+  確保不能把唯一性檢查誤改成 first-match lookup。
+- `vitest run tests/mp4-demux.test.ts tests/video-texture.test.ts`
+  **38 tests passed**；Typecheck、scoped ESLint／Prettier、ESM compile/minify、完整
+  vendor copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+  未跑完整 suite、未開 browser／重驗 native WebCodecs、三 backend 或 audio。

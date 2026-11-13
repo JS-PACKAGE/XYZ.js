@@ -50,8 +50,9 @@ function demuxMP4(i, a = {}) {
 		}
 		return i;
 	}, one = (e, t) => {
-		let n = e.filter((e) => e.type === t);
-		return n.length !== 1 && invalid(), n[0];
+		let n;
+		for (let r of e) r.type === t && (n && invalid(), n = r);
+		return n || invalid(), n;
 	}, full = (e, t = 0) => (need(e.start, 4, e.end), (i[e.start] !== t || i[e.start + 1] || i[e.start + 2] || i[e.start + 3]) && unsupported(`${e.type} version/flags`), e.start + 4), table = (e, t) => {
 		let n = full(e);
 		need(n, 4, e.end);

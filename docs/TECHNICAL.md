@@ -372,8 +372,9 @@ These are public error classes, not a promise to rewrap every exception from use
   are in ACCEPTANCE P161; this is not an fps or hardware qualification claim.
 - MP4 demux reads validated four-byte identifiers directly from the input view,
   preserving raw code units, sliced-view offsets and independent sample/config copies.
-  ACCEPTANCE P162 records full-demux CPU measurements using the Node chunk transport
-  shim; these do not measure native WebCodecs decoding or playback.
+  Required-box lookup scans without a result array and still rejects both missing
+  and duplicate boxes. ACCEPTANCE P162–P163 record full-demux CPU measurements using
+  the Node chunk transport shim, not native WebCodecs decoding or playback.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

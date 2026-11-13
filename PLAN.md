@@ -5329,3 +5329,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   的完整 demux CPU 測項約快 47.6–56.5%，不宣稱 native decode／playback 收益。
 - Skin palette first-mismatch 與 worker queue-search guard 候選因部分測項退步
   未保留；完整量測、限制及工具結果見 ACCEPTANCE P162。
+
+## P163 — Strict singleton MP4 box scan
+
+- MP4 one-box helper 以單次掃描取代 filter result array；只有恰好一個匹配可
+  回傳，missing／duplicate boxes 仍走原 invalid error，不使用 first-match 語義。
+- 16,384 組 differential cases 與 38 項 targeted tests 通過；完整 demux 的
+  Node transport-shim CPU 測項約快 2.7–5.6%，未宣稱 decode／playback 收益。
+- 六個 duplicate-box regression、量測與限制見 ACCEPTANCE P163。
