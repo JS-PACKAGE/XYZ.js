@@ -7152,3 +7152,19 @@ controls were essentially flat. Source/build byte and observation proofs,
 26 existing tests and actual WebGPU/WebGL2 morph controls/animation passed.
 See [ACCEPTANCE](../ACCEPTANCE.md) P189 for matrices, the corrected signed-zero
 oracle and limits. These are not GPU-time, heap or presentation-FPS claims.
+
+## P190 rejected single-bucket command-sort guard
+
+A scratch candidate reused the existing histogram to skip stable redistribution
+only when all commands shared one integer depth and one world/screen space.
+Mixed spaces still require world-before-screen ordering. It added no ordered
+scan, public-getter cache or buffer-growth change.
+
+Native command-tree and observation comparisons passed 12 pairs/360 frames,
+including nested/detached transitions. Pure sorting was roughly twice as fast,
+but complete-collection results were mixed and 10,000 sprites regressed slightly.
+Eighteen uninstrumented runs of the actual three-backend sprites benchmark did
+not establish a stable CPU-submit gain, so production source, tests and builds
+remain unchanged. See [ACCEPTANCE](../ACCEPTANCE.md) P190 for both matrices and
+the visible run-to-run drift. Sampling shares and approximately 60Hz RAF are
+not CPU, GPU-completion, heap or presentation-throughput certifications.

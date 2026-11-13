@@ -5587,3 +5587,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   既有tests通過；隔離ESM／CJS build與正式GPU／GL morph sliders／動畫／cleanup通過。
 - 原碼僅增加七行，不改normal／tangent運算或公開API，不宣稱GPU、heap或FPS收益。
   短批次、長批次、發佈矩陣、修正的-0 oracle及限制見ACCEPTANCE P189。
+
+## P190 — Reject a single-bucket sort guard after actual submit timing
+
+- 正式sprites benchmark三backend各完成1,000 sprites、120 warmup與600 measured frames；
+  Native sampling確認sort位於render submit stack，sampling報表不作效能基線。
+- 候選僅重用既有histogram判斷同depth且同space，不恢復舊版逐項ordered scan；
+  12組／360 frames的命令樹、混合spaces、nested／detached及公開getter順序相同。
+- 純sort約快一半，但長批次完整collection收益混合，10,000 sprites略退步；
+  另跑18次未開Profiler的正式benchmark，CPU submit無穩定改善，因此不採用。
+- Source／tests／dist保持不變，不把單一改善run、sampling佔比或約60Hz RAF當成收益；
+  矩陣、實際submit波動與未驗證範圍見ACCEPTANCE P190。

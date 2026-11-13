@@ -20346,3 +20346,126 @@ weight===0 ? -0 : Math.fround(-0 + weight*0)，保留全部cases／斷言後才�
 未重跑full unit suite、repo-wide lint、Node效能、CJS runtime或audio unlock；沒有
 Safari／Firefox、physical-device、heap／GC、GPU time、端到端latency或RAF／presentation
 FPS認證。這些CPU batch收益不能替代上述驗證，歷史測試數與日期不改寫。
+
+## P190 — Reject single-bucket command-sort guard after real submit timing (2026-11-13)
+
+### Decision and scope
+
+正式source／tests／dist不改。候選在RenderCommandBuffer2D.sort既有histogram完成後，
+僅以span === 1且world或screen的bucket count等於command count提早返回；不恢復
+舊general ordered scan、不增加逐項branch、不移動output／slot擴容、不新增cache。
+同depth但混合spaces仍需world-before-screen重排。這不同於1827c4e4f移除的舊scan。
+
+純sort診斷約快一半，但完整collection長批次結果混合，10,000 sprites仍略退步。
+另跑正式sprites benchmark三backend各三對、共18次未開Profiler量測，submit結果
+有明顯run-to-run漂移，沒有穩定收益，因此拒絕候選；不挑單一有利run作採用依據。
+
+### Environment and actual profiler surface
+
+Node 26.7.0、pnpm 12.6.0、TypeScript 6.0.3；project browser launcher啟動pinned
+Playwright Chromium 153.0.8010.12，darwin／arm64、headless desktop automation。
+不是Safari、實體裝置或跨browser認證，套件仍1.23.0。
+
+正式/benchmarks/sprites/在可見狀態，各backend完成1,000 moving sprites、120 warmup
+及600 measured frames；logical／backing均1280×720、pixelRatio 1、共用正式PNG texture。
+三張實際canvas截圖均讀取，確認密集彩色checkerboard sprites；完成後destroy／pagehide
+沒有pageerror或console error，不宣稱不同backend逐pixel相同或resource counters歸零。
+Profiler requested sampling interval 100µs，包含少量warmup、movement與cleanup；
+instrumented報表的CPU／RAF數字不作效能基線。以下是sample counts，不是CPU時間：
+
+| Backend  | All samples |  Idle | Non-idle | Engine-source self | Submit-stack samples | Sort self within submit | Sort / submit samples |
+| -------- | ----------: | ----: | -------: | -----------------: | -------------------: | ----------------------: | --------------------: |
+| webgpu   |       90662 | 89080 |     1582 |                940 |                  997 |                      32 |                 3.21% |
+| webgl2   |       91712 | 90586 |     1126 |                771 |                  804 |                      35 |                 4.35% |
+| canvas2d |       90693 | 86785 |     3908 |                857 |                 3394 |                      31 |                 0.91% |
+
+Submit-stack判斷sample是否有graphics模組beginFrame／render／endFrame ancestor。
+All sort self samples均位於該stack；只作定位，不把share當成可達的submit收益。
+共同熱點還有collectBoundary2D／matrix／bounds，GPU writeQuad亦有94 self samples。
+
+### Command-tree and public-observation proof
+
+獨立proof browser以真正built-root Scene、Sprite、Texture、IsolatedGroup2D及collector
+建立fixtures；buffer receiver是相同正式class，僅借用兩個真實版本的sort method。
+沒有fake buffer、手製排序器或以plain object替代正式actor。
+12對×30 frames＝360個比較frame，共108,441 commands（含nested layer）及380,190次
+公開hierarchy／bounds observations，命令kind／object identity／遞迴順序與讀取順序相同。
+
+涵蓋all-world／all-screen／mixed單depth、5／16／4096 depths、fractional、unsafe integer、
+合法derived Sprite覆寫worldZIndex的NaN／Infinity fallback、nested isolation開關與
+detached root。每組反覆切換uniform／mixed spaces與depth，buffer跨frame重用。
+Boundary members於finally釋放；detached actors不被加入Scene。沒有把不合法的
+nonfinite zIndex塞過constructor驗證；也沒有減少case或放寬正式驗證。
+
+### Native same-class CPU matrices
+
+Proof與timing分別啟動browser process。真實texture／actors／Scene與正式collector；
+候選為原TS僅加guard後transpile／minify，before為當時正式built module。
+兩邊buffer都是同一root class，nested buffer亦只換真實sort method，避免receiver-class
+差異混入量測。移動collection計時包含pose更新；static不改pose；sort-only只作診斷，
+不能和正式benchmark的submit計時混稱。10,000 sprites座標wrap在同一viewport，
+是collection負載probe，不是偷偷修改正式1,000-sprite benchmark。
+
+短批次8輪warmup、15個交錯順序samples；長批次calls增加10倍，8輪warmup、25個
+交錯順序samples。下表為每批median ms；正百分比表示after較少CPU時間，負值為退步。
+
+| Fixture / mode              | Calls short / long | Short before | Short after | Long before | Long after | Long reduction |
+| --------------------------- | -----------------: | -----------: | ----------: | ----------: | ---------: | -------------: |
+| 1,000 world / sort          |           2000 / — |          6.3 |         3.0 |           — |          — |              — |
+| 10,000 world / sort         |            200 / — |          6.3 |         3.2 |           — |          — |              — |
+| 1,000 world / moving        |         100 / 1000 |          5.3 |         5.1 |        49.5 |       44.9 |           9.3% |
+| 10,000 world / moving       |           10 / 100 |          5.2 |         6.0 |        50.3 |       51.7 |          -2.8% |
+| 1,000 world / static        |         200 / 2000 |          8.8 |         8.4 |        87.6 |       88.5 |          -1.0% |
+| 1,000 screen / moving       |         100 / 1000 |          5.0 |         4.8 |        52.1 |       49.5 |           5.0% |
+| 1,000 mixed / moving        |         100 / 1000 |          4.8 |         4.8 |        52.0 |       52.0 |           0.0% |
+| 1,000 few / moving          |         100 / 1000 |          4.9 |         4.9 |        51.9 |       52.4 |          -1.0% |
+| 1,000 wide / moving         |         100 / 1000 |          5.2 |         5.1 |        59.8 |       60.7 |          -1.5% |
+| 1,000 fractional / moving   |         100 / 1000 |         11.3 |        11.2 |       127.4 |      125.7 |           1.3% |
+| 1,000 unsafe / moving       |         100 / 1000 |          9.0 |         8.8 |       104.4 |      103.9 |           0.5% |
+| 1,000 world nested / moving |         100 / 1000 |          6.3 |         5.9 |        71.1 |       65.3 |           8.2% |
+
+純sort的1,000／10,000 cases分別6.3→3.0及6.3→3.2ms；完整collection並非
+一致改善。長批次1,000 moving world改善9.3%，10,000 moving world卻退步2.8%；
+static約退步1%，其他控制組接近或有小幅混合差異，不把全部概括成收益。
+
+### Actual, uninstrumented sprites benchmark
+
+另啟新browser process，實際載入原benchmarks/sprites頁面；僅在main module執行前
+讓真正source RenderCommandBuffer2D.prototype.sort借用before／candidate真實method。
+Route一次main module並檢查variant標記，沒有改Sprite數量、movement、正式render呼叫、
+warmup、samples或report計時。每對按before/after、after/before、before/after執行；
+每run都在可見頁面完成1,000 sprites、120＋600 frames、1280×720、ratio 1。
+未開Profiler、未安裝proof getters；不將scratch clone說成已發佈的產物優化。
+
+以下列出全部九對，避免彙總掩蓋漂移。CPU submit包含beginFrame／render／endFrame，
+不含movement，也不是GPU完成時間。mean／p95單位ms：
+
+| Backend  | Pair | Before mean | Candidate mean | Before p95 | Candidate p95 |
+| -------- | ---: | ----------: | -------------: | ---------: | ------------: |
+| webgpu   |    1 |      0.1987 |         0.2370 |     0.3000 |        0.3000 |
+| webgpu   |    2 |      0.3352 |         0.2263 |     1.3000 |        0.3000 |
+| webgpu   |    3 |      1.1065 |         1.1080 |     1.4000 |        1.4000 |
+| webgl2   |    1 |      0.9308 |         0.9192 |     1.2000 |        1.3000 |
+| webgl2   |    2 |      0.8358 |         0.8857 |     1.3000 |        1.2000 |
+| webgl2   |    3 |      0.8503 |         0.9523 |     1.3000 |        1.3000 |
+| canvas2d |    1 |      2.7767 |         1.4700 |     4.5000 |        4.2000 |
+| canvas2d |    2 |      0.6658 |         0.6613 |     0.8000 |        0.8000 |
+| canvas2d |    3 |      0.6588 |         0.6325 |     0.8000 |        0.8000 |
+
+WebGPU兩版本都由約0.2ms漂移至約1.1ms；Canvas最初一對較慢，之後兩版本都約
+0.6–0.7ms。原因未定位，不將其歸因於guard、JIT、GC、thermal或GPU完成時間。
+GL各對方向混合；沒有穩定端到端submit收益。18次RAF mean均約16.666ms，這是
+requestAnimationFrame間距，不是GPU／呈現throughput改善證明。
+
+### Verification and limits
+
+- 360-frame真實collector／命令樹／public observation proof通過；三backend正式profile
+  與18次uninstrumented benchmark均完成，pageerror／console error為空。
+- 候選未進正式source／tests／dist，沒有新增僅測wiring的永久test，也沒有宣稱重新
+  執行unit suite、typecheck、lint、build、source/build cutover或CJS runtime驗證。
+- 僅同步README中／英／日、PLAN、DESIGN、technical中／英與本紀錄；檢查文件格式
+  與相對連結，保留歷史日期、測試數及未驗證範圍，版本不變、不push。
+- 清理本輪scratch modules／profiles／driver及Vite service。準備但未執行的source/build
+  cutover與layered UI driver不算驗證；沒有聲稱本輪重驗showcase或layered example。
+- 未驗證Firefox／Safari、physical device、heap／GC、audio unlock、GPU time、latency
+  或跨backend逐pixel一致；不能由sort-only結果宣稱任一上述項目改善。

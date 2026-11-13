@@ -6899,3 +6899,15 @@ all-stream約2–5%；包含實際bounds更新仍有收益，unchanged／非morp
 Source／build bytes與觀察proof、26個既有tests及實際GPU／GL morph controls／動畫通過。
 矩陣、修正的signed-zero oracle與限制見[ACCEPTANCE](../ACCEPTANCE.md) P189；
 不宣稱GPU時間、heap或呈現FPS改善。
+
+## P190 未採用的單bucket command sort guard
+
+Throwaway候選重用既有histogram，只有所有commands同一integer depth且同一space，
+才略過穩定重排；混合world／screen仍須排序，不增加ordered scan、公開getter cache，
+也不改buffer擴容或nested／detached collection流程。
+
+12組／360 frames命令樹與公開觀察比對通過，純sort約快一倍，但完整collection結果
+混合，10,000 sprites略退步。正式三backend sprites benchmark另完成18次未開Profiler
+量測，CPU submit未有穩定改善，因此不改正式source／tests／dist。
+矩陣與run-to-run波動見[ACCEPTANCE](../ACCEPTANCE.md) P190；sampling佔比及約60Hz
+RAF均不代表CPU、GPU完成時間、heap或呈現throughput認證。

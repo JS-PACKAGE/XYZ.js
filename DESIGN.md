@@ -5744,3 +5744,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - -0 oracle遵守零weight跳過及signed-zero加法：base -0不一定變成+0；
   修正的是throwaway預期值，沒有移除case／斷言或改正式語義來遷就測試。
 - Proxy觀察與timing process分離，短批次只作探索，採用依長批次及真正發佈root量測。
+
+## P190 — Do not promote a local no-op into an unproven submit optimization
+
+- 同depth不等於可略過sort：world必須在screen之前，只有同一space的單bucket
+  才已具穩定append順序。候選在既有histogram後作常數判斷，不新增逐項scan。
+- 不改公開worldSpace／worldZIndex／bounds讀取，不新增cache或移動buffer擴容；
+  nested boundary與detached ownership亦保持原collection流程。
+- 純sort改善不保證完整collection或實際renderer submit改善。長批次與正式三backend
+  submit存在混合／波動結果，本輪拒絕候選，正式實作維持原樣。
+- Profiler與timing使用不同process；正式benchmark保留movement在CPU submit計時之外，
+  不將collection probe（包含movement）與submit、GPU完成時間或RAF頻率混稱。
