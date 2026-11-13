@@ -5766,3 +5766,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   觀察proof與timing隔離process，不能以plain object或不同class receiver替代。
 - 兩版輸出皆一致，但完整packing的控制組仍有退步；保留正式implementation，
   不因局部writer改善或程式碼較小便接受未證實的全面收益。
+
+## P192 — Bulk clearing is not automatically cheaper for pooled arrays
+
+- Private membership arrays保留backing storage，僅將本frame的live range設undefined；
+  scratch Array.fill的範圍與舊loop相同，不truncate、不改finally清理或新增配置。
+- 比較完整collector，而非只量empty Map或單一builtin；failure、shrinking與empty frame
+  仍須釋放member references，buffer之後可正常重用。
+- Native多控制組未有一致收益，保留原loop；不將native builtin的名稱當成效能保證，
+  也不因內部reference檢查通過便宣稱已量測heap／GC。

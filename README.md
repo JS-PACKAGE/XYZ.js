@@ -12,7 +12,7 @@ Performance maintenance reduces redundant computation, allocations, lookups and 
 
 性能改善：ナビゲーション（tiled／NavMesh search を含む）・アニメーション・action・ECS・timer・input・アセット解析（strict MP4 demux を含む）・テキストレイアウト・heightfield topology／normals と空 interior smoothing・CPU skinning query mirror・morph influence bounds と base copy・2D Sprite 粒子プールと ParticleLayer2D affine bounds・GPU particle command ring（低占有率 catch-up を含む）・Profiler report・polygon hit test・frustum culling・raycast の冗長な計算、割り当て、検索、空コレクションのクリアを削減し、destroy 後のメモリ解放を改善します。UTF-8 byte budgets・exclusion snapshots・スケジュール・callback snapshot／順序・ownership の解放契約は維持します。差分比較、CPU／heap の測定、修正、不採用候補、Node／native Worker別の結果、入力／cache 履歴・fixture 分離・warmup・対照条件・microbenchmark と実際の CPU submit の取捨選択、未検証範囲は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。割り当て削減や短いバッチの結果は fps 向上の証明ではありません。
 
-Private helper 與完整 packing 分開量測；bytes 相同或 bundle 較小，不代表各控制組都更快。Private-helper and complete-packing gains are measured separately; identical bytes or a smaller bundle do not establish faster controls. Private helper と packing 全体を別々に測定し、同じ bytes や小さい bundle だけで全対照条件の高速化を主張しません。
+Private helper、collection 與完整 packing 分開量測；bytes 相同或 bundle 較小，不代表各控制組都更快。Private-helper, collection and complete-packing gains are measured separately; identical bytes or a smaller bundle do not establish faster controls. Private helper・collection・packing 全体を別々に測定し、同じ bytes や小さい bundle だけで全対照条件の高速化を主張しません。
 
 ## 繁體中文
 

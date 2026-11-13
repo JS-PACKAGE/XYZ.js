@@ -6924,3 +6924,13 @@ multiply、capture、transition與cleanup。獨立長批次的純write及一般S
 有收益，但完整screen／tinted packing仍有退步，因此兩版皆不採用，正式source、
 tests與dist不改。矩陣與未執行項目見[ACCEPTANCE](../ACCEPTANCE.md) P191，
 不以scratch bundle變小宣稱所有workload更快。
+
+## P192 未採用的pooled membership bulk clear
+
+Scratch版僅將private member array同一live range的undefined stores改為Array.fill，
+不truncate、不改count／Map與finally清理。12對／360 frames的成長、縮小、空畫面、
+nested／detached與例外路徑，命令樹、185,664次公開觀察及釋放reference檢查相同。
+
+完整native collector長批次多數持平或較慢，1,000 moving world／screen分別約退步
+2.9%／6.5%，因此拒絕候選，正式source／tests／dist不改。完整控制組及未執行項目見
+[ACCEPTANCE](../ACCEPTANCE.md) P192；不是heap／GC量測，也不推論所有Array.fill都慢。

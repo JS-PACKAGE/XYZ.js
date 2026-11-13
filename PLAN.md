@@ -5609,3 +5609,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   不能由31／82 bytes較小的scratch module推論全面收益，因此兩版均不採用。
 - 正式source／tests／dist不改。第一版正式rendering2d頁面image mask、multiply、
   capture、transition與cleanup亦通過；完整矩陣與未執行項目見ACCEPTANCE P191。
+
+## P192 — Reject pooled membership Array.fill after collection controls
+
+- 僅在scratch版把private member array的逐項undefined清理改為同範圍Array.fill，
+  保留capacity、count reset與Map清理；不快取actor的type／camera／getter資料。
+- 12組／360 frames涵蓋成長、縮小、空畫面、nested／detached與bounds例外；
+  命令順序、185,664次公開觀察相同，released member storage皆無actor references。
+- 真實collector長批次多數持平或較慢，1,000 moving world與screen分別約退步2.9%／6.5%，
+  不因個別nested或10,000 case較快便採用；正式source／tests／dist不改。
+- 完整矩陣及未執行項目見ACCEPTANCE P192；既有P167 secondary-axis trig cache
+  已有拒絕紀錄，不重新量測同候選冒充新發現。

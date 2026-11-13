@@ -20570,3 +20570,74 @@ projective quad、FontFace與兩種bitmap文字均可見。截圖在transition�
 - 清理本輪scratch modules、candidate、drivers、截圖、results及Vite service，量測不留
   runtime dependency或debug hook。未認證heap／GC、GPU時間、latency、Safari／Firefox、
   physical device、跨backend逐pixel一致或presentation throughput。
+
+## P192 — Reject pooled-membership Array.fill after collector controls (2026-11-13)
+
+### Candidate and decision
+
+原private releaseBoundaryMembers以indexed loop將objects[0..count)設undefined，
+保留backing storage後reset count、回收list並clear Map。Scratch版僅以同範圍
+Array.fill替換store loop，沒有truncate、new buffer、type／camera cache或公開getter
+讀取變更。Rebased minified module 6,160→6,137 bytes，只是scratch code-size數字。
+
+沿用P190 profiles，releaseBoundaryMembers只有GPU 5、GL 2、Canvas 2個self samples，
+不是主要瓶頸，不把這些sample counts當成時間或可達收益。既有bounds已重用affine
+products，不再重做同一變形。完整collector多控制組未有一致改善，因此拒絕fill，
+正式source／tests／dist不改，也不將native builtin名稱當成效能保證。
+
+### Real collector and cleanup proof
+
+Project launcher pinned Playwright Chromium 153.0.8010.12、darwin／arm64 headless
+desktop automation；Node 26.7.0、TS 6.0.3、pnpm 12.6.0；非Safari／實機認證。
+真正built-root Scene／Sprite／Texture／IsolatedGroup2D及collector；相同root-class
+buffer只借用兩個真實releaseBoundaryMembers版本，沒有fake buffer或plain actor。
+
+12對、360 frames，比較53,154 commands的kind／object identity／nested order及
+185,664次public hierarchy／bounds observations，兩邊相同。各組反覆全量→一個→
+空畫面→半量→全量，混合spaces／depths，包含5／16／4096 depth、fractional、unsafe、
+derived nonfinite depth、nested isolation變更及detached root，不縮減到單一empty Map。
+
+非nested組的bounds override在兩個指定frame真實拋錯，驗證相同RangeError、
+清空command buffer、finally釋放membership及下一frame正常重用。每次成功或失敗後，
+boundary Map為空，所有released member list的count為0、objects無actor references；
+detached actors沒有被加入Scene。這是reference-state proof，不是heap／GC或整個Game
+無retained objects的證明。
+
+### Native complete-collection timing
+
+Proof與timing另起browser process，沒有觀察hooks污染timing。每個fixture使用正式
+texture、actors、Scene與collector，相同receiver class；8輪warmup、25個交錯順序
+samples，每列為一批median ms。Moving包含pose更新，static不改pose；非renderer
+submit、GPU完成時間或FPS量測。10,000 probe座標wrap在同viewport，不改正式benchmark。
+
+| Workload                                   | Calls / batch | Before ms | Fill ms | Reduction |
+| ------------------------------------------ | ------------: | --------: | ------: | --------: |
+| 1,000 world / moving                       |          1000 |      48.0 |    49.4 |     -2.9% |
+| 10,000 world / moving                      |           100 |      52.0 |    51.4 |      1.2% |
+| 1,000 world / static                       |          2000 |      81.8 |    83.5 |     -2.1% |
+| 1,000 screen / moving                      |          1000 |      52.5 |    55.9 |     -6.5% |
+| 1,000 mixed / moving                       |          1000 |      48.2 |    48.0 |      0.4% |
+| 1,000 few / moving                         |          1000 |      48.4 |    48.1 |      0.6% |
+| 1,000 wide / moving                        |          1000 |      50.3 |    50.8 |     -1.0% |
+| 1,000 fractional / moving                  |          1000 |     112.4 |   114.1 |     -1.5% |
+| 1,000 unsafe / moving                      |          1000 |      91.6 |    91.3 |      0.3% |
+| 1,000 world / 5 nested boundaries / moving |          1000 |      61.8 |    58.8 |      4.9% |
+
+1,000 moving world退步2.9%、static退步2.1%、screen退步6.5%；雖nested約改善4.9%、
+10,000 world約改善1.2%，仍不足以接受混合方向結果。未定位引擎JIT或builtin內部原因，
+不捏造機制，也不推論所有Array.fill都慢。
+
+### Verification and limits
+
+- 真實collector的360-frame命令／觀察／reference／error cleanup比較通過，pageerror／
+  console error為空。沒有正式runtime改動，所以未重跑unit suite、typecheck、lint、
+  build、source/build cutover、CJS runtime或圖形／音訊UI，不冒稱重新驗收backend。
+- 已準備但未執行的many-small-boundary driver不算證據；flat/common cases已未通過
+  採用標準，不為追求有利數字再添加threshold或擴大正式修改。
+- 搜尋相關實作時找到P167 secondary-axis trig cache既有拒絕紀錄：unrotated／fixed
+  rotation及rotating picking會退步。本輪不重跑同一候選，也不把既有未驗證範圍改寫。
+- 同步README中／英／日、PLAN、DESIGN、technical中／英及本紀錄；文件格式與inline
+  相對連結檢查。歷史日期／測試數不變，版本1.23.0，不push。
+- 清理本輪scratch modules、drivers、candidate、results與Vite service；沒有runtime
+  dependency或debug hooks。未量測heap／GC、GPU、latency、Safari／Firefox、physical
+  devices、跨backend pixel parity或presentation throughput。

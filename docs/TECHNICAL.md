@@ -7185,3 +7185,17 @@ faster raw writes and ordinary Sprite packing. Both variants were rejected:
 production source, tests and builds remain unchanged. See
 [ACCEPTANCE](../ACCEPTANCE.md) P191 for the full controls and unexecuted checks;
 smaller scratch modules are not an across-workload performance certification.
+
+## P192 rejected pooled-membership bulk clear
+
+A scratch variant replaced the private membership array's indexed undefined
+stores with Array.fill over the same live range, without truncation or changing
+count/Map cleanup. Twelve real-collector pairs/360 frames covered shrinking,
+empty, nested/detached and exception paths: command trees, 185,664 public
+observations and released member-reference checks matched.
+
+Complete native collection batches were mostly flat or slower, including
+roughly 2.9%/6.5% regressions for 1,000 moving world/screen sprites. The variant
+was rejected; production source, tests and builds remain unchanged.
+See [ACCEPTANCE](../ACCEPTANCE.md) P192 for all controls and unexecuted checks.
+This is not a heap/GC measurement or a general claim about Array.fill.
