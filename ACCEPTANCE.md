@@ -18179,3 +18179,42 @@ tests/rendering2d-assets.test.ts` **20 tests passed**；Typecheck、scoped ESLin
 | literal allowlist |  4,096 |   16,384 | text                           |      1 | 13.443500 | 13.412708 |
 | literal allowlist |     64 |       64 | text，Unicode whitespace／CRLF |     32 |  3.081792 |  3.102792 |
 | literal allowlist |  1,024 |    1,024 | JSON control                   |      8 |  4.342084 |  4.324375 |
+
+## P160 — Conservative bitmap descriptor byte-budget fast path（2026-11-13）
+
+- UTF-8 至多每 UTF-16 code unit 3 bytes；BMP／孤立 surrogate 各至多 3，
+  non-BMP 的兩個 units 共 4。因此 source.length ≤ fontBytes／3 時無需逐
+  code point 計數；長輸入維持原精確掃描。沒有建立 encoded buffer，未放寬
+  type、code-unit length、byte budget 或後續 text／JSON validation。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，CPU 與 correctness
+  modules 分開；8 warmup／15 輪交替 median，無並行測試。Descriptor 建立在計時外，
+  計時包含完整 parse／validation 與結果讀取；下列 units 是整份 descriptor 的
+  UTF-16 length，非 payload 字元數。
+
+| Workload                              | Glyphs | Kernings | Parses | Source units | UTF-8 bytes | Before ms |  After ms |
+| ------------------------------------- | -----: | -------: | -----: | -----------: | ----------: | --------: | --------: |
+| text                                  |     64 |        0 |     32 |        5,619 |       5,625 |  2.058250 |  1.916792 |
+| text                                  |  1,024 |        0 |      4 |       89,189 |      89,195 |  3.849416 |  3.465584 |
+| text，kerning budget                  |  4,096 |   16,384 |      1 |    1,029,411 |   1,029,417 | 13.647709 | 12.436542 |
+| JSON                                  |  1,024 |    1,024 |      8 |      144,877 |     144,883 |  4.254917 |  2.919625 |
+| JSON，2 MiB ASCII face                |     64 |        0 |      1 |    2,103,800 |   2,103,806 |  4.489375 |  0.806166 |
+| JSON，3 MiB ASCII face，scan control  |     64 |        0 |      1 |    3,152,376 |   3,152,382 |  6.780916 |  4.896958 |
+| text，900,000 BMP face characters     |     64 |        0 |      1 |      905,615 |   2,705,621 |  2.801875 |  0.919000 |
+| text，700,000 non-BMP face characters |     64 |        0 |      1 |    1,405,615 |   2,805,621 |  2.804042 |  1.224834 |
+
+- 一般 text 約快 6.9–10.0%、JSON 約快 31.4%；large-face fast paths 約快
+  56.3–82.0%。3 MiB ASCII control 仍執行精確掃描，雖此次約快 27.8%，其掃描
+  演算法未變，僅記錄 observed CPU，不將 code-shape／optimizer 差異當成略過掃描。
+  未量測實際 allocation counts、heap、GC 或 browser rendering／fps。
+- 16,428 組 differential cases：4,127 successful results 與 12,301 errors 的
+  constructor／message／cause 精確一致。包含 ASCII、2／3-byte BMP、non-BMP、
+  孤立 high／low surrogate、text／JSON／format／type 錯誤及錯誤後再解析。
+  每種字元分別驗證 UTF-8 budget −1／0／+1 byte，及 floor(fontBytes／3)
+  code-unit 門檻 −1／0／+1；獨立 Buffer.byteLength 驗證輸入 byte 長度。
+- 六個 permanent regression cases 使用 TextEncoder 計算 padding，驗證合法
+  glyph metrics 恰好在 8 MiB 接受、再多 1 byte 拒絕；不只測未拋例外。
+- `vitest run tests/rendering2d-assets.test.ts tests/distance-field-font.test.ts`
+  **21 tests passed**；Typecheck、scoped ESLint 通過。初次 fallback scan 的
+  Prettier check 提示格式，修正後 check 通過；ESM compile/minify、完整 vendor
+  copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+  未跑完整 suite，未開 browser／重驗 font pixels／三 backend／GPU／audio。

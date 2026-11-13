@@ -63,24 +63,26 @@ var BitmapFontLoader = class BitmapFontLoader {
 	}
 	static parse(n, r = `text`) {
 		if (typeof n != `string` || n.length > require_rendering2d.rendering2dLimits.fontBytes) throw new require_texture.AssetError(`Bitmap font descriptor exceeds its byte budget.`);
-		let i = 0;
-		for (let r = 0; r < n.length; r++) {
-			let a = n.codePointAt(r);
-			if (a > 65535 && r++, i += a <= 127 ? 1 : a <= 2047 ? 2 : a <= 65535 ? 3 : 4, i > require_rendering2d.rendering2dLimits.fontBytes) throw new require_texture.AssetError(`Bitmap font descriptor exceeds its byte budget.`);
+		if (n.length > require_rendering2d.rendering2dLimits.fontBytes / 3) {
+			let r = 0;
+			for (let i = 0; i < n.length; i++) {
+				let a = n.codePointAt(i);
+				if (a > 65535 && i++, r += a <= 127 ? 1 : a <= 2047 ? 2 : a <= 65535 ? 3 : 4, r > require_rendering2d.rendering2dLimits.fontBytes) throw new require_texture.AssetError(`Bitmap font descriptor exceeds its byte budget.`);
+			}
 		}
-		let a;
+		let i;
 		if (r === `json`) try {
-			a = JSON.parse(n);
+			i = JSON.parse(n);
 		} catch (e) {
 			throw new require_texture.AssetError(`Invalid bitmap font JSON.`, { cause: e });
 		}
 		else if (r === `text`) {
-			a = {
+			i = {
 				pages: [],
 				chars: [],
 				kernings: []
 			};
-			let r = a.pages, i = a.chars, o = a.kernings, s = /(\w+)=(?:"([^"\r\n]*)"|([^\s]+))/gu;
+			let r = i.pages, a = i.chars, o = i.kernings, s = /(\w+)=(?:"([^"\r\n]*)"|([^\s]+))/gu;
 			for (let c of n.split(/\r?\n/u)) {
 				if (!c.trim()) continue;
 				let n = c.trim().split(/\s/u, 1)[0];
@@ -95,20 +97,20 @@ var BitmapFontLoader = class BitmapFontLoader {
 				].includes(n)) throw new require_texture.AssetError(`Unsupported bitmap font record.`);
 				let l = {}, u;
 				for (; (u = s.exec(c)) !== null;) l[u[1]] = u[2] ?? Number(u[3]);
-				if ((n === `info` || n === `common`) && (a[n] = l), n === `page`) {
+				if ((n === `info` || n === `common`) && (i[n] = l), n === `page`) {
 					let n = l.id;
 					if (!Number.isInteger(n) || n < 0 || n >= require_rendering2d.rendering2dLimits.fontPages || r[n] !== void 0 || typeof l.file != `string`) throw new require_texture.AssetError(`Invalid bitmap page record.`);
 					r[n] = l.file;
 				}
-				if (n === `char` && i.push(l), n === `kerning` && o.push(l), i.length > require_rendering2d.rendering2dLimits.fontGlyphs || o.length > require_rendering2d.rendering2dLimits.atlasFrames) throw new require_texture.AssetError(`Bitmap font records exceed their budget.`);
+				if (n === `char` && a.push(l), n === `kerning` && o.push(l), a.length > require_rendering2d.rendering2dLimits.fontGlyphs || o.length > require_rendering2d.rendering2dLimits.atlasFrames) throw new require_texture.AssetError(`Bitmap font records exceed their budget.`);
 			}
 		} else throw new require_texture.AssetError(`Unsupported bitmap font format.`);
-		if (!a || typeof a != `object` || Array.isArray(a)) throw new require_texture.AssetError(`Invalid bitmap font descriptor.`);
-		let o = a.info, s = a.common;
-		if (!o || typeof o != `object` || Array.isArray(o) || !s || typeof s != `object` || Array.isArray(s) || s.packed !== void 0 && s.packed !== 0 || !Number.isSafeInteger(o.size) || o.size === 0 || !Array.isArray(a.pages) || !Array.isArray(a.chars) || a.kernings !== void 0 && !Array.isArray(a.kernings)) throw new require_texture.AssetError(`Invalid or packed bitmap font descriptor.`);
-		let c = a.pages;
-		if (c.some((e) => typeof e != `string` || !e.trim()) || Array.from({ length: c.length }, (e, t) => c[t]).some((e) => e === void 0) || s.pages !== c.length) throw new require_texture.AssetError(`Bitmap pages must be contiguous nonempty filenames.`);
-		let l = a.chars.map((e) => {
+		if (!i || typeof i != `object` || Array.isArray(i)) throw new require_texture.AssetError(`Invalid bitmap font descriptor.`);
+		let a = i.info, o = i.common;
+		if (!a || typeof a != `object` || Array.isArray(a) || !o || typeof o != `object` || Array.isArray(o) || o.packed !== void 0 && o.packed !== 0 || !Number.isSafeInteger(a.size) || a.size === 0 || !Array.isArray(i.pages) || !Array.isArray(i.chars) || i.kernings !== void 0 && !Array.isArray(i.kernings)) throw new require_texture.AssetError(`Invalid or packed bitmap font descriptor.`);
+		let s = i.pages;
+		if (s.some((e) => typeof e != `string` || !e.trim()) || Array.from({ length: s.length }, (e, t) => s[t]).some((e) => e === void 0) || o.pages !== s.length) throw new require_texture.AssetError(`Bitmap pages must be contiguous nonempty filenames.`);
+		let c = i.chars.map((e) => {
 			if (!e || typeof e != `object` || Array.isArray(e) || e.chnl !== void 0 && e.chnl !== 15) throw new require_texture.AssetError(`Channel-packed bitmap glyphs are unsupported.`);
 			let n = {
 				id: e.id,
@@ -123,7 +125,7 @@ var BitmapFontLoader = class BitmapFontLoader {
 			};
 			if (!Object.values(n).every(Number.isSafeInteger)) throw new require_texture.AssetError(`AngelCode metrics must be integer values.`);
 			return n;
-		}), u = (a.kernings ?? []).map((e) => {
+		}), l = (i.kernings ?? []).map((e) => {
 			if (!e || typeof e != `object` || Array.isArray(e) || ![
 				e.first,
 				e.second,
@@ -134,29 +136,29 @@ var BitmapFontLoader = class BitmapFontLoader {
 				second: e.second,
 				amount: e.amount
 			};
-		}), d;
-		if (a.distanceField !== void 0) {
-			let e = a.distanceField;
+		}), u;
+		if (i.distanceField !== void 0) {
+			let e = i.distanceField;
 			if (!e || typeof e != `object` || Array.isArray(e) || ![`sdf`, `msdf`].includes(e.fieldType) || typeof e.distanceRange != `number` || !Number.isFinite(e.distanceRange) || e.distanceRange < 1 || e.distanceRange > 256) throw new require_texture.AssetError(`Invalid distance-field descriptor.`);
-			d = {
+			u = {
 				type: e.fieldType,
 				range: e.distanceRange
 			};
 		}
-		let f = {
-			size: Math.abs(o.size),
-			lineHeight: s.lineHeight,
-			base: s.base,
-			glyphs: l,
-			kernings: u,
-			pages: c,
-			width: s.scaleW,
-			height: s.scaleH,
-			distanceField: d
+		let d = {
+			size: Math.abs(a.size),
+			lineHeight: o.lineHeight,
+			base: o.base,
+			glyphs: c,
+			kernings: l,
+			pages: s,
+			width: o.scaleW,
+			height: o.scaleH,
+			distanceField: u
 		};
-		if (validate(f, c.length), ![f.width, f.height].every((t) => Number.isSafeInteger(t) && t > 0 && t <= require_rendering2d.rendering2dLimits.targetDimension) || f.width * f.height > require_rendering2d.rendering2dLimits.targetPixels) throw new require_texture.AssetError(`Bitmap page dimensions exceed their budget.`);
-		for (let e of l) if (e.x + e.width > f.width || e.y + e.height > f.height) throw new require_texture.AssetError(`Bitmap glyph exceeds declared dimensions.`);
-		return f;
+		if (validate(d, s.length), ![d.width, d.height].every((t) => Number.isSafeInteger(t) && t > 0 && t <= require_rendering2d.rendering2dLimits.targetDimension) || d.width * d.height > require_rendering2d.rendering2dLimits.targetPixels) throw new require_texture.AssetError(`Bitmap page dimensions exceed their budget.`);
+		for (let e of c) if (e.x + e.width > d.width || e.y + e.height > d.height) throw new require_texture.AssetError(`Bitmap glyph exceeds declared dimensions.`);
+		return d;
 	}
 	async load(n, r = {}) {
 		let i = await this.loader.loadText(n, {

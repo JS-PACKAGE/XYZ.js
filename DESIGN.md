@@ -5440,3 +5440,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 新 regression 覆蓋恰好右／下緣上限、超界 1 單位與負向 x 超界。
   Differential 16,384 operations、20 tests 及 CPU 數據見 ACCEPTANCE P159；
   不將暫存陣列移除等同於實際 heap／GC 或 rendering fps 改善。
+
+## P160 — UTF-16 length proves bounded UTF-8 size
+
+- 每 UTF-16 code unit 的 UTF-8 大小至多 3 bytes：BMP／孤立 surrogate 至多 3，
+  non-BMP 以兩個 units 表示 4 bytes。因此 length ≤ fontBytes／3 必定符合 byte
+  budget，不需逐 code point 掃描或配置 encoded buffer。
+- 超過門檻的輸入仍使用原精確計數；原 type／code-unit length 檢查與 byte error
+  precedence 保留。空字串、格式錯誤仍交由原 parser 驗證，沒有早退成功或 fallback。
+- 16,428 組 differential cases、六種字元的 byte-budget regression 及 CPU 量測
+  見 ACCEPTANCE P160。長輸入 control 雖量測較快，其掃描演算法並未改善，不把
+  optimizer／code-shape 差異當成 fast-path coverage。

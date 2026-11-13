@@ -168,13 +168,18 @@ export class BitmapFontLoader {
       source.length > rendering2dLimits.fontBytes
     )
       throw new AssetError('Bitmap font descriptor exceeds its byte budget.');
-    let bytes = 0;
-    for (let index = 0; index < source.length; index++) {
-      const code = source.codePointAt(index)!;
-      if (code > 0xffff) index++;
-      bytes += code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4;
-      if (bytes > rendering2dLimits.fontBytes)
-        throw new AssetError('Bitmap font descriptor exceeds its byte budget.');
+    // UTF-8 needs at most three bytes per UTF-16 code unit, including lone surrogates.
+    if (source.length > rendering2dLimits.fontBytes / 3) {
+      let bytes = 0;
+      for (let index = 0; index < source.length; index++) {
+        const code = source.codePointAt(index)!;
+        if (code > 0xffff) index++;
+        bytes += code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4;
+        if (bytes > rendering2dLimits.fontBytes)
+          throw new AssetError(
+            'Bitmap font descriptor exceeds its byte budget.',
+          );
+      }
     }
     let record: Record<string, unknown>;
     if (format === 'json') {

@@ -12,6 +12,7 @@ import { AtlasLoader } from '../packages/core/src/graphics2d/atlas-loader.js';
 import { ColorMatrixFilter2D } from '../packages/core/src/rendering2d/filters2d.js';
 import { Geometry2D } from '../packages/core/src/rendering2d/geometry2d.js';
 import { PerspectiveQuad2D } from '../packages/core/src/rendering2d/mesh2d.js';
+import { rendering2dLimits } from '../src/data/rendering2d.js';
 
 const bitmaps: { closed: number }[] = [];
 function stubImages(width = 32, height = 32): void {
@@ -172,6 +173,33 @@ describe('bounded parsers and transactional loaders', () => {
       BitmapFontLoader.parse(text.replace('size=16', 'size=24')).size,
     ).toBe(24);
   });
+
+  it.each(['a', 'é', '字', '𐐷', '\ud800', '\udc00'])(
+    'enforces the exact UTF-8 byte budget for %j descriptors',
+    (character) => {
+      const prefix = 'info size=16 face="';
+      const suffix = [
+        '"',
+        'common lineHeight=20 base=15 scaleW=32 scaleH=32 pages=1 packed=0',
+        'page id=0 file="font.png"',
+        'char id=65 page=0 x=0 y=0 width=4 height=6 xoffset=0 yoffset=0 xadvance=5 chnl=15',
+      ].join('\n');
+      const encoder = new TextEncoder();
+      const remaining =
+        rendering2dLimits.fontBytes - encoder.encode(prefix + suffix).length;
+      const bytes = encoder.encode(character).length;
+      const source =
+        prefix +
+        character.repeat(Math.floor(remaining / bytes)) +
+        'a'.repeat(remaining % bytes) +
+        suffix;
+      expect(BitmapFontLoader.parse(source).glyphs[0]).toMatchObject({
+        id: 65,
+        xadvance: 5,
+      });
+      expect(() => BitmapFontLoader.parse(source + 'a')).toThrow(/byte budget/);
+    },
+  );
 
   it('reports malformed bitmap-font kerning records as domain errors', () => {
     const json = JSON.stringify({

@@ -359,7 +359,9 @@ These are public error classes, not a promise to rewrap every exception from use
 - Bitmap-font text parsing reuses a descriptor-local global field matcher across
   lines; consuming each line through the final null match resets its cursor.
   Quoted-field grammar, duplicate-field order, validation and budgets are unchanged,
-  as is JSON parsing. CPU measurements and control regressions are in ACCEPTANCE P158.
+  as is JSON parsing (ACCEPTANCE P158). Both formats skip exact UTF-8 counting only
+  when UTF-16 length proves the byte budget using a three-bytes-per-unit upper bound;
+  longer inputs retain the exact scan, including lone surrogates (P160).
 - SpriteText preflights each glyph's x/y/right/bottom with scalar finite and
   inclusive absolute-bound checks before changing any displayed glyph. Out-of-budget
   text still leaves the previous text, child identities and positions intact;

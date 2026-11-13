@@ -5301,3 +5301,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 16,384 組 differential operations 與 20 項 targeted tests 通過；完整 setText
   CPU 測項約快 4.1–12.1%。只驗證 CPU layout／glyph 狀態，未重驗 browser pixels。
 - 未保留三個 bitmap record-kind／allowlist 候選；完整數據與限制見 ACCEPTANCE P159。
+
+## P160 — Conservative descriptor byte-budget fast path
+
+- BitmapFontLoader 以每 UTF-16 code unit 最多 3 UTF-8 bytes 的安全上界，
+  對 length 不超過 fontBytes／3 的輸入略過逐 code point 計數；長輸入維持精確掃描。
+- 16,428 組結果／錯誤比對與 21 項 targeted tests 通過，涵蓋 ASCII、BMP、
+  non-BMP、孤立 surrogate、精確 byte 邊界與 fast-path 長度門檻。
+- CPU 解析量測與 scan control、工具結果及未驗證限制見 ACCEPTANCE P160；
+  byte budget、grammar、JSON／text 結果及 ownership 不變。
