@@ -6090,3 +6090,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   真正draw前getUniform，保留float32 bits，另對照pixels、13 counters、native寫入數及cleanup。
 - Suite累計觀察94個cached scalar locations時由376個Float64 words改為94個number slots；
   這不是同時live objects、總heap、GC或VRAM量測。完整submit收益幅度小，保留全部控制組。
+
+## P216 — A recent texture is not a free lookup cache
+
+- Prototype只略過連續同一texture的Map.get，不得略過destroyed／version、allocation.touch、
+  seen或mutable sampler讀取；既有native unit／target／sampler cache不受影響。
+- 兩個recent pointers仍需pass、retire／Map.delete及owner teardown／Map.clear的失效處理。
+  多map identity切換時新增判斷與stores；減少lookup本身不證明完整draw路徑更快。
+- 192筆正式submit對照沒有穩定整體收益，distinct-maps控制亦較慢，故不採用；
+  正式Map仍是唯一material texture lookup來源，不加入prototype欄位、失效分支或新慣例。

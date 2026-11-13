@@ -7270,3 +7270,11 @@ Actual source／built ESM×GPU／GL的408組before／after frames與13個公開c
 Source／built ESM／CJS另核對signed zero、NaN與mutation等精確數值呼叫語意。
 Location內number／typed-word觀察不是heap／GC／VRAM量測；完整144筆paired CPU samples、
 小幅收益、不利／GPU對照與認證限制見[ACCEPTANCE](../ACCEPTANCE.md) P215，不宣稱全面FPS。
+
+## P216 未採用材質texture lookaside
+
+兩個recent pointers的prototype仍保留destroyed／version、residency touch及mutable sampler
+讀取；192筆完整native submit沒有穩定收益，distinct-map控制亦較慢，因此不採用。
+正式source／dist、公開API與既有indexed native unit-binding cache不變，不新增失效狀態。
+Map查詢減少不等同CPU、heap或GPU-state證據；全部原始CPU對照、獨立untimed診斷及未重驗範圍，
+見[ACCEPTANCE](../ACCEPTANCE.md) P216。

@@ -5926,3 +5926,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   Source／ESM／CJS通過精確數值邊界對照；既有30項相關測試通過，沒有新增wiring-only test。
 - 隔離正式build只同步單模組4個runtime/maps及1個private-helper宣告；不碰其他產物，
   不push、不升版。完整原始paired clocks、認證範圍與觀察器限制見ACCEPTANCE P215。
+
+## P216 — Reject a recent material-texture lookaside
+
+- 現行GL texture unit tracking已是indexed arrays，cache-hit亦已省去重複Map lookup與active-unit
+  切換；不重做過去已採用的最佳化。依P215正式profile調查剩餘material lookup成本。
+- 僅在隔離module prototype加入兩個recent pointers，保留destroyed／version、residency touch、
+  seen與sampler讀取；另處理pass reset、eviction與teardown，不修改正式source／dist。
+- 完整192筆CPU submit涵蓋原六cohorts、11個maps各自distinct與交替兩identity控制。
+  GL共用路徑沒有穩定收益，distinct-maps中位數較慢；保留GPU波動及全部paired samples。
+- 否決新增lookaside狀態，不因Map查詢變少就宣稱加速；沒有永久test／build／公開API變更。
+  完整結果、untimed診斷與未重新驗證範圍見ACCEPTANCE P216；只提交決策文件，不push／升版。

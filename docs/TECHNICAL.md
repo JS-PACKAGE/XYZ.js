@@ -7619,3 +7619,13 @@ Source/built ESM/CJS numeric call contracts cover signed zeros, NaNs and mutatio
 Retained per-location number/typed-word observations are not heap/GC/VRAM metrics.
 See [ACCEPTANCE](../ACCEPTANCE.md) P215 for all144 paired CPU samples and controls;
 the small observed GL CPU differences do not certify general FPS/performance gains.
+
+## P216 rejected material-texture lookaside
+
+A two-pointer recent-texture lookup prototype retained all texture version,
+destroyed, residency-touch and mutable-sampler checks. It was rejected after192
+actual full-submit samples: shared paths had no stable benefit and the distinct-map
+control was slower. Production source, dist, public API and existing indexed native
+unit-binding caches are unchanged. Fewer Map lookups alone are not performance,
+heap or GPU-state proof. See [ACCEPTANCE](../ACCEPTANCE.md) P216 for every CPU sample,
+separate untimed diagnostics and the exact unverified scope.

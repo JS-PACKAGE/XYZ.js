@@ -56,6 +56,8 @@ GL motion以既有連續32個float的current／previous matrices，一次更新m
 
 GL 單值uniform直接快取number，省去四元素Float64Array；保留signed zero／NaN與program-location生命週期。Native uniforms／pixels／寫入次數相同，小幅CPU量測不等同全面FPS或heap收益。GL scalar uniforms cache a number instead of a four-element Float64Array, preserving signed zero/NaN and location lifetime; native values/pixels/write counts match, without universal CPU/FPS or heap claims. GL の単一値uniformは4要素Float64Arrayではなくnumberを保持し、signed zero／NaNとlocation寿命を維持します。Native値・pixels・書き込み回数は同じで、全面的CPU／FPS・heap改善とはしません。
 
+GL 材質texture單項lookaside候選未採用：完整native submit未見穩定收益，distinct-map控制組較慢；不新增快取狀態。A recent-material-texture lookaside was rejected after unstable native-submit results and a slower distinct-map control; runtime is unchanged. GL material texture の単一lookaside案はnative submitの安定した利益がなく、distinct-map対照群も遅いため不採用です。Runtimeは変更しません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

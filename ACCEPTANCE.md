@@ -25066,3 +25066,167 @@ showcase compatibility is distinct from dedicated velocity-effect coverage above
 | instance / 6     |           0.141667 |          0.137500 |
 | alternating / 6  |           1.054167 |          1.000000 |
 | single / 6       |           0.020833 |          0.020833 |
+
+## P216 — Reject recent material-texture lookaside (2026-11-13)
+
+### Scope and decision
+
+- 否決prototype，正式source／dist完全不改。P215已採用的scalar cache保持不變；本次只提交六個現有文件的決策／量測紀錄，不新增永久tests、公開API、private fields、runtime依賴、shim、版本或push。
+- 先讀正式GL bindMaterialTexture／bindUnit、cacheTexture eviction callback、resetPassState、owner teardown、ResidencyPool.touch及先前驗收。Unit texture／sampler cache已是indexed arrays，重複Map lookup與cache-hit active-unit切換也早已最佳化，不能把它們當成新方案。
+- P215在當時正式P214 source的512-submit profile中，bindMaterialTexture約151–177 samples、23–27ms sampled self，bindUnit約77–91 samples、12–14ms；這些路徑P215未改。僅用作選題，不當成本次candidate的CPU收益或新after profile。
+- 隔離override僅替換真正GL renderer module：候選以兩個recent material texture／entry pointers略過連續同identity的Map.get，仍每次讀destroyed／version、allocation.touch、seen與mutable sampler；pass reset、allocation retire／Map.delete及owner teardown／Map.clear均清除recent state。既有shader、unit／target／sampler追蹤不動。
+- 全部192筆完整native CPU samples完成後，shared路徑沒有穩定改善，distinct-maps較慢。即使某cohort lookup大減，也不足以支持新增branches／stores及失效狀態。這是拒絕複雜化，不是宣稱JIT或某一個store造成確定退步。沒有挑有利批次重測。
+
+### Actual native complete-submit protocol
+
+- Pinned managed Chromium153.0.8010.12，darwin/arm64 desktop automation，timing分頁必須visible；非Safari／Firefox／physical-device認證。Before為當下P215正式renderer，after為隔離候選；fresh browser依六round交替AB／BA，所有SDK／PBR／Texture／history／framegraph保持正式實作。
+- 保留原六cohorts：none、shared、unique、instance、alternating geometry、single。其他都是1000普通meshes，instance是單一1000-instance mesh、single是一個；none無motion，其餘走正式object-motion。128×128、AA off。
+- 加兩個必要miss controls：distinct-maps使用base+11個PBR map keys各自獨立的真正Texture identities；alternating-maps在這11個slots交替兩個identities。每個texture都走真正Texture.fromImage與renderer上傳，額外資產於cohort完成／失敗均明確destroy，不使用mock texture或native handle。
+- 每cohort建立真正renderer／scene／texture；4次diagnostic frames確認canonical motion owner／poses／runs與draws後撤掉observer，再6次warm與4批各10次warm，各批外完成native工作。24次完整beginFrame／render／endFrame在CPU clocks內，completion、imports／decode、validation、teardown在外。6round×8cohorts×2variants×2backends=192筆。
+- 每筆clock前讀取實際served renderer module，以recentMaterialTexture marker及SHA確認variant；native errors／validation／actual draw／upload對照通過。GPU未使用GL lookaside，是未變runtime控制；其clock仍有波動，不能把小幅正負值當作獲益。
+- GL none首筆before3.545833ms/submit保留，未裁除cold outlier；所有較慢／持平round也保留。下表為各自六筆median，完整原始paired值在後。GL none／shared各3組較低3組較高，unique2較低3較高1同，instance2較低4較高，distinct-maps2較低4較高；alternating geometry雖5較低1較高，仍不支持整體採用。GPU unique未改runtime卻六組皆較高；single相對差異看似大但絕對幅度極小並有四組相同。
+
+| Backend/cohort          | Before median ms/submit | After median ms/submit |  Change |
+| ----------------------- | ----------------------: | ---------------------: | ------: |
+| webgl2/none             |                0.854167 |               0.891667 |   4.39% |
+| webgl2/shared           |                1.075000 |               1.083333 |   0.78% |
+| webgl2/unique           |                2.575000 |               2.585417 |   0.40% |
+| webgl2/instance         |                0.243750 |               0.250000 |   2.56% |
+| webgl2/alternating      |                1.862500 |               1.812500 |  -2.68% |
+| webgl2/single           |                0.012500 |               0.012500 |   0.00% |
+| webgl2/distinct-maps    |                1.068750 |               1.127083 |   5.46% |
+| webgl2/alternating-maps |                1.020833 |               1.020833 |  -0.00% |
+| webgpu/none             |                0.689583 |               0.691667 |   0.30% |
+| webgpu/shared           |                0.914583 |               0.897917 |  -1.82% |
+| webgpu/unique           |                1.125000 |               1.145833 |   1.85% |
+| webgpu/instance         |                0.143750 |               0.147917 |   2.90% |
+| webgpu/alternating      |                1.047917 |               1.052083 |   0.40% |
+| webgpu/single           |                0.020833 |               0.018750 | -10.00% |
+| webgpu/distinct-maps    |                1.097917 |               1.083333 |  -1.33% |
+| webgpu/alternating-maps |                1.041667 |               1.033333 |  -0.80% |
+
+### Separate untimed actual-renderer diagnostics
+
+- 全部clock完成後，另啟實際GL consumer，在同樣warm後每cohort只觀察一個真正frame；僅對native renderer自有texture Map.get、bindMaterialTexture、allocation pool touch及pass reset計數。Original方法仍實際執行；不是fake GPU／重播或額外CPU計時。
+- 同一native frame的actual draw／upload不變，GL NO_ERROR；material bind／residency touch／identity transitions／pass resets前後相同。每1000-mesh frame實際有12,000個material binds，即每mesh12個，不能沿用舊階段13個的歷史數字。
+
+| Cohort           | Actual material binds | Before Map.get | Candidate Map.get | Candidate residency touches |
+| ---------------- | --------------------: | -------------: | ----------------: | --------------------------: |
+| none             |                 12000 |          12000 |                 1 |                       12000 |
+| distinct-maps    |                 12000 |          12000 |             12000 |                       12000 |
+| alternating-maps |                 12000 |          12000 |             10000 |                       12000 |
+
+- Warm source每bind一次lookup；candidate lookup次數等於真正texture identity transitions／pass starts。None的lookup明顯減少仍沒有穩定full-submit收益；distinct控制沒有省下lookup，不能只以hit case合理化額外狀態。12,000次residency touch仍保留，未改pin、capture或LRU recency契約。
+- 這些計數不是heap／GC／VRAM、native sampler bindings／pixel一致性或context recovery認證。因候選已因完整CPU取捨否決，沒有再執行全面source／dist native pixel／sampler readback、material-lifecycle loss／eviction、Safari／physical測試，也不宣稱未完成的正確性驗收通過。
+
+### Documents and cleanup
+
+- 只做六既有文件的相對link／format檢查；正式source／dist沒有修改，因此不跑與文件決策無關的build、typecheck或永久tests，不將P215當時30 tests／408 native frame pairs冒充本次新驗證。
+- 保留所有歷史驗收bytes，以mtime／exact suffix guard僅append此節。專用source fixtures、before／after prototype與Vite services於本階段提交前清理，不納入commit；不碰使用者physics／world與其他產物。
+- 這次結果只支持不採用該lookaside；不等於所有texture caching都無效，不對一般CPU／GPU-time／FPS或未驗證backend做新宣稱。
+
+### All GL paired CPU samples
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           3.545833 |          0.808333 |
+| shared / 1           |           1.070833 |          0.987500 |
+| unique / 1           |           2.450000 |          2.400000 |
+| instance / 1         |           0.237500 |          0.245833 |
+| alternating / 1      |           1.837500 |          1.804167 |
+| single / 1           |           0.012500 |          0.012500 |
+| distinct-maps / 1    |           1.062500 |          1.079167 |
+| alternating-maps / 1 |           1.008333 |          0.991667 |
+| none / 2             |           0.820833 |          0.812500 |
+| shared / 2           |           1.062500 |          1.158333 |
+| unique / 2           |           2.500000 |          2.595833 |
+| instance / 2         |           0.245833 |          0.258333 |
+| alternating / 2      |           1.854167 |          1.812500 |
+| single / 2           |           0.008333 |          0.016667 |
+| distinct-maps / 2    |           1.075000 |          1.087500 |
+| alternating-maps / 2 |           0.995833 |          0.987500 |
+| none / 3             |           0.841667 |          0.916667 |
+| shared / 3           |           1.079167 |          1.087500 |
+| unique / 3           |           2.591667 |          2.625000 |
+| instance / 3         |           0.245833 |          0.237500 |
+| alternating / 3      |           1.787500 |          1.808333 |
+| single / 3           |           0.012500 |          0.016667 |
+| distinct-maps / 3    |           1.029167 |          1.225000 |
+| alternating-maps / 3 |           1.033333 |          1.062500 |
+| none / 4             |           1.020833 |          0.904167 |
+| shared / 4           |           1.079167 |          1.062500 |
+| unique / 4           |           2.575000 |          2.550000 |
+| instance / 4         |           0.254167 |          0.237500 |
+| alternating / 4      |           1.875000 |          1.812500 |
+| single / 4           |           0.012500 |          0.012500 |
+| distinct-maps / 4    |           1.200000 |          1.133333 |
+| alternating-maps / 4 |           1.025000 |          1.012500 |
+| none / 5             |           0.845833 |          0.925000 |
+| shared / 5           |           1.087500 |          1.079167 |
+| unique / 5           |           2.600000 |          2.629167 |
+| instance / 5         |           0.237500 |          0.254167 |
+| alternating / 5      |           1.883333 |          1.883333 |
+| single / 5           |           0.008333 |          0.012500 |
+| distinct-maps / 5    |           1.062500 |          1.220833 |
+| alternating-maps / 5 |           1.016667 |          1.058333 |
+| none / 6             |           0.862500 |          0.879167 |
+| shared / 6           |           1.070833 |          1.087500 |
+| unique / 6           |           2.575000 |          2.575000 |
+| instance / 6         |           0.241667 |          0.258333 |
+| alternating / 6      |           1.870833 |          1.812500 |
+| single / 6           |           0.016667 |          0.012500 |
+| distinct-maps / 6    |           1.137500 |          1.120833 |
+| alternating-maps / 6 |           1.050000 |          1.029167 |
+
+### All unchanged-GPU-backend paired CPU samples
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           0.687500 |          0.687500 |
+| shared / 1           |           0.925000 |          0.904167 |
+| unique / 1           |           1.100000 |          1.133333 |
+| instance / 1         |           0.145833 |          0.150000 |
+| alternating / 1      |           1.029167 |          1.033333 |
+| single / 1           |           0.020833 |          0.020833 |
+| distinct-maps / 1    |           1.058333 |          1.095833 |
+| alternating-maps / 1 |           1.020833 |          1.020833 |
+| none / 2             |           0.687500 |          0.683333 |
+| shared / 2           |           0.854167 |          1.129167 |
+| unique / 2           |           1.116667 |          1.141667 |
+| instance / 2         |           0.141667 |          0.141667 |
+| alternating / 2      |           1.079167 |          1.054167 |
+| single / 2           |           0.020833 |          0.020833 |
+| distinct-maps / 2    |           1.112500 |          1.104167 |
+| alternating-maps / 2 |           1.037500 |          1.066667 |
+| none / 3             |           0.691667 |          0.695833 |
+| shared / 3           |           1.012500 |          0.891667 |
+| unique / 3           |           1.145833 |          1.150000 |
+| instance / 3         |           0.154167 |          0.145833 |
+| alternating / 3      |           1.037500 |          1.054167 |
+| single / 3           |           0.025000 |          0.016667 |
+| distinct-maps / 3    |           1.104167 |          1.137500 |
+| alternating-maps / 3 |           1.070833 |          1.012500 |
+| none / 4             |           0.708333 |          0.741667 |
+| shared / 4           |           0.904167 |          0.920833 |
+| unique / 4           |           1.104167 |          1.158333 |
+| instance / 4         |           0.137500 |          0.150000 |
+| alternating / 4      |           1.020833 |          1.050000 |
+| single / 4           |           0.016667 |          0.016667 |
+| distinct-maps / 4    |           1.070833 |          1.037500 |
+| alternating-maps / 4 |           1.020833 |          1.012500 |
+| none / 5             |           0.708333 |          0.708333 |
+| shared / 5           |           0.975000 |          0.862500 |
+| unique / 5           |           1.133333 |          1.141667 |
+| instance / 5         |           0.154167 |          0.141667 |
+| alternating / 5      |           1.062500 |          1.045833 |
+| single / 5           |           0.020833 |          0.016667 |
+| distinct-maps / 5    |           1.095833 |          1.066667 |
+| alternating-maps / 5 |           1.045833 |          1.045833 |
+| none / 6             |           0.679167 |          0.683333 |
+| shared / 6           |           0.858333 |          0.858333 |
+| unique / 6           |           1.141667 |          1.150000 |
+| instance / 6         |           0.141667 |          0.150000 |
+| alternating / 6      |           1.058333 |          1.075000 |
+| single / 6           |           0.020833 |          0.020833 |
+| distinct-maps / 6    |           1.100000 |          1.070833 |
+| alternating-maps / 6 |           1.087500 |          1.079167 |
