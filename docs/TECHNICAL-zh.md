@@ -7185,3 +7185,24 @@ GPU validation拒絕。
 略慢。Unused／single／GL controls及所有raw rounds保留於[ACCEPTANCE](../ACCEPTANCE.md) P210。
 Scoped17 tests、source checks、完全相同declarations、四個guarded runtime outputs及unpatched
 consumer／showcase通過，不宣稱全面FPS、heap或GPU-time收益。
+
+## P211 相鄰native velocity instancing
+
+WebGPU velocity改以128-byte instance vertex stream供應原current／previous clip matrices。
+僅合併相鄰且實際vertex buffer、index buffer及index count皆相同的poses，保留原render order；
+每個run使用正確firstInstance pose offset。History eligibility／invalidation及fragment depth
+rejection不變；GL維持原路徑。
+
+Depth-only weak-keyed groups不再引用pose buffer，所以growth不作廢group。移除uniform
+alignment padding、dynamic offsets及obsolete pass-group fields；target release仍清
+data／buffer／groups／history。
+
+Draw counters反映實際instanced velocity draws，不為維持舊數字假裝逐pose發draw。Triangles
+不變，buffer uploadBytes反映實際較短payload；每個非空pass額外的instance-stream binding
+也納入native證據。RenderStats註解明確說明既有auxiliary object-velocity draws的計數範圍。
+
+Native shader-fetch解碼逐pose比對完整32個float32 words，mixed-geometry run-offset及
+stationary-frame pixels與source／dist、兩AA、unpatched consumer／showcase一併驗證。
+新增pixel regression能拒絕GPU合法但firstInstance=0的錯誤。完整CPU rounds、否決候選、
+native counts及認證限制見[ACCEPTANCE](../ACCEPTANCE.md) P211，不宣稱全面FPS、heap、
+GPU-time或physical-device收益。

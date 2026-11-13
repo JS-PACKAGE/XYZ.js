@@ -51,13 +51,16 @@ var ObjectMotionHistory = class {
 	}
 };
 var objectMotionWGSL = (t) => `
-struct Pose { current:mat4x4f, previous:mat4x4f };
-@group(0) @binding(0) var<uniform> pose:Pose;
-@group(0) @binding(1) var opaqueDepth: ${t > 1 ? `texture_depth_multisampled_2d` : `texture_depth_2d`};
+@group(0) @binding(0) var opaqueDepth: ${t > 1 ? `texture_depth_multisampled_2d` : `texture_depth_2d`};
+struct PoseInput {
+ @location(0) position:vec3f,
+ @location(1) current0:vec4f, @location(2) current1:vec4f, @location(3) current2:vec4f, @location(4) current3:vec4f,
+ @location(5) previous0:vec4f, @location(6) previous1:vec4f, @location(7) previous2:vec4f, @location(8) previous3:vec4f,
+};
 struct Vertex { @builtin(position) position:vec4f, @location(0) current:vec4f, @location(1) previous:vec4f };
-@vertex fn vertexMain(@location(0) position:vec3f)->Vertex {
- var out:Vertex; out.current=pose.current*vec4f(position,1.0);
- out.previous=pose.previous*vec4f(position,1.0); out.position=out.current;
+@vertex fn vertexMain(input:PoseInput)->Vertex {
+ var out:Vertex; out.current=mat4x4f(input.current0,input.current1,input.current2,input.current3)*vec4f(input.position,1.0);
+ out.previous=mat4x4f(input.previous0,input.previous1,input.previous2,input.previous3)*vec4f(input.position,1.0); out.position=out.current;
  return out;
 }
 @fragment fn fragmentMain(input:Vertex)->@location(0) vec4f {

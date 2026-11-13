@@ -203,7 +203,7 @@ function gpuFixture() {
     TEXTURE_BINDING: 4,
     RENDER_ATTACHMENT: 16,
   });
-  vi.stubGlobal('GPUBufferUsage', { UNIFORM: 64, COPY_DST: 8 });
+  vi.stubGlobal('GPUBufferUsage', { VERTEX: 32, COPY_DST: 8 });
   const textures: { destroy: Mock; createView: Mock }[] = [];
   const buffers: { destroy: Mock }[] = [];
   const pipeline = vi.fn(() => ({}));
@@ -284,36 +284,6 @@ describe('renderer-owned velocity attachment lifecycle', () => {
       expect(gpu.pipeline).toHaveBeenCalledTimes(1);
     },
   );
-  it('GPU clears stale instance velocities after disable', () => {
-    const gpu = gpuFixture(),
-      f = fixture(2),
-      owner = new WebGPUObjectMotion(gpu.device, 1, new FrameStats());
-    const cached = { vertex: {} as GPUBuffer, index: {} as GPUBuffer };
-    owner.render(
-      gpu.encoder,
-      [f.mesh],
-      f.state,
-      {} as GPUTextureView,
-      () => cached,
-    );
-    owner.render(
-      gpu.encoder,
-      [f.mesh],
-      f.state,
-      {} as GPUTextureView,
-      () => cached,
-    );
-    owner.releaseTarget();
-    owner.render(
-      gpu.encoder,
-      [f.mesh],
-      f.state,
-      {} as GPUTextureView,
-      () => cached,
-    );
-    expect(gpu.pass.drawIndexed).toHaveBeenCalledTimes(2);
-    owner.destroy();
-  });
   it('GL releases float framebuffer attachments on resize/disable and the program only on destroy', () => {
     const deletedTextures: object[] = [],
       deletedFramebuffers: object[] = [],

@@ -7,27 +7,17 @@ var WebGPUObjectMotion = class {
 	history = new require_object_motion.ObjectMotionHistory();
 	pipeline;
 	layout;
-	stride;
-	groupForPass;
+	stride = 128;
 	texture;
 	view;
 	buffer;
 	data = /* @__PURE__ */ new Float32Array();
 	width = 0;
 	height = 0;
-	dynamicOffsets = [0];
 	groups;
 	constructor(e, n, r) {
-		this.device = e, this.stats = r, this.stride = Math.ceil(128 / e.limits.minUniformBufferOffsetAlignment) * e.limits.minUniformBufferOffsetAlignment, this.layout = e.createBindGroupLayout({ entries: [{
+		this.device = e, this.stats = r, this.layout = e.createBindGroupLayout({ entries: [{
 			binding: 0,
-			visibility: GPUShaderStage.VERTEX,
-			buffer: {
-				type: `uniform`,
-				hasDynamicOffset: !0,
-				minBindingSize: 128
-			}
-		}, {
-			binding: 1,
 			visibility: GPUShaderStage.FRAGMENT,
 			texture: {
 				sampleType: `depth`,
@@ -47,6 +37,51 @@ var WebGPUObjectMotion = class {
 						offset: 0,
 						format: `float32x3`
 					}]
+				}, {
+					arrayStride: this.stride,
+					stepMode: `instance`,
+					attributes: [
+						{
+							shaderLocation: 1,
+							offset: 0,
+							format: `float32x4`
+						},
+						{
+							shaderLocation: 2,
+							offset: 16,
+							format: `float32x4`
+						},
+						{
+							shaderLocation: 3,
+							offset: 32,
+							format: `float32x4`
+						},
+						{
+							shaderLocation: 4,
+							offset: 48,
+							format: `float32x4`
+						},
+						{
+							shaderLocation: 5,
+							offset: 64,
+							format: `float32x4`
+						},
+						{
+							shaderLocation: 6,
+							offset: 80,
+							format: `float32x4`
+						},
+						{
+							shaderLocation: 7,
+							offset: 96,
+							format: `float32x4`
+						},
+						{
+							shaderLocation: 8,
+							offset: 112,
+							format: `float32x4`
+						}
+					]
 				}]
 			},
 			fragment: {
@@ -71,29 +106,20 @@ var WebGPUObjectMotion = class {
 			throw this.releaseTarget(), e;
 		}
 		let o = this.history.build(t, r), s = this.stride / 4;
-		o.length * s > this.data.length && (this.buffer?.destroy(), this.groups = void 0, this.data = new Float32Array(Math.max(o.length * s, this.data.length * 2, s)), this.buffer = this.device.createBuffer({
+		o.length * s > this.data.length && (this.buffer?.destroy(), this.data = new Float32Array(Math.max(o.length * s, this.data.length * 2, s)), this.buffer = this.device.createBuffer({
 			size: this.data.byteLength,
-			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+			usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
 		}));
 		for (let e = 0; e < o.length; e++) this.data.set(o[e].data, e * s);
-		if (o.length) {
-			this.device.queue.writeBuffer(this.buffer, 0, this.data, 0, o.length * s), this.stats.upload(o.length * this.stride);
-			let e = this.groups?.get(i);
-			e || (e = this.device.createBindGroup({
-				layout: this.layout,
-				entries: [{
-					binding: 0,
-					resource: {
-						buffer: this.buffer,
-						size: 128
-					}
-				}, {
-					binding: 1,
-					resource: i
-				}]
-			}), (this.groups ??= /* @__PURE__ */ new WeakMap()).set(i, e)), this.groupForPass = e;
-		}
-		let c = require_gpu_timing.beginTimedRenderPass(e, { colorAttachments: [{
+		let c;
+		o.length && (this.device.queue.writeBuffer(this.buffer, 0, this.data, 0, o.length * s), this.stats.upload(o.length * this.stride), c = this.groups?.get(i), c || (c = this.device.createBindGroup({
+			layout: this.layout,
+			entries: [{
+				binding: 0,
+				resource: i
+			}]
+		}), (this.groups ??= /* @__PURE__ */ new WeakMap()).set(i, c)));
+		let l = require_gpu_timing.beginTimedRenderPass(e, { colorAttachments: [{
 			view: this.view,
 			clearValue: [
 				0,
@@ -105,18 +131,16 @@ var WebGPUObjectMotion = class {
 			storeOp: `store`
 		}] });
 		try {
-			c.setPipeline(this.pipeline);
-			let e, t;
-			for (let n = 0; n < o.length; n++) {
-				let r = o[n].mesh, i = a(r);
-				this.dynamicOffsets[0] = n * this.stride, c.setBindGroup(0, this.groupForPass, this.dynamicOffsets);
-				let s = i.vertex;
-				s !== e && (c.setVertexBuffer(0, s), e = s);
-				let l = i.index;
-				l !== t && (c.setIndexBuffer(l, `uint32`), t = l), c.drawIndexed(r.renderGeometry.indices.length), this.stats.draw(r.renderGeometry.indices.length, 1);
+			if (l.setPipeline(this.pipeline), o.length) {
+				l.setBindGroup(0, c), l.setVertexBuffer(1, this.buffer);
+				let e, t, n, r, i = 0, s = 0;
+				for (let c = 0; c <= o.length; c++) {
+					let u = o[c]?.mesh, d = u ? a(u) : void 0, f = d?.vertex, p = d?.index, m = u?.renderGeometry.indices.length ?? 0;
+					c > s && (f !== n || p !== r || m !== i) && (n !== e && (l.setVertexBuffer(0, n), e = n), r !== t && (l.setIndexBuffer(r, `uint32`), t = r), l.drawIndexed(i, c - s, 0, 0, s), this.stats.draw(i, c - s), s = c), n = f, r = p, i = m;
+				}
 			}
 		} finally {
-			c.end(), this.groupForPass = void 0;
+			l.end();
 		}
 		return this.view;
 	}
@@ -124,7 +148,7 @@ var WebGPUObjectMotion = class {
 		(e !== this.width || t !== this.height) && (this.releaseTarget(), this.width = e, this.height = t);
 	}
 	releaseTarget() {
-		this.texture && (this.texture.destroy(), this.stats.target(-this.width * this.height * 8)), this.texture = void 0, this.view = void 0, this.buffer?.destroy(), this.buffer = void 0, this.groupForPass = void 0, this.groups = void 0, this.data.length && (this.data = /* @__PURE__ */ new Float32Array()), this.history.invalidate();
+		this.texture && (this.texture.destroy(), this.stats.target(-this.width * this.height * 8)), this.texture = void 0, this.view = void 0, this.buffer?.destroy(), this.buffer = void 0, this.groups = void 0, this.data.length && (this.data = /* @__PURE__ */ new Float32Array()), this.history.invalidate();
 	}
 	destroy() {
 		this.releaseTarget();

@@ -5851,3 +5851,20 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   wrong vertex由既有instance-motion pixels拒絕，wrong index及跨pass carry由native GPU拒絕。
 - Scoped17 tests、source checks、guarded build及unpatched consumer／showcase通過；
   declarations不變、四個motion runtime outputs，十一檔獨立commit、不push、不升版。
+
+## P211 — Native instanced velocity runs, without reordering poses
+
+- 先否決兩個小候選：same-value visibility stamp stores及fixed UBO-size accounting；
+  完整moving／unique／single／GL對照未提供穩定收益，保留原碼與所有raw rounds，不挑選重測。
+- 正式WebGPU velocity把兩個clip matrices放入128-byte instance vertex stream；
+  依現有render order，只合併相鄰且實際vertex／index buffers及index count相同的poses。
+- firstInstance使用runStart；每pose完整32-word payload、history eligibility／invalidations
+  及depth rejection不變。去掉dynamic UBO offsets／padding及不再必要的buffer-epoch group invalidation。
+- Depth-only groups保留weak depth-view keys；buffer growth不影響group，target release仍清buffer、
+  data、groups及history。P210的vertex／index獨立identity判斷保留。
+- Native shader-fetch proof比對每個真正draw的geometry、matrix attributes／offsets、depth、
+  triangles及完整pose words；drawCalls／uploadBytes則精確核對實際節省，不偽裝成舊計數。
+- 新增真正mixed-geometry motion／stationary pixels regression，示範合法GPU firstInstance=0
+  仍會讓blur錯誤；刪除只把兩個poses綁成兩draws的mock實作斷言，不改既有pixel門檻。
+- Source／dist×GPU／GL兩AA及unpatched consumer／showcase驗證，完整證據與限制見ACCEPTANCE P211。
+  GL路徑未改，不宣稱GPU time、heap、physical-device認證或全面FPS提升；不push、不升版。

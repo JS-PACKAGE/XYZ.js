@@ -7515,3 +7515,27 @@ improved while all-unique geometry was slightly slower; unused/single/GL control
 and every raw round remain in [ACCEPTANCE](../ACCEPTANCE.md) P210. Seventeen scoped
 tests, source checks, unchanged declarations, four guarded runtime outputs and
 unpatched consumers/showcase passed. No universal FPS, heap or GPU-time gain is claimed.
+
+## P211 adjacent native velocity instancing
+
+WebGPU velocity now supplies the unchanged current/previous clip matrices through
+a 128-byte instance vertex stream. Only adjacent poses with identical actual vertex
+buffer, index buffer and index count batch; their original render order is retained.
+Each run uses its real firstInstance pose offset. History eligibility/invalidation
+and fragment depth rejection remain unchanged; GL keeps its original path.
+
+Depth-only weak-keyed groups no longer reference the pose buffer, so growth does
+not invalidate them. Uniform alignment padding, dynamic offsets and obsolete
+pass-group fields are removed. Target release still clears data/buffer/groups/history.
+
+Draw counters now reflect actual instanced velocity draws, not one pretend draw per
+pose. Triangles remain exact. Buffer uploadBytes counts the actual shorter payload;
+an extra instance-stream bind per nonempty pass is included in native evidence.
+RenderStats comments clarify the existing inclusion of auxiliary object-velocity draws.
+
+Actual native shader-fetch decoding, all32 float32 words, mixed-geometry run-offset
+pixels and stationary-frame clearing are verified alongside source/distribution,
+both AA modes and unpatched consumers/showcase. The new pixel regression rejects a
+legal but wrong firstInstance=0. Full CPU rounds, rejected microcandidates, native
+counts and certification limits are in [ACCEPTANCE](../ACCEPTANCE.md) P211.
+No universal FPS, heap, GPU-time or physical-device improvement is claimed.

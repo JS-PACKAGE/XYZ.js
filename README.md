@@ -16,7 +16,7 @@ Private helper、collection 與完整 packing 分開量測；bytes 相同或 bun
 
 Canvas 單一 frame-cache hit 在一般 draw 略過無效 LRU touch，cleanup iterator 保留原行為；完整 native submit 的收益與控制組另記驗收，不等同 FPS。Canvas single-entry frame-cache hits skip redundant LRU touches outside cleanup iteration; native-submit gains and controls are distinct from FPS. Canvas の単一 frame-cache hit は cleanup iterator の動作を保ちながら通常 draw の不要な LRU touch を省略し、native submit の測定値を FPS と区別します。
 
-WebGPU per-object motion 重用 dynamic-offset array，並修正 GL velocity pass 前過早清理可見清單；配置事件與原生畫面驗證見驗收，不宣稱 CPU／FPS 收益。WebGPU per-object motion reuses dynamic-offset storage; GL retains visible meshes until velocity encoding. Native pixel/allocation-event evidence is not a CPU/FPS claim. WebGPU の per-object motion は dynamic-offset array を再利用し、GL の velocity pass 前の早すぎる可視リスト解放を修正します。CPU／FPS 向上の主張ではありません。
+GL velocity pass 保留可見清單至encoding完成；原生畫面與配置事件證據見驗收，不宣稱這項修正帶來CPU／FPS收益。GL retains visible meshes until velocity encoding completes; native pixel/allocation-event evidence is not a CPU/FPS claim. GL は velocity encoding の完了まで可視リストを保持します。Native pixel／allocation-event の検証を、この修正による CPU／FPS 向上とはしません。
 
 WebGPU occlusion query 也重用 numeric offset array；原生 query readback、可見／遮蔽物件與畫面對照見驗收，未宣稱 CPU／FPS 改善。WebGPU occlusion queries also reuse numeric offset storage, verified with native readback and visible/hidden objects, without a CPU/FPS claim. WebGPU の occlusion query も numeric offset array を再利用し、native readback と可視／遮蔽物体で検証します。CPU／FPS 向上の主張ではありません。
 
@@ -30,7 +30,7 @@ Matrix4 copy 同樣展開固定stores，但保留原本兩個buffer各讀一次�
 
 私有 instance-world product writer 共用實驗未採用：Node instance controls 變慢，native submit亦無穩定收益；只保留量測紀錄，不變更runtime。Private instance-world product-writer reuse was rejected after slower Node controls and no stable native-submit gain; runtime is unchanged. Private instance-world product writer の共用案は CPU 対照群で遅く、native submit の安定した改善もないため不採用です。Runtime は変更していません。
 
-WebGPU motion bind group 以depth view弱key及uniform-buffer epoch重用；減少原生建立次數，不保留借用view的strong key，完整CPU submit不宣稱穩定收益。WebGPU motion bind groups reuse weak depth-view keys within each uniform-buffer epoch; native creations fall without a strong borrowed-view key, not a stable full-submit/FPS claim. WebGPU motion bind group は depth view の弱いキーと uniform-buffer epoch で再利用します。Native 生成回数の削減であり、CPU submit／FPS の安定した向上とはしません。
+WebGPU motion bind group只借用depth view，使用weak key且不再依賴pose-buffer epoch；buffer growth可沿用group，release清cache。WebGPU motion groups borrow depth views through weak keys and no longer depend on pose-buffer epochs; growth reuses groups and release clears the cache. WebGPU motion group は depth view の弱いキーを使い、pose-buffer epoch に依存しません。Buffer growth でも再利用し、release 時に cache を破棄します。
 
 Temporal offscreen default view以texture弱key重用，release時清cache；不快取swapchain destination，原生API呼叫減少不等同FPS提升。Temporal default offscreen views reuse weak texture keys and clear on release; swapchain destinations are not cached, and fewer native API calls are not an FPS claim. Temporal の default offscreen view を texture の弱いキーで再利用し、release 時に cache を破棄します。Swapchain destination は保存せず、native API 呼び出し削減を FPS 向上とはしません。
 
@@ -44,7 +44,9 @@ Post／FXAA的auto-layout各自lazy保留至pipeline owner結束，跨target重�
 
 未指定external source時，post直接重用既有owned color view，不加cache；explicit TAA history保持原路徑。Post reuses its existing owned color view when no explicit source is supplied, without a new cache; explicit TAA histories keep their original path. Explicit source がない post は既存の owned color view をそのまま使い、新しい cache は追加しません。Explicit TAA history の経路は変更しません。Native 呼び出し削減を安定した FPS 向上とはしません。
 
-Object-motion pass以實際buffer identity省略重複vertex／index binding，逐pass重設；unique geometry對照略慢，不宣稱全面加速。Object-motion passes skip redundant vertex/index binds by actual buffer identity and reset each pass; unique-geometry controls are slightly slower, not a universal speedup. Object-motion pass は実 buffer identity で重複 vertex／index bind を省き、pass ごとにリセットします。Unique geometry の対照群は少し遅く、全面的な高速化とはしません。
+Object-motion pass以實際buffer identity省略重複vertex／index binding，逐pass重設。P210當時unique geometry對照略慢；P211後的完整submit測量另列，不把單階段結果當全面FPS提升。Object-motion bindings use actual buffer identity and reset per pass. P210's unique-geometry control was slightly slower; P211's later full-submit results are reported separately, not as universal FPS gains. Object-motion binding は実 buffer identity を使い、pass ごとにリセットします。P210 当時の unique geometry 対照群は少し遅く、P211 の測定と区別します。
+
+WebGPU object-motion將相鄰同native geometry poses改為128-byte instanced vertex stream；保留history與順序，draw／upload counters如實反映提交量，GL仍走原路徑。WebGPU object-motion uses 128-byte instanced pose streams for adjacent native geometry, preserving history/order; counters reflect real draws/uploads, while GL is unchanged. WebGPU object-motion は隣接する同一 native geometry の pose を128-byte instance streamにまとめ、historyと順序を維持します。GLは従来経路のままです。CPU submit測量不代表全面FPS提升。
 
 ## 繁體中文
 

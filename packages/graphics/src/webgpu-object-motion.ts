@@ -9,15 +9,13 @@ export class WebGPUObjectMotion {
   private readonly history = new ObjectMotionHistory();
   private readonly pipeline: GPURenderPipeline;
   private readonly layout: GPUBindGroupLayout;
-  private readonly stride: number;
-  private groupForPass?: GPUBindGroup;
+  private readonly stride = 128;
   private texture?: GPUTexture;
   private view?: GPUTextureView;
   private buffer?: GPUBuffer;
   private data = new Float32Array(0);
   private width = 0;
   private height = 0;
-  private readonly dynamicOffsets = [0];
   private groups?: WeakMap<GPUTextureView, GPUBindGroup>;
 
   constructor(
@@ -25,22 +23,10 @@ export class WebGPUObjectMotion {
     samples: number,
     private readonly stats: FrameStats,
   ) {
-    this.stride =
-      Math.ceil(128 / device.limits.minUniformBufferOffsetAlignment) *
-      device.limits.minUniformBufferOffsetAlignment;
     this.layout = device.createBindGroupLayout({
       entries: [
         {
           binding: 0,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: 'uniform',
-            hasDynamicOffset: true,
-            minBindingSize: 128,
-          },
-        },
-        {
-          binding: 1,
           visibility: GPUShaderStage.FRAGMENT,
           texture: { sampleType: 'depth', multisampled: samples > 1 },
         },
@@ -58,6 +44,20 @@ export class WebGPUObjectMotion {
           {
             arrayStride: 32,
             attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }],
+          },
+          {
+            arrayStride: this.stride,
+            stepMode: 'instance',
+            attributes: [
+              { shaderLocation: 1, offset: 0, format: 'float32x4' },
+              { shaderLocation: 2, offset: 16, format: 'float32x4' },
+              { shaderLocation: 3, offset: 32, format: 'float32x4' },
+              { shaderLocation: 4, offset: 48, format: 'float32x4' },
+              { shaderLocation: 5, offset: 64, format: 'float32x4' },
+              { shaderLocation: 6, offset: 80, format: 'float32x4' },
+              { shaderLocation: 7, offset: 96, format: 'float32x4' },
+              { shaderLocation: 8, offset: 112, format: 'float32x4' },
+            ],
           },
         ],
       },
@@ -97,17 +97,17 @@ export class WebGPUObjectMotion {
     const floats = this.stride / 4;
     if (draws.length * floats > this.data.length) {
       this.buffer?.destroy();
-      this.groups = undefined;
       this.data = new Float32Array(
         Math.max(draws.length * floats, this.data.length * 2, floats),
       );
       this.buffer = this.device.createBuffer({
         size: this.data.byteLength,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
       });
     }
     for (let i = 0; i < draws.length; i++)
       this.data.set(draws[i]!.data, i * floats);
+    let group: GPUBindGroup | undefined;
     if (draws.length) {
       this.device.queue.writeBuffer(
         this.buffer!,
@@ -118,18 +118,14 @@ export class WebGPUObjectMotion {
       );
       this.stats.upload(draws.length * this.stride);
       // Weak keys do not extend the lifetime of borrowed depth views.
-      let group = this.groups?.get(depth);
+      group = this.groups?.get(depth);
       if (!group) {
         group = this.device.createBindGroup({
           layout: this.layout,
-          entries: [
-            { binding: 0, resource: { buffer: this.buffer!, size: 128 } },
-            { binding: 1, resource: depth },
-          ],
+          entries: [{ binding: 0, resource: depth }],
         });
         (this.groups ??= new WeakMap()).set(depth, group);
       }
-      this.groupForPass = group;
     }
     const pass = beginTimedRenderPass(encoder, {
       colorAttachments: [
@@ -143,29 +139,47 @@ export class WebGPUObjectMotion {
     });
     try {
       pass.setPipeline(this.pipeline);
-      let boundVertex: GPUBuffer | undefined;
-      let boundIndex: GPUBuffer | undefined;
-      for (let i = 0; i < draws.length; i++) {
-        const mesh = draws[i]!.mesh,
-          cached = geometry(mesh);
-        this.dynamicOffsets[0] = i * this.stride;
-        pass.setBindGroup(0, this.groupForPass!, this.dynamicOffsets);
-        const vertex = cached.vertex;
-        if (vertex !== boundVertex) {
-          pass.setVertexBuffer(0, vertex);
-          boundVertex = vertex;
+      if (draws.length) {
+        pass.setBindGroup(0, group!);
+        pass.setVertexBuffer(1, this.buffer!);
+        let boundVertex: GPUBuffer | undefined;
+        let boundIndex: GPUBuffer | undefined;
+        let runVertex: GPUBuffer | undefined;
+        let runIndex: GPUBuffer | undefined;
+        let runIndices = 0;
+        let runStart = 0;
+        // Preserve pose order: only adjacent draws with the same actual geometry batch.
+        for (let i = 0; i <= draws.length; i++) {
+          const mesh = draws[i]?.mesh;
+          const cached = mesh ? geometry(mesh) : undefined;
+          const vertex = cached?.vertex;
+          const index = cached?.index;
+          const indices = mesh?.renderGeometry.indices.length ?? 0;
+          if (
+            i > runStart &&
+            (vertex !== runVertex ||
+              index !== runIndex ||
+              indices !== runIndices)
+          ) {
+            if (runVertex !== boundVertex) {
+              pass.setVertexBuffer(0, runVertex!);
+              boundVertex = runVertex;
+            }
+            if (runIndex !== boundIndex) {
+              pass.setIndexBuffer(runIndex!, 'uint32');
+              boundIndex = runIndex;
+            }
+            pass.drawIndexed(runIndices, i - runStart, 0, 0, runStart);
+            this.stats.draw(runIndices, i - runStart);
+            runStart = i;
+          }
+          runVertex = vertex;
+          runIndex = index;
+          runIndices = indices;
         }
-        const index = cached.index;
-        if (index !== boundIndex) {
-          pass.setIndexBuffer(index, 'uint32');
-          boundIndex = index;
-        }
-        pass.drawIndexed(mesh.renderGeometry.indices.length);
-        this.stats.draw(mesh.renderGeometry.indices.length, 1);
       }
     } finally {
       pass.end();
-      this.groupForPass = undefined;
     }
     return this.view!;
   }
@@ -186,7 +200,6 @@ export class WebGPUObjectMotion {
     this.view = undefined;
     this.buffer?.destroy();
     this.buffer = undefined;
-    this.groupForPass = undefined;
     this.groups = undefined;
     if (this.data.length) this.data = new Float32Array(0);
     this.history.invalidate();

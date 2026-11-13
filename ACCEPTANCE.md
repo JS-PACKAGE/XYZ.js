@@ -23677,3 +23677,496 @@ Index buffer was not set.
 - Not run: full unit suite, CJS runtime, Canvas/audio, device-loss/initialization fallback,
   Firefox/Safari or physical-device certification. No heap/GC/native/GPU-memory, GPU time,
   presentation FPS or end-to-end latency measurement; no universal speedup claim.
+
+## P211 — Native adjacent velocity instancing with truthful draw/upload counters
+
+### Decision and unchanged boundaries
+
+- Adopt native WebGPU instanced velocity runs after the retained P210 profiles and real
+  complete-submit comparisons. Do not adopt the two smaller candidates described below.
+  No Game/Scene/ECS/public-export/runtime-dependency/version/fallback contract is added.
+- Position geometry remains vertex slot0. Current/previous column-major clip matrices are
+  eight float32x4 instance attributes in slot1:32 words/128 bytes per pose. WGSL preserves
+  the original matrix-vector multiplication order, opaque-depth test and velocity math.
+  Shared ObjectMotionHistory and both GL shader strings remain unchanged.
+- Scan the renderer's existing draw order without sorting or collecting another array.
+  Batch only adjacent poses with the same actual vertex buffer, index buffer AND index
+  count. Preserve the independent P210 vertex/index binding checks. Every callback still
+  runs for every pose; firstInstance is the real runStart, not zero or a mesh index.
+- Remove dynamic uniform offsets, per-pose bindGroup calls, uniform-alignment padding and
+  obsolete groupForPass/dynamicOffsets fields. Depth-only groups still use weak view keys
+  but no longer reference the pose buffer, so buffer growth does not invalidate them.
+  Release/resize/disable still clear data, buffer, target, groups and history.
+- Actual drawCalls intentionally decrease for batched velocity work; triangles remain
+  exact. UploadBytes remains buffer/texture bytes and reflects the shorter actual payload.
+  RenderStats's existing auxiliary velocity coverage is clarified in comments, not hidden
+  by pretending the old per-pose draws still occurred. An extra instance stream bind per
+  nonempty pass is counted below rather than concealed.
+
+### Two smaller hypotheses rejected without changing their source
+
+- Same-value private Float64 visibility stamp stores were moved inside the existing
+  Object.is inequality branches. Stable scenes were slightly lower, moving controls were
+  mixed/adverse and tiny instance/single controls quantized. Preserve the original loops.
+- Fixed mesh UBO-size expressions replaced immutable native uniform.size queries in two
+  residency accounting paths. Complete-submit results were mixed and stable GPU adverse;
+  preserve the original accounting. There is no new dimension cache or material shortcut.
+- Each used6 alternating paired rounds ×24 complete submissions, original real renderer/
+  native completion and GPU/GL controls; profiling and observers did not overlap clocks.
+  Six cohorts include stable, first-moving, last-moving, all-moving,1000 instances and one
+  pose. Mutation base coordinates are captured before clocks, not allocated per pose.
+  Retain all288 raw sample rows in the paired tables; neither failure receives a favorable
+  retime or a production source edit.
+
+| candidate                      | backend | workload     | before_ms | after_ms | change_percent | upload_before | upload_after |
+| ------------------------------ | ------- | ------------ | --------- | -------- | -------------- | ------------- | ------------ |
+| visibility-stamp-write-elision | webgpu  | stable       | 0.587500  | 0.575000 | -2.13          | 7520          | 7520         |
+| visibility-stamp-write-elision | webgpu  | first-moving | 0.614583  | 0.616667 | 0.34           | 7524          | 7524         |
+| visibility-stamp-write-elision | webgpu  | last-moving  | 0.616667  | 0.612500 | -0.68          | 7524          | 7524         |
+| visibility-stamp-write-elision | webgpu  | all-moving   | 0.662500  | 0.677083 | 2.20           | 11520         | 11520        |
+| visibility-stamp-write-elision | webgpu  | instance     | 0.014583  | 0.014583 | 0.00           | 7520          | 7520         |
+| visibility-stamp-write-elision | webgpu  | single       | 0.012500  | 0.012500 | -0.00          | 7520          | 7520         |
+| visibility-stamp-write-elision | webgl2  | stable       | 0.785417  | 0.777083 | -1.06          | 4048          | 4048         |
+| visibility-stamp-write-elision | webgl2  | first-moving | 0.793750  | 0.800000 | 0.79           | 4048          | 4048         |
+| visibility-stamp-write-elision | webgl2  | last-moving  | 0.804167  | 0.812500 | 1.04           | 4048          | 4048         |
+| visibility-stamp-write-elision | webgl2  | all-moving   | 0.800000  | 0.812500 | 1.56           | 4048          | 4048         |
+| visibility-stamp-write-elision | webgl2  | instance     | 0.012500  | 0.014583 | 16.67          | 4048          | 4048         |
+| visibility-stamp-write-elision | webgl2  | single       | 0.010417  | 0.008333 | -20.00         | 4048          | 4048         |
+| fixed-UBO-size-accounting      | webgpu  | stable       | 0.641667  | 0.647917 | 0.97           | 7520          | 7520         |
+| fixed-UBO-size-accounting      | webgpu  | first-moving | 0.672917  | 0.679167 | 0.93           | 7524          | 7524         |
+| fixed-UBO-size-accounting      | webgpu  | last-moving  | 0.683333  | 0.677083 | -0.91          | 7524          | 7524         |
+| fixed-UBO-size-accounting      | webgpu  | all-moving   | 0.741667  | 0.729167 | -1.69          | 11520         | 11520        |
+| fixed-UBO-size-accounting      | webgpu  | instance     | 0.016667  | 0.016667 | 0.00           | 7520          | 7520         |
+| fixed-UBO-size-accounting      | webgpu  | single       | 0.012500  | 0.016667 | 33.33          | 7520          | 7520         |
+| fixed-UBO-size-accounting      | webgl2  | stable       | 0.910417  | 0.914583 | 0.46           | 4048          | 4048         |
+| fixed-UBO-size-accounting      | webgl2  | first-moving | 0.972917  | 0.964583 | -0.86          | 4048          | 4048         |
+| fixed-UBO-size-accounting      | webgl2  | last-moving  | 0.968750  | 0.952083 | -1.72          | 4048          | 4048         |
+| fixed-UBO-size-accounting      | webgl2  | all-moving   | 0.964583  | 0.962500 | -0.22          | 4048          | 4048         |
+| fixed-UBO-size-accounting      | webgl2  | instance     | 0.016667  | 0.014583 | -12.50         | 4048          | 4048         |
+| fixed-UBO-size-accounting      | webgl2  | single       | 0.010417  | 0.008333 | -20.00         | 4048          | 4048         |
+
+#### Rejected same-value stores: WebGPU raw pairs
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| stable / 1       |           0.604167 |          0.579167 |
+| stable / 2       |           0.608333 |          0.579167 |
+| stable / 3       |           0.591667 |          0.583333 |
+| stable / 4       |           0.575000 |          0.570833 |
+| stable / 5       |           0.583333 |          0.566667 |
+| stable / 6       |           0.579167 |          0.554167 |
+| first-moving / 1 |           0.654167 |          0.625000 |
+| first-moving / 2 |           0.612500 |          0.616667 |
+| first-moving / 3 |           0.625000 |          0.604167 |
+| first-moving / 4 |           0.616667 |          0.620833 |
+| first-moving / 5 |           0.608333 |          0.616667 |
+| first-moving / 6 |           0.608333 |          0.612500 |
+| last-moving / 1  |           0.683333 |          0.629167 |
+| last-moving / 2  |           0.616667 |          0.612500 |
+| last-moving / 3  |           0.616667 |          0.612500 |
+| last-moving / 4  |           0.616667 |          0.612500 |
+| last-moving / 5  |           0.616667 |          0.612500 |
+| last-moving / 6  |           0.612500 |          0.608333 |
+| all-moving / 1   |           0.670833 |          0.679167 |
+| all-moving / 2   |           0.658333 |          0.683333 |
+| all-moving / 3   |           0.658333 |          0.675000 |
+| all-moving / 4   |           0.666667 |          0.658333 |
+| all-moving / 5   |           0.658333 |          0.666667 |
+| all-moving / 6   |           0.666667 |          0.683333 |
+| instance / 1     |           0.020833 |          0.020833 |
+| instance / 2     |           0.020833 |          0.012500 |
+| instance / 3     |           0.012500 |          0.016667 |
+| instance / 4     |           0.012500 |          0.016667 |
+| instance / 5     |           0.016667 |          0.012500 |
+| instance / 6     |           0.012500 |          0.012500 |
+| single / 1       |           0.012500 |          0.008333 |
+| single / 2       |           0.016667 |          0.016667 |
+| single / 3       |           0.012500 |          0.012500 |
+| single / 4       |           0.012500 |          0.012500 |
+| single / 5       |           0.016667 |          0.004167 |
+| single / 6       |           0.012500 |          0.020833 |
+
+#### Rejected same-value stores: WebGL2 raw pairs
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| stable / 1       |           0.800000 |          0.775000 |
+| stable / 2       |           0.791667 |          0.787500 |
+| stable / 3       |           0.791667 |          0.783333 |
+| stable / 4       |           0.775000 |          0.779167 |
+| stable / 5       |           0.779167 |          0.770833 |
+| stable / 6       |           0.779167 |          0.766667 |
+| first-moving / 1 |           0.845833 |          0.837500 |
+| first-moving / 2 |           0.791667 |          0.816667 |
+| first-moving / 3 |           0.800000 |          0.808333 |
+| first-moving / 4 |           0.787500 |          0.791667 |
+| first-moving / 5 |           0.791667 |          0.787500 |
+| first-moving / 6 |           0.795833 |          0.791667 |
+| last-moving / 1  |           0.808333 |          0.812500 |
+| last-moving / 2  |           0.812500 |          0.820833 |
+| last-moving / 3  |           0.800000 |          0.804167 |
+| last-moving / 4  |           0.808333 |          0.816667 |
+| last-moving / 5  |           0.791667 |          0.808333 |
+| last-moving / 6  |           0.800000 |          0.812500 |
+| all-moving / 1   |           0.808333 |          0.812500 |
+| all-moving / 2   |           0.795833 |          0.800000 |
+| all-moving / 3   |           0.804167 |          0.825000 |
+| all-moving / 4   |           0.800000 |          0.812500 |
+| all-moving / 5   |           0.800000 |          0.800000 |
+| all-moving / 6   |           0.795833 |          0.816667 |
+| instance / 1     |           0.012500 |          0.016667 |
+| instance / 2     |           0.012500 |          0.012500 |
+| instance / 3     |           0.025000 |          0.012500 |
+| instance / 4     |           0.012500 |          0.016667 |
+| instance / 5     |           0.012500 |          0.016667 |
+| instance / 6     |           0.008333 |          0.008333 |
+| single / 1       |           0.008333 |          0.016667 |
+| single / 2       |           0.012500 |          0.008333 |
+| single / 3       |           0.012500 |          0.004167 |
+| single / 4       |           0.008333 |          0.008333 |
+| single / 5       |           0.012500 |          0.008333 |
+| single / 6       |           0.008333 |          0.008333 |
+
+#### Rejected fixed uniform size: WebGPU raw pairs
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| stable / 1       |           0.695833 |          0.683333 |
+| stable / 2       |           0.650000 |          0.658333 |
+| stable / 3       |           0.641667 |          0.741667 |
+| stable / 4       |           0.608333 |          0.600000 |
+| stable / 5       |           0.625000 |          0.620833 |
+| stable / 6       |           0.641667 |          0.637500 |
+| first-moving / 1 |           0.720833 |          0.691667 |
+| first-moving / 2 |           0.679167 |          0.683333 |
+| first-moving / 3 |           0.670833 |          0.662500 |
+| first-moving / 4 |           0.662500 |          0.679167 |
+| first-moving / 5 |           0.675000 |          0.679167 |
+| first-moving / 6 |           0.666667 |          0.666667 |
+| last-moving / 1  |           0.708333 |          0.704167 |
+| last-moving / 2  |           0.675000 |          0.654167 |
+| last-moving / 3  |           0.708333 |          0.675000 |
+| last-moving / 4  |           0.683333 |          0.683333 |
+| last-moving / 5  |           0.683333 |          0.679167 |
+| last-moving / 6  |           0.675000 |          0.675000 |
+| all-moving / 1   |           0.733333 |          0.758333 |
+| all-moving / 2   |           0.762500 |          0.725000 |
+| all-moving / 3   |           0.745833 |          0.737500 |
+| all-moving / 4   |           0.737500 |          0.720833 |
+| all-moving / 5   |           0.708333 |          0.729167 |
+| all-moving / 6   |           0.745833 |          0.729167 |
+| instance / 1     |           0.016667 |          0.020833 |
+| instance / 2     |           0.020833 |          0.016667 |
+| instance / 3     |           0.016667 |          0.020833 |
+| instance / 4     |           0.012500 |          0.012500 |
+| instance / 5     |           0.016667 |          0.016667 |
+| instance / 6     |           0.012500 |          0.016667 |
+| single / 1       |           0.012500 |          0.012500 |
+| single / 2       |           0.016667 |          0.016667 |
+| single / 3       |           0.012500 |          0.012500 |
+| single / 4       |           0.012500 |          0.020833 |
+| single / 5       |           0.016667 |          0.016667 |
+| single / 6       |           0.012500 |          0.025000 |
+
+#### Rejected fixed uniform size: WebGL2 raw pairs
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| stable / 1       |           0.875000 |          0.916667 |
+| stable / 2       |           1.100000 |          1.120833 |
+| stable / 3       |           0.912500 |          0.912500 |
+| stable / 4       |           0.954167 |          0.925000 |
+| stable / 5       |           0.870833 |          0.895833 |
+| stable / 6       |           0.908333 |          0.883333 |
+| first-moving / 1 |           1.091667 |          0.929167 |
+| first-moving / 2 |           0.904167 |          0.908333 |
+| first-moving / 3 |           0.916667 |          1.000000 |
+| first-moving / 4 |           0.987500 |          0.966667 |
+| first-moving / 5 |           0.991667 |          0.962500 |
+| first-moving / 6 |           0.958333 |          0.979167 |
+| last-moving / 1  |           0.966667 |          0.991667 |
+| last-moving / 2  |           0.995833 |          0.950000 |
+| last-moving / 3  |           0.933333 |          0.933333 |
+| last-moving / 4  |           0.962500 |          0.954167 |
+| last-moving / 5  |           0.975000 |          1.000000 |
+| last-moving / 6  |           0.970833 |          0.929167 |
+| all-moving / 1   |           0.987500 |          0.975000 |
+| all-moving / 2   |           0.962500 |          0.975000 |
+| all-moving / 3   |           0.970833 |          0.991667 |
+| all-moving / 4   |           0.954167 |          0.950000 |
+| all-moving / 5   |           0.945833 |          0.933333 |
+| all-moving / 6   |           0.966667 |          0.950000 |
+| instance / 1     |           0.020833 |          0.016667 |
+| instance / 2     |           0.016667 |          0.016667 |
+| instance / 3     |           0.020833 |          0.016667 |
+| instance / 4     |           0.016667 |          0.012500 |
+| instance / 5     |           0.008333 |          0.012500 |
+| instance / 6     |           0.012500 |          0.012500 |
+| single / 1       |           0.012500 |          0.008333 |
+| single / 2       |           0.008333 |          0.012500 |
+| single / 3       |           0.012500 |          0.008333 |
+| single / 4       |           0.008333 |          0.008333 |
+| single / 5       |           0.004167 |          0.012500 |
+| single / 6       |           0.012500 |          0.008333 |
+
+### Accepted complete-submit CPU experiment, before native observers
+
+- Node26.7.0 / TypeScript6.0.3 / pnpm12.6.0; pinned Playwright Chromium153.0.8010.12,
+  darwin/arm64 desktop automation through repository native launcher/Metal flags. Not
+  physical-device, Safari or general browser certification.
+- Canonical source /src/index.ts and original main mesh framegraph/constructor. Separate
+  HMR-disabled servers freeze only the two parent/candidate motion modules; no fake GPU,
+  standalone replacement renderer, borrowed constructor or render-method swap in clocks.
+  Vite candidate modules are prototypes only; final certification below uses actual edited
+  source and copied distribution with NO after-module overrides.
+- Six AB/BA paired rounds, fresh serial browser per variant/round. Each runs six real
+  scenes with128² visible canvas, PBR cubes and motion enabled except none. Four observed
+  warm frames verify actual geometry callbacks/run transitions; then restore observer.
+  Six warm frames plus4×10 submissions precede24 timed complete begin/render/end calls.
+  Native GPU completion/GL finish is outside timing. GPU then GL run serially; no profiler,
+  screenshots, pixel readback or native prototype observer overlaps any CPU sample.
+- Shared1000 meshes, unique1000 geometries,1000 real instances, alternating scene-input
+  geometries, one pose and no-motion control all retain their full data. Actual sorted
+  alternating input yields803 runs in the captured case, NOT an invented1000 run count.
+  The main instanced geometry is one draw; its1000 velocity poses change1000→1 native draws.
+
+| backend | workload    | before_ms | after_ms | change_percent | upload_before | upload_after | draws_before | draws_after |
+| ------- | ----------- | --------- | -------- | -------------- | ------------- | ------------ | ------------ | ----------- |
+| webgpu  | none        | 0.687500  | 0.693750 | 0.91           | 7856          | 7856         | 1000         | 1000        |
+| webgpu  | shared      | 0.935417  | 0.852083 | -8.91          | 263856        | 135856       | 2000         | 1001        |
+| webgpu  | unique      | 1.164583  | 1.079167 | -7.33          | 263856        | 135856       | 2000         | 2000        |
+| webgpu  | instance    | 0.258333  | 0.143750 | -44.35         | 263856        | 135856       | 1001         | 2           |
+| webgpu  | alternating | 1.118750  | 1.020833 | -8.75          | 263856        | 135856       | 2000         | 1803        |
+| webgpu  | single      | 0.016667  | 0.016667 | 0.00           | 8112          | 7984         | 2            | 2           |
+| webgl2  | none        | 0.885417  | 0.837500 | -5.41          | 4048          | 4048         | 1000         | 1000        |
+| webgl2  | shared      | 1.077083  | 1.060417 | -1.55          | 4048          | 4048         | 2000         | 2000        |
+| webgl2  | unique      | 2.460417  | 2.431250 | -1.19          | 4048          | 4048         | 2000         | 2000        |
+| webgl2  | instance    | 0.260417  | 0.260417 | 0.00           | 4048          | 4048         | 1001         | 1001        |
+| webgl2  | alternating | 1.827083  | 1.789583 | -2.05          | 4048          | 4048         | 2000         | 2000        |
+| webgl2  | single      | 0.016667  | 0.014583 | -12.50         | 4048          | 4048         | 2            | 2           |
+
+| backend | name        | faster | slower | equal |
+| ------- | ----------- | ------ | ------ | ----- |
+| webgpu  | none        | 3      | 2      | 1     |
+| webgpu  | shared      | 5      | 1      | 0     |
+| webgpu  | unique      | 6      | 0      | 0     |
+| webgpu  | instance    | 6      | 0      | 0     |
+| webgpu  | alternating | 6      | 0      | 0     |
+| webgpu  | single      | 2      | 3      | 1     |
+| webgl2  | none        | 6      | 0      | 0     |
+| webgl2  | shared      | 4      | 2      | 0     |
+| webgl2  | unique      | 4      | 2      | 0     |
+| webgl2  | instance    | 3      | 3      | 0     |
+| webgl2  | alternating | 3      | 3      | 0     |
+| webgl2  | single      | 5      | 1      | 0     |
+
+- GPU unique/instance/alternating improve in6/6 paired rounds; shared in5/6. No-motion GPU
+  moves+0.91%, unchanged GL none moves-5.41%, and single is tiny/quantized. Keep these
+  unused controls; do not attribute their movements or claim every scene/clock improves.
+  Complete144 accepted sample rows and all per-round draw/upload counters are retained.
+  CPU submit is not GPU time, latency, heap, memory residency or presentation FPS.
+
+#### Accepted WebGPU raw pairs
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.716667 |          0.704167 |
+| shared / 1       |           0.950000 |          0.866667 |
+| unique / 1       |           1.166667 |          1.083333 |
+| instance / 1     |           0.258333 |          0.145833 |
+| alternating / 1  |           1.120833 |          0.945833 |
+| single / 1       |           0.020833 |          0.016667 |
+| none / 2         |           0.687500 |          0.704167 |
+| shared / 2       |           0.933333 |          0.845833 |
+| unique / 2       |           1.162500 |          1.054167 |
+| instance / 2     |           0.262500 |          0.137500 |
+| alternating / 2  |           1.087500 |          1.033333 |
+| single / 2       |           0.016667 |          0.016667 |
+| none / 3         |           0.695833 |          0.670833 |
+| shared / 3       |           0.941667 |          0.837500 |
+| unique / 3       |           1.150000 |          1.075000 |
+| instance / 3     |           0.254167 |          0.145833 |
+| alternating / 3  |           1.104167 |          1.012500 |
+| single / 3       |           0.020833 |          0.016667 |
+| none / 4         |           0.687500 |          0.683333 |
+| shared / 4       |           0.937500 |          0.845833 |
+| unique / 4       |           1.162500 |          1.075000 |
+| instance / 4     |           0.258333 |          0.145833 |
+| alternating / 4  |           1.116667 |          1.029167 |
+| single / 4       |           0.016667 |          0.016667 |
+| none / 5         |           0.679167 |          0.737500 |
+| shared / 5       |           0.929167 |          0.950000 |
+| unique / 5       |           1.241667 |          1.220833 |
+| instance / 5     |           0.270833 |          0.141667 |
+| alternating / 5  |           1.187500 |          0.991667 |
+| single / 5       |           0.016667 |          0.020833 |
+| none / 6         |           0.683333 |          0.683333 |
+| shared / 6       |           0.916667 |          0.858333 |
+| unique / 6       |           1.258333 |          1.087500 |
+| instance / 6     |           0.250000 |          0.137500 |
+| alternating / 6  |           1.133333 |          1.054167 |
+| single / 6       |           0.016667 |          0.020833 |
+
+#### Untouched WebGL2 raw pairs
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.837500 |          0.829167 |
+| shared / 1       |           1.058333 |          1.054167 |
+| unique / 1       |           2.437500 |          2.412500 |
+| instance / 1     |           0.258333 |          0.258333 |
+| alternating / 1  |           1.741667 |          1.795833 |
+| single / 1       |           0.016667 |          0.012500 |
+| none / 2         |           0.916667 |          0.841667 |
+| shared / 2       |           1.104167 |          1.045833 |
+| unique / 2       |           2.541667 |          2.412500 |
+| instance / 2     |           0.266667 |          0.262500 |
+| alternating / 2  |           1.820833 |          1.770833 |
+| single / 2       |           0.016667 |          0.016667 |
+| none / 3         |           0.912500 |          0.845833 |
+| shared / 3       |           1.070833 |          1.129167 |
+| unique / 3       |           2.433333 |          2.504167 |
+| instance / 3     |           0.262500 |          0.250000 |
+| alternating / 3  |           1.804167 |          1.837500 |
+| single / 3       |           0.016667 |          0.016667 |
+| none / 4         |           0.858333 |          0.833333 |
+| shared / 4       |           1.070833 |          1.058333 |
+| unique / 4       |           2.404167 |          2.420833 |
+| instance / 4     |           0.262500 |          0.270833 |
+| alternating / 4  |           1.833333 |          1.770833 |
+| single / 4       |           0.016667 |          0.012500 |
+| none / 5         |           0.854167 |          0.829167 |
+| shared / 5       |           1.100000 |          1.062500 |
+| unique / 5       |           2.483333 |          2.441667 |
+| instance / 5     |           0.254167 |          0.250000 |
+| alternating / 5  |           1.904167 |          1.783333 |
+| single / 5       |           0.008333 |          0.016667 |
+| none / 6         |           0.937500 |          0.845833 |
+| shared / 6       |           1.083333 |          1.108333 |
+| unique / 6       |           2.529167 |          2.479167 |
+| instance / 6     |           0.254167 |          0.262500 |
+| alternating / 6  |           1.841667 |          1.845833 |
+| single / 6       |           0.016667 |          0.012500 |
+
+### Native fetch decoding and applied source/distribution end to end
+
+- Initial shader prototype passed82 formal effects frames/5,406,720 presented bytes, then
+  independent native matrix decoding and an added mixed-geometry case passed92 frames/
+  6,062,080 bytes. The final applied-source/distribution totals below are separate, not
+  inflated by recounting prototype runs as extra certification.
+- Final reference server overrides only the frozen two parent source modules and matching
+  two parent dist modules. After server has no overrides: /src/index.ts and
+  /dist/src/index.js use actual applied code, real constructors and native GPU resources.
+- Eight advanced source/dist × GPU/GL × AA off/on suites preserve actual TAA/history,
+  SSR/combined/toggle, capture/abort, spatial probe and Text3D scenarios. No object-motion
+  owner is used there; these are inactive controls, not velocity savings evidence.
+- Four whole effects suites retain original LUT/tone/fog/depth/flare/camera/instance blur,
+  both AA modes, actual FXAA pixels/recreation, TAA+object, and128²→160×128→128² resize.
+  Smaller initial pose data then additional instances/mixed geometries exercise native
+  buffer growth. Every old pixel threshold remains intact.
+- Added permanent consumer-visible mixed-geometry-motion-run-offset case: opposite-moving
+  cubes with equal index counts but different actual buffers, a later nonzero pose base,
+  visible blur and stationary-frame clearing. This catches a legal GPU wrong-base bug that
+  the old instance-motion case alone did not reject. One mock test merely pinned two
+  per-pose draws for two instances and was removed rather than re-pinned to batching.
+- Native APIs are forwarded unmodified. At each actual drawIndexed snapshot bound vertex/
+  index/format/group/offsets and real vertex descriptors. Decode every pose from either
+  actual UBO dynamic offset or bound instance buffer + firstInstance + stride + attribute
+  offsets, using the full queue.writeBuffer payload, not producer echoes alone.
+- Expand every actual native draw into logical instances. All32 float32 words and actual
+  geometry match both unchanged history and callback order, and exact before/after inputs.
+  Actual depth, index count/range and adjacent run count must also match. Native pipeline
+  descriptors and GPU validation cover actual formats/usage; private diagnostics do not
+  repair bindings, fabricate buffers or turn disagreement into fake consumer failure.
+- Every presented frame reconciles total drawCalls/uploadBytes delta exactly with observed
+  motion draw/payload delta. Triangles/meshes/culling/shadows/2D/target/live peak attachment
+  counters remain exact, as do texture creation, buffer pose capacity, release and destroys.
+
+| entry  | backend | AA   | consumer | frame_pairs | RGBA_bytes | poses | passes | draw_before | draw_after | group_binds_before | group_binds_after | vertex_binds_before | vertex_binds_after | index_binds | bytes_before | bytes_after | groups_before | groups_after | buffers | textures | releases | destroys |
+| ------ | ------- | ---- | -------- | ----------- | ---------- | ----- | ------ | ----------- | ---------- | ------------------ | ----------------- | ------------------- | ------------------ | ----------- | ------------ | ----------- | ------------- | ------------ | ------- | -------- | -------- | -------- |
+| source | webgpu  | off  | advanced | 23          | 5870592    | 0     | 0      | 0           | 0          | 0                  | 0                 | 0                   | 0                  | 0           | 0            | 0           | 0             | 0            | 0       | 0        | 0        | 0        |
+| source | webgpu  | on   | advanced | 23          | 5870592    | 0     | 0      | 0           | 0          | 0                  | 0                 | 0                   | 0                  | 0           | 0            | 0           | 0             | 0            | 0       | 0        | 0        | 0        |
+| source | webgpu  | both | effects  | 92          | 6062080    | 198   | 52     | 198         | 102        | 198                | 40                | 102                 | 142                | 102         | 50688        | 25344       | 12            | 6            | 12      | 8        | 12       | 20       |
+| source | webgl2  | off  | advanced | 23          | 5870592    | 0     | 0      | 0           | 0          | 0                  | 0                 | 0                   | 0                  | 0           | 0            | 0           | 0             | 0            | 0       | 0        | 0        | 0        |
+| source | webgl2  | on   | advanced | 23          | 5870592    | 0     | 0      | 0           | 0          | 0                  | 0                 | 0                   | 0                  | 0           | 0            | 0           | 0             | 0            | 0       | 0        | 0        | 0        |
+| source | webgl2  | both | effects  | 92          | 6062080    | 0     | 0      | 0           | 0          | 0                  | 0                 | 0                   | 0                  | 0           | 0            | 0           | 0             | 0            | 0       | 0        | 0        | 0        |
+| dist   | webgpu  | off  | advanced | 23          | 5870592    | 0     | 0      | 0           | 0          | 0                  | 0                 | 0                   | 0                  | 0           | 0            | 0           | 0             | 0            | 0       | 0        | 0        | 0        |
+| dist   | webgpu  | on   | advanced | 23          | 5870592    | 0     | 0      | 0           | 0          | 0                  | 0                 | 0                   | 0                  | 0           | 0            | 0           | 0             | 0            | 0       | 0        | 0        | 0        |
+| dist   | webgpu  | both | effects  | 92          | 6062080    | 198   | 52     | 198         | 102        | 198                | 40                | 102                 | 142                | 102         | 50688        | 25344       | 12            | 6            | 12      | 8        | 12       | 20       |
+| dist   | webgl2  | off  | advanced | 23          | 5870592    | 0     | 0      | 0           | 0          | 0                  | 0                 | 0                   | 0                  | 0           | 0            | 0           | 0             | 0            | 0       | 0        | 0        | 0        |
+| dist   | webgl2  | on   | advanced | 23          | 5870592    | 0     | 0      | 0           | 0          | 0                  | 0                 | 0                   | 0                  | 0           | 0            | 0           | 0             | 0            | 0       | 0        | 0        | 0        |
+| dist   | webgl2  | both | effects  | 92          | 6062080    | 0     | 0      | 0           | 0          | 0                  | 0                 | 0                   | 0                  | 0           | 0            | 0           | 0             | 0            | 0       | 0        | 0        | 0        |
+
+- Twelve normal suites compare552 formal frame pairs and71,213,056 RGBA bytes exactly.
+  GPU effects retain52 passes/198 poses: native draws198→102, group binds198→40,
+  vertex binds102→142 (the40 new pose-stream binds), index binds102 unchanged.
+  Forty full uploads50,688→25,344 bytes; groups12→6, buffers12/textures8/releases12/
+  destroys20 unchanged. All real GPU validation scopes are clean. GL remains unmodified.
+
+### Three independent wrong-native-fetch controls in source AND dist
+
+| entry  | variant               | consumer_state | native_errors | actual_fetch_mismatches | RGBA_mismatch_frames | RGBA_mismatch_bytes |
+| ------ | --------------------- | -------------- | ------------- | ----------------------- | -------------------- | ------------------- |
+| source | wrong-base            | failed         | 0             | 76                      | 2                    | 2622                |
+| dist   | wrong-base            | failed         | 0             | 76                      | 2                    | 2622                |
+| source | wrong-previous-column | failed         | 0             | 12                      | 1                    | 912                 |
+| dist   | wrong-previous-column | failed         | 0             | 12                      | 1                    | 912                 |
+| source | wrong-run-key         | passed         | 0             | 48                      | 2                    | 1014                |
+| dist   | wrong-run-key         | passed         | 0             | 48                      | 2                    | 1014                |
+
+- All six variants are legal under actual GPU validation: zero native errors. Native fetch
+  decoding records disagreement, but separate REAL pixels/consumer outcomes are required.
+- Wrong base forces firstInstance=0. The old instance case can pass; the new mixed-geometry
+  consumer reports0 changed pixels against its minimum10 in both entries, and two paired
+  presented frames differ by2,622 bytes. This demonstrates the new regression's value.
+- Wrong previous-column points the previous translation attribute at the current one.
+  Original instance-motion-static-camera reports0 against minimum10; one same-stat frame
+  differs by912 presented bytes per entry, despite legal native attributes.
+- Wrong run key uses only index count and merges different native geometries. BOTH the
+  original/new consumer thresholds and native validation pass, but two same-stat presented
+  frames differ by1,014 bytes per entry, with48 actual-fetch disagreements. Do NOT describe
+  this as a GPU exception or original-consumer failure. Exact golden RGBA is necessary.
+
+### Unpatched consumers, actual visible surface and cleanup
+
+- Eight unpatched source/dist × GPU/GL consumers: advanced five scenarios and full effects
+  22 scenarios each passed without page/console errors. Source effects opens the actual
+  existing /tests/browser/post-effects.html; SDK-entry clones only rewrite imports and
+  preserve original module-relative asset bases. No native observer/constructor/layout/
+  render swaps in these consumers; the new permanent motion case runs here too.
+- Actual source showcase opens GPU/GL, shows Scene A, switches via its real button to
+  Scene B, captures screenshots and invokes its actual nonpersisted pagehide handler.
+  GPU screenshot was visually inspected: 2D sprite/overlay and lit cube/sphere remain.
+  Real native release deltas, not an empty-console-only cleanup claim:
+
+| backend | buffers_deleted | textures_deleted | programs_deleted | devices_destroyed |
+| ------- | --------------- | ---------------- | ---------------- | ----------------- |
+| webgpu  | 22              | 14               | 0                | 1                 |
+| webgl2  | 10              | 5                | 15               | 0                 |
+
+- Audio is still locked; no unlock/play or audio certification claimed. No Canvas fallback
+  or physical-device coverage is inferred from the visible desktop showcase.
+
+### Quality, guarded distribution and harness correction
+
+- Source5-file Prettier writes and scoped ESLint passed; strict typecheck passed.
+  Existing motion-blur-object/motion-blur/resource-residency files:26 tests at03:24:23,
+  1.68s,3 files passed. Historical P210's17 tests/date remain unchanged. No broad physics,
+  locomotion/root-motion or full unit-suite claim is made.
+- Isolated build compiled/minified377 JS files9,364,299→4,013,490 bytes and720 CJS files;
+  vendor unchanged. Ten changed dist files copied: eight motion ESM/map/CJS/map outputs,
+  motion declaration with only obsolete private fields/fixed literal, and RenderStats
+  declaration comment clarification. Shared motion .d.ts must remain exact; public stats
+  declaration shape after stripping comments must remain exact. Stats runtime/maps stayed
+  byte-identical and were not copied. Unrelated user physics2d/world2d source/dist untouched.
+- One owned advanced wrapper HTML imported the exported runAdvancedExpansion module but
+  never called it, so the first final wait timed out90s before any renderer/terminal state
+  ran. Corrected only invocation/report wiring in final/unpatched wrapper HTML. No runtime,
+  assertion, threshold or accepted CPU data changed; all12 final normal suites then passed.
+- Sync README Chinese/English/Japanese, PLAN, DESIGN, technical English/Chinese and this
+  record. Six documentation files formatted and relative links checked before the scoped
+  feature commit. All profile/prototype/final/negative Vite services stopped, and owned
+  fixtures/scripts/profiles/build stage removed. No push, version bump or runtime dependency.
+- Not run: full unit suite, CJS runtime, Canvas/audio, device-loss/initialization fallback,
+  Firefox/Safari or physical-device certification. No heap/GC/native/GPU-memory, GPU time,
+  presentation FPS or end-to-end latency measurement; no universal speedup claim.

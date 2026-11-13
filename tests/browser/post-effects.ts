@@ -314,6 +314,44 @@ async function run(): Promise<void> {
         throw new Error(
           'Static instances retained stale object blur velocity.',
         );
+      // Equal index counts do not make distinct native geometry interchangeable.
+      const smaller = scene.add(
+        new Mesh({
+          geometry: Geometry.cube(0.35),
+          material: mesh.material,
+          position: [-0.7, -0.35, 0.8],
+        }),
+      );
+      const larger = scene.add(
+        new Mesh({
+          geometry: Geometry.cube(0.65),
+          material: mesh.material,
+          position: [0.7, 0.35, 0.8],
+        }),
+      );
+      const poseMixed = (offset: number) => {
+        smaller.position.x = -0.7 + offset;
+        larger.position.x = 0.7 - offset;
+      };
+      blur.strength = 0;
+      poseMixed(0);
+      await draw();
+      poseMixed(0.25);
+      const mixedSharp = await draw();
+      poseMixed(0);
+      await draw();
+      blur.strength = 1;
+      poseMixed(0.25);
+      record('mixed-geometry-motion-run-offset', mixedSharp, await draw(), 10);
+      const mixedStill = await draw();
+      if (changed(mixedSharp, mixedStill, 1) > 20)
+        throw new Error(
+          'Static mixed geometry retained stale object velocity.',
+        );
+      scene.remove(smaller);
+      scene.remove(larger);
+      smaller.destroy();
+      larger.destroy();
       scene.remove(instances);
       await draw();
       blur.perObject = false;

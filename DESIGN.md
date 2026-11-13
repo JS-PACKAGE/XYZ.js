@@ -6009,3 +6009,22 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   則造成實際index range超過buffer，跨pass carry會在新pass缺少index binding，皆不是mock拒絕。
 - Shared／instanced CPU cohorts受益，但all-unique geometry對照略慢；不加特殊輸入heuristic
   隱藏代價。Sampling歸因與完整submit計時分開，不以native calls或sample數冒稱FPS／heap收益。
+
+## P211 — Instance pose attributes replace per-pose uniform binds
+
+- Shared ObjectMotionHistory與GL shaders不變。WebGPU position仍用slot0；slot1以instance step
+  提供current／previous兩個column-major matrices（八個float32x4 attributes，共128 bytes）。
+  Shader保留原clip multiplication、depth rejection及velocity calculation。
+- 不再用uniform alignment padding、dynamic group offsets或groupForPass field。Depth-only group
+  不引用pose buffer，因此buffer growth無須作廢group；releaseTarget仍清groups及history。
+- 逐pose呼叫原geometry callback，key必須同時包含實際vertex buffer、index buffer、index count。
+  只合併相鄰run，不重排、不跨run合併相同geometry；firstInstance指向該run的第一個pose。
+- Native observer從真正bound uniform offset或instance buffer／stride／attribute offsets解碼，
+  展開每個draw的全部instances，與history及callback逐pose核對32個float32 words、geometry及depth。
+- 52個velocity passes仍有198 poses；實測draws198→102、group binds198→40，vertex binds因新增
+  instance stream而102→142，index binds102不變，buffer payload50,688→25,344 bytes。
+  額外binding成本不隱藏；triangles、targets、資源釋放及呈現pixels不變。
+- Mixed geometry以相同index count、不同native buffers及相反運動驗證run boundary。刻意把
+  firstInstance清零時，GPU validation合法，但新增consumer得到零blur pixels，不能只檢查「不報錯」。
+- CPU完整submit與native counters分開，保留兩個否決候選及所有control波動；不以API次數、
+  padding減少或微小single場景變化冒充全面FPS／GPU／heap收益。

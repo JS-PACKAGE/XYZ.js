@@ -9,14 +9,12 @@ export declare class WebGPUObjectMotion {
     private readonly pipeline;
     private readonly layout;
     private readonly stride;
-    private groupForPass?;
     private texture?;
     private view?;
     private buffer?;
     private data;
     private width;
     private height;
-    private readonly dynamicOffsets;
     private groups?;
     constructor(device: GPUDevice, samples: number, stats: FrameStats);
     render(encoder: GPUCommandEncoder, meshes: readonly Mesh[], state: TemporalPostState, depth: GPUTextureView, geometry: (mesh: Mesh) => {

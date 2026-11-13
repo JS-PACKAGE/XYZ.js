@@ -57,9 +57,9 @@ export interface RenderStats {
     readonly meshes: number;
     /** Of those, meshes skipped by frustum culling. */
     readonly culled: number;
-    /** Indexed draw calls in the main 3D pass. */
+    /** Indexed main 3D and auxiliary object-velocity draw calls. */
     readonly drawCalls: number;
-    /** Triangles submitted by the main 3D pass (instances included). */
+    /** Triangles submitted by those indexed draws (instances included). */
     readonly triangles: number;
     /** Indexed draw calls in the shadow pass. */
     readonly shadowDrawCalls: number;
@@ -106,7 +106,7 @@ export declare class FrameStats implements RenderStats {
     begin(): void;
     /** Finishes CPU submission measurement independently of asynchronous GPU results. */
     submit(): void;
-    /** Records one indexed main-pass draw. */
+    /** Records one indexed 3D or auxiliary object-velocity draw. */
     draw(indexCount: number, instances: number): void;
     /** Records a native 2D draw and its submitted instance count. */
     draw2D(instances?: number): void;
