@@ -389,7 +389,9 @@ export class NavigationTiledGraph3D {
           else if (current === to) {
             found = true;
             phase = 'backtrack';
-          } else
+          } else {
+            // Neighbor relaxation does not change the current node's distance.
+            const currentDistance = search.distance.get(current)!;
             for (const edge of this.edges[current]!) {
               const connection = this.connections[edge.connection]!,
                 node = this.nodes[edge.to]!;
@@ -401,10 +403,11 @@ export class NavigationTiledGraph3D {
                 excluded.has(edge.connection)
               )
                 continue;
-              const distance = search.distance.get(current)! + connection.cost;
+              const distance = currentDistance + connection.cost;
               if (distance < (search.distance.get(edge.to) ?? Infinity))
                 search.offer(edge.to, distance, distance, current);
             }
+          }
         } else if (phase === 'backtrack') {
           if (back >= 0) {
             reverse.push(back);

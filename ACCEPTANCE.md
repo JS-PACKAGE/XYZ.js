@@ -18662,3 +18662,57 @@ tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
   僅執行上述 throwaway CPU benchmarks，並檢查變更文件格式與 README 相對連結。
   未量測 allocation counts、heap、GC pause、rendering、GPU 或 fps；README 中英日、
   PLAN、DESIGN、TECHNICAL 中英同步記錄拒絕決策，不標示新能力完成。
+
+## P168 — Reuse settled distance per tiled-graph expansion（2026-11-13）
+
+- NavigationTiledGraph3D 的同步 neighbor relaxation，以 expansion-local const 保存
+  search.distance.get(current)，不再為每個通過 filter 的 edge 重查相同 Map entry。
+  起點與所有 relaxation 來自內部 workspace，edge costs 是已驗證的非負有限值；
+  本次鄰邊迴圈不會改變 current node 的 distance。加法、strict improvement、stable
+  heap ordering、parent／path／revision／job primitive 計數不變，沒有跨 expansion cache。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，8 warmup／15 輪交替
+  median、無並行測試。Graph setup 在計時外；正式 findPath state machine、sparse
+  Dijkstra、backtrack／forward／publish 與結果 cost／node count 讀取都在計時內。
+  每個 fixture 是一個正式 tile，未以 fake heap 或假的 path result 代替 consumer。
+
+| Workload                                                         | Searches | Before ms |  After ms |
+| ---------------------------------------------------------------- | -------: | --------: | --------: |
+| Chain, 1,024 nodes                                               |       40 |  4.543667 |  4.567917 |
+| 32×32 grid                                                       |       20 |  3.221542 |  3.167625 |
+| 4-ary tree, 5,461 nodes                                          |        8 | 12.000917 | 11.754958 |
+| 32 clusters × 32 fully connected nodes, neighboring roots linked |        8 |  4.004000 |  3.784041 |
+| Same clusters, all edges disabled                                |    1,000 |  0.478958 |  0.494209 |
+
+- Grid／tree／clusters CPU 約快 1.7–5.5%；chain 約慢 0.5%，all-disabled case 約慢
+  3.2%，因 expanded node 即使沒有任何可用 edge 仍多讀一次 Map。採用簡單 local const
+  的取捨，不宣稱所有 searches 加速，沒有增加 retained cache 或宣稱 allocation／fps 收益。
+- 4,096 個兩 tile 隨機圖、16,384 次 searches、12,167 次 incremental steps 的 path
+  nodes／positions／cost／revision／frozen state、job status／expansions／result、
+  available slots 與 error name／message 精確一致。終態共 7,551 found、3,753
+  unreachable、820 invalidated、4,096 cancelled、164 errors。
+  涵蓋 directed／bidirectional、zero／-0／subnormal／large finite costs、ties／cycles、
+  walkability／clearance、agent radius／exclusions、start=goal、未知 node／invalid radius、
+  不同 step budgets、effective connection edits、cancel 與 destroy 後錯誤。
+- 既有完整 path／revision／exclusion／frontier regressions 已覆蓋此路徑，無新增重複測試。
+  `vitest run tests/navigation.test.ts tests/navigation-mesh.test.ts tests/navigation-jobs.test.ts`
+  **31 tests passed**；Typecheck、scoped ESLint／Prettier、ESM compile/minify、完整
+  vendor copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+  未跑完整 suite、未開 browser／重驗 rendering、三 backend 或 audio；未量測配置數、
+  aggregate heap、GC pause、GPU 或 fps。NavMesh search 的正式程式碼未改動。
+
+### 未採用：per-edge lazy current-distance cache
+
+- Temporary variant 在 expansion 內以 undefined sentinel，第一條可用 edge 才讀 Map，
+  後續經 ??= 重用；可避免 all-disabled 額外 lookup，但每條可用 edge 多一個 branch。
+  同環境、8 warmup／15 輪交替 median 的完整 tiled findPath：
+
+| Workload                               | Searches | Before ms |  After ms |
+| -------------------------------------- | -------: | --------: | --------: |
+| Chain, 1,024 nodes                     |       40 |  4.538750 |  4.511584 |
+| 32×32 grid                             |       20 |  3.172750 |  3.202959 |
+| 4-ary tree, 5,461 nodes                |        8 | 11.902833 | 11.705833 |
+| 32 clusters × 32 fully connected nodes |        8 |  4.057750 |  3.892417 |
+| Same clusters, all edges disabled      |    1,000 |  0.491417 |  0.494000 |
+
+- Lazy 版 grid 約慢 1.0%，tree／clusters 收益約 1.7–4.1%，不優於較簡單 const
+  的正常可用-edge 測項；不保留，未宣稱此候選完成獨立 differential 驗證。

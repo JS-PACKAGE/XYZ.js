@@ -5525,3 +5525,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   leaf-first Floyd strategy，不能未經量測就套用到每次搬移都要寫 slots Map 的 frontier；
   本次完整 tiled chain／grid／tree search 亦未見改善。
 - 正式架構未變，沒有擴大認證範圍；兩個未採用候選的 CPU evidence 見 ACCEPTANCE P167。
+
+## P168 — Reuse an invariant Map value inside one expansion
+
+- Tiled graph 的 current node 已有內部 distance，且本次同步、非負 edge relaxation
+  不會改變它；以 local const 取代每個可用 neighbor 再查 Map。常數的 lifetime 僅限
+  此 expansion，不引入 invalidation protocol 或跨 job retained state。
+- Filter／cost arithmetic／parent update／heap ordering／job primitives 的順序不變。
+  沒有可用 edge 的 expansion 會多一次 lookup；不為避開這個小成本而在每條可用
+  edge 加 lazy-cache branch。各 workloads 的 CPU 與 16,384-search 差分見 ACCEPTANCE P168。

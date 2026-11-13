@@ -215,11 +215,14 @@ var NavigationTiledGraph3D = class NavigationTiledGraph3D {
 				let e = u.take();
 				if (e === void 0) d = `publish`;
 				else if (e === o) m = !0, d = `backtrack`;
-				else for (let t of this.edges[e]) {
-					let n = this.connections[t.connection], r = this.nodes[t.to];
-					if (!n.enabled || n.clearance < c || !r.walkable || r.clearance < c || l.has(t.connection)) continue;
-					let i = u.distance.get(e) + n.cost;
-					i < (u.distance.get(t.to) ?? 1 / 0) && u.offer(t.to, i, i, e);
+				else {
+					let t = u.distance.get(e);
+					for (let n of this.edges[e]) {
+						let r = this.connections[n.connection], i = this.nodes[n.to];
+						if (!r.enabled || r.clearance < c || !i.walkable || i.clearance < c || l.has(n.connection)) continue;
+						let a = t + r.cost;
+						a < (u.distance.get(n.to) ?? 1 / 0) && u.offer(n.to, a, a, e);
+					}
 				}
 			} else if (d === `backtrack`) f >= 0 ? (h.push(f), f = u.parent.get(f)) : (p = h.length - 1, d = `forward`);
 			else if (d === `forward`) p >= 0 ? g.push(this.nodes[h[p--]]) : d = `publish`;

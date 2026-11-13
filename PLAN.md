@@ -5373,3 +5373,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   frontier／完整 tiled path search 收益，均不套用。
 - 本階段只有量測與拒絕決策文件，沒有 runtime source／dist 變更，也未重新
   執行 tests／build／browser。CPU tables、方法與限制見 ACCEPTANCE P167。
+
+## P168 — Expansion-local current distance in tiled search
+
+- NavigationTiledGraph3D 每次同步 expansion 只查一次 current distance Map；
+  不跨 expansion 保留 cache，不更改加法、strict improvement、path 或 job budget。
+- 4,096 圖／16,384 searches／12,167 incremental steps 差分與 31 tests 通過。
+  Grid／tree／clusters CPU 約快 1.7–5.5%，chain 約慢 0.5%，all-disabled 約慢 3.2%；
+  per-edge lazy 候選不採用，完整取捨與驗證範圍見 ACCEPTANCE P168。
