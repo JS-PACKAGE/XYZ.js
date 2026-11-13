@@ -7121,3 +7121,19 @@ Source／dist×GPU／GL×兩AA設定native pass-use與byte-exact frames通過。
 pipeline compatibility拒絕。Scoped4 tests、source checks、guarded build及unpatched
 consumer／showcase通過。Mixed CPU、unused TAA controls及原生次數見
 [ACCEPTANCE](../ACCEPTANCE.md) P206，不能冒稱穩定整幀提升。
+
+## P207 resource-epoch SSR／TAA groups
+
+Temporal group以弱source GPUTexture及借用depth GPUTextureView為lazy複合key，SSR及兩個
+TAA ping-pong histories各用獨立slot。Release先drop cache再destroy owned targets；
+即使借用inputs在新epoch保持相同，也不能拿舊history group。Inactive cleanup不配置container。
+
+兩個readonly uniform buffers及layouts維持renderer-owned；每pass仍上傳完整最新240 bytes，
+讀取當前source／depth contents。Settings、attachments、passes、destination及swapchain
+views不快取。Live keys仍保留inner maps、arrays及native groups，不宣稱memory下降。
+
+Source／dist的actual native uses、payload、RGBA及補充HDR比較通過。錯誤history slot及
+destroyed epoch由真實GPU validation拒絕；wrong source／depth即使合法綁定，實際HDR pixels
+仍會抓出錯誤。Scoped4 tests、source checks、guarded outputs及unpatched consumer／showcase
+通過。Mixed full-submit timing、unused GPU／GL controls與native API次數分別記錄於
+[ACCEPTANCE](../ACCEPTANCE.md) P207，不宣稱穩定FPS收益。

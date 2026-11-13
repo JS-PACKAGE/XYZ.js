@@ -5947,3 +5947,20 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 補充probe使用同Root owner／encoder的實際SSR source及native blue texture，讀回兩個
   rgba16float targets；wrong source可合法通過GPU validation卻產生相同blue pixels。
   Sample key negative則由真正native incompatibility拒絕，zero readback不算成功證據。
+
+## P207 — Temporal group identity includes both inputs and the history epoch
+
+- Lazy WeakMap以GPUTexture source為外層、GPUTextureView depth為內層弱key；value為三個
+  group slots。SSR slot不含history；TAA兩個slot分別讀取另一組color／depth history。
+- 不以history-valid或settings當resource key：兩個uniform buffers及兩個layouts皆由同owner
+  readonly持有，最新240-byte data仍逐pass上傳，history validity只改uniform內容。
+- Target release同時drop group／view caches，再destroy scratch／histories／depths；
+  即使借用source／depth identities不變，新epoch亦不能取回已destroy的history group。
+- 不新增strong borrowed-input key；live keys仍會保留inner WeakMap、slot array及native
+  groups，代價不能冒稱heap／native memory下降。Inactive cleanup不配置新container。
+- 同Root owner／encoder加入native blue source與far-cleared depth，三次SSR uniforms
+  byte-identical，讀回三份HDR scratch；錯誤source／depth可合法綁定卻alias錯誤pixels。
+- 另在camera-cut reset保留借用inputs、替換owned histories，缺少cache clear會由native GPU
+  拒絕destroyed texture；history-slot alias則產生實際sampling／attachment usage conflict。
+- 不重用render pass／attachments／swapchain，不減少draw或upload。API work證據與混合CPU
+  controls分列，不能以呼叫數下降代替GPU time、heap、FPS或端到端latency。

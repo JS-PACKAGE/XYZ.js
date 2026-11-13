@@ -22838,3 +22838,201 @@ The current pipeline ([RenderPipeline (unlabeled)]) was created with a default l
 - 未跑full unit suite、CJS runtime、Canvas／audio、device-loss／initialization fallback，
   未認證Firefox／Safari／physical device。未量測heap、GC、native/GPU bytes、GPU time、
   presentation FPS或端到端latency，不宣稱所有場景加速。
+
+## P207 — Epoch-scoped weak source/depth SSR/TAA bind groups
+
+### Decision and invariant
+
+- Adopt only the bounded reduction in repeated native bind-group creation and its JS
+  descriptor construction. Mixed full-submit controls do not establish a stable CPU/FPS gain.
+- Formal WebGPUTemporalPipeline lazily uses weak source GPUTexture, weak borrowed depth
+  GPUTextureView and three slots: SSR, TAA current index0 reading history1, and TAA index1
+  reading history0. The target epoch is enforced by dropping the cache in releaseTarget
+  before owned scratch/history/depth textures are destroyed.
+- Two readonly renderer-owned uniform buffers/layouts are unchanged. All current240 bytes
+  are uploaded on every temporal pass; no settings, source contents, attachments, passes,
+  destination/swapchain views or GPU work are cached. Existing blit groups remain separate.
+- Live input keys retain inner WeakMap/slot arrays/native groups; weak keys are not a heap,
+  GC or native-memory improvement claim. Inactive cleanup only drops the optional cache.
+
+### Environment and complete native CPU controls
+
+- Node26.7.0, TypeScript6.0.3, pnpm12.6.0; pinned Chromium153.0.8010.12 on darwin/arm64,
+  desktop automation. Source SDK uses /src/index.ts; distribution uses the package-declared
+  /dist/src/index.js. Frozen before/after methods borrow the actual root-renderer owner,
+  readonly native layouts/buffers and encoder; no fake device or alternate renderer.
+- CPU timing ran before the payload/pixel observers, GPU then GL in separate browser
+  processes with visible64² canvas,100 actual Mesh draws, none/TAA/SSR/combined workloads.
+  Six paired ABBA rounds,24 complete begin/render/end submissions per timed sample;
+  warmups and GPU completion/GL finish are outside the timed interval. Existing view/blit
+  reuse is identical for both variants, and the added property shape is normalized outside
+  timing. Raw rounds are retained below, not remeasured to select favourable results.
+- Workload medians over the six rounds, ms per CPU submission:
+
+| backend | workload | before_ms | after_ms | change_percent | upload_before | upload_after |
+| ------- | -------- | --------- | -------- | -------------- | ------------- | ------------ |
+| webgpu  | none     | 0.093750  | 0.087500 | -6.67          | 7856          | 7856         |
+| webgpu  | taa      | 0.085417  | 0.087500 | 2.44           | 8128          | 8128         |
+| webgpu  | ssr      | 0.085417  | 0.081250 | -4.88          | 8096          | 8096         |
+| webgpu  | combined | 0.085417  | 0.083333 | -2.44          | 8368          | 8368         |
+| webgl2  | none     | 0.104167  | 0.110417 | 6.00           | 4048          | 4048         |
+| webgl2  | taa      | 0.108333  | 0.106250 | -1.92          | 4288          | 4288         |
+| webgl2  | ssr      | 0.097917  | 0.114583 | 17.02          | 4288          | 4288         |
+| webgl2  | combined | 0.133333  | 0.150000 | 12.50          | 4528          | 4528         |
+
+- GPU none has no temporal owner. GL never enters this WebGPU class. These unused controls
+  move materially, while active TAA is slightly slower and SSR/combined slightly faster.
+  Do not attribute the unused-control changes or infer stable whole-frame speedup.
+
+#### Raw WebGPU rounds
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.104167 |          0.091667 |
+| none / 2         |           0.120833 |          0.104167 |
+| none / 3         |           0.104167 |          0.108333 |
+| none / 4         |           0.083333 |          0.083333 |
+| none / 5         |           0.075000 |          0.075000 |
+| none / 6         |           0.083333 |          0.079167 |
+| taa / 1          |           0.100000 |          0.091667 |
+| taa / 2          |           0.104167 |          0.112500 |
+| taa / 3          |           0.091667 |          0.087500 |
+| taa / 4          |           0.079167 |          0.087500 |
+| taa / 5          |           0.079167 |          0.079167 |
+| taa / 6          |           0.079167 |          0.079167 |
+| ssr / 1          |           0.091667 |          0.087500 |
+| ssr / 2          |           0.091667 |          0.083333 |
+| ssr / 3          |           0.083333 |          0.079167 |
+| ssr / 4          |           0.083333 |          0.079167 |
+| ssr / 5          |           0.087500 |          0.083333 |
+| ssr / 6          |           0.083333 |          0.079167 |
+| combined / 1     |           0.091667 |          0.087500 |
+| combined / 2     |           0.083333 |          0.087500 |
+| combined / 3     |           0.083333 |          0.079167 |
+| combined / 4     |           0.083333 |          0.079167 |
+| combined / 5     |           0.087500 |          0.079167 |
+| combined / 6     |           0.091667 |          0.087500 |
+
+#### Raw WebGL2 unused controls
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.116667 |          0.120833 |
+| none / 2         |           0.166667 |          0.145833 |
+| none / 3         |           0.104167 |          0.108333 |
+| none / 4         |           0.104167 |          0.100000 |
+| none / 5         |           0.104167 |          0.104167 |
+| none / 6         |           0.104167 |          0.112500 |
+| taa / 1          |           0.108333 |          0.104167 |
+| taa / 2          |           0.120833 |          0.116667 |
+| taa / 3          |           0.112500 |          0.108333 |
+| taa / 4          |           0.108333 |          0.112500 |
+| taa / 5          |           0.100000 |          0.100000 |
+| taa / 6          |           0.104167 |          0.104167 |
+| ssr / 1          |           0.095833 |          0.095833 |
+| ssr / 2          |           0.100000 |          0.104167 |
+| ssr / 3          |           0.095833 |          0.116667 |
+| ssr / 4          |           0.095833 |          0.112500 |
+| ssr / 5          |           0.145833 |          0.141667 |
+| ssr / 6          |           0.141667 |          0.137500 |
+| combined / 1     |           0.104167 |          0.104167 |
+| combined / 2     |           0.100000 |          0.104167 |
+| combined / 3     |           0.095833 |          0.145833 |
+| combined / 4     |           0.162500 |          0.162500 |
+| combined / 5     |           0.162500 |          0.166667 |
+| combined / 6     |           0.162500 |          0.154167 |
+
+### Native semantics and exact pixel comparisons
+
+- Source/distribution × WebGPU/WebGL2 × AA off/on all passed five real Scene consumer
+  scenarios, extended with combined SSR/TAA and feature toggles. Each row below compares
+  frozen baseline to the actual candidate, including presented RGBA, drawCalls/uploadBytes,
+  native setBindGroup descriptor-resource uses, attachments, every240-byte queue payload,
+  view/layout creation and target release records. Group-creation rows intentionally differ;
+  bind uses and draws do not disappear. GL has no WebGPU-owner calls.
+- Additional source/distribution GPU4 suites preserve both borrowed inputs across a
+  camera-cut reset while releasing/reallocating owned targets. Actual texture identities:
+  source9/depth8, old histories[15,13], new histories[19,20]. The two extra release calls are
+  the explicit release plus ensure's idle release, not a new runtime branch.
+- Additional GPU4 input suites use the same root owner/encoder and SSR state/settings:
+  actual Scene source42/depth41, native blue source46 and far-cleared native depth47.
+  Matching native depth sample count is used; all three SSR uniform writes are byte-identical.
+  Scratch copies capture far-depth, blue-source and original Scene HDR output before later
+  writes, with actual MAP_READ buffers and aligned row pitches. Five probe-owned resources
+  (two textures, three buffers) are created/destroyed in each variant.
+
+| entry  | backend | AA  | probe   | frame_pairs | RGBA_bytes | groups_before | groups_after | actual_group_uses | passes | native_views | layout_gets | uniform_uploads | uniform_bytes | target_releases | HDR_bytes |
+| ------ | ------- | --- | ------- | ----------- | ---------- | ------------- | ------------ | ----------------- | ------ | ------------ | ----------- | --------------- | ------------- | --------------- | --------- |
+| source | webgpu  | off | primary | 23          | 5870592    | 21            | 10           | 26                | 26     | 21           | 1           | 20              | 4800          | 32              | 0         |
+| source | webgpu  | on  | primary | 23          | 5870592    | 21            | 10           | 26                | 26     | 21           | 1           | 20              | 4800          | 32              | 0         |
+| source | webgl2  | off | primary | 23          | 5870592    | 0             | 0            | 0                 | 0      | 0            | 0           | 0               | 0             | 0               | 0         |
+| source | webgl2  | on  | primary | 23          | 5870592    | 0             | 0            | 0                 | 0      | 0            | 0           | 0               | 0             | 0               | 0         |
+| source | webgpu  | on  | epoch   | 23          | 5870592    | 21            | 12           | 26                | 26     | 26           | 1           | 20              | 4800          | 34              | 0         |
+| source | webgpu  | on  | input   | 23          | 5870592    | 23            | 12           | 28                | 30     | 24           | 1           | 22              | 5280          | 32              | 1572864   |
+| dist   | webgpu  | off | primary | 23          | 5870592    | 21            | 10           | 26                | 26     | 21           | 1           | 20              | 4800          | 32              | 0         |
+| dist   | webgpu  | on  | primary | 23          | 5870592    | 21            | 10           | 26                | 26     | 21           | 1           | 20              | 4800          | 32              | 0         |
+| dist   | webgl2  | off | primary | 23          | 5870592    | 0             | 0            | 0                 | 0      | 0            | 0           | 0               | 0             | 0               | 0         |
+| dist   | webgl2  | on  | primary | 23          | 5870592    | 0             | 0            | 0                 | 0      | 0            | 0           | 0               | 0             | 0               | 0         |
+| dist   | webgpu  | on  | epoch   | 23          | 5870592    | 21            | 12           | 26                | 26     | 26           | 1           | 20              | 4800          | 34              | 0         |
+| dist   | webgpu  | on  | input   | 23          | 5870592    | 23            | 12           | 28                | 30     | 24           | 1           | 22              | 5280          | 32              | 1572864   |
+
+- Across these twelve normal suites:276 formal frame pairs,70,447,104 byte-exact presented
+  RGBA bytes, plus3,145,728 byte-exact supplementary HDR bytes. Every GPU normal frame has
+  a popped native validation scope with no errors; no threshold was relaxed.
+- Each input suite reads three256² RGBA16float images. Distinct source and depth pixels
+  are both required, not merely nonempty readback. Actual hashes, identical before/after
+  and source/distribution:
+
+| HDR result                 | SHA256                                                           |
+| -------------------------- | ---------------------------------------------------------------- |
+| Scene source / far depth   | e01de46e2c6402f161e8efc469502a3ecae2dc19647fb7a2ae014616ce7acd60 |
+| Blue source / Scene depth  | 3997a892dd41337c6769504fb832d7ace0c21d43a0ad91d0d44f4d9314bc4135 |
+| Scene source / Scene depth | e8a7aac089815e42c0a5e9d5011393c991265aea356a07019fabbd41231a6f8e |
+
+### Four resource-key negatives on actual native resources
+
+| entry  | variant       | result | native_errors | source_distinct | depth_distinct | equal_uniform_bytes |
+| ------ | ------------- | ------ | ------------- | --------------- | -------------- | ------------------- |
+| source | wrong-history | failed | 2             | n/a             | n/a            | n/a                 |
+| source | wrong-epoch   | failed | 2             | n/a             | n/a            | n/a                 |
+| source | wrong-source  | failed | 0             | false           | true           | true                |
+| source | wrong-depth   | failed | 0             | true            | false          | true                |
+| dist   | wrong-history | failed | 2             | n/a             | n/a            | n/a                 |
+| dist   | wrong-epoch   | failed | 2             | n/a             | n/a            | n/a                 |
+| dist   | wrong-source  | failed | 0             | false           | true           | true                |
+| dist   | wrong-depth   | failed | 0             | true            | false          | true                |
+
+- Wrong history replaces slot2 with the actual native group from slot1. The real pass
+  samples the same color/depth history it writes; native validation reports usage
+  TextureBinding|RenderAttachment with writable and another usage in one synchronization
+  scope. Both source/distribution consumers fail, not just a private cache assertion.
+- Wrong epoch omits only the new cache-clear statement while retaining view/blit cleanup,
+  target destruction and the same borrowed inputs. Real GPU submit reports Destroyed
+  texture used in a submit for RGBA16Float/R32Float histories. Normal epoch suites pass.
+- Wrong source aliases the actual blue-source SSR group into the Scene-source entry.
+  Wrong depth aliases the actual far-depth SSR group into the Scene-depth entry. Both
+  groups retain the correct native SSR layout/uniform buffer, so native validation is empty.
+  Actual Scene HDR instead hashes exactly as blue or far-depth respectively; the pixel
+  distinction assertion fails in both source/distribution. Validation alone is insufficient.
+- Initial owned driver waited for any nonempty state although HTML starts running, then
+  tried to parse empty JSON. It was corrected to wait for passed/failed terminal state.
+  No runtime code, reference bytes, consumer thresholds or timing results changed for this
+  harness error; successful comparisons above ran only after the correction.
+
+### Quality, packaging and bounded certification
+
+- Source Prettier unchanged, scoped ESLint and strict typecheck passed. Existing
+  tests/temporal-post.test.ts:4 tests passed at01:54:41,92ms; no wiring-only tests added.
+- Isolated build compiled/minified377 JS files9,362,584→4,012,987 bytes, built720 CJS files,
+  and guarded declaration changes to one additional private groups field. Only the five
+  temporal ESM/map/declaration/CJS/map outputs were copied; unrelated user source/dist
+  changes are excluded from staging.
+- Unpatched source/distribution × GPU/GL controls each passed all five native scenarios,
+  with no page/console errors. Actual GPU/GL showcase switched Scene A→B and pagehide
+  cleanup passed. GPU Scene B screenshot was viewed; audio remained locked, not verified.
+- Sync README Chinese/English/Japanese, PLAN, DESIGN, technical English/Chinese and this
+  record; six document format writes and213 relative-link checks passed. Vite is stopped;
+  owned fixtures/scripts were removed. Twelve-file feature commit, no push or version bump.
+- Not rerun: full unit suite, CJS runtime, Canvas/audio, device-loss/initialization fallback,
+  Firefox/Safari or physical-device certification. No heap/GC/native/GPU-memory, GPU time,
+  presentation FPS or end-to-end latency measurement; no universal speedup claim.

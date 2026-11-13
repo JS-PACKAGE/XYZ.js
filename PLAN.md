@@ -5791,3 +5791,18 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - SSR CPU約-2.33%、combined平，未使用blit的TAA仍約-4.55%，不可歸因本功能；
   採用理由限native API work減少，不宣稱穩定FPS／heap。Scoped4 tests、source checks、
   guarded build、unpatched consumer及showcase通過，十二檔獨立commit、不push、不升版。
+
+## P207 — Reuse SSR/TAA groups within the correct resource epoch
+
+- 正式temporal render增加lazy弱source／depth複合cache，三個slot分開SSR及兩個TAA
+  ping-pong histories；release先drop，再destroy owned targets，不新增inactive container。
+- 兩個readonly240-byte uniform buffers與pipeline layouts保持不變；每pass照常寫完整最新
+  uniforms，不快取settings、contents、attachments或GPU work，不改公開API及shader。
+- Source／dist×GPU／GL×兩AA設定，另加同source／depth的epoch reset與不同source／depth
+  補充probe，全部正式RGBA、actual native bind uses及payload相同，group建立次數下降。
+- Wrong history與old epoch分別觸發真實GPU usage conflict及destroyed-texture error；
+  wrong source／depth則validation合法但HDR pixels錯，四種key不能省略。
+- CPU TAA略慢、SSR／combined略快，unused GPU／GL controls亦波動；採用理由只限重複native
+  建立與descriptor construction減少，非穩定整幀／FPS。完整raw rounds見ACCEPTANCE P207。
+- Scoped4 tests、source checks、guarded build及unpatched consumer／showcase通過；
+  僅一個private declaration及五個outputs，十二檔獨立commit、不push、不升版。

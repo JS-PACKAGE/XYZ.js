@@ -7439,3 +7439,22 @@ wrong source even with no validation error; a wrong sample key failed real GPU
 pipeline compatibility. Four scoped tests, source checks, guarded build and
 unpatched consumers/showcase passed. Small/mixed CPU controls, unused TAA controls
 and bounded API counts are separate in [ACCEPTANCE](../ACCEPTANCE.md) P206.
+
+## P207 resource-epoch SSR/TAA groups
+
+Temporal groups are lazily keyed by weak source GPUTexture and borrowed depth
+GPUTextureView, with separate slots for SSR and both TAA ping-pong histories.
+Release drops the cache before destroying owned targets, including when the same
+borrowed inputs survive into a new epoch. Inactive cleanup allocates no container.
+
+The two readonly uniform buffers and layouts remain renderer-owned. Every pass
+still uploads all 240 current bytes and uses current source/depth contents.
+Settings, attachments, passes, destinations and swapchain views are not cached.
+Live keys retain inner maps, arrays and native groups; no memory reduction is claimed.
+
+Exact native-use, payload, RGBA and supplementary HDR comparisons passed for
+source/distribution. Native validation caught history-slot and destroyed-epoch
+aliases; legal wrong-source/depth bindings were caught by actual HDR pixels.
+Four scoped tests, source checks, guarded outputs and unpatched consumers/showcase
+passed. Mixed full-submit timing, unused GPU/GL controls and native API counts are
+recorded separately in [ACCEPTANCE](../ACCEPTANCE.md) P207, not stable FPS gains.

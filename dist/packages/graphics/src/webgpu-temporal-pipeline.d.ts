@@ -22,6 +22,7 @@ export declare class WebGPUTemporalPipeline {
     private state;
     private views?;
     private blitGroups?;
+    private groups?;
     constructor(device: GPUDevice, sampleCount: number, stats: FrameStats);
     private ensure;
     private allocate;

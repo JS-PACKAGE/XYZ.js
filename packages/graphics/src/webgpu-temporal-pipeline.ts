@@ -26,6 +26,10 @@ export class WebGPUTemporalPipeline {
   private state: TemporalPostState | undefined;
   private views?: WeakMap<GPUTexture, GPUTextureView>;
   private blitGroups?: WeakMap<GPUTexture, Map<number, GPUBindGroup>>;
+  private groups?: WeakMap<
+    GPUTexture,
+    WeakMap<GPUTextureView, (GPUBindGroup | undefined)[]>
+  >;
 
   constructor(
     private readonly device: GPUDevice,
@@ -200,20 +204,36 @@ export class WebGPUTemporalPipeline {
     this.device.queue.writeBuffer(buffer, 0, this.data);
     this.stats.upload(240);
     const pipeline = taa ? this.taaPipeline : this.ssrPipeline;
-    const entries: GPUBindGroupEntry[] = [
-      { binding: 0, resource: this.view(source) },
-      { binding: 1, resource: depth },
-      { binding: 2, resource: { buffer } },
-    ];
-    if (taa)
-      entries.push(
-        { binding: 3, resource: this.view(this.history[1 - this.index]!) },
-        { binding: 4, resource: this.view(this.depths[1 - this.index]!) },
-      );
-    const group = this.device.createBindGroup({
-      layout: taa ? this.taaGroupLayout : this.ssrGroupLayout,
-      entries,
-    });
+    let depths = this.groups?.get(source);
+    let groups = depths?.get(depth);
+    // SSR and both TAA ping-pong histories bind different resources.
+    const slot = taa ? this.index + 1 : 0;
+    let group = groups?.[slot];
+    if (!group) {
+      const entries: GPUBindGroupEntry[] = [
+        { binding: 0, resource: this.view(source) },
+        { binding: 1, resource: depth },
+        { binding: 2, resource: { buffer } },
+      ];
+      if (taa)
+        entries.push(
+          { binding: 3, resource: this.view(this.history[1 - this.index]!) },
+          { binding: 4, resource: this.view(this.depths[1 - this.index]!) },
+        );
+      group = this.device.createBindGroup({
+        layout: taa ? this.taaGroupLayout : this.ssrGroupLayout,
+        entries,
+      });
+      if (!groups) {
+        groups = [undefined, undefined, undefined];
+        if (!depths) {
+          depths = new WeakMap();
+          (this.groups ??= new WeakMap()).set(source, depths);
+        }
+        depths.set(depth, groups);
+      }
+      groups[slot] = group;
+    }
     const attachments: GPURenderPassColorAttachment[] = [
       {
         view: this.view(taa ? this.history[this.index]! : this.scratch!),
@@ -294,6 +314,7 @@ export class WebGPUTemporalPipeline {
     this.state = undefined;
     this.views = undefined;
     this.blitGroups = undefined;
+    this.groups = undefined;
     const count =
       (this.scratch ? 8 : 0) + this.history.length * 8 + this.depths.length * 4;
     this.scratch?.destroy();

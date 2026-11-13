@@ -22,6 +22,7 @@ var WebGPUTemporalPipeline = class {
 	state;
 	views;
 	blitGroups;
+	groups;
 	constructor(e, n, r) {
 		this.device = e, this.stats = r;
 		let i = e.createShaderModule({ code: require_temporal_post_shaders.temporalWGSL(n, !1) }), a = e.createShaderModule({ code: require_temporal_post_shaders.temporalWGSL(n, !0) }), o = [
@@ -124,36 +125,43 @@ var WebGPUTemporalPipeline = class {
 		require_temporal_post.writeTemporalUniforms(this.data, a, o);
 		let c = s ? this.taaUniform : this.uniform;
 		this.device.queue.writeBuffer(c, 0, this.data), this.stats.upload(240);
-		let l = s ? this.taaPipeline : this.ssrPipeline, u = [
-			{
-				binding: 0,
-				resource: this.view(r)
-			},
-			{
-				binding: 1,
-				resource: i
-			},
-			{
-				binding: 2,
-				resource: { buffer: c }
-			}
-		];
-		s && u.push({
-			binding: 3,
-			resource: this.view(this.history[1 - this.index])
-		}, {
-			binding: 4,
-			resource: this.view(this.depths[1 - this.index])
-		});
-		let d = this.device.createBindGroup({
-			layout: s ? this.taaGroupLayout : this.ssrGroupLayout,
-			entries: u
-		}), f = [{
+		let l = s ? this.taaPipeline : this.ssrPipeline, u = this.groups?.get(r), d = u?.get(i), f = s ? this.index + 1 : 0, p = d?.[f];
+		if (!p) {
+			let e = [
+				{
+					binding: 0,
+					resource: this.view(r)
+				},
+				{
+					binding: 1,
+					resource: i
+				},
+				{
+					binding: 2,
+					resource: { buffer: c }
+				}
+			];
+			s && e.push({
+				binding: 3,
+				resource: this.view(this.history[1 - this.index])
+			}, {
+				binding: 4,
+				resource: this.view(this.depths[1 - this.index])
+			}), p = this.device.createBindGroup({
+				layout: s ? this.taaGroupLayout : this.ssrGroupLayout,
+				entries: e
+			}), d || (d = [
+				void 0,
+				void 0,
+				void 0
+			], u || (u = /* @__PURE__ */ new WeakMap(), (this.groups ??= /* @__PURE__ */ new WeakMap()).set(r, u)), u.set(i, d)), d[f] = p;
+		}
+		let m = [{
 			view: this.view(s ? this.history[this.index] : this.scratch),
 			loadOp: `clear`,
 			storeOp: `store`
 		}];
-		s && f.push({
+		s && m.push({
 			view: this.view(this.depths[this.index]),
 			loadOp: `clear`,
 			storeOp: `store`,
@@ -164,8 +172,8 @@ var WebGPUTemporalPipeline = class {
 				a: 0
 			}
 		});
-		let p = require_gpu_timing.beginTimedRenderPass(t, { colorAttachments: f });
-		p.setPipeline(l), p.setBindGroup(0, d), p.draw(3), p.end();
+		let h = require_gpu_timing.beginTimedRenderPass(t, { colorAttachments: m });
+		h.setPipeline(l), h.setBindGroup(0, p), h.draw(3), h.end();
 	}
 	blit(t, n, r, i = 1) {
 		let a = this.blitPipelines.get(i);
@@ -207,7 +215,7 @@ var WebGPUTemporalPipeline = class {
 		(e !== this.width || t !== this.height) && this.releaseTarget();
 	}
 	releaseTarget() {
-		this.state?.invalidate(), this.state = void 0, this.views = void 0, this.blitGroups = void 0;
+		this.state?.invalidate(), this.state = void 0, this.views = void 0, this.blitGroups = void 0, this.groups = void 0;
 		let e = (this.scratch ? 8 : 0) + this.history.length * 8 + this.depths.length * 4;
 		this.scratch?.destroy();
 		for (let e of this.history) e.destroy();
