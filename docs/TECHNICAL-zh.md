@@ -7137,3 +7137,18 @@ destroyed epoch由真實GPU validation拒絕；wrong source／depth即使合法�
 仍會抓出錯誤。Scoped4 tests、source checks、guarded outputs及unpatched consumer／showcase
 通過。Mixed full-submit timing、unused GPU／GL controls與native API次數分別記錄於
 [ACCEPTANCE](../ACCEPTANCE.md) P207，不宣稱穩定FPS收益。
+
+## P208 lazy post／FXAA auto-layout ownership
+
+兩個immutable post／FXAA pipelines各自lazy保留native group-zero layout。Post target建立
+及dynamic post groups共用post handle，FXAA用獨立handle；unused初始化不新增eager查詢。
+Target／LUT／FXAA texture重建不會換pipeline，layout因此持續有效，不隨resource release清除。
+
+Group resources、每次336-byte upload、native pass uses、views、attachments及texture
+cleanup維持原路徑。兩個owner-local references會保留native layouts；查詢減少不是driver配置、
+heap、GPU memory或FPS量測。
+
+Source／dist兩AA模式的actual native／pixel比較、FXAA toggle／recreation及target resize皆通過。
+把真正post layout誤用於FXAA會被native sampler／uniform binding驗證拒絕。Scoped6 tests、
+source checks、guarded outputs及unpatched consumer／showcase通過；完整mixed CPU controls與
+原生API次數見[ACCEPTANCE](../ACCEPTANCE.md) P208，不宣稱穩定整幀收益。

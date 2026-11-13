@@ -23036,3 +23036,204 @@ The current pipeline ([RenderPipeline (unlabeled)]) was created with a default l
 - Not rerun: full unit suite, CJS runtime, Canvas/audio, device-loss/initialization fallback,
   Firefox/Safari or physical-device certification. No heap/GC/native/GPU-memory, GPU time,
   presentation FPS or end-to-end latency measurement; no universal speedup claim.
+
+## P208 — Lazy pipeline-owned post/FXAA auto-layout reuse
+
+### Decision and ownership
+
+- Adopt only the reduction of repeated native getBindGroupLayout calls. Full native CPU
+  controls are mixed/small/flat and do not establish a stable whole-submit or FPS gain.
+- WebGPUPostPipeline's two readonly pipelines retain separate optional lazy layout handles.
+  Post target creation and dynamic post render use the same post layout; FXAA groups use
+  the FXAA pipeline's own layout. The first group request populates each handle, avoiding
+  an extra eager query for unused initialization or never-enabled FXAA.
+- Layout lifetime follows its immutable pipeline, not target/LUT/FXAA texture epochs.
+  Target release/recreation does not clear these two handles. No group/resource cache is
+  added; native group creation, every336-byte upload, views, attachment/pass work, LUT
+  residency and cleanup are otherwise unchanged. Two retained native references are not
+  a memory saving or driver-layout-allocation measurement.
+
+### Environment and complete CPU controls
+
+- Node26.7.0, TypeScript6.0.3, pnpm12.6.0; pinned Chromium153.0.8010.12, darwin/arm64 desktop
+  automation, not a physical-device or Safari certification. Canonical static SDK imports:
+  /src/index.ts and package-declared /dist/src/index.js; one actual root-owned native class.
+- Before/after methods borrow the actual owner's pipelines/device/encoder; no fake GPU,
+  alternate renderer, synthetic direct-call benchmark or public API change. Optional
+  fields are normalized outside timing, and both variants share the existing P203–P207 work.
+- Visible64² canvas,100 actual Mesh draws per submission. Five cohorts: steady post with
+  no TAA/SSR, TAA, SSR, combined, and actual FXAA on/off target churn. The steady cohort
+  has a post owner but no repeated layout lookup after warmup; GL never calls this class.
+- GPU then GL run serially in separate browser processes before any payload/pixel observer.
+  Six paired rounds alternate AB/BA order; each timed sample has24 complete begin/render/end
+  CPU submissions. Warmups and native completion/GL finish are outside the timer. All120
+  raw workload/round/variant rows are retained; no favourable retiming or removed controls.
+
+| backend | workload    | before_ms | after_ms | change_percent | upload_before | upload_after |
+| ------- | ----------- | --------- | -------- | -------------- | ------------- | ------------ |
+| webgpu  | none        | 0.083333  | 0.089583 | 7.50           | 7856          | 7856         |
+| webgpu  | taa         | 0.087500  | 0.087500 | 0.00           | 8128          | 8128         |
+| webgpu  | ssr         | 0.085417  | 0.083333 | -2.44          | 8096          | 8096         |
+| webgpu  | combined    | 0.087500  | 0.083333 | -4.76          | 8368          | 8368         |
+| webgpu  | fxaa-toggle | 0.075000  | 0.075000 | 0.00           | 7856          | 7856         |
+| webgl2  | none        | 0.110417  | 0.110417 | 0.00           | 4048          | 4048         |
+| webgl2  | taa         | 0.108333  | 0.110417 | 1.92           | 4288          | 4288         |
+| webgl2  | ssr         | 0.106250  | 0.104167 | -1.96          | 4288          | 4288         |
+| webgl2  | combined    | 0.135417  | 0.152083 | 12.31          | 4528          | 4528         |
+| webgl2  | fxaa-toggle | 0.170833  | 0.170833 | 0.00           | 4048          | 4048         |
+
+- Active TAA and FXAA churn are flat; SSR/combined move slightly down. The unused steady
+  post cohort is slower and GL controls vary. These are not stable causal whole-frame gains.
+
+#### Raw WebGPU rounds
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.100000 |          0.100000 |
+| none / 2         |           0.100000 |          0.162500 |
+| none / 3         |           0.087500 |          0.100000 |
+| none / 4         |           0.075000 |          0.079167 |
+| none / 5         |           0.075000 |          0.075000 |
+| none / 6         |           0.079167 |          0.079167 |
+| taa / 1          |           0.087500 |          0.095833 |
+| taa / 2          |           0.095833 |          0.108333 |
+| taa / 3          |           0.087500 |          0.091667 |
+| taa / 4          |           0.079167 |          0.079167 |
+| taa / 5          |           0.087500 |          0.083333 |
+| taa / 6          |           0.083333 |          0.079167 |
+| ssr / 1          |           0.083333 |          0.091667 |
+| ssr / 2          |           0.091667 |          0.083333 |
+| ssr / 3          |           0.091667 |          0.079167 |
+| ssr / 4          |           0.087500 |          0.083333 |
+| ssr / 5          |           0.083333 |          0.083333 |
+| ssr / 6          |           0.083333 |          0.083333 |
+| combined / 1     |           0.095833 |          0.083333 |
+| combined / 2     |           0.087500 |          0.083333 |
+| combined / 3     |           0.083333 |          0.079167 |
+| combined / 4     |           0.087500 |          0.083333 |
+| combined / 5     |           0.087500 |          0.083333 |
+| combined / 6     |           0.079167 |          0.083333 |
+| fxaa-toggle / 1  |           0.075000 |          0.079167 |
+| fxaa-toggle / 2  |           0.079167 |          0.079167 |
+| fxaa-toggle / 3  |           0.075000 |          0.075000 |
+| fxaa-toggle / 4  |           0.075000 |          0.070833 |
+| fxaa-toggle / 5  |           0.075000 |          0.075000 |
+| fxaa-toggle / 6  |           0.079167 |          0.075000 |
+
+#### Raw WebGL2 unused controls
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.112500 |          0.116667 |
+| none / 2         |           0.125000 |          0.133333 |
+| none / 3         |           0.137500 |          0.125000 |
+| none / 4         |           0.104167 |          0.104167 |
+| none / 5         |           0.108333 |          0.095833 |
+| none / 6         |           0.095833 |          0.095833 |
+| taa / 1          |           0.104167 |          0.116667 |
+| taa / 2          |           0.125000 |          0.129167 |
+| taa / 3          |           0.129167 |          0.112500 |
+| taa / 4          |           0.100000 |          0.108333 |
+| taa / 5          |           0.112500 |          0.104167 |
+| taa / 6          |           0.100000 |          0.100000 |
+| ssr / 1          |           0.108333 |          0.100000 |
+| ssr / 2          |           0.100000 |          0.108333 |
+| ssr / 3          |           0.104167 |          0.100000 |
+| ssr / 4          |           0.095833 |          0.095833 |
+| ssr / 5          |           0.154167 |          0.154167 |
+| ssr / 6          |           0.137500 |          0.141667 |
+| combined / 1     |           0.108333 |          0.104167 |
+| combined / 2     |           0.100000 |          0.100000 |
+| combined / 3     |           0.091667 |          0.137500 |
+| combined / 4     |           0.170833 |          0.170833 |
+| combined / 5     |           0.162500 |          0.166667 |
+| combined / 6     |           0.166667 |          0.170833 |
+| fxaa-toggle / 1  |           0.166667 |          0.162500 |
+| fxaa-toggle / 2  |           0.166667 |          0.166667 |
+| fxaa-toggle / 3  |           0.162500 |          0.183333 |
+| fxaa-toggle / 4  |           0.183333 |          0.170833 |
+| fxaa-toggle / 5  |           0.175000 |          0.170833 |
+| fxaa-toggle / 6  |           0.175000 |          0.183333 |
+
+### Applied-code native consumers and exact semantics
+
+- Eight source/distribution × GPU/GL × AA off/on advanced consumer suites retain existing
+  native TAA/history reset, SSR/combined/toggle, six-face capture/abort, spatial probe and
+  Text3D thresholds. After delegates to the actual applied class, before to frozen parent
+  methods on the same actual native owner; no frozen constructor is instantiated.
+- Four whole post-effects suites each cover both AA modes and original LUT identity/cool,
+  tone mapping, fog/occluded shafts, flare, camera/cut and instance-motion behavior. The
+  owned clone adds a real bright sphere for FXAA pixel comparison, FXAA on/off/recreation,
+  and target sizes128²→160×128→128². Original thresholds remain unchanged.
+- Native getBindGroupLayout verifies actual receiver, group-zero index and post/FXAA role.
+  Native group descriptors and actual setBindGroup uses record the correct buffer/sampler
+  and native texture identities. Every336-byte queue write, default view, attachment,
+  target release and actual native texture destroy compares exactly; only layout-query
+  lists intentionally differ. Each actual owner queries each immutable pipeline at most once.
+
+| entry  | backend | AA   | consumer | frame_pairs | RGBA_bytes | post_queries_before | post_queries_after | FXAA_queries_before | FXAA_queries_after | owners | groups | actual_uses | passes | views | uploads | uniform_bytes | releases | destroys |
+| ------ | ------- | ---- | -------- | ----------- | ---------- | ------------------- | ------------------ | ------------------- | ------------------ | ------ | ------ | ----------- | ------ | ----- | ------- | ------------- | -------- | -------- |
+| source | webgpu  | off  | advanced | 23          | 5870592    | 18                  | 1                  | 0                   | 0                  | 1      | 18     | 19          | 19     | 54    | 19      | 6384          | 12       | 8        |
+| source | webgpu  | on   | advanced | 23          | 5870592    | 18                  | 1                  | 0                   | 0                  | 1      | 18     | 19          | 19     | 54    | 19      | 6384          | 12       | 8        |
+| source | webgpu  | both | effects  | 76          | 5013504    | 48                  | 2                  | 8                   | 2                  | 2      | 56     | 86          | 86     | 116   | 76      | 25536         | 14       | 24       |
+| source | webgl2  | off  | advanced | 23          | 5870592    | 0                   | 0                  | 0                   | 0                  | 0      | 0      | 0           | 0      | 0     | 0       | 0             | 0        | 0        |
+| source | webgl2  | on   | advanced | 23          | 5870592    | 0                   | 0                  | 0                   | 0                  | 0      | 0      | 0           | 0      | 0     | 0       | 0             | 0        | 0        |
+| source | webgl2  | both | effects  | 76          | 5013504    | 0                   | 0                  | 0                   | 0                  | 0      | 0      | 0           | 0      | 0     | 0       | 0             | 0        | 0        |
+| dist   | webgpu  | off  | advanced | 23          | 5870592    | 18                  | 1                  | 0                   | 0                  | 1      | 18     | 19          | 19     | 54    | 19      | 6384          | 12       | 8        |
+| dist   | webgpu  | on   | advanced | 23          | 5870592    | 18                  | 1                  | 0                   | 0                  | 1      | 18     | 19          | 19     | 54    | 19      | 6384          | 12       | 8        |
+| dist   | webgpu  | both | effects  | 76          | 5013504    | 48                  | 2                  | 8                   | 2                  | 2      | 56     | 86          | 86     | 116   | 76      | 25536         | 14       | 24       |
+| dist   | webgl2  | off  | advanced | 23          | 5870592    | 0                   | 0                  | 0                   | 0                  | 0      | 0      | 0           | 0      | 0     | 0       | 0             | 0        | 0        |
+| dist   | webgl2  | on   | advanced | 23          | 5870592    | 0                   | 0                  | 0                   | 0                  | 0      | 0      | 0           | 0      | 0     | 0       | 0             | 0        | 0        |
+| dist   | webgl2  | both | effects  | 76          | 5013504    | 0                   | 0                  | 0                   | 0                  | 0      | 0      | 0           | 0      | 0     | 0       | 0             | 0        | 0        |
+
+- Twelve normal suites compare488 frame pairs and67,018,752 presented RGBA bytes exactly,
+  with unchanged drawCalls/uploadBytes. All normal GPU frames pop native validation scopes
+  without errors. Group creations/actual uses are not substituted for query counts.
+- Actual FXAA changed-pixel results, not merely private fields or no-throw assertions:
+
+| entry  | backend | scenario                  | changed_pixels |
+| ------ | ------- | ------------------------- | -------------- |
+| source | webgpu  | fxaa-native-pixels-single | 991            |
+| source | webgpu  | fxaa-native-pixels-msaa   | 1130           |
+| source | webgl2  | fxaa-native-pixels-single | 991            |
+| source | webgl2  | fxaa-native-pixels-msaa   | 991            |
+| dist   | webgpu  | fxaa-native-pixels-single | 991            |
+| dist   | webgpu  | fxaa-native-pixels-msaa   | 1130           |
+| dist   | webgl2  | fxaa-native-pixels-single | 991            |
+| dist   | webgl2  | fxaa-native-pixels-msaa   | 991            |
+
+### Distinct native auto-layout negative
+
+| entry  | result | actual_native_aliases | native_validation_errors |
+| ------ | ------ | --------------------- | ------------------------ |
+| source | failed | 1                     | 1                        |
+| dist   | failed | 1                     | 1                        |
+
+- Source and distribution intentionally alias the actual post GPUBindGroupLayout into
+  the FXAA handle before real FXAA target creation. The native FXAA sampler at binding1
+  does not satisfy the post layout's336-byte uniform-buffer requirement. Both actual
+  consumers fail with the native validation below; no fake layout/device or swallowed error.
+
+```text
+Binding entry buffer not set.
+ - While validating entries[1] against { binding: 1, visibility: ShaderStage::Fragment, buffer: {type: BufferBindingType::Uniform, minBindingSize: 336, hasDynamicOffset: 0} }.
+ - While validating [BindGroupDescriptor] against [BindGroupLayout (unlabeled)]
+ - While calling [Device].CreateBindGroup([BindGroupDescriptor]).
+```
+
+### Quality, distribution and limits
+
+- Source Prettier unchanged, scoped ESLint and strict typecheck passed. Existing temporal-post
+  and volumetric-post unit files:6 tests passed at02:17:04,1.71s; no wiring-only tests added.
+- Isolated build compiled/minified377 JS files9,362,670→4,013,051 bytes and built720 CJS files.
+  Declaration guard permits only private layout/fxaaLayout fields. Only the five post-module
+  ESM/map/declaration/CJS/map outputs were copied, excluding unrelated user source/dist work.
+- Unpatched source/distribution × GPU/GL advanced controls each pass all five scenarios,
+  no page/console errors. Actual GPU/GL showcase Scene A→B and pagehide cleanup pass.
+  GPU Scene B screenshot was viewed; audio is still locked and is not certified.
+- README Chinese/English/Japanese, PLAN, DESIGN, technical English/Chinese and this record
+  are synchronized. Timing/proof Vite services are stopped; owned fixtures/scripts/build
+  stage are removed before the scoped twelve-file commit, with no push or version bump.
+- Not run: full unit suite, CJS runtime, Canvas/audio, device-loss/initialization fallback,
+  Firefox/Safari or physical-device certification. No heap/GC/native/GPU-memory, GPU time,
+  presentation FPS or end-to-end latency measurement; no universal speedup claim.

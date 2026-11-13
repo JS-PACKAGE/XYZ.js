@@ -5806,3 +5806,18 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   建立與descriptor construction減少，非穩定整幀／FPS。完整raw rounds見ACCEPTANCE P207。
 - Scoped4 tests、source checks、guarded build及unpatched consumer／showcase通過；
   僅一個private declaration及五個outputs，十二檔獨立commit、不push、不升版。
+
+## P208 — Keep each post/FXAA auto-layout with its immutable pipeline
+
+- 正式WebGPUPostPipeline增加兩個optional lazy layout handles，post target／dynamic
+  render共用同post layout，FXAA保留自己的layout；不在unused初始化新增native查詢。
+- Layout生命週期跟readonly pipeline，不隨target／LUT／FXAA texture release清除；
+  不重用不相容pipeline layout，不改group resources、shader、uniform或draw。
+- Source／dist×GPU／GL×兩AA設定的advanced consumers及整份post-effects皆byte-exact；
+  補充實際FXAA pixels、toggle／recreation及target resize，native查詢下降但其他work不變。
+- 把真實post layout塞入FXAA cache的negative，被native binding1 uniform／sampler不匹配
+  拒絕。Native receiver／role、actual pass uses、336-byte payload及texture cleanup分開驗證。
+- 五組CPU workload含FXAA target churn；active結果小／平、unused controls波動，採用理由
+  只限native API work，raw rounds見ACCEPTANCE P208，不宣稱穩定FPS／heap／driver配置收益。
+- Scoped6 tests、source checks、guarded build與unpatched consumer／showcase通過；
+  僅兩個private declarations及五個post outputs，十二檔獨立commit、不push、不升版。

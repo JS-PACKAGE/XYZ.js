@@ -62,11 +62,13 @@ var WebGPUPostPipeline = class WebGPUPostPipeline {
 	texture;
 	view;
 	bindGroup;
+	layout;
 	depthView;
 	buffer;
 	fxaaTexture;
 	fxaaView;
 	fxaaGroup;
+	fxaaLayout;
 	fxaaSampler;
 	emptyVelocity;
 	width = 0;
@@ -136,7 +138,7 @@ var WebGPUPostPipeline = class WebGPUPostPipeline {
 		try {
 			let i = r.createView();
 			return this.depthView = n, this.bindGroup = this.device.createBindGroup({
-				layout: this.pipeline.getBindGroupLayout(0),
+				layout: this.layout ??= this.pipeline.getBindGroupLayout(0),
 				entries: [
 					{
 						binding: 0,
@@ -180,7 +182,7 @@ var WebGPUPostPipeline = class WebGPUPostPipeline {
 		this.stats.target(this.width * this.height * 4);
 		try {
 			let t = e.createView(), n = this.device.createBindGroup({
-				layout: this.fxaaPipeline.getBindGroupLayout(0),
+				layout: this.fxaaLayout ??= this.fxaaPipeline.getBindGroupLayout(0),
 				entries: [{
 					binding: 0,
 					resource: t
@@ -204,7 +206,7 @@ var WebGPUPostPipeline = class WebGPUPostPipeline {
 		this.lut !== b && (this.bindGroup = void 0);
 		let x = this.bindGroup;
 		(s || h || !x) && (x = this.device.createBindGroup({
-			layout: this.pipeline.getBindGroupLayout(0),
+			layout: this.layout ??= this.pipeline.getBindGroupLayout(0),
 			entries: [
 				{
 					binding: 0,

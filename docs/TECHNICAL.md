@@ -7458,3 +7458,21 @@ aliases; legal wrong-source/depth bindings were caught by actual HDR pixels.
 Four scoped tests, source checks, guarded outputs and unpatched consumers/showcase
 passed. Mixed full-submit timing, unused GPU/GL controls and native API counts are
 recorded separately in [ACCEPTANCE](../ACCEPTANCE.md) P207, not stable FPS gains.
+
+## P208 lazy post/FXAA auto-layout ownership
+
+Each immutable post/FXAA pipeline lazily retains its own native group-zero layout.
+Post target creation and dynamic post groups share the post handle; FXAA uses its
+distinct handle. No eager query is added to unused initialization. Target/LUT/FXAA
+texture recreation does not replace either pipeline, so their layouts survive it.
+
+Group resources, every 336-byte upload, native pass uses, views, attachments and
+texture cleanup remain unchanged. Two owner-local references retain native layouts;
+fewer queries are not driver-allocation, heap, GPU-memory or FPS measurements.
+
+Actual source/distribution consumers passed exact native/pixel comparisons with
+both AA modes, FXAA toggles/recreation and target resizing. Aliasing the real post
+layout into FXAA failed native sampler/uniform binding validation. Six scoped tests,
+source checks, guarded outputs and unpatched consumers/showcase passed. Complete
+mixed CPU controls and bounded native API counts are in [ACCEPTANCE](../ACCEPTANCE.md)
+P208, not a stable full-submit speedup claim.

@@ -17,11 +17,13 @@ export declare class WebGPUPostPipeline {
     private texture;
     private view;
     private bindGroup;
+    private layout?;
     private depthView;
     private buffer;
     private fxaaTexture;
     private fxaaView;
     private fxaaGroup;
+    private fxaaLayout?;
     private readonly fxaaSampler;
     private readonly emptyVelocity;
     private width;

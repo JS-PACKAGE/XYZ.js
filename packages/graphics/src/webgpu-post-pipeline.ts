@@ -75,11 +75,13 @@ export class WebGPUPostPipeline {
   private texture: GPUTexture | undefined;
   private view: GPUTextureView | undefined;
   private bindGroup: GPUBindGroup | undefined;
+  private layout?: GPUBindGroupLayout;
   private depthView: GPUTextureView | undefined;
   private buffer: GPUBuffer | undefined;
   private fxaaTexture: GPUTexture | undefined;
   private fxaaView: GPUTextureView | undefined;
   private fxaaGroup: GPUBindGroup | undefined;
+  private fxaaLayout?: GPUBindGroupLayout;
   private readonly fxaaSampler: GPUSampler;
   private readonly emptyVelocity: GPUTexture;
   private width = 0;
@@ -187,7 +189,7 @@ export class WebGPUPostPipeline {
       const view = texture.createView();
       this.depthView = depth;
       this.bindGroup = this.device.createBindGroup({
-        layout: this.pipeline.getBindGroupLayout(0),
+        layout: (this.layout ??= this.pipeline.getBindGroupLayout(0)),
         entries: [
           { binding: 0, resource: view },
           { binding: 1, resource: { buffer: this.buffer } },
@@ -232,7 +234,7 @@ export class WebGPUPostPipeline {
     try {
       const view = texture.createView();
       const group = this.device.createBindGroup({
-        layout: this.fxaaPipeline.getBindGroupLayout(0),
+        layout: (this.fxaaLayout ??= this.fxaaPipeline.getBindGroupLayout(0)),
         entries: [
           { binding: 0, resource: view },
           { binding: 1, resource: this.fxaaSampler },
@@ -278,7 +280,7 @@ export class WebGPUPostPipeline {
     let group = this.bindGroup!;
     if (source || velocity || !group) {
       group = this.device.createBindGroup({
-        layout: this.pipeline.getBindGroupLayout(0),
+        layout: (this.layout ??= this.pipeline.getBindGroupLayout(0)),
         entries: [
           { binding: 0, resource: (source ?? this.texture!).createView() },
           { binding: 1, resource: { buffer: this.buffer! } },

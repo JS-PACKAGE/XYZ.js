@@ -5964,3 +5964,18 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   拒絕destroyed texture；history-slot alias則產生實際sampling／attachment usage conflict。
 - 不重用render pass／attachments／swapchain，不減少draw或upload。API work證據與混合CPU
   controls分列，不能以呼叫數下降代替GPU time、heap、FPS或端到端latency。
+
+## P208 — Default post layouts are pipeline-scoped, not texture-scoped
+
+- Post及FXAA pipeline由同owner readonly持有；lazy保留各自getBindGroupLayout(0)結果，
+  post的target／render兩處共用同handle，FXAA不能拿post handle替代。
+- 不在constructor／unused path eager查詢；第一次需要建立group才取得。Target resize、
+  FXAA on/off或LUT重建只替換resource／group，不改pipeline，故不丟棄layout。
+- Native layout objects與兩個JS references留到owner結束；查詢次數減少不能證明driver
+  layout配置、heap、GPU memory或FPS降低。不新增容器、runtime dependency或公開設定。
+- Group descriptor及actual setBindGroup uses、default views、attachments、完整336-byte
+  uniforms、target release／native texture destroy皆照原路徑；只跳過重複layout API call。
+- 實際FXAA與post layout的binding1分別需要sampler及uniform buffer。Negative使用真正
+  native post handle，GPU在createBindGroup驗證拒絕，不是只比私有cache欄位。
+- Consumer probe覆蓋single／MSAA、FXAA pixels及重建、target resize、LUT／tone／fog／flare
+  及camera／instance motion；完整CPU controls另記，不以小幅或unused變化冒稱整幀收益。

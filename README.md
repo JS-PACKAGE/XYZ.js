@@ -40,6 +40,8 @@ Blit bind group以弱source texture及sample-count複合key重用，release清�
 
 Temporal SSR／TAA bind group以弱source／depth key、history slot及target epoch重用；減少原生建立，不宣稱穩定整幀收益。Temporal SSR/TAA bind groups reuse weak source/depth keys, history slots and target epochs; fewer native creations are not proven full-submit/FPS gains. Temporal SSR／TAA bind group は弱い source／depth キー、history slot、target epoch で再利用します。Native 生成削減を安定した CPU submit／FPS 向上とはしません。
 
+Post／FXAA的auto-layout各自lazy保留至pipeline owner結束，跨target重建仍重用；只減少native查詢，不宣稱穩定整幀收益。Post/FXAA auto-layouts are retained lazily per immutable pipeline across target recreation; fewer native queries are not proven full-submit/FPS gains. Post／FXAA の auto-layout は各 immutable pipeline ごとに遅延保持し、target 再生成でも再利用します。Native 問い合わせ削減を安定した CPU submit／FPS 向上とはしません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
