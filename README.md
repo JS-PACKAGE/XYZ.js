@@ -30,6 +30,8 @@ Matrix4 copy 同樣展開固定stores，但保留原本兩個buffer各讀一次�
 
 私有 instance-world product writer 共用實驗未採用：Node instance controls 變慢，native submit亦無穩定收益；只保留量測紀錄，不變更runtime。Private instance-world product-writer reuse was rejected after slower Node controls and no stable native-submit gain; runtime is unchanged. Private instance-world product writer の共用案は CPU 対照群で遅く、native submit の安定した改善もないため不採用です。Runtime は変更していません。
 
+WebGPU motion bind group 以depth view弱key及uniform-buffer epoch重用；減少原生建立次數，不保留借用view的strong key，完整CPU submit不宣稱穩定收益。WebGPU motion bind groups reuse weak depth-view keys within each uniform-buffer epoch; native creations fall without a strong borrowed-view key, not a stable full-submit/FPS claim. WebGPU motion bind group は depth view の弱いキーと uniform-buffer epoch で再利用します。Native 生成回数の削減であり、CPU submit／FPS の安定した向上とはしません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

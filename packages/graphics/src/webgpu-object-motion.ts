@@ -18,6 +18,7 @@ export class WebGPUObjectMotion {
   private width = 0;
   private height = 0;
   private readonly dynamicOffsets = [0];
+  private groups?: WeakMap<GPUTextureView, GPUBindGroup>;
 
   constructor(
     private readonly device: GPUDevice,
@@ -96,6 +97,7 @@ export class WebGPUObjectMotion {
     const floats = this.stride / 4;
     if (draws.length * floats > this.data.length) {
       this.buffer?.destroy();
+      this.groups = undefined;
       this.data = new Float32Array(
         Math.max(draws.length * floats, this.data.length * 2, floats),
       );
@@ -115,14 +117,18 @@ export class WebGPUObjectMotion {
         draws.length * floats,
       );
       this.stats.upload(draws.length * this.stride);
-      // Depth views change on resize; this pass only borrows them for one encoding.
-      const group = this.device.createBindGroup({
-        layout: this.layout,
-        entries: [
-          { binding: 0, resource: { buffer: this.buffer!, size: 128 } },
-          { binding: 1, resource: depth },
-        ],
-      });
+      // Weak keys do not extend the lifetime of borrowed depth views.
+      let group = this.groups?.get(depth);
+      if (!group) {
+        group = this.device.createBindGroup({
+          layout: this.layout,
+          entries: [
+            { binding: 0, resource: { buffer: this.buffer!, size: 128 } },
+            { binding: 1, resource: depth },
+          ],
+        });
+        (this.groups ??= new WeakMap()).set(depth, group);
+      }
       this.groupForPass = group;
     }
     const pass = beginTimedRenderPass(encoder, {
@@ -171,6 +177,7 @@ export class WebGPUObjectMotion {
     this.buffer?.destroy();
     this.buffer = undefined;
     this.groupForPass = undefined;
+    this.groups = undefined;
     if (this.data.length) this.data = new Float32Array(0);
     this.history.invalidate();
   }

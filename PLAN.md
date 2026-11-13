@@ -5738,3 +5738,16 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   GL約+1.7%，rigid controls亦有波動，沒有足夠收益採用。
 - Production／dist／public API不變，只記錄否決理由及原始rounds；未執行build／tests或
   宣稱本輪重新驗證正式pixels／showcase。移除owned probes後獨立記錄commit、不push、不升版。
+
+## P203 — Reuse motion bind groups without owning borrowed depth views
+
+- Motion uploads原本已單一batch，不新增重複batcher；尾端padding候選只少128 API bytes且
+  native CPU無收益，保留拒絕數字，不混入正式code。
+- 每個uniform-buffer epoch以WeakMap的depth-view key重用bind group；grow／release丟棄
+  cache，groupForPass仍在finally清除，不加strong depth欄位、不改uniform資料或shader。
+- Native原生建立次數與pixels／packed payload分別驗證，不以近持平／mixed CPU controls
+  宣稱整幀、GPU或FPS提升；詳細Root owner與失效證據見ACCEPTANCE P203。
+- 既有browser instance-motion case先prime單pose buffer，再加入instances迫使同depth下
+  buffer成長；門檻不變，用實際GPU防止舊bind group引用舊buffer。
+- Scoped15 tests、source品質／最後browser regression typecheck及隔離build通過；private
+  declaration僅新增cache field，不push、不升版，維持獨立功能commit。

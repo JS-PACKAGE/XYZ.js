@@ -22156,3 +22156,200 @@ GL finish在計時外，沒有pixel／payload observer。兩backend validation�
 
 未認證Canvas2D、audio、device loss、auto fallback、Firefox／Safari／physical hardware，未量測
 heap／GC、GPU或端到端latency；沒有新效能／runtime能力或所有場景加速的主張。
+
+## P203 — Weak-key WebGPU motion bind-group reuse（2026-11-14）
+
+### 範圍與採用條件
+
+- Motion uniforms原本已在persistent Float32Array內批次打包、每pass一次writeBuffer；
+  不新增第二個batcher，不改shader、uniform values、padding／upload stats或public API。
+- 採用WeakMap<GPUTextureView, GPUBindGroup>，scope限目前uniform buffer。Depth view
+  作弱key、不加strong depth欄位；buffer grow及releaseTarget直接drop map，
+  groupForPass仍於finally清除。Inactive／empty path不建立map，P198空data重用保留。
+- 減少的是實際native createBindGroup呼叫及其descriptor建構，不是實測heap／GC或GPU
+  memory下降；new WeakMap本身有成本。完整submit近持平／mixed，沒有穩定CPU或FPS收益主張。
+- 拒絕只略過最後128-byte padding的先行候選：API bytes減少但三個GPU CPU controls均變慢。
+  它沒有進入production／dist。未擴大runtime capabilities或瀏覽器認證。
+
+### 原生 CPU submit，採用cache候選
+
+- Node 26.7.0、pnpm12.6.0、TypeScript6.0.3；pinned Chromium153.0.8010.12，
+  darwin/arm64 desktop automation。正式Scene／createRenderer、source entry與真正GPU／GL。
+- Before為凍結P202實作，after為本次cache。兩owner在3次warm observation都先正規化groups
+  為empty field，避免用物件shape差異冒充cache收益；timing外共用cache-aware release。
+- 每variant六次warm加四組十次warm，再六round ABBA、每round／variant24次submit；
+  以六round ms/submit中位數列出。沒有pixel readback、observer或heavy checks與timing併跑。
+- Rigid1／100與4096instances均通過。GL沒有使用這個GPU class，僅為完整pipeline控制組，
+  仍有-18.18%到+7.94%變動；GPU4096約-1.28%不足以建立穩定整幀收益。
+
+| backend | workload       | before_ms | after_ms | change_percent | upload_before | upload_after |
+| ------- | -------------- | --------- | -------- | -------------- | ------------- | ------------ |
+| webgpu  | rigid-1        | 0.027083  | 0.027083 | 0.00           | 8112          | 8112         |
+| webgpu  | rigid-100      | 0.110417  | 0.110417 | 0.00           | 33456         | 33456        |
+| webgpu  | instances-4096 | 0.979167  | 0.966667 | -1.28          | 1056432       | 1056432      |
+| webgl2  | rigid-1        | 0.022917  | 0.018750 | -18.18         | 4048          | 4048         |
+| webgl2  | rigid-100      | 0.131250  | 0.141667 | 7.94           | 4048          | 4048         |
+| webgl2  | instances-4096 | 0.852083  | 0.850000 | -0.24          | 4048          | 4048         |
+
+#### Cache raw rounds — webgpu
+
+| Workload / round   | Before (ms/submit) | After (ms/submit) |
+| ------------------ | -----------------: | ----------------: |
+| rigid-1 / 1        |           0.041667 |          0.029167 |
+| rigid-1 / 2        |           0.029167 |          0.041667 |
+| rigid-1 / 3        |           0.029167 |          0.029167 |
+| rigid-1 / 4        |           0.025000 |          0.025000 |
+| rigid-1 / 5        |           0.025000 |          0.020833 |
+| rigid-1 / 6        |           0.020833 |          0.020833 |
+| rigid-100 / 1      |           0.120833 |          0.129167 |
+| rigid-100 / 2      |           0.129167 |          0.145833 |
+| rigid-100 / 3      |           0.108333 |          0.104167 |
+| rigid-100 / 4      |           0.112500 |          0.108333 |
+| rigid-100 / 5      |           0.108333 |          0.104167 |
+| rigid-100 / 6      |           0.104167 |          0.112500 |
+| instances-4096 / 1 |           0.983333 |          0.991667 |
+| instances-4096 / 2 |           1.029167 |          0.966667 |
+| instances-4096 / 3 |           1.016667 |          0.979167 |
+| instances-4096 / 4 |           0.970833 |          0.966667 |
+| instances-4096 / 5 |           0.975000 |          0.966667 |
+| instances-4096 / 6 |           0.975000 |          0.966667 |
+
+#### Cache raw rounds — webgl2
+
+| Workload / round   | Before (ms/submit) | After (ms/submit) |
+| ------------------ | -----------------: | ----------------: |
+| rigid-1 / 1        |           0.029167 |          0.025000 |
+| rigid-1 / 2        |           0.025000 |          0.037500 |
+| rigid-1 / 3        |           0.025000 |          0.020833 |
+| rigid-1 / 4        |           0.020833 |          0.016667 |
+| rigid-1 / 5        |           0.020833 |          0.012500 |
+| rigid-1 / 6        |           0.016667 |          0.016667 |
+| rigid-100 / 1      |           0.129167 |          0.141667 |
+| rigid-100 / 2      |           0.158333 |          0.166667 |
+| rigid-100 / 3      |           0.125000 |          0.125000 |
+| rigid-100 / 4      |           0.116667 |          0.120833 |
+| rigid-100 / 5      |           0.154167 |          0.141667 |
+| rigid-100 / 6      |           0.133333 |          0.191667 |
+| instances-4096 / 1 |           0.841667 |          0.850000 |
+| instances-4096 / 2 |           0.850000 |          0.850000 |
+| instances-4096 / 3 |           0.850000 |          0.850000 |
+| instances-4096 / 4 |           0.862500 |          0.862500 |
+| instances-4096 / 5 |           0.854167 |          0.858333 |
+| instances-4096 / 6 |           0.854167 |          0.845833 |
+
+### 拒絕的tail-padding trial
+
+僅改writeBuffer的元素數為(n-1)*strideFloats+32，保留staging capacity及draw order；
+單frame API uploadBytes如下。GPU三組CPU均變慢，GL controls mixed，不將API bytes下降
+當作CPU／GPU／FPS收益；production仍使用原本全stride upload。
+
+| backend | workload       | before_ms | after_ms | change_percent | upload_before | upload_after |
+| ------- | -------------- | --------- | -------- | -------------- | ------------- | ------------ |
+| webgpu  | rigid-1        | 0.027083  | 0.031250 | 15.38          | 8112          | 7984         |
+| webgpu  | rigid-100      | 0.108333  | 0.112500 | 3.85           | 33456         | 33328        |
+| webgpu  | instances-4096 | 0.966667  | 0.991667 | 2.59           | 1056432       | 1056304      |
+| webgl2  | rigid-1        | 0.018750  | 0.020833 | 11.11          | 4048          | 4048         |
+| webgl2  | rigid-100      | 0.129167  | 0.125000 | -3.23          | 4048          | 4048         |
+| webgl2  | instances-4096 | 0.862500  | 0.854167 | -0.97          | 4048          | 4048         |
+
+#### Rejected padding raw rounds — webgpu
+
+| Workload / round   | Before (ms/submit) | After (ms/submit) |
+| ------------------ | -----------------: | ----------------: |
+| rigid-1 / 1        |           0.033333 |          0.037500 |
+| rigid-1 / 2        |           0.029167 |          0.037500 |
+| rigid-1 / 3        |           0.029167 |          0.033333 |
+| rigid-1 / 4        |           0.025000 |          0.029167 |
+| rigid-1 / 5        |           0.020833 |          0.025000 |
+| rigid-1 / 6        |           0.020833 |          0.025000 |
+| rigid-100 / 1      |           0.129167 |          0.137500 |
+| rigid-100 / 2      |           0.120833 |          0.145833 |
+| rigid-100 / 3      |           0.108333 |          0.116667 |
+| rigid-100 / 4      |           0.108333 |          0.108333 |
+| rigid-100 / 5      |           0.104167 |          0.100000 |
+| rigid-100 / 6      |           0.108333 |          0.104167 |
+| instances-4096 / 1 |           0.991667 |          0.995833 |
+| instances-4096 / 2 |           0.970833 |          0.991667 |
+| instances-4096 / 3 |           0.966667 |          0.991667 |
+| instances-4096 / 4 |           0.958333 |          0.991667 |
+| instances-4096 / 5 |           0.966667 |          0.975000 |
+| instances-4096 / 6 |           0.958333 |          0.979167 |
+
+#### Rejected padding raw rounds — webgl2
+
+| Workload / round   | Before (ms/submit) | After (ms/submit) |
+| ------------------ | -----------------: | ----------------: |
+| rigid-1 / 1        |           0.029167 |          0.029167 |
+| rigid-1 / 2        |           0.020833 |          0.054167 |
+| rigid-1 / 3        |           0.020833 |          0.025000 |
+| rigid-1 / 4        |           0.012500 |          0.016667 |
+| rigid-1 / 5        |           0.016667 |          0.012500 |
+| rigid-1 / 6        |           0.016667 |          0.016667 |
+| rigid-100 / 1      |           0.129167 |          0.141667 |
+| rigid-100 / 2      |           0.154167 |          0.166667 |
+| rigid-100 / 3      |           0.125000 |          0.116667 |
+| rigid-100 / 4      |           0.129167 |          0.120833 |
+| rigid-100 / 5      |           0.116667 |          0.129167 |
+| rigid-100 / 6      |           0.133333 |          0.116667 |
+| instances-4096 / 1 |           0.854167 |          0.858333 |
+| instances-4096 / 2 |           0.858333 |          0.841667 |
+| instances-4096 / 3 |           0.854167 |          0.870833 |
+| instances-4096 / 4 |           0.866667 |          0.850000 |
+| instances-4096 / 5 |           0.875000 |          0.850000 |
+| instances-4096 / 6 |           0.866667 |          0.870833 |
+
+### Native API、matrix payload與consumer regression
+
+- 不以fake device或standalone shader代替正式架構。Native GPUDevice／GPUBuffer／
+  GPUTextureView／GPUBindGroup brand經檢查；wrapper轉呼真正intrinsic API，IDs用weak
+  metadata。GPU group descriptors／buffer epochs、writeBuffer packed slots及native
+  setBindGroup呼叫當下的dynamic offsets分別記錄，不保留可變offset array當snapshot。
+- 每entry／backend 76組before／after frame pairs，4,980,736 RGBA bytes逐byte相同。
+  GPU兩owner、20個active passes，createBindGroup呼叫20→8，吻合8個buffer/depth epochs；
+  20次uploads及15,360 bytes完整payload相同。History26次build與28次release相同，
+  temporary group／cache cleanup與empty array reuse通過。GL沒有GPU motion owner／call。
+
+| entry  | backend | framePairs | rgbaBytes | owners | activePasses | groupsBefore | groupsAfter | bufferDepthEpochs | uploadCalls | uploadBytes | historyBuilds | releaseCalls |
+| ------ | ------- | ---------- | --------- | ------ | ------------ | ------------ | ----------- | ----------------- | ----------- | ----------- | ------------- | ------------ |
+| source | webgpu  | 76         | 4980736   | 2      | 20           | 20           | 8           | 8                 | 20          | 15360       | 26            | 28           |
+| source | webgl2  | 76         | 4980736   | 0      | 0            | 0            | 0           | 0                 | 0           | 0           | 26            | 0            |
+| dist   | webgpu  | 76         | 4980736   | 2      | 20           | 20           | 8           | 8                 | 20          | 15360       | 26            | 28           |
+| dist   | webgl2  | 76         | 4980736   | 0      | 0            | 0            | 0           | 0                 | 0           | 0           | 26            | 0            |
+
+- 正式tests/browser/post-effects.ts既有instance-motion case先以單pose prime兩draw，
+  再加入四instances使同depth view下uniform buffer成長；scenario／changed-pixel門檻不變。
+- Negative只拿掉buffer growth的cache invalidation：source及dist均於22個正常frames後
+  真正GPU拒絕offset256存取僅256-byte、bound range128的舊buffer；metadata也證明group
+  buffer1不同於current buffer2，不是snapshot假設。錯誤如下：
+
+```text
+Dynamic Offset[0] (256) is out of bounds of [Buffer (unlabeled)]
+with a size of 256 and a bound range of (offset: 0, size: 128).
+While encoding ... SetBindGroup ... While finishing ... CommandEncoder ...
+```
+
+- Source probe最初只期待destroyed-buffer措辭，實際driver先回報offset range錯誤；
+  僅修probe regex，沿用已保存source GPU正常／negative資料，不重新抽選成功數字。
+  後續source GL、dist GPU／GL及smoke分別完成。
+- 兩AA的正式Raycaster命中皆instanceId1／face9、distance3.274999976158142、
+  point[1.2,-0.5,0.7250000238418579]；沒有mock picking或只比較長度。
+
+### Checks、build與實際surface
+
+- Scoped tests/motion-blur-object.test.ts：15 tests passed（00:29:07）；source Prettier、
+  ESLint及strict typecheck通過。加入permanent prime regression後，browser source
+  Prettier／ESLint及最後strict typecheck通過，未重跑未變的15-test suite。
+- 隔離build完成，377 JS 9,360,930→4,012,354 bytes、720 CJS，vendor unchanged。
+  只guard-copy本feature五個ESM／CJS／maps／d.ts outputs；d.ts僅新增private groups? field。
+  沒有覆蓋使用者physics2d／world2d改動或其outputs，version仍1.23.0。
+- 無method override controls：source／dist×GPU／GL四頁各22scenarios passed，errors空。
+  實際修改的/tests/browser/post-effects.html兩backend各20scenarios passed、errors空。
+- Showcase GPU／GL真實Scene A→B與pagehide cleanup通過。Worldvisibility兩backend moving
+  unchecked、distance20，從900×508實際image decode點擊blue pixel(542,218)，DOM均為
+  Individually culled blue instances · distance 47.01，errors空。實際GPU motion PNG已視讀，
+  正常stripe／instance output不變；不是用wrapper counts替代畫面證據。
+- 同步README三語、PLAN、DESIGN、TECHNICAL英／中與本紀錄；檢查六份文件相對連結與格式。
+  Owned fixtures／scripts及Vite會於提交前移除，僅feature13檔列入獨立commit，不push。
+- 未跑full unit suite、CJS runtime、Canvas／audio、device-loss或initialization fallback，
+  未驗證Firefox／Safari或physical device。未量測heap／GC、GPU time、呈現fps或端到端latency；
+  native API呼叫減少不等同所有場景加速。

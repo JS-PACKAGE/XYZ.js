@@ -7370,3 +7370,18 @@ before getMatrixAt and world.multiply(instance) remain unchanged.
 No source, distribution or public API change was made, and no build, unit suite,
 production pixel proof or showcase was rerun. The bounded measurements and late
 snapshot negative are recorded in [ACCEPTANCE](../ACCEPTANCE.md) P202.
+
+## P203 weak-key motion bind-group reuse
+
+WebGPU motion bind groups are cached by borrowed GPUTextureView in a WeakMap scoped
+to the current uniform buffer. Buffer growth and releaseTarget drop the cache;
+groupForPass is still cleared after encoding. Packed uploads, dynamic offsets,
+shader bindings and deformable-object fallback remain unchanged.
+
+The existing native instance-motion case first primes a one-pose buffer before
+instances force it to grow at the same depth view, exposing stale-buffer groups.
+Scoped fifteen tests, source checks, final browser-regression typecheck and an
+isolated build passed; declaration changes only by the private cache field.
+Actual native group creation and pixel/payload results, mixed full-submit CPU
+controls and the rejected padding trial are separate in
+[ACCEPTANCE](../ACCEPTANCE.md) P203. No heap/GC, GPU-time or FPS gain is claimed.

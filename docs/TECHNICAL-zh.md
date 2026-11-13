@@ -7064,3 +7064,15 @@ products與public getter mutation／重入對照雖一致，Node instance histor
 
 Source、dist與API不變，本輪未執行build、unit suite、正式pixels或showcase重驗；有界量測
 與late snapshot negative見[ACCEPTANCE](../ACCEPTANCE.md) P202。
+
+## P203 弱key motion bind-group重用
+
+WebGPU motion以WeakMap的借用GPUTextureView key重用bind group，scope限目前uniform
+buffer；grow與releaseTarget丟棄map，encoding後仍清除groupForPass。Packed uploads、
+dynamic offsets、shader與deformable fallback不變，不加strong depth reference。
+
+既有native instance-motion case先prime一pose buffer，再由instances迫使同depth下成長，
+讓舊buffer group成為真正GPU錯誤。Scoped15 tests、source checks、最後browser regression
+typecheck及隔離build通過，declaration只加private cache field。原生建立次數、pixels／payload、
+mixed CPU controls與未採用padding trial分列於[ACCEPTANCE](../ACCEPTANCE.md) P203；
+不宣稱heap／GC、GPU時間或FPS收益。

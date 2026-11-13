@@ -293,10 +293,13 @@ async function run(): Promise<void> {
           instances.setMatrixAt(i, instancePose);
         }
       };
-      scene.add(instances);
       blur.perObject = true;
       blur.strength = 0;
       scene.camera3D.position.x = 0;
+      // Prime a smaller motion buffer before adding instances forces it to grow.
+      await draw();
+      await draw();
+      scene.add(instances);
       poseInstances(0);
       await draw();
       poseInstances(0.35);

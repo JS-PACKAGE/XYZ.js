@@ -5894,3 +5894,16 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 數值與callback一致仍不足以採用：Node active instances約慢3.5–5.5%，native無穩定收益。
   因此保留原this.world.multiply(this.instance)及writeClipTransform，不加入branch／shim。
 - 本階段只有文件與否決證據，不以未重跑的正式pixel、heap或FPS範圍假冒新認證。
+
+## P203 — A weak depth key is valid only within the current uniform-buffer epoch
+
+- Bind-group resources是buffer handle／128-byte binding range與depth view，不是當時的matrix
+  values；每pass仍上傳current packed data，dynamic offsets及draw order不變。
+- WeakMap以native GPUTextureView為key；不新增strong depth reference。Buffer成長或
+  releaseTarget時直接drop map，避免同一depth key命中已destroy／尺寸不足的舊uniform buffer。
+- groupForPass只橋接本次encoding，finally仍清除。Inactive／empty calls不建立WeakMap，
+  P198的empty data reuse保留；不宣稱GC時間、heap或GPU-resident bytes已下降。
+- 原生buffer／view／group identities與RGBA一起驗證；既有motion test的兩次prime draws
+  讓真正Scene在同depth view下由一pose成長至五pose，不用mock counts冒充consumer regression。
+- CPU-submit controls與descriptor／native-group建立次數分列。未採用尾端padding trial，
+  不為同一功能順便改upload byte範圍、stats語意、shader或deformation fallback。
