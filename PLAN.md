@@ -5680,3 +5680,15 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   驗證；故意固定offset0確實把可見藍物件剔除，避免空路徑或fake receiver的假通過。
 - 13個既有visibility tests、scoped品質／隔離build通過；完整surface與限制見ACCEPTANCE
   P197，不以array events推論CPU／heap／GPU或FPS，不push、不升版。
+
+## P198 — Make inactive object-motion reset allocation-free
+
+- ObjectMotionHistory失效直接drop poses，下一個合格rigid pose才lazy建立WeakMap；
+  draws／count／frame每次照常歸零，不以frame0或target缺席猜測沒有history。
+- WebGPU已空data不再重建Float32Array(0)，非空轉空與GPU資源銷毀／counter不變。
+- Source／built root的GPU及GL各72對native frames、4,718,592 RGBA bytes與draw data一致；
+  各30次history resets不再建立空map，GPU各24次空轉空不再換array。
+- 真實released GPU owner的inactive cleanup helper CPU上中位數42.4→19.6 ns/call；
+  Node active controls有小幅正負差異，未宣稱整幀、heap或FPS收益。
+- 15 tests、scoped品質／隔離build、四組無pipeline override lifecycle及GPU／GL showcase
+  通過；reentrant getter與stale-history negatives及限制見ACCEPTANCE P198，不push、不升版。

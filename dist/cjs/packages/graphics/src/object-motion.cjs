@@ -5,7 +5,7 @@ const require_instanced_mesh = require("../../core/src/instanced-mesh.cjs");
 const require_skinned_mesh = require("../../core/src/skinned-mesh.cjs");
 //#region dist/packages/graphics/src/object-motion.js
 var ObjectMotionHistory = class {
-	poses = /* @__PURE__ */ new WeakMap();
+	poses;
 	frame = 0;
 	world = new require_math3d.Matrix4();
 	instance = new require_math3d.Matrix4();
@@ -16,14 +16,14 @@ var ObjectMotionHistory = class {
 		a.reprojectionValid || this.invalidate(), this.frame++, this.count = 0;
 		for (let o of e) {
 			if (o instanceof require_skinned_mesh.SkinnedMesh || o.morph || require_native_material3d.isNativeMaterial3D(o.material) || o.material.deformationBounds !== 0 || o.material.transparent) continue;
-			let e = o instanceof require_instanced_mesh.InstancedMesh ? o.count : 1, s = this.poses.get(o), c = s?.frame === this.frame - 1 && s.geometry === o.renderGeometry && s.version === o.renderGeometry.version && s.material === o.material;
+			let e = o instanceof require_instanced_mesh.InstancedMesh ? o.count : 1, s = this.poses?.get(o), c = s?.frame === this.frame - 1 && s.geometry === o.renderGeometry && s.version === o.renderGeometry.version && s.material === o.material;
 			s || (s = {
 				frame: 0,
 				geometry: o.renderGeometry,
 				version: o.renderGeometry.version,
 				material: o.material,
 				matrices: []
-			}, this.poses.set(o, s));
+			}, (this.poses ??= /* @__PURE__ */ new WeakMap()).set(o, s));
 			for (let r = 0; r < e; r++) {
 				this.world.copy(o.worldMatrix), o instanceof require_instanced_mesh.InstancedMesh && (o.getMatrixAt(r, this.instance), this.world.multiply(this.instance));
 				let e = s.matrices[r];
@@ -41,7 +41,7 @@ var ObjectMotionHistory = class {
 		return this.draws.length = this.count, this.draws;
 	}
 	invalidate() {
-		this.poses = /* @__PURE__ */ new WeakMap(), this.draws.length = 0, this.count = 0, this.frame = 0;
+		this.poses = void 0, this.draws.length = 0, this.count = 0, this.frame = 0;
 	}
 };
 var objectMotionWGSL = (t) => `

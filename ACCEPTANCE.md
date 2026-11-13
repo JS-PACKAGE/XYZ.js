@@ -21282,3 +21282,129 @@ LOD／HLOD與藍色instances。不是只憑文字status或獨立shader demo宣�
 的新能力。未重跑full suite、repo-wide lint、CJS runtime、sprites RAF、audio unlock、device
 loss或auto fallback；未認證Firefox／Safari／physical devices。沒有CPU timing、heap／GC、
 GPU完成時間、latency或presentation FPS量測，不由array identities下降宣稱上述收益。
+
+## P198 — Lazy motion-history reset and empty GPU cleanup (2026-11-13)
+
+### Scope and lifetime invariants
+
+ObjectMotionHistory的poses改為optional WeakMap，invalidate直接設undefined；在原本new pose
+publication位置以??=建立map，再set。每次draws.length／count／frame仍照常歸零，不以
+frame0、沒有texture或沒有draws當作沒有history而early-return。GPU releaseTarget只有本已
+length0的private Float32Array保留identity；非空仍換成empty storage，GPU texture／view／
+buffer／group照常釋放，history每次照常失效。GL共用同一history改善，不改GL target流程。
+
+不cache map跨public mesh getters，不增加dirty flag或新的runtime dependency。Lazy map
+也避免owner剛建立、無合格rigid poses時先配置空map；下述A/B採同一真正root constructor，
+不把constructor allocation或memory overhead算進hot-call收益。
+
+### Behavior and reentrant-getter counterexample
+
+Node以當時actual dist ObjectMotionHistory receivers借用frozen before／candidate methods，
+public dist Mesh／InstancedMesh／TextureMaterial及真正TemporalPostState。10組matrix payload
+對照涵蓋初始warmup、移動、連續reset、camera invalidation、geometry更新及missing frames，
+所有32-float draw data相同；沒有用手製history或fake GPU handle。
+
+額外renderGeometry getter第一次被讀時重入invalidate：build可在frame0之後才set新pose。
+再次explicit reset後，before及lazy候選皆沒有跨reset draw、getter讀取次數亦相同。故意以
+frame0略過invalidate的wrong helper卻輸出一個draw，x velocity為1；這是可見stale motion，
+不是只pin private map identity。Nullable map解決重複配置，不採錯誤的frame-counter guard。
+
+### Helper CPU controls, not whole-frame gains
+
+Node26.7.0、TypeScript6.0.3、darwin arm64；borrowed methods均作用於同一actual dist class
+shape，CPU前各1000次warmup，六輪AB／BA交錯。Inactive每批250000 calls；active-1每批
+15000、active-100每批700、instances512每批150。以下採排序第4／6的上中位數，不將其
+誤稱六值算術平均。Active build重用相同poses／matrices，非把constructor放進計時。
+
+| Node helper / ns per call |    Before |     After |  Change |
+| ------------------------- | --------: | --------: | ------: |
+| Inactive invalidate       |     25.77 |     17.88 | -30.62% |
+| Active one rigid mesh     |    129.77 |    128.22 |  -1.19% |
+| Active 100 rigid meshes   | 11,348.75 | 11,466.91 |  +1.04% |
+| Active 512 instances      | 44,703.89 | 44,659.45 |  -0.10% |
+
+沒有刪除active100的小幅反方向結果，也不由這些短批次宣稱active path普遍更快。
+
+另開無pixel／identity observer的managed Chromium153.0.8010.12 process，以public
+createRenderer建立真GPU scene、啟用並render三幀，再停用perObject、完成queue工作，取得
+真正WebGPUObjectMotion owner；device仍live，texture／buffer／data已正常釋放。還原setup
+capture wrapper後才量測，before／after分別借用releaseTarget及history invalidate body，
+同一actual root receiver／shape，不用fake native物件。每variant warm20000次、每輪250000
+calls，六輪AB／BA；只有已釋放狀態的CPU cleanup，不在timing內做GPU render／readback。
+
+| Actual source GPU inactive cleanup / ns per call | Before | After |
+| ------------------------------------------------ | -----: | ----: |
+| Round 1 (AB)                                     |   47.2 |  20.4 |
+| Round 2 (BA)                                     |   42.4 |  21.2 |
+| Round 3 (AB)                                     |   41.6 |  19.2 |
+| Round 4 (BA)                                     |   44.0 |  19.2 |
+| Round 5 (AB)                                     |   42.4 |  18.8 |
+| Round 6 (BA)                                     |   42.4 |  19.6 |
+| Upper median                                     |   42.4 |  19.6 |
+
+此helper上中位數約-53.77%，絕對差只有22.8 ns/call，不等同CPU frame或FPS改善。
+未對GL cleanup、built-root或CJS宣稱量到同一CPU收益；未量heap／GC。
+
+### Native source / built-root equivalence and allocation events
+
+停止其他phase server，隔離build只複製本輪產物後，fresh hmr:false Vite。各entry使用
+canonical static imports，actual root history／GPU owner都以instanceof檢查；before只借用
+frozen methods、after真正production methods，同一after constructor，非手製receiver。
+Before一般首次resize／invalidation先建立原本需要的map，不另加fake first-build fallback。
+
+延伸既有正式post-effects Scene／renderer fixture，在原四instance motion case後再移動、
+停用perObject並在停用期間改pose，重複五個disabled frames，再啟用驗證fresh history。
+每種AA36個submitted frames，GPU per-frame validation scope與既有native graphics guard
+皆通過。GL AA-enabled不被冒稱具有與GPU相同MSAA backing或跨backend pixel parity。
+
+| Per entry / backend (single + AA-enabled)         | Source GPU | Source GL | Built GPU |  Built GL |
+| ------------------------------------------------- | ---------: | --------: | --------: | --------: |
+| Before/after matched frame pairs                  |         72 |        72 |        72 |        72 |
+| Compared RGBA bytes                               |  4,718,592 | 4,718,592 | 4,718,592 | 4,718,592 |
+| History resets                                    |         30 |        30 |        30 |        30 |
+| New map values after reset: before / after        |     30 / 0 |    30 / 0 |    30 / 0 |    30 / 0 |
+| Empty-to-empty array replacements: before / after |     24 / 0 |       N/A |    24 / 0 |       N/A |
+| Nonempty GPU data releases preserved              |          4 |       N/A |         4 |       N/A |
+
+Native pixels逐位相同，所有history build的frame／count／32-float payload及reset清理狀態
+相同；GPU release皆texture／view／buffer／group undefined且data空。After每次reset直接
+沒有map，並非偷偷持有一個帶舊keys的map。這是instrumented JS identity／state觀察，不能
+換算heap bytes或GC；GL沒有GPU packed-data欄位，N/A不寫成省下同一typed array。
+
+共288對frames、18,874,368 RGBA bytes。故意把history invalidate改no-op的真Native wrong
+variant，在四組entry／backend皆於single第36frame以pre-disable poses的consumer影像檢查
+失敗；不是因private identity assertion故意攔下。正常頁面page／console errors空。
+
+### Production methods without pipeline observers and UI
+
+Source／dist各GPU與GL另跑不patch history／GPU methods的controls，四組各22 scenarios
+通過（兩AA各11）。停用期間pose改變後，resume-fresh-history和sharp畫面的changedPixels
+全部0，max20門檻不放寬。沿用camera motion／camera cut、existingpost effects與instance
+moving／stopped cases；不以獨立shader或替代renderer冒充正式架構。
+
+真正GPU／GL showcase完成Scene A→B及pagehide cleanup，errors空。已讀source GPU single
+及GL AA-enabled resume PNG（條紋背景與右側cube邊緣清晰），以及GPU showcase Scene B
+的sprite／primitive／lit cube／sphere畫面。Showcase audio仍locked，不冒稱unlock／播放。
+
+第一個throwaway generator因巢狀template escaping parse失敗，尚未執行任何fixture步驟；
+改成一般string concatenation後才建立fixtures，未因此改產品或放寬assertions。
+
+### Checks and distribution
+
+- 2026-11-13 22:25 scoped Prettier／ESLint、strict typecheck與
+  motion-blur-object.test.ts 1檔15 tests通過；涵蓋初始valid state、camera／geometry失效、
+  instance history與GPU／GL重複release lifecycle，沒有新增identity-pinning tests。
+- 隔離tsc／minify／vendor copy／CJS build成功：377 JS由9,358,814至4,011,322 bytes、
+  720 CJS files；為staging totals而非節省量，vendor unchanged。
+- Declaration guard只允許ObjectMotionHistory private poses的optional marker；GPU declaration
+  unchanged。複製history ESM／CJS、兩maps與d.ts五檔，以及GPU ESM／CJS與maps四檔，共9。
+  使用者physics／world2d、其他修改與產物不覆寫、不stage，公開root API不增減。
+- README中／英／日、PLAN、DESIGN、technical中／英與本驗收同步，格式／inline相對連結
+  檢查；歷史counts／日期不變、metadata維持1.23.0。
+- 清理owned variants／fixtures／bench／drivers／staging／logs／screenshots／results，停止
+  本輪Vite，依功能獨立[P198] commit，不push、不升版，不留下debug hooks。
+
+本輪helper CPU不涵蓋full native render submission、GPU completion或visible RAF；未量測
+heap／GC、端到端latency或presentation FPS。未重跑full suite、repo-wide lint、CJS runtime、
+Canvas2D runtime、audio unlock、device loss、auto fallback；未認證Firefox／Safari／physical
+hardware，也未藉此擴充object motion對skinned／morph／native deformation的既有fallback。

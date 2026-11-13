@@ -7,7 +7,7 @@ export interface ObjectMotionDraw {
 }
 /** Renderer-owned rigid pose history. No object/material/geometry ownership is transferred. */
 export declare class ObjectMotionHistory {
-    private poses;
+    private poses?;
     private frame;
     private readonly world;
     private readonly instance;

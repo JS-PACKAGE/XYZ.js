@@ -20,6 +20,8 @@ WebGPU per-object motion 重用 dynamic-offset array，並修正 GL velocity pas
 
 WebGPU occlusion query 也重用 numeric offset array；原生 query readback、可見／遮蔽物件與畫面對照見驗收，未宣稱 CPU／FPS 改善。WebGPU occlusion queries also reuse numeric offset storage, verified with native readback and visible/hidden objects, without a CPU/FPS claim. WebGPU の occlusion query も numeric offset array を再利用し、native readback と可視／遮蔽物体で検証します。CPU／FPS 向上の主張ではありません。
 
+Motion history reset 改為lazy WeakMap，WebGPU空資料重複cleanup不再配置；inactive helper CPU與active controls分開驗收，不等同整幀／FPS。Motion history resets allocate lazily and empty GPU cleanup reuses storage; inactive-helper CPU and active controls are separate from frame/FPS claims. Motion history の reset は WeakMap を遅延生成し、空 GPU cleanup の再割り当てを省略します。Helper CPU と active controls を全体フレーム／FPS と区別します。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

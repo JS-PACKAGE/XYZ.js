@@ -118,7 +118,7 @@ var WebGPUObjectMotion = class {
 		(e !== this.width || t !== this.height) && (this.releaseTarget(), this.width = e, this.height = t);
 	}
 	releaseTarget() {
-		this.texture && (this.texture.destroy(), this.stats.target(-this.width * this.height * 8)), this.texture = void 0, this.view = void 0, this.buffer?.destroy(), this.buffer = void 0, this.groupForPass = void 0, this.data = /* @__PURE__ */ new Float32Array(), this.history.invalidate();
+		this.texture && (this.texture.destroy(), this.stats.target(-this.width * this.height * 8)), this.texture = void 0, this.view = void 0, this.buffer?.destroy(), this.buffer = void 0, this.groupForPass = void 0, this.data.length && (this.data = /* @__PURE__ */ new Float32Array()), this.history.invalidate();
 	}
 	destroy() {
 		this.releaseTarget();

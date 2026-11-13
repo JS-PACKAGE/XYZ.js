@@ -5837,3 +5837,16 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 改以canonical static imports，before借用凍結method、after使用真正production method；
   在native呼叫當下擷取offset值，以真GPU readback及visible／hidden pixels確認消費語意。
 - 採用的是逐query JS array construction減少，非已證明CPU時間、heap大小或FPS改善。
+
+## P198 — Dropping history does not require constructing empty history
+
+- poses可為undefined；build仍於原位置讀取當前map，建立新pose後才以??=配置map。
+  不把map cache成跨public getter的local，invalidate後不會往已丟棄的map寫入。
+- 每次invalidate都drop poses、清draws／count／frame，不新增dirty flag或以frame0早退。
+  Getter重入可在frame0留下剛建立的pose，frame0不等於沒有history；錯誤guard會在再次
+  reset後仍輸出跨reset的velocity。Lazy drop保留原語意，又沒有空WeakMap配置。
+- GPU releaseTarget總是清texture／view／buffer／group並執行history invalidate；
+  只有本已length0的private Float32Array保留identity，非空storage仍drop。
+- Timing以真正GPU owner及live device、已釋放targets為前提，只計CPU cleanup call。
+  Native pixels／history payload與配置觀察在另一process，不讓observer混入timing。
+- Active helper控制組與inactive收益分列；小幅正負差異不改寫成全路徑或FPS提升。

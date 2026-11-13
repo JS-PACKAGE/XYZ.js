@@ -7292,3 +7292,22 @@ also matched. A deliberately wrong all-zero offset variant removed a genuinely
 visible object and failed. Thirteen existing visibility tests and the scoped build
 passed; [ACCEPTANCE](../ACCEPTANCE.md) P197 records actual-surface verification,
 probe corrections and limits. Array events are not a heap-size, CPU or FPS result.
+
+## P198 inactive motion-history cleanup
+
+ObjectMotionHistory invalidation drops its private poses map; the next eligible
+rigid pose creates one lazily. Draw references, count and frame are still cleared
+on every invalidation, including repeated resets. The map is not cached across
+public mesh getters. A zero frame counter alone is not proof that no poses exist.
+
+WebGPU releaseTarget retains an already-empty private Float32Array; nonempty
+storage, textures, views, buffers and bind-group references are still released.
+Source/built GPU and GL each matched 72 native frame pairs (4,718,592 RGBA bytes)
+and history draw payloads. Re-enable after moving disabled instances was sharp;
+a no-op invalidation negative failed on the actual pixels.
+
+Isolated inactive cleanup on a real released GPU owner measured 42.4 → 19.6 ns/call
+(six-run upper medians). Node active helper controls had small mixed changes, not
+a universal speedup. Fifteen tests, scoped build, production-method lifecycle
+controls and GPU/GL showcase passed. See [ACCEPTANCE](../ACCEPTANCE.md) P198 for raw
+rounds, reentrant-getter proof and unmeasured frame/FPS, heap/GC and GPU limits.

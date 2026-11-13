@@ -7005,3 +7005,19 @@ Native query zero／nonzero、禁用／重啟與camera／occluder／membership i
 故意將offset全設0會剔除真正可見的藍物件並失敗。13個既有visibility tests、scoped build
 通過，正式surface、探針修正與限制見[ACCEPTANCE](../ACCEPTANCE.md) P197，不推論heap
 大小、CPU或FPS改善。
+
+## P198 停用motion history的cleanup
+
+ObjectMotionHistory每次invalidate直接drop private poses map，下一個合格rigid pose才建立；
+draw references、count、frame每次照常清理。Map不跨public mesh getter cache；getter重入
+可在frame0存入pose，不能以frame0當作無history而略過reset。
+
+WebGPU releaseTarget保留本已為空的private Float32Array，非空storage、texture／view、
+buffer及bind-group references仍正常釋放。Source／built GPU及GL各72對native frames
+（4,718,592 RGBA bytes）及history draw payload一致，停用期間移動instance、再啟用時無
+stale blur；把invalidate改成no-op的negative會在真GPU／GL畫面失敗。
+
+真實已釋放target的GPU owner，inactive cleanup helper CPU六輪上中位數42.4→19.6 ns/call；
+Node active controls有小幅正負差異，不等同整幀或所有路徑加速。15 tests、scoped build、
+production-method lifecycle controls及GPU／GL showcase通過。原始rounds、getter重入與
+heap／GC、GPU、frame／FPS未驗證範圍見[ACCEPTANCE](../ACCEPTANCE.md) P198。

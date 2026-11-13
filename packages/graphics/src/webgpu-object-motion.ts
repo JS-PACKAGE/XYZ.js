@@ -171,7 +171,7 @@ export class WebGPUObjectMotion {
     this.buffer?.destroy();
     this.buffer = undefined;
     this.groupForPass = undefined;
-    this.data = new Float32Array(0);
+    if (this.data.length) this.data = new Float32Array(0);
     this.history.invalidate();
   }
   destroy(): void {

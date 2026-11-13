@@ -21,7 +21,7 @@ export interface ObjectMotionDraw {
 
 /** Renderer-owned rigid pose history. No object/material/geometry ownership is transferred. */
 export class ObjectMotionHistory {
-  private poses = new WeakMap<Mesh, PoseHistory>();
+  private poses?: WeakMap<Mesh, PoseHistory>;
   private frame = 0;
   private readonly world = new Matrix4();
   private readonly instance = new Matrix4();
@@ -47,7 +47,7 @@ export class ObjectMotionHistory {
       )
         continue;
       const count = mesh instanceof InstancedMesh ? mesh.count : 1;
-      let pose = this.poses.get(mesh);
+      let pose = this.poses?.get(mesh);
       const valid =
         pose?.frame === this.frame - 1 &&
         pose.geometry === mesh.renderGeometry &&
@@ -61,7 +61,7 @@ export class ObjectMotionHistory {
           material: mesh.material,
           matrices: [],
         };
-        this.poses.set(mesh, pose);
+        (this.poses ??= new WeakMap()).set(mesh, pose);
       }
       for (let index = 0; index < count; index++) {
         this.world.copy(mesh.worldMatrix);
@@ -101,7 +101,7 @@ export class ObjectMotionHistory {
   }
 
   invalidate(): void {
-    this.poses = new WeakMap();
+    this.poses = undefined;
     this.draws.length = 0;
     this.count = 0;
     this.frame = 0;
