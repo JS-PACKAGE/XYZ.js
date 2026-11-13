@@ -20208,3 +20208,141 @@ nonuniform／reflected／collapsed transforms，以及unchanged mirror不dirty�
 Safari／Firefox或physical-device認證；也沒有GPU time、heap／GC、端到端latency、
 RAF／presentation FPS數據。歷史驗收數字不改寫，不將sampling佔比或兩行展開當成
 通用收益證明。
+
+## P189 — Ordered morph base-copy unroll（2026-11-13）
+
+### Scope and decision
+
+採用private copyBase的固定長度展開：每vertex依序讀寫六個position／normal components，
+再讀寫四個tangent components（含handedness）。原碼增加七行，不新增配置或cache。
+不整批覆寫packed UV0，不把tangent copy移出vertex loop；setTangentOutput的重疊
+view保留原讀寫順序。逐target Float32累加、sparse -0 fallback、normal與tangent
+normalization皆不改，尤其不把回寫Float32後的normal視為精確單位向量而刪hypot。
+
+P188 sampling曾指出MorphTargets.apply的CPU份額，本輪沿該路徑調查copy，不重做
+Profiler，也不把歷史sample shares當成新候選收益。
+
+### Native measurement protocol
+
+Chromium 153.0.8010.12，darwin/arm64，project Playwright desktop-automation launcher。
+全部使用真實Geometry／Texture／Mesh／SkinnedMesh／MorphTargets，沒有mock bitmap、
+no-op deformation或fake renderer。每run內receiver是相同正式MorphTargets class的
+獨立instances，在相同own-property位置放入真實before／candidate apply methods；
+其closure分別執行原本或展開的copyBase，accumulate仍走相同正式instance method。
+
+每case各8個warmup batches、15個AB／BA交錯samples，表列完整batch median ms；
+建立fixture不計，實際weights.set／pose計入。Proof及timing分開browser process。
+位置target每三個frames會回到零權重；all包含position／normal／tangent，sparse為
+約每17個vertices一個非零delta。absent是合法零delta targets的copy/reset控制，不以
+它單獨支持採用。Mesh morph是正式updateRenderDeformation；bounds透過正式
+getWorldBoundingSphere加入deformation、world與geometry bounds更新；skin palette
+包括morph／joint pose／palette／influence bounds，不更新exact CPU mirror。
+
+### Short-batch exploration only
+
+以下只定位訊號；部分batch短，不以它的百分比或配置數宣稱呈現FPS。
+
+| Carrier          | Grid | Streams / targets           | Mode    |  Calls | Before ms | After ms |
+| ---------------- | ---: | --------------------------- | ------- | -----: | --------: | -------: |
+| mesh             |   32 | position / 1 dense          | morph   |    200 |       1.3 |      1.0 |
+| mesh             |   32 | all / 1 dense               | morph   |    200 |       3.2 |      3.0 |
+| mesh             |   32 | all / 4 dense               | morph   |    200 |       5.4 |      5.2 |
+| mesh             |   32 | position / 1 sparse         | morph   |    200 |       1.0 |      0.8 |
+| mesh             |   32 | all / 4 sparse              | morph   |    200 |       2.8 |      2.6 |
+| mesh             |   32 | absent / 1 dense            | morph   |    200 |       0.9 |      0.7 |
+| mesh             |  128 | position / 1 dense          | morph   |     20 |       1.8 |      1.6 |
+| mesh             |  128 | all / 1 dense               | morph   |     20 |       5.0 |      4.8 |
+| mesh             |  128 | all / 4 dense               | morph   |     20 |       8.5 |      8.2 |
+| mesh             |  128 | position / 1 sparse         | morph   |     20 |       1.4 |      1.2 |
+| mesh             |  128 | all / 4 sparse              | morph   |     20 |       4.4 |      4.2 |
+| mesh             |  128 | absent / 1 dense            | morph   |     20 |       1.4 |      1.2 |
+| mesh             |  128 | position / 1 dense          | bounds  |     20 |       2.0 |      1.8 |
+| mesh             |  128 | all / 1 dense               | bounds  |     20 |       5.3 |      5.1 |
+| skin (16 joints) |   64 | 8 / 8 influences; all morph | palette |    100 |      20.9 |     20.6 |
+| skin (16 joints) |  128 | 8 / 8 influences; all morph | palette |     20 |      16.6 |     16.3 |
+| mesh             |  128 | all / 1 dense               | static  | 200000 |       1.5 |      1.5 |
+| skin (16 joints) |  128 | 8 / 8 influences; no morph  | skin    |      4 |       6.2 |      6.1 |
+
+### Independent long batches and the actual published root
+
+Mesh批次放大十倍，非morph CPU mirror控制放大四倍；另啟新browser，不先執行
+Proxy觀察proof。Published組直接借用真正built root的apply，而非暫存candidate module。
+Build前停止舊Vite，產物回寫後才啟新server，避免P188已確認的舊dist transform cache。
+兩組各自比較，不跨run相減；下面不是pure-copy microbenchmark。
+
+| Carrier          | Grid | Streams / targets           | Mode    |   Calls | Long before ms | Long after ms | Published before ms | Published after ms |
+| ---------------- | ---: | --------------------------- | ------- | ------: | -------------: | ------------: | ------------------: | -----------------: |
+| mesh             |   32 | position / 1 dense          | morph   |    2000 |           11.1 |           9.5 |                11.3 |                9.6 |
+| mesh             |   32 | all / 1 dense               | morph   |    2000 |           32.3 |          31.0 |                31.9 |               30.5 |
+| mesh             |   32 | all / 4 dense               | morph   |    2000 |           53.8 |          52.3 |                54.2 |               52.7 |
+| mesh             |   32 | position / 1 sparse         | morph   |    2000 |            9.1 |           7.6 |                 9.0 |                7.7 |
+| mesh             |   32 | all / 4 sparse              | morph   |    2000 |           27.3 |          25.9 |                27.3 |               25.9 |
+| mesh             |   32 | absent / 1 dense            | morph   |    2000 |            8.9 |           7.4 |                 8.8 |                7.4 |
+| mesh             |  128 | position / 1 dense          | morph   |     200 |           18.0 |          15.6 |                17.9 |               15.7 |
+| mesh             |  128 | all / 1 dense               | morph   |     200 |           51.3 |          48.8 |                51.0 |               48.8 |
+| mesh             |  128 | all / 4 dense               | morph   |     200 |           86.4 |          84.2 |                86.2 |               84.2 |
+| mesh             |  128 | position / 1 sparse         | morph   |     200 |           14.5 |          12.1 |                14.5 |               12.1 |
+| mesh             |  128 | all / 4 sparse              | morph   |     200 |           44.2 |          41.9 |                44.2 |               41.8 |
+| mesh             |  128 | absent / 1 dense            | morph   |     200 |           14.1 |          11.7 |                14.0 |               11.7 |
+| mesh             |  128 | position / 1 dense          | bounds  |     200 |           20.7 |          18.4 |                20.7 |               18.4 |
+| mesh             |  128 | all / 1 dense               | bounds  |     200 |           53.8 |          51.4 |                53.6 |               51.5 |
+| skin (16 joints) |   64 | 8 / 8 influences; all morph | palette |     100 |           20.9 |          20.6 |                20.9 |               20.6 |
+| skin (16 joints) |  128 | 8 / 8 influences; all morph | palette |      20 |           16.6 |          16.4 |                16.6 |               16.4 |
+| mesh             |  128 | all / 1 dense               | static  | 2000000 |           15.2 |          15.2 |                15.3 |               15.2 |
+| skin (16 joints) |  128 | 8 / 8 influences; no morph  | skin    |      16 |           24.7 |          24.7 |                24.6 |               24.5 |
+
+真正published root的positions-only CPU更新約改善12–17%，all-stream約2–5%。
+加入真實bounds的兩個cases分別約改善11%及4%；skin palette約1–2%，unchanged及
+非morph控制大致持平。CPU工作不同，不把各百分比相加或宣稱一般GPU／FPS收益。
+
+### Correctness, aliasing and the corrected signed-zero oracle
+
+兩個正式入口分別直接使用source root與全新server上的built ESM root；每入口包含
+以下兩組，合計28 pairs／560 mutation frames。比較完整vertices／tangents／indices、
+retargeted output、render bind streams、完整palette、normalized weights／indices、
+versions及sphere Object.is；caller geometry或authored attributes／delta snapshots
+按各自ownership契約保持原樣。
+
+| Actual entry | Group | Pairs | Frames | Output bytes compared | Input bytes checked | Joint observations | Skin weight/index observations | Output observations | Redo frames |
+| ------------ | ----- | ----: | -----: | --------------------: | ------------------: | -----------------: | -----------------------------: | ------------------: | ----------: |
+| source       | skin  |    18 |    360 |            22,487,040 |          25,551,360 |             11,520 |                      1,772,480 |                   — |           — |
+| source       | mesh  |    10 |    200 |             2,981,600 |          11,789,280 |                  — |                              — |           2,101,280 |          20 |
+| dist         | skin  |    18 |    360 |            22,487,040 |          25,551,360 |             11,520 |                      1,772,480 |                   — |           — |
+| dist         | mesh  |    10 |    200 |             2,981,600 |          11,789,280 |                  — |                              — |           2,101,280 |          20 |
+
+表中—表示該group不適用或未收集該類counter，不表示實際沒有讀寫或重算。
+
+Mesh組每frame編輯packed UV0，驗證未被base reset覆蓋；涵蓋position-only、normal-only、
+tangent-only、all、absent、四targets、sparse、cancelled normal／tangent fallback、
+retargeted tangent與vertex buffer重疊。每入口各20個underflow mutation frames，
+兩邊都真正先sparse再dense重算，最終應被後續零delta翻正的-0以Object.is驗為+0。
+Skin組保留four／eight、sparse／dense influences、signed morphs及nonuniform／
+reflected／collapsed transforms，不改P188的bounds或P186的blend契約。
+
+初版throwaway oracle誤把所有base -0加零delta都預期為+0，完整proof因此失敗，
+當時尚未執行timing、也未修改production source。原始與候選輸出bytes及讀寫順序
+相同；錯在未考慮零weight跳過、負weight乘+0得到-0。修正預期值為
+weight===0 ? -0 : Math.fround(-0 + weight*0)，保留全部cases／斷言後才通過上述proof，
+沒有改正式語義、移除失敗case或以mock繞過。
+
+### Verification and actual UI
+
+- Source Prettier check、scoped ESLint、tsconfig.check typecheck通過；既有morph、tangent、
+  native-skinning三個files合計26 tests通過，未新增wiring／source-text tests。
+  使用Node 26.7.0與npx pinned pnpm 12.6.0，不假稱本機有pnpm executable。
+- Owned temporary tree執行正式tsc→minify→完整vendor copy→CJS pipeline；377 JS files
+  由9,357,406→4,010,834 bytes，CJS 720 files。Morph public declarations與原檔cmp相同，
+  僅回寫本功能四個ESM／CJS code／map outputs，不整包覆蓋使用者的dist修改。
+- 正式gltf3d在強制WebGPU／WebGL2，auto keyframe weights→停auto→Pause glTF→
+  keyboard range Home／End設定兩sliders 0／0再1／1→Resume／auto→pagehide cleanup
+  全部通過，readout與slider值一致。四張實際canvas screenshots已目視確認藍色
+  sphere變成伸長帶spikes的mesh，綠色skinned ribbon仍正確；不是只比DOM文字。
+- Advanced3d兩backend的Pause、實際canvas glTF picking（distance 12.97）、Resume、
+  Destroy回報完成；showcase Scene A→B及pagehide cleanup通過。Canvas2D兩個3D範例
+  都明確顯示不提交mesh。Pageerror／console error皆空，不宣稱resource counter歸零。
+- README中／英／日、PLAN、DESIGN與technical中／英同步，文件相對連結及格式檢查。
+  版本維持1.23.0，不push。
+
+未重跑full unit suite、repo-wide lint、Node效能、CJS runtime或audio unlock；沒有
+Safari／Firefox、physical-device、heap／GC、GPU time、端到端latency或RAF／presentation
+FPS認證。這些CPU batch收益不能替代上述驗證，歷史測試數與日期不改寫。

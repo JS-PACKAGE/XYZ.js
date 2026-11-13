@@ -6887,3 +6887,15 @@ Native CPU sampling定位signed-morph熱路徑後，以分離觀察proof的相�
 Source／build bytes、既有tests及實際GPU／GL picking通過；兩種矩陣、曾作廢的
 Vite舊dist結果與限制見[ACCEPTANCE](../ACCEPTANCE.md) P188，不以sampling佔比宣稱
 CPU收益，也不宣稱FPS或GPU時間提升。
+
+## P189 ordered morph base copies
+
+Private base reset明確複製每vertex六個position／normal與四個tangent components；
+保留UV編輯、tangent handedness及逐component／vertex順序，重疊output view亦不變。
+不新增bulk copy、配置、cache，不刪除Float32回寫後的normal長度量測或改normalization。
+
+獨立native長批次及真正built root的positions-only morph CPU更新約改善12–17%，
+all-stream約2–5%；包含實際bounds更新仍有收益，unchanged／非morph控制大致持平。
+Source／build bytes與觀察proof、26個既有tests及實際GPU／GL morph controls／動畫通過。
+矩陣、修正的signed-zero oracle與限制見[ACCEPTANCE](../ACCEPTANCE.md) P189；
+不宣稱GPU時間、heap或呈現FPS改善。

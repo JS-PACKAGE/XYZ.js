@@ -5732,3 +5732,15 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   的執行歷史當成一般輸入；其確切JIT機制未認證。
 - 發佈root須真的載入目前產物：本輪確認Vite曾回傳舊dist method，該組資料作廢，
   重啟server後才通過正式root差分及獨立timing。原始碼正確不等於loader已更新。
+
+## P189 — Unroll copies without moving their observations
+
+- Morph base reset仍只複製每vertex前六個position／normal components，再複製四個
+  tangent components（含handedness）；固定store展開取代兩個小loop，不新增配置。
+- 不以out.set(base)覆蓋consumer編輯的UV，也不把tangent bulk copy移出vertex loop：
+  setTangentOutput可接受重疊view，原本的讀寫順序會影響其結果。
+- Normal回寫Float32後，tangent pass仍重新量測其長度；不假定它精確為1，
+  不融合／重排normal與tangent passes，保留fallback及逐target Float32 rounding。
+- -0 oracle遵守零weight跳過及signed-zero加法：base -0不一定變成+0；
+  修正的是throwaway預期值，沒有移除case／斷言或改正式語義來遷就測試。
+- Proxy觀察與timing process分離，短批次只作探索，採用依長批次及真正發佈root量測。

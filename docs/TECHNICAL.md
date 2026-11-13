@@ -7137,3 +7137,18 @@ CPU time in the actual built ESM root, with non-morph controls essentially flat.
 Source/build byte proofs, existing tests and actual GPU/GL picking passed.
 See [ACCEPTANCE](../ACCEPTANCE.md) P188 for both matrices and the discarded
 stale-Vite result. Sampling shares are not timing gains or an FPS certification.
+
+## P189 ordered morph base copies
+
+The private base reset explicitly copies six position/normal and four tangent
+components per vertex. UV edits survive, tangent handedness is restored, and
+the original per-component/per-vertex order also handles overlapping output
+views. No bulk copy, allocation, cache or normalization change is introduced.
+
+Independent long native batches and the actual built root measured roughly
+12–17% less positions-only morph CPU time and 2–5% less all-stream CPU time.
+Paths including real bounds refresh also improved; unchanged and non-morph
+controls were essentially flat. Source/build byte and observation proofs,
+26 existing tests and actual WebGPU/WebGL2 morph controls/animation passed.
+See [ACCEPTANCE](../ACCEPTANCE.md) P189 for matrices, the corrected signed-zero
+oracle and limits. These are not GPU-time, heap or presentation-FPS claims.

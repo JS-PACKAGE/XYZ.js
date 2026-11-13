@@ -5576,3 +5576,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   typecheck／lint、隔離ESM／CJS build及正式GPU／GL picking／cleanup通過。
 - 觀察proof不混入timing process；曾送出舊dist的Vite量測作廢並重啟後重驗。
   詳細矩陣及限制見ACCEPTANCE P188，不宣稱GPU時間、heap或FPS提升。
+
+## P189 — Unroll ordered morph base copies
+
+- 展開每vertex六個position／normal與四個tangent copy，保留逐讀逐寫及vertex順序；
+  不覆寫UV、不把tangent整批移動，重疊output、signed zero及dense redo保持一致。
+- Native長批次及真正built root矩陣支持採用：positions-only CPU更新約改善12–17%，
+  all-stream約2–5%；包含實際bounds的路徑仍有收益，控制組大致持平。
+- Source／built ESM正式proof合計約51MB輸出、edited UV／alias／觀察順序及26個
+  既有tests通過；隔離ESM／CJS build與正式GPU／GL morph sliders／動畫／cleanup通過。
+- 原碼僅增加七行，不改normal／tangent運算或公開API，不宣稱GPU、heap或FPS收益。
+  短批次、長批次、發佈矩陣、修正的-0 oracle及限制見ACCEPTANCE P189。

@@ -385,11 +385,18 @@ function copyBase(
 ): void {
   for (let v = 0; v < vertexCount; v++) {
     const o = v * 8;
-    for (let j = 0; j < 6; j++) out[o + j] = base[o + j]!;
+    out[o] = base[o]!;
+    out[o + 1] = base[o + 1]!;
+    out[o + 2] = base[o + 2]!;
+    out[o + 3] = base[o + 3]!;
+    out[o + 4] = base[o + 4]!;
+    out[o + 5] = base[o + 5]!;
     if (tangents) {
       const offset = v * 4;
-      for (let j = 0; j < 4; j++)
-        tangents[offset + j] = baseTangents[offset + j]!;
+      tangents[offset] = baseTangents[offset]!;
+      tangents[offset + 1] = baseTangents[offset + 1]!;
+      tangents[offset + 2] = baseTangents[offset + 2]!;
+      tangents[offset + 3] = baseTangents[offset + 3]!;
     }
   }
 }

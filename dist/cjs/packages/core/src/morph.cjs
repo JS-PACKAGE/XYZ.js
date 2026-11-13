@@ -157,10 +157,9 @@ function nonzeroVertices(e, t) {
 function copyBase(e, t, n, r, i) {
 	for (let a = 0; a < i; a++) {
 		let i = a * 8;
-		for (let t = 0; t < 6; t++) n[i + t] = e[i + t];
-		if (r) {
+		if (n[i] = e[i], n[i + 1] = e[i + 1], n[i + 2] = e[i + 2], n[i + 3] = e[i + 3], n[i + 4] = e[i + 4], n[i + 5] = e[i + 5], r) {
 			let e = a * 4;
-			for (let n = 0; n < 4; n++) r[e + n] = t[e + n];
+			r[e] = t[e], r[e + 1] = t[e + 1], r[e + 2] = t[e + 2], r[e + 3] = t[e + 3];
 		}
 	}
 }
