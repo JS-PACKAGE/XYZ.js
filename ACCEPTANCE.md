@@ -19519,3 +19519,46 @@ Node v26.7.0、TypeScript6.0.3隔離ESM modules、相同正式dependencies；8wa
 - 初輪另外3組Proxy probes的constructor iterator／index read logs、輸出bytes與errors一致：observe、每次iterator改boundary、第二次iterator throw。這些probe不新增到永久test suite，也沒有刪掉它們再冒稱混合history的效能沒有差別。
 - Source未採用候選，故本輪沒有重跑build／typecheck／tests／native browser；P178的六項tests、bytes與native Worker／renderer證據是當時紀錄，不以文件更新冒稱重新runtime驗證。沒有native timing、publication、GPU／presentation FPS、heap或allocation counter新證據。
 - README中英日、PLAN、DESIGN、TECHNICAL中英同步；文件Prettier與既有ACCEPTANCE相對目標檢查完成。兩個isolated module directories與measurement script已刪除；本輪沒有server／native tab／agent遺留，無dependency或vendor變更。
+
+## P180 — Retain UI callback layout and eager fill bookkeeping
+
+日期：2026-07-23。兩個獨立原型均未採用；正式`UIElement`、scroll、tests與dist未修改。
+
+### 比較邊界與結果
+
+兩候選各自從目前正式`ui-layout.ts`產生isolated before／after modules，使用同一批正式dist依賴，經TypeScript6.0.3轉為ES2022；Node v26.7.0執行完整public `reflow`，而非單獨比較Array callbacks或Set constructor。Setup／module compile／fixture construction／destroy在計時外，每batch更新viewport寬高以避免把固定尺寸no-op當收益；8次warmups、15次交替順序samples取median，單位為每batch CPU wall milliseconds。兩候選各有自己的before，不能交叉相減。
+
+候選A把natural-lengths `map`與used-length `reduce`改為普通迴圈，保持讀取／加法順序及既有fill演算法：
+
+| Case                                  | Direct children | Reflows/batch | Before ms | Candidate ms |
+| ------------------------------------- | --------------: | ------------: | --------: | -----------: |
+| empty                                 |               0 |         20000 |  0.598250 |     0.567375 |
+| one row                               |               1 |         15000 |  1.866708 |     1.953792 |
+| normal column                         |              24 |          2500 |  2.828500 |     2.868834 |
+| normal row fill                       |              24 |          2500 |  3.395666 |     3.425417 |
+| normal overlay                        |              24 |          2500 |  3.786625 |     3.867875 |
+| large column                          |            1024 |            60 |  3.280000 |     3.461292 |
+| large row fill                        |            1024 |            60 |  4.000292 |     4.089333 |
+| nested, three grandchildren per child |             128 |           100 |  3.231208 |     3.156084 |
+
+候選B不改map／reduce，只在第一個main-axis fill child才建立private Set，並以optional size檢查迴圈；沒有跨callback cache：
+
+| Case                                  | Direct children | Reflows/batch | Before ms | Candidate ms |
+| ------------------------------------- | --------------: | ------------: | --------: | -----------: |
+| empty                                 |               0 |         20000 |  0.556375 |     0.583833 |
+| one row                               |               1 |         15000 |  1.868833 |     1.741167 |
+| normal column                         |              24 |          2500 |  2.815500 |     2.797792 |
+| normal row fill                       |              24 |          2500 |  3.308542 |     3.395542 |
+| normal overlay                        |              24 |          2500 |  3.760458 |     3.781333 |
+| large column                          |            1024 |            60 |  3.223750 |     3.275625 |
+| large row fill                        |            1024 |            60 |  3.953750 |     4.027250 |
+| nested, three grandchildren per child |             128 |           100 |  3.214958 |     3.126167 |
+
+A的一般column／row-fill／overlay及large控制組多數退步約1–5%；B的one／nested雖改善，filled-row與large控制組仍約1.6–2.6%退步。Empty在正式早退路徑、不會進入改動，實測同樣有正負波動。這些數字不足以支持新迴圈或optional-state bookkeeping；保留原本實作，不把source-level少一次Set constructor當作已量測heap／GC改善。
+
+### 精確行為與限制
+
+- 每候選128個histories各16次mutable reflows，共2,048組before／after。Row／column／overlay、visible toggles、`setLayout`、數字／fill、min/max、fractional gap與padding、nested descendants、零／signed-zero viewport均包含；全部descendants的layoutWidth／layoutHeight／position以strict deep comparison一致。
+- 各候選另外4組override probes比較natural／dimension／arranged順序、exception、arranged修改parent layout與nested reflow，logs／errors／最終layout一致。這不是永久tests，也未宣稱涵蓋所有自訂override。
+- 正式source未採用，沒有重跑unit／build／typecheck／native UI／scroll／virtual-list／semantic browser；本輪Node CPU與isolated differential不能證明GPU、presentation FPS、heap、GC或其他browser／device收益。
+- README中英日、PLAN、DESIGN與TECHNICAL中英同步，文件Prettier及相對ACCEPTANCE目標檢查；本輪原型與輸出於提交前清理。沒有新增依賴、vendor改動或正式persistent cache。

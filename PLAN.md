@@ -5490,3 +5490,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   猜測未profile的JIT根因；完整結果與維持原實作的理由見ACCEPTANCE P179。
 - 本輪正式變更僅文件並檢查格式；原型量測另見紀錄，P178的build／native證據
   保留為當時紀錄，未冒稱重跑。
+
+## P180 — Reject UI callback loops and lazy fill sets
+
+- 完整UIElement.reflow量測否決map／reduce改迴圈與lazy fill Set兩候選；
+  callback work、min/max fill分配、mutable viewport與nested控制組均保留。
+- 每候選2,048組paired reflows與4組override／reentrant probes一致，但一般
+  column／row-fill／large控制組收益不足或退步；不以source-level少Set冒稱heap改善。
+- 正式UI layout／scroll／tests／dist不改，沒有重跑unit／build／browser。
+- 兩候選完整數字、實際測量範圍及未驗證限制見ACCEPTANCE P180。

@@ -5646,3 +5646,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   不能任意消除第二次iterator或改成直接indexed reads。
 - Fresh typed-only量測的tiny／skinny取捨與完整job收益不支持新增初始化迴圈，
   故維持原copy；不同輸入history的數字分開記錄，詳見ACCEPTANCE P179。
+
+## P180 — Compare complete mutable layout rather than callback syntax
+
+- Natural lengths仍必須按原順序讀取，fill min/max分配與used sum保持原算術；
+  map／reduce改迴圈並未在完整reflow控制組帶來一致收益。
+- Lazy fill Set只在第一個fill才配置，對沒有fill的container可少一次source-level
+  constructor；但filled-row與large控制組的CPU取捨不支持保留，亦未量測heap／GC。
+- 不跨arranged／natural／dimension覆寫或重入快取padding／alignment／focus。
+  兩候選差分與量測見ACCEPTANCE P180，正式設計維持原本實作。
