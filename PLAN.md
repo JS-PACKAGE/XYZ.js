@@ -5881,3 +5881,18 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   10 pixels、stationary 最多20 pixels。合法但錯誤的 page-zero binding 讓新增 case 失敗。
 - 實際 source／dist×GPU／GL 各24個 post-effects scenarios，以及26項針對性測試通過。
   證據、否決數據與 Vite stale-module 歸因修正見 ACCEPTANCE P212；不宣稱 runtime 加速。
+
+## P213 — GL motion pass-local native buffer binding elision
+
+- 正式 GL motionGeometry callback 只是 cached lookup，不呼叫 cacheGeometry，也不更改 VAO；
+  可在 own VAO 內按實際 vertex／index identity 分別省略重複 binding。
+- 只增加每pass重設的兩個 local buffer references。Vertex 不變就省略 ARRAY_BUFFER 與
+  vertexAttribPointer；index 不變就省略 ELEMENT_ARRAY_BUFFER。不改 shader、uniforms、
+  draw、history、排序、資源生命週期或 stats，不採用 P212 的 pose pages。
+- 先保留144個 source 完整 native submit samples，再以 actual source／真正 built dist
+  驗證408組 frame pairs，所有 pixels、公開 counters、native geometry／matrix fetch相同。
+- 每份 GL suite 的1300 poses保留1300 draws與2600 matrix calls；bindBuffer2600→300，
+  vertexAttribPointer1300→150，native資源建立／釋放完全相同。不是heap／FPS收益聲明。
+- 既有 mixed-geometry regression 拒絕合法的 equal-capacity wrong-key；不另加 wiring-only test。
+- Scoped品質檢查、26項測試、隔離完整 build、四個unpatched consumers及兩backend showcase
+  A→B／pagehide cleanup通過；證據、波動及未驗證限制見 ACCEPTANCE P213。不push、不升版。

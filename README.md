@@ -46,9 +46,11 @@ Post／FXAA的auto-layout各自lazy保留至pipeline owner結束，跨target重�
 
 Object-motion pass以實際buffer identity省略重複vertex／index binding，逐pass重設。P210當時unique geometry對照略慢；P211後的完整submit測量另列，不把單階段結果當全面FPS提升。Object-motion bindings use actual buffer identity and reset per pass. P210's unique-geometry control was slightly slower; P211's later full-submit results are reported separately, not as universal FPS gains. Object-motion binding は実 buffer identity を使い、pass ごとにリセットします。P210 当時の unique geometry 対照群は少し遅く、P211 の測定と区別します。
 
-WebGPU object-motion將相鄰同native geometry poses改為128-byte instanced vertex stream；保留history與順序，draw／upload counters如實反映提交量，GL仍走原路徑。WebGPU object-motion uses 128-byte instanced pose streams for adjacent native geometry, preserving history/order; counters reflect real draws/uploads, while GL is unchanged. WebGPU object-motion は隣接する同一 native geometry の pose を128-byte instance streamにまとめ、historyと順序を維持します。GLは従来経路のままです。CPU submit測量不代表全面FPS提升。
+WebGPU object-motion將相鄰同native geometry poses改為128-byte instanced vertex stream；保留history與順序，draw／upload counters如實反映提交量，GL保留matrix uniforms。WebGPU object-motion uses 128-byte instanced pose streams for adjacent native geometry, preserving history/order; counters reflect real draws/uploads, while GL retains matrix uniforms. WebGPU object-motion は隣接する同一 native geometry の pose を128-byte instance streamにまとめ、historyと順序を維持します。GLはmatrix uniformsを維持します。CPU submit測量不代表全面FPS提升。
 
-GL pose 分頁 UBO 批次候選因 unique geometry 退步與額外常駐儲存未採用；原 GL runtime 不變，保留末位 instance 運動／靜止的畫面回歸測試。The GL paged-pose UBO candidate was rejected for unique-geometry regressions and extra persistent storage; the original GL runtime remains, with a last-instance motion/still pixel regression. GL pose 分頁 UBO 案は unique geometry の性能低下と追加の常駐領域により不採用です。GL runtime は変更せず、末尾 instance の移動／静止 pixel 回帰テストを残します。
+GL pose 分頁 UBO 批次候選因 unique geometry 退步與額外常駐儲存未採用；保留原 uniforms／逐pose draw，以及末位 instance 運動／靜止的畫面回歸測試。The GL paged-pose UBO candidate was rejected for unique-geometry regressions and extra persistent storage; the original uniforms/per-pose draws remain, with a last-instance motion/still pixel regression. GL pose 分頁 UBO 案は unique geometry の性能低下と追加の常駐領域により不採用です。元の uniforms／pose ごとの draw と、末尾 instance の移動／静止 pixel 回帰テストを維持します。
+
+GL velocity 每pass獨立以實際vertex／index buffer identity省略重複binding／vertexAttribPointer；不改matrix uniforms、draw、counters或資源生命週期。GL velocity independently skips repeated vertex/index buffer bindings and vertexAttribPointer per pass, using real buffer identity; matrices, draws, counters and lifetimes remain unchanged. GL velocity は実 buffer identity を使い、pass ごとに重複 binding／vertexAttribPointer を独立して省略します。Matrix uniforms、draw、counter、resource lifetime は変更しません。Native API削減不等於全面FPS提升。
 
 ## 繁體中文
 

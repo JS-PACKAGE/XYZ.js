@@ -7557,3 +7557,24 @@ with no GL error; actual native buffer/uniform fetches independently detect the
 wrong poses. It does not pin page size, shader ABI or batching implementation.
 See [ACCEPTANCE](../ACCEPTANCE.md) P212 for paired clocks, native pixel/readback
 evidence, the stale dev-module attribution correction and certification limits.
+
+## P213 GL motion buffer-binding elision
+
+The formal GL renderer's motion geometry callback is a pure cached-buffer lookup;
+creation/version synchronization must remain outside it because they can change
+the active VAO. Within the velocity pass's own VAO, independent vertex/index
+references start undefined each pass. Bind the first of each, then skip redundant
+ARRAY_BUFFER/position vertexAttribPointer or ELEMENT_ARRAY_BUFFER separately,
+using actual native buffer identity, never mesh/index-count/byte-length equality.
+
+Current/previous matrix uniforms, per-pose draws, history, ordering, public counters,
+target ownership and cleanup are unchanged. There is no persistent cache, staging
+array, pose UBO or new runtime dependency. Existing mixed/late-instance pixels
+cover the path; the legal equal-capacity wrong-key control fails the mixed-geometry
+consumer despite GL NO_ERROR.
+
+Actual source and built distribution match408 before/after frame pairs with exact
+native inputs, pixels and counters. Native binding reductions are reported apart
+from complete-submit clocks and are not heap/GPU-time/universal FPS claims.
+See [ACCEPTANCE](../ACCEPTANCE.md) P213 for original paired samples, native resource
+balance, corrected negative-control scope and unpatched consumer/showcase proof.

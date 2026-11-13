@@ -6043,3 +6043,20 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   geometry，移動需有 blur、靜止需清除。測試不要求 page 大小、uniform ABI 或 draw 次數。
 - 合法 page-zero alias 使新增 case 得到0／至少10個 pixels並失敗，GL native error 為0；
   native fetch mismatch 為另一份獨立證據。錯誤輸入不能靠 validation-only 測試抓出。
+
+## P213 — Independent GL buffer identity, scoped to the motion pass
+
+- Formal renderer 透過 motionGeometry 直接取既有 native buffers；geometry creation／version
+  sync 在其他階段完成，不能把會改 VAO 的 cacheGeometry 呼叫移進這個 callback。
+- Motion pass仍綁自己的 VAO、啟用position0、重設divisor0；兩個 local references從undefined
+  開始，首個vertex／index一定各自綁定。之後用各自實際buffer identity判斷，不用mesh、
+  index count、byte length或前一pass殘留值當key，亦不依其中一種buffer決定另一種。
+- Vertex identity相同只省略 ARRAY_BUFFER與固定position descriptor的重設，index identity
+  相同只省略 ELEMENT_ARRAY_BUFFER。逐pose32-word matrix uniforms、drawElements及stat
+  updates保持原樣；pass結束仍解除VAO，沒有新cache、staging、UBO、長存reference或釋放分支。
+- Native proof查真正VAO attribute／index buffer、depth與getUniform值，逐pose對照history；
+  GL suite62次render／1300 poses的pixels與13個counters精確相同。Native資源數亦相同，
+  只有冗餘binding／pointer呼叫減少；對未改GPU的control波動不作因果解釋。
+- 首版「永遠沿用第一VBO」破壞不同vertex容量而被GL validation拒絕，不冒充合法反例。
+  改以相同byte length冒充identity的合法反例，既有mixed-geometry pixels與native fetch
+  均失敗，兩AA均無GL error。保留真實consumer門檻，不加implementation-pinning測試。

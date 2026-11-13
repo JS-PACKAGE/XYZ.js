@@ -42,9 +42,10 @@ var WebGLObjectMotion = class {
 		}
 		let o = this.history.build(t, n);
 		a.bindFramebuffer(a.FRAMEBUFFER, this.framebuffer), a.viewport(0, 0, n.width, n.height), a.disable(a.BLEND), a.disable(a.DEPTH_TEST), a.disable(a.CULL_FACE), a.disable(a.SCISSOR_TEST), a.colorMask(!0, !0, !0, !0), a.clearColor(0, 0, 0, 0), a.clear(a.COLOR_BUFFER_BIT), a.useProgram(this.program), a.bindVertexArray(this.vao), a.activeTexture(a.TEXTURE0), a.bindSampler(0, null), a.bindTexture(a.TEXTURE_2D, r), a.uniform1i(this.depth, 0), a.enableVertexAttribArray(0), a.vertexAttribDivisor(0, 0);
+		let s, c;
 		for (let e of o) {
 			let t = i(e.mesh);
-			a.bindBuffer(a.ARRAY_BUFFER, t.vertex), a.vertexAttribPointer(0, 3, a.FLOAT, !1, 32, 0), a.bindBuffer(a.ELEMENT_ARRAY_BUFFER, t.index), a.uniformMatrix4fv(this.current, !1, e.data, 0, 16), a.uniformMatrix4fv(this.previous, !1, e.data, 16, 16), a.drawElements(a.TRIANGLES, e.mesh.renderGeometry.indices.length, a.UNSIGNED_INT, 0), this.stats.draw(e.mesh.renderGeometry.indices.length, 1);
+			t.vertex !== s && (s = t.vertex, a.bindBuffer(a.ARRAY_BUFFER, s), a.vertexAttribPointer(0, 3, a.FLOAT, !1, 32, 0)), t.index !== c && (c = t.index, a.bindBuffer(a.ELEMENT_ARRAY_BUFFER, c)), a.uniformMatrix4fv(this.current, !1, e.data, 0, 16), a.uniformMatrix4fv(this.previous, !1, e.data, 16, 16), a.drawElements(a.TRIANGLES, e.mesh.renderGeometry.indices.length, a.UNSIGNED_INT, 0), this.stats.draw(e.mesh.renderGeometry.indices.length, 1);
 		}
 		return a.bindVertexArray(null), this.texture;
 	}

@@ -145,11 +145,19 @@ export class WebGLObjectMotion {
     gl.uniform1i(this.depth, 0);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribDivisor(0, 0);
+    let vertex: WebGLBuffer | undefined;
+    let index: WebGLBuffer | undefined;
     for (const draw of draws) {
       const cached = geometry(draw.mesh);
-      gl.bindBuffer(gl.ARRAY_BUFFER, cached.vertex);
-      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 32, 0);
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cached.index);
+      if (cached.vertex !== vertex) {
+        vertex = cached.vertex;
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertex);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 32, 0);
+      }
+      if (cached.index !== index) {
+        index = cached.index;
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index);
+      }
       gl.uniformMatrix4fv(this.current, false, draw.data, 0, 16);
       gl.uniformMatrix4fv(this.previous, false, draw.data, 16, 16);
       gl.drawElements(

@@ -7221,3 +7221,19 @@ page binding 讓新測試得0／至少10個 blur pixels，GL error仍為0；nati
 fetch 是獨立的錯誤證據。測試不綁死 page 大小、shader ABI 或 batching 實作。
 完整 paired clocks、native pixels／readback、dev-server stale module 歸因修正與認證限制，
 見[ACCEPTANCE](../ACCEPTANCE.md) P212；不宣稱 runtime 加速。
+
+## P213 GL motion buffer 綁定省略
+
+正式 GL motion geometry callback 僅查既有native buffers；creation／version同步可能改VAO，
+不能移入這個callback。在velocity專屬VAO內，vertex／index兩個local references每pass從
+undefined開始，首個各自綁定，再以實際native identity獨立省略 ARRAY_BUFFER／position
+vertexAttribPointer或ELEMENT_ARRAY_BUFFER；不用mesh、index count或byte length當key。
+
+Current／previous matrix uniforms、逐pose draw、history、順序、公開counters、target與
+cleanup不變。沒有常駐cache、staging、pose UBO或新依賴。既有mixed／late-instance pixels
+覆蓋此路徑；合法equal-capacity wrong-key在GL NO_ERROR下仍被mixed-geometry測試拒絕。
+
+實際source與真正built dist的408組before／after frames，其native inputs、pixels與
+counters精確相同。Native binding削減與完整submit clocks分開記錄，不冒充heap、GPU-time
+或全面FPS收益。原始paired samples、native資源平衡、negative-control範圍修正及
+unpatched consumer／showcase證據，見[ACCEPTANCE](../ACCEPTANCE.md) P213。
