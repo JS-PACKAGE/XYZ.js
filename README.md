@@ -24,6 +24,8 @@ Motion history reset 改為lazy WeakMap，WebGPU空資料重複cleanup不再配�
 
 Active object-motion 直接寫入clip transforms，省去中間matrix copy；helper與GPU／GL完整CPU submit分開量測，GL instance控制組仍近持平，不宣稱FPS提升。Active object-motion packs clip transforms directly; helper and complete GPU/GL CPU-submit results remain separate, with a near-flat GL instance control, not an FPS claim. Active object-motion は clip transforms を直接格納し、中間 matrix copy を省略します。Helper と GPU／GL の CPU submit を分け、GL instance 対照群の横ばいも記録します。
 
+Instance matrix getter 展開固定16個stores，保留逐component accessor／重疊copy語意；改善限於已量測helper，完整native submit控制組有雜訊，不宣稱整幀加速。The fixed instance-matrix copy is unrolled without caching public accessors; measured helper gains are distinct from noisy complete native-submit controls. Instance matrix getter の固定16 storesを展開し、accessor／重複領域 copy の動作を保持します。Helper の改善を full native submit／FPS と混同しません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

@@ -7328,3 +7328,17 @@ GL was about 0.5% slower. Single-mesh controls were flat. These bounded CPU-subm
 results are not RAF, GPU-completion or presentation-FPS measurements. Native
 pixel/payload proofs and surface limits are recorded in
 [ACCEPTANCE](../ACCEPTANCE.md) P199.
+
+## P200 fixed instance-matrix copy
+
+getMatrixAt unrolls its existing sixteen scalar stores; the old code was already
+temporary-view-free. Each component still reads out.elements before this.matrices.
+Index/output validation, returned identity, version and forward-overlap behavior
+are unchanged; public accessors are not cached into a different copy contract.
+
+Twenty-four thousand finite payloads, error ordering, overlapping storage and
+interleaved accessors matched. A fresh isolated Node process measured roughly
+11.9–14.7% less getter CPU and 2.4% less 512-instance history CPU. Full native-submit
+controls were noisy even on unchanged rigid paths, so no macro/FPS improvement is
+claimed. Ninety-six existing tests passed; actual native rendering/picking and
+diagnostic timing limits are recorded in [ACCEPTANCE](../ACCEPTANCE.md) P200.

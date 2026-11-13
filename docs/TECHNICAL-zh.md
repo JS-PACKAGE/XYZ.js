@@ -7033,3 +7033,14 @@ Private writer將兩個clip matrix products直接寫入draw.data，保持Matrix4
 3.1%／5.9%；4096 instances GPU約改善7.4%，GL約慢0.5%，單mesh持平。這些有界CPU
 submission不是RAF、GPU完成時間或presentation FPS。Native pixels／payload及正式surface
 證據與限制見[ACCEPTANCE](../ACCEPTANCE.md) P199。
+
+## P200 固定instance matrix copy
+
+getMatrixAt展開既有16個scalar stores；原本已無temporary view。每component仍先讀
+out.elements，再讀this.matrices，不cache public accessors。Index／output validation、
+return identity、version及forward-overlap語意不變，沒有改成snapshot／memmove。
+
+24,000筆finite payload、錯誤順序、overlap與交錯accessors一致；獨立fresh Node process的
+getter CPU約改善11.9–14.7%，512-instance history約改善2.4%。未使用getter的rigid完整
+submit控制組亦有波動，因此不宣稱macro／FPS改善。96個既有tests通過，原生畫面／picking
+與診斷timing限制見[ACCEPTANCE](../ACCEPTANCE.md) P200。

@@ -5862,3 +5862,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - Node helper、完整native CPU submit和帶pixel／payload observer的proof使用不同process；
   native A/B為舊method還原clip field到兩邊同一actual root class shape，不把該probe欄位留產品。
 - Full-submit timings有resolution／batch限制；GL4096的微幅反方向保留，不以helper數字代替。
+
+## P200 — Fixed-size stores must preserve observable accessor order
+
+- 原getter的loop每個component先讀out.elements，再讀this.matrices；兩個public readonly
+  fields仍可能由JavaScript accessor提供，不能cache成單一local buffer而改變消費的值。
+- 展開16個同序stores，保留validation先於output type check、原return object及forward
+  overlap copy；不以TypedArray.set改成不同的overlap snapshot，也不移除index／type驗證。
+- 原code已無subarray或逐call array allocation，不宣稱本輪消除了不存在的view或heap成本。
+- 行為probe和default-shape timing分process；帶accessor history的函式feedback不是一般
+  monomorphic getter。與品質job重疊的初次fresh timing只作診斷，採隔離後的結果。
+- 無getMatrixAt的rigid macro controls仍有波動，故不將near-flat完整submit當成已證實收益。

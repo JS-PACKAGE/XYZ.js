@@ -5703,3 +5703,15 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   GPU約-7.4%／GL約+0.5%，單mesh持平。不將短批次或helper收益當FPS／所有backend加速。
 - Native pixel／history payload、negative與production-method surface證據及限制見
   ACCEPTANCE P199；維持獨立功能commit、不push、不升版。
+
+## P200 — Unroll the fixed instance matrix copy without caching accessors
+
+- getMatrixAt原本已無temporary view；本輪只展開固定16個copy stores，validation、return
+  identity、version與逐component public accessor次序不變，不改成snapshot／memmove。
+- 24,000組finite payload、6組錯誤順序、overlap與32次交錯accessor觀察一致；錯誤cached
+  buffers會改變最終資料。Render API／camera picking／object-motion三檔96 tests通過。
+- 獨立fresh Node getter CPU約改善11.9–14.7%，512-instance history約改善2.4%；有getter
+  history污染與quality job重疊的診斷數字分開保留，不作預設shape收益。
+- Full native GPU／GL4096 instances約-0.4%／-1.0%，未呼叫getter的rigid controls卻大幅
+  波動，因此不宣稱macro或FPS改善。Native pixels／picking與限制見ACCEPTANCE P200。
+- 只依已量測有界getter改善採用，不push、不升版，維持獨立功能commit。

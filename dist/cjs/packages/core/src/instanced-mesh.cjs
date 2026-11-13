@@ -74,8 +74,7 @@ var InstancedMesh = class extends require_mesh.Mesh {
 	getMatrixAt(t, n) {
 		if (this.validateIndex(t), !(n instanceof require_math3d.Matrix4)) throw TypeError(`Instance transform output must be a Matrix4.`);
 		let r = t * 16;
-		for (let e = 0; e < 16; e++) n.elements[e] = this.matrices[r + e];
-		return n;
+		return n.elements[0] = this.matrices[r], n.elements[1] = this.matrices[r + 1], n.elements[2] = this.matrices[r + 2], n.elements[3] = this.matrices[r + 3], n.elements[4] = this.matrices[r + 4], n.elements[5] = this.matrices[r + 5], n.elements[6] = this.matrices[r + 6], n.elements[7] = this.matrices[r + 7], n.elements[8] = this.matrices[r + 8], n.elements[9] = this.matrices[r + 9], n.elements[10] = this.matrices[r + 10], n.elements[11] = this.matrices[r + 11], n.elements[12] = this.matrices[r + 12], n.elements[13] = this.matrices[r + 13], n.elements[14] = this.matrices[r + 14], n.elements[15] = this.matrices[r + 15], n;
 	}
 	validateIndex(e) {
 		if (!Number.isSafeInteger(e) || e < 0 || e >= this.count) throw RangeError(`Instance index is outside the mesh instance range.`);

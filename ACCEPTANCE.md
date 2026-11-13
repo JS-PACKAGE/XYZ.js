@@ -21575,3 +21575,191 @@ page／console errors空。已讀built GPU AA resume PNG及GL showcase Scene B�
 未重跑full suite、repo-wide lint、CJS runtime、Canvas2D、audio unlock、device loss或auto
 fallback；未認證Firefox／Safari／physical hardware，不擴大skinned／morph／native-deformed
 motion的原fallback範圍。CPU submit不能推出GPU完成時間、端到端latency或FPS提升。
+
+## P200 — Unroll instance matrix stores without caching public accessors
+
+### 範圍與行為證據（2026-11-13，當時）
+
+- 版本仍為1.23.0；Node26.7.0／TypeScript6.0.3／pnpm12.6.0，darwin arm64。
+- getMatrixAt原本已無temporary subarray。本輪只將固定16次loop copy展開；不cache
+  out.elements或this.matrices，不改index／output validation、return identity、version或setter。
+- 以真正root InstancedMesh receivers借用前後method：6,000 finite matrices × indices
+  0／1／3／-0，共24,000筆64-byte getter payload逐位相同；六組錯誤的type／message及
+  index validation先於output type check的順序相同。
+- Shared-buffer overlap維持原forward-copy傳播，不改成TypedArray.set的snapshot；整個
+  32-float buffer一致。交替source／target getters共32個事件，兩個實際output buffers一致。
+  錯誤cache兩個public buffers的negative只讀兩次，最終output也不同，不只是call-count檢查。
+- 原有render API、camera ray／shear／instance picking、object-motion三檔96 tests通過
+  （23:12:52，1.52 s）；沒有新增source-text／mock wiring測試。
+
+### 隔離Node CPU，不等同完整render
+
+Behavior probe與default-shape timing分process。兩邊都在同一actual receiver shape安裝method，
+預熱getter20,000次、history1,000次；六輪交替AB／BA，每batch getter500,000次、
+512-instance actual production history500次，以上中位數統計。
+
+| Workload    | Before ns/call | After ns/call |  Change |
+| ----------- | -------------: | ------------: | ------: |
+| get-1       |       9.431000 |      8.042666 | -14.72% |
+| get-4096    |       9.369750 |      8.258084 | -11.86% |
+| history-512 |   28448.334000 |  27769.832000 |  -2.39% |
+
+| Workload / round | Before (ns/call) | After (ns/call) |
+| ---------------- | ---------------: | --------------: |
+| get-1 / 1        |        16.760500 |        8.664084 |
+| get-1 / 2        |         9.431000 |        8.993166 |
+| get-1 / 3        |         9.296582 |        8.042666 |
+| get-1 / 4        |         9.575918 |        8.004832 |
+| get-1 / 5        |         9.381666 |        7.999084 |
+| get-1 / 6        |         9.209918 |        7.752666 |
+| get-4096 / 1     |        10.691082 |        8.945834 |
+| get-4096 / 2     |         9.538500 |        8.574750 |
+| get-4096 / 3     |         9.260084 |        8.128500 |
+| get-4096 / 4     |         9.334000 |        8.258084 |
+| get-4096 / 5     |         9.369750 |        8.046584 |
+| get-4096 / 6     |         9.367000 |        8.224000 |
+| history-512 / 1  |     28448.334000 |    27621.584000 |
+| history-512 / 2  |     33671.250000 |    27679.500000 |
+| history-512 / 3  |     28481.750000 |    27636.334000 |
+| history-512 / 4  |     28190.334000 |    27966.000000 |
+| history-512 / 5  |     28294.668000 |    27769.832000 |
+| history-512 / 6  |     28366.666000 |    27880.918000 |
+
+保留而不提升為一般收益的診斷：先跑adversarial accessors的同process getter約78.7→72.8、
+78.3→70.8 ns/call，history63,415→60,197 ns/call；它污染了function feedback，不能當
+一般monomorphic shape。第一次fresh timing不慎與品質job重疊，約10.09→9.00、9.35→8.26、
+30,064→28,862 ns/call，亦不採作隔離結果。表中為其後無重疊的獨立process，不隱藏初次診斷。
+
+### 完整source native CPU submit與未變路徑controls
+
+Canonical static root imports、實際Scene／createRenderer／GPU device／GL context；64×64、
+AA關閉、postprocessing＋perObject motion。只有actual instance getter切換前後method，
+其餘history／pipeline皆production；rigid fixtures沒有getMatrixAt呼叫，前後執行路徑相同。
+每variant四批十次warm，計時每批24 submits、六輪AB／BA；queue完成或GL finish在計時外。
+Pixel／payload observers在另一process。以下不是RAF、GPU completion或presentation FPS。
+
+| Backend / workload      | Draws | Before ms/submit | After ms/submit |  Change | Interpretation                           |
+| ----------------------- | ----: | ---------------: | --------------: | ------: | ---------------------------------------- |
+| webgpu / rigid-1        |     2 |         0.037500 |        0.029167 | -22.22% | unchanged-path noise, not candidate gain |
+| webgpu / rigid-100      |   200 |         0.137500 |        0.116667 | -15.15% | unchanged-path noise, not candidate gain |
+| webgpu / instances-4096 |  4097 |         0.995833 |        0.991667 |  -0.42% | near-flat, not isolated gain             |
+| webgl2 / rigid-1        |     2 |         0.033333 |        0.025000 | -25.00% | unchanged-path noise, not candidate gain |
+| webgl2 / rigid-100      |   200 |         0.137500 |        0.145833 |   6.06% | unchanged-path noise, not candidate gain |
+| webgl2 / instances-4096 |  4097 |         0.845833 |        0.837500 |  -0.99% | near-flat, not isolated gain             |
+
+#### webgpu raw rounds
+
+| name           | count | instanced | round | variant | iterations | elapsed            | msPerSubmit          | drawCalls |
+| -------------- | ----- | --------- | ----- | ------- | ---------- | ------------------ | -------------------- | --------- |
+| rigid-1        | 1     | false     | 0     | before  | 24         | 1.399999976158142  | 0.058333332339922585 | 2         |
+| rigid-1        | 1     | false     | 0     | after   | 24         | 0.8999999761581421 | 0.037499999006589256 | 2         |
+| rigid-1        | 1     | false     | 1     | after   | 24         | 0.800000011920929  | 0.033333333830038704 | 2         |
+| rigid-1        | 1     | false     | 1     | before  | 24         | 0.699999988079071  | 0.029166666169961292 | 2         |
+| rigid-1        | 1     | false     | 2     | before  | 24         | 1                  | 0.041666666666666664 | 2         |
+| rigid-1        | 1     | false     | 2     | after   | 24         | 0.7000000178813934 | 0.029166667411724728 | 2         |
+| rigid-1        | 1     | false     | 3     | after   | 24         | 0.699999988079071  | 0.029166666169961292 | 2         |
+| rigid-1        | 1     | false     | 3     | before  | 24         | 0.9000000059604645 | 0.037500000248352684 | 2         |
+| rigid-1        | 1     | false     | 4     | before  | 24         | 0.5999999940395355 | 0.024999999751647312 | 2         |
+| rigid-1        | 1     | false     | 4     | after   | 24         | 0.7000000178813934 | 0.029166667411724728 | 2         |
+| rigid-1        | 1     | false     | 5     | after   | 24         | 0.5                | 0.020833333333333332 | 2         |
+| rigid-1        | 1     | false     | 5     | before  | 24         | 0.5999999940395355 | 0.024999999751647312 | 2         |
+| rigid-100      | 100   | false     | 0     | before  | 24         | 3.2999999821186066 | 0.13749999925494194  | 200       |
+| rigid-100      | 100   | false     | 0     | after   | 24         | 3                  | 0.125                | 200       |
+| rigid-100      | 100   | false     | 1     | after   | 24         | 6.699999988079071  | 0.2791666661699613   | 200       |
+| rigid-100      | 100   | false     | 1     | before  | 24         | 3.2999999821186066 | 0.13749999925494194  | 200       |
+| rigid-100      | 100   | false     | 2     | before  | 24         | 3.5999999940395355 | 0.14999999975164732  | 200       |
+| rigid-100      | 100   | false     | 2     | after   | 24         | 2.7999999821186066 | 0.11666666592160861  | 200       |
+| rigid-100      | 100   | false     | 3     | after   | 24         | 2.600000023841858  | 0.10833333432674408  | 200       |
+| rigid-100      | 100   | false     | 3     | before  | 24         | 2.5                | 0.10416666666666667  | 200       |
+| rigid-100      | 100   | false     | 4     | before  | 24         | 2.5999999940395355 | 0.10833333308498065  | 200       |
+| rigid-100      | 100   | false     | 4     | after   | 24         | 2.5                | 0.10416666666666667  | 200       |
+| rigid-100      | 100   | false     | 5     | after   | 24         | 2.5                | 0.10416666666666667  | 200       |
+| rigid-100      | 100   | false     | 5     | before  | 24         | 2.5                | 0.10416666666666667  | 200       |
+| instances-4096 | 4096  | true      | 0     | before  | 24         | 23.69999998807907  | 0.9874999995032946   | 4097      |
+| instances-4096 | 4096  | true      | 0     | after   | 24         | 23.69999998807907  | 0.9874999995032946   | 4097      |
+| instances-4096 | 4096  | true      | 1     | after   | 24         | 23.900000005960464 | 0.995833333581686    | 4097      |
+| instances-4096 | 4096  | true      | 1     | before  | 24         | 24                 | 1                    | 4097      |
+| instances-4096 | 4096  | true      | 2     | before  | 24         | 23.900000005960464 | 0.995833333581686    | 4097      |
+| instances-4096 | 4096  | true      | 2     | after   | 24         | 23.80000001192093  | 0.991666667163372    | 4097      |
+| instances-4096 | 4096  | true      | 3     | after   | 24         | 23.69999998807907  | 0.9874999995032946   | 4097      |
+| instances-4096 | 4096  | true      | 3     | before  | 24         | 24                 | 1                    | 4097      |
+| instances-4096 | 4096  | true      | 4     | before  | 24         | 23.900000005960464 | 0.995833333581686    | 4097      |
+| instances-4096 | 4096  | true      | 4     | after   | 24         | 23.799999982118607 | 0.9916666659216086   | 4097      |
+| instances-4096 | 4096  | true      | 5     | after   | 24         | 23.600000023841858 | 0.9833333343267441   | 4097      |
+| instances-4096 | 4096  | true      | 5     | before  | 24         | 23.900000005960464 | 0.995833333581686    | 4097      |
+
+#### webgl2 raw rounds
+
+| name           | count | instanced | round | variant | iterations | elapsed            | msPerSubmit          | drawCalls |
+| -------------- | ----- | --------- | ----- | ------- | ---------- | ------------------ | -------------------- | --------- |
+| rigid-1        | 1     | false     | 0     | before  | 24         | 0.7999999821186066 | 0.033333332588275276 | 2         |
+| rigid-1        | 1     | false     | 0     | after   | 24         | 0.800000011920929  | 0.033333333830038704 | 2         |
+| rigid-1        | 1     | false     | 1     | after   | 24         | 0.800000011920929  | 0.033333333830038704 | 2         |
+| rigid-1        | 1     | false     | 1     | before  | 24         | 0.800000011920929  | 0.033333333830038704 | 2         |
+| rigid-1        | 1     | false     | 2     | before  | 24         | 0.800000011920929  | 0.033333333830038704 | 2         |
+| rigid-1        | 1     | false     | 2     | after   | 24         | 0.5999999940395355 | 0.024999999751647312 | 2         |
+| rigid-1        | 1     | false     | 3     | after   | 24         | 0.5999999940395355 | 0.024999999751647312 | 2         |
+| rigid-1        | 1     | false     | 3     | before  | 24         | 0.7000000178813934 | 0.029166667411724728 | 2         |
+| rigid-1        | 1     | false     | 4     | before  | 24         | 0.4000000059604645 | 0.016666666915019352 | 2         |
+| rigid-1        | 1     | false     | 4     | after   | 24         | 0.5                | 0.020833333333333332 | 2         |
+| rigid-1        | 1     | false     | 5     | after   | 24         | 0.5999999940395355 | 0.024999999751647312 | 2         |
+| rigid-1        | 1     | false     | 5     | before  | 24         | 0.4000000059604645 | 0.016666666915019352 | 2         |
+| rigid-100      | 100   | false     | 0     | before  | 24         | 3.300000011920929  | 0.13750000049670538  | 200       |
+| rigid-100      | 100   | false     | 0     | after   | 24         | 3.399999976158142  | 0.14166666567325592  | 200       |
+| rigid-100      | 100   | false     | 1     | after   | 24         | 3.699999988079071  | 0.1541666661699613   | 200       |
+| rigid-100      | 100   | false     | 1     | before  | 24         | 3.699999988079071  | 0.1541666661699613   | 200       |
+| rigid-100      | 100   | false     | 2     | before  | 24         | 3.9000000059604645 | 0.16250000024835268  | 200       |
+| rigid-100      | 100   | false     | 2     | after   | 24         | 4.100000023841858  | 0.17083333432674408  | 200       |
+| rigid-100      | 100   | false     | 3     | after   | 24         | 3.5                | 0.14583333333333334  | 200       |
+| rigid-100      | 100   | false     | 3     | before  | 24         | 3.0999999940395355 | 0.12916666641831398  | 200       |
+| rigid-100      | 100   | false     | 4     | before  | 24         | 3.0999999940395355 | 0.12916666641831398  | 200       |
+| rigid-100      | 100   | false     | 4     | after   | 24         | 3.0999999940395355 | 0.12916666641831398  | 200       |
+| rigid-100      | 100   | false     | 5     | after   | 24         | 3.100000023841858  | 0.12916666766007742  | 200       |
+| rigid-100      | 100   | false     | 5     | before  | 24         | 3                  | 0.125                | 200       |
+| instances-4096 | 4096  | true      | 0     | before  | 24         | 20.599999994039536 | 0.8583333330849806   | 4097      |
+| instances-4096 | 4096  | true      | 0     | after   | 24         | 20.5               | 0.8541666666666666   | 4097      |
+| instances-4096 | 4096  | true      | 1     | after   | 24         | 20                 | 0.8333333333333334   | 4097      |
+| instances-4096 | 4096  | true      | 1     | before  | 24         | 20.30000001192093  | 0.8458333338300387   | 4097      |
+| instances-4096 | 4096  | true      | 2     | before  | 24         | 20.400000005960464 | 0.8500000002483526   | 4097      |
+| instances-4096 | 4096  | true      | 2     | after   | 24         | 20.100000023841858 | 0.8375000009934107   | 4097      |
+| instances-4096 | 4096  | true      | 3     | after   | 24         | 20.099999994039536 | 0.8374999997516474   | 4097      |
+| instances-4096 | 4096  | true      | 3     | before  | 24         | 20                 | 0.8333333333333334   | 4097      |
+| instances-4096 | 4096  | true      | 4     | before  | 24         | 19.900000005960464 | 0.8291666669150194   | 4097      |
+| instances-4096 | 4096  | true      | 4     | after   | 24         | 20.099999994039536 | 0.8374999997516474   | 4097      |
+| instances-4096 | 4096  | true      | 5     | after   | 24         | 20.200000017881393 | 0.8416666674117247   | 4097      |
+| instances-4096 | 4096  | true      | 5     | before  | 24         | 20.099999994039536 | 0.8374999997516474   | 4097      |
+
+兩個instance結果不到1%，同時未變rigid controls已有-25%至+6.1%的波動，因此不將macro
+結果宣稱為本輪收益；採用依據僅為已隔離的有界getter／history CPU改善與行為一致。
+
+### 原生畫面、history與實際consumer
+
+Chromium153.0.8010.12，pinned Playwright desktop automation，darwin arm64；不是physical
+hardware或Safari認證。Source／dist × WebGPU／WebGL2各自72 frame pairs、4,718,592 RGBA
+bytes完全相同，包含camera／rigid／instance motion、disable／pose move／resume、captures
+及cleanup；actual history payload亦一致。每組66次getter的owner／index／16個值一致，
+actual root instance guard排除替身receiver。GPU每正常variant72次validation無錯誤，GL亦無error。
+
+Public Raycaster在resumed instance pose命中instanceId1、faceIndex9，distance
+3.274999976158142、point[1.2,-0.5,0.7250000238418579]，前後相同。錯誤zero-translation
+getter在四組均使instance-motion-static-camera變成0 changed pixels，低於原有10門檻而失敗；
+沒有降低門檻或用獨立renderer冒充正式路徑。
+
+四組無getter／history／GPU override的production-method surface各22 scenarios通過；
+GPU／GL showcase實際Scene A→B切換及pagehide通過。World visibility兩backend皆以實際
+900×508 canvas中的blue pixel(542,218)換算CSS座標點選，DOM顯示
+Individually culled blue instances · distance 47.01，無page／console errors；已檢視GPU canvas
+與built GL motion PNG。動作經public Game／Raycaster，不直接指定picked label。
+
+### 品質、產物及限制
+
+- Scoped Prettier、ESLint、strict typecheck及上述96 tests通過。隔離build的377 JS由
+  9,360,398→4,012,104 bytes，720 CJS files；vendor不變。只回填目標四個JS／CJS／maps，
+  declaration byte-identical，不覆寫既有physics／world2d的使用者修改。
+- 同步README中／英／日、PLAN、DESIGN、TECHNICAL英／中及本紀錄；格式及相對連結另檢查。
+- 本輪owned variants／probes／timing／drivers／staging／logs／PNGs於commit前移除，停止Vite；
+  獨立[P200] commit，不push、不升版。
+
+未重跑full suite、repo-wide lint、CJS runtime、Canvas2D、audio、device loss、auto fallback，
+未認證Firefox／Safari或其他physical hardware；不擴大native-deformed motion的原fallback範圍。
+沒有heap／GC、GPU時間、端到端latency或FPS提升主張；固定copy展開也不是消除原本不存在的配置。

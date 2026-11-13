@@ -179,7 +179,22 @@ export class InstancedMesh extends Mesh {
     if (!(out instanceof Matrix4))
       throw new TypeError('Instance transform output must be a Matrix4.');
     const offset = index * 16;
-    for (let i = 0; i < 16; i++) out.elements[i] = this.matrices[offset + i];
+    out.elements[0] = this.matrices[offset];
+    out.elements[1] = this.matrices[offset + 1];
+    out.elements[2] = this.matrices[offset + 2];
+    out.elements[3] = this.matrices[offset + 3];
+    out.elements[4] = this.matrices[offset + 4];
+    out.elements[5] = this.matrices[offset + 5];
+    out.elements[6] = this.matrices[offset + 6];
+    out.elements[7] = this.matrices[offset + 7];
+    out.elements[8] = this.matrices[offset + 8];
+    out.elements[9] = this.matrices[offset + 9];
+    out.elements[10] = this.matrices[offset + 10];
+    out.elements[11] = this.matrices[offset + 11];
+    out.elements[12] = this.matrices[offset + 12];
+    out.elements[13] = this.matrices[offset + 13];
+    out.elements[14] = this.matrices[offset + 14];
+    out.elements[15] = this.matrices[offset + 15];
     return out;
   }
 
