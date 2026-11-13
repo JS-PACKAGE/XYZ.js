@@ -384,6 +384,10 @@ These are public error classes, not a promise to rewrap every exception from use
   inverses/triangle scans, and instance matrix composition where possible, without
   changing inclusive clipping, singular planar picking or hit order. Range-rejection
   gains and ordinary-hit overhead are measured separately in ACCEPTANCE P165.
+- HitArea2D skips polygon edges strictly above or below the query y before the
+  cross product. Equal-y endpoints still follow the original boundary and crossing
+  arithmetic; no extra edge storage is retained. Convex gains, all-straddling
+  overhead and full-routing CPU measurements are recorded in ACCEPTANCE P166.
 
 - World compacts its systems array only after removal, using stable linear movement without changing update-time removal/addition or exception-cleanup semantics.
 - WebGPU skips Sprite viewport uniform uploads while logical dimensions remain unchanged. Sprite transform/instance data still updates every frame; publicly mutable objects are not assumed immutable.

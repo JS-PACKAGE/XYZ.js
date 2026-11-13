@@ -18520,3 +18520,87 @@ tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
 | 100 instances, one hit       |   2,000 |  3.754166 | 3.729084 |
 
 - 約 -1.0% 至 +1.6% 的時間變動，沒有穩定整體收益，故不保留。
+
+## P166 — Skip vertically disjoint polygon edges（2026-11-13）
+
+- HitArea2D polygon picking 在每條 edge 的 cross product 前，略過兩端都嚴格位於
+  query y 上方或下方的 edge；它既不能包含 query point，也不能與該水平 ray 相交。
+  等高 endpoint／horizontal edges 仍執行原 boundary／crossing arithmetic，不重排
+  浮點運算、不加 epsilon、預算、cache 或 runtime dependency。Rectangle／circle 不變。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，8 warmup／15 輪交替
+  median、無並行測試。Direct API 的 polygons／64 個輪替 queries 在計時外建立，
+  containsPoint 與結果累計在內。Full routing 經正式 Pointer.move、Scene.routePointers、
+  target collection／sort／local transforms／hit testing、Pointer.endFrame，使用
+  Node native Event 與 canvas geometry/style shim，並非 browser dispatch 或 pixel proof。
+
+| Workload                                         | Queries / frames | Before ms |  After ms |
+| ------------------------------------------------ | ---------------: | --------: | --------: |
+| Convex 4 vertices                                |          100,000 |  1.416541 |  1.246541 |
+| Convex 16 vertices                               |          100,000 |  4.118666 |  2.919791 |
+| Convex 64 vertices                               |           20,000 |  2.656875 |  1.859333 |
+| Convex 256 vertices                              |           10,000 |  4.774667 |  3.186459 |
+| Zigzag 64 vertices, all edges straddle query y   |           20,000 |  2.249625 |  2.551458 |
+| Full routing: 100 targets, 16 vertices, all miss |            1,000 |  8.590834 |  8.326500 |
+| Full routing: 100 targets, 64 vertices, all miss |            1,000 | 17.023458 | 14.463500 |
+
+- Convex direct API 約快 12.0–33.3%，full routing 約快 3.1–15.0%。Zigzag 的每條邊
+  都無法排除，多出 branch，約慢 13.4%；採用此無額外 retained storage 的幾何取捨，
+  不宣稱所有 polygon 變快。Zigzag query 用 (0.13, 0)，不落在 closing edge 而提前
+  boundary return；初步 (0, 0) 的 early-return control 不作為上表依據。
+- 4,096 polygons／262,144 queries，102,184 hits、58 個刻意 throwing x getter errors
+  的 result／error name／message／getter read order 精確一致。涵蓋 3–16,384 vertices、
+  winding、convex／concave／self-intersecting／collinear／repeated points、signed zero、
+  tiny coordinates 的 cross underflow、bounded large coordinates、vertices／edge midpoints、
+  next-representable y、invalid query components，以及 caller 改動／清空輸入後的 snapshot。
+  Bounds／points／frozen state 一致；未宣稱改變 polygon construction 或 ownership。
+- 既有 boundary／winding／concavity regressions 已覆蓋此路徑，不新增重複測試。
+  `vitest run tests/hit-area2d.test.ts tests/gameplay2d-pointer.test.ts`
+  **10 tests passed**；Typecheck、scoped ESLint／Prettier、ESM compile/minify、
+  完整 vendor copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+  未跑完整 suite、未開 browser／重驗 rendering、三 backend 或 audio；未量測配置數、
+  aggregate heap、GC pause、GPU 或 fps。
+
+### 未採用：PointerRouter ancestor guard 改寫
+
+- 三個 temporary candidates 都不修改正式 router：for-of／indexed loop 取代每次 guard
+  的 path.every callback，或每次 dispatch hoist 一個 predicate 供 path.every 重用。
+  正式 Pointer.move＋Scene.routePointers＋native interaction capture／bubble callbacks＋
+  Pointer.endFrame；給 Scene 持有 compiled router variant，cleanup／membership owner 不變。
+  同環境、8 warmup／15 輪交替 median，canvas geometry/style shim；本段只作 CPU 比較，
+  沒有宣稱候選完成 mutation／reentrant behavioral verification。
+
+| Candidate         | Path depth | Listeners / phase / node | Mode      | Frames | Before ms |  After ms |
+| ----------------- | ---------: | -----------------------: | --------- | -----: | --------: | --------: |
+| for-of            |          1 |                        1 | target    |  2,000 |  2.892709 |  3.131834 |
+| for-of            |          1 |                        8 | hierarchy |  2,000 |  4.855875 |  3.563958 |
+| for-of            |          4 |                        1 | hierarchy |  2,000 | 10.461250 | 10.150625 |
+| for-of            |         16 |                        1 | hierarchy |  1,000 | 25.462625 | 24.138291 |
+| hoisted predicate |          1 |                        1 | target    |  2,000 |  3.117709 |  3.179125 |
+| hoisted predicate |          1 |                        8 | hierarchy |  2,000 |  4.932125 |  3.684083 |
+| hoisted predicate |          4 |                        1 | hierarchy |  2,000 | 10.426625 | 10.831333 |
+| hoisted predicate |         16 |                        1 | hierarchy |  1,000 | 26.126542 | 29.970708 |
+| indexed           |          1 |                        1 | target    |  2,000 |  2.926167 |  3.105583 |
+| indexed           |          1 |                        8 | hierarchy |  2,000 |  3.912542 |  3.568791 |
+| indexed           |          4 |                        1 | hierarchy |  2,000 | 10.261625 | 10.066167 |
+| indexed           |         16 |                        1 | hierarchy |  1,000 | 25.410875 | 24.449750 |
+
+- 雖有多 listener cases 加速，但 target-only 分別慢約 8.3%／2.0%／6.1%，hoisted
+  predicate 的深層 hierarchy 還慢約 14.7%；故三者都不採用。
+
+### 未採用：重用 polygon above/below classification
+
+- Temporary variant 先算 ay > y／by > y；兩者相同且 query 不等於 endpoint y 時略過
+  edge，後續 crossing 再使用這兩個 booleans。正式 source 未套用，未宣稱完成差分驗證。
+  使用相同正確 full-scan zigzag control、8 warmup／15 輪交替 median：
+
+| Workload                                         | Queries / frames | Before ms |  After ms |
+| ------------------------------------------------ | ---------------: | --------: | --------: |
+| Convex 4 vertices                                |          100,000 |  1.290416 |  1.275333 |
+| Convex 16 vertices                               |          100,000 |  3.687917 |  3.590667 |
+| Convex 64 vertices                               |           20,000 |  2.284375 |  2.403417 |
+| Convex 256 vertices                              |           10,000 |  4.286167 |  4.256291 |
+| Zigzag 64 vertices, all edges straddle query y   |           20,000 |  2.184125 |  2.487625 |
+| Full routing: 100 targets, 16 vertices, all miss |            1,000 |  8.577417 |  8.975208 |
+| Full routing: 100 targets, 64 vertices, all miss |            1,000 | 16.616250 | 16.993042 |
+
+- Full routing 慢約 2.3–4.6%，zigzag 慢約 13.9%；不保留此替代寫法。

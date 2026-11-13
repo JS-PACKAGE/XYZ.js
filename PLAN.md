@@ -5355,3 +5355,13 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 16,384 組 differential cases、38 項 targeted tests 通過；範圍外 CPU 測項約少
   33.8–88.4%，控制組最高約慢 2.7%。Zero-direction scalar 候選未有穩定收益，未採用。
 - 八個 sphere-overlap regressions、完整量測、取捨及未驗證範圍見 ACCEPTANCE P165。
+
+## P166 — Skip vertically disjoint polygon edges
+
+- HitArea2D 只略過 endpoints 都嚴格位於 query y 同側的 polygon edges；
+  endpoint equality、horizontal boundary 與原 crossing arithmetic 不變。
+- 4,096 polygons／262,144 queries 差分與 10 項既有 targeted tests 通過。
+  Convex API 約快 12.0–33.3%，full routing 約快 3.1–15.0%；全邊 straddle 控制組慢
+  約 13.4%。不新增 cache／storage，也不宣稱所有 polygons 或 fps 改善。
+- Pointer guard 三種改寫與 polygon above/below flags 候選皆未採用；
+  量測、取捨及驗證範圍見 ACCEPTANCE P166。

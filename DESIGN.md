@@ -5505,3 +5505,13 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   matrix 一併略過。精確 triangle arithmetic、singular fallback、排序與 ownership 不變。
 - 額外 projection／branch 對一般命中可能有少量 CPU 代價，不宣稱普遍加速；
   量測、16,384 組差分、38 tests 及八個 overlap regressions 見 ACCEPTANCE P165。
+
+## P166 — Necessary vertical overlap before polygon edge arithmetic
+
+- Polygon 邊若兩端都嚴格高於或低於 query y，不可能包含該點，也不可能穿越其
+  horizontal ray，故在 cross product 前略過。任何 endpoint y 相等都不走此捷徑，
+  以保留 horizontal／vertex boundary hits；其餘浮點式子與原運算次序維持不變。
+- 沒有預算 edge data、增加 persistent storage 或改變 frozen snapshot ownership。
+  能排除 edges 的 convex shapes 減少 CPU 工作；全部 straddle 的 shapes 則承擔
+  額外 branch。不得把此取捨宣稱為普遍加速或 allocation／fps 改善。
+- 262,144 queries、10 tests、full routing CPU 與未採用候選見 ACCEPTANCE P166。

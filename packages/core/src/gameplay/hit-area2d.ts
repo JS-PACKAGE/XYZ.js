@@ -138,6 +138,8 @@ export class HitArea2D {
         ay = coordinates[j * 2 + 1]!,
         bx = coordinates[i * 2]!,
         by = coordinates[i * 2 + 1]!;
+      // An edge wholly above or below the point cannot cross its ray or contain it.
+      if ((y < ay && y < by) || (y > ay && y > by)) continue;
       const cross = (x - ax) * (by - ay) - (y - ay) * (bx - ax);
       if (
         cross === 0 &&

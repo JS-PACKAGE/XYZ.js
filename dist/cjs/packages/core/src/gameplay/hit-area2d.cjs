@@ -65,8 +65,10 @@ var HitArea2D = class HitArea2D {
 		let i = !1, a = this.coordinates;
 		for (let e = 0, r = this.points.length - 1; e < this.points.length; r = e++) {
 			let o = a[r * 2], s = a[r * 2 + 1], c = a[e * 2], l = a[e * 2 + 1];
-			if ((t - o) * (l - s) - (n - s) * (c - o) === 0 && t >= Math.min(o, c) && t <= Math.max(o, c) && n >= Math.min(s, l) && n <= Math.max(s, l)) return !0;
-			s > n != l > n && t < (c - o) * (n - s) / (l - s) + o && (i = !i);
+			if (!(n < s && n < l || n > s && n > l)) {
+				if ((t - o) * (l - s) - (n - s) * (c - o) === 0 && t >= Math.min(o, c) && t <= Math.max(o, c) && n >= Math.min(s, l) && n <= Math.max(s, l)) return !0;
+				s > n != l > n && t < (c - o) * (n - s) / (l - s) + o && (i = !i);
+			}
 		}
 		return i;
 	}
