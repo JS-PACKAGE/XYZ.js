@@ -7309,3 +7309,7 @@ pixels／lifecycle、heap、FPS的未驗證範圍見[ACCEPTANCE](../ACCEPTANCE.m
 cache refresh 本身會 bind 原 VAO；cold upload 與 retire/recreate 的 native handle 不同，因此 upload/unbind 後仍會正確綁回。所有 attribute/skin/instance 設定、draw dispatch、順序與 residency touch 都保留，private declaration byte-identical。
 
 固定 CPU matrix 沿用 default-BLEND material；explicit OPAQUE 與 SSR 後 shared-BLEND 是分開的 untimed native controls，不是重跑挑選的 CPU samples。在該 SSR scene 仍正確的 cross-phase variant 不冒稱被抓到的錯誤；真正 first-only-bind negative 在 cold draw 被實際 native VAO identity 擋下。source/dist geometry、pixel、public counters、shadow 與 cleanup 的執行結果和瀏覽器範圍見 [ACCEPTANCE](../ACCEPTANCE.md)。不擴大為所有 workload、GPU／呈現 fps、heap／GC、Safari、Firefox、Canvas2D 等價性或實機認證。
+
+## P221：未採用 private shader mask 的物理 freeze
+
+private shader BIT 保留原本單一 featureOrder 定義與 TypeScript readonly 契約。fresh native sampling 定位到 variant 判斷，但 Object.freeze 未建立一致的完整 submit 收益。GL/GPU 都執行這個共用 helper，GPU 不是未改動控制。沒有採用 runtime/API/相依變更，也不推定 JIT、heap、GPU 或呈現 FPS 效果；全部固定矩陣、sample hit 範圍與未重驗項目見 [ACCEPTANCE](../ACCEPTANCE.md) P221。

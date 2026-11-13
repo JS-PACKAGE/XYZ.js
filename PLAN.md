@@ -5970,3 +5970,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 固定完整 native CPU matrix 保留 192 rows、六輪 fresh serial AB/BA 與未改動 WebGPU 控制，不重挑有利 round；收益只限所記錄的 workload。
 - 實際 geometry 更新、顏色、冷載入、retire/recreate、SSR/BLEND 與 native shadow caller 的 source/dist gate，以及 extended pixels／official showcase 的最終執行結果見 ACCEPTANCE；不將不敏感的 cross-phase variant 冒稱被抓到的錯誤。
 - 僅提升本 renderer 的正式 ESM/CJS JS/maps；private declaration 未變，保留使用者 physics/world 未提交修改，版本維持 1.23.0，沒有 push。
+
+## P221 — Reject physical freezing of the private shader mask
+
+- 以 P220 正式碼重新做 native GL sampling；六種 workload 各三輪，共十八 profiles，沒有把 profiled clocks 當成採用效能數字。
+- 既有 UV immutable packing 與 texture/sampler flat binding arrays 已有 fast paths，不另疊 cache；只隔離測試既有 private BIT object 的 Object.freeze。
+- 單次固定 192-row 完整 native submit matrix 結果混合，shared 等目標沒有一致收益；兩個 backend 都會執行共用候選，GPU 不是未變更控制。
+- 否決候選，source/dist 與公開契約不變；全部 profile 摘要、paired samples、未重驗範圍見 ACCEPTANCE P221，不 push／升版。

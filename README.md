@@ -70,6 +70,8 @@ GL signed-zero比較的Object.is候選未採用：數值對照一致，但完整
 
 **P220 — phase-local GL VAO reuse（採用）:** 主要な 3D color phase 内だけで実 native VAO の重複 bind を省略します。初回 upload、geometry 更新・再生成、shadow caller の契約を維持し、永続 cache や公開 GPU handle は追加しません。対象 workload の CPU submit 測定であり、一般的な GPU／表示 FPS 改善の主張ではありません。
 
+P221 的 fresh native GL profile 後，private shader mask 的 Object.freeze 原型未達採用門檻，正式 source/dist 不變；兩個 backend 都執行候選，不把 GPU 當未變更控制。After fresh native GL profiling, P221 rejected physically freezing the private shader mask: complete submit results did not justify a change, and both backends were affected. P221 は native GL profile 後に private shader mask の Object.freeze 案を不採用としました。両 backend が変更対象であり、GPU を未変更の対照群とは扱いません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

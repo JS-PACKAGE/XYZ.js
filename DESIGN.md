@@ -6131,3 +6131,9 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 完整 source references 找到 color 與 shadow/contact 兩個 private caller，均遷移至明確 packed/previousVAO 參數；後者每次傳 unknown，保留原本逐 draw 綁定，不把 color loop tracker 偷帶入 depth pass。此回傳值只在 graphics 內部使用，Game/Scene facade 與公開型別不外洩 GPU handle。
 
 沒有 persistent tuple、額外配置、native state query、sampler 快取或 fallback 改動。完整 CPU matrix、實際 native VAO／RGBA controls、失敗的敏感度假設及真正 cold-geometry negative 依階段留在 ACCEPTANCE；native API 減少不等同於 GPU／呈現 fps 提升。
+
+## P221 — Runtime readonly 不是 property-load 效能證據
+
+private shader BIT 已由單一 featureOrder 建立，並以 TypeScript Readonly 限制內部寫入。物理 Object.freeze 不需要第二份 bit 定義或新 cache，但也不能只因唯讀就推定 JIT constant folding、機器指令或完整 submit 收益。
+
+fresh native sampling 確認 variant 判斷仍有 self samples，卻不代表任何 readonly 寫法都會加速。固定完整 GL/GPU 對照未支持候選，因此保留原 private object，不增加 startup freeze、持久狀態或 API。兩 backend 共同執行此 helper，不能把 GPU 數據冒稱未改動控制或用 profile sample 百分比換算 FPS。
