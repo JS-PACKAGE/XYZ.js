@@ -7656,3 +7656,11 @@ gain across 192 complete native submit timing rows. Unchanged GPU controls also
 varied; source expression counts do not establish JIT instructions or CPU causes.
 No runtime files changed. See [ACCEPTANCE](../ACCEPTANCE.md) P219 for every paired
 timing and the explicit native pixel/lifecycle, heap and FPS nonclaims.
+
+## P220: phase-local primary GL VAO binding
+
+The primary 3D color loop carries only the previous actual native VAO for its current phase. The private drawMesh helper binds when that identity differs and returns the VAO it used. Every phase starts unknown; the shadow/contact caller explicitly supplies unknown on every draw. No persistent state mirror, allocation, native state query, public handle, API entry, or dependency is added.
+
+A cache refresh already binds its existing VAO; cold creation and retirement/recreation produce a distinct actual handle, so the required post-upload bind is retained. All attribute/skin/instance setup, draw dispatch, ordering, and residency touches remain intact. Private declarations stay byte-identical.
+
+The fixed CPU matrix covers the existing default-BLEND material workload; explicit OPAQUE geometry and SSR-to-shared-BLEND are separate untimed native controls, not retimed CPU samples. A cross-phase variant that remained correct in that SSR scene was not called a caught bug. The genuine first-only-bind negative is rejected by real native VAO identity at a cold draw. Source/dist geometry, pixel, public-counter, shadow and cleanup evidence and browser limits are recorded in [ACCEPTANCE](../ACCEPTANCE.md). Results do not certify universal CPU gains, GPU/presentation FPS, heap/GC improvements, Safari, Firefox, Canvas2D equivalence or physical hardware.

@@ -5962,3 +5962,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 192筆完整native submit及105筆raw數值呼叫對照完成；GL無收益，GPU未變更對照亦有波動。
   不為較少source運算或個別cohort量測重跑，維持既有比較式。
 - 候選否決，source／dist不改；完整矩陣與未重驗範圍見ACCEPTANCE P219，不push／升版。
+
+## P220 — primary GL color-phase VAO reuse（採用）
+
+- 先確認既有 frozen sampler WeakMap，沒有為缺乏 hot-path 證據的 sampler 路徑再加 cache。
+- 每個 primary 3D color phase 的 local tracker 只保存上一個實際 native VAO；private drawMesh 回傳本次 VAO，shadow／contact 共用 caller 明確傳入 unknown，不跨 phase／frame 持久化。
+- 固定完整 native CPU matrix 保留 192 rows、六輪 fresh serial AB/BA 與未改動 WebGPU 控制，不重挑有利 round；收益只限所記錄的 workload。
+- 實際 geometry 更新、顏色、冷載入、retire/recreate、SSR/BLEND 與 native shadow caller 的 source/dist gate，以及 extended pixels／official showcase 的最終執行結果見 ACCEPTANCE；不將不敏感的 cross-phase variant 冒稱被抓到的錯誤。
+- 僅提升本 renderer 的正式 ESM/CJS JS/maps；private declaration 未變，保留使用者 physics/world 未提交修改，版本維持 1.23.0，沒有 push。

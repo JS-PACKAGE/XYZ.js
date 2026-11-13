@@ -55,7 +55,7 @@ const require_webgl_temporal_pipeline = require("./webgl-temporal-pipeline.cjs")
 const require_webgl_object_motion = require("./webgl-object-motion.cjs");
 const require_planar_reflection_capture = require("./planar-reflection-capture.cjs");
 //#region dist/packages/graphics/src/webgl2-renderer.js
-var tt = `#version 300 es
+var nt = `#version 300 es
 precision highp float;
 out vec3 vColor;
 void main() {
@@ -64,7 +64,7 @@ void main() {
   gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
   vColor = colors[gl_VertexID];
 }`;
-var nt = `#version 300 es
+var Q = `#version 300 es
 precision highp float;
 in vec3 vColor;
 out vec4 color;
@@ -497,8 +497,8 @@ var WebGL2Renderer = class {
 			}), this.supportedTextureFormats = require_native_texture_upload.webglTextureFormats(n), this.resize(Math.max(t.width, 1), Math.max(t.height, 1));
 			for (let [e, t, r] of [
 				[
-					tt,
 					nt,
+					Q,
 					`triangle`
 				],
 				[
@@ -533,7 +533,7 @@ var WebGL2Renderer = class {
 					`optical packing`
 				]
 			]) this.startedPrograms.set(r, this.startProgram(n, e, t, r));
-			if (this.triangleProgram = this.createProgram(n, tt, nt, `triangle`), this.shadowProgram = this.createProgram(n, require_webgl_feature_shaders.meshVertex, require_webgl_feature_shaders.shadowFragment, `shadow`), this.postProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_webgl_feature_shaders.postFragment, `postprocessing`), this.fxaaProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_fxaa_shaders.fxaaGLSL, `FXAA`), n.useProgram(this.fxaaProgram), n.uniform1i(n.getUniformLocation(this.fxaaProgram, `image`), 0), this.compositeProgram = this.createProgram(n, require_shaders.layerVertex, require_shaders.compositeFragment, `2D layer and transition composition`), this.triangleVAO = this.createVAO(n), this.skyProgram = this.createProgram(n, require_webgl_feature_shaders.skyVertex, require_webgl_feature_shaders.skyFragment, `skybox`), this.skyVAO = this.createVAO(n), this.graphs = new require_webgl2_render_graph.WebGL2RenderGraph(n), this.render2D = new require_webgl2_render2d.WebGLRender2D(n, {
+			if (this.triangleProgram = this.createProgram(n, nt, Q, `triangle`), this.shadowProgram = this.createProgram(n, require_webgl_feature_shaders.meshVertex, require_webgl_feature_shaders.shadowFragment, `shadow`), this.postProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_webgl_feature_shaders.postFragment, `postprocessing`), this.fxaaProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_fxaa_shaders.fxaaGLSL, `FXAA`), n.useProgram(this.fxaaProgram), n.uniform1i(n.getUniformLocation(this.fxaaProgram, `image`), 0), this.compositeProgram = this.createProgram(n, require_shaders.layerVertex, require_shaders.compositeFragment, `2D layer and transition composition`), this.triangleVAO = this.createVAO(n), this.skyProgram = this.createProgram(n, require_webgl_feature_shaders.skyVertex, require_webgl_feature_shaders.skyFragment, `skybox`), this.skyVAO = this.createVAO(n), this.graphs = new require_webgl2_render_graph.WebGL2RenderGraph(n), this.render2D = new require_webgl2_render2d.WebGLRender2D(n, {
 				owner: this,
 				stats: this.stats,
 				residency: this.residency,
@@ -968,39 +968,39 @@ var WebGL2Renderer = class {
 			this.resetPassState();
 			let c = t >= 2 ? t - 2 + 1 : 0;
 			c && (a.bindFramebuffer(a.FRAMEBUFFER, (c === 1 ? this.oitAccumulation : this.oitRevealage).framebuffer), a.clearColor(c === 1 ? 0 : 1, c === 1 ? 0 : 1, c === 1 ? 0 : 1, c === 1 ? 0 : 1), a.clear(a.COLOR_BUFFER_BIT), a.depthMask(g = !1), a.blendFunc(c === 1 ? a.ONE : a.ZERO, c === 1 ? a.ONE : a.ONE_MINUS_SRC_ALPHA));
-			let p = -1, b, C, w, T;
-			for (let E of v) {
-				let v = this.isColorBlended(E);
-				if (this.weighted && v !== c > 0 || !c && (v || E.material instanceof require_pbr_material.PBRMaterial && E.material.transmission > 0) !== (t === 1)) continue;
-				let D = E.material, O = D instanceof require_pbr_material.PBRMaterial, k = O && D.alphaToCoverage, A = +!!k;
-				if (A !== p && (p = A, k ? (a.enable(a.SAMPLE_ALPHA_TO_COVERAGE), a.disable(a.BLEND), a.colorMask(!0, !0, !0, !1)) : (a.disable(a.SAMPLE_ALPHA_TO_COVERAGE), a.enable(a.BLEND), a.colorMask(!0, !0, !0, !0))), require_native_material3d.isNativeMaterial3D(D)) {
-					let e = this.nativeMaterials.get(D);
-					if (!e || D.destroyed) throw new require_errors.GraphicsError(`Visible native 3D material must be explicitly prepared before rendering.`);
-					if (D.validate(), s = e.uniforms, m = e.program, m !== b && a.useProgram(b = m), a.uniform4fv(s[`xyzUniforms[0]`], D.uniforms), !(D instanceof require_native_pbr_material.NativePBRMaterial)) for (let e = 0; e < 4; e++) this.uniformValues.uniform1i(a, s[`xyzMap${e}`], e + 1), this.bindMaterialTexture(require_native_material3d.nativeMaterialSources(D)[e] ?? require_mesh.materialBaseTexture(D), e + 1);
+			let p = -1, b, C, w, T, E;
+			for (let D of v) {
+				let v = this.isColorBlended(D);
+				if (this.weighted && v !== c > 0 || !c && (v || D.material instanceof require_pbr_material.PBRMaterial && D.material.transmission > 0) !== (t === 1)) continue;
+				let O = D.material, k = O instanceof require_pbr_material.PBRMaterial, A = k && O.alphaToCoverage, j = +!!A;
+				if (j !== p && (p = j, A ? (a.enable(a.SAMPLE_ALPHA_TO_COVERAGE), a.disable(a.BLEND), a.colorMask(!0, !0, !0, !1)) : (a.disable(a.SAMPLE_ALPHA_TO_COVERAGE), a.enable(a.BLEND), a.colorMask(!0, !0, !0, !0))), require_native_material3d.isNativeMaterial3D(O)) {
+					let e = this.nativeMaterials.get(O);
+					if (!e || O.destroyed) throw new require_errors.GraphicsError(`Visible native 3D material must be explicitly prepared before rendering.`);
+					if (O.validate(), s = e.uniforms, m = e.program, m !== b && a.useProgram(b = m), a.uniform4fv(s[`xyzUniforms[0]`], O.uniforms), !(O instanceof require_native_pbr_material.NativePBRMaterial)) for (let e = 0; e < 4; e++) this.uniformValues.uniform1i(a, s[`xyzMap${e}`], e + 1), this.bindMaterialTexture(require_native_material3d.nativeMaterialSources(O)[e] ?? require_mesh.materialBaseTexture(O), e + 1);
 				} else {
-					let t = this.meshProgramFor(D, E, e);
+					let t = this.meshProgramFor(O, D, e);
 					s = t.uniforms, m = t.program, m !== b && a.useProgram(b = m);
 				}
-				let j = require_baked_lighting.constantMeshIrradiance(E);
-				j ? (this.uniformValues.sharedUniform4fv(a, s[`bakedSH[0]`], j.sh), this.uniformValues.sharedUniform4fv(a, s.bakedParams, j.params)) : (require_baked_lighting.fillMeshIrradiance(E, this.bakedData, 0), this.uniformValues.uniform4fv(a, s[`bakedSH[0]`], this.bakedSH), this.uniformValues.uniform4fv(a, s.bakedParams, this.bakedParams)), this.sendMaterialUV(s[`materialCoordinates[0]`], D, E.renderGeometry), this.colorViewStamps.get(m) !== f && (a.uniformMatrix4fv(s.viewProjection, !1, l), a.uniform4fv(s[`fog[0]`], this.fogData), a.uniformMatrix4fv(s.contactInvViewProjection, !1, d), this.colorViewStamps.set(m, f));
-				let M = e.lightSelection.selectMesh(E), N = s[`lighting[0]`], P = N ? this.lightingSent.get(N) : void 0;
-				if (!P || P.pass !== this.lightingPass || !sameLights(P.points, M.pointLights) || !sameLights(P.spots, M.spotLights)) {
-					require_render_data.fillLightingData(e, this.lightingData, M);
-					let t = M.pointLights.length, n = M.spotLights.length;
-					if (a.uniform4fv(N, this.lightingData, 0, 12 + t * 8), n && a.uniform4fv(s[at], this.lightingData, 268, n * 16), t && a.uniform4fv(s[ot], this.lightingData, 780, Math.ceil(t / 4) * 4), N) {
-						let e = P ?? {
+				let M = require_baked_lighting.constantMeshIrradiance(D);
+				M ? (this.uniformValues.sharedUniform4fv(a, s[`bakedSH[0]`], M.sh), this.uniformValues.sharedUniform4fv(a, s.bakedParams, M.params)) : (require_baked_lighting.fillMeshIrradiance(D, this.bakedData, 0), this.uniformValues.uniform4fv(a, s[`bakedSH[0]`], this.bakedSH), this.uniformValues.uniform4fv(a, s.bakedParams, this.bakedParams)), this.sendMaterialUV(s[`materialCoordinates[0]`], O, D.renderGeometry), this.colorViewStamps.get(m) !== f && (a.uniformMatrix4fv(s.viewProjection, !1, l), a.uniform4fv(s[`fog[0]`], this.fogData), a.uniformMatrix4fv(s.contactInvViewProjection, !1, d), this.colorViewStamps.set(m, f));
+				let N = e.lightSelection.selectMesh(D), P = s[`lighting[0]`], F = P ? this.lightingSent.get(P) : void 0;
+				if (!F || F.pass !== this.lightingPass || !sameLights(F.points, N.pointLights) || !sameLights(F.spots, N.spotLights)) {
+					require_render_data.fillLightingData(e, this.lightingData, N);
+					let t = N.pointLights.length, n = N.spotLights.length;
+					if (a.uniform4fv(P, this.lightingData, 0, 12 + t * 8), n && a.uniform4fv(s[at], this.lightingData, 268, n * 16), t && a.uniform4fv(s[ot], this.lightingData, 780, Math.ceil(t / 4) * 4), P) {
+						let e = F ?? {
 							pass: 0,
 							points: [],
 							spots: []
 						};
-						e.pass = this.lightingPass, copyLights(e.points, M.pointLights), copyLights(e.spots, M.spotLights), this.lightingSent.set(N, e);
+						e.pass = this.lightingPass, copyLights(e.points, N.pointLights), copyLights(e.spots, N.spotLights), this.lightingSent.set(P, e);
 					}
 				}
 				this.uniformValues.uniform3f(a, s.cameraPosition, u.x, u.y, u.z), this.uniformValues.uniform1i(a, s.linearOutput, +!!this.linear3D), m !== w && (w = m, this.uniformValues.uniform1i(a, s.image, 0), this.uniformValues.uniform1i(a, s.shadowMap, 5), this.uniformValues.uniform1i(a, s.environmentMap, 6), this.uniformValues.uniform1i(a, s.opaqueScene, 15), this.uniformValues.uniform1i(a, s.opticalMaps, 14));
-				let F = o;
-				this.uniformValues.uniform4f(a, s.contactDimensions, this.contactWidth, this.contactHeight, this.contactOffset, 0), this.uniformValues.uniform4f(a, s.contactParams, F?.distance ?? 0, F?.thickness ?? 0, F?.bias ?? 0, F?.steps ?? 0), this.uniformValues.uniform1f(a, s.contactStrength, F?.strength ?? 0), this.uniformValues.uniform1i(a, s.oitPass, c);
-				let I = this.visibility.entries.get(E);
-				if (this.uniformValues.uniform1f(a, s.meshFade, I?.fade ?? 1), this.uniformValues.uniform1i(a, s.tangentTexCoord, E.renderGeometry.tangentTexCoord), this.uniformValues.uniform1f(a, s.derivativeTangentSign, E.renderGeometry.tangentConvention === `gltf` ? -1 : 1), c || (g = (I?.fade ?? 1) === 1 && !(require_native_material3d.isNativeMaterial3D(D) && D.transparent), g !== C && a.depthMask(C = g)), O) {
+				let I = o;
+				this.uniformValues.uniform4f(a, s.contactDimensions, this.contactWidth, this.contactHeight, this.contactOffset, 0), this.uniformValues.uniform4f(a, s.contactParams, I?.distance ?? 0, I?.thickness ?? 0, I?.bias ?? 0, I?.steps ?? 0), this.uniformValues.uniform1f(a, s.contactStrength, I?.strength ?? 0), this.uniformValues.uniform1i(a, s.oitPass, c);
+				let L = this.visibility.entries.get(D);
+				if (this.uniformValues.uniform1f(a, s.meshFade, L?.fade ?? 1), this.uniformValues.uniform1i(a, s.tangentTexCoord, D.renderGeometry.tangentTexCoord), this.uniformValues.uniform1f(a, s.derivativeTangentSign, D.renderGeometry.tangentConvention === `gltf` ? -1 : 1), c || (g = (L?.fade ?? 1) === 1 && !(require_native_material3d.isNativeMaterial3D(O) && O.transparent), g !== C && a.depthMask(C = g)), k) {
 					if (!h) {
 						require_render_data.fillProbeBlendData(e, this.environmentData, 0, this.selectedProbes);
 						for (let e = 0; e < 5; e++) this.environmentData[e * 52 + 38] = this.probeMipCount - 1;
@@ -1008,16 +1008,16 @@ var WebGL2Renderer = class {
 					}
 					this.colorEnvironmentStamps.get(m) !== f && (a.uniform4fv(s[`environment[0]`], this.environmentLightingData), a.uniform4fv(s[`probeData[0]`], this.probeData), this.colorEnvironmentStamps.set(m, f)), this.bindUnit(6, a.TEXTURE_2D_ARRAY, this.probeTexture, null);
 				}
-				if (this.uniformValues.uniform1i(a, s.pbr, +!!O), this.uniformValues.uniform1i(a, s.doubleSided, O && !D.doubleSided ? 0 : 1), this.uniformValues.uniform1i(a, s.alphaMode, O ? D.alphaMode === `OPAQUE` ? 0 : D.alphaMode === `MASK` ? 1 : 2 : 2), this.uniformValues.uniform4f(a, s.tint, D.color[0], D.color[1], D.color[2], D.opacity), this.uniformValues.uniform1i(a, s.receiveShadow, +!!E.receiveShadow), this.bindMaterialTexture(require_mesh.materialBaseTexture(D), 0, D.textureSampler), O) {
-					let e = require_pbr_material.pbrTextureSources(D);
-					m !== T && (T = m, this.uniformValues.uniform1i(a, s.metallicRoughnessMap, 1), this.uniformValues.uniform1i(a, s.normalMap, 2), this.uniformValues.uniform1i(a, s.occlusionMap, 3), this.uniformValues.uniform1i(a, s.emissiveMap, 4), this.uniformValues.uniform1i(a, s.specularMap, 7), this.uniformValues.uniform1i(a, s.specularColorMap, 8), this.uniformValues.uniform1i(a, s.clearcoatMap, 9), this.uniformValues.uniform1i(a, s.clearcoatRoughnessMap, 10), this.uniformValues.uniform1i(a, s.clearcoatNormalMap, 11), this.uniformValues.uniform1i(a, s.sheenColorMap, 12), this.uniformValues.uniform1i(a, s.sheenRoughnessMap, 13)), this.uniformValues.uniform4f(a, s.transmission, D.transmission, D.thickness, 1 / D.attenuationDistance, D.ior), this.uniformValues.uniform3f(a, s.attenuationColor, D.attenuationColor[0], D.attenuationColor[1], D.attenuationColor[2]), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 0, e.transmissionTexture, D.transmissionSampler, this.maxTextureAnisotropy), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 4, e.thicknessTexture, D.thicknessSampler, this.maxTextureAnisotropy), this.uniformValues.uniform4f(a, s.transmissionMapSettings, this.opticalSettings[0], this.opticalSettings[1], this.opticalSettings[2], this.opticalSettings[3]), this.uniformValues.uniform4f(a, s.thicknessMapSettings, this.opticalSettings[4], this.opticalSettings[5], this.opticalSettings[6], this.opticalSettings[7]), require_optical_maps.fillMappedOpticalSettings(D, this.opticalSettings, 8, this.maxTextureAnisotropy);
+				if (this.uniformValues.uniform1i(a, s.pbr, +!!k), this.uniformValues.uniform1i(a, s.doubleSided, k && !O.doubleSided ? 0 : 1), this.uniformValues.uniform1i(a, s.alphaMode, k ? O.alphaMode === `OPAQUE` ? 0 : O.alphaMode === `MASK` ? 1 : 2 : 2), this.uniformValues.uniform4f(a, s.tint, O.color[0], O.color[1], O.color[2], O.opacity), this.uniformValues.uniform1i(a, s.receiveShadow, +!!D.receiveShadow), this.bindMaterialTexture(require_mesh.materialBaseTexture(O), 0, O.textureSampler), k) {
+					let e = require_pbr_material.pbrTextureSources(O);
+					m !== T && (T = m, this.uniformValues.uniform1i(a, s.metallicRoughnessMap, 1), this.uniformValues.uniform1i(a, s.normalMap, 2), this.uniformValues.uniform1i(a, s.occlusionMap, 3), this.uniformValues.uniform1i(a, s.emissiveMap, 4), this.uniformValues.uniform1i(a, s.specularMap, 7), this.uniformValues.uniform1i(a, s.specularColorMap, 8), this.uniformValues.uniform1i(a, s.clearcoatMap, 9), this.uniformValues.uniform1i(a, s.clearcoatRoughnessMap, 10), this.uniformValues.uniform1i(a, s.clearcoatNormalMap, 11), this.uniformValues.uniform1i(a, s.sheenColorMap, 12), this.uniformValues.uniform1i(a, s.sheenRoughnessMap, 13)), this.uniformValues.uniform4f(a, s.transmission, O.transmission, O.thickness, 1 / O.attenuationDistance, O.ior), this.uniformValues.uniform3f(a, s.attenuationColor, O.attenuationColor[0], O.attenuationColor[1], O.attenuationColor[2]), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 0, e.transmissionTexture, O.transmissionSampler, this.maxTextureAnisotropy), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 4, e.thicknessTexture, O.thicknessSampler, this.maxTextureAnisotropy), this.uniformValues.uniform4f(a, s.transmissionMapSettings, this.opticalSettings[0], this.opticalSettings[1], this.opticalSettings[2], this.opticalSettings[3]), this.uniformValues.uniform4f(a, s.thicknessMapSettings, this.opticalSettings[4], this.opticalSettings[5], this.opticalSettings[6], this.opticalSettings[7]), require_optical_maps.fillMappedOpticalSettings(O, this.opticalSettings, 8, this.maxTextureAnisotropy);
 					let t = this.opticalSettings;
-					this.uniformValues.uniform4f(a, s.anisotropyMapSettings, t[8], t[9], t[10], t[11]), this.uniformValues.uniform4f(a, s.iridescenceMapSettings, t[12], t[13], t[14], t[15]), this.uniformValues.uniform4f(a, s.iridescenceThicknessMapSettings, t[16], t[17], t[18], t[19]), this.uniformValues.uniform4f(a, s.iridescenceThicknessRange, t[20], t[21], t[22], t[23]), this.uniformValues.uniform4f(a, s.heightMapSettings, t[24], t[25], t[26], t[27]), this.bindUnit(14, a.TEXTURE_2D_ARRAY, this.opticalTextures.get(D)?.resource ?? this.emptyOptical, null), this.uniformValues.uniform4f(a, s.specularColor, D.specularColor[0], D.specularColor[1], D.specularColor[2], D.ior === 0 ? 1 : ((D.ior - 1) / (D.ior + 1)) ** 2), this.uniformValues.uniform4f(a, s.specularParams, D.specular, +(D.ior === 0), +!!e.specularTexture, +!!e.specularColorTexture), this.bindMaterialTexture(e.specularTexture ?? require_mesh.materialBaseTexture(D), 7, D.specularSampler), this.bindMaterialTexture(e.specularColorTexture ?? require_mesh.materialBaseTexture(D), 8, D.specularColorSampler), this.uniformValues.uniform4f(a, s.clearcoat, D.clearcoat, D.clearcoatRoughness, D.clearcoatNormalScale, 0), this.uniformValues.uniform4f(a, s.clearcoatMaps, +!!e.clearcoatTexture, +!!e.clearcoatRoughnessTexture, +!!e.clearcoatNormalTexture, 0), this.bindMaterialTexture(e.clearcoatTexture ?? require_mesh.materialBaseTexture(D), 9, D.clearcoatSampler), this.bindMaterialTexture(e.clearcoatRoughnessTexture ?? require_mesh.materialBaseTexture(D), 10, D.clearcoatRoughnessSampler), this.bindMaterialTexture(e.clearcoatNormalTexture ?? require_mesh.materialBaseTexture(D), 11, D.clearcoatNormalSampler), this.uniformValues.uniform4f(a, s.sheen, D.sheenColor[0], D.sheenColor[1], D.sheenColor[2], D.sheenRoughness), this.uniformValues.uniform4f(a, s.sheenMaps, +!!e.sheenColorTexture, +!!e.sheenRoughnessTexture, D.specularAntiAliasing, +!!D.alphaToCoverage), this.bindMaterialTexture(e.sheenColorTexture ?? require_mesh.materialBaseTexture(D), 12, D.sheenColorSampler), this.bindMaterialTexture(e.sheenRoughnessTexture ?? require_mesh.materialBaseTexture(D), 13, D.sheenRoughnessSampler), this.uniformValues.uniform4f(a, s.surface, D.metallic, D.roughness, D.normalScale, D.occlusionStrength), this.uniformValues.uniform4f(a, s.emission, D.emissive[0], D.emissive[1], D.emissive[2], D.alphaCutoff);
-					let n = require_pbr_material.pbrEmissiveSlot(D);
-					this.uniformValues.uniform4i(a, s.maps, +!!e.metallicRoughnessTexture, +!!e.normalTexture, +!!e.occlusionTexture, n.mode), this.uniformValues.uniform4f(a, s.finish0, D.finish.anisotropy, D.finish.anisotropyRotation, D.finish.iridescence, D.finish.iridescenceIor), this.uniformValues.uniform4f(a, s.finish1, D.finish.iridescence > 0 ? require_rendering.iridescenceFilmRange.minNm + D.finish.iridescenceThickness * (require_rendering.iridescenceFilmRange.maxNm - require_rendering.iridescenceFilmRange.minNm) : 0, D.finish.subsurface, D.finish.dispersion, D.finish.heightScale), this.uniformValues.uniform4f(a, s.finish2, D.finish.wetness, D.finish.snow, D.finish.dirt, D.finish.damage), this.uniformValues.uniform4f(a, s.finish3, D.finish.detailStrength, D.finish.triplanar, D.finish.layerBlend, D.finish.lightmapStrength), this.uniformValues.uniform4f(a, s.finish4, D.finish.subsurfaceColor[0], D.finish.subsurfaceColor[1], D.finish.subsurfaceColor[2], D.finish.subsurfaceRadius), this.bindMaterialTexture(e.metallicRoughnessTexture ?? require_mesh.materialBaseTexture(D), 1, D.metallicRoughnessSampler), this.bindMaterialTexture(e.normalTexture ?? require_mesh.materialBaseTexture(D), 2, D.normalSampler), this.bindMaterialTexture(e.occlusionTexture ?? require_mesh.materialBaseTexture(D), 3, D.occlusionSampler), this.bindMaterialTexture(n.texture ?? require_mesh.materialBaseTexture(D), 4, n.sampler);
+					this.uniformValues.uniform4f(a, s.anisotropyMapSettings, t[8], t[9], t[10], t[11]), this.uniformValues.uniform4f(a, s.iridescenceMapSettings, t[12], t[13], t[14], t[15]), this.uniformValues.uniform4f(a, s.iridescenceThicknessMapSettings, t[16], t[17], t[18], t[19]), this.uniformValues.uniform4f(a, s.iridescenceThicknessRange, t[20], t[21], t[22], t[23]), this.uniformValues.uniform4f(a, s.heightMapSettings, t[24], t[25], t[26], t[27]), this.bindUnit(14, a.TEXTURE_2D_ARRAY, this.opticalTextures.get(O)?.resource ?? this.emptyOptical, null), this.uniformValues.uniform4f(a, s.specularColor, O.specularColor[0], O.specularColor[1], O.specularColor[2], O.ior === 0 ? 1 : ((O.ior - 1) / (O.ior + 1)) ** 2), this.uniformValues.uniform4f(a, s.specularParams, O.specular, +(O.ior === 0), +!!e.specularTexture, +!!e.specularColorTexture), this.bindMaterialTexture(e.specularTexture ?? require_mesh.materialBaseTexture(O), 7, O.specularSampler), this.bindMaterialTexture(e.specularColorTexture ?? require_mesh.materialBaseTexture(O), 8, O.specularColorSampler), this.uniformValues.uniform4f(a, s.clearcoat, O.clearcoat, O.clearcoatRoughness, O.clearcoatNormalScale, 0), this.uniformValues.uniform4f(a, s.clearcoatMaps, +!!e.clearcoatTexture, +!!e.clearcoatRoughnessTexture, +!!e.clearcoatNormalTexture, 0), this.bindMaterialTexture(e.clearcoatTexture ?? require_mesh.materialBaseTexture(O), 9, O.clearcoatSampler), this.bindMaterialTexture(e.clearcoatRoughnessTexture ?? require_mesh.materialBaseTexture(O), 10, O.clearcoatRoughnessSampler), this.bindMaterialTexture(e.clearcoatNormalTexture ?? require_mesh.materialBaseTexture(O), 11, O.clearcoatNormalSampler), this.uniformValues.uniform4f(a, s.sheen, O.sheenColor[0], O.sheenColor[1], O.sheenColor[2], O.sheenRoughness), this.uniformValues.uniform4f(a, s.sheenMaps, +!!e.sheenColorTexture, +!!e.sheenRoughnessTexture, O.specularAntiAliasing, +!!O.alphaToCoverage), this.bindMaterialTexture(e.sheenColorTexture ?? require_mesh.materialBaseTexture(O), 12, O.sheenColorSampler), this.bindMaterialTexture(e.sheenRoughnessTexture ?? require_mesh.materialBaseTexture(O), 13, O.sheenRoughnessSampler), this.uniformValues.uniform4f(a, s.surface, O.metallic, O.roughness, O.normalScale, O.occlusionStrength), this.uniformValues.uniform4f(a, s.emission, O.emissive[0], O.emissive[1], O.emissive[2], O.alphaCutoff);
+					let n = require_pbr_material.pbrEmissiveSlot(O);
+					this.uniformValues.uniform4i(a, s.maps, +!!e.metallicRoughnessTexture, +!!e.normalTexture, +!!e.occlusionTexture, n.mode), this.uniformValues.uniform4f(a, s.finish0, O.finish.anisotropy, O.finish.anisotropyRotation, O.finish.iridescence, O.finish.iridescenceIor), this.uniformValues.uniform4f(a, s.finish1, O.finish.iridescence > 0 ? require_rendering.iridescenceFilmRange.minNm + O.finish.iridescenceThickness * (require_rendering.iridescenceFilmRange.maxNm - require_rendering.iridescenceFilmRange.minNm) : 0, O.finish.subsurface, O.finish.dispersion, O.finish.heightScale), this.uniformValues.uniform4f(a, s.finish2, O.finish.wetness, O.finish.snow, O.finish.dirt, O.finish.damage), this.uniformValues.uniform4f(a, s.finish3, O.finish.detailStrength, O.finish.triplanar, O.finish.layerBlend, O.finish.lightmapStrength), this.uniformValues.uniform4f(a, s.finish4, O.finish.subsurfaceColor[0], O.finish.subsurfaceColor[1], O.finish.subsurfaceColor[2], O.finish.subsurfaceRadius), this.bindMaterialTexture(e.metallicRoughnessTexture ?? require_mesh.materialBaseTexture(O), 1, O.metallicRoughnessSampler), this.bindMaterialTexture(e.normalTexture ?? require_mesh.materialBaseTexture(O), 2, O.normalSampler), this.bindMaterialTexture(e.occlusionTexture ?? require_mesh.materialBaseTexture(O), 3, O.occlusionSampler), this.bindMaterialTexture(n.texture ?? require_mesh.materialBaseTexture(O), 4, n.sampler);
 				}
-				let L = I?.instances;
-				this.drawMesh(E, s, L), this.stats.draw(E.geometry.indices.length, L?.count ?? (E instanceof require_instanced_mesh.InstancedMesh ? E.count : 1));
+				let R = L?.instances;
+				E = this.drawMesh(D, s, R, E), this.stats.draw(D.geometry.indices.length, R?.count ?? (D instanceof require_instanced_mesh.InstancedMesh ? D.count : 1));
 			}
 			if (a.disable(a.SAMPLE_ALPHA_TO_COVERAGE), a.enable(a.BLEND), a.colorMask(!0, !0, !0, !0), t === 0 && this.occlusion?.draw(this.visibility.occlusionCandidates, this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix, g), t === 0 && this.coverageActive && (this.resolveCoverageTarget(), a.bindFramebuffer(a.FRAMEBUFFER, this.postTarget.framebuffer)), t === 0 && this.temporalActive && e.postProcessing.ssr) {
 				let t = this.temporal.applyOpaqueSSR(this.postTarget.texture, this.postTarget.depthTexture, this.temporalState, e.postProcessing);
@@ -1060,23 +1060,24 @@ var WebGL2Renderer = class {
 		if (!p) throw new require_errors.GraphicsError(`WebGL2 could not allocate a material sampler.`);
 		return f.samplerParameteri(p, f.TEXTURE_MIN_FILTER, o === `nearest` ? n ? f.LINEAR_MIPMAP_NEAREST : f.NEAREST_MIPMAP_NEAREST : n ? f.LINEAR_MIPMAP_LINEAR : f.NEAREST_MIPMAP_LINEAR), f.samplerParameteri(p, f.TEXTURE_MAG_FILTER, r ? f.LINEAR : f.NEAREST), f.samplerParameteri(p, f.TEXTURE_WRAP_S, i === 1 ? f.REPEAT : i === 2 ? f.MIRRORED_REPEAT : f.CLAMP_TO_EDGE), f.samplerParameteri(p, f.TEXTURE_WRAP_T, a === 1 ? f.REPEAT : a === 2 ? f.MIRRORED_REPEAT : f.CLAMP_TO_EDGE), f.samplerParameterf(p, f.TEXTURE_MIN_LOD, s), f.samplerParameterf(p, f.TEXTURE_MAX_LOD, c), this.anisotropyExtension && f.samplerParameterf(p, this.anisotropyExtension.TEXTURE_MAX_ANISOTROPY_EXT, l), this.samplers.set(u, p), t && this.frozenSamplers.set(e, p), p;
 	}
-	drawMesh(e, t, n) {
-		let r = this.gl, i = this.cacheGeometry(e.renderGeometry);
-		i.seen = this.frame, r.uniformMatrix4fv(t.model, !1, e.worldMatrix.elements), r.bindVertexArray(i.vao), this.meshAttributeDefaults ||= (r.vertexAttrib3f(7, 1, 1, 1), r.vertexAttrib4f(8, 1, 1, 1, 1), r.vertexAttrib2f(11, 0, 0), r.vertexAttribI4ui(9, 0, 0, 0, 0), r.vertexAttrib4f(10, 1, 0, 0, 0), r.vertexAttribI4ui(12, 0, 0, 0, 0), r.vertexAttrib4f(13, 0, 0, 0, 0), !0);
-		let a = e instanceof require_skinned_mesh.SkinnedMesh ? this.cacheSkin(e) : void 0;
-		if (this.uniformValues.uniform1i(r, t.skinned, +!!a), a ? (i.skinDisabled = !1, this.bindUnit(16, r.TEXTURE_2D, a.palette, null), this.uniformValues.uniform1i(r, t.jointPalette, 16), r.bindBuffer(r.ARRAY_BUFFER, a.indices), r.enableVertexAttribArray(9), r.vertexAttribIPointer(9, 4, r.UNSIGNED_INT, e instanceof require_skinned_mesh.SkinnedMesh ? e.influencesPerVertex * 4 : 16, 0), r.vertexAttribDivisor(9, 0), r.bindBuffer(r.ARRAY_BUFFER, a.weights), r.enableVertexAttribArray(10), r.vertexAttribPointer(10, 4, r.FLOAT, !1, e instanceof require_skinned_mesh.SkinnedMesh ? e.influencesPerVertex * 4 : 16, 0), r.vertexAttribDivisor(10, 0), e instanceof require_skinned_mesh.SkinnedMesh && e.influencesPerVertex === 8 ? (r.bindBuffer(r.ARRAY_BUFFER, a.indices), r.enableVertexAttribArray(12), r.vertexAttribIPointer(12, 4, r.UNSIGNED_INT, 32, 16), r.vertexAttribDivisor(12, 0), r.bindBuffer(r.ARRAY_BUFFER, a.weights), r.enableVertexAttribArray(13), r.vertexAttribPointer(13, 4, r.FLOAT, !1, 32, 16), r.vertexAttribDivisor(13, 0)) : (r.disableVertexAttribArray(12), r.disableVertexAttribArray(13))) : (i.skinDisabled ||= (r.disableVertexAttribArray(9), r.disableVertexAttribArray(10), r.disableVertexAttribArray(12), r.disableVertexAttribArray(13), !0), this.uniformValues.uniform1i(r, t.jointPalette, 0)), e instanceof require_instanced_mesh.InstancedMesh) {
-			i.instancingDisabled = !1;
-			let a = this.cacheInstances(e, n);
-			r.bindBuffer(r.ARRAY_BUFFER, a.buffer);
-			for (let e = 0; e < 4; e++) r.enableVertexAttribArray(3 + e), r.vertexAttribPointer(3 + e, 4, r.FLOAT, !1, 64, e * 16), r.vertexAttribDivisor(3 + e, 1);
-			e.colors ? (r.bindBuffer(r.ARRAY_BUFFER, a.colors), r.enableVertexAttribArray(7), r.vertexAttribPointer(7, 3, r.FLOAT, !1, 12, 0), r.vertexAttribDivisor(7, 1)) : (r.disableVertexAttribArray(7), r.vertexAttribDivisor(7, 0)), this.uniformValues.uniform1i(r, t.instanced, 1), r.drawElementsInstanced(r.TRIANGLES, e.geometry.indices.length, r.UNSIGNED_INT, 0, n?.count ?? e.count);
+	drawMesh(e, t, n, r) {
+		let i = this.gl, a = this.cacheGeometry(e.renderGeometry);
+		a.seen = this.frame, i.uniformMatrix4fv(t.model, !1, e.worldMatrix.elements), a.vao !== r && i.bindVertexArray(a.vao), this.meshAttributeDefaults ||= (i.vertexAttrib3f(7, 1, 1, 1), i.vertexAttrib4f(8, 1, 1, 1, 1), i.vertexAttrib2f(11, 0, 0), i.vertexAttribI4ui(9, 0, 0, 0, 0), i.vertexAttrib4f(10, 1, 0, 0, 0), i.vertexAttribI4ui(12, 0, 0, 0, 0), i.vertexAttrib4f(13, 0, 0, 0, 0), !0);
+		let o = e instanceof require_skinned_mesh.SkinnedMesh ? this.cacheSkin(e) : void 0;
+		if (this.uniformValues.uniform1i(i, t.skinned, +!!o), o ? (a.skinDisabled = !1, this.bindUnit(16, i.TEXTURE_2D, o.palette, null), this.uniformValues.uniform1i(i, t.jointPalette, 16), i.bindBuffer(i.ARRAY_BUFFER, o.indices), i.enableVertexAttribArray(9), i.vertexAttribIPointer(9, 4, i.UNSIGNED_INT, e instanceof require_skinned_mesh.SkinnedMesh ? e.influencesPerVertex * 4 : 16, 0), i.vertexAttribDivisor(9, 0), i.bindBuffer(i.ARRAY_BUFFER, o.weights), i.enableVertexAttribArray(10), i.vertexAttribPointer(10, 4, i.FLOAT, !1, e instanceof require_skinned_mesh.SkinnedMesh ? e.influencesPerVertex * 4 : 16, 0), i.vertexAttribDivisor(10, 0), e instanceof require_skinned_mesh.SkinnedMesh && e.influencesPerVertex === 8 ? (i.bindBuffer(i.ARRAY_BUFFER, o.indices), i.enableVertexAttribArray(12), i.vertexAttribIPointer(12, 4, i.UNSIGNED_INT, 32, 16), i.vertexAttribDivisor(12, 0), i.bindBuffer(i.ARRAY_BUFFER, o.weights), i.enableVertexAttribArray(13), i.vertexAttribPointer(13, 4, i.FLOAT, !1, 32, 16), i.vertexAttribDivisor(13, 0)) : (i.disableVertexAttribArray(12), i.disableVertexAttribArray(13))) : (a.skinDisabled ||= (i.disableVertexAttribArray(9), i.disableVertexAttribArray(10), i.disableVertexAttribArray(12), i.disableVertexAttribArray(13), !0), this.uniformValues.uniform1i(i, t.jointPalette, 0)), e instanceof require_instanced_mesh.InstancedMesh) {
+			a.instancingDisabled = !1;
+			let r = this.cacheInstances(e, n);
+			i.bindBuffer(i.ARRAY_BUFFER, r.buffer);
+			for (let e = 0; e < 4; e++) i.enableVertexAttribArray(3 + e), i.vertexAttribPointer(3 + e, 4, i.FLOAT, !1, 64, e * 16), i.vertexAttribDivisor(3 + e, 1);
+			e.colors ? (i.bindBuffer(i.ARRAY_BUFFER, r.colors), i.enableVertexAttribArray(7), i.vertexAttribPointer(7, 3, i.FLOAT, !1, 12, 0), i.vertexAttribDivisor(7, 1)) : (i.disableVertexAttribArray(7), i.vertexAttribDivisor(7, 0)), this.uniformValues.uniform1i(i, t.instanced, 1), i.drawElementsInstanced(i.TRIANGLES, e.geometry.indices.length, i.UNSIGNED_INT, 0, n?.count ?? e.count);
 		} else {
-			if (!i.instancingDisabled) {
-				for (let e = 0; e < 4; e++) r.disableVertexAttribArray(3 + e), r.vertexAttribDivisor(3 + e, 0);
-				r.disableVertexAttribArray(7), r.vertexAttribDivisor(7, 0), i.instancingDisabled = !0;
+			if (!a.instancingDisabled) {
+				for (let e = 0; e < 4; e++) i.disableVertexAttribArray(3 + e), i.vertexAttribDivisor(3 + e, 0);
+				i.disableVertexAttribArray(7), i.vertexAttribDivisor(7, 0), a.instancingDisabled = !0;
 			}
-			this.uniformValues.uniform1i(r, t.instanced, 0), r.drawElements(r.TRIANGLES, e.geometry.indices.length, r.UNSIGNED_INT, 0);
+			this.uniformValues.uniform1i(i, t.instanced, 0), i.drawElements(i.TRIANGLES, e.geometry.indices.length, i.UNSIGNED_INT, 0);
 		}
+		return a.vao;
 	}
 	cacheSkin(e) {
 		let t = this.gl, n = this.meshSkins.get(e);
@@ -1157,7 +1158,7 @@ var WebGL2Renderer = class {
 					if (!e || o.destroyed) throw new require_errors.GraphicsError(`Shadow native 3D material must be explicitly prepared before rendering.`);
 					if (o.validate(), s = e.shadowUniforms, c !== e.shadow && a.useProgram(c = e.shadow), a.uniform4fv(s[`xyzUniforms[0]`], o.uniforms), !(o instanceof require_native_pbr_material.NativePBRMaterial)) for (let e = 0; e < 4; e++) this.uniformValues.uniform1i(a, s[`xyzMap${e}`], e + 1), this.bindMaterialTexture(require_native_material3d.nativeMaterialSources(o)[e] ?? require_mesh.materialBaseTexture(o), e + 1);
 				} else s = this.shadowUniforms, c !== this.shadowProgram && a.useProgram(c = this.shadowProgram);
-				this.sendMaterialUV(s[`materialCoordinates[0]`], o, e.renderGeometry), this.shadowViewStamps.get(c) !== g && (a.uniformMatrix4fv(s.viewProjection, !1, h), this.shadowViewStamps.set(c, g)), this.uniformValues.uniform1i(a, s.image, 0), this.uniformValues.uniform1f(a, s.alphaCutoff, l ? o.alphaCutoff : 0), this.uniformValues.uniform1f(a, s.opacity, o.opacity), this.uniformValues.uniform1f(a, s.meshFade, this.visibility.entries.get(e)?.fade ?? 1), this.uniformValues.uniform1i(a, s.doubleSided, l && !o.doubleSided ? 0 : 1), this.uniformValues.uniform1i(a, s.alphaMode, l ? o.alphaMode === `OPAQUE` ? 0 : o.alphaMode === `MASK` ? 1 : 2 : 2), this.bindMaterialTexture(require_mesh.materialBaseTexture(o), 0, o.textureSampler), this.drawMesh(e, s), t ? this.stats.draw(e.renderGeometry.indices.length, e instanceof require_instanced_mesh.InstancedMesh ? e.count : 1) : this.stats.shadowDrawCalls++;
+				this.sendMaterialUV(s[`materialCoordinates[0]`], o, e.renderGeometry), this.shadowViewStamps.get(c) !== g && (a.uniformMatrix4fv(s.viewProjection, !1, h), this.shadowViewStamps.set(c, g)), this.uniformValues.uniform1i(a, s.image, 0), this.uniformValues.uniform1f(a, s.alphaCutoff, l ? o.alphaCutoff : 0), this.uniformValues.uniform1f(a, s.opacity, o.opacity), this.uniformValues.uniform1f(a, s.meshFade, this.visibility.entries.get(e)?.fade ?? 1), this.uniformValues.uniform1i(a, s.doubleSided, l && !o.doubleSided ? 0 : 1), this.uniformValues.uniform1i(a, s.alphaMode, l ? o.alphaMode === `OPAQUE` ? 0 : o.alphaMode === `MASK` ? 1 : 2 : 2), this.bindMaterialTexture(require_mesh.materialBaseTexture(o), 0, o.textureSampler), this.drawMesh(e, s, void 0, void 0), t ? this.stats.draw(e.renderGeometry.indices.length, e instanceof require_instanced_mesh.InstancedMesh ? e.count : 1) : this.stats.shadowDrawCalls++;
 			}
 		}
 		a.disable(a.SCISSOR_TEST), t || this.shadowCache.commit();

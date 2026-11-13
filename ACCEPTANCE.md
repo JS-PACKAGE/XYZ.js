@@ -25569,3 +25569,221 @@ GPU控制的變化不能歸因於GL候選；single的極小時間與相對變化
 - 已實跑192筆native clocks、各頁診斷及draw／upload一致斷言、105筆raw數值呼叫對照。固定矩陣僅執行一次，未量或推定heap／GC、JIT layout、machine instructions或GPU／present FPS。
 - 六文件Prettier與Markdown相對檔案連結檢查；歷史以size／mtimeNs／4096-byte尾端guard後只append。兩個服務與全部自有throwaway檔案在提交前清理。
 - CPU gate即否決；未執行另行native uniform／getUniform、source／dist pixel readback、material lifecycle、showcase、build、typecheck、lint或完整tests。僅預備參考舊native proof driver而未執行；不能把舊P215 scalar-storage baseline假裝成本輪驗證。
+
+## P220 — Primary GL color-phase native VAO reuse（採用，2026-11-14）
+
+### 範圍與正式路徑
+
+- 先檢查 sampler：core samplerOptions 會 freeze normalized descriptors，GL cacheSampler 已有 frozen WeakMap。既有 profile 沒有獨立 cacheSampler self samples，八組 CPU fixture 亦未指定 sampler descriptors，因此不為這條缺乏熱路徑證據的路徑再加 cache。
+- 改採 graphics 內部主要 3D color phase：local boundVAO 以 unknown 起始，private drawMesh 比較實際 native VAO identity、必要才 bind，並回傳本次 VAO。不跨 phase/frame 記憶、不新增 tuple/配置/native state query，不改 attribute/skin/instance 設定、draw dispatch、residency touch、公開入口或 facade。
+- 最初受限範圍只看到 color caller；完整 source references 找到第二個 shadow/contact caller，於量測前一併遷移至 required packed/previousVAO 參數，後者明確每次傳 unknown，保留既有逐 draw native bind。沒有 optional shim。LSP 此環境不可用，使用完整 source references fallback。
+- cacheGeometry refresh 已 bind 原 VAO；cold upload 最後會 unbind，新的實際 VAO 與前筆不同，因此仍正確 bind。retire/recreate 使用新 native identity，不把 CPU Geometry identity 當成已綁定 handle。
+- 工具版本與支援範圍：pinned managed Chromium 153.0.8010.12，darwin/arm64，desktop automation；不是 Safari、Firefox、實機或三 backend 認證。版本維持 1.23.0，沒有 push。
+
+### 固定完整 native CPU matrix
+
+每 backend 六輪 fresh serial AB/BA、每頁八個 workload，總計 192 rows。實際 canonical renderer 的完整 beginFrame/render/endFrame submit：四個診斷 frame 後恢復 motion observer，六個 warm frames、四批十個 warm frames 各於時計外 flush，再量測連續 24 frames；GPU queue wait／GL finish 在時計外。所有 CPU 時計先完成，才安裝 native observers/readbacks；沒有挑選有利 round、刪除 outlier 或重跑 CPU 矩陣。每組十二 rows 的 drawCalls/uploadBytes 完全一致，motion owner／pose/run diagnostics 一致且無 page/console errors。
+
+CPU fixture 延續既有 PBRMaterial default BLEND；none 表示 motion blur 關閉，不代表 OPAQUE。shared、unique、alternating 與兩組 maps 各有一千 meshes；instance 為一千 instances 的單一 mesh，single 為單 mesh。WebGPU 是未執行本 GL 改動的控制組。單位為本機完整 CPU submit ms，不是 GPU 時間或呈現 fps；負百分比表示較快。
+
+| backend | workload         | before ms/submit | after ms/submit | change % |
+| ------- | ---------------- | ---------------: | --------------: | -------: |
+| webgl2  | none             |         0.922917 |        0.856250 |    -7.22 |
+| webgl2  | shared           |         1.083333 |        1.070833 |    -1.15 |
+| webgl2  | unique           |         2.510417 |        2.533333 |     0.91 |
+| webgl2  | instance         |         0.247917 |        0.243750 |    -1.68 |
+| webgl2  | alternating      |         1.927083 |        1.841667 |    -4.43 |
+| webgl2  | single           |         0.012500 |        0.012500 |     0.00 |
+| webgl2  | distinct-maps    |         1.129167 |        1.070833 |    -5.17 |
+| webgl2  | alternating-maps |         1.072917 |        1.041667 |    -2.91 |
+| webgpu  | none             |         0.754167 |        0.743750 |    -1.38 |
+| webgpu  | shared           |         0.910417 |        0.916667 |     0.69 |
+| webgpu  | unique           |         1.172917 |        1.143750 |    -2.49 |
+| webgpu  | instance         |         0.154167 |        0.152083 |    -1.35 |
+| webgpu  | alternating      |         1.093750 |        1.077083 |    -1.52 |
+| webgpu  | single           |         0.020833 |        0.020833 |     0.00 |
+| webgpu  | distinct-maps    |         1.125000 |        1.127083 |     0.19 |
+| webgpu  | alternating-maps |         1.089583 |        1.106250 |     1.53 |
+
+GL 目標 workload 有正向訊號；unique 略慢、single 持平，GPU 控制亦有波動，故不宣稱普遍收益，也不由 source/native API 次數推定 heap、GC、JIT 指令、GPU 或呈現 fps。採用理由是小型 allocation-free phase-local design 加上實際 native bind 減少、完整 CPU 對照與語意 gates，而不是只比較 source 行數。
+
+### 實際 native VAO／geometry／shadow gates
+
+正式套用後的 source 與實際編譯 dist 各做 22 個 before/after frame pairs，共 44 pairs、2,883,584 RGBA bytes 的逐 byte 對照；兩 entry 結果一致。此 untimed fixture 明確使用 OPAQUE bulk material，不冒充 CPU default-BLEND 量測。直接包住實際 private drawMesh，保留其 return value；在每次真實 drawElements/drawElementsInstanced 前，確認實際 VERTEX_ARRAY_BINDING 等於該 mesh 的 cacheGeometry native VAO，再呼叫真正 native draw。不是 mock、source-text 檢查或替代 renderer。
+
+涵蓋 warm shared/unique/alternating/instanced、公開 vertices 修改＋markUpdated、公開 setColors、cold geometry、實際 allocation.destroy 的 cache retirement＋新 native VAO recreation、SSR 後同 geometry 的 BLEND，以及真正開啟的 directional shadow atlas。每個 stage 精確比對 RGBA、actual native mesh draws、distinct VAO、public draw/upload、shadowDrawCalls/shadowPasses，GL error 為 NO_ERROR。shadow stage 實際有 1,001 shadow draws、一個 shadow pass；不是只確認沒有 throw。表列為每 entry 同一結果，actual mesh draws 在 shadow stage 包含 depth draws，不等同於 public color drawCalls。
+
+| workload/stage                    | actual mesh draws | before VAO binds | after VAO binds | shadow draws |
+| --------------------------------- | ----------------: | ---------------: | --------------: | -----------: |
+| none/warm                         |              1000 |             1000 |               1 |            0 |
+| none/vertices-updated             |              1000 |             1001 |               2 |            0 |
+| none/vertex-colors-updated        |              1000 |             1001 |               2 |            0 |
+| none/cold-geometry                |              1001 |             1003 |               4 |            0 |
+| none/retired-recreated            |              1001 |             1003 |               4 |            0 |
+| none/ssr-shared-blend             |              1001 |             1001 |               2 |            0 |
+| none/native-shadow-unknown-VAO    |              2002 |             2002 |            1003 |         1001 |
+| unique/warm                       |              1000 |             1000 |            1000 |            0 |
+| unique/vertices-updated           |              1000 |             1001 |            1001 |            0 |
+| unique/vertex-colors-updated      |              1000 |             1001 |            1001 |            0 |
+| unique/cold-geometry              |              1001 |             1003 |            1003 |            0 |
+| unique/retired-recreated          |              1001 |             1003 |            1003 |            0 |
+| alternating/warm                  |              1000 |             1000 |            1000 |            0 |
+| alternating/vertices-updated      |              1000 |             1001 |            1001 |            0 |
+| alternating/vertex-colors-updated |              1000 |             1001 |            1001 |            0 |
+| alternating/cold-geometry         |              1001 |             1003 |            1003 |            0 |
+| alternating/retired-recreated     |              1001 |             1003 |            1003 |            0 |
+| instance/warm                     |                 1 |                1 |               1 |            0 |
+| instance/vertices-updated         |                 1 |                2 |               2 |            0 |
+| instance/vertex-colors-updated    |                 1 |                2 |               2 |            0 |
+| instance/cold-geometry            |                 2 |                4 |               4 |            0 |
+| instance/retired-recreated        |                 2 |                4 |               4 |            0 |
+
+### 負例與修正過的驗證假設
+
+- 最初聲稱 SSR→BLEND 的 cross-phase tracker 必錯，但 fixture 原先繼承 default BLEND，沒有真正 opaque bulk；改成 explicit OPAQUE 後，額外 cold geometry 又可能讓上一筆 VAO 不同，令 variant 仍會 bind。移開 cold control mesh、強制兩側同一 target VAO 後，實際 native 檢查仍通過該 cross-phase variant。這只表示該 SSR scene 不會使它出錯，沒有冒稱抓到 bug，也不推導所有中間 pass 都安全。正式 design 仍沿用 phase-local unknown ownership，避免依賴其他 pass 的未追蹤狀態。
+- 真正負例僅在 previousVAO unknown 時 bind，不比較 distinct native identity。確認 restart 後實際 served module 是此 first-only 版本，實際 cold geometry upload/unbind 後，在 native draw 前確實報 Wrong actual primary VAO none/cold-geometry。這個錯誤來自真正 native binding，不是預設失敗／fake pixel；正向 source/dist 皆通過同一 gate。
+- 外部 prototype TS 不在最小 Vite load override 的 watch set，切換真正負例時明確重啟 owned service，不把舊 module cache 當新候選。
+
+### Extended native pixels、counter 與資源
+
+source/dist × WebGL2/WebGPU 的 before/after 四個 suite 均完成：每頁 26 個 extended scenarios、102 frame pairs，合計 408 pairs、26,869,760 RGBA bytes。逐 frame 精確比對 native RGBA、drawCalls/uploadBytes 及其餘十一個穩定 public counters；page/console、native validation/proof errors 皆空。GL 每 entry 實際 62 motion passes／1,300 poses，actual matrix/geometry/depth inputs、bindBuffer、vertexAttribPointer、uniformMatrix4fv 與既有 mat4-array layout 完全一致。GPU motion 內部未安裝此 GL observer，不把空 trace 冒稱 GPU pose proof。
+
+每個 GL entry 實際 program/VAO/buffer/texture create/delete 分別平衡為 38/32/70/58，before/after 完全一致。此 observer 不追蹤 GPU native resource counters 或額外 GL sampler/framebuffer kinds，沒有把空 counters 當它們的 lifecycle 認證。P215 專用 scalar/sampler uniform snapshots／storage-shape probe 並未重跑；本輪未修改該 cache 模組。
+
+### Official native surface 與 showcase
+
+正式 /tests/browser/post-effects.html 與 explicit built-dist fixture，source/dist × WebGPU/WebGL2 四組各完成原本的 24 scenarios，沒有 page/console errors。這與上面的 26-scenario extended proof 分開計數，不把兩個額外 controls 冒充正式 fixture 新功能。
+
+最初 smoke timeout 是暫存 dist fixture 的 harness 問題：retained 原始 import 實際為 ../../src/index.js，假設 xyz.js 的非 guarded replace 沒有作用，Vite 暫存 module 回應 HTTP 500（16,379-byte error body）。先以真正 native adapter/device/pipeline/map/submit 與 RAF trace 證明 canonical GPU page 完成 24 scenarios，再用確切原始字串的 guarded replace 改為 /dist/src/index.js，確認實際 served module 是 built entry 後，完整重跑四組 official smoke 與兩個 showcase 皆通過。沒有因 harness timeout 修改 renderer 或官方 fixture。
+
+canonical showcase 實際選定 GPU/GL backend、Scene A→B，PNG 皆已視覺檢查：2D sprite/primitive 與 lit/depth-tested cube/sphere 可見。pagehide 的真實 native cleanup counters 如下；為累積 destroy/delete 次數，不推導所有 live allocations 為零或完整 no-leak 認證。Audio 當時仍 locked，沒有重驗 unlock／音訊相容性。
+
+| backend | native cleanup counter | before pagehide | after pagehide |
+| ------- | ---------------------- | --------------: | -------------: |
+| webgpu  | buffers                |              10 |             32 |
+| webgpu  | textures               |               1 |             15 |
+| webgpu  | programs               |               0 |              0 |
+| webgpu  | devices                |               0 |              1 |
+| webgl2  | buffers                |               6 |             16 |
+| webgl2  | textures               |               1 |              6 |
+| webgl2  | programs               |               0 |             15 |
+| webgl2  | devices                |               0 |              0 |
+
+### Build、型別與 focused checks
+
+- 真正隔離副本執行 tsc → minify-dist → copy-vendor → build-cjs，全部通過；只在 byte guard 確認 root 輸出沒有並行變更後提升本 renderer 四個 ESM/CJS JS/maps。private .d.ts byte-identical，沒有重建 root dist tree 或複製使用者 physics/world 產物。
+- tsconfig.check typecheck、focused draw-order/resource-residency/resilient-renderer 三個檔案共 30 tests、renderer ESLint 與 renderer Prettier check 通過。未重跑全庫 tests/lint、install 或未變更模組的其他 runtime 認證。
+
+### 全部 paired CPU rows
+
+以下保留固定矩陣的全部 192 次 sample 值，未 trim；每格為連續 24 frames 的 ms/submit。
+
+#### WebGL2
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           3.691667 |          0.825000 |
+| shared / 1           |           1.012500 |          0.995833 |
+| unique / 1           |           2.454167 |          2.458333 |
+| instance / 1         |           0.245833 |          0.241667 |
+| alternating / 1      |           1.816667 |          1.816667 |
+| single / 1           |           0.008333 |          0.012500 |
+| distinct-maps / 1    |           1.058333 |          1.020833 |
+| alternating-maps / 1 |           1.045833 |          1.033333 |
+| none / 2             |           0.875000 |          0.837500 |
+| shared / 2           |           1.108333 |          1.062500 |
+| unique / 2           |           2.950000 |          2.608333 |
+| instance / 2         |           0.279167 |          0.245833 |
+| alternating / 2      |           2.112500 |          1.808333 |
+| single / 2           |           0.016667 |          0.012500 |
+| distinct-maps / 2    |           1.133333 |          1.079167 |
+| alternating-maps / 2 |           1.141667 |          0.995833 |
+| none / 3             |           0.900000 |          0.916667 |
+| shared / 3           |           1.075000 |          1.079167 |
+| unique / 3           |           2.508333 |          2.533333 |
+| instance / 3         |           0.245833 |          0.237500 |
+| alternating / 3      |           1.883333 |          1.850000 |
+| single / 3           |           0.008333 |          0.016667 |
+| distinct-maps / 3    |           1.091667 |          1.066667 |
+| alternating-maps / 3 |           1.070833 |          1.045833 |
+| none / 4             |           0.895833 |          0.825000 |
+| shared / 4           |           1.116667 |          1.083333 |
+| unique / 4           |           2.512500 |          2.533333 |
+| instance / 4         |           0.250000 |          0.241667 |
+| alternating / 4      |           1.970833 |          1.833333 |
+| single / 4           |           0.012500 |          0.008333 |
+| distinct-maps / 4    |           1.125000 |          1.150000 |
+| alternating-maps / 4 |           1.045833 |          1.062500 |
+| none / 5             |           0.966667 |          0.904167 |
+| shared / 5           |           1.066667 |          1.041667 |
+| unique / 5           |           2.491667 |          2.541667 |
+| instance / 5         |           0.254167 |          0.245833 |
+| alternating / 5      |           1.887500 |          1.862500 |
+| single / 5           |           0.012500 |          0.012500 |
+| distinct-maps / 5    |           1.166667 |          1.066667 |
+| alternating-maps / 5 |           1.075000 |          1.037500 |
+| none / 6             |           0.945833 |          0.875000 |
+| shared / 6           |           1.091667 |          1.108333 |
+| unique / 6           |           2.858333 |          2.516667 |
+| instance / 6         |           0.245833 |          0.250000 |
+| alternating / 6      |           1.966667 |          2.070833 |
+| single / 6           |           0.012500 |          0.012500 |
+| distinct-maps / 6    |           1.179167 |          1.075000 |
+| alternating-maps / 6 |           1.087500 |          1.045833 |
+
+#### WebGPU 未變更控制
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           0.750000 |          0.716667 |
+| shared / 1           |           0.916667 |          0.941667 |
+| unique / 1           |           1.137500 |          1.141667 |
+| instance / 1         |           0.145833 |          0.154167 |
+| alternating / 1      |           1.037500 |          1.066667 |
+| single / 1           |           0.020833 |          0.020833 |
+| distinct-maps / 1    |           1.129167 |          1.120833 |
+| alternating-maps / 1 |           1.062500 |          1.145833 |
+| none / 2             |           0.766667 |          0.787500 |
+| shared / 2           |           0.920833 |          0.908333 |
+| unique / 2           |           1.187500 |          1.137500 |
+| instance / 2         |           0.154167 |          0.150000 |
+| alternating / 2      |           1.041667 |          1.045833 |
+| single / 2           |           0.016667 |          0.020833 |
+| distinct-maps / 2    |           1.075000 |          1.108333 |
+| alternating-maps / 2 |           1.154167 |          1.054167 |
+| none / 3             |           0.787500 |          0.720833 |
+| shared / 3           |           0.900000 |          0.912500 |
+| unique / 3           |           1.245833 |          1.145833 |
+| instance / 3         |           0.154167 |          0.150000 |
+| alternating / 3      |           1.150000 |          1.079167 |
+| single / 3           |           0.020833 |          0.025000 |
+| distinct-maps / 3    |           1.120833 |          1.133333 |
+| alternating-maps / 3 |           1.062500 |          1.075000 |
+| none / 4             |           0.716667 |          0.766667 |
+| shared / 4           |           0.933333 |          0.920833 |
+| unique / 4           |           1.158333 |          1.141667 |
+| instance / 4         |           0.154167 |          0.150000 |
+| alternating / 4      |           1.116667 |          1.112500 |
+| single / 4           |           0.020833 |          0.020833 |
+| distinct-maps / 4    |           1.137500 |          1.108333 |
+| alternating-maps / 4 |           1.066667 |          1.108333 |
+| none / 5             |           0.758333 |          0.700000 |
+| shared / 5           |           0.895833 |          0.912500 |
+| unique / 5           |           1.141667 |          1.254167 |
+| instance / 5         |           0.150000 |          0.162500 |
+| alternating / 5      |           1.087500 |          1.075000 |
+| single / 5           |           0.020833 |          0.025000 |
+| distinct-maps / 5    |           1.420833 |          1.137500 |
+| alternating-maps / 5 |           1.212500 |          1.170833 |
+| none / 6             |           0.716667 |          0.775000 |
+| shared / 6           |           0.904167 |          0.929167 |
+| unique / 6           |           1.208333 |          1.158333 |
+| instance / 6         |           0.158333 |          0.154167 |
+| alternating / 6      |           1.100000 |          1.108333 |
+| single / 6           |           0.025000 |          0.020833 |
+| distinct-maps / 6    |           1.120833 |          1.133333 |
+| alternating-maps / 6 |           1.112500 |          1.104167 |
+
+### 清理與歷史保護
+
+已停止本輪六個 owned service instances，移除 exact manifest 的 16 個暫存 surface files、48 個 temporary root 頂層 entries（含完整隔離 build tree），未刪除使用者檔案。六份既有文件同步；ACCEPTANCE 僅將新段依正式 Prettier config 格式化後，在 size/mtimeNs/4,096-byte-tail guard 下 append，不重寫任何歷史驗收或冒稱歷史 runtime 重跑。

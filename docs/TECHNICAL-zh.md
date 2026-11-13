@@ -7301,3 +7301,11 @@ GL uniform cache維持原signed-zero比較式。零分支Object.is原型保留10
 但192筆完整native submit沒有收益；未變更GPU對照亦有波動，不從source運算數
 推定JIT指令或機器層級原因。Runtime檔案不變；全部paired CPU資料與native
 pixels／lifecycle、heap、FPS的未驗證範圍見[ACCEPTANCE](../ACCEPTANCE.md) P219。
+
+## P220：primary GL color phase 的 VAO 綁定
+
+主要 3D color loop 只帶入同一 phase 上一筆實際 native VAO；private drawMesh 在 identity 不同時 bind，並回傳本次使用的 VAO。每個 phase 重新從 unknown 開始，shadow/contact caller 每次明確傳 unknown。沒有持久 state mirror、額外配置、native state query、公開 GPU handle、入口或相依套件。
+
+cache refresh 本身會 bind 原 VAO；cold upload 與 retire/recreate 的 native handle 不同，因此 upload/unbind 後仍會正確綁回。所有 attribute/skin/instance 設定、draw dispatch、順序與 residency touch 都保留，private declaration byte-identical。
+
+固定 CPU matrix 沿用 default-BLEND material；explicit OPAQUE 與 SSR 後 shared-BLEND 是分開的 untimed native controls，不是重跑挑選的 CPU samples。在該 SSR scene 仍正確的 cross-phase variant 不冒稱被抓到的錯誤；真正 first-only-bind negative 在 cold draw 被實際 native VAO identity 擋下。source/dist geometry、pixel、public counters、shadow 與 cleanup 的執行結果和瀏覽器範圍見 [ACCEPTANCE](../ACCEPTANCE.md)。不擴大為所有 workload、GPU／呈現 fps、heap／GC、Safari、Firefox、Canvas2D 等價性或實機認證。

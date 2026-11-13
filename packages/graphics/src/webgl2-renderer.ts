@@ -2665,6 +2665,8 @@ export class WebGL2Renderer implements Renderer {
       // sent; each set is sent at a program's first draw (with PBR maps, for PBR maps).
       let unitsProgram: WebGLProgram | undefined;
       let pbrUnitsProgram: WebGLProgram | undefined;
+      // Other passes may bind VAOs; reuse is confined to this phase.
+      let boundVAO: WebGLVertexArrayObject | undefined;
       for (const object of draws) {
         const blended = this.isColorBlended(object);
         if (this.weighted && blended !== oitPass > 0) continue;
@@ -3224,7 +3226,7 @@ export class WebGL2Renderer implements Renderer {
           );
         }
         const packed = visibility?.instances;
-        this.drawMesh(object, uniforms, packed);
+        boundVAO = this.drawMesh(object, uniforms, packed, boundVAO);
         this.stats.draw(
           object.geometry.indices.length,
           packed?.count ?? (object instanceof InstancedMesh ? object.count : 1),
@@ -3452,13 +3454,15 @@ export class WebGL2Renderer implements Renderer {
   private drawMesh(
     mesh: Mesh,
     uniforms: Record<string, WebGLUniformLocation | null>,
-    packed?: VisibleInstances,
-  ): void {
+    packed: VisibleInstances | undefined,
+    previousVAO: WebGLVertexArrayObject | undefined,
+  ): WebGLVertexArrayObject {
     const gl = this.gl!;
     const geometry = this.cacheGeometry(mesh.renderGeometry);
     geometry.seen = this.frame;
     gl.uniformMatrix4fv(uniforms.model, false, mesh.worldMatrix.elements);
-    gl.bindVertexArray(geometry.vao);
+    // A refresh binds this VAO; a new VAO cannot equal the previous draw's.
+    if (geometry.vao !== previousVAO) gl.bindVertexArray(geometry.vao);
     if (!this.meshAttributeDefaults) {
       // Generic attribute values are context state shared by every VAO and are
       // only written here, so one write per mesh pass keeps the white/zero defaults.
@@ -3568,6 +3572,7 @@ export class WebGL2Renderer implements Renderer {
         0,
       );
     }
+    return geometry.vao;
   }
 
   private cacheSkin(mesh: SkinnedMesh): CachedSkin {
@@ -3904,7 +3909,7 @@ export class WebGL2Renderer implements Renderer {
           0,
           material.textureSampler,
         );
-        this.drawMesh(object, uniforms);
+        this.drawMesh(object, uniforms, undefined, undefined);
         if (contactTarget)
           this.stats.draw(
             object.renderGeometry.indices.length,

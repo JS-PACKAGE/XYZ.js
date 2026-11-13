@@ -64,6 +64,12 @@ GL vector uniform的number tuple候選未採用：完整native submit結果混�
 
 GL signed-zero比較的Object.is候選未採用：數值對照一致，但完整native submit沒有收益；維持原比較式，不推定JIT指令或FPS改善。A zero-sign Object.is prototype preserved numerical calls but did not improve complete native submit; the original comparison remains, without JIT-instruction or FPS claims. GLのsigned-zero比較にObject.isを使う案は数値呼び出しが一致してもnative submitの利益がないため不採用です。元の比較式を維持し、JIT命令やFPS改善を推定しません。
 
+**P220 — phase-local GL VAO reuse（採用）**：主要 3D color loop 以實際 native VAO identity 略過同一 phase 的重複綁定；冷載入、geometry 更新／重建與 shadow caller 保留正確綁定，不增加持久快取或公開 GPU handle。量測只支持目標 workload 的 CPU submit 改善，不宣稱通用 GPU／呈現 fps 提升；完整證據見 [ACCEPTANCE](ACCEPTANCE.md)。
+
+**P220 — phase-local GL VAO reuse (adopted):** primary 3D color draws reuse the actual native VAO only within one phase. Cold/updated/recreated geometry and the shadow caller retain their binding contract, without a persistent tracker or public GPU handle. Target-workload CPU submit results are not a universal GPU/presentation-FPS claim.
+
+**P220 — phase-local GL VAO reuse（採用）:** 主要な 3D color phase 内だけで実 native VAO の重複 bind を省略します。初回 upload、geometry 更新・再生成、shadow caller の契約を維持し、永続 cache や公開 GPU handle は追加しません。対象 workload の CPU submit 測定であり、一般的な GPU／表示 FPS 改善の主張ではありません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

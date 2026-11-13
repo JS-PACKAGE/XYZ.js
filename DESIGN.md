@@ -6123,3 +6123,11 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   可保存正負零契約，但不能只憑source不再有reciprocal expressions就宣稱JIT指令減少。
 - 固定native矩陣沒有完整路徑收益，未變更GPU控制亦有波動；不以此確定intrinsic或division
   的單一機器層級成本。維持原比較式，不改cache表示、不增加分支、欄位或API。
+
+## P220 — GL primary color phase 的 native VAO identity
+
+沿用 color loop 既有 program/depth/blend 的 phase-local ownership，不引入全域 GL state mirror。每個 phase 以 unknown 開始，private drawMesh 比較本次 cacheGeometry 回傳的 native VAO 與上一筆，必要才 bind，再回傳本次 VAO。geometry refresh 會自行 bind 同一個 VAO；cold／retire 後新 VAO 不會等於上一個 handle，因此仍會在 cache upload/unbind 後正確綁回。attribute defaults、skin／instance 設定、draw 順序與 residency touch 均不省略。
+
+完整 source references 找到 color 與 shadow/contact 兩個 private caller，均遷移至明確 packed/previousVAO 參數；後者每次傳 unknown，保留原本逐 draw 綁定，不把 color loop tracker 偷帶入 depth pass。此回傳值只在 graphics 內部使用，Game/Scene facade 與公開型別不外洩 GPU handle。
+
+沒有 persistent tuple、額外配置、native state query、sampler 快取或 fallback 改動。完整 CPU matrix、實際 native VAO／RGBA controls、失敗的敏感度假設及真正 cold-geometry negative 依階段留在 ACCEPTANCE；native API 減少不等同於 GPU／呈現 fps 提升。
