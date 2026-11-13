@@ -5991,3 +5991,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 執行單次固定 192-row 完整 native submit 矩陣，保留全部六輪 AB/BA clocks 與首輪 outlier；GL-only 候選的 GPU 路徑是未改動控制。
 - CPU 結果混合後另做十二份 native heap profiles，兩 workload 各三對、每份 512 full submits。binding/reset 歸因 sampled bytes 全部配對增加，不能支持減少配置的假設。
 - 否決候選，source/dist／版本不變；canvas harness 初次錯誤、全部 paired clocks、allocation 統計與未重驗邊界見 ACCEPTANCE P223。只提交文件，不 push。
+
+## P224 — Fix WebGPU lightmap sampler selection first
+
+- primitive emissive-mode 原型完成固定 CPU／allocation 量測，但尚未採用；GL 原型對照一致，canonical GPU 卻在 active lightmap sampler 正向控制失敗。
+- root cause 是 material binding 9 固定讀取 emissiveSampler，忽略共用 slot 已選出的 lightmapSampler；只修正為消費同一 slot 的 sampler，不改 core helper、GL、公開 API 或 binding layout。
+- 在既有 shader-variants browser lightmap case 加入實際 nearest／linear 像素差異與 conflicting emissive sampler 優先順序回歸，不刪除或放寬任何原驗證。
+- 本階段只提交 sampler 正確性修正與對應 GPU 產物；原型量測不當作修正的效能成績，完整證據與限制見 ACCEPTANCE P224，不 push／升版。

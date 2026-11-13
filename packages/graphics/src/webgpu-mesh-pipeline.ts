@@ -3266,8 +3266,8 @@ export class WebGPUMeshPipeline {
           },
           {
             binding: 9,
-            resource: pbr
-              ? this.cacheSampler(material.emissiveSampler)
+            resource: emissiveSlot
+              ? this.cacheSampler(emissiveSlot.sampler)
               : this.sampler,
           },
           { binding: 10, resource: specular },

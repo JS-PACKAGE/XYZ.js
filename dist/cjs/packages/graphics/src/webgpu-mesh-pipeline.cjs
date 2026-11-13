@@ -1749,7 +1749,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 9,
-						resource: n ? this.cacheSampler(t.emissiveSampler) : this.sampler
+						resource: d ? this.cacheSampler(d.sampler) : this.sampler
 					},
 					{
 						binding: 10,

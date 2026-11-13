@@ -6149,3 +6149,11 @@ P222 的實際來源 helper 對照顯示，公開陣列 push／pop 會被既有 
 GL pass binding tracker 已是兩個 private flat arrays；undefined 是未知狀態，null 是合法 texture／sampler 綁定，不能互換。隔離候選只將兩個 length=0 改成 fill(undefined)，仍清除舊 resource references，不改 active unit、attribute invalidation 或 upload／skin 的實際綁定更新。
 
 完整 CPU 結果混合，另做的 native heap sampling 更不支持配置減少：binding/reset 歸因 sampled bytes 每一對都增加。保留 JavaScript array 長度不能直接推定 V8 backing-store 重用或精確 allocation 次數；本輪不推定具體 VM 機制，也不把 sampled bytes 換算 GPU、retained heap 或 FPS。候選未採用，原有短小 reset 不變；完整資料見 ACCEPTANCE P223。
+
+## P224 — Texture 與 sampler 必須消費同一 occupancy 決策
+
+core 的既有 emissive slot 已同時解決 texture、sampler、mode，並讓 lightmap 優先於 emission。GPU cacheMesh 雖使用 slot 的 texture，material binding 9 卻另讀 material.emissiveSampler，造成選中 lightmap 時 sampler 來源分裂。
+
+修正只讓 binding 9 消費既有 slot.sampler，不再重複推導，也不新增 cache／scratch／resource holder 或改變 binding ABI。primitive mode 配置原型本輪未採用，Core／GL helper 契約保持原樣；其 CPU／heap observations 與 sampler bug-fix 證據分開。
+
+lightmapStrength 預設為零，單靠 before/after 相同可能只驗到 dormant branch。回歸必須顯式啟用 lightmap，確認 sampler 切換有實際像素差異，並確認 conflicting emissiveSampler 不覆寫 lightmapSampler；NativePBR 仍遵守正式 explicit preparation 契約。

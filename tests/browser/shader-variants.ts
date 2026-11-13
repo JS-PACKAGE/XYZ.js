@@ -372,6 +372,55 @@ async function run(): Promise<void> {
               `${name}: physical hook did not render a red surface.`,
             );
         }
+        if (name === 'lightmap') {
+          const previous = mesh.material;
+          try {
+            setMeshMaterial(
+              mesh,
+              new PBRMaterial({
+                ...options,
+                lightmapSampler: { magFilter: 'nearest' },
+              }),
+            );
+            const nearest = await draw(scene);
+            setMeshMaterial(
+              mesh,
+              new PBRMaterial({
+                ...options,
+                lightmapSampler: { magFilter: 'linear' },
+              }),
+            );
+            const linear = await draw(scene);
+            for (let i = 0; i < nearest.bytes.length; i += 4)
+              if (
+                Math.max(
+                  Math.abs(nearest.bytes[i]! - linear.bytes[i]!),
+                  Math.abs(nearest.bytes[i + 1]! - linear.bytes[i + 1]!),
+                  Math.abs(nearest.bytes[i + 2]! - linear.bytes[i + 2]!),
+                ) > 3
+              )
+                changedPixels++;
+            if (changedPixels < 20)
+              throw new Error(
+                'Lightmap sampler did not change rendered pixels.',
+              );
+            setMeshMaterial(
+              mesh,
+              new PBRMaterial({
+                ...options,
+                lightmapSampler: { magFilter: 'linear' },
+                emissiveSampler: { magFilter: 'nearest' },
+              }),
+            );
+            const conflicting = await draw(scene);
+            if (linear.bytes.some((value, i) => value !== conflicting.bytes[i]))
+              throw new Error(
+                'Emissive sampler overrode the lightmap sampler.',
+              );
+          } finally {
+            setMeshMaterial(mesh, previous);
+          }
+        }
         let differentBytes = 0;
         let maximumDifference = 0;
         for (let i = 0; i < optimized.bytes.length; i++) {
@@ -387,7 +436,7 @@ async function run(): Promise<void> {
             ? 'native-full-repeat'
             : 'ordinary-repeat-with-external-full-reference',
           pixels: Array.from(optimized.bytes),
-          ...(custom ? { changedPixels } : {}),
+          ...(custom || name === 'lightmap' ? { changedPixels } : {}),
         });
         if (differentBytes)
           throw new Error(

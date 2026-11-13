@@ -7321,3 +7321,7 @@ private shader BIT 保留原本單一 featureOrder 定義與 TypeScript readonly
 ## P223：未採用 binding scratch 長度保留
 
 GL binding scratch arrays 維持原本 length-zero reset。隔離候選改以 undefined 填滿兩個 private arrays，仍保留 unknown／null 語意並清除 resource references，不改 active unit／attribute invalidation。固定完整 submit CPU 矩陣混合；另做包含已 GC 物件的 heap sampling 後，每對 bindUnit/resetPassState 歸因 sampled bytes 都增加。array 長度本身不是 backing-store 重用的證據；不推定精確 allocation count、VM 機制、retained heap、GPU 或 FPS 效果。source/dist 與公開契約不變，全部 clocks、sampled-byte 配對、harness 修正與未重驗項目見 [ACCEPTANCE](../ACCEPTANCE.md) P223。
+
+## P224：WebGPU lightmap sampler 正確性
+
+material binding 9 現在與 texture 一樣消費既有 resolved emissive slot 的 sampler；lightmap 同時擁有 texture 與 sampler，衝突的 emissiveSampler 不會取代 lightmapSampler。這修正了實際 canonical GPU 渲染 Bug，不改 Core／GL helper、公開 API 或 binding layout。可見 lightmap 驗證會顯式啟用預設為零的 finish.lightmapStrength；native physical material 仍須正式 explicit preparation。同輪另量測的 primitive-mode 配置原型本階段未採用，也不是這個修正的效能成績。native consumer、回歸與產物驗證見 [ACCEPTANCE](../ACCEPTANCE.md) P224。
