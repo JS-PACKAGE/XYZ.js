@@ -5884,3 +5884,13 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - Native timing只切換actual Matrix4 prototype method，所有Scene／renderer／history為正式
   implementation；每個batch外另warm六frames，pixel／payload observers在不同process。
 - 小場景GL反向和instances近持平不隱藏；有界copy／history CPU收益不是全路徑或FPS保證。
+
+## P202 — Arithmetic equivalence does not make a shared hot writer faster
+
+- 候選僅共用既有private product writer至output-alias-left的instance world product；
+  不擴充通用Matrix4.multiply的alias契約，也不將較少顯式rhs locals當成register／CPU收益。
+- 保留world.copy(mesh.worldMatrix)在public getMatrixAt前，getter對world的修改及重入後
+  的private scratch行為均以真正root history receivers對照；late snapshot確實改變結果。
+- 數值與callback一致仍不足以採用：Node active instances約慢3.5–5.5%，native無穩定收益。
+  因此保留原this.world.multiply(this.instance)及writeClipTransform，不加入branch／shim。
+- 本階段只有文件與否決證據，不以未重跑的正式pixel、heap或FPS範圍假冒新認證。

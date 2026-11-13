@@ -5727,3 +5727,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - Native100rigid上中位數GPU／GL約-9.7%／-5.4%；4096 instances近持平，GL單mesh反向
   保留。不以helper或有界submit數字宣稱所有場景／backend／FPS改善，詳ACCEPTANCE P201。
 - 維持獨立功能commit、不push、不升版。
+
+## P202 — Reject private instance-world product-writer reuse
+
+- 不重做已否決的通用Matrix4.multiply改版；只在owned probe量既有private clip writer
+  共用至instance-world product的不同context，保留getMatrixAt前的world snapshot。
+- 24,000組left／self-alias products及public getter mutation／reentrant callback對照一致；
+  late snapshot negative改變packed transforms，不能順便省掉callback前的copy。
+- Node instance1／512／4096約慢3.5%／5.4%／5.5%；完整source native4096為GPU約-0.4%、
+  GL約+1.7%，rigid controls亦有波動，沒有足夠收益採用。
+- Production／dist／public API不變，只記錄否決理由及原始rounds；未執行build／tests或
+  宣稱本輪重新驗證正式pixels／showcase。移除owned probes後獨立記錄commit、不push、不升版。

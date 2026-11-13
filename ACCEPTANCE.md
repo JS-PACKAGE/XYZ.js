@@ -21971,3 +21971,188 @@ pagehide通過；world visibility凍結moving、distance20後，從實際900×50
 未重跑repo-wide lint、CJS runtime、Canvas2D、audio unlock、device loss或auto fallback；未認證
 Firefox／Safari／physical hardware，不擴大native-deformed motion的原fallback範圍。沒有heap／
 GC、GPU completion、端到端latency或FPS收益主張；小場景反向及instances近持平亦為本次證據。
+
+## P202 — Reject private instance-world product-writer reuse
+
+### 候選、證據與決策（2026-11-14，當時）
+
+- 版本仍為1.23.0；Node26.7.0／TypeScript6.0.3／pnpm12.6.0，darwin arm64。
+- 歷史通用Matrix4逐欄multiply已有數值一致但CPU無加速的拒絕紀錄。本輪沒有再改通用方法，
+  只在owned frozen module評估另一個context：將既有private clip writer共用至instance-world
+  output-alias-left product，仍保留public getMatrixAt前的world copy。
+- Private buffers在actual root history constructor中分別配置，probe確認world／instance
+  storage分離；沒有擴大public Matrix4.multiply的任意partial-overlap契約或新增public helper。
+- 12,000 finite Float32 pairs，各驗left-alias與exact self-alias，共24,000 products與目前
+  root Matrix4.multiply逐byte相同。Public getter每次修改mesh.worldMatrix的15個事件，
+  及同一actual history內nested build的重入對照，其packed draw／pose結果一致。
+- 錯誤late snapshot在getMatrixAt後重讀world，確實改變packed transforms；不能為省copy
+  把source snapshot移到callback後。這個negative不是只比method呼叫數。
+- 決策：否決。Node所有instance controls變慢，完整native instance結果亦無穩定收益。
+  Production source、dist、API、原writeClipTransform及world.multiply均未修改，只有文件紀錄。
+
+### 隔離Node actual-history CPU
+
+Math／callback proof與timing分process。Actual root ObjectMotionHistory receivers借用前後
+build，兩邊相同own method slot shape；不是縮寫math surrogate或空回傳。各fixture warm
+1,000 builds，4096 instances為200；每batch外另warm8次，六輪AB／BA。
+Single-object batch100,000次，512為500，4096為100；每batch後確認draw count不變。
+
+| Workload       | Before ns/build | Candidate ns/build | Change |
+| -------------- | --------------: | -----------------: | -----: |
+| rigid-1        |       66.881670 |          67.465830 |  0.87% |
+| rigid-512      |    27521.000000 |       27031.250000 | -1.78% |
+| instances-1    |       87.742910 |          90.847090 |  3.54% |
+| instances-512  |    27379.082000 |       28844.166000 |  5.35% |
+| instances-4096 |   221089.160000 |      233335.830000 |  5.54% |
+
+| Workload / round   | Before (ns/build) | After (ns/build) |
+| ------------------ | ----------------: | ---------------: |
+| rigid-1 / 1        |         93.655000 |        86.990830 |
+| rigid-1 / 2        |         67.496670 |        66.743750 |
+| rigid-1 / 3        |         66.732080 |        68.242500 |
+| rigid-1 / 4        |         66.362920 |        67.465830 |
+| rigid-1 / 5        |         66.881670 |        66.671660 |
+| rigid-1 / 6        |         66.294160 |        66.963330 |
+| rigid-512 / 1      |      27392.584000 |     31034.332000 |
+| rigid-512 / 2      |      27482.750000 |     27290.582000 |
+| rigid-512 / 3      |      27566.834000 |     26945.166000 |
+| rigid-512 / 4      |      27451.500000 |     26960.166000 |
+| rigid-512 / 5      |      27542.582000 |     26881.584000 |
+| rigid-512 / 6      |      27521.000000 |     27031.250000 |
+| instances-1 / 1    |        109.245830 |       105.787500 |
+| instances-1 / 2    |         87.742910 |        90.162500 |
+| instances-1 / 3    |         87.240840 |        90.847090 |
+| instances-1 / 4    |         87.719590 |        90.375830 |
+| instances-1 / 5    |         87.525000 |        90.950000 |
+| instances-1 / 6    |         88.388750 |        90.279160 |
+| instances-512 / 1  |      27379.082000 |     28795.500000 |
+| instances-512 / 2  |      27357.500000 |     28902.416000 |
+| instances-512 / 3  |      31238.500000 |     30556.750000 |
+| instances-512 / 4  |      27901.834000 |     28804.250000 |
+| instances-512 / 5  |      27238.750000 |     28844.166000 |
+| instances-512 / 6  |      27349.918000 |     28834.250000 |
+| instances-4096 / 1 |     222442.080000 |    232992.500000 |
+| instances-4096 / 2 |     221381.670000 |    233335.830000 |
+| instances-4096 / 3 |     220910.840000 |    233816.670000 |
+| instances-4096 / 4 |     220927.080000 |    233329.170000 |
+| instances-4096 / 5 |     220908.330000 |    232916.250000 |
+| instances-4096 / 6 |     221089.160000 |    234057.920000 |
+
+Rigid cases沒有instance-world product，但前後build分別編譯；正反差異均保留。不將較少顯式
+rhs locals解讀為已證實register spill、配置或CPU下降，instance1／512／4096約+3.5／+5.4／+5.5%。
+
+### 完整source native submit
+
+Canonical static imports，actual Scene／createRenderer／native GPU device／GL context；
+64×64、AA關閉、postprocessing＋perObject motion。只在actual root history prototype切換
+frozen前後build；初始三frames確認actual owner與velocity draws，每variant四批十frames，
+另warm六frames；每批24 submits、六輪AB／BA，各batch前再warm六frames。GPU queue完成／
+GL finish在計時外，沒有pixel／payload observer。兩backend validation與page／console errors空。
+
+| Backend / workload      | Draws | Before ms/submit | Candidate ms/submit | Change |
+| ----------------------- | ----: | ---------------: | ------------------: | -----: |
+| webgpu / rigid-1        |     2 |         0.029167 |            0.033333 | 14.29% |
+| webgpu / rigid-100      |   200 |         0.116667 |            0.125000 |  7.14% |
+| webgpu / instances-4096 |  4097 |         1.025000 |            1.020833 | -0.41% |
+| webgl2 / rigid-1        |     2 |         0.025000 |            0.029167 | 16.67% |
+| webgl2 / rigid-100      |   200 |         0.145833 |            0.141667 | -2.86% |
+| webgl2 / instances-4096 |  4097 |         0.991667 |            1.008333 |  1.68% |
+
+#### webgpu raw rounds
+
+| name           | count | instanced | round | variant | iterations | elapsed            | msPerSubmit          | drawCalls |
+| -------------- | ----- | --------- | ----- | ------- | ---------- | ------------------ | -------------------- | --------- |
+| rigid-1        | 1     | false     | 0     | before  | 24         | 1.0999999940395355 | 0.045833333084980644 | 2         |
+| rigid-1        | 1     | false     | 0     | after   | 24         | 0.9000000059604645 | 0.037500000248352684 | 2         |
+| rigid-1        | 1     | false     | 1     | after   | 24         | 0.800000011920929  | 0.033333333830038704 | 2         |
+| rigid-1        | 1     | false     | 1     | before  | 24         | 0.7999999821186066 | 0.033333332588275276 | 2         |
+| rigid-1        | 1     | false     | 2     | before  | 24         | 0.7000000178813934 | 0.029166667411724728 | 2         |
+| rigid-1        | 1     | false     | 2     | after   | 24         | 0.7999999821186066 | 0.033333332588275276 | 2         |
+| rigid-1        | 1     | false     | 3     | after   | 24         | 0.5999999940395355 | 0.024999999751647312 | 2         |
+| rigid-1        | 1     | false     | 3     | before  | 24         | 0.5                | 0.020833333333333332 | 2         |
+| rigid-1        | 1     | false     | 4     | before  | 24         | 0.5999999940395355 | 0.024999999751647312 | 2         |
+| rigid-1        | 1     | false     | 4     | after   | 24         | 0.5999999940395355 | 0.024999999751647312 | 2         |
+| rigid-1        | 1     | false     | 5     | after   | 24         | 0.5999999940395355 | 0.024999999751647312 | 2         |
+| rigid-1        | 1     | false     | 5     | before  | 24         | 0.5999999940395355 | 0.024999999751647312 | 2         |
+| rigid-100      | 100   | false     | 0     | before  | 24         | 3.199999988079071  | 0.13333333283662796  | 200       |
+| rigid-100      | 100   | false     | 0     | after   | 24         | 3                  | 0.125                | 200       |
+| rigid-100      | 100   | false     | 1     | after   | 24         | 3                  | 0.125                | 200       |
+| rigid-100      | 100   | false     | 1     | before  | 24         | 2.800000011920929  | 0.11666666716337204  | 200       |
+| rigid-100      | 100   | false     | 2     | before  | 24         | 2.7999999821186066 | 0.11666666592160861  | 200       |
+| rigid-100      | 100   | false     | 2     | after   | 24         | 2.9000000059604645 | 0.12083333358168602  | 200       |
+| rigid-100      | 100   | false     | 3     | after   | 24         | 2.5999999940395355 | 0.10833333308498065  | 200       |
+| rigid-100      | 100   | false     | 3     | before  | 24         | 2.5                | 0.10416666666666667  | 200       |
+| rigid-100      | 100   | false     | 4     | before  | 24         | 2.5999999940395355 | 0.10833333308498065  | 200       |
+| rigid-100      | 100   | false     | 4     | after   | 24         | 3.0999999940395355 | 0.12916666641831398  | 200       |
+| rigid-100      | 100   | false     | 5     | after   | 24         | 2.5                | 0.10416666666666667  | 200       |
+| rigid-100      | 100   | false     | 5     | before  | 24         | 2.5999999940395355 | 0.10833333308498065  | 200       |
+| instances-4096 | 4096  | true      | 0     | before  | 24         | 24.599999994039536 | 1.0249999997516472   | 4097      |
+| instances-4096 | 4096  | true      | 0     | after   | 24         | 25.099999994039536 | 1.0458333330849807   | 4097      |
+| instances-4096 | 4096  | true      | 1     | after   | 24         | 24.5               | 1.0208333333333333   | 4097      |
+| instances-4096 | 4096  | true      | 1     | before  | 24         | 24.100000023841858 | 1.0041666676600773   | 4097      |
+| instances-4096 | 4096  | true      | 2     | before  | 24         | 24.30000001192093  | 1.0125000004967053   | 4097      |
+| instances-4096 | 4096  | true      | 2     | after   | 24         | 24.30000001192093  | 1.0125000004967053   | 4097      |
+| instances-4096 | 4096  | true      | 3     | after   | 24         | 25.5               | 1.0625               | 4097      |
+| instances-4096 | 4096  | true      | 3     | before  | 24         | 24.099999994039536 | 1.004166666418314    | 4097      |
+| instances-4096 | 4096  | true      | 4     | before  | 24         | 24.69999998807907  | 1.0291666661699612   | 4097      |
+| instances-4096 | 4096  | true      | 4     | after   | 24         | 24.400000005960464 | 1.0166666669150193   | 4097      |
+| instances-4096 | 4096  | true      | 5     | after   | 24         | 24.5               | 1.0208333333333333   | 4097      |
+| instances-4096 | 4096  | true      | 5     | before  | 24         | 24.900000005960464 | 1.0375000002483528   | 4097      |
+
+#### webgl2 raw rounds
+
+| name           | count | instanced | round | variant | iterations | elapsed             | msPerSubmit          | drawCalls |
+| -------------- | ----- | --------- | ----- | ------- | ---------- | ------------------- | -------------------- | --------- |
+| rigid-1        | 1     | false     | 0     | before  | 24         | 0.9000000059604645  | 0.037500000248352684 | 2         |
+| rigid-1        | 1     | false     | 0     | after   | 24         | 1                   | 0.041666666666666664 | 2         |
+| rigid-1        | 1     | false     | 1     | after   | 24         | 0.699999988079071   | 0.029166666169961292 | 2         |
+| rigid-1        | 1     | false     | 1     | before  | 24         | 0.5999999940395355  | 0.024999999751647312 | 2         |
+| rigid-1        | 1     | false     | 2     | before  | 24         | 0.5999999940395355  | 0.024999999751647312 | 2         |
+| rigid-1        | 1     | false     | 2     | after   | 24         | 0.699999988079071   | 0.029166666169961292 | 2         |
+| rigid-1        | 1     | false     | 3     | after   | 24         | 0.5                 | 0.020833333333333332 | 2         |
+| rigid-1        | 1     | false     | 3     | before  | 24         | 0.5999999940395355  | 0.024999999751647312 | 2         |
+| rigid-1        | 1     | false     | 4     | before  | 24         | 0.5                 | 0.020833333333333332 | 2         |
+| rigid-1        | 1     | false     | 4     | after   | 24         | 0.5                 | 0.020833333333333332 | 2         |
+| rigid-1        | 1     | false     | 5     | after   | 24         | 0.5                 | 0.020833333333333332 | 2         |
+| rigid-1        | 1     | false     | 5     | before  | 24         | 0.29999998211860657 | 0.01249999925494194  | 2         |
+| rigid-100      | 100   | false     | 0     | before  | 24         | 3.5                 | 0.14583333333333334  | 200       |
+| rigid-100      | 100   | false     | 0     | after   | 24         | 3.4000000059604645  | 0.14166666691501936  | 200       |
+| rigid-100      | 100   | false     | 1     | after   | 24         | 3.7999999821186066  | 0.15833333258827528  | 200       |
+| rigid-100      | 100   | false     | 1     | before  | 24         | 3.4000000059604645  | 0.14166666691501936  | 200       |
+| rigid-100      | 100   | false     | 2     | before  | 24         | 4.699999988079071   | 0.19583333283662796  | 200       |
+| rigid-100      | 100   | false     | 2     | after   | 24         | 3.2000000178813934  | 0.1333333340783914   | 200       |
+| rigid-100      | 100   | false     | 3     | after   | 24         | 3.199999988079071   | 0.13333333283662796  | 200       |
+| rigid-100      | 100   | false     | 3     | before  | 24         | 3.699999988079071   | 0.1541666661699613   | 200       |
+| rigid-100      | 100   | false     | 4     | before  | 24         | 3.199999988079071   | 0.13333333283662796  | 200       |
+| rigid-100      | 100   | false     | 4     | after   | 24         | 4.0999999940395355  | 0.17083333308498064  | 200       |
+| rigid-100      | 100   | false     | 5     | after   | 24         | 3.199999988079071   | 0.13333333283662796  | 200       |
+| rigid-100      | 100   | false     | 5     | before  | 24         | 3.199999988079071   | 0.13333333283662796  | 200       |
+| instances-4096 | 4096  | true      | 0     | before  | 24         | 23.30000001192093   | 0.9708333338300387   | 4097      |
+| instances-4096 | 4096  | true      | 0     | after   | 24         | 24.400000005960464  | 1.0166666669150193   | 4097      |
+| instances-4096 | 4096  | true      | 1     | after   | 24         | 23.599999994039536  | 0.9833333330849806   | 4097      |
+| instances-4096 | 4096  | true      | 1     | before  | 24         | 24.69999998807907   | 1.0291666661699612   | 4097      |
+| instances-4096 | 4096  | true      | 2     | before  | 24         | 23.80000001192093   | 0.991666667163372    | 4097      |
+| instances-4096 | 4096  | true      | 2     | after   | 24         | 27.900000005960464  | 1.1625000002483528   | 4097      |
+| instances-4096 | 4096  | true      | 3     | after   | 24         | 24.200000017881393  | 1.0083333340783913   | 4097      |
+| instances-4096 | 4096  | true      | 3     | before  | 24         | 24.400000005960464  | 1.0166666669150193   | 4097      |
+| instances-4096 | 4096  | true      | 4     | before  | 24         | 23                  | 0.9583333333333334   | 4097      |
+| instances-4096 | 4096  | true      | 4     | after   | 24         | 22.80000001192093   | 0.9500000004967054   | 4097      |
+| instances-4096 | 4096  | true      | 5     | after   | 24         | 23.400000005960464  | 0.9750000002483526   | 4097      |
+| instances-4096 | 4096  | true      | 5     | before  | 24         | 23.600000023841858  | 0.9833333343267441   | 4097      |
+
+4096 instances GPU約-0.4%、GL約+1.7%，rigid controls亦有正反波動，不能支持採用。
+沒有重跑挑選較佳方向，也不以本輪CPU submit推出GPU完成時間、RAF或presentation FPS。
+
+### 文件、清理與未重驗範圍
+
+- 保留原正式implementation；候選／錯誤版本只存在owned temporary modules及測量頁。
+  沒有新增runtime branch、API、shim、dependency或dead helper，也沒有覆寫使用者physics／world2d。
+- 本輪是調查與文件提交，未執行build、typecheck、unit suite、repo-wide lint，也沒有重跑
+  source／dist production-method pixels、showcase、world visibility或native payload認證。
+  不能將前輪103 tests與正式surface驗收改記成本輪重驗。
+- 同步README中／英／日、PLAN、DESIGN、TECHNICAL英／中及本紀錄，另檢查格式／relative links。
+  停止本輪Vite、刪除owned frozen modules、numeric／callback probes、bench、drivers、logs與results；
+  以[P202]獨立提交拒絕證據，不push、不升版。
+
+未認證Canvas2D、audio、device loss、auto fallback、Firefox／Safari／physical hardware，未量測
+heap／GC、GPU或端到端latency；沒有新效能／runtime能力或所有場景加速的主張。

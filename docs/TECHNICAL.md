@@ -7358,3 +7358,15 @@ Complete native-submit results include near-flat instance cases and an adverse
 single-mesh GL result, not a universal or FPS claim. The 103-test check, native
 consumer proofs and timing limits are recorded in [ACCEPTANCE](../ACCEPTANCE.md)
 P201.
+
+## P202 rejected private world-product reuse
+
+The proposed reuse of the private clip-product writer for in-place instance-world
+composition was not shipped. Twenty-four thousand products and mutation/reentrant
+public-getter controls matched, but Node instance history CPU regressed about
+3.5–5.5%; complete native submission had no stable gain. The original world copy
+before getMatrixAt and world.multiply(instance) remain unchanged.
+
+No source, distribution or public API change was made, and no build, unit suite,
+production pixel proof or showcase was rerun. The bounded measurements and late
+snapshot negative are recorded in [ACCEPTANCE](../ACCEPTANCE.md) P202.

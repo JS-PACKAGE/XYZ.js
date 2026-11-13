@@ -28,6 +28,8 @@ Instance matrix getter 展開固定16個stores，保留逐component accessor／�
 
 Matrix4 copy 同樣展開固定stores，但保留原本兩個buffer各讀一次的契約；helper CPU與完整native submit分列，保留小場景反向結果，不宣稱全路徑／FPS加速。Matrix4 copy also unrolls fixed stores while preserving its single read of each buffer; helper CPU and native-submit controls remain separate, including adverse small-scene results. Matrix4 copy も固定 stores を展開し、両 buffer を一度ずつ読む元の動作を保持します。小規模 scene の逆方向結果も記録し、全経路／FPS の向上とはしません。
 
+私有 instance-world product writer 共用實驗未採用：Node instance controls 變慢，native submit亦無穩定收益；只保留量測紀錄，不變更runtime。Private instance-world product-writer reuse was rejected after slower Node controls and no stable native-submit gain; runtime is unchanged. Private instance-world product writer の共用案は CPU 対照群で遅く、native submit の安定した改善もないため不採用です。Runtime は変更していません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

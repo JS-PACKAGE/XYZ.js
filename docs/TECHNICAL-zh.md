@@ -7055,3 +7055,12 @@ partial writes。這點與getMatrixAt不同，不能順便逐component重新讀m
 throwing read與nonfinite。隔離Node copy CPU約改善5.2–8.7%，rigid／instance history約
 改善4.2%／3.4%；完整native submit保留instances近持平與GL單mesh反向，不宣稱全路徑／FPS。
 103-test check、原生consumer與timing限制見[ACCEPTANCE](../ACCEPTANCE.md) P201。
+
+## P202 否決private world-product writer共用
+
+未採用將private clip writer共用至in-place instance-world composition的候選。24,000組
+products與public getter mutation／重入對照雖一致，Node instance history CPU仍慢約
+3.5–5.5%，完整native submit無穩定收益；保留getMatrixAt前的world copy與world.multiply。
+
+Source、dist與API不變，本輪未執行build、unit suite、正式pixels或showcase重驗；有界量測
+與late snapshot negative見[ACCEPTANCE](../ACCEPTANCE.md) P202。
