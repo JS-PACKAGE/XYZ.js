@@ -5701,3 +5701,13 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 同一Scene先後collect不是cold getter讀序的對等fixtures：InstancedMesh aggregate
   bounds會被第一次讀取暖化。比較需使用獨立Scenes並保留NaN／signed-zero、
   membership、camera、instance packing及ownership清理，而不是刪除失敗斷言。
+
+## P186 — Preserve Float32 accumulation, remove only unused blend results
+
+- CPU picking mirror 的position讀XYZ rows，normal cofactors讀3×3，tangents讀XYZ；
+  private blend elements3／7／11／15的累加結果沒有consumer，直接刪除四行。
+- 不把其餘12個Float32累加改成JS scalar或重排influences；這些中間store會影響
+  rounding。公開jointPalette仍為每joint16分量，native GPU rendering不改。
+- 保留signed morph-before-skin、nonuniform／reflected／collapsed transforms、
+  normal／tangent frames、conservative bounds、mirror versions及borrowed joints。
+- CPU mirror只在exact queries需要時更新；完整workload收益不能冒充一般draw FPS。

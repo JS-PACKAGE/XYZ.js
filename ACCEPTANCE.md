@@ -19943,3 +19943,83 @@ JIT／CPU根因，也不從目前結果宣稱長期或一般場景收益。
   這是隔離正式cache實作搭配built classes的CPU調查，不是渲染認證。
 - 清理owned scratch／drivers／measurement server；保留原實作，僅同步文件，
   依功能獨立提交且不push。
+
+## P186 — Remove unused fourth-row accumulation from the CPU skinning mirror
+
+- 日期：2026-11-13；版本維持1.23.0。採用四行刪除：每個非零influence不再累加
+  private blend矩陣的elements3／7／11／15。後續position只讀XYZ rows，normal
+  cofactors只讀3×3，tangent只讀XYZ，因此這四個private結果從未被使用。
+- 保留其餘12分量的influence次序、每次Float32加法store、blend.fill、normal／tangent
+  正規化與reflection sign；不改public jointPalette完整16分量、paletteVersion、
+  conservative bounds、morph-before-skin、picking mirror invalidation或borrowed joints。
+  沒有新增配置、cache、threshold、依賴、public API或GPU shader變更。
+
+### Native Chromium full CPU workload
+
+既有playwright-core1.63.0及repository browser-launch，Chromium153.0.8010.12、
+darwin/arm64、預設headless desktop automation；非Safari／實體裝置認證。
+隔離before／after完整SkinnedMesh實作，搭配真Geometry、TextureMaterial、Object3D、
+Matrix4及canvas→Texture.fromImage bitmap，兩方使用獨立fixtures。
+16 joints、affine inverse binds、四／八influences、單一或全部非零weights。
+Fixture／bitmap建構不計時；skin mode包含pose edits、完整updateSkin、palette／bounds
+及mirror vertices／normals／tangents更新，非只量刪除的算式；morph case另含signed
+position／normal／tangent morphs。每方8個warmup batches、15個交錯sample，以下中位數。
+
+| Grid    | Influences / nonzero | Mode         | Calls/batch | Before ms | After ms |
+| ------- | -------------------- | ------------ | ----------: | --------: | -------: |
+| 32×32   | 4 / 1                | skin         |          40 |       1.7 |      1.7 |
+| 32×32   | 4 / 4                | skin         |          40 |       2.9 |      2.7 |
+| 32×32   | 8 / 1                | skin         |          40 |       1.7 |      1.7 |
+| 32×32   | 8 / 8                | skin         |          40 |       4.3 |      3.9 |
+| 128×128 | 4 / 1                | skin         |           4 |       2.5 |      2.5 |
+| 128×128 | 4 / 4                | skin         |           4 |       4.5 |      4.3 |
+| 128×128 | 8 / 1                | skin         |           4 |       2.8 |      2.7 |
+| 128×128 | 8 / 8                | skin         |           4 |       6.8 |      6.2 |
+| 32×32   | 8 / 8                | skin + morph |          40 |       6.7 |      6.2 |
+| 32×32   | 4 / 4                | static       |        1000 |       0.8 |      0.8 |
+| 32×32   | 4 / 4                | palette      |         500 |       0.9 |      0.9 |
+| 32×32   | 8 / 8                | static       |        1000 |       0.8 |      0.8 |
+| 32×32   | 8 / 8                | palette      |         500 |       0.9 |      0.9 |
+
+密集四influences約改善4–7%，密集八influences約9%，signed morph case約7%；
+單一非零influence大致持平，128²／8 sparse改善0.1ms，不將coarse timer差異誇大。
+Static mirror與palette-only控制組持平；versions分別維持mirror1、或palette11500／
+mirror0。這是CPU exact-query mirror收益，不是一般native GPU skinning、GPU time、
+heap、端到端picking latency或FPS收益；未量測Node效能。
+
+### Differential proof and final production checks
+
+- 初始候選18 pairs／360 mutation frames，22,487,040 output bytes精確一致；
+  25,551,360 bytes的caller geometry／tangent／joint-index／weight snapshots未變。
+  每方11,520 joint update observations順序一致，unchanged query不使mirror version變動。
+- 正式source root與minified built ESM root各重新進行相同18-pair proof，並非使用
+  prototype代替正式類別：每入口各22,487,040 output bytes、25,551,360 input bytes
+  及11,520 observations通過。兩正式入口合計44,974,080 output bytes一致、
+  51,102,720 input bytes保持原樣；不將原型量測重複算進此合計。
+- 覆蓋2²／9²／32² vertices、4 influences的1／2／4 nonzero及8 influences的
+  1／4／8 nonzero、nonuniform／reflected／collapsed joints、mesh-local inverse、
+  affine inverse binds、signed morphs、normals／tangents／handedness、完整16分量
+  palette及bounds／geometry／palette versions。Byte proof不以numeric tolerance代替。
+- scoped Prettier、TypeScript check、ESLint通過；既有
+  tests/native-skinning.test.ts與tests/tangent.test.ts：2 files、15 tests通過。
+  既有測試已覆蓋CPU skin／eight influences／reflection，未新增重複或wiring tests。
+- 正式ESM tsc→minify→vendor copy→CJS build通過；CJS已生成，但未另外執行
+  CJS browser bundle runtime。沒有依賴／vendor／版本變更或全套tests宣稱；
+  commit只包含skinned-mesh source、四個對應生成檔及同步文件，保留使用者其他修改。
+
+### Actual animated 3D picking and cleanup
+
+同一固定Chromium launcher開啟正式examples/advanced3d，強制webgpu及webgl2各完成：
+animated two-joint glTF、PBR、shadows及24 GPU instances實際畫面；檢視canvas截圖可見
+綠色ribbon、金屬球、藍色cube ring與地面陰影，未聲稱跨backend pixel equality。
+兩個RAF後透過實際Pause按鈕暫停，用公開camera math投影已知ribbon hinge
+world(-1.4,1,0)，以實際canvas click觸發Raycaster／CPU mirror：兩方DOM皆回報
+「glTF mesh · distance 12.97」。接著Resume、Destroy，正式cleanup handler完成。
+Canvas2D明確回報「Canvas2D is 2D-only: the advanced 3D scene is not submitted.」，
+不靜默降級或提交3D。此surface是兩joint／四lane asset，不能當成GPU eight-lane認證。
+
+webgpu／webgl2的正式showcase另從Scene A切到Scene B並pagehide cleanup。
+上述頁面pageerror／console error皆空；source／built-root proof亦無頁面錯誤。
+沒有重測audio unlock／可聽輸出，也未認證Safari、Firefox、實機、全backend效能、
+plain deployed dist URL或原生GPU resource計數歸零；Destroy文案不冒充資源計數證明。
+清理owned scratch／measurement drivers／browser／Vite service，依功能獨立提交且不push。

@@ -6857,3 +6857,14 @@ getter比較；但native Chromium完整gather只呈現控制組也有的微幅�
 因此兩候選皆未改正式程式。同一Scene依序collect會暖化InstancedMesh aggregate
 bounds，不是對等cold fixtures。分開矩陣、fixture修正與measurement HMR reload見
 [ACCEPTANCE](../ACCEPTANCE.md) P185，不宣稱渲染或FPS收益。
+
+## P186 CPU skinning query mirror
+
+Private per-vertex blend不再累加elements3／7／11／15：position、normal cofactors
+及tangents只使用XYZ rows。其餘12分量保留原influence次序及Float32中間store，
+公開GPU joint palette仍維持每joint完整16分量。
+
+Native Chromium完整CPU workload在密集四／八influences改善約4–9%，unchanged
+mirror與palette-only控制組持平。正式source／built ESM root的bytes／ownership、
+實際WebGPU／WebGL2 animated glTF picking及cleanup通過；控制組與限制見
+[ACCEPTANCE](../ACCEPTANCE.md) P186，不宣稱一般GPU skinning或FPS提升。

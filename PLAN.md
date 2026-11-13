@@ -5546,3 +5546,13 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   不足以採用，保留原正式source／tests／dist，不宣稱少writes等於實際收益。
 - Getter proof改用獨立cold Scenes，避免第一個cache暖化InstancedMesh bounds；
   暫停measurement HMR以排除已觀察到的probe page reload。完整證據見ACCEPTANCE P185。
+
+## P186 — Remove unused CPU skinning blend rows
+
+- Exact CPU query mirror 不再為每個非零influence累加從未讀取的第四列；
+  保留XYZ的Float32累加順序與公開GPU palette完整16分量，不增加cache或配置。
+- Chromium 153完整CPU workload的密集四／八influences改善約4–9%，
+  static與palette-only控制組持平；不宣稱一般GPU skinning或FPS收益。
+- 正式source／built ESM root合計約45MB逐byte比較、15個既有tests、
+  typecheck／lint／ESM／CJS build，以及正式GPU／GL glTF picking／cleanup通過。
+  詳細控制組、輸入ownership與未驗證範圍見ACCEPTANCE P186。

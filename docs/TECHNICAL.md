@@ -7101,3 +7101,16 @@ so neither candidate changed production code. Sequential caches over one Scene
 are not equivalent cold fixtures: the first gather warms InstancedMesh aggregate
 bounds. The separate matrices, corrected fixtures and measurement HMR reload are
 recorded in [ACCEPTANCE](../ACCEPTANCE.md) P185; no rendering or FPS claim is made.
+
+## P186 CPU skinning query mirror
+
+The private per-vertex blend no longer accumulates matrix elements 3, 7, 11 and
+15: positions, normal cofactors and tangents consume only the XYZ rows. The other
+twelve components retain their influence order and Float32 intermediate stores.
+The public GPU joint palette remains sixteen components per joint.
+
+Native Chromium complete CPU workloads improved roughly 4–9% with dense four/eight
+influences; unchanged mirrors and palette-only controls were flat. Formal source
+and built ESM roots passed byte/ownership comparisons, and actual WebGPU/WebGL2
+animated glTF picking and cleanup passed. See [ACCEPTANCE](../ACCEPTANCE.md) P186
+for controls and limits; this is not a general GPU-skinning or FPS claim.
