@@ -7668,3 +7668,7 @@ The fixed CPU matrix covers the existing default-BLEND material workload; explic
 ## P221: rejected physical shader-mask freezing
 
 The private shader BIT object retains its original single feature-order definition and TypeScript readonly contract. Fresh native sampling identified variant computation, but physically freezing that object did not establish a consistent complete-submit gain. Both GL and GPU execute this shared helper; GPU was not an unchanged control. No runtime/API/dependency change is adopted, and no JIT, heap, GPU or presentation-FPS effect is inferred. See [ACCEPTANCE](../ACCEPTANCE.md) P221 for the full fixed matrix, sampled-hit scope and checks not rerun.
+
+## P222: rejected unconditional RGB sheen unrolling
+
+`PBRMaterial.sheenColor` is a readonly property holding a mutable tuple, not a frozen fixed-length backing store. Construction validates a three-component input and copies it into an ordinary array. P222 compared the real shared shader helpers with actual materials and a native-created texture: RGB/zero/restoration controls agreed, but appending a positive value to the public array changed the existing helper's key and was ignored by the unrolled prototype. The candidate was rejected before timing; no runtime, API or dist change is adopted. This counterexample preserves an observed key-selection behavior, not a fourth-channel material contract. Both renderers use the helper; no new renderer, pixel, CPU or FPS result is claimed. See [ACCEPTANCE](../ACCEPTANCE.md) P222 for the exact semantic evidence and checks not rerun.

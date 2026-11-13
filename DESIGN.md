@@ -6137,3 +6137,9 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 private shader BIT 已由單一 featureOrder 建立，並以 TypeScript Readonly 限制內部寫入。物理 Object.freeze 不需要第二份 bit 定義或新 cache，但也不能只因唯讀就推定 JIT constant folding、機器指令或完整 submit 收益。
 
 fresh native sampling 確認 variant 判斷仍有 self samples，卻不代表任何 readonly 寫法都會加速。固定完整 GL/GPU 對照未支持候選，因此保留原 private object，不增加 startup freeze、持久狀態或 API。兩 backend 共同執行此 helper，不能把 GPU 數據冒稱未改動控制或用 profile sample 百分比換算 FPS。
+
+## P222 — readonly reference 不是固定陣列長度 invariant
+
+`PBRMaterial.sheenColor` 的公開型別是 readonly 屬性加可變三元 tuple；constructor 檢查輸入長度、逐值驗證後，以 spread 複製成未 freeze 的普通 Array。這不等於私有、不可變且永遠長度三的儲存。
+
+P222 的實際來源 helper 對照顯示，公開陣列 push／pop 會被既有 live-length scan 觀察；無條件只讀前三項會改變 shader key。GL 與 GPU 都呼叫同一個 variant helper，不能把其中之一當成未改動控制。候選在計時前否決，沒有為了展開迴圈新增 freeze、持久 cache、setter／API 或相容性 shim。保留現有可觀察行為，不代表新認證第四色通道或任意 material shape；六種狀態與未重驗範圍見 ACCEPTANCE P222。

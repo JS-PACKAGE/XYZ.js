@@ -7313,3 +7313,7 @@ cache refresh 本身會 bind 原 VAO；cold upload 與 retire/recreate 的 nativ
 ## P221：未採用 private shader mask 的物理 freeze
 
 private shader BIT 保留原本單一 featureOrder 定義與 TypeScript readonly 契約。fresh native sampling 定位到 variant 判斷，但 Object.freeze 未建立一致的完整 submit 收益。GL/GPU 都執行這個共用 helper，GPU 不是未改動控制。沒有採用 runtime/API/相依變更，也不推定 JIT、heap、GPU 或呈現 FPS 效果；全部固定矩陣、sample hit 範圍與未重驗項目見 [ACCEPTANCE](../ACCEPTANCE.md) P221。
+
+## P222：未採用 sheen 的無條件固定 RGB 展開
+
+`PBRMaterial.sheenColor` 是 readonly 屬性持有可變 tuple，不是 freeze 的固定長度 backing store。constructor 驗證三通道輸入並複製成普通陣列。P222 以實際 material、native 建立的 texture 與兩份正式共用 shader helper 對照：RGB／全零／復原控制一致，但公開陣列 append 正值後，既有 helper 會改變 key，展開候選卻忽略。候選在計時前否決，沒有 runtime、API 或 dist 變更。這是保留既有 key 選擇行為的反例，不是第四色通道契約；兩 renderer 都使用此 helper，沒有新增 renderer、pixel、CPU 或 FPS 成果宣稱。精確語意資料與未重驗範圍見 [ACCEPTANCE](../ACCEPTANCE.md) P222。

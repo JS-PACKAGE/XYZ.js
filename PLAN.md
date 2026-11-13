@@ -5977,3 +5977,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 既有 UV immutable packing 與 texture/sampler flat binding arrays 已有 fast paths，不另疊 cache；只隔離測試既有 private BIT object 的 Object.freeze。
 - 單次固定 192-row 完整 native submit matrix 結果混合，shared 等目標沒有一致收益；兩個 backend 都會執行共用候選，GPU 不是未變更控制。
 - 否決候選，source/dist 與公開契約不變；全部 profile 摘要、paired samples、未重驗範圍見 ACCEPTANCE P221，不 push／升版。
+
+## P222 — Reject unconditional RGB sheen unrolling
+
+- 沿用 P221 仍有效的正式 profile 定位共用 variant helper，不重新 profile 或挑選有利 clocks。
+- 確認 constructor 驗證三通道輸入，但公開 readonly 屬性持有的是未 freeze、可修改的普通 tuple array；型別不會把陣列方法一起凍結。
+- 以真實 PBRMaterial／Texture 與兩份正式 helper 對照六種資料狀態，證明無條件三通道候選改變現有公開陣列修改後的 shader key，因此在 CPU 計時前否決。
+- 只提交反例與驗證邊界；source/dist／版本不變，不建立第四色通道契約，不 push。數值、環境與未執行項目見 ACCEPTANCE P222。

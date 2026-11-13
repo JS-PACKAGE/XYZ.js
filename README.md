@@ -72,6 +72,8 @@ GL signed-zero比較的Object.is候選未採用：數值對照一致，但完整
 
 P221 的 fresh native GL profile 後，private shader mask 的 Object.freeze 原型未達採用門檻，正式 source/dist 不變；兩個 backend 都執行候選，不把 GPU 當未變更控制。After fresh native GL profiling, P221 rejected physically freezing the private shader mask: complete submit results did not justify a change, and both backends were affected. P221 は native GL profile 後に private shader mask の Object.freeze 案を不採用としました。両 backend が変更対象であり、GPU を未変更の対照群とは扱いません。
 
+P222 未採用無條件固定 RGB 的 sheen 判斷展開：實際公開陣列修改會改變正式 shader key，三通道候選卻忽略該變化；在語意關卡即否決，沒有新 CPU／FPS 收益宣稱或 runtime 變更。P222 rejects unconditional three-channel sheen unrolling because it changes an observed shader-key result after mutation of the public array; no timing or runtime change is adopted. P222 では公開配列の変更後に既存の shader key と異なる結果になるため、sheen の無条件 RGB 展開を採用せず、速度向上も主張しません。這不是第四色通道契約；詳見 [ACCEPTANCE](./ACCEPTANCE.md) P222。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

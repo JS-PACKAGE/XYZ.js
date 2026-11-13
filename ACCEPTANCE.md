@@ -25976,3 +25976,35 @@ CDP sampling interval 設為 100 microseconds。以下為實際 self-hit counts�
 - 無 canonical runtime 或產物變更、版本仍為 1.23.0；保留使用者 physics/world 修改，不 push。
 - 三個 owned service instances 已停止，exact manifest 的四個 temporary surface files 與 35 個 temporary root entries（包含十八個 raw profiles）均已移除，沒有刪除使用者檔案。
 - 同步六份既有文件，ACCEPTANCE 只格式化新段並在 size/mtimeNs/4,096-byte-tail guard 下 append，歷史原日期與數據不改。
+
+## P222 — 未採用 sheen 的無條件固定 RGB 展開
+
+- 日期：2026-11-13。基準 commit：`198fcde2c`；P221 僅文件變更，故沿用其十八份正式 native GL profile 定位，不另 profile／計時。版本維持 1.23.0。
+- 結論：在語意關卡否決無 guard 的三通道展開，只提交六份文件；正式 source/dist 不變，不 push。這是既有可觀察 shader-key 行為的反例，不是第四色通道或任意 material shape 的新公開契約。
+
+### 正式契約與隔離候選
+
+`PBRMaterial` 的輸入 `sheenColor` 與公開欄位皆為三元 number tuple；欄位的 `readonly` 只限制 reference 重新指派，並未將 tuple 改成 readonly array。constructor 要求輸入為長度三的 Array、逐值驗證範圍，最後以 `[...sheenColor]` 複製，沒有 freeze。實際儲存是普通、未 freeze 的 Array。另以 TypeScript compiler API 對完全相同的公開欄位 shape `{ readonly sheenColor: [number, number, number] }` 編譯 `material.sheenColor.push(1)`，零 diagnostics；這不是全專案 typecheck。
+
+`meshShaderVariantBits` 的既有迴圈掃描公開陣列的實際長度，遇到正值即啟用 sheen。候選僅將該迴圈換成 index 0／1／2 三個短路比較，其餘正式 module 保持原樣，放在 repository 外的隔離檔案，透過 Vite query variant 載入。兩個 module 共用同一份實際 core classes，沒有自製 shader helper 或偽造材質物件。GL 的一般／預熱 shader 路徑與 GPU 的一般／自訂 specialization 都使用此共用 helper；兩 backend 都會受候選影響，不能將 GPU 視為未改動控制。
+
+### 實際瀏覽器語意證據
+
+Chromium 153.0.8010.12、darwin/arm64、pinned Playwright-managed desktop automation；非 physical device、Safari／Firefox 或三 backend 認證。由 native `OffscreenCanvas` 經正式 `Texture.fromImage` 建立真實 Texture，再建構正式 PBRMaterial。只比較實際來源 helper 的 numeric key 與 feature 結果，沒有建立 Renderer、GPU submit 或 pixel observer，因此不將其冒稱渲染證明。page／console errors 為空。
+
+| 連續操作後的狀態   | 公開 array 值 | length | 正式 bits | 候選 bits | 正式 sheen | 候選 sheen |
+| ------------------ | ------------- | -----: | --------: | --------: | ---------- | ---------- |
+| RGB channel 0 正值 | [0.5, 0, 0]   |      3 |   1310725 |   1310725 | true       | true       |
+| RGB channel 1 正值 | [0, 0.5, 0]   |      3 |   1310725 |   1310725 | true       | true       |
+| RGB channel 2 正值 | [0, 0, 0.5]   |      3 |   1310725 |   1310725 | true       | true       |
+| RGB 全零           | [0, 0, 0]     |      3 |   1310721 |   1310721 | false      | false      |
+| 公開 tuple push(1) | [0, 0, 0, 1]  |      4 |   1310725 |   1310721 | true       | false      |
+| pop 復原           | [0, 0, 0]     |      3 |   1310721 |   1310721 | false      | false      |
+
+三個 RGB 正值控制確保候選本身並非永遠關閉 sheen；全零與 pop 復原控制皆一致。公開陣列 append 後的真實 key 差異已足以否決無條件展開，不為了成立固定長度假設改變公開儲存、加 freeze／setter／cache，也不以更多無證據分支掩蓋此反例。
+
+### 驗證邊界與提交
+
+本輪實際完成上述六個來源 helper 狀態與 exact readonly-tuple field shape 的 `push` 型別檢查。因先在語意關卡否決，未另做 CPU matrix、native renderer payload／pixels／cleanup、source/dist parity、showcase、audio unlock、production build、全專案 typecheck、測試套件或 runtime lint；不搬用 P220 的 native pairs／tests 或 P221 的 clocks 作為 P222 通過紀錄，亦不主張迴圈成本、配置量、GPU 或呈現 FPS 改善。
+
+提交前檢查六份文件的 Prettier 與 semantic relative file links；只清理本輪已知臨時檔及自己的 Vite service，按六份文件 allowlist 檢查／提交，不 stage physics/world2d 的使用者變更。
