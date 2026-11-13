@@ -5462,3 +5462,13 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   Degenerate、nonfinite matrices、signed zero 與 conservative culling 結果不變。
 - 精確數值比對、32 tests、WebGPU／WebGL2 pixels／stats／cleanup 的局部驗證
   與 CPU 量測見 ACCEPTANCE P161；不擴張 browser 或實體 GPU 認證。
+
+## P162 — Bounded direct FOURCC reads
+
+- MP4 box 與 handler 的 four-byte identifier 已分別由 need(header)／need(handler)
+  預先驗證範圍；以四個 Uint8Array 索引值傳給 String.fromCharCode，取代 subarray
+  view 與 spread。這不是 UTF-8 decoding，NUL／0x80..0xff 等 code units 不變。
+- DataView／byte array 仍使用 caller view 的 byteOffset／相對索引，sample 與
+  description 仍獨立複製；不改 codec、table、budget、truncation 或錯誤分支。
+- 16,384 組差分及 32 tests 見 ACCEPTANCE P162。CPU 量測沿用 Node 的 chunk
+  transport shim，不能推導 native WebCodecs decode 或影片呈現效能。

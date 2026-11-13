@@ -29,7 +29,7 @@ function demuxMP4(i, a = {}) {
 	}, u32 = (e) => l.getUint32(e), safe64 = (e) => {
 		let t = l.getBigUint64(e);
 		return t > BigInt(2 ** 53 - 1) && invalid(), Number(t);
-	}, text = (e) => String.fromCharCode(...i.subarray(e, e + 4)), parse = (e, t, n) => {
+	}, text = (e) => String.fromCharCode(i[e], i[e + 1], i[e + 2], i[e + 3]), parse = (e, t, n) => {
 		if (n > ee) throw RangeError(`MP4 nesting budget exceeded.`);
 		let i = [];
 		for (; e < t;) {

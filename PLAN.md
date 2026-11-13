@@ -5320,3 +5320,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   browser smoke 通過。Extraction CPU 約快 43.6–52.1%，含 culling 測項約快 5.6%。
 - Numeric kerning key 候選因 BigInt 錯誤型別不相容而未保留。量測、browser 工具
   斷線／fixture 修正與未驗證範圍見 ACCEPTANCE P161；不宣稱 fps 或硬體認證。
+
+## P162 — Direct MP4 FOURCC reads
+
+- demuxMP4 的 bounded four-byte text helper 改為四個直接 byte reads，移除
+  subarray／spread；保留 byteOffset、code units、codec／sample tables 與 ownership。
+- 16,384 組 differential cases 與 32 項 targeted tests 通過。Node transport-shim
+  的完整 demux CPU 測項約快 47.6–56.5%，不宣稱 native decode／playback 收益。
+- Skin palette first-mismatch 與 worker queue-search guard 候選因部分測項退步
+  未保留；完整量測、限制及工具結果見 ACCEPTANCE P162。

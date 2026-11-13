@@ -18286,3 +18286,82 @@ tests/native-skinning.test.ts` **32 tests passed**；Typecheck、scoped ESLint�
   first=65n 無效輸入，baseline 為 AssetError「Invalid bitmap kerning pair.」，
   候選變成 TypeError「Cannot mix BigInt and other types, use explicit conversions」。
   因驗證錯誤契約不相容而拒絕；沒有將快版本套用、加 shim 或冒稱完整語義通過。
+
+## P162 — Direct MP4 FOURCC reads（2026-11-13）
+
+- demuxMP4 的 four-byte text helper 直接讀 bytes[offset..offset+3] 並傳給
+  String.fromCharCode，不再建立 4-byte subarray 或 spread iterator。兩個 call
+  sites 仍先通過 box/header 或 handler 的 need 檢查；保留 byte-view 相對 offset、
+  原 0..255 code units、codec／sample tables、錯誤與 ownership 契約。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，CPU 與 correctness
+  modules 分開；8 warmup／15 輪交替 median、無並行測試。沿用現有 MP4 tests 的
+  synthetic fixtures 與複製 sample bytes 的 EncodedVideoChunk transport shim；
+  Node 無原生 WebCodecs。Fixture 建立在計時外，完整 demux／validation／codec
+  config 與三個 sample chunks 建立、結果讀取在計時內；不是 decode 或 playback。
+
+| Codec | Ignored boxes | Audio track | Parses | Bytes | Before ms | After ms |
+| ----- | ------------: | ----------- | -----: | ----: | --------: | -------: |
+| AVC   |             0 | no          |  2,000 |   401 |  7.969625 | 4.177250 |
+| VP9   |             0 | no          |  2,000 |   400 |  7.646417 | 3.760708 |
+| AV1   |             0 | no          |  2,000 |   392 |  7.617000 | 3.769042 |
+| AVC   |             0 | yes         |  1,000 |   760 |  5.944458 | 2.587041 |
+| AVC   |            64 | no          |    500 |   913 |  7.823791 | 3.673500 |
+| AVC   |         1,024 | no          |     32 | 8,593 |  6.273500 | 2.781541 |
+
+- CPU 測項約快 47.6–56.5%；未量測實際 allocation counts、heap／GC、native
+  WebCodecs overhead、影片解碼效能、browser rendering 或 fps。
+- 16,384 differential cases：4,743 successful outputs／11,641 errors 精確一致；
+  包含 AVC／VP9／AV1、co64、audio、sync／composition／fractional timestamps、
+  arbitrary FOURCC bytes、ignored boxes、非零 byteOffset views、truncation／
+  byte mutation、fragmented／unsupported input 與 byte／sample／track budgets。
+  比對 config、chunk bytes／type／timestamp／duration、error constructor／message／
+  cause；成功後清空 caller bytes，再確認每一 lane 的 config／chunks 保留獨立 copies。
+- 新 regression 驗證含 NUL／0x7f／0x80／0xff 的 unknown box type，以及帶有前後
+  padding 的 sliced Uint8Array，仍擷取正確 AVC codec 與三個 sample payloads。
+- `vitest run tests/mp4-demux.test.ts tests/video-texture.test.ts`
+  **32 tests passed**；Typecheck、scoped ESLint／Prettier、ESM compile/minify、
+  完整 vendor copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英
+  同步；未跑完整 suite，未開 browser／重驗 native WebCodecs、三 backend 或 audio。
+
+### 未採用：skin palette first-mismatch short circuit
+
+- Geometry bounds 已按 version 快取；未假設公開 vertices 是 immutable 而跳過掃描。
+  另量測 SkinnedMesh.updateRenderDeformation 在 changed=true 後略過 palette 比較、
+  仍完整寫入每個 joint matrix 的 temporary variant。每 joint 三個 vertices、4 個
+  influences（第一項 weight=1，其餘為 0），每 joint 都有 influence bounds；setup／
+  cleanup 在計時外，更新 position／palette／bounds 在計時內。
+  同環境 8 warmup／15 輪交替 median，未套用正式 skinning source。
+
+| Joints | Motion | Updates | Before ms | After ms |
+| -----: | ------ | ------: | --------: | -------: |
+|      1 | static |   2,000 |  0.159500 | 0.165042 |
+|      1 | first  |   2,000 |  0.241458 | 0.242667 |
+|     32 | static |     200 |  0.307791 | 0.321875 |
+|     32 | first  |     200 |  0.442292 | 0.436583 |
+|     32 | last   |     200 |  0.442750 | 0.461583 |
+|    128 | static |     100 |  0.711291 | 0.728125 |
+|    128 | first  |     100 |  0.958792 | 0.920292 |
+|    128 | last   |     100 |  0.941042 | 0.976375 |
+|    128 | all    |     100 |  0.983959 | 0.960667 |
+
+- static／last cases 約慢 2.4–4.6%，first 的局部收益不足，故拒絕；未宣稱完成
+  該候選的完整 pose／reentrant／error differential 或 browser skinning 驗證。
+
+### 未採用：skip running worker queue search
+
+- Temporary variant 僅在 job.status=queued 時才於 finish 執行 queue.indexOf／splice。
+  使用正式 NativeWorkerPool 與 controlled transport boundary（structuredClone request、
+  synchronous result response），不是 native Worker 執行或訊息延遲測試。
+  Setup 在計時外；2,000 次 completion／submit 維持 backlog，最後 drain 與
+  Promise.all 在計時內；同環境 8 warmup／15 輪交替 median。
+
+| Worker slots | Backlog | Replenishments | Before ms | After ms |
+| -----------: | ------: | -------------: | --------: | -------: |
+|            1 |       0 |          2,000 |  3.401500 | 2.413792 |
+|            1 |      16 |          2,000 |  2.465042 | 2.559292 |
+|            1 |     128 |          2,000 |  2.963333 | 2.750459 |
+|            8 |      16 |          2,000 |  2.309917 | 2.282167 |
+|            8 |     128 |          2,000 |  2.706416 | 2.605125 |
+
+- 1-slot／16-backlog 約慢 3.8%，收益不一致；未套用正式 source、未宣稱 native
+  Worker 加速，也未完成該候選的 cancellation／supersession／protocol 語義驗收。

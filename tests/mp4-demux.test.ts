@@ -219,6 +219,21 @@ describe('bounded MP4 demux', () => {
     expect(contents(result.chunks[0]!)).toEqual([11, 12]);
     expect((result.config.description as Uint8Array)[0]).toBe(1);
   });
+  it('reads arbitrary four-byte box types from a nonzero-offset input view', () => {
+    const unknown = cat(
+      u32(9),
+      new Uint8Array([0, 0x7f, 0x80, 0xff]),
+      new Uint8Array([42]),
+    );
+    const data = fixture({ extra: unknown });
+    const bytes = cat(new Uint8Array(7), data, new Uint8Array(5)).subarray(
+      7,
+      -5,
+    );
+    const { config, chunks } = demuxMP4(bytes);
+    expect(config.codec).toBe('avc1.42001e');
+    expect(chunks.map(contents)).toEqual([[11, 12], [21, 22, 23], [31]]);
+  });
   it.each(['moof', 'traf', 'mvex'])('rejects fragmented %s', (type) =>
     expect(() => demuxMP4(cat(fixture(), box(type)))).toThrow(AssetError),
   );

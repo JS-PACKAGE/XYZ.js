@@ -72,7 +72,12 @@ export function demuxMP4(
     return Number(value);
   };
   const text = (offset: number): string =>
-    String.fromCharCode(...bytes.subarray(offset, offset + 4));
+    String.fromCharCode(
+      bytes[offset]!,
+      bytes[offset + 1]!,
+      bytes[offset + 2]!,
+      bytes[offset + 3]!,
+    );
   const parse = (start: number, end: number, depth: number): Box[] => {
     if (depth > maxDepth) throw new RangeError('MP4 nesting budget exceeded.');
     const boxes: Box[] = [];

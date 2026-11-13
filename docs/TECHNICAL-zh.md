@@ -352,6 +352,9 @@ XYZError
 - Frustum 直接迭代六個 planes，保留正規化係數及 0..1 depth 的 near row-2 特例。
   精確數值／CPU 比對與 WebGPU／WebGL2 visibility／cleanup 的局部 browser
   驗證見 ACCEPTANCE P161；不宣稱 fps 或硬體認證。
+- MP4 demux 直接讀取已驗證範圍的四個 bytes，保留 raw code units、sliced-view
+  offsets 與 sample／config 獨立 copies。ACCEPTANCE P162 的完整 demux CPU
+  量測使用 Node chunk transport shim，不代表 native WebCodecs decode／playback。
 
 - World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
 - WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。
