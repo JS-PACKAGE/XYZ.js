@@ -5451,3 +5451,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
 - 16,428 組 differential cases、六種字元的 byte-budget regression 及 CPU 量測
   見 ACCEPTANCE P160。長輸入 control 雖量測較快，其掃描演算法並未改善，不把
   optimizer／code-shape 差異當成 fast-path coverage。
+
+## P161 — Direct six-plane extraction
+
+- Frustum 依 left／right／bottom／top／near／far 順序直接迭代，row 為 index／2
+  的整數部分，even／odd planes 使用 +1／−1 sign。0..1 clip depth 的 near
+  plane 仍單獨取 row 2，避免錯用 row 3 + row 2 或以 0 乘 Infinity。
+- 保留每個 plane 先讀完四個 coefficients、再以 hypot3 正規化與寫入原
+  Float64Array 的順序；移除 setFromMatrix 的 row／set／plane local functions。
+  Degenerate、nonfinite matrices、signed zero 與 conservative culling 結果不變。
+- 精確數值比對、32 tests、WebGPU／WebGL2 pixels／stats／cleanup 的局部驗證
+  與 CPU 量測見 ACCEPTANCE P161；不擴張 browser 或實體 GPU 認證。

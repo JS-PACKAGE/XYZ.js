@@ -13,35 +13,22 @@ export class Frustum {
   setFromMatrix(viewProjection: Matrix4): this {
     const m = viewProjection.elements;
     const p = this.planes;
-    const row = (i: number, j: number): number => m[j * 4 + i];
-    const set = (
-      index: number,
-      a: number,
-      b: number,
-      c: number,
-      d: number,
-    ): void => {
+    for (let index = 0; index < 6; index++) {
+      const row = index >>> 1;
+      const sign = index % 2 === 0 ? 1 : -1;
+      // The 0..1 near plane is row 2 alone, not row 3 plus row 2.
+      const near = index === 4;
+      const a = near ? m[2] : m[3] + sign * m[row];
+      const b = near ? m[6] : m[7] + sign * m[4 + row];
+      const c = near ? m[10] : m[11] + sign * m[8 + row];
+      const d = near ? m[14] : m[15] + sign * m[12 + row];
       const length = hypot3(a, b, c);
       const scale = length > 0 ? 1 / length : 0;
       p[index * 4] = a * scale;
       p[index * 4 + 1] = b * scale;
       p[index * 4 + 2] = c * scale;
       p[index * 4 + 3] = d * scale;
-    };
-    const plane = (index: number, sign: number, i: number): void =>
-      set(
-        index,
-        row(3, 0) + sign * row(i, 0),
-        row(3, 1) + sign * row(i, 1),
-        row(3, 2) + sign * row(i, 2),
-        row(3, 3) + sign * row(i, 3),
-      );
-    plane(0, 1, 0);
-    plane(1, -1, 0);
-    plane(2, 1, 1);
-    plane(3, -1, 1);
-    set(4, row(2, 0), row(2, 1), row(2, 2), row(2, 3));
-    plane(5, -1, 2);
+    }
     return this;
   }
 

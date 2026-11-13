@@ -6,11 +6,11 @@ Browser-native TypeScript game engine for 2D and 3D.
 
 **1.23.0 · [Apache-2.0](LICENSE) · npm 尚未發佈 / not published / 未公開**
 
-效能維護：持續減少導航、動畫、action、ECS、timer、input、資源解析與文字排版的冗餘運算、配置、查詢及空集合清理，改善銷毀後的記憶體釋放，並保留 UTF-8 byte budgets、排程、callback 順序與 ownership 清理契約。精確比對、CPU／heap 量測、修正、取捨及未驗證範圍見 [ACCEPTANCE](ACCEPTANCE.md)，不以配置減少宣稱幀率提升。
+效能維護：持續減少導航、動畫、action、ECS、timer、input、資源解析、文字排版與 frustum culling 的冗餘運算、配置、查詢及空集合清理，改善銷毀後的記憶體釋放，並保留 UTF-8 byte budgets、排程、callback 順序與 ownership 清理契約。精確比對、CPU／heap 量測、修正、取捨及未驗證範圍見 [ACCEPTANCE](ACCEPTANCE.md)，不以配置減少宣稱幀率提升。
 
-Performance maintenance reduces redundant computation, allocations, lookups and empty-collection cleanup in navigation, animation, actions, ECS, timers, input, asset parsing and text layout, and improves post-destroy memory release while preserving UTF-8 byte budgets, scheduling, callback order and ownership cleanup. Differential checks, CPU/heap measurements, fixes, tradeoffs and unverified limits are in [ACCEPTANCE](ACCEPTANCE.md); fewer allocations do not prove higher fps.
+Performance maintenance reduces redundant computation, allocations, lookups and empty-collection cleanup in navigation, animation, actions, ECS, timers, input, asset parsing, text layout and frustum culling, and improves post-destroy memory release while preserving UTF-8 byte budgets, scheduling, callback order and ownership cleanup. Differential checks, CPU/heap measurements, fixes, tradeoffs and unverified limits are in [ACCEPTANCE](ACCEPTANCE.md); fewer allocations do not prove higher fps.
 
-性能改善：ナビゲーション・アニメーション・action・ECS・timer・input・アセット解析・テキストレイアウトの冗長な計算、割り当て、検索、空コレクションのクリアを削減し、destroy 後のメモリ解放を改善します。UTF-8 byte budgets・スケジュール・callback 順序・ownership の解放契約は維持します。差分比較、CPU／heap の測定、修正、取捨選択、未検証範囲は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。割り当て削減は fps 向上の証明ではありません。
+性能改善：ナビゲーション・アニメーション・action・ECS・timer・input・アセット解析・テキストレイアウト・frustum culling の冗長な計算、割り当て、検索、空コレクションのクリアを削減し、destroy 後のメモリ解放を改善します。UTF-8 byte budgets・スケジュール・callback 順序・ownership の解放契約は維持します。差分比較、CPU／heap の測定、修正、取捨選択、未検証範囲は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。割り当て削減は fps 向上の証明ではありません。
 
 ## 繁體中文
 

@@ -5310,3 +5310,13 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   non-BMP、孤立 surrogate、精確 byte 邊界與 fast-path 長度門檻。
 - CPU 解析量測與 scan control、工具結果及未驗證限制見 ACCEPTANCE P160；
   byte budget、grammar、JSON／text 結果及 ownership 不變。
+
+## P161 — Direct frustum plane extraction
+
+- Frustum.setFromMatrix 以六 plane 的直接迴圈取代三個 local closures，保留
+  plane 順序、正規化與 0..1 depth 的 near-row 特例。
+- 16,384 matrices 的 393,216 個 plane values 與 393,216 intersection queries
+  一致；32 targeted tests、forced WebGPU／WebGL2 可見／剔除／相機切換與 cleanup
+  browser smoke 通過。Extraction CPU 約快 43.6–52.1%，含 culling 測項約快 5.6%。
+- Numeric kerning key 候選因 BigInt 錯誤型別不相容而未保留。量測、browser 工具
+  斷線／fixture 修正與未驗證範圍見 ACCEPTANCE P161；不宣稱 fps 或硬體認證。

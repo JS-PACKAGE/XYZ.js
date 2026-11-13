@@ -18218,3 +18218,71 @@ tests/rendering2d-assets.test.ts` **20 tests passed**；Typecheck、scoped ESLin
   Prettier check 提示格式，修正後 check 通過；ESM compile/minify、完整 vendor
   copy、CJS build 通過。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
   未跑完整 suite，未開 browser／重驗 font pixels／三 backend／GPU／audio。
+
+## P161 — Direct frustum plane extraction（2026-11-13）
+
+- Frustum.setFromMatrix 移除 row／set／plane 三個 local functions，改以六 plane
+  的直接迴圈。保留 left／right／bottom／top／near／far 順序、hypot3 正規化、
+  原 Float64Array 重用、0..1 depth 的 near row-2 特例；不以 0 乘 row 3 代替
+  near 特例，以免 nonfinite matrix 變成不同結果。
+- Node v26.7.0／Darwin arm64，獨立 before／after ESM modules，CPU 與 correctness
+  modules 分開；8 warmup／15 輪交替 median、無並行測試。Matrices 建立／相機
+  update 在計時外。前四項每 extraction 後執行一個 sphere query 讀取結果；
+  最後一項每 extraction 後執行 128 個 sphere queries，不含 renderer submit。
+
+| Matrices                          | Extractions | Queries per extraction | Before ms | After ms |
+| --------------------------------- | ----------: | ---------------------: | --------: | -------: |
+| perspective                       |     100,000 |                      1 |  7.692834 | 4.338084 |
+| orthographic                      |     100,000 |                      1 |  7.729542 | 4.316333 |
+| 64 random finite matrices         |     100,000 |                      1 |  6.778208 | 3.243833 |
+| zero／identity                    |     100,000 |                      1 |  5.806375 | 3.126167 |
+| extract＋cull，64 random matrices |       2,000 |                    128 |  1.174750 | 1.109042 |
+
+- Extraction-dominant CPU 測項約快 43.6–52.1%，含 128-query culling 測項約快
+  5.6%；未量測實際配置數／heap／GC、browser frame rate 或 GPU submit 成本。
+- 16,384 matrices：perspective／orthographic、identity、zero／signed-zero、
+  random／huge／NaN／Infinity；393,216 個 plane values 以 Object.is 精確一致。
+  393,216 個 sphere／box／bounds queries 結果一致，重複 setFromMatrix 仍回傳 this。
+  新六個 regression cases 驗證各 clip boundary 接受、外側 point 拒絕，包含 near=0
+  與 far=1 的 depth convention。
+- `vitest run tests/frustum.test.ts tests/render-visibility.test.ts
+tests/native-skinning.test.ts` **32 tests passed**；Typecheck、scoped ESLint／
+  Prettier、ESM compile/minify、完整 vendor copy、CJS build 通過。
+- Managed headless Chromium，UA Chrome/150.0.0.0；Vite 載入正式 source、正式
+  Scene／Mesh／Geometry／TextureMaterial／renderer，320×240 canvas、4×4 texture。
+  強制指定 backend（沒有 auto fallback），按鈕切換 camera 與物件進出視野，
+  frameProofs 擷取真正 submitted frame，screenshots 目視確認綠色物件。
+
+| Backend | Camera       | Outside draw calls | Outside culled | Visible draw calls | Visible culled | Pixels differing from background |
+| ------- | ------------ | -----------------: | -------------: | -----------------: | -------------: | -------------------------------: |
+| WebGL2  | perspective  |                  0 |              1 |                  1 |              0 |                            2,116 |
+| WebGL2  | orthographic |                  0 |              1 |                  1 |              0 |                              576 |
+| WebGPU  | perspective  |                  0 |              1 |                  1 |              0 |                            2,116 |
+| WebGPU  | orthographic |                  0 |              1 |                  1 |              0 |                              576 |
+
+- 兩 backend 的 Scene／Texture／renderer cleanup 均實際完成，mesh／texture
+  destroyed 檢查通過，最後 browser errors entries 為空。先前 automation 使用
+  不支援 function 的 waitFor 已改為 page.waitForFunction；throwaway fixture
+  誤呼叫不存在的 Geometry.destroy 已移除。兩次跨工具 browser handle 斷線的
+  原因未確定，已回報工具；改以 fresh tab 在同一 eval cell 完整執行兩 backend
+  後取得 cleanup 成功，不將先前斷線記為 engine failure 或成功驗證。
+- 不宣稱實體 GPU／browser 廣泛認證；未重驗 Canvas2D、shadow atlas、audio、
+  showcase 或完整 suite。README 中英日、PLAN、DESIGN、TECHNICAL 中英同步。
+
+### 未採用：numeric kerning duplicate key
+
+- Temporary variant 將 pair key 字串改為 first×0x110000＋second（Unicode scalar
+  pairs 在 safe-integer 範圍內唯一），正式 bitmap font source 未修改。
+  同環境 8 warmup／15 輪交替 median，完整 JSON parse／validation 在計時內。
+
+| Glyphs | Kernings | Parses | Before ms | After ms |
+| -----: | -------: | -----: | --------: | -------: |
+|     64 |        0 |     32 |  0.519459 | 0.516084 |
+|     64 |       64 |     32 |  0.823834 | 0.722583 |
+|  1,024 |    1,024 |      8 |  2.735834 | 2.275625 |
+|  4,096 |   16,384 |      1 |  3.642042 | 2.760709 |
+
+- 含 kerning 測項雖約快 12.3–24.2%，但直接 BitmapFontAsset constructor 的
+  first=65n 無效輸入，baseline 為 AssetError「Invalid bitmap kerning pair.」，
+  候選變成 TypeError「Cannot mix BigInt and other types, use explicit conversions」。
+  因驗證錯誤契約不相容而拒絕；沒有將快版本套用、加 shim 或冒稱完整語義通過。

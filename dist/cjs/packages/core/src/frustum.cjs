@@ -3,11 +3,12 @@ const require_hypot = require("../../math/src/hypot.cjs");
 var Frustum = class {
 	planes = /* @__PURE__ */ new Float64Array(24);
 	setFromMatrix(t) {
-		let n = t.elements, r = this.planes, row = (e, t) => n[t * 4 + e], set = (t, n, i, a, o) => {
-			let s = require_hypot.hypot3(n, i, a), c = s > 0 ? 1 / s : 0;
-			r[t * 4] = n * c, r[t * 4 + 1] = i * c, r[t * 4 + 2] = a * c, r[t * 4 + 3] = o * c;
-		}, plane = (e, t, n) => set(e, row(3, 0) + t * row(n, 0), row(3, 1) + t * row(n, 1), row(3, 2) + t * row(n, 2), row(3, 3) + t * row(n, 3));
-		return plane(0, 1, 0), plane(1, -1, 0), plane(2, 1, 1), plane(3, -1, 1), set(4, row(2, 0), row(2, 1), row(2, 2), row(2, 3)), plane(5, -1, 2), this;
+		let n = t.elements, r = this.planes;
+		for (let t = 0; t < 6; t++) {
+			let i = t >>> 1, a = t % 2 == 0 ? 1 : -1, o = t === 4, s = o ? n[2] : n[3] + a * n[i], c = o ? n[6] : n[7] + a * n[4 + i], l = o ? n[10] : n[11] + a * n[8 + i], u = o ? n[14] : n[15] + a * n[12 + i], d = require_hypot.hypot3(s, c, l), f = d > 0 ? 1 / d : 0;
+			r[t * 4] = s * f, r[t * 4 + 1] = c * f, r[t * 4 + 2] = l * f, r[t * 4 + 3] = u * f;
+		}
+		return this;
 	}
 	intersectsSphere(e, t, n, r) {
 		let i = this.planes;

@@ -7,6 +7,7 @@ import { Mesh, TextureMaterial } from '../packages/core/src/mesh.js';
 import { OrthographicCamera } from '../packages/core/src/orthographic-camera.js';
 import { PerspectiveCamera } from '../packages/core/src/perspective-camera.js';
 import type { BoundingSphere3D } from '../packages/core/src/render-bounds.js';
+import { Matrix4 } from '../packages/math/src/index.js';
 
 function material(): TextureMaterial {
   return new TextureMaterial({
@@ -62,6 +63,35 @@ describe('Frustum', () => {
     ).toBe(true);
     expect(frustum.intersectsSphere(1e4, 0, 0, 1)).toBe(false);
   });
+
+  it.each([
+    [-1, 0, 0.5, -1.01, 0, 0.5],
+    [1, 0, 0.5, 1.01, 0, 0.5],
+    [0, -1, 0.5, 0, -1.01, 0.5],
+    [0, 1, 0.5, 0, 1.01, 0.5],
+    [0, 0, 0, 0, 0, -0.01],
+    [0, 0, 1, 0, 0, 1.01],
+  ])(
+    'keeps the clip boundary (%s, %s, %s) and rejects a point beyond it',
+    (x, y, z, outsideX, outsideY, outsideZ) => {
+      const frustum = new Frustum().setFromMatrix(new Matrix4());
+      expect(frustum.intersectsSphere(x, y, z, 0)).toBe(true);
+      expect(frustum.intersectsBox(x, y, z, x, y, z)).toBe(true);
+      expect(frustum.intersectsSphere(outsideX, outsideY, outsideZ, 0)).toBe(
+        false,
+      );
+      expect(
+        frustum.intersectsBox(
+          outsideX,
+          outsideY,
+          outsideZ,
+          outsideX,
+          outsideY,
+          outsideZ,
+        ),
+      ).toBe(false);
+    },
+  );
 });
 
 describe('Mesh culling', () => {
