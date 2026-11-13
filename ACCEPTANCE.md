@@ -19565,7 +19565,7 @@ A的一般column／row-fill／overlay及large控制組多數退步約1–5%；B�
 
 ## P181 — Retain eager ResourceLease release-error collection
 
-日期：2026-07-23。Lazy error-array原型未採用；正式assets source、tests與dist不改。
+日期：2026-11-13。Lazy error-array原型未採用；正式assets source、tests與dist不改。
 
 ### Public scope CPU boundary
 
