@@ -5836,3 +5836,18 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   work消除，完整raw rounds及scope見ACCEPTANCE P209，不宣稱穩定FPS／heap收益。
 - Scoped6 tests、source checks、guarded build與unpatched consumer／showcase通過；
   declarations完全不變，只複製四個post runtime outputs，十一檔獨立commit、不push、不升版。
+
+## P210 — Profile-led pass-local object-motion buffer bindings
+
+- 實際GPU／GL×Mesh／InstancedMesh CPU sampling後，定位velocity pass逐pose重複native
+  vertex／index setters；Instanced主pass只有一draw，但velocity仍逐pose，不能錯記為兩draw。
+- 正式WebGPUObjectMotion沿用既有private mesh PassBindings的buffer-identity慣例，以兩個
+  pass-local refs各自略過重複setter；不新增field、allocation、cache owner或跨pass狀態。
+- Geometry callback及property reads維持每pose原次序，每次dynamic group offset、draw、
+  完整upload及stats不變；full-buffer及uint32設定固定，不以geometry record identity當key。
+- 五組實際CPU cohorts保留shared／unique／instance、disabled及single對照。Shared／instance
+  下降、unique略慢，GL及小single波動另列；完整raw rounds見ACCEPTANCE P210，不主張全面收益。
+- Source／dist×GPU／GL consumers的actual draw buffer／offset／payload／RGBA一致；
+  wrong vertex由既有instance-motion pixels拒絕，wrong index及跨pass carry由native GPU拒絕。
+- Scoped17 tests、source checks、guarded build及unpatched consumer／showcase通過；
+  declarations不變、四個motion runtime outputs，十一檔獨立commit、不push、不升版。

@@ -23433,3 +23433,247 @@ Binding entry buffer not set.
 - Not run: full unit suite, CJS runtime, Canvas/audio, device-loss/initialization fallback,
   Firefox/Safari or physical-device certification. No heap/GC/native/GPU-memory, GPU time,
   presentation FPS or end-to-end latency measurement; no universal speedup claim.
+
+## P210 — Profile-led pass-local native velocity buffer bindings
+
+### Decision, scope and existing convention
+
+- Adopt local native GPUBuffer identity checks in WebGPUObjectMotion's velocity pass.
+  Vertex slot0 and uint32 index use full buffers. Two references start undefined for every
+  pass and skip only an already-bound identical handle, following existing private mesh
+  PassBindings behavior without extracting its larger mesh-specific state tracker.
+- No owner field, allocation, persistent cache, resource ownership or public ABI is added.
+  Vertex/index identities are independent; a mutable CachedGeometry record is not a key.
+  Geometry callback count and order remain unchanged, with each buffer property read once
+  in the original order. Dynamic offsets, every draw/stats call and full uploads stay intact.
+- Shared/instanced measured CPU cohorts improve, while all-unique geometry is slightly
+  slower. Keep this explicit tradeoff; no input heuristic, hidden adverse control or universal
+  speedup claim. Native call reduction, sampling attribution and full-submit timing are
+  separate evidence, not heap/GPU-memory, GPU-time or presentation-FPS measurements.
+
+### Native CPU sampling before choosing the candidate
+
+- Node26.7.0, TypeScript6.0.3, pnpm12.6.0; pinned Chromium153.0.8010.12, darwin/arm64 desktop
+  automation via repository browser launcher/Metal flags. No physical-device/Safari claim.
+  Canonical source SDK /src/index.ts; no renderer prototype replacement during sampling.
+- Real1000 visible poses, Mesh or InstancedMesh,128² canvas, per-object blur enabled.
+  Forty-eight warm frames precede512 sampled submissions in batches of16 followed by actual
+  GPU completion/GL finish. CDP Profiler enable/setSamplingInterval(100us)/start/stop/disable
+  succeed on the real browser. Every raw node/sample/time delta, including program/idle/native
+  frames, is retained. Delta totals below are profiler context, not CPU submit medians.
+
+| backend | kind     | poses | profile_frames | actual_draws | upload_bytes | samples | all_time_delta_us |
+| ------- | -------- | ----- | -------------- | ------------ | ------------ | ------- | ----------------- |
+| webgpu  | mesh     | 1000  | 512            | 2000         | 263856       | 3545    | 653830            |
+| webgpu  | instance | 1000  | 512            | 1001         | 263856       | 1320    | 305889            |
+| webgl2  | mesh     | 1000  | 512            | 2000         | 4048         | 3354    | 620590            |
+| webgl2  | instance | 1000  | 512            | 1001         | 4048         | 821     | 225706            |
+
+- Mesh GPU profile's top SDK self samples include collect29,820us, mesh render27,293us,
+  cacheMesh20,070us, drawMesh19,768us, object-motion render16,982us and history build16,804us.
+  The geometry callback is already a direct geometries lookup, not another cacheMesh call.
+- Native buffer-setter self samples underneath actual WebGPU object-motion render:
+
+| backend | kind     | vertexSamples | vertexSelfMicroseconds | indexSamples | indexSelfMicroseconds |
+| ------- | -------- | ------------- | ---------------------- | ------------ | --------------------- |
+| webgpu  | mesh     | 40            | 6208                   | 72           | 11717                 |
+| webgpu  | instance | 45            | 6990                   | 73           | 11244                 |
+
+- These weighted samples locate work; do not divide them into per-call latency or infer
+  speedup. Four profiles include untouched GL controls, whose instance work instead includes
+  uniformMatrix4fv and clip transform costs; only this WebGPU pass changes.
+- The first instance fixture incorrectly expected two total draws. Actual geometry is one
+  instanced draw but shared ObjectMotionHistory expands1000 velocity poses, so the correct
+  contract is1001. Source loop inspection confirmed it; the failed fixture was corrected.
+  Completed GPU Mesh sampling was retained without rerun, then only the three remaining
+  profile cases ran. This is not an instanced-velocity feature or a narrowed draw count.
+
+### Complete full-submit CPU controls, without profiler/observer overlap
+
+- Actual source renderer borrows frozen before/after velocity methods on its real owner.
+  Five cohorts: disabled motion, shared geometry,1000 unique geometries,1000 instances and
+  one pose.128² visible canvas; warm geometry callbacks verify actual buffer transitions
+  outside timing. Shared/instance have one vertex and one index transition, unique has1000
+  of each, and single has one. None has no object-motion owner. GL never calls this class.
+- Six paired rounds alternate AB/BA order;24 complete begin/render/end submissions per timed
+  sample. Warmup/native completion/GL finish are outside timing. GPU then GL use separate
+  browser processes after all profiling is disabled. All120 raw rows remain below.
+
+| backend | workload | before_ms | after_ms | change_percent | upload_before | upload_after | poses | actual_draws |
+| ------- | -------- | --------- | -------- | -------------- | ------------- | ------------ | ----- | ------------ |
+| webgpu  | none     | 0.593750  | 0.581250 | -2.11          | 7856          | 7856         | 1000  | 1000         |
+| webgpu  | shared   | 0.858333  | 0.810417 | -5.58          | 263856        | 263856       | 1000  | 2000         |
+| webgpu  | unique   | 1.072917  | 1.087500 | 1.36           | 263856        | 263856       | 1000  | 2000         |
+| webgpu  | instance | 0.256250  | 0.216667 | -15.45         | 263856        | 263856       | 1000  | 1001         |
+| webgpu  | single   | 0.018750  | 0.016667 | -11.11         | 8112          | 8112         | 1     | 2            |
+| webgl2  | none     | 0.772917  | 0.772917 | 0.00           | 4048          | 4048         | 1000  | 1000         |
+| webgl2  | shared   | 1.037500  | 1.002083 | -3.41          | 4048          | 4048         | 1000  | 2000         |
+| webgl2  | unique   | 2.614583  | 2.577083 | -1.43          | 4048          | 4048         | 1000  | 2000         |
+| webgl2  | instance | 0.254167  | 0.258333 | 1.64           | 4048          | 4048         | 1000  | 1001         |
+| webgl2  | single   | 0.012500  | 0.010417 | -16.67         | 4048          | 4048         | 1     | 2            |
+
+- Shared and instance GPU cases improve in all six paired rounds, but unique is slower in
+  five rounds and its median is adverse. Unused none/GL controls move, and single is tiny
+  and quantized despite no setter-count reduction. Do not attribute those unused/single
+  movements or claim every scene accelerates.
+
+#### Raw WebGPU rounds
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.675000 |          0.579167 |
+| none / 2         |           0.579167 |          0.591667 |
+| none / 3         |           0.583333 |          0.612500 |
+| none / 4         |           0.604167 |          0.583333 |
+| none / 5         |           0.608333 |          0.575000 |
+| none / 6         |           0.570833 |          0.575000 |
+| shared / 1       |           0.941667 |          0.850000 |
+| shared / 2       |           0.862500 |          0.850000 |
+| shared / 3       |           0.850000 |          0.808333 |
+| shared / 4       |           0.845833 |          0.795833 |
+| shared / 5       |           0.854167 |          0.812500 |
+| shared / 6       |           0.887500 |          0.808333 |
+| unique / 1       |           1.204167 |          1.075000 |
+| unique / 2       |           1.070833 |          1.112500 |
+| unique / 3       |           1.075000 |          1.104167 |
+| unique / 4       |           1.066667 |          1.091667 |
+| unique / 5       |           1.075000 |          1.083333 |
+| unique / 6       |           1.070833 |          1.075000 |
+| instance / 1     |           0.270833 |          0.237500 |
+| instance / 2     |           0.266667 |          0.225000 |
+| instance / 3     |           0.254167 |          0.216667 |
+| instance / 4     |           0.254167 |          0.216667 |
+| instance / 5     |           0.258333 |          0.216667 |
+| instance / 6     |           0.250000 |          0.216667 |
+| single / 1       |           0.016667 |          0.016667 |
+| single / 2       |           0.016667 |          0.016667 |
+| single / 3       |           0.020833 |          0.016667 |
+| single / 4       |           0.020833 |          0.012500 |
+| single / 5       |           0.020833 |          0.016667 |
+| single / 6       |           0.012500 |          0.012500 |
+
+#### Raw WebGL2 untouched controls
+
+| Workload / round | Before (ms/submit) | After (ms/submit) |
+| ---------------- | -----------------: | ----------------: |
+| none / 1         |           0.775000 |          0.775000 |
+| none / 2         |           0.770833 |          0.770833 |
+| none / 3         |           0.779167 |          0.779167 |
+| none / 4         |           0.770833 |          0.775000 |
+| none / 5         |           0.766667 |          0.770833 |
+| none / 6         |           0.775000 |          0.766667 |
+| shared / 1       |           1.020833 |          0.995833 |
+| shared / 2       |           1.016667 |          1.000000 |
+| shared / 3       |           1.000000 |          0.991667 |
+| shared / 4       |           1.075000 |          1.004167 |
+| shared / 5       |           1.083333 |          1.079167 |
+| shared / 6       |           1.054167 |          1.045833 |
+| unique / 1       |           2.983333 |          2.858333 |
+| unique / 2       |           2.825000 |          2.716667 |
+| unique / 3       |           2.683333 |          2.695833 |
+| unique / 4       |           2.483333 |          2.441667 |
+| unique / 5       |           2.545833 |          2.458333 |
+| unique / 6       |           2.429167 |          2.429167 |
+| instance / 1     |           0.250000 |          0.266667 |
+| instance / 2     |           0.254167 |          0.254167 |
+| instance / 3     |           0.245833 |          0.245833 |
+| instance / 4     |           0.254167 |          0.245833 |
+| instance / 5     |           0.258333 |          0.262500 |
+| instance / 6     |           0.254167 |          0.275000 |
+| single / 1       |           0.012500 |          0.008333 |
+| single / 2       |           0.012500 |          0.008333 |
+| single / 3       |           0.012500 |          0.012500 |
+| single / 4       |           0.012500 |          0.012500 |
+| single / 5       |           0.008333 |          0.008333 |
+| single / 6       |           0.008333 |          0.012500 |
+
+### Applied-code native resources at the actual draw, plus exact pixels
+
+- Eight source/distribution × GPU/GL × AA off/on advanced suites retain existing TAA/history,
+  SSR/combined/toggle, capture/abort, spatial probe and Text3D thresholds. These are inactive
+  object-motion controls, not evidence of setter savings in that path.
+- Four whole post-effects suites cover both AA modes and original LUT/tone/fog/occlusion,
+  flare, camera/cut, object/instance motion. Owned additions retain actual TAA+object,
+  FXAA pixels/toggle/recreation and128²→160×128→128² target resize. The existing smaller
+  motion-buffer prime before adding instances exercises actual uniform-buffer growth.
+- After delegates to the applied class; frozen parent methods borrow the same actual native
+  owner before. Native pass begin creates empty observed binding state. Actual setVertexBuffer,
+  setIndexBuffer and setBindGroup update it, and each real drawIndexed snapshots actual
+  vertex/index/format/group/dynamic offsets/index args. Snapshot every callback and upload.
+- Every actual draw state, geometry callback, group/resource creation, full queue payload,
+  pass attachment, release/destroy record and presented RGBA is exact before/after.
+  Candidate setters must equal the independent per-pass actual GPUBuffer transitions derived
+  from baseline draws. Counting fewer setter calls alone cannot satisfy this proof.
+
+| entry  | backend | AA   | consumer | frame_pairs | RGBA_bytes | vertex_before | vertex_after | index_before | index_after | actual_draws | geometry_callbacks | passes | group_creations | uploads | uniform_bytes | buffer_creations | texture_creations | releases | destroys |
+| ------ | ------- | ---- | -------- | ----------- | ---------- | ------------- | ------------ | ------------ | ----------- | ------------ | ------------------ | ------ | --------------- | ------- | ------------- | ---------------- | ----------------- | -------- | -------- |
+| source | webgpu  | off  | advanced | 23          | 5870592    | 0             | 0            | 0            | 0           | 0            | 0                  | 0      | 0               | 0       | 0             | 0                | 0                 | 0        | 0        |
+| source | webgpu  | on   | advanced | 23          | 5870592    | 0             | 0            | 0            | 0           | 0            | 0                  | 0      | 0               | 0       | 0             | 0                | 0                 | 0        | 0        |
+| source | webgpu  | both | effects  | 82          | 5406720    | 132           | 66           | 132          | 66          | 132          | 132                | 42     | 10              | 30      | 33792         | 10               | 8                 | 12       | 18       |
+| source | webgl2  | off  | advanced | 23          | 5870592    | 0             | 0            | 0            | 0           | 0            | 0                  | 0      | 0               | 0       | 0             | 0                | 0                 | 0        | 0        |
+| source | webgl2  | on   | advanced | 23          | 5870592    | 0             | 0            | 0            | 0           | 0            | 0                  | 0      | 0               | 0       | 0             | 0                | 0                 | 0        | 0        |
+| source | webgl2  | both | effects  | 82          | 5406720    | 0             | 0            | 0            | 0           | 0            | 0                  | 0      | 0               | 0       | 0             | 0                | 0                 | 0        | 0        |
+| dist   | webgpu  | off  | advanced | 23          | 5870592    | 0             | 0            | 0            | 0           | 0            | 0                  | 0      | 0               | 0       | 0             | 0                | 0                 | 0        | 0        |
+| dist   | webgpu  | on   | advanced | 23          | 5870592    | 0             | 0            | 0            | 0           | 0            | 0                  | 0      | 0               | 0       | 0             | 0                | 0                 | 0        | 0        |
+| dist   | webgpu  | both | effects  | 82          | 5406720    | 132           | 66           | 132          | 66          | 132          | 132                | 42     | 10              | 30      | 33792         | 10               | 8                 | 12       | 18       |
+| dist   | webgl2  | off  | advanced | 23          | 5870592    | 0             | 0            | 0            | 0           | 0            | 0                  | 0      | 0               | 0       | 0             | 0                | 0                 | 0        | 0        |
+| dist   | webgl2  | on   | advanced | 23          | 5870592    | 0             | 0            | 0            | 0           | 0            | 0                  | 0      | 0               | 0       | 0             | 0                | 0                 | 0        | 0        |
+| dist   | webgl2  | both | effects  | 82          | 5406720    | 0             | 0            | 0            | 0           | 0            | 0                  | 0      | 0               | 0       | 0             | 0                | 0                 | 0        | 0        |
+
+- Twelve normal suites compare512 formal frame pairs and68,591,616 presented RGBA bytes
+  exactly, with unchanged drawCalls/uploadBytes and clean native GPU scopes. Groups, dynamic
+  offsets and poses are not dropped to obtain fewer vertex/index calls. Each new pass binds
+  its first required buffers even if the previous pass used the same geometry.
+
+### Three independent native buffer/pass negatives
+
+| entry  | variant      | result | actual_buffer_mismatches | native_errors | RGBA_mismatch_frames | RGBA_mismatch_bytes |
+| ------ | ------------ | ------ | ------------------------ | ------------- | -------------------- | ------------------- |
+| source | wrong-vertex | failed | 12                       | 0             | 1                    | 912                 |
+| source | wrong-index  | failed | 4                        | 1             | 0                    | 0                   |
+| source | wrong-pass   | failed | 1                        | 1             | 0                    | 0                   |
+| dist   | wrong-vertex | failed | 12                       | 0             | 1                    | 912                 |
+| dist   | wrong-index  | failed | 4                        | 1             | 0                    | 0                   |
+| dist   | wrong-pass   | failed | 1                        | 1             | 0                    | 0                   |
+
+- Wrong vertex freezes the first actual vertex buffer while retaining correct index changes.
+  Native validation remains empty, but instance-motion-static-camera reports only0 visibly
+  changed pixels against the existing minimum10; one same-stat frame also differs by912
+  presented bytes. Both source/distribution reject the real wrong geometry, not just IDs.
+- Wrong index freezes the first actual index buffer while retaining correct vertex changes.
+  Native DrawIndexed36 cannot fit the first24-byte uint32 index buffer and fails:
+
+```text
+Index range (first: 0, count: 36, format: IndexFormat::Uint32) does not fit in index buffer size (24).
+```
+
+- Wrong pass persists native binding identities across encoders. A fresh real pass receives
+  no index binding and fails at DrawIndexed6:
+
+```text
+Index buffer was not set.
+```
+
+- Both negatives fail actual GPU scopes in source/distribution. Private observer rows do not
+  repair missing bindings or substitute fake buffers. Original consumer thresholds are never
+  relaxed. An owned generated-driver join initially emitted a literal newline in quotes,
+  causing parse failure before browser launch; fixed to a plain-space join only. Accepted
+  profiling/CPU data and runtime code/thresholds were unchanged by that harness correction.
+
+### Quality, distribution and certification limits
+
+- Source Prettier unchanged, scoped ESLint and strict typecheck passed. Existing
+  motion-blur-object/motion-blur unit files:17 tests passed at02:48:32,1.80s; no wiring-only
+  tests added. No unrelated physics2d-motion/locomotion/root-motion suites rerun.
+- Isolated build compiled/minified377 JS files9,363,022→4,013,097 bytes and built720 CJS files.
+  Guard requires exact unchanged motion .d.ts; only four ESM/map/CJS/map runtime outputs
+  copied. No declarations or unrelated user source/dist files staged.
+- Unpatched source/distribution × GPU/GL controls each pass five real scenarios, no
+  page/console errors. Actual GPU/GL showcase Scene A→B and pagehide cleanup pass;
+  screenshot captured, audio remains locked and is not verified.
+- Sync README Chinese/English/Japanese, PLAN, DESIGN, technical English/Chinese and this
+  record. Profile/timing/proof Vite are stopped; owned fixtures/scripts/profile/build stage
+  removed before the eleven-file feature commit. No push, version bump or runtime dependency.
+- Not run: full unit suite, CJS runtime, Canvas/audio, device-loss/initialization fallback,
+  Firefox/Safari or physical-device certification. No heap/GC/native/GPU-memory, GPU time,
+  presentation FPS or end-to-end latency measurement; no universal speedup claim.

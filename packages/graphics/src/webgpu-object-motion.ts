@@ -143,13 +143,23 @@ export class WebGPUObjectMotion {
     });
     try {
       pass.setPipeline(this.pipeline);
+      let boundVertex: GPUBuffer | undefined;
+      let boundIndex: GPUBuffer | undefined;
       for (let i = 0; i < draws.length; i++) {
         const mesh = draws[i]!.mesh,
           cached = geometry(mesh);
         this.dynamicOffsets[0] = i * this.stride;
         pass.setBindGroup(0, this.groupForPass!, this.dynamicOffsets);
-        pass.setVertexBuffer(0, cached.vertex);
-        pass.setIndexBuffer(cached.index, 'uint32');
+        const vertex = cached.vertex;
+        if (vertex !== boundVertex) {
+          pass.setVertexBuffer(0, vertex);
+          boundVertex = vertex;
+        }
+        const index = cached.index;
+        if (index !== boundIndex) {
+          pass.setIndexBuffer(index, 'uint32');
+          boundIndex = index;
+        }
         pass.drawIndexed(mesh.renderGeometry.indices.length);
         this.stats.draw(mesh.renderGeometry.indices.length, 1);
       }

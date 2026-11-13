@@ -44,6 +44,8 @@ Post／FXAA的auto-layout各自lazy保留至pipeline owner結束，跨target重�
 
 未指定external source時，post直接重用既有owned color view，不加cache；explicit TAA history保持原路徑。Post reuses its existing owned color view when no explicit source is supplied, without a new cache; explicit TAA histories keep their original path. Explicit source がない post は既存の owned color view をそのまま使い、新しい cache は追加しません。Explicit TAA history の経路は変更しません。Native 呼び出し削減を安定した FPS 向上とはしません。
 
+Object-motion pass以實際buffer identity省略重複vertex／index binding，逐pass重設；unique geometry對照略慢，不宣稱全面加速。Object-motion passes skip redundant vertex/index binds by actual buffer identity and reset each pass; unique-geometry controls are slightly slower, not a universal speedup. Object-motion pass は実 buffer identity で重複 vertex／index bind を省き、pass ごとにリセットします。Unique geometry の対照群は少し遅く、全面的な高速化とはしません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

@@ -7495,3 +7495,23 @@ source distinction matters beyond validation.
 Six scoped tests, source checks, unchanged declarations, four guarded runtime
 outputs and unpatched consumers/showcase passed. Mixed CPU controls and bounded API
 work are in [ACCEPTANCE](../ACCEPTANCE.md) P209; no stable heap or FPS gain is claimed.
+
+## P210 pass-local object-motion buffer bindings
+
+Velocity rendering follows the existing private mesh PassBindings convention:
+skip a native vertex/index setter only when its actual GPUBuffer is already bound
+in this pass. Two local references reset on every new pass; no owner field, cache,
+allocation or borrowed-resource lifetime is added. Full ranges and uint32 indices
+are fixed. Geometry-record identity is not a sufficient key.
+
+Each pose still invokes the geometry callback and reads each resource once in the
+original order. Dynamic group offsets, draws, stats and complete uploads remain
+unchanged. Native draw-state snapshots and exact pixels passed source/distribution
+and both AA modes. Wrong vertex identity failed real instance-motion pixels;
+wrong index identity and cross-pass state failed actual GPU validation.
+
+Four native CPU profiles guided this change. Shared/instanced full-submit cohorts
+improved while all-unique geometry was slightly slower; unused/single/GL controls
+and every raw round remain in [ACCEPTANCE](../ACCEPTANCE.md) P210. Seventeen scoped
+tests, source checks, unchanged declarations, four guarded runtime outputs and
+unpatched consumers/showcase passed. No universal FPS, heap or GPU-time gain is claimed.

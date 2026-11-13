@@ -5994,3 +5994,18 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   但實際presented bytes錯誤。資源合法與數張圖「看起來有變」不足以證明source選擇正確。
 - 不宣稱native view呼叫減少等於heap／driver memory或FPS下降；既有strong owned view
   reference沒有增加，CPU active／unused cohorts及raw rounds另記。
+
+## P210 — Velocity bindings track actual buffers only inside their native pass
+
+- Main mesh pass的private PassBindings已用相同GPUBuffer identity省略native setter；
+  velocity只有slot0及uint32 index，沿用慣例用兩個local refs，不抽出較大的mesh-specific tracker。
+- 每個新pass先忘記buffer state；vertex／index各自比對實際GPUBuffer，不能只比CachedGeometry
+  record，也不能只綁第一個geometry。Full buffer range與uint32 format固定才足以只用buffer key。
+- Geometry callback仍每pose執行，vertex與index property各讀一次且維持先後；draw／stats及每次
+  dynamic offset不略過。Local refs不跨pass，也不新增borrowed-resource lifetime。
+- Native proof在真正drawIndexed時snapshot已綁vertex／index／format／group／offsets／args，
+  after setter rows必須等於before actual draw state的逐pass獨立buffer transitions。
+- Wrong first-vertex雖合法，instance blur變成零changed pixels且golden bytes不同；wrong first-index
+  則造成實際index range超過buffer，跨pass carry會在新pass缺少index binding，皆不是mock拒絕。
+- Shared／instanced CPU cohorts受益，但all-unique geometry對照略慢；不加特殊輸入heuristic
+  隱藏代價。Sampling歸因與完整submit計時分開，不以native calls或sample數冒稱FPS／heap收益。

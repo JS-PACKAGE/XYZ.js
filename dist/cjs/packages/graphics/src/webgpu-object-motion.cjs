@@ -106,9 +106,14 @@ var WebGPUObjectMotion = class {
 		}] });
 		try {
 			c.setPipeline(this.pipeline);
-			for (let e = 0; e < o.length; e++) {
-				let t = o[e].mesh, n = a(t);
-				this.dynamicOffsets[0] = e * this.stride, c.setBindGroup(0, this.groupForPass, this.dynamicOffsets), c.setVertexBuffer(0, n.vertex), c.setIndexBuffer(n.index, `uint32`), c.drawIndexed(t.renderGeometry.indices.length), this.stats.draw(t.renderGeometry.indices.length, 1);
+			let e, t;
+			for (let n = 0; n < o.length; n++) {
+				let r = o[n].mesh, i = a(r);
+				this.dynamicOffsets[0] = n * this.stride, c.setBindGroup(0, this.groupForPass, this.dynamicOffsets);
+				let s = i.vertex;
+				s !== e && (c.setVertexBuffer(0, s), e = s);
+				let l = i.index;
+				l !== t && (c.setIndexBuffer(l, `uint32`), t = l), c.drawIndexed(r.renderGeometry.indices.length), this.stats.draw(r.renderGeometry.indices.length, 1);
 			}
 		} finally {
 			c.end(), this.groupForPass = void 0;

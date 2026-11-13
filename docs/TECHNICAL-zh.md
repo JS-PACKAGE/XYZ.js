@@ -7168,3 +7168,20 @@ resize的presented bytes皆相同。Always-owned negative雖通過native validat
 Scoped6 tests、source checks、完全相同declarations、四個guarded runtime outputs及unpatched
 consumer／showcase通過。Mixed CPU controls與bounded API work見[ACCEPTANCE](../ACCEPTANCE.md)
 P209，不宣稱穩定heap或FPS收益。
+
+## P210 pass-local object-motion buffer bindings
+
+Velocity rendering沿用既有private mesh PassBindings慣例：同pass已綁相同實際GPUBuffer才省略
+native vertex／index setter。兩個local refs在每個新pass重設，不增加owner field、cache、
+allocation或borrowed-resource lifetime。Full range與uint32 index固定；geometry record
+identity本身不是充分key。
+
+每pose仍執行geometry callback，依原次序各讀一次resource；dynamic group offsets、draws、
+stats及完整uploads不變。Source／dist兩AA的native draw-state及actual pixels相同。
+Wrong vertex identity被實際instance-motion pixels拒絕；wrong index及跨pass state被native
+GPU validation拒絕。
+
+本次先做四組native CPU profile；shared／instanced完整submit下降，all-unique geometry對照
+略慢。Unused／single／GL controls及所有raw rounds保留於[ACCEPTANCE](../ACCEPTANCE.md) P210。
+Scoped17 tests、source checks、完全相同declarations、四個guarded runtime outputs及unpatched
+consumer／showcase通過，不宣稱全面FPS、heap或GPU-time收益。
