@@ -5692,3 +5692,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   同樣有效、一般控制組較穩定；Node 混合結果與 browser driver 中斷均明載。
 - 正式 NativeWorkerPool 的兩欄結果另做 byte comparison 與 Geometry／Mesh publication；
   CPU 計時排除 Worker 啟動與 message 開銷，不能推導使用者延遲或 FPS。
+
+## P185 — Isolate mutable cache history before comparing visibility paths
+
+- Visibility 的15個private stamp values可bulk copy，亦可只寫入Object.is判定不同
+  的值；公開matrix／getter讀序仍須保留，不能套用相同省略到caller-owned data。
+- 兩候選精確比較通過，但完整collect只呈現微幅混合差異，不足以保留正式變更。
+- 同一Scene先後collect不是cold getter讀序的對等fixtures：InstancedMesh aggregate
+  bounds會被第一次讀取暖化。比較需使用獨立Scenes並保留NaN／signed-zero、
+  membership、camera、instance packing及ownership清理，而不是刪除失敗斷言。

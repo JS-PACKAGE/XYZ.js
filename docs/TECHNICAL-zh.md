@@ -6849,3 +6849,11 @@ Chromium 153 真 Worker 的隔離 CPU 批次在 `2×8192／128`、20 calls 為
 8.7→3.0 ms，一般高迭代控制組持平；Node 結果混合，計時不含 Worker 啟動／messages。
 Source／built-root 精確比對、真正狹長 NativeWorkerPool publication、GPU／GL 畫面
 及 cleanup 見 [ACCEPTANCE](../ACCEPTANCE.md) P184，不宣稱配置、端到端延遲、GPU 或 FPS 收益。
+
+## P185 visibility snapshot 調查
+
+Private stamp 的15個值採bulk copy，或僅寫入不同值，皆通過獨立Scene的output／
+getter比較；但native Chromium完整gather只呈現控制組也有的微幅混合差異，
+因此兩候選皆未改正式程式。同一Scene依序collect會暖化InstancedMesh aggregate
+bounds，不是對等cold fixtures。分開矩陣、fixture修正與measurement HMR reload見
+[ACCEPTANCE](../ACCEPTANCE.md) P185，不宣稱渲染或FPS收益。

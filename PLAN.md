@@ -5537,3 +5537,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   不宣稱配置、端到端延遲、GPU 或 FPS 收益。
 - 新增兩欄 source-iterator snapshots／parity regression；7 tests、精確差分、
   ESM／CJS、正式 GPU／GL Worker publication 與 cleanup 通過，細節見 ACCEPTANCE P184。
+
+## P185 — Keep visibility snapshots without a clear complete-gather win
+
+- 分別量測 private stamp 的 typed-array bulk copy 與 unchanged-value write elision；
+  每候選皆通過384 frames／65 meshes及99,806 getter observations精確比較。
+- Chromium 153完整 collect 的13-case矩陣多為0–3%差異，控制組亦有類似變化；
+  不足以採用，保留原正式source／tests／dist，不宣稱少writes等於實際收益。
+- Getter proof改用獨立cold Scenes，避免第一個cache暖化InstancedMesh bounds；
+  暫停measurement HMR以排除已觀察到的probe page reload。完整證據見ACCEPTANCE P185。

@@ -7091,3 +7091,13 @@ Node results were mixed, and Worker startup/messages were outside that timing.
 Exact source/built-root comparisons, a real narrow NativeWorkerPool publication,
 WebGPU/WebGL2 surfaces and cleanup are recorded in [ACCEPTANCE](../ACCEPTANCE.md)
 P184. This is not an allocation, end-to-end latency, GPU or FPS claim.
+
+## P185 visibility snapshot investigation
+
+Bulk-copying the fifteen private stamp values and skipping unchanged private-value
+writes each passed independent-Scene output/getter comparisons. Complete native
+Chromium gathers showed only small mixed differences, also present in controls,
+so neither candidate changed production code. Sequential caches over one Scene
+are not equivalent cold fixtures: the first gather warms InstancedMesh aggregate
+bounds. The separate matrices, corrected fixtures and measurement HMR reload are
+recorded in [ACCEPTANCE](../ACCEPTANCE.md) P185; no rendering or FPS claim is made.

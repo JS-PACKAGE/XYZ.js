@@ -19858,3 +19858,88 @@ workers／running／queued／admittedBytes皆0。此probe的compute1.5ms、elaps
 沒有Safari、Firefox、實體裝置、heap／GPU time／FPS、全套tests或全backend效能認證。
 清理本輪owned scratch、measurement drivers、browser及Vite service；只保留正式guard、
 回歸測試、四個對應geometry生成檔與同步文件，依功能獨立提交且不push。
+
+## P185 — Keep visibility snapshots without a clear complete-gather win
+
+- 日期：2026-11-13；版本維持1.23.0。正式source／tests／dist沒有修改。
+- 比較兩個獨立候選：boundsChanged時以Float64Array.set取代15個private values
+  的逐項copy；或只在Object.is發現值不同時寫入private snapshot（已知boundsChanged
+  分支仍保留原copy）。兩者均不更動公開matrix reads、getter collection、bounds／
+  epoch invalidation、排序、BVH refit、instance packing或ownership。
+- Native完整collect收益多為0–3%，其中不經該copy分支的控制組也有相近差異；
+  一個0.1ms timer quantum及跨case VM history不能忽略。收益不足以證明普遍改善，
+  兩者皆不採用；不以少writes或native memcpy推導CPU／GPU／FPS提升。
+
+### Native Chromium complete-gather CPU
+
+既有playwright-core1.63.0與repository launcher，Chromium153.0.8010.12、
+darwin/arm64、預設headless desktop automation，非Safari／實機認證。
+每候選在獨立browser process量測，有自己的before；不可跨表拼接baseline。
+每case before／candidate各自使用獨立真Scene、Mesh、Geometry、TextureMaterial及
+canvas→Texture.fromImage的真bitmap，沒有fake Texture或main-thread Worker fallback。
+共用cube／material只限同一Scene。Fixture／bitmap建立不計時；每batch包含指定pose／
+membership變更、完整collect與輸出更新，不含GPU提交或RAF。
+各8個warmup batches、15個交錯sample，中位數如下。每case結束clear caches、
+destroy Scene／Texture；兩個完整run的pageerror／console error皆空。
+
+#### Candidate A — bulk private snapshot copy
+
+| Meshes | Mutation   | Frames/batch | Before ms | Candidate ms |
+| -----: | ---------- | -----------: | --------: | -----------: |
+|      0 | static     |         5000 |       0.5 |          0.6 |
+|      1 | static     |         5000 |       1.4 |          1.4 |
+|      1 | move-first |         5000 |       1.5 |          1.4 |
+|     64 | static     |          256 |       3.1 |          3.2 |
+|     64 | move-first |          256 |       3.1 |          3.0 |
+|     64 | move-last  |          256 |       3.3 |          3.3 |
+|   1024 | static     |           64 |      12.5 |         12.5 |
+|   1024 | move-first |           64 |      12.9 |         12.6 |
+|   1024 | move-last  |           64 |      13.4 |         13.2 |
+|   1024 | move-all   |           64 |      13.0 |         12.8 |
+|   1024 | membership |           32 |       8.5 |          8.5 |
+|   4096 | static     |           16 |      11.3 |         11.1 |
+|   4096 | move-first |           16 |      11.5 |         11.3 |
+
+#### Candidate B — skip unchanged private-value writes
+
+| Meshes | Mutation   | Frames/batch | Before ms | Candidate ms |
+| -----: | ---------- | -----------: | --------: | -----------: |
+|      0 | static     |         5000 |       0.6 |          0.6 |
+|      1 | static     |         5000 |       1.4 |          1.4 |
+|      1 | move-first |         5000 |       1.4 |          1.5 |
+|     64 | static     |          256 |       3.1 |          3.1 |
+|     64 | move-first |          256 |       3.1 |          3.1 |
+|     64 | move-last  |          256 |       3.3 |          3.2 |
+|   1024 | static     |           64 |      12.5 |         12.4 |
+|   1024 | move-first |           64 |      12.9 |         12.7 |
+|   1024 | move-last  |           64 |      13.3 |         13.2 |
+|   1024 | move-all   |           64 |      13.0 |         12.8 |
+|   1024 | membership |           32 |       8.5 |          8.4 |
+|   4096 | static     |           16 |      11.1 |         11.0 |
+|   4096 | move-first |           16 |      11.4 |         11.2 |
+
+兩表的move-last通常直到最後record才發現bounds變動，static不走已知boundsChanged
+copy分支；因此不能將這些控制組的小幅變化全歸因於Candidate A的copy。沒有profile
+JIT／CPU根因，也不從目前結果宣稱長期或一般場景收益。
+
+### Differential proof and fixture corrections
+
+- 每候選各384個mutation frames、65 meshes（64 Mesh + 1 InstancedMesh），
+  Object.is精確比較epoch、counter、color／shadow insertion order、entry bounds／fade、
+  packed instance indices／matrices／RGB colors與occlusion candidates。
+  各99,806次getter observations讀序一致；涵蓋NaN／signed zero、visibility、
+  frustum opt-out、未知deformation bounds、camera／depth revision、membership reorder、
+  instance transforms及colors。這是numeric／getter equality，不是byte或GPU pixel proof。
+- 初版將兩個cache依序套在同一Scene，frame0的deformation getter次數為67／66，
+  但輸出一致。源碼確認InstancedMesh.boundingSphere依instance／geometry versions
+  快取aggregate，第二次collect已受第一次暖化。改用兩個獨立cold fixtures，保留
+  完整cold／mutation讀序比較，而非移除失敗斷言或只測warm path。
+- 修改throwaway probe後曾發生Execution context was destroyed；Vite service實際記錄
+  同一probe.mjs的page reload。測量server暫時採用官方支援的
+  [server.hmr=false](https://vite.dev/config/server-options#server-hmr)，未改正式repo config；
+  之後兩個完整run成功。先前失敗不當作引擎回歸，也不重跑已完成的13-case矩陣。
+- 沒有正式production code change，因此未重跑typecheck／lint／build／unit suites，
+  也未冒稱Game／WebGPU／WebGL2／Canvas2D surface、audio unlock或可聽輸出驗證。
+  這是隔離正式cache實作搭配built classes的CPU調查，不是渲染認證。
+- 清理owned scratch／drivers／measurement server；保留原實作，僅同步文件，
+  依功能獨立提交且不push。
