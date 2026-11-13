@@ -6099,3 +6099,12 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   多map identity切換時新增判斷與stores；減少lookup本身不證明完整draw路徑更快。
 - 192筆正式submit對照沒有穩定整體收益，distinct-maps控制亦較慢，故不採用；
   正式Map仍是唯一material texture lookup來源，不加入prototype欄位、失效分支或新慣例。
+
+## P217 — Writable recency is not a private rank
+
+- ResidencyAllocation.lastUsed是公開可寫欄位；既有retire callback可修改它。
+  因此不能以「相對LRU排序在封閉模型中相同」證明壓縮clock／省略重複stamp是相容最佳化。
+- 真實類別對照中，直接寫入及retire callback均使baseline回收a、候選回收b；
+  兩者預算、entries、liveBytes、evictions相同。只核對統計不能證明資源生命週期等價。
+- 維持每次touch遞增clock及寫入lastUsed，不封裝或縮減既有可寫能力來配合候選。
+  此候選在語意檢查即否決，沒有CPU、heap、GPU、pixels或FPS收益證據。

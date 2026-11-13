@@ -7629,3 +7629,12 @@ control was slower. Production source, dist, public API and existing indexed nat
 unit-binding caches are unchanged. Fewer Map lookups alone are not performance,
 heap or GPU-state proof. See [ACCEPTANCE](../ACCEPTANCE.md) P216 for every CPU sample,
 separate untimed diagnostics and the exact unverified scope.
+
+## P217 rejected residency recency-store elision
+
+Consecutive residency touches still increment the clock and write lastUsed.
+The allocation's lastUsed field remains writable, including from retire callbacks.
+Skipping stamps changed actual eviction victims in both direct-write and callback
+comparisons, even though budget, live bytes, entries and eviction counts matched.
+The prototype was rejected before CPU or native benchmarking; source and dist are
+unchanged. See [ACCEPTANCE](../ACCEPTANCE.md) P217 for the exact consumer proof.

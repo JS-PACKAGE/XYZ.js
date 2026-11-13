@@ -5937,3 +5937,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   GL共用路徑沒有穩定收益，distinct-maps中位數較慢；保留GPU波動及全部paired samples。
 - 否決新增lookaside狀態，不因Map查詢變少就宣稱加速；沒有永久test／build／公開API變更。
   完整結果、untimed診斷與未重新驗證範圍見ACCEPTANCE P216；只提交決策文件，不push／升版。
+
+## P217 — Reject compressed residency recency
+
+- 連續touch只在lastUsed不等於pool clock時遞增的隔離候選，仍保留cold zero guard、
+  destroyed檢查及所有frame pin／capture程式；沒有新增快取狀態或early return。
+- 先前驗收已保留lastUsed的公開可寫語意，不能假設recency只由pool修改。
+  使用實際類別與正式GraphicsError的直接寫入／retire callback對照，兩案皆改變eviction受害者。
+- 因契約失敗而否決，未進行CPU／native benchmark；正式source／dist不改。
+  精確步驟與觀察見ACCEPTANCE P217；只提交決策文件，不push／升版。

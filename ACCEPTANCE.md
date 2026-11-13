@@ -25230,3 +25230,34 @@ showcase compatibility is distinct from dedicated velocity-effect coverage above
 | single / 6           |           0.020833 |          0.020833 |
 | distinct-maps / 6    |           1.100000 |          1.070833 |
 | alternating-maps / 6 |           1.087500 |          1.079167 |
+
+## P217 — 2026-11-13：否決連續residency recency-store省略
+
+### 決策與契約
+
+- 正式source／dist完全不改；只提交六個既有文件的決策紀錄，不push、不升版、不新增公開API、狀態或永久tests。
+- 先讀ResidencyPool的touch、allocate、frame／capture、resize、forget、makeRoom及既有admission tests，並查閱2026-11-05歷史驗收：lastUsed／references／bytes／destroyed是公開可寫欄位，retire callback可直接修改。不能只證明封閉pool內的相對排序。
+- 隔離候選只將原本每次touch的lastUsed = ++clock改為lastUsed不等於clock或clock為0時才寫入。保留初始clock／lastUsed為0、cold guard、destroyed錯誤及全部後續pin／capture程式；不加cache field、early return或封裝既有可寫欄位。
+- 語意對照已出現consumer-visible受害者差異，因此在CPU／native benchmark之前否決。這不是效能退步量測，也不能把較少stores當成收益。
+
+### 實際類別的可寫欄位反例
+
+以Bun 1.4.4執行實際before／候選ResidencyPool的TypeScript-transpiled modules，兩者共用未修改的正式GraphicsError module；沒有mock pool、eviction、callback或errors。所有allocation均為4 bytes的測試估計值，不是GPU／VRAM量測。
+
+- Direct：budget 8，依序allocate a、b，直接將a.lastUsed設為5，再連續b.touch四次，最後allocate c。
+- Retire callback：budget 12，依序allocate a、b、trigger；trigger的實際retire callback將a.lastUsed設為8。呼叫trigger.destroy、configure 8，再連續b.touch六次，最後allocate c。
+
+| 路徑／版本                     | admission前a.lastUsed | admission前b.lastUsed | 實際retired順序 |
+| ------------------------------ | --------------------: | --------------------: | --------------- |
+| direct / 正式baseline          |                     5 |                     6 | a               |
+| direct / 候選                  |                     5 |                     2 | b               |
+| retire-callback / 正式baseline |                     8 |                     9 | trigger → a     |
+| retire-callback / 候選         |                     8 |                     4 | trigger → b     |
+
+兩案各自的before／after在新allocation admission後都是liveBytes 8、entries 2、evictions 1，但被destroy的allocation identity相反。對照以實際destroyed flags斷言差異並在觀察後clear，沒有以相同統計掩蓋不同資源生命週期。
+
+### 驗證範圍
+
+- 已執行上述兩個實際類別反例，正式source仍與候選準備前的讀取內容相同。
+- 六個文件執行Prettier檢查及相對檔案連結檢查；歷史驗收以size／mtimeNs／4096-byte尾端guard後只append，不重寫舊紀錄。
+- 未執行native CPU、GPU、pixels、heap／GC、FPS、showcase、browser lifecycle、build、typecheck、lint或完整tests；候選未套用正式runtime，語意不相容即不值得繼續計時。先前runtime驗收不冒稱為本次重驗。

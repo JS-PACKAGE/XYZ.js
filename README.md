@@ -58,6 +58,8 @@ GL 單值uniform直接快取number，省去四元素Float64Array；保留signed 
 
 GL 材質texture單項lookaside候選未採用：完整native submit未見穩定收益，distinct-map控制組較慢；不新增快取狀態。A recent-material-texture lookaside was rejected after unstable native-submit results and a slower distinct-map control; runtime is unchanged. GL material texture の単一lookaside案はnative submitの安定した利益がなく、distinct-map対照群も遅いため不採用です。Runtimeは変更しません。
 
+Residency 連續touch的recency-store省略案不採用：公開可寫lastUsed使直接修改與retire callback都能改變eviction；真實類別對照已出現不同受害者，runtime不變、未量CPU。Consecutive residency recency-store elision was rejected: writable lastUsed changes eviction under direct and retire-callback mutation; actual classes selected different victims. Runtime is unchanged; CPU was not measured. Residency の連続touchでrecency書き込みを省く案は、公開の書き込み可能なlastUsedによってeviction対象が変わるため不採用です。実クラスで直接変更とretire callbackの差を確認し、runtime変更・CPU計測は行っていません。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

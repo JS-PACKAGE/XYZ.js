@@ -7278,3 +7278,11 @@ Location內number／typed-word觀察不是heap／GC／VRAM量測；完整144筆p
 正式source／dist、公開API與既有indexed native unit-binding cache不變，不新增失效狀態。
 Map查詢減少不等同CPU、heap或GPU-state證據；全部原始CPU對照、獨立untimed診斷及未重驗範圍，
 見[ACCEPTANCE](../ACCEPTANCE.md) P216。
+
+## P217 未採用residency recency-store省略
+
+連續residency touch仍逐次遞增clock並寫入lastUsed，保留lastUsed可直接修改、
+包括由retire callback修改的語意。實際類別對照的直接寫入與callback兩案均改變
+eviction受害者，即使budget、liveBytes、entries及evictions相同也不等價。
+候選在語意檢查即否決，未進行CPU或native benchmark，source與dist不變。
+精確消費者對照見[ACCEPTANCE](../ACCEPTANCE.md) P217。
