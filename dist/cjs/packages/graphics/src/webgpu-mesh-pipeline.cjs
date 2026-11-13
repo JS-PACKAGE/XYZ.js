@@ -1426,7 +1426,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					size: 64
 				}
 			}]
-		})), this.device.queue.writeBuffer(this.contactProjection, 0, this.sceneData.subarray(0, 16));
+		})), this.device.queue.writeBuffer(this.contactProjection, 0, this.sceneData, 0, 16);
 		let o = require_gpu_timing.beginTimedRenderPass(e, {
 			label: `Contact shadows camera depth prepass`,
 			colorAttachments: [],

@@ -6948,3 +6948,16 @@ mixed／fallback控制組大致持平，不宣稱全面加速。全程space-mask
 16 tests、source／build命令proof及三backend正式layered surface通過；
 矩陣、signed-zero量測波動及獨立的當前benchmark RAF／submit紀錄見
 [ACCEPTANCE](../ACCEPTANCE.md) P193，不宣稱FPS、GPU完成時間或heap／GC改善。
+
+## P194 contact-depth upload不建立暫時view
+
+WebGPU private camera-depth upload直接傳原Float32Array及dataOffset 0／size 16，
+不建立subarray view。依[GPUQueue.writeBuffer](https://developer.mozilla.org/en-US/docs/Web/API/GPUQueue/writeBuffer)，
+typed-array的這兩個參數以elements計，bufferOffset以bytes計；仍上傳相同64 bytes，
+不新增cache，不增加資料複製，也不改feature、depth pass或release時機。
+
+真正source receiver的單採樣／MSAA各啟用一次，合計view construction由2變0；
+六個native frames的393,216 RGBA bytes及兩筆projection共128 bytes完全一致。
+另由未覆寫pipeline的正式source／built root執行既有enable／remove／cleanup fixture，
+WebGL2 contact控制組、GPU／GL showcase與3個既有unit tests亦通過。
+詳見[ACCEPTANCE](../ACCEPTANCE.md) P194；未量測heap大小、GC、CPU或FPS收益。

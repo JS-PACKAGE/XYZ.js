@@ -20814,3 +20814,87 @@ CPU submit外，submit不是GPU完成時間。RAF mean單位ms：
 未重跑full suite、repo-wide lint、Node效能、CJS runtime、audio unlock／device loss／
 auto fallback初始化，未驗證Safari／Firefox、physical devices、heap／GC、GPU時間、
 端到端latency或presentation FPS。以上collection CPU收益不能替代這些未驗證項目。
+
+## P194 — Avoid a temporary WebGPU contact projection view (2026-11-13)
+
+### Scope and API units
+
+WebGPUMeshPipeline.captureContactDepth原以sceneData.subarray(0,16)建立暫時view，再交給
+原生queue.writeBuffer；現在直接傳同一Float32Array、dataOffset 0與size 16。
+依[MDN GPUQueue.writeBuffer](https://developer.mozilla.org/en-US/docs/Web/API/GPUQueue/writeBuffer)，
+typed-array的dataOffset／size以elements計，bufferOffset則以bytes計。因此仍是原camera
+matrix的64 bytes，目的offset 0及64-byte binding不變；沒有複製整段scene／lighting，
+沒有減少資料傳輸或資料複製量。沿用本模組uploadChangedSpan的既有explicit-range模式。
+只省下每次enabled contact capture的一個view construction，不增加cache或scratch。
+
+未改feature設定、prepass、compute snapshot、shader、API、cleanup或ownership；strength 0
+及未設定時的原release分支亦不改。沒有新增runtime依賴，版本維持1.23.0。
+
+### Native before/after proof
+
+macOS arm64、Node26.7.0、pnpm12.6.0、TypeScript6.0.3；pinned managed Chromium
+153.0.8010.12，desktop automation，不是physical-device或Safari認證。
+
+使用既有tests/browser/contact-shadows.html的正式createRenderer／Scene／Mesh路徑。
+由真正source WebGPUMeshPipeline class建立receivers，分別借用before／candidate的真實
+private method；依賴皆指向同一source modules，ContactShadows WeakMap與材質class一致。
+不是fake GPU queue、手製renderer或不同class receiver比較。
+
+Proof-only hook計數sceneData.subarray，並將writeBuffer原樣委派原生queue，擷取projection
+目的offset與實際range bytes。每個AA設定依序render disabled、enabled、removed，共6對
+對應frames（兩版合計12 frames），每frame 128×128。觀察如下：
+
+| Per-enabled capture                        | Before | After |
+| ------------------------------------------ | -----: | ----: |
+| Single-sample temporary view constructions |      1 |     0 |
+| MSAA temporary view constructions          |      1 |     0 |
+| Projection payload bytes                   |     64 |    64 |
+| Destination byte offset                    |      0 |     0 |
+
+兩筆projection共128 bytes逐位一致；六對RGBA比較共393,216 bytes逐位一致。
+兩個AA各3次capture呼叫，disabled及removed皆無projection upload／view construction，
+projection存在狀態皆false→true→false。原生validation scopes、page errors皆空，既有
+frame-proof亦未觀察到使readback失效的graphics events。這不是heap bytes或GC量測。
+
+初版throwaway observer把draw回傳的Promise直接當FrameProof讀取，因而失敗；修正為
+await原Promise後才觀察，不修改正式fixture或放寬影像assertions。修正後完整對照通過。
+
+### Permanent cutover and actual surfaces
+
+停止pre-build Vite，在隔離staging完成build、只複製四個mesh-pipeline產物後重啟server，
+避免hmr:false保留舊dist transform。正式cutover不再覆寫pipeline或queue，僅在既有fixture
+的frame proof完成後收集readback。分別使用src/index.ts與dist/src/index.js；兩入口的
+actual-loaded guard皆確認explicit 0／16 range且沒有projection subarray。
+
+| Actual entry/backend    | Single-sample darkened pixels | AA-enabled darkened pixels | Frames |
+| ----------------------- | ----------------------------: | -------------------------: | -----: |
+| Source / WebGPU         |                           254 |                        255 |      6 |
+| Built root / WebGPU     |                           254 |                        255 |      6 |
+| Source / WebGL2 control |                           254 |                        254 |      6 |
+
+既有fixture維持darkened >=20、brightening限制及remove後restoration斷言；未縮小測試。
+Source／built root六張影像的SHA256、draw calls與target byte telemetry亦相同。
+實際讀取source單採樣及dist MSAA PNG：灰色receiver上有球體及其左側接觸陰影；不是僅
+由DOM狀態推論畫面。WebGL2 AA-enabled是該backend既有行為，不能由名稱推論已驗證
+與WebGPU相同的MSAA backing配置，亦不宣稱跨backend exact pixel parity。
+
+正式showcase WebGPU／WebGL2均由Scene A切至Scene B，再導航about:blank觸發pagehide；
+無page／console errors。Contact fixture各自執行remove、Scene／texture／renderer destroy。
+沒有量測剩餘GPU資源總量，不以cleanup沒報錯宣稱resource counters已歸零。
+
+### Checks and delivery
+
+- Scoped source Prettier、ESLint、typecheck通過；既有contact-shadows.test.ts 1檔／3 tests
+  通過（2026-11-13 20:20），未新增只檢查source文字或private wiring的永久test。
+- 隔離tsc／minify／vendor copy／CJS build通過：377 JS由9,358,038至4,010,982 bytes，
+  720 CJS檔；declaration cmp相同、vendor unchanged。這些是staging totals，不是phase節省量。
+- 僅複製webgpu-mesh-pipeline的ESM／CJS與兩張maps，不覆寫使用者physics／world2d
+  或其他產物；原有未提交修改保留。README中／英／日、PLAN、DESIGN、technical中／英及
+  本紀錄同步，文件格式及inline相對連結檢查；歷史counts與日期不變。
+- 清理本輪owned scratch modules、browser hooks、drivers、staging、logs、screenshots、
+  results及Vite service；不留下debug hook。依功能建立獨立[P194] commit，不push、不升版。
+
+未量測CPU／heap bytes／GC／GPU時間／latency／FPS，proof stats中的短批次cpuSubmitMs
+不是timing實驗，不能推論速度提升。本輪未重跑full suite、repo-wide lint、CJS runtime、
+Canvas2D UI、audio unlock、device loss或auto fallback初始化，亦未認證Firefox／Safari
+或physical devices；Canvas2D不支援此3D contact feature，沒有藉此擴大backend契約。

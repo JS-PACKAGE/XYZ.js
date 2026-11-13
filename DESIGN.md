@@ -5788,3 +5788,14 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   這不同於P190在histogram之後返回，也不是舊general ordered比較掃描。
 - 全程space-mask候選會增加multi-depth項目的private讀取，wide控制組退步故拒絕；
   prefix版沒有後段逐項space成本。只宣稱已量測的collection CPU收益，不混同FPS。
+
+## P194 — Express the existing contact upload range without a new view
+
+- 依GPUQueue.writeBuffer的typed-array契約，dataOffset與size以elements計；
+  bufferOffset仍以bytes計。原Float32Array的0／16恰為既有camera matrix的64 bytes。
+- 保留原buffer、source storage、寫入時機與64-byte binding；不新增cache或scratch，
+  不複製整段scene lighting資料，不改contact feature、depth prepass或release分支。
+- Native proof以同一正式class的真正receiver借用兩個實作，queue包裝仍呼叫原生API，
+  同時比對payload、view construction與實際GPU readback；非手製GPU queue或renderer。
+- Permanent cutover另以未覆寫pipeline的source與dist入口執行既有browser fixture。
+  配置事件少一個不等於已知heap節省，也不構成CPU、GC或呈現幀率收益證據。

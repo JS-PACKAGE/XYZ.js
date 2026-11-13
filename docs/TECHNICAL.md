@@ -7219,3 +7219,18 @@ was rejected. Sixteen tests, source/build command proofs and all three actual
 layered backend surfaces passed. See [ACCEPTANCE](../ACCEPTANCE.md) P193 for all
 matrices, signed-zero timing variation and separate current benchmark RAF/submit
 telemetry. These are not FPS, GPU-completion or heap/GC improvement claims.
+
+## P194 contact-depth upload view elimination
+
+The private WebGPU camera-depth upload passes its existing Float32Array with
+dataOffset 0 and size 16 instead of constructing a subarray view. For a typed
+array, these two arguments count elements; bufferOffset counts bytes, as specified
+by [GPUQueue.writeBuffer](https://developer.mozilla.org/en-US/docs/Web/API/GPUQueue/writeBuffer).
+The upload remains the same 64 bytes, with no new cache or extra copying.
+
+Actual source receivers constructed two fewer views across the two enabled
+single-sample/MSAA captures. All six native frames (393,216 RGBA bytes) and both
+projection payloads (128 bytes) matched. Separate actual source and built-root
+fixtures passed enable/remove/cleanup, with WebGL2 contact and both GPU/GL showcase
+controls. Existing three unit tests and scoped quality/build checks passed.
+See [ACCEPTANCE](../ACCEPTANCE.md) P194; no heap-size, GC, CPU or FPS gain was measured.

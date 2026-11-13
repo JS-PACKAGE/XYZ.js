@@ -2494,7 +2494,9 @@ export class WebGPUMeshPipeline {
     this.device.queue.writeBuffer(
       this.contactProjection!,
       0,
-      this.sceneData.subarray(0, 16),
+      this.sceneData,
+      0,
+      16,
     );
     const pass = beginTimedRenderPass(encoder, {
       label: 'Contact shadows camera depth prepass',

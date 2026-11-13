@@ -5633,3 +5633,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   隔離ESM／CJS build及三backend正式layered UI／benchmark通過。
 - 詳細矩陣、混合方向數字與RAF／CPU submit分開紀錄見ACCEPTANCE P193；不宣稱FPS、
   heap／GC或GPU完成時間改善，版本不變。
+
+## P194 — Avoid a temporary WebGPU contact projection view
+
+- Contact-depth camera upload直接使用原Float32Array的offset 0／16 elements，
+  每次啟用capture少建一個subarray view；傳輸仍是相同64 bytes，不是減少資料複製。
+- 真正source pipeline receiver的before／after，兩種AA各啟用一次，view calls由2變0；
+  六個native RGBA frames共393,216 bytes、兩筆camera upload共128 bytes逐位一致。
+- 正式source及built root的單採樣／MSAA、enable／remove與cleanup通過；
+  WebGL2 contact控制組及GPU／GL showcase切場景亦通過。
+- 3個既有unit tests、typecheck、scoped lint／format與隔離ESM／CJS build通過。
+  僅宣稱少建立view，未量測heap bytes、GC、CPU收益或FPS；詳見ACCEPTANCE P194。
