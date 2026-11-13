@@ -133,26 +133,42 @@ export class Profiler {
   }
 
   report(): ProfilerReport {
+    const stats = this.renderer.stats;
+    const residency = this.renderer.residency;
+    const values = new Float64Array(this.count);
     const distribution = (channel: number): ProfilerDistribution => {
-      const values: number[] = [];
+      let length = 0;
+      let negativeZero = false;
       for (let i = 0; i < this.count; i++) {
         const value = this.samples[i * 4 + channel]!;
-        if (Number.isFinite(value)) values.push(value);
+        if (Number.isFinite(value)) {
+          values[length++] = value;
+          negativeZero ||= Object.is(value, -0);
+        }
       }
-      values.sort((a, b) => a - b);
+      if (length > 1) {
+        const ordered =
+          length === values.length ? values : values.subarray(0, length);
+        ordered.sort();
+        // Native numeric sorting puts -0 first, unlike the stable numeric
+        // comparator. Restore input order among equal zeros.
+        if (negativeZero) {
+          let zero = values.indexOf(0);
+          for (let i = 0; i < this.count; i++) {
+            const value = this.samples[i * 4 + channel]!;
+            if (value === 0) values[zero++] = value;
+          }
+        }
+      }
       const quantile = (fraction: number): number | null =>
-        values.length
-          ? values[Math.max(0, Math.ceil(values.length * fraction) - 1)]!
-          : null;
+        length ? values[Math.max(0, Math.ceil(length * fraction) - 1)]! : null;
       return {
-        samples: values.length,
+        samples: length,
         p50: quantile(0.5),
         p95: quantile(0.95),
         max: quantile(1),
       };
     };
-    const stats = this.renderer.stats;
-    const residency = this.renderer.residency;
     let intervalTotal = 0;
     let intervals = 0;
     for (let i = 0; i < this.count; i++) {

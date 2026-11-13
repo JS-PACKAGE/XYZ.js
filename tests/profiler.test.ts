@@ -55,6 +55,41 @@ describe('Profiler', () => {
     profiler.endFrame();
     expect(profiler.report().rafIntervalMs.max).toBe(16);
   });
+  it('preserves signed-zero ranks and independent sparse channel distributions', () => {
+    const { renderer, stats } = fixture();
+    const profiler = new Profiler(renderer, { enabled: true, windowFrames: 4 });
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    for (const [timestamp, duration, submit, gpu] of [
+      [0, 9, -0, 4],
+      [1, 3, 0, null],
+      [21, 6, -0, 2],
+      [51, 12, null, null],
+    ]) {
+      profiler.beginFrame(timestamp!);
+      now += duration!;
+      stats.cpuSubmitMs = submit ?? null;
+      if (gpu === null)
+        stats.gpuTiming.unavailable('pending', 'Waiting for another sample.');
+      else stats.gpuTiming.sample(timestamp!, gpu!);
+      profiler.endFrame();
+    }
+    const report = profiler.report();
+    expect(report.cpuFrameMs).toEqual({ samples: 4, p50: 6, p95: 12, max: 12 });
+    expect(report.cpuSubmitMs.samples).toBe(3);
+    expect(report.cpuSubmitMs.p50).toBe(0);
+    expect(report.cpuSubmitMs.p95).toBe(-0);
+    expect(report.cpuSubmitMs.max).toBe(-0);
+    expect(report.rafIntervalMs).toEqual({
+      samples: 3,
+      p50: 20,
+      p95: 30,
+      max: 30,
+    });
+    expect(report.gpuMs).toEqual({ samples: 2, p50: 2, p95: 4, max: 4 });
+    expect(report.rafFps).toBe(3000 / 51);
+    expect(profiler.report()).toEqual(report);
+  });
   it('does no timing work while disabled and detaches without removing a replacement', () => {
     const { renderer } = fixture();
     const profiler = new Profiler(renderer);

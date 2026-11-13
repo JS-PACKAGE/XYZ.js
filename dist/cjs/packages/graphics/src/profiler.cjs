@@ -41,24 +41,30 @@ var Profiler = class {
 		this.renderer.profiler === this && delete this.renderer.profiler, this.enabled = !1, this.suspend();
 	}
 	report() {
-		let distribution = (e) => {
-			let t = [];
-			for (let n = 0; n < this.count; n++) {
-				let r = this.samples[n * 4 + e];
-				Number.isFinite(r) && t.push(r);
+		let e = this.renderer.stats, t = this.renderer.residency, n = new Float64Array(this.count), distribution = (e) => {
+			let t = 0, r = !1;
+			for (let i = 0; i < this.count; i++) {
+				let a = this.samples[i * 4 + e];
+				Number.isFinite(a) && (n[t++] = a, r ||= Object.is(a, -0));
 			}
-			t.sort((e, t) => e - t);
-			let quantile = (e) => t.length ? t[Math.max(0, Math.ceil(t.length * e) - 1)] : null;
+			if (t > 1 && ((t === n.length ? n : n.subarray(0, t)).sort(), r)) {
+				let t = n.indexOf(0);
+				for (let r = 0; r < this.count; r++) {
+					let i = this.samples[r * 4 + e];
+					i === 0 && (n[t++] = i);
+				}
+			}
+			let quantile = (e) => t ? n[Math.max(0, Math.ceil(t * e) - 1)] : null;
 			return {
-				samples: t.length,
+				samples: t,
 				p50: quantile(.5),
 				p95: quantile(.95),
 				max: quantile(1)
 			};
-		}, e = this.renderer.stats, t = this.renderer.residency, n = 0, r = 0;
+		}, r = 0, i = 0;
 		for (let e = 0; e < this.count; e++) {
 			let t = this.samples[e * 4 + 2];
-			Number.isFinite(t) && t > 0 && (n += t, r++);
+			Number.isFinite(t) && t > 0 && (r += t, i++);
 		}
 		return {
 			frames: this.frames,
@@ -68,7 +74,7 @@ var Profiler = class {
 			cpuSubmitMs: distribution(1),
 			rafIntervalMs: distribution(2),
 			gpuMs: distribution(3),
-			rafFps: r ? r * 1e3 / n : null,
+			rafFps: i ? i * 1e3 / r : null,
 			presentationFps: null,
 			gpuFps: null,
 			jsAllocations: null,

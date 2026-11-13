@@ -19127,3 +19127,107 @@ tests/animation-root-motion.test.ts tests/animation-profiles.test.ts`
   調查，不是 audio rendering／CPU-only／allocation／heap／GC／fps 認證。
 - README 中英日、PLAN、DESIGN、TECHNICAL 中英同步；文件格式與既有 ACCEPTANCE
   相對連結 target 檢查通過。Loopback server 已關閉，throwaway scripts／modules 已刪除。
+
+## P175 — Report-local native numeric quantiles（2026-11-13）
+
+### 正式變更與邊界
+
+- 原 Profiler 每份 report 已只排序各 channel 一次，但另外建立四份 growable number arrays，使用 JS numeric comparator。
+- 現在只在 report 建立一份 local Float64 scratch，依序複製各 channel 的 finite values，只排序有效 prefix；不足兩筆不排序。Numeric data 是 count * 8 bytes，上限 512 KiB，不是整份 report 的 JS／native allocation 總量；partial prefixes 的 subarray 是 view，不另複製 numeric backing data。
+- Native numeric sort 會把 -0 放在 +0 前；有 negative zero 且需要排序時，從原 sample ring 還原所有零值的 input order，維持原 stable numeric comparator 的 p50／p95／max signed-zero 結果。
+- 四個 scalar distributions 在下一 channel 覆寫 scratch 前完成，report／format 不回傳 scratch、不增加跨 report cache 或 class field；返回的 mutable snapshots 仍互相獨立。
+- 先讀 renderer stats／residency 才決定 scratch 大小。Collection ring、begin/endFrame、disabled clock-read 路徑、原始 RAF 加總的走訪順序、hitches、GPU deduplication／availability／scope、resource estimates 不改；jsAllocations／presentationFps／gpuFps 仍為 null。
+
+### 精確輸出與可見回歸
+
+- Node v26.7.0、TypeScript 6.0.3；與修改前獨立 ESM module 比對 2,056 組 controlled histories、20,560 次 report calls，並比對 format 字串。這是 collector-record fixture，不是原生 rendering／frame-throughput 量測。
+- 包含空／單筆／非二次冪／部分視窗，8 組 65,535／65,536 上限視窗；NaN、±Infinity、±0、±MIN_VALUE、±MAX_VALUE 與大／負 finite values。Object.is-sensitive deep comparisons 保留 signed zero；83,017,472 bytes 原 sample storage 在 report 後不變。
+- 同一 instance 的 count 改變、重複 report、修改返回 snapshot 與 retained report 都與原版一致；32 組 renderer getter／nested-report probes 比對輸出及 getter 順序。
+- 新增 consumer-visible 回歸：CPU submit 的 stable signed-zero ranks、稀疏 channel 的獨立 nearest-rank quantiles、GPU availability 改變後的有效歷史，以及 raw RAF cadence。資料會使錯誤的 whole-scratch sorting 混入上一 channel 的 tail，不能只驗證 samples 數。
+- tests/profiler.test.ts 與 tests/observability.test.ts：19 tests 通過；typecheck、scope ESLint／Prettier、ESM／minify／vendor copy／CJS build 通過。沒有新增依賴或修改 vendor，沒有重跑完整 test suite／install。
+
+### 最終 source 的完整 report CPU 對照
+
+8 warmups、15 組 alternating A/B median；history／actual FrameStats 與 NativeResidency records／instance setup 在計時外，report 與結果讀取在計時內。Controlled histories 直接設入 collector storage，不冒充正式 frame collection 或 native GPU samples；表中是每 batch 的 CPU elapsed wall time，沒有測到 GPU 執行或 presentation。沒有同時執行 tests、build 或 browser。
+
+| Case            | Samples | Reports/batch | Before ms |  After ms |
+| --------------- | ------: | ------------: | --------: | --------: |
+| empty           |       0 |         10000 |  1.719583 |  1.693500 |
+| single          |       1 |         10000 |  2.108708 |  1.955791 |
+| default-cpu     |     240 |           500 | 25.717459 |  4.856708 |
+| default-all     |     240 |           500 | 37.546416 |  6.313583 |
+| sorted-240      |     240 |          1000 | 10.342167 |  4.101375 |
+| constant-600    |     600 |           400 |  8.970667 |  4.056459 |
+| missing-600     |     600 |           400 | 28.089667 |  5.453792 |
+| signed-zero-600 |     600 |           400 |  9.124500 |  5.551209 |
+| random-4096     |    4096 |            30 | 57.578000 | 15.046625 |
+| random-65536    |   65536 |             2 | 93.609459 | 26.185541 |
+
+預設 240-frame CPU／all-channel 場景約降低 81.1%／83.2%；4,096／65,536 約降低 73.9%／72.0%。常數／已排序／缺失／混合 signed-zero 控制組也改善；empty 的微小差異不推論為穩定收益。不同輪的 fixture metadata、seed、warm-up feedback 不同，只比較各輪內的 A/B，不交叉比較以下 prototype 與最終 source 的絕對時間。
+
+### 未採用的候選
+
+第一輪 shared number[] 每個 channel 都重設 length：一般 240-frame 約改善 4–6%，但 empty／single 約退步 41.8%／20.9%，未採用。
+
+| Case            | Samples | Reports/batch | Before ms |  After ms |
+| --------------- | ------: | ------------: | --------: | --------: |
+| empty           |       0 |         10000 |  1.457375 |  2.065959 |
+| single          |       1 |         10000 |  1.878334 |  2.270875 |
+| default-cpu     |     240 |           500 | 22.875208 | 21.590500 |
+| default-all     |     240 |           500 | 31.731083 | 30.276250 |
+| sorted-240      |     240 |          1000 |  9.619708 |  9.233167 |
+| constant-600    |     600 |           400 |  9.161625 |  8.588667 |
+| missing-600     |     600 |           400 | 26.117666 | 25.568917 |
+| signed-zero-600 |     600 |           400 |  9.665583 |  8.719208 |
+| random-4096     |    4096 |            30 | 58.064917 | 58.097750 |
+| random-65536    |   65536 |             2 | 93.981292 | 93.260291 |
+
+第一輪 shared Float64 scratch 仍用 JS comparator：隨機大視窗有改善，但 sorted／constant／signed-zero 耗時約為原版的 2.8 倍，未採用。
+
+| Case            | Samples | Reports/batch | Before ms |  After ms |
+| --------------- | ------: | ------------: | --------: | --------: |
+| empty           |       0 |         10000 |  1.434208 |  1.394250 |
+| single          |       1 |         10000 |  1.882458 |  1.675208 |
+| default-cpu     |     240 |           500 | 22.874625 | 22.678208 |
+| default-all     |     240 |           500 | 30.619917 | 29.006458 |
+| sorted-240      |     240 |          1000 |  9.627042 | 26.989416 |
+| constant-600    |     600 |           400 |  8.922291 | 25.641500 |
+| missing-600     |     600 |           400 | 26.032292 | 25.493041 |
+| signed-zero-600 |     600 |           400 |  9.724583 | 27.206250 |
+| random-4096     |    4096 |            30 | 59.144125 | 53.957083 |
+| random-65536    |   65536 |             2 | 94.394542 | 86.608625 |
+
+第二輪 number[] 只在長度不同時截斷：修正小視窗控制組，但 default-cpu 約退步 3.3%、missing 約退步 1.8%，其他收益有限，未採用；不把這些 elapsed 觀察直接歸因到未 profile 的 JIT／allocation 根因。
+
+| Case            | Samples | Reports/batch | Before ms |  After ms |
+| --------------- | ------: | ------------: | --------: | --------: |
+| empty           |       0 |         10000 |  1.474250 |  1.409125 |
+| single          |       1 |         10000 |  1.922459 |  1.667083 |
+| default-cpu     |     240 |           500 | 23.412708 | 24.176375 |
+| default-all     |     240 |           500 | 32.294833 | 31.770709 |
+| sorted-240      |     240 |          1000 |  9.674250 |  9.451375 |
+| constant-600    |     600 |           400 |  8.816875 |  8.111042 |
+| missing-600     |     600 |           400 | 24.978875 | 25.418458 |
+| signed-zero-600 |     600 |           400 |  9.160166 |  8.583292 |
+| random-4096     |    4096 |            30 | 57.744167 | 57.870875 |
+| random-65536    |   65536 |             2 | 96.173834 | 96.509542 |
+
+第二輪 native numeric scratch prototype 已通過每候選 500 組 history parity；正式版把 zero-order restoration 限於實際排序時，再執行上面的最終 source verification／A/B。沒有用前一 prototype 的數字冒充正式版結果。
+
+### 實際 Chromium native collection／surface／cleanup
+
+Chromium 150（macOS managed browser）、可見頁面；暫存 native surface 用公開 Game／Scene／Sprite／Profiler、實際 texture、強制 backend 與啟用 native GPU timing。下列是第一份 12-frame report 的實際 sample availability 與後續 lifecycle，不是效能改進對照：
+
+| Backend  | CPU / RAF samples | GPU history samples | Timing source / scope                           | Disabled frames | Resumed / detached frames |
+| -------- | ----------------: | ------------------: | ----------------------------------------------- | --------------- | ------------------------- |
+| webgpu   |           12 / 11 |                  10 | webgpu-timestamp-query / native-pass-sum        | 14 → 14         | 37 / 45                   |
+| webgl2   |           12 / 11 |                  10 | webgl2-disjoint-query / native-command-interval | 14 → 14         | 36 / 38                   |
+| canvas2d |           12 / 11 |                   0 | null / null                                     | 14 → 14         | 36 / 38                   |
+
+- 三 backend 都有實際 CPU／raw RAF samples 與 sprite draw submissions；WebGPU／WebGL2 status available，各有 10 筆去重 GPU 歷史。Canvas2D status unsupported、milliseconds／source／scope 為 null、GPU history 為 0，未假造成功的 zero-time sample。
+- UI click 停用後，Game 至少再走 6 frames，而 collection 保持 14 → 14；恢復、suspend cadence、Scene A → B、保留 snapshot 不變、detach 後持續 rendering、destroy game 與 pagehide cleanup 都完成。實際 WebGPU surface 截圖包含兩個 sprites 與 profiler.format；GPU／presentation FPS、JS allocations 仍顯示 unavailable。
+- 正式 showcase 的 WebGPU／WebGL2 都完成 lit cube＋sphere＋2D overlay 的 Scene A → B；Canvas2D 完成其正式 2D-only Scene A → B，沒有宣稱 Canvas2D 支援 3D。實際 WebGL2 截圖確認內容；三組 errors／console error／pagehide cleanup error entries 均為空。
+- 初次驗證以 page-global probe 等待，30 秒 timeout；診斷觀察到 DOM 已顯示 collection ready，但 browser evaluation 的 typeof window.p175Proof 仍為 undefined。改用由 app 發佈到 DOM 的 read-only snapshot，沒有因此修改引擎或注入假完成狀態。
+- Showcase 接續開啟 WebGL2 時曾發生 browser.open「Navigating frame was detached」；確認 managed tabs 為空，以 fresh tab／networkidle0 完成剩餘 WebGL2／Canvas2D。工具問題已回報，不把失敗步驟計為通過，亦不宣稱首次開頁穩定性已獲保證。
+- 最初 isolated harness 嘗試 require esbuild，但它不是目前 repo dependency，量測尚未開始即失敗；改用已安裝的 TypeScript 6.0.3 transpileModule 與現有正式 FrameStats／NativeResidency modules，沒有安裝依賴。
+- 暫存 surface、measurement／comparison scripts 已刪除，server／managed tabs 已關閉。沒有重驗 Safari／實機、auto fallback、disjoint/device-loss 的實際 driver 觸發、pixel parity、可聽 audio unlock、native heap／JS allocation counter 或長時間 retention；沒有從 report CPU、source-level buffer reuse 或 GPU latency 宣稱遊戲／GPU／presentation fps 改善。

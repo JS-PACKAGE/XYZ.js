@@ -5591,3 +5591,15 @@ between layers or frames. Retired contexts still receive their last edge cleanup
   freeze／cache publication；小檔及不同排列控制組並非一致受益，故保留原設計。
 - 此調查沒有啟動 AudioContext／DSP，不聲稱 native unlock／release／playback 已重驗。
   完整 CPU-versus-elapsed 區分與兩候選結果見 ACCEPTANCE P174。
+
+## P175 — Keep quantile work bounded and report-local
+
+- Collection ring、clock reads、raw RAF interval 與 hitches 不改；只有顯式 report
+  配置一份 `count * 8` bytes 的 numeric scratch，上限 512 KiB，不持續留存。
+- 每 channel 只複製 finite values 並排序有效 prefix；scalar distributions 在下一
+  channel 覆寫 scratch 前完成，沒有跨 channel／report 的可變輸出 alias。
+- Native Float64 sorting 把 -0 放在 +0 前，故必要時從原 ring 還原 zero input
+  order，維持既有 stable numeric comparator 的 p50／p95／max，包括 signed zero。
+- 讀取 renderer stats／residency 後才決定 scratch 大小；保留 getter 重入與最新
+  renderer records，亦保留 raw RAF 的原始加總順序，不把 GPU latency 當成 fps。
+- 精確差分、CPU 對照、未採用方案與實際 native lifecycle 證據見 ACCEPTANCE P175。

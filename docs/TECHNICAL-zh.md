@@ -6603,6 +6603,12 @@ pause／hidden 清除 cadence，`destroy()` 解除附掛。GPU timing 必須在 
 RAF Hz 是 callback cadence，不是確定呈現；JS allocation、GPU／presentation FPS
 明確為 null。GPU bytes 是 texture／geometry residency 加 target 估計，不是完整 VRAM。
 
+每份 report 以單一 local Float64 scratch 依序處理四個 distributions，只對 finite
+prefix 做 native numeric sort，並保留零值原始順序與 signed-zero quantiles。
+不同 report 的 snapshots 仍獨立；raw RAF 加總順序與停用 collection 的路徑不改。
+CPU 對照與三 backend 實際 lifecycle 的驗證範圍見 ACCEPTANCE P175；
+這不是 GPU／presentation throughput 或 JavaScript allocation count 的宣稱。
+
 Chromium regression 以強制 GPU／GL scene 比較 top-left RGB byte-domain，
 每 channel mean 與 nearest-rank p99，不做影像對齊；同 backend repeat 記錄 noise，
 垂直翻轉／錯色負面測試必須失敗。threshold 與量測證據另列 ACCEPTANCE。

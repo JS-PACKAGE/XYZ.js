@@ -5436,3 +5436,13 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   正式 audio／vendor／dist 不變，不重跑 tests／build 或新增候選的永久 tests。
 - 14 組真正官方 voice normalization／loopback load 測量與未驗證的 native audio 範圍
   見 ACCEPTANCE P174；少一次走訪不等於 load／playback／fps 改善。
+
+## P175 — Report-local native numeric quantiles
+
+- `Profiler.report()` 以單一 report-local Float64 scratch 依序處理四個 channel，
+  使用 native numeric sort，保留原 stable comparator 的 signed-zero ranks。
+- 缺失／non-finite samples、nearest-rank quantiles、raw RAF 加總順序、GPU
+  availability 與獨立 snapshots 不變；不增加每幀 collection 成本或跨 report cache。
+- 2,056 組 history、32 組 getter／重入 probes、19 tests、typecheck／lint 與
+  ESM／CJS build，以及三 backend 的實際 collection／showcase／cleanup 已驗證。
+- CPU 量測、三個未採用候選與工具失敗紀錄見 ACCEPTANCE P175；不宣稱 fps 改善。

@@ -6802,6 +6802,13 @@ GPU FPS. RAF Hz is callback cadence, not verified presentation. JS allocations,
 presentation FPS and GPU FPS are null. Tracked GPU bytes sum native texture and
 geometry residency plus render-target estimates, excluding driver overhead.
 
+Each report reuses one local Float64 scratch across its four distributions,
+sorting only finite prefixes with native numeric order. Equal zeros retain
+their original stable order, including signed-zero quantiles. Reports remain
+independent; raw RAF summation order and disabled collection are unchanged.
+CPU evidence and actual three-backend lifecycle limits are in ACCEPTANCE P175,
+not a GPU/presentation throughput or JavaScript allocation-count claim.
+
 The Chromium regression's `tests/browser/pixel-parity.html` forces both native
 backends for lights, normal/base textures, shadows, gradient IBL, four finishes,
 BLEND, instances and skinning. The comparator uses top-left byte-domain RGB,
