@@ -891,6 +891,9 @@ var WebGL2Renderer = class {
 			this.opticalTextures.get(e)?.allocation.destroy();
 			return;
 		}
+		this.cacheOpticalMapsWithSources(e);
+	}
+	cacheOpticalMapsWithSources(e) {
 		let t = require_optical_maps.opticalMapSources(e);
 		if (t.some((e) => e?.destroyed)) throw new require_errors.GraphicsError(`WebGL2 optical map has been destroyed.`);
 		let n = this.opticalTextures.get(e), r = t.map((e) => e?.version ?? -1);

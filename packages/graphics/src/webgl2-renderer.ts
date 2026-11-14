@@ -2364,6 +2364,10 @@ export class WebGL2Renderer implements Renderer {
       this.opticalTextures.get(material)?.allocation.destroy();
       return;
     }
+    this.cacheOpticalMapsWithSources(material);
+  }
+
+  private cacheOpticalMapsWithSources(material: PBRMaterial): void {
     const sources = opticalMapSources(material);
     if (sources.some((source) => source?.destroyed))
       throw new GraphicsError('WebGL2 optical map has been destroyed.');

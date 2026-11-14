@@ -7329,3 +7329,7 @@ material binding 9 現在與 texture 一樣消費既有 resolved emissive slot �
 ## P225：Primitive emissive occupancy
 
 內部 occupancy helper 改回傳 primitive mode，所有 GL／GPU 呼叫與既有 contract test 已遷移；移除舊 record helper／export，不保留 alias。局部 texture／sampler 選取維持 P224 lightmap 優先順序、effective sources override、non-PBR defaults 與 binding ABI，沒有 scratch／cache／resource holder。這是配置導向改善：固定完整 submit CPU 結果混合，一份 baseline heap profile 的 helper 歸因本已為零；sampled bytes 不是精確 allocation count、retained heap、GPU bytes 或 FPS。全部配對、native consumer 證據及產物／runtime 範圍見 [ACCEPTANCE](../ACCEPTANCE.md) P225。
+
+## P226：GL 空 optical guard 分離
+
+cacheOpticalMaps 保留無 source guard，只有 positive-source 工作進入 cacheOpticalMapsWithSources；完整原 version/source/destroy/residency/packing body 不變，不增 cache／scratch／resource holder／公開 API，GPU 執行不改。同時統計兩方法與完整 renderer／total sampled bytes，六對 total 均下降，但一份 after wrapper 仍有 6,232 bytes。固定 clocks／sampling 僅涵蓋 empty guard，不是 active optical-path CPU 或 FPS 證明；positive path 另做真實 CanvasTexture2D version／resize／材質復原像素驗證。不推定精確 allocation 次數或 V8 機制，全部配對與範圍見 [ACCEPTANCE](../ACCEPTANCE.md) P226。

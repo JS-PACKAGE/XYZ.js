@@ -80,6 +80,8 @@ P224 修正 WebGPU lightmap 的 sampler 選擇：material binding 9 現在使用
 
 P225 改用 primitive emissive occupancy mode，移除 Core／GL／GPU 的暫時 slot record，並保留 P224 的 lightmap sampler 優先順序。P225 replaces temporary emissive-slot records with a primitive occupancy mode while preserving lightmap sampler ownership. P225 は一時的な emissive-slot record を primitive mode に置換し、lightmap sampler の優先順位を維持します。這是配置導向改善；固定 CPU 結果混合，heap samples 不是精確 allocation count、retained heap 或 FPS。完整配對與限制見 [ACCEPTANCE](./ACCEPTANCE.md) P225。
 
+P226 將 GL 的空 optical-map guard 與既有 packing scope 分開；六對 native heap profiles 的總 sampled bytes 均下降，兩組 median 約減 18%。P226 separates the GL empty optical-map guard from its existing packing scope; all six native heap pairs sampled fewer total bytes. P226 は GL の空 optical-map guard と packing scope を分離し、全6ペアで総 sampled bytes が減りました。範圍是空 guard；不是 active optical-path CPU、精確 allocation count 或 FPS 證明。完整固定 clocks、正向材質／版本／resize 像素驗證與限制見 [ACCEPTANCE](./ACCEPTANCE.md) P226。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

@@ -6165,3 +6165,11 @@ lightmapStrength 預設為零，單靠 before/after 相同可能只驗到 dorman
 這仍是一個 occupancy 決策：mode 2 同時選 lightmap／lightmapSampler，不能重犯 P224 的 sampler 來源分裂。保留 live material property reads、不建立持有 Texture 的共享 scratch，也不新增 descriptor／material cache 或改變 native fallback／binding layout。
 
 採用理由是減少暫時配置，不是統一 CPU 加速：本輪完整 clocks 混合，另行 heap sampling 的五份 baseline helper 歸因約十二 MB、一份已零；六份候選均零 sampled attribution，但不是零實際 allocation、retained heap／GPU／FPS 證明。全部資料與邊界見 ACCEPTANCE P225。
+
+## P226 — Empty guard 不共用 packing 的 closure-bearing scope
+
+GL cacheOpticalMaps 的無 source 檢查與既有 allocation.destroy 保留原位；有 source 時才呼叫 cacheOpticalMapsWithSources，後者保留完整原 source/version/destroy 驗證、side 計算、residency callback、GPU packing 與 finally 清理。這不是另一層 cache 或 Texture holder，只是量測支持的四行 scope 分離。
+
+sampling 同時聚合兩個方法名稱，並核對 renderer／total sampled bytes，不能因 attribution 改名就宣稱配置消失。六對 total 皆下降，但一份 after wrapper 仍有 6,232 sampled bytes；不宣稱零實際配置，也不以 selfSize 證明特定 V8 context／escape-analysis 機制。
+
+固定 clocks／heap workloads 沒有 packed optical sources，不能拿它們證明 positive helper 的額外呼叫成本；GPU 控制也有漂移。positive path 保留原 body 並另做可見 map、內容版本更新、8→16 resize、repeat 與 unmapped 復原的 native consumer 證明。完整資料見 ACCEPTANCE P226。

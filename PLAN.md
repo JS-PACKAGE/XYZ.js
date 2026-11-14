@@ -6005,3 +6005,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - mode 2 仍同時選擇 lightmap 與 lightmapSampler，其他 PBR modes 保留 effective emission sources／emissiveSampler，non-PBR 的 GPU sampler default 不變；沒有 cache／scratch／resource holder 或 ABI 變更。
 - 固定 192-row CPU matrix 結果混合，保留首輪 candidate outlier；另十二份 GL heap profiles 支持配置導向採用，仍保留一份 baseline helper 已零 sampled attribution 的反例，不宣稱普遍 CPU／FPS 改善。
 - Native consumer 與產物證據、全部 clocks／samples、驗證範圍見 ACCEPTANCE P225；只提交本功能與六份文件，不 push／升版。
+
+## P226 — Isolate the GL empty optical guard
+
+- 依 P225 採用後 native sampling 定位 cacheOpticalMaps，僅增加四行，將既有空 source guard 與含 closures 的 positive-source body 分離；後者與其後整份 source 逐 byte 不改。
+- 保留 destroy/version/source identity/side/residency/packing 語意、P224 sampler 與 P225 primitive mode；不加 cache、scratch、resource holder 或公開 API，GPU 不改。
+- 單次固定 192-row CPU matrix 保留全部 rounds/outlier/GPU 控制；另十二份 sampling 同時統計 wrapper 與新 positive helper、renderer 與 total，六對 total 都下降，不以改名製造零配置。
+- 十一個 mapped-texture benchmark keys 不含六個 packed optical slots，故 clocks／heap 只證明 empty-guard 範圍。active optical maps 另以正式 pixel-parity case、真實 CanvasTexture2D update／resize／restoration 驗證，不當作其 CPU／FPS 成績。
+- 原生／產物／showcase 與全部配對證據見 ACCEPTANCE P226；只提交本功能與六份文件，不 push／升版。

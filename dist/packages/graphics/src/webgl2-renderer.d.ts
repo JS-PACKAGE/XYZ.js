@@ -236,6 +236,7 @@ export declare class WebGL2Renderer implements Renderer {
     private drawComposite;
     private collectMeshes;
     private cacheOpticalMaps;
+    private cacheOpticalMapsWithSources;
     private drawMeshes;
     /** Immutable material UV layouts are shared arrays, so a program already holding one skips the upload. */
     private sendMaterialUV;
