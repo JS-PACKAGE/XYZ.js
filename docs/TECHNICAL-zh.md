@@ -7333,3 +7333,7 @@ material binding 9 現在與 texture 一樣消費既有 resolved emissive slot �
 ## P226：GL 空 optical guard 分離
 
 cacheOpticalMaps 保留無 source guard，只有 positive-source 工作進入 cacheOpticalMapsWithSources；完整原 version/source/destroy/residency/packing body 不變，不增 cache／scratch／resource holder／公開 API，GPU 執行不改。同時統計兩方法與完整 renderer／total sampled bytes，六對 total 均下降，但一份 after wrapper 仍有 6,232 bytes。固定 clocks／sampling 僅涵蓋 empty guard，不是 active optical-path CPU 或 FPS 證明；positive path 另做真實 CanvasTexture2D version／resize／材質復原像素驗證。不推定精確 allocation 次數或 V8 機制，全部配對與範圍見 [ACCEPTANCE](../ACCEPTANCE.md) P226。
+
+## P227：沒有 local light 時的常數 query radius
+
+`SpatialLightSelector.selectMesh` 仍會刷新 bounds、寫入 query center、執行 `select()` 的完整驗證、清空輸出與統計，並以 bounds 本身更新 per-mesh cache。兩個 local-light pool 皆空且兩個 light grid 都未使用時，傳入的 query radius 改為常數 0：兩次 `selectType` 都是零次迴圈、不查 grid，radius 只被驗證，而 `sphereIsFinite` 已保證通過。只要有燈光或 grid 就維持原本的 bounds radius。Heap sampling 把每次 draw 約 12 bytes 歸在傳遞 bounds radius，常數則為零；六對 total 均下降。同模組 A/A 對照顯示固定 CPU clocks 自身變動約 7%，因此不宣稱 CPU 任何方向的變化，也不推定 FPS、精確 allocation 次數或 V8 機制。新增永久單元測試：空 pool 選取後，只有 mesh bounds 半徑才搆得到的點光必須被選中。兩個 renderer 都呼叫這個共用 helper。全部配對、拆解、原生像素與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P227。

@@ -168,7 +168,9 @@ var SpatialLightSelector = class {
 			let e = this.stats.points, t = this.stats.spots;
 			return e.selected = r.points.length, e.culled = r.pointCulled, e.overflow = r.pointOverflow, t.selected = r.spots.length, t.culled = r.spotCulled, t.overflow = r.spotOverflow, this.recordDraw();
 		}
-		return this.center.set(t.x, t.y, t.z), this.select(this.center, t.radius), n && (r || (r = {
+		this.center.set(t.x, t.y, t.z);
+		let a = this.scene?.pointLights.length === 0 && this.scene.spotLights.length === 0 && !this.pointGridded && !this.spotGridded;
+		return this.select(this.center, a ? 0 : t.radius), n && (r || (r = {
 			version: 0,
 			x: 0,
 			y: 0,

@@ -6013,3 +6013,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 單次固定 192-row CPU matrix 保留全部 rounds/outlier/GPU 控制；另十二份 sampling 同時統計 wrapper 與新 positive helper、renderer 與 total，六對 total 都下降，不以改名製造零配置。
 - 十一個 mapped-texture benchmark keys 不含六個 packed optical slots，故 clocks／heap 只證明 empty-guard 範圍。active optical maps 另以正式 pixel-parity case、真實 CanvasTexture2D update／resize／restoration 驗證，不當作其 CPU／FPS 成績。
 - 原生／產物／showcase 與全部配對證據見 ACCEPTANCE P226；只提交本功能與六份文件，不 push／升版。
+
+## P227 — Constant query radius when no local light can read it
+
+- 依 P226 採用後 native sampling 定位 Core `SpatialLightSelector.selectMesh`；GL 與 GPU 都呼叫這個共用 helper，沒有未改動的 backend 控制組。
+- 第一個候選同時跳過 private center 寫入並在空 pool 傳 radius 0；拆成兩個單一改動後，只有 radius 一項讓 sampled bytes 歸零，center 寫入無效果，因此移除。最終只在 point／spot pool 皆空且未使用 grid 時傳常數 0，其餘路徑、bounds 刷新、驗證、統計與 cache 記錄不變。
+- 固定 192-row CPU matrix 與十二份 heap sampling 對最終候選重新量測；另以同模組 A/A 對照量 harness 雜訊，不把雜訊內的 CPU 差異寫成增減。
+- 新增永久單元測試：空 pool 選取後加入只有 mesh bounds 半徑才搆得到的點光，必須被選中；radius 恆為 0 的 mutant 會讓它失敗。原生 point／spot／邊緣光像素、source／dist 與 showcase 證據見 ACCEPTANCE P227；只提交本功能、產物與六份文件，不 push／升版。

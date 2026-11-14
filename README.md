@@ -82,6 +82,8 @@ P225 改用 primitive emissive occupancy mode，移除 Core／GL／GPU 的暫時
 
 P226 將 GL 的空 optical-map guard 與既有 packing scope 分開；六對 native heap profiles 的總 sampled bytes 均下降，兩組 median 約減 18%。P226 separates the GL empty optical-map guard from its existing packing scope; all six native heap pairs sampled fewer total bytes. P226 は GL の空 optical-map guard と packing scope を分離し、全6ペアで総 sampled bytes が減りました。範圍是空 guard；不是 active optical-path CPU、精確 allocation count 或 FPS 證明。完整固定 clocks、正向材質／版本／resize 像素驗證與限制見 [ACCEPTANCE](./ACCEPTANCE.md) P226。
 
+P227 在沒有 local light 也沒有使用 light grid 時，讓 `selectMesh` 傳入常數 query radius；此時 radius 只被驗證、不被讀取。六對 native heap profiles 的總 sampled bytes 均下降，兩組 median 約減 16%。With no local lights and no light grid, P227 passes a constant query radius from `selectMesh`, where the radius is validated but never read; all six native heap pairs sampled fewer total bytes. P227 は local light も light grid も無いとき `selectMesh` から定数の query radius を渡し、全6ペアで総 sampled bytes が減りました。同模組 A/A 對照顯示固定 CPU clocks 的雜訊已達約 ±7%，CPU 在兩個方向都測不出變化；不是 FPS、精確 allocation count 或 V8 機制證明。有燈光時的選取、像素與限制見 [ACCEPTANCE](./ACCEPTANCE.md) P227。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

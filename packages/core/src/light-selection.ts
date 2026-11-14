@@ -376,7 +376,15 @@ export class SpatialLightSelector implements SelectedLights {
       return this.recordDraw();
     }
     this.center.set(sphere.x, sphere.y, sphere.z);
-    this.select(this.center, sphere.radius);
+    // Without lights or a grid, select() only validates the radius, as sphereIsFinite did.
+    // The sampling heap profiler charged about 12 bytes per draw to passing the bounds
+    // value; the constant is charged nothing.
+    const radiusUnread =
+      this.scene?.pointLights.length === 0 &&
+      this.scene.spotLights.length === 0 &&
+      !this.pointGridded &&
+      !this.spotGridded;
+    this.select(this.center, radiusUnread ? 0 : sphere.radius);
     if (reusable) {
       if (!cached) {
         cached = {

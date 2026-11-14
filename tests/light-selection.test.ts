@@ -88,6 +88,31 @@ describe('bounded spatial light selection', () => {
     fillLightingData(scene, data, selector);
     expect(data[8]).toBe(0);
   });
+  it('admits a light only the mesh bounds radius reaches, straight after selecting from empty pools', () => {
+    const scene = new Scene();
+    const mesh = new Mesh({
+      geometry: Geometry.quad(2, 2),
+      material: new TextureMaterial({
+        texture: Object.create(Texture.prototype) as Texture,
+      }),
+    });
+    const selector = new SpatialLightSelector();
+    selector.update(scene);
+    selector.selectMesh(mesh);
+    expect(selector.pointLights).toEqual([]);
+    // 1.6 from the centre is beyond the range; the quad's bounding sphere is not.
+    const light = new PointLight({ position: [1.6, 0, 0], range: 1.3 });
+    scene.pointLights.push(light);
+    selector.update(scene);
+    selector.selectMesh(mesh);
+    expect(selector.pointLights).toEqual([light]);
+    expect(selector.stats.points).toEqual({
+      pool: 1,
+      selected: 1,
+      culled: 0,
+      overflow: 0,
+    });
+  });
 
   it('revalidates selected lights filled outside the presentation whose update validated them', () => {
     const scene = new Scene();

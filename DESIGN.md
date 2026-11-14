@@ -6173,3 +6173,9 @@ GL cacheOpticalMaps 的無 source 檢查與既有 allocation.destroy 保留原�
 sampling 同時聚合兩個方法名稱，並核對 renderer／total sampled bytes，不能因 attribution 改名就宣稱配置消失。六對 total 皆下降，但一份 after wrapper 仍有 6,232 sampled bytes；不宣稱零實際配置，也不以 selfSize 證明特定 V8 context／escape-analysis 機制。
 
 固定 clocks／heap workloads 沒有 packed optical sources，不能拿它們證明 positive helper 的額外呼叫成本；GPU 控制也有漂移。positive path 保留原 body 並另做可見 map、內容版本更新、8→16 resize、repeat 與 unmapped 復原的 native consumer 證明。完整資料見 ACCEPTANCE P226。
+
+## P227 — 沒有讀者的 query radius 不必來自 bounds
+
+`selectMesh` 仍然每次刷新 bounds、設定 query center、經過 `select()` 的完整驗證、清空輸出與統計，並在 presentation 內更新 per-mesh cache（cache 記錄的是 bounds 本身，不是傳入的參數）。唯一差別是 point／spot pool 皆空且 `pointGridded`／`spotGridded` 皆為 false 時，傳給 `select()` 的 radius 改為常數 0：這時兩次 `selectType` 都走零次迴圈、也不查 grid，radius 只經過 `sphereIsFinite` 已保證會通過的有限非負檢查。條件刻意包含 grid 旗標，等價性因此可由程式碼直接推得，不依賴「呈現期間不移動燈光」的契約。
+
+不採用 early return：那會跳過驗證、輸出清空與 cache 維護，可能留住舊燈光參照。也不採用跳過 center 寫入：單獨量測沒有效果。sampling 把每次 draw 約 12 bytes 記在傳遞 bounds radius 上，常數則為零；這是歸因觀察，不是對 V8 表示法、精確配置次數或 retained heap 的結論。有燈光或使用 grid 的路徑完全沒有改動，也不因本階段獲得任何效能宣告。完整資料見 ACCEPTANCE P227。
