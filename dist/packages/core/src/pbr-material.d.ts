@@ -207,11 +207,7 @@ export declare class PBRMaterial extends TextureMaterial {
     constructor(options: PBRMaterialOptions);
 }
 /** Emissive sampler occupancy: 0 empty, 1 emission, 2 lightmap. */
-export declare function pbrEmissiveSlot(material: PBRMaterial): {
-    readonly texture: MaterialTexture | undefined;
-    readonly sampler: Readonly<TextureSamplerOptions> | undefined;
-    readonly mode: 0 | 1 | 2;
-};
+export declare function pbrEmissiveMode(material: PBRMaterial): 0 | 1 | 2;
 /** Writes the 20 finish floats consumed by both mesh shaders. */
 export declare function fillPBRFinish(material: PBRMaterial, data: Float32Array, offset: number): void;
 export interface MaterialAssetMaps {

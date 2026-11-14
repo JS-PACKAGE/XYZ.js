@@ -5524,7 +5524,7 @@ P132 uses weights 0.25/0.5/0.25 at angular radii `r/4`, `r`, `min(2*r,1)`, where
 
 `heightScale` keeps the existing four-step normal-map relief approximation. Wetness darkens base and lowers roughness; snow, dirt and damage alter base/roughness. Detail and triplanar retain their existing extra base-map samples. No texture slots or uniforms were added.
 
-`lightmap`/`lightmapSampler` use the emissive sampler. `pbrEmissiveSlot(material)` reports mode 0 (none), 1 (emissive) or 2 (lightmap); in mode 2 the emissive map is not sampled and `color *= mix(1, bakedRGB, lightmapStrength)` before emission. WebGPU's mesh cache is keyed on material identity, so `setMeshMaterial` rebinds correctly.
+`lightmap`/`lightmapSampler` use the emissive sampler. The internal `pbrEmissiveMode(material)` returns primitive mode 0 (none), 1 (effective emission source) or 2 (lightmap), without a temporary slot record. In mode 2, consumers select both `lightmap` and `lightmapSampler`, the emissive map is not sampled and `color *= mix(1, bakedRGB, lightmapStrength)` before emission. WebGPU's mesh cache is keyed on material identity, so `setMeshMaterial` rebinds correctly.
 
 `MaterialAsset.fromImages(maps, overrides?)`/`create(options)`: `maps` takes `base` (required) and `metallicRoughness`, `normal`, `occlusion`, `emissive`, `lightmap`, each an `ImageBitmapSource` (decoded and owned) or a `Texture` (borrowed). `destroy()` is idempotent and aggregates cleanup errors; `destroyed` is a getter. `setMeshMaterial(mesh, material)` replaces a Mesh's borrowed material (`Mesh.material` stays a published readonly declaration); a non-`TextureMaterial` throws and leaves the current material in place.
 
@@ -7680,3 +7680,7 @@ GL binding scratch arrays retain their original length-zero reset. The isolated 
 ## P224: WebGPU lightmap sampler correctness
 
 Material binding 9 now consumes the sampler from the existing resolved emissive slot, just as its texture already did. A lightmap therefore owns both texture and sampler; a conflicting emissiveSampler cannot replace lightmapSampler. This fixes an observed canonical GPU rendering bug without changing core/GL helpers, public APIs or binding layout. Visible lightmap tests explicitly enable finish.lightmapStrength because its default is zero, and native physical materials retain their explicit preparation requirement. The separately measured primitive-mode allocation prototype is not adopted here and is not a performance result for this fix. See [ACCEPTANCE](../ACCEPTANCE.md) P224 for native consumer, regression and distribution verification.
+
+## P225: primitive emissive occupancy
+
+The internal occupancy helper now returns a primitive mode, and every GL/GPU caller and existing contract test has migrated; the old record helper/export is removed rather than retained as an alias. Local texture/sampler selection preserves P224 lightmap ownership, effective source overrides, non-PBR defaults and binding ABI without a scratch/cache/resource holder. This is allocation-focused: fixed full-submit CPU results were mixed, and one baseline heap profile already had zero helper attribution. Sampled bytes are not exact allocations, retained heap, GPU bytes or FPS. See [ACCEPTANCE](../ACCEPTANCE.md) P225 for every pair, native consumer proof and build/runtime scope.

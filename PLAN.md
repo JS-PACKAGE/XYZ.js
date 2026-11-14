@@ -5998,3 +5998,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - root cause 是 material binding 9 固定讀取 emissiveSampler，忽略共用 slot 已選出的 lightmapSampler；只修正為消費同一 slot 的 sampler，不改 core helper、GL、公開 API 或 binding layout。
 - 在既有 shader-variants browser lightmap case 加入實際 nearest／linear 像素差異與 conflicting emissive sampler 優先順序回歸，不刪除或放寬任何原驗證。
 - 本階段只提交 sampler 正確性修正與對應 GPU 產物；原型量測不當作修正的效能成績，完整證據與限制見 ACCEPTANCE P224，不 push／升版。
+
+## P225 — Primitive emissive occupancy without temporary records
+
+- 以 P224 修正後的 sampler 契約為基準，Core helper 改回傳 0／1／2 primitive；遷移所有 GL／GPU／既有 contract-test 使用點，移除舊 record helper，不留 alias／shim。
+- mode 2 仍同時選擇 lightmap 與 lightmapSampler，其他 PBR modes 保留 effective emission sources／emissiveSampler，non-PBR 的 GPU sampler default 不變；沒有 cache／scratch／resource holder 或 ABI 變更。
+- 固定 192-row CPU matrix 結果混合，保留首輪 candidate outlier；另十二份 GL heap profiles 支持配置導向採用，仍保留一份 baseline helper 已零 sampled attribution 的反例，不宣稱普遍 CPU／FPS 改善。
+- Native consumer 與產物證據、全部 clocks／samples、驗證範圍見 ACCEPTANCE P225；只提交本功能與六份文件，不 push／升版。

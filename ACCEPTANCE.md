@@ -26411,3 +26411,225 @@ GL single 相對變化雖大，實際 median 僅相差 0.004167 ms；保留原�
 同步六份既有文件；ACCEPTANCE 僅在 size／mtimeNs／4,096-byte-tail guard 下 append 新段，不改歷史原日期、測試數或數據。提交前檢查六份文件 Prettier 與 semantic relative file links，按 runtime／regression／四產物／六文件 exact allowlist 提交，保留其他使用者變更。
 
 本輪五個 owned Vite service instances 已停止，native regression script 的自有 servers／browser 已在 finally 關閉。只清理 exact manifest 的臨時 surface/output 與 isolated build tree；不清除 repository 的既有 .vite cache 或使用者檔案。
+
+## P225 — Primitive emissive occupancy，移除暫時 slot record
+
+- 日期：2026-11-14（UTC）。以 sampler 已修正的 `b3953fbb0` 為基準；版本維持 1.23.0，不 push。
+- **採用配置導向改善，不宣稱統一 CPU／FPS 加速。** Core 內部 helper 回傳 0／1／2 primitive，遷移全部一個 GL／兩個 GPU 使用點與既有 contract test，移除舊 object-returning helper／export，不留 alias／shim，不增加 SDK 公開入口。
+- GPU mode 2 的 texture／sampler 局部變數同時取自 lightmap／lightmapSampler，保留 P224 修正；其他 PBR modes 使用 frozen effective emission sources／emissiveSampler，non-PBR GPU default 不變。無 cache／scratch／Texture holder、相依、shader/binding ABI 或 layout 變更。
+
+### 契約與實作邊界
+
+新的 pbrEmissiveMode(material) 仍先看 live lightmap，再看既有 pbrTextureSources(material).emissiveTexture。GL 取既有 pbrSources，GPU cacheMesh 取既有 sources；選取 texture／sampler 的模式只來自同一 primitive。GPU pbrBlock 直接寫入同一 mode，不能回到 material.emissiveTexture 而失去 sources-only／override，也不能把 mode 2 的 sampler 誤讀為 emissiveSampler。
+
+既有 material-finish test 改成測 0／1／2 occupancy 與 lightmap 優先；不再測已移除 record 的 shape／sampler echo，保留 invalid lightmap 拒絕。真正的 sampler、texture precedence、NativePBR 與 restoration 由原生 consumer pixels 證明。既有 LSP 已確認 unavailable，未重試同一失敗；採用前刷新完整 exact references，確認 Core 定義、GL draw、GPU cacheMesh／pbrBlock、test 與兩個 canonical technical paragraphs，unified SDK barrel 不公開此 helper。
+
+canonical 三份 source 經 formatter 後逐 byte 等於已量測的三份隔離候選；不是以相似但不同的實作替代 measurements。沒有重構其他材質／finish／shader-bit 邏輯，也沒有凍結公開 RGB array 或採用已否決的 scratch fill。
+
+### Preflight 與分析修正（不抹掉失敗）
+
+- 新建 HTML 在任何 CPU row 前依實際 selector 補齊 #game／#report。尚未收集任何有效 timing sample，沒有以 fixture exception 當性能數據。
+- 初次兩個 Vite service 都 ready，但不必要的 defineConfig import 被 config bundler 連同 Vite optional esbuild/devtools imports 納入而發 warning；停止兩個 services，僅把 owned config 改成不需該 import 的 plain config object，乾淨重啟後才執行固定 matrix。沒有安裝／修改相依或 suppress warning。
+- native 全部成功後，分析器初次誤讀 source-only prototype JSON（四 records），在預期八 records 的 cardinality assertion 停止，尚未執行 source/dist comparison。從實際 driver 的 writeFile suffix 確認應讀 final JSON，改讀既有最終 artifacts 後完成 104 對 source/dist exact checks；沒有重跑 renderer 來掩蓋分析器錯誤。
+
+### 固定完整 native CPU matrix
+
+單次固定 192 rows：GL/GPU 各八 workloads、六 fresh serial AB/BA rounds、每列二十四 full submits；兩 backend 均受候選影響，GPU 不是未改動控制。實際 DOM／renderer／geometry／material／render 路徑，diagnostic wrappers 於 warm-up／clocks 前還原，flush 在 clocks 外。default BLEND，none 表示 object motion off 而非 OPAQUE。draw/upload invariants 通過，errors 空。
+
+CPU／heap 研究使用 source Vite modules；以下統計不直接推定 minified dist 的同等效能，dist 另做真實 consumer／RGBA correctness。沒有在 CPU clocks 內執行 heap/pixel observers；所有 sampling 在整個 CPU matrix 結束之後。完整保留首輪 **candidate GL none 2.475000 ms/submit** outlier，沒有 trim、挑選或有利 retime。
+
+| Backend / workload        | Before ms/submit | After ms/submit |  Change | Upload bytes before / after |
+| ------------------------- | ---------------: | --------------: | ------: | --------------------------: |
+| webgl2 / none             |         0.791667 |        0.797917 |   0.79% |                 4048 / 4048 |
+| webgl2 / shared           |         0.964583 |        0.968750 |   0.43% |                 4048 / 4048 |
+| webgl2 / unique           |         2.414583 |        2.427083 |   0.52% |                 4048 / 4048 |
+| webgl2 / instance         |         0.239583 |        0.237500 |  -0.87% |                 4048 / 4048 |
+| webgl2 / alternating      |         1.747917 |        1.760417 |   0.72% |                 4048 / 4048 |
+| webgl2 / single           |         0.012500 |        0.012500 |  -0.00% |                 4048 / 4048 |
+| webgl2 / distinct-maps    |         0.997917 |        1.004167 |   0.63% |                 4048 / 4048 |
+| webgl2 / alternating-maps |         0.935417 |        0.950000 |   1.56% |                 4048 / 4048 |
+| webgpu / none             |         0.687500 |        0.681250 |  -0.91% |                 7856 / 7856 |
+| webgpu / shared           |         0.856250 |        0.856250 |   0.00% |             135856 / 135856 |
+| webgpu / unique           |         1.093750 |        1.087500 |  -0.57% |             135856 / 135856 |
+| webgpu / instance         |         0.143750 |        0.143750 |   0.00% |             135856 / 135856 |
+| webgpu / alternating      |         0.995833 |        1.016667 |   2.09% |             135856 / 135856 |
+| webgpu / single           |         0.018750 |        0.016667 | -11.11% |                 7984 / 7984 |
+| webgpu / distinct-maps    |         1.033333 |        1.039583 |   0.60% |             135856 / 135856 |
+| webgpu / alternating-maps |         1.027083 |        1.008333 |  -1.83% |             135856 / 135856 |
+
+CPU 結果混合，包含多個 GL workload 的小幅 median 增加與 GPU 的正負差異，不能直接把它們都說成 noise，也不能宣稱一般 submit 加速。GPU single 的相對 -11.11% 僅約 0.002083 ms 絕對差，不當作穩定收益。所有配對如下，包含 formatting 後 -0.00% 的極小 floating-point 差異。
+
+#### GL 全部六輪配對
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           0.787500 |          2.475000 |
+| shared / 1           |           0.941667 |          0.958333 |
+| unique / 1           |           2.504167 |          2.429167 |
+| instance / 1         |           0.241667 |          0.233333 |
+| alternating / 1      |           1.750000 |          1.766667 |
+| single / 1           |           0.012500 |          0.008333 |
+| distinct-maps / 1    |           1.000000 |          0.979167 |
+| alternating-maps / 1 |           0.925000 |          0.950000 |
+| none / 2             |           0.795833 |          0.800000 |
+| shared / 2           |           0.991667 |          0.945833 |
+| unique / 2           |           2.416667 |          2.391667 |
+| instance / 2         |           0.237500 |          0.241667 |
+| alternating / 2      |           1.745833 |          1.800000 |
+| single / 2           |           0.012500 |          0.012500 |
+| distinct-maps / 2    |           0.991667 |          1.041667 |
+| alternating-maps / 2 |           0.916667 |          0.954167 |
+| none / 3             |           0.791667 |          0.795833 |
+| shared / 3           |           0.970833 |          0.966667 |
+| unique / 3           |           2.395833 |          2.425000 |
+| instance / 3         |           0.237500 |          0.229167 |
+| alternating / 3      |           1.741667 |          1.795833 |
+| single / 3           |           0.016667 |          0.012500 |
+| distinct-maps / 3    |           0.995833 |          1.029167 |
+| alternating-maps / 3 |           0.933333 |          0.958333 |
+| none / 4             |           0.787500 |          0.795833 |
+| shared / 4           |           0.950000 |          0.970833 |
+| unique / 4           |           2.412500 |          2.445833 |
+| instance / 4         |           0.241667 |          0.237500 |
+| alternating / 4      |           1.750000 |          1.733333 |
+| single / 4           |           0.008333 |          0.012500 |
+| distinct-maps / 4    |           0.987500 |          1.012500 |
+| alternating-maps / 4 |           0.950000 |          0.941667 |
+| none / 5             |           0.791667 |          0.791667 |
+| shared / 5           |           0.958333 |          0.983333 |
+| unique / 5           |           2.404167 |          2.425000 |
+| instance / 5         |           0.237500 |          0.237500 |
+| alternating / 5      |           1.754167 |          1.737500 |
+| single / 5           |           0.012500 |          0.016667 |
+| distinct-maps / 5    |           1.000000 |          0.987500 |
+| alternating-maps / 5 |           0.937500 |          0.929167 |
+| none / 6             |           0.866667 |          0.812500 |
+| shared / 6           |           0.975000 |          1.029167 |
+| unique / 6           |           2.450000 |          2.533333 |
+| instance / 6         |           0.254167 |          0.241667 |
+| alternating / 6      |           1.745833 |          1.754167 |
+| single / 6           |           0.008333 |          0.012500 |
+| distinct-maps / 6    |           1.029167 |          0.995833 |
+| alternating-maps / 6 |           1.020833 |          0.950000 |
+
+#### GPU 全部六輪配對（兩邊都改，非未改動控制）
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           0.700000 |          0.670833 |
+| shared / 1           |           0.841667 |          0.858333 |
+| unique / 1           |           1.045833 |          1.083333 |
+| instance / 1         |           0.141667 |          0.145833 |
+| alternating / 1      |           0.991667 |          1.025000 |
+| single / 1           |           0.016667 |          0.020833 |
+| distinct-maps / 1    |           1.025000 |          1.058333 |
+| alternating-maps / 1 |           0.966667 |          1.000000 |
+| none / 2             |           0.687500 |          0.691667 |
+| shared / 2           |           0.845833 |          0.866667 |
+| unique / 2           |           1.075000 |          1.104167 |
+| instance / 2         |           0.145833 |          0.145833 |
+| alternating / 2      |           0.991667 |          1.012500 |
+| single / 2           |           0.020833 |          0.020833 |
+| distinct-maps / 2    |           1.029167 |          1.020833 |
+| alternating-maps / 2 |           0.979167 |          0.966667 |
+| none / 3             |           0.683333 |          0.679167 |
+| shared / 3           |           0.850000 |          0.825000 |
+| unique / 3           |           1.087500 |          1.083333 |
+| instance / 3         |           0.137500 |          0.141667 |
+| alternating / 3      |           1.000000 |          1.008333 |
+| single / 3           |           0.012500 |          0.016667 |
+| distinct-maps / 3    |           1.033333 |          1.045833 |
+| alternating-maps / 3 |           1.050000 |          1.008333 |
+| none / 4             |           0.737500 |          0.679167 |
+| shared / 4           |           1.000000 |          0.850000 |
+| unique / 4           |           1.270833 |          1.095833 |
+| instance / 4         |           0.170833 |          0.137500 |
+| alternating / 4      |           0.991667 |          1.020833 |
+| single / 4           |           0.020833 |          0.016667 |
+| distinct-maps / 4    |           1.129167 |          1.016667 |
+| alternating-maps / 4 |           1.120833 |          1.025000 |
+| none / 5             |           0.683333 |          0.687500 |
+| shared / 5           |           0.887500 |          0.858333 |
+| unique / 5           |           1.100000 |          1.083333 |
+| instance / 5         |           0.145833 |          0.145833 |
+| alternating / 5      |           1.008333 |          1.029167 |
+| single / 5           |           0.016667 |          0.016667 |
+| distinct-maps / 5    |           1.100000 |          1.033333 |
+| alternating-maps / 5 |           1.004167 |          1.008333 |
+| none / 6             |           0.687500 |          0.683333 |
+| shared / 6           |           0.862500 |          0.854167 |
+| unique / 6           |           1.112500 |          1.091667 |
+| instance / 6         |           0.137500 |          0.137500 |
+| alternating / 6      |           1.012500 |          1.008333 |
+| single / 6           |           0.020833 |          0.016667 |
+| distinct-maps / 6    |           1.033333 |          1.062500 |
+| alternating-maps / 6 |           1.058333 |          1.020833 |
+
+### CPU 之外的 collected-object heap sampling
+
+GL shared／distinct-maps BLEND 各三 fresh AB/BA pairs，十二 profiles、每份 512 full-submit frames，共 6,144 frames。CDP HeapProfiler 128-byte sampling interval／stackDepth 128、includeObjectsCollectedByMajorGC／MinorGC=true，沿用已讀 primary schema；profiled elapsed 不當作 CPU 成績。
+
+| Cohort / round / variant   | Helper sampled self bytes | Renderer sampled self bytes | Total sampled self bytes | Sample records |
+| -------------------------- | ------------------------: | --------------------------: | -----------------------: | -------------: |
+| shared / 1 / before        |                  12264480 |                    22533144 |                 60188188 |         336303 |
+| shared / 1 / after         |                         0 |                    22598244 |                 47973120 |         249304 |
+| distinct-maps / 1 / before |                         0 |                    22604868 |                 48106996 |         250244 |
+| distinct-maps / 1 / after  |                         0 |                    22535052 |                 48056428 |         249921 |
+| shared / 2 / after         |                         0 |                    22543032 |                 48006936 |         249598 |
+| shared / 2 / before        |                  12267360 |                    22522108 |                 60185816 |         336358 |
+| distinct-maps / 2 / after  |                         0 |                    22554928 |                 48062504 |         249994 |
+| distinct-maps / 2 / before |                  12367440 |                    22557708 |                 60343616 |         337428 |
+| shared / 3 / before        |                  12387648 |                    22528332 |                 60339188 |         337414 |
+| shared / 3 / after         |                         0 |                    22477492 |                 47920716 |         248953 |
+| distinct-maps / 3 / before |                  12270168 |                    22680124 |                 60428336 |         338015 |
+| distinct-maps / 3 / after  |                         0 |                    22573104 |                 48064100 |         249948 |
+
+| Cohort        | Before median helper bytes | After median helper bytes | Before median total bytes | After median total bytes | Total change |
+| ------------- | -------------------------: | ------------------------: | ------------------------: | -----------------------: | -----------: |
+| shared        |                   12267360 |                         0 |                  60188188 |                 47973120 |      -20.29% |
+| distinct-maps |                   12270168 |                         0 |                  60343616 |                 48062504 |      -20.35% |
+
+五份 baseline 在 helper 歸因約十二 MB，六份候選 helper 歸因均零，但**首輪 distinct-maps baseline 原已零**：其 total 48,106,996→48,056,428 bytes，不能宣稱每對都減少十二 MB 或約二成。全部配對保留，不推定特定 V8 scalar-replacement／escape-analysis 機制，不把 sampled node selfSize 換算精確 allocation 次數、backing-store 類型、retained heap、native GPU bytes 或呈現 FPS。
+
+採用理由是小型、無額外持有物的 primitive 契約消除原始 per-call record 建構，且本輪 allocation observations 支持該目標；接受／明列上述 mixed CPU observations，而不是捏造 CPU／FPS 效益。舊實作有時也能有零 helper attribution，候選零 sampled bytes 不是普遍零實際 allocation 的證明。P224 的舊 primitive clocks/profiles 不作本輪數據；所有數字來自修正後基準的新固定執行。
+
+### 真正 native occupancy／sampler consumer
+
+Chromium 153.0.8010.12、darwin/arm64、pinned Playwright-managed desktop automation；非 physical-device、Safari／Firefox／Canvas2D 或三 backend 認證。使用實際 Texture.fromImage、正式 material／renderer、native RGBA readback 與 GPU validation scopes，無 mock shader／renderer。
+
+先在隔離 source before/after 驗證 GL/GPU 各 52 exact frame pairs／48 consumer checks 每 variant；production 採用後，實際 source/dist × GL/GPU before/after 四組再完整通過，各 52 pairs，共 208 pairs／13,631,488 RGBA bytes，十三 public counters 全相同。八個 variant pages 各 52 frames／48 consumer checks，validation／page／console errors 皆空。
+
+覆蓋 OPAQUE single／MSAA、ordinary PBR／native physical tint、mode 0／1／2、effective source override、sources-only emission、lightmap 勝過 emissive／override、兩 sampler 切換、conflicting sampler precedence、材質還原。lightmapStrength 顯式啟用、NativePBR 明確 prepare 的正式前置契約全保留；沒有重犯 dormant lightmap、跳過 NativePBR 或降低任何 threshold。
+
+| Backend / material / AA    | After nearest-versus-linear changed pixels | Conflicting emissive sampler differing bytes |
+| -------------------------- | -----------------------------------------: | -------------------------------------------: |
+| webgl2 / standard / single |                                       8882 |                                            0 |
+| webgl2 / native / single   |                                       6320 |                                            0 |
+| webgl2 / standard / msaa   |                                       8882 |                                            0 |
+| webgl2 / native / msaa     |                                       6320 |                                            0 |
+| webgpu / standard / single |                                       8882 |                                            0 |
+| webgpu / native / single   |                                       6320 |                                            0 |
+| webgpu / standard / msaa   |                                       9034 |                                            0 |
+| webgpu / native / msaa     |                                       6432 |                                            0 |
+
+表列 after source 的正向差異；before/after 的 208 exact pairs 及 after source/dist 的 **104 pairs／6,815,744 RGBA bytes** 皆逐 byte 比對，十三 public counters 一致，故不重複列相同數字，也不強求跨 backend RGBA 相同。後者直接比較已 capture 的 frames，沒有多跑一組有利測量。實際 decode／目視 dist native physical MSAA lightmap PNG，仍有可見棋盤紋。
+
+P224 的 all-zero mode mutant 已實際在兩 backend 的 emission 正向控制被拒絕；本輪保留同一 validator／threshold，未將其當成新的 mutant 執行或新通過數。
+
+### Native effects、official fixture 與 actual showcase
+
+既有二十六-scenario native source/dist × GL/GPU before/after，每 entry/backend 102 exact pairs，共 408 pairs／26,869,760 RGBA bytes／十三 counters。GL 每 entry 有 62 motion passes／1,300 poses，bindBuffer 300／300、vertexAttribPointer 150／150、uniformMatrix4fv 1,300／1,300；實際 geometry/matrix/depth/VAO proof 通過，create/delete program 38、VAO 32、buffer 70、texture 58 分別一致且平衡。GPU 的空 motion/resource observation 仍是未 instrument，不宣稱 GPU payload 或 zero-live resource 證明。
+
+未修改官方 post-effects source/dist × GL/GPU 四頁，各二十四 scenarios 全通過。actual showcase 兩 backend Scene A→B、pagehide cleanup 與 page/console errors 空；兩張 PNG 都實際 decode／目視，2D sprite/circle、3D cube/sphere 與 Scene B 存在。GPU cumulative cleanup buffer 10→32、texture 1→15、device 0→1；GL buffer 6→16、texture 1→6、program 0→15。這不是 zero-live／全面 no-leak 證明；畫面明確 audio still locked，沒有 audio unlock 證明。
+
+正式 shader-variants runner 再驗 shipped dist：兩 backend 各 optimized／external full-reference 二十七 scenarios，全部 passed，lightmap sampler positive changedPixels 各 178，衝突 sampler 不改畫面。保留原 instancing maximum channel delta 1／最多 0.01% pixels 的 compiler reassociation 例外，不新增或放寬其他容差。未改 OPM-adapter dynamic import 仍有 Vite warning；不 suppress、不改 vendor，也不宣稱音訊通過。
+
+### Actual build、檢查與提交界線
+
+實際 isolated tsc→minify-dist→copy-vendor→CJS 完成：377 JS files、9,365,284→4,013,585 bytes，371 CJS modules；vendor unchanged。十五個定位 outputs 逐 byte snapshot／promotion guard 後，僅複製三 modules 的十二 ESM/CJS JS/maps 及一份 Core declaration，共十三 files。兩 renderer declarations 未改；不複製整棵 dist，保留使用者 physics/world2d source、JS/maps/declarations，不改 SDK exports、版本或相依。
+
+全專案 tsconfig.check.json typecheck、四個 targeted Vitest files 共 71 tests、四個變更 TS files 的 ESLint／Prettier 通過。四 test files 是 material-finish、native-pbr-material、resource-residency、resilient-renderer；既有 contract test 遷移，未加 wiring／source-echo tests。未執行 install、全測試 suite 或其他平台認證，不把 P224 的舊通過當本輪紀錄。
+
+同步六份既有文件與兩 canonical technical helper paragraphs；ACCEPTANCE 在 size／mtimeNs／4,096-byte-tail guard 下只 append，本輪全部 raw pairs／caveats 保留於本段，不改歷史日期／測試數。提交前六份文件 Prettier 與 semantic relative file links 一次，按三 source／一既有 test／十三 outputs／六文件 exact allowlist 提交，不 push。
+
+本輪六個 owned Vite service instances 全停止；runner 的自有 browser／servers 已在 finally 關閉。只刪除 exact manifest 的臨時 surface／output 與自有 isolated build copy，不刪 repo .vite cache 或使用者資料。

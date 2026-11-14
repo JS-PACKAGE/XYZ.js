@@ -6157,3 +6157,11 @@ core 的既有 emissive slot 已同時解決 texture、sampler、mode，並讓 l
 修正只讓 binding 9 消費既有 slot.sampler，不再重複推導，也不新增 cache／scratch／resource holder 或改變 binding ABI。primitive mode 配置原型本輪未採用，Core／GL helper 契約保持原樣；其 CPU／heap observations 與 sampler bug-fix 證據分開。
 
 lightmapStrength 預設為零，單靠 before/after 相同可能只驗到 dormant branch。回歸必須顯式啟用 lightmap，確認 sampler 切換有實際像素差異，並確認 conflicting emissiveSampler 不覆寫 lightmapSampler；NativePBR 仍遵守正式 explicit preparation 契約。
+
+## P225 — Primitive occupancy，局部 texture／sampler 配對
+
+共用 Core helper 僅回傳 mode 0／1／2，不再為每次查詢建立 texture／sampler／mode record。GL draw 與 GPU cacheMesh 使用該 mode 及各自既有 frozen effective texture bindings 選取局部 texture／sampler；GPU uniform block 直接寫 mode。所有舊 helper 呼叫與 export 都移除，不把內部 helper 加到 SDK 入口。
+
+這仍是一個 occupancy 決策：mode 2 同時選 lightmap／lightmapSampler，不能重犯 P224 的 sampler 來源分裂。保留 live material property reads、不建立持有 Texture 的共享 scratch，也不新增 descriptor／material cache 或改變 native fallback／binding layout。
+
+採用理由是減少暫時配置，不是統一 CPU 加速：本輪完整 clocks 混合，另行 heap sampling 的五份 baseline helper 歸因約十二 MB、一份已零；六份候選均零 sampled attribution，但不是零實際 allocation、retained heap／GPU／FPS 證明。全部資料與邊界見 ACCEPTANCE P225。

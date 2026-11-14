@@ -5444,7 +5444,7 @@ P132 的 angular radii 為 `r/4`、`r`、`min(2*r,1)`，權重為 0.25／0.5／0
 
 Height 保留既有四步 normal-map relief；wetness／snow／dirt／damage、detail 與 triplanar 保留原行為。沒有新增 texture slots 或 uniforms。
 
-`lightmap`／`lightmapSampler` 使用 emissive sampler。`pbrEmissiveSlot(material)` 回報 mode 0（無）、1（emissive）或 2（lightmap）；mode 2 時不取樣 emissive map，在加上 emission 前做 `color *= mix(1, bakedRGB, lightmapStrength)`。WebGPU 的 mesh cache 以材質實例為鍵，因此 `setMeshMaterial` 會正確重新綁定。
+`lightmap`／`lightmapSampler` 使用 emissive sampler。內部 `pbrEmissiveMode(material)` 直接回傳 primitive mode 0（無）、1（effective emission source）或 2（lightmap），不建立暫時 slot record。mode 2 同時選取 `lightmap` 與 `lightmapSampler`，不取樣 emissive map，在加上 emission 前做 `color *= mix(1, bakedRGB, lightmapStrength)`。WebGPU 的 mesh cache 以材質實例為鍵，因此 `setMeshMaterial` 會正確重新綁定。
 
 `MaterialAsset.fromImages(maps, overrides?)`／`create(options)`：`maps` 的 `base` 必填，另有 `metallicRoughness`、`normal`、`occlusion`、`emissive`、`lightmap`，每項可為 `ImageBitmapSource`（由 asset 解碼並擁有）或 `Texture`（借用）。`destroy()` 冪等並彙整清理錯誤，`destroyed` 是 getter。`setMeshMaterial(mesh, material)` 替換 Mesh 借用的材質（`Mesh.material` 仍是已發佈的 readonly 宣告）；非 `TextureMaterial` 會丟錯並保留目前材質。
 
@@ -7325,3 +7325,7 @@ GL binding scratch arrays 維持原本 length-zero reset。隔離候選改以 un
 ## P224：WebGPU lightmap sampler 正確性
 
 material binding 9 現在與 texture 一樣消費既有 resolved emissive slot 的 sampler；lightmap 同時擁有 texture 與 sampler，衝突的 emissiveSampler 不會取代 lightmapSampler。這修正了實際 canonical GPU 渲染 Bug，不改 Core／GL helper、公開 API 或 binding layout。可見 lightmap 驗證會顯式啟用預設為零的 finish.lightmapStrength；native physical material 仍須正式 explicit preparation。同輪另量測的 primitive-mode 配置原型本階段未採用，也不是這個修正的效能成績。native consumer、回歸與產物驗證見 [ACCEPTANCE](../ACCEPTANCE.md) P224。
+
+## P225：Primitive emissive occupancy
+
+內部 occupancy helper 改回傳 primitive mode，所有 GL／GPU 呼叫與既有 contract test 已遷移；移除舊 record helper／export，不保留 alias。局部 texture／sampler 選取維持 P224 lightmap 優先順序、effective sources override、non-PBR defaults 與 binding ABI，沒有 scratch／cache／resource holder。這是配置導向改善：固定完整 submit CPU 結果混合，一份 baseline heap profile 的 helper 歸因本已為零；sampled bytes 不是精確 allocation count、retained heap、GPU bytes 或 FPS。全部配對、native consumer 證據及產物／runtime 範圍見 [ACCEPTANCE](../ACCEPTANCE.md) P225。

@@ -676,23 +676,12 @@ export class PBRMaterial extends TextureMaterial {
 }
 
 /** Emissive sampler occupancy: 0 empty, 1 emission, 2 lightmap. */
-export function pbrEmissiveSlot(material: PBRMaterial): {
-  readonly texture: MaterialTexture | undefined;
-  readonly sampler: Readonly<TextureSamplerOptions> | undefined;
-  readonly mode: 0 | 1 | 2;
-} {
-  if (material.lightmap)
-    return {
-      texture: material.lightmap,
-      sampler: material.lightmapSampler,
-      mode: 2,
-    };
-  const texture = pbrTextureSources(material).emissiveTexture;
-  return {
-    texture,
-    sampler: material.emissiveSampler,
-    mode: texture ? 1 : 0,
-  };
+export function pbrEmissiveMode(material: PBRMaterial): 0 | 1 | 2 {
+  return material.lightmap
+    ? 2
+    : pbrTextureSources(material).emissiveTexture
+      ? 1
+      : 0;
 }
 
 /** Writes the 20 finish floats consumed by both mesh shaders. */

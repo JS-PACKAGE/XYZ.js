@@ -289,18 +289,8 @@ var PBRMaterial = class extends require_mesh.TextureMaterial {
 		s.set(this, Object.freeze(O)), this.alphaCutoff = w, this.alphaMode = T, this.doubleSided = E, this.specularAntiAliasing = c, this.alphaToCoverage = D, this.metallicRoughnessSampler = require_texture_sampler.samplerOptions(e.metallicRoughnessSampler), this.normalSampler = require_texture_sampler.samplerOptions(e.normalSampler), this.occlusionSampler = require_texture_sampler.samplerOptions(e.occlusionSampler), this.emissiveSampler = require_texture_sampler.samplerOptions(e.emissiveSampler), textureSlot(e.lightmap, `Lightmap`), this.lightmap = e.lightmap, this.lightmapSampler = require_texture_sampler.samplerOptions(e.lightmapSampler), this.finish = parseFinish(e.finish);
 	}
 };
-function pbrEmissiveSlot(e) {
-	if (e.lightmap) return {
-		texture: e.lightmap,
-		sampler: e.lightmapSampler,
-		mode: 2
-	};
-	let t = pbrTextureSources(e).emissiveTexture;
-	return {
-		texture: t,
-		sampler: e.emissiveSampler,
-		mode: +!!t
-	};
+function pbrEmissiveMode(e) {
+	return e.lightmap ? 2 : +!!pbrTextureSources(e).emissiveTexture;
 }
 function fillPBRFinish(e, t, n) {
 	let r = e.finish;
@@ -366,7 +356,7 @@ var MaterialAsset = class MaterialAsset {
 exports.MaterialAsset = MaterialAsset;
 exports.PBRMaterial = PBRMaterial;
 exports.fillPBRFinish = fillPBRFinish;
-exports.pbrEmissiveSlot = pbrEmissiveSlot;
+exports.pbrEmissiveMode = pbrEmissiveMode;
 exports.pbrTextureKeys = pbrTextureKeys;
 exports.pbrTextureSources = pbrTextureSources;
 

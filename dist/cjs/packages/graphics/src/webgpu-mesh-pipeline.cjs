@@ -1669,44 +1669,44 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		n ? (e.uvs1 = this.colorBuffer(e.uvs1, n), this.device.queue.writeBuffer(e.uvs1, 0, n), this.stats.upload(n.byteLength)) : (e.uvs1?.destroy(), e.uvs1 = void 0);
 	}
 	cacheMesh(e) {
-		let t = e.material, n = t instanceof require_pbr_material.PBRMaterial, r = n ? require_pbr_material.pbrTextureSources(t) : void 0, i = t instanceof require_native_material3d.NativeMaterial3D ? require_native_material3d.nativeMaterialSources(t) : void 0, a = this.cacheTexture(require_mesh.materialBaseTexture(t), !n).view, s = r?.metallicRoughnessTexture ? this.cacheTexture(r.metallicRoughnessTexture, !1).view : i && i[0] ? this.cacheTexture(i[0], !1).view : this.whiteView, l = r?.normalTexture ? this.cacheTexture(r.normalTexture, !1).view : i && i[1] ? this.cacheTexture(i[1], !1).view : this.whiteView, u = r?.occlusionTexture ? this.cacheTexture(r.occlusionTexture, !1).view : i && i[2] ? this.cacheTexture(i[2], !1).view : this.whiteView, d = n ? require_pbr_material.pbrEmissiveSlot(t) : void 0, f = d?.texture ? this.cacheTexture(d.texture, !1).view : i && i[3] ? this.cacheTexture(i[3], !1).view : this.whiteView, p = r?.specularTexture ? this.cacheTexture(r.specularTexture, !1).view : this.whiteView, m = r?.specularColorTexture ? this.cacheTexture(r.specularColorTexture, !1).view : this.whiteView, h = r?.clearcoatTexture ? this.cacheTexture(r.clearcoatTexture, !1).view : this.whiteView, v = r?.clearcoatRoughnessTexture ? this.cacheTexture(r.clearcoatRoughnessTexture, !1).view : this.whiteView, x = r?.clearcoatNormalTexture ? this.cacheTexture(r.clearcoatNormalTexture, !1).view : this.whiteView, w = r?.sheenColorTexture ? this.cacheTexture(r.sheenColorTexture, !1).view : this.whiteView, T = r?.sheenRoughnessTexture ? this.cacheTexture(r.sheenRoughnessTexture, !1).view : this.whiteView, E = n ? this.cacheOpticalMaps(t) : this.emptyOpticalView, D = this.meshes.get(e), O = e instanceof require_skinned_mesh.SkinnedMesh ? e : void 0, k = O ? O.jointPalette.byteLength + O.renderGeometry.vertices.length / 8 * 64 : 0;
-		if (D && (D.allocation.resize(D.uniform.size + (D.visibleInstance?.size ?? 0) + (D.visibleColors?.size ?? 0) + k + (e instanceof require_instanced_mesh.InstancedMesh ? e.matrices.byteLength + Math.max(D.instanceColors?.size ?? 0, e.colors?.byteLength ?? 0) : 0)), O && D.paletteVersion !== O.paletteVersion && (this.device.queue.writeBuffer(D.palette, 0, O.jointPalette), this.stats.upload(O.jointPalette.byteLength), D.paletteVersion = O.paletteVersion), D.textureEpoch === this.textureEpoch && D.material === t)) return D;
-		let A = D?.allocation ?? this.residency.geometry.allocate(J * 4 + k + (e instanceof require_instanced_mesh.InstancedMesh ? e.matrices.byteLength + (e.colors?.byteLength ?? 0) : 0), () => {
+		let t = e.material, n = t instanceof require_pbr_material.PBRMaterial, r = n ? require_pbr_material.pbrTextureSources(t) : void 0, i = t instanceof require_native_material3d.NativeMaterial3D ? require_native_material3d.nativeMaterialSources(t) : void 0, a = this.cacheTexture(require_mesh.materialBaseTexture(t), !n).view, s = r?.metallicRoughnessTexture ? this.cacheTexture(r.metallicRoughnessTexture, !1).view : i && i[0] ? this.cacheTexture(i[0], !1).view : this.whiteView, l = r?.normalTexture ? this.cacheTexture(r.normalTexture, !1).view : i && i[1] ? this.cacheTexture(i[1], !1).view : this.whiteView, u = r?.occlusionTexture ? this.cacheTexture(r.occlusionTexture, !1).view : i && i[2] ? this.cacheTexture(i[2], !1).view : this.whiteView, d = n ? require_pbr_material.pbrEmissiveMode(t) : 0, f = n && d === 2 ? t.lightmap : r?.emissiveTexture, p = n ? d === 2 ? t.lightmapSampler : t.emissiveSampler : void 0, m = f ? this.cacheTexture(f, !1).view : i && i[3] ? this.cacheTexture(i[3], !1).view : this.whiteView, h = r?.specularTexture ? this.cacheTexture(r.specularTexture, !1).view : this.whiteView, v = r?.specularColorTexture ? this.cacheTexture(r.specularColorTexture, !1).view : this.whiteView, x = r?.clearcoatTexture ? this.cacheTexture(r.clearcoatTexture, !1).view : this.whiteView, w = r?.clearcoatRoughnessTexture ? this.cacheTexture(r.clearcoatRoughnessTexture, !1).view : this.whiteView, T = r?.clearcoatNormalTexture ? this.cacheTexture(r.clearcoatNormalTexture, !1).view : this.whiteView, E = r?.sheenColorTexture ? this.cacheTexture(r.sheenColorTexture, !1).view : this.whiteView, D = r?.sheenRoughnessTexture ? this.cacheTexture(r.sheenRoughnessTexture, !1).view : this.whiteView, O = n ? this.cacheOpticalMaps(t) : this.emptyOpticalView, k = this.meshes.get(e), A = e instanceof require_skinned_mesh.SkinnedMesh ? e : void 0, j = A ? A.jointPalette.byteLength + A.renderGeometry.vertices.length / 8 * 64 : 0;
+		if (k && (k.allocation.resize(k.uniform.size + (k.visibleInstance?.size ?? 0) + (k.visibleColors?.size ?? 0) + j + (e instanceof require_instanced_mesh.InstancedMesh ? e.matrices.byteLength + Math.max(k.instanceColors?.size ?? 0, e.colors?.byteLength ?? 0) : 0)), A && k.paletteVersion !== A.paletteVersion && (this.device.queue.writeBuffer(k.palette, 0, A.jointPalette), this.stats.upload(A.jointPalette.byteLength), k.paletteVersion = A.paletteVersion), k.textureEpoch === this.textureEpoch && k.material === t)) return k;
+		let M = k?.allocation ?? this.residency.geometry.allocate(J * 4 + j + (e instanceof require_instanced_mesh.InstancedMesh ? e.matrices.byteLength + (e.colors?.byteLength ?? 0) : 0), () => {
 			let t = this.meshes.get(e);
 			t && (t.uniform.destroy(), t.visibleInstance?.destroy(), t.visibleColors?.destroy(), t.instanceColors?.destroy(), t.palette?.destroy(), t.influences?.destroy(), t.instance !== this.identityBuffer && t.instance.destroy(), this.meshes.delete(e));
-		}), j = D?.uniform, M = D?.instance ?? this.identityBuffer, N = D?.instanceColors, P = D?.palette, F = D?.influences;
+		}), N = k?.uniform, P = k?.instance ?? this.identityBuffer, F = k?.instanceColors, I = k?.palette, L = k?.influences;
 		try {
-			if (j ??= this.device.createBuffer({
+			if (N ??= this.device.createBuffer({
 				size: J * 4,
 				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-			}), !D && O) {
-				if (O.jointPalette.byteLength > this.device.limits.maxStorageBufferBindingSize) throw new require_errors.GraphicsError(`Skin palette exceeds the WebGPU storage buffer limit.`);
-				P = this.device.createBuffer({
-					size: O.jointPalette.byteLength,
+			}), !k && A) {
+				if (A.jointPalette.byteLength > this.device.limits.maxStorageBufferBindingSize) throw new require_errors.GraphicsError(`Skin palette exceeds the WebGPU storage buffer limit.`);
+				I = this.device.createBuffer({
+					size: A.jointPalette.byteLength,
 					usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
 				});
-				let e = O.renderGeometry.vertices.length / 8, t = /* @__PURE__ */ new ArrayBuffer(e * 64), n = new Uint32Array(t), r = new Float32Array(t);
-				for (let t = 0; t < e; t++) for (let e = 0; e < O.influencesPerVertex; e++) {
-					let i = t * O.influencesPerVertex + e, a = t * 16 + (e < 4 ? e : e + 4);
-					n[a] = O.jointIndices[i], r[a + 4] = O.weights[i];
+				let e = A.renderGeometry.vertices.length / 8, t = /* @__PURE__ */ new ArrayBuffer(e * 64), n = new Uint32Array(t), r = new Float32Array(t);
+				for (let t = 0; t < e; t++) for (let e = 0; e < A.influencesPerVertex; e++) {
+					let i = t * A.influencesPerVertex + e, a = t * 16 + (e < 4 ? e : e + 4);
+					n[a] = A.jointIndices[i], r[a + 4] = A.weights[i];
 				}
-				F = this.device.createBuffer({
+				L = this.device.createBuffer({
 					size: t.byteLength,
 					usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-				}), this.device.queue.writeBuffer(P, 0, O.jointPalette), this.device.queue.writeBuffer(F, 0, t), this.stats.upload(O.jointPalette.byteLength + t.byteLength);
+				}), this.device.queue.writeBuffer(I, 0, A.jointPalette), this.device.queue.writeBuffer(L, 0, t), this.stats.upload(A.jointPalette.byteLength + t.byteLength);
 			}
-			!D && e instanceof require_instanced_mesh.InstancedMesh && (M = this.device.createBuffer({
+			!k && e instanceof require_instanced_mesh.InstancedMesh && (P = this.device.createBuffer({
 				size: e.matrices.byteLength,
 				usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-			}), this.device.queue.writeBuffer(M, 0, e.matrices), this.stats.upload(e.matrices.byteLength), e.colors && (N = this.colorBuffer(void 0, e.colors), this.device.queue.writeBuffer(N, 0, e.colors), this.stats.upload(e.colors.byteLength)));
-			let r = D?.bindGroup ?? this.device.createBindGroup({
+			}), this.device.queue.writeBuffer(P, 0, e.matrices), this.stats.upload(e.matrices.byteLength), e.colors && (F = this.colorBuffer(void 0, e.colors), this.device.queue.writeBuffer(F, 0, e.colors), this.stats.upload(e.colors.byteLength)));
+			let r = k?.bindGroup ?? this.device.createBindGroup({
 				layout: this.meshLayout,
 				entries: [{
 					binding: 0,
-					resource: { buffer: j }
+					resource: { buffer: N }
 				}, {
 					binding: 1,
-					resource: { buffer: P ?? this.identityBuffer }
+					resource: { buffer: I ?? this.identityBuffer }
 				}]
 			}), i = this.device.createBindGroup({
 				layout: this.materialLayout,
@@ -1733,7 +1733,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 5,
-						resource: f
+						resource: m
 					},
 					{
 						binding: 6,
@@ -1749,15 +1749,15 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 9,
-						resource: d ? this.cacheSampler(d.sampler) : this.sampler
+						resource: n ? this.cacheSampler(p) : this.sampler
 					},
 					{
 						binding: 10,
-						resource: p
+						resource: h
 					},
 					{
 						binding: 11,
-						resource: m
+						resource: v
 					},
 					{
 						binding: 12,
@@ -1769,15 +1769,15 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 14,
-						resource: h
+						resource: x
 					},
 					{
 						binding: 15,
-						resource: v
+						resource: w
 					},
 					{
 						binding: 16,
-						resource: x
+						resource: T
 					},
 					{
 						binding: 17,
@@ -1793,11 +1793,11 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 20,
-						resource: w
+						resource: E
 					},
 					{
 						binding: 21,
-						resource: T
+						resource: D
 					},
 					{
 						binding: 22,
@@ -1809,24 +1809,24 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 24,
-						resource: E
+						resource: O
 					}
 				]
-			}), o = D?.data ?? new Float32Array(J), c = D ?? {
-				uniform: j,
-				allocation: A,
+			}), o = k?.data ?? new Float32Array(J), c = k ?? {
+				uniform: N,
+				allocation: M,
 				textureEpoch: this.textureEpoch,
 				bindGroup: r,
 				materialGroup: i,
 				material: t,
 				environment: void 0,
-				instance: M,
+				instance: P,
 				instanceVersion: e instanceof require_instanced_mesh.InstancedMesh ? e.version : 0,
-				instanceColors: N,
+				instanceColors: F,
 				instanceColorVersion: e instanceof require_instanced_mesh.InstancedMesh ? e.colorVersion : 0,
-				palette: P,
-				influences: F,
-				paletteVersion: O?.paletteVersion ?? 0,
+				palette: I,
+				influences: L,
+				paletteVersion: A?.paletteVersion ?? 0,
 				data: o,
 				bits: new Uint32Array(o.buffer),
 				sent: new Uint32Array(J),
@@ -1839,7 +1839,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			};
 			return c.textureEpoch = this.textureEpoch, c.material = t, c.materialGroup = i, this.meshes.set(e, c), c;
 		} catch (e) {
-			throw D || (j?.destroy(), N?.destroy(), P?.destroy(), F?.destroy(), M !== this.identityBuffer && M.destroy(), A.destroy()), e;
+			throw k || (N?.destroy(), F?.destroy(), I?.destroy(), L?.destroy(), P !== this.identityBuffer && P.destroy(), M.destroy()), e;
 		}
 	}
 	cacheSampler(e) {
@@ -1951,7 +1951,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		let n = this.pbrBlockScratch;
 		n.fill(0), n[16] = e.color[0], n[17] = e.color[1], n[18] = e.color[2], n[19] = e.opacity;
 		let r = require_pbr_material.pbrTextureSources(e);
-		n[20] = 1, n[21] = e.metallic, n[22] = e.roughness, n[23] = e.normalScale, n[24] = e.emissive[0], n[25] = e.emissive[1], n[26] = e.emissive[2], n[27] = e.occlusionStrength, n[28] = +!!r.metallicRoughnessTexture, n[29] = +!!r.normalTexture, n[30] = +!!r.occlusionTexture, n[31] = require_pbr_material.pbrEmissiveSlot(e).mode, n[32] = e.alphaCutoff, n[33] = +!!e.doubleSided, n[35] = e.alphaMode === `OPAQUE` ? 0 : e.alphaMode === `MASK` ? 1 : 2, n[36] = e.specularColor[0], n[37] = e.specularColor[1], n[38] = e.specularColor[2], n[39] = e.ior === 0 ? 1 : ((e.ior - 1) / (e.ior + 1)) ** 2, n[40] = e.specular, n[41] = +(e.ior === 0), n[42] = +!!r.specularTexture, n[43] = +!!r.specularColorTexture, n[44] = e.clearcoat, n[45] = e.clearcoatRoughness, n[46] = e.clearcoatNormalScale, n[48] = +!!r.clearcoatTexture, n[49] = +!!r.clearcoatRoughnessTexture, n[50] = +!!r.clearcoatNormalTexture, n[51] = +(require_mesh.materialBaseTexture(e).kind === `native`), n[52] = e.sheenColor[0], n[53] = e.sheenColor[1], n[54] = e.sheenColor[2], n[55] = e.sheenRoughness, n[56] = +!!r.sheenColorTexture, n[57] = +!!r.sheenRoughnessTexture, n[58] = e.specularAntiAliasing, n[59] = +!!e.alphaToCoverage, n[60] = e.transmission, n[61] = e.thickness, n[62] = 1 / e.attenuationDistance, n[63] = e.ior, n[64] = e.attenuationColor[0], n[65] = e.attenuationColor[1], n[66] = e.attenuationColor[2], require_optical_maps.fillOpticalMapSettings(n, 68, r.transmissionTexture, e.transmissionSampler), require_optical_maps.fillOpticalMapSettings(n, 72, r.thicknessTexture, e.thicknessSampler), require_native_material3d.isNativeMaterial3D(e) && n.set(e.uniforms, Y), require_material_uv.fillMaterialUV(e, Pe, n, X), require_pbr_material.fillPBRFinish(e, n, Z), require_optical_maps.fillMappedOpticalSettings(e, n, $);
+		n[20] = 1, n[21] = e.metallic, n[22] = e.roughness, n[23] = e.normalScale, n[24] = e.emissive[0], n[25] = e.emissive[1], n[26] = e.emissive[2], n[27] = e.occlusionStrength, n[28] = +!!r.metallicRoughnessTexture, n[29] = +!!r.normalTexture, n[30] = +!!r.occlusionTexture, n[31] = require_pbr_material.pbrEmissiveMode(e), n[32] = e.alphaCutoff, n[33] = +!!e.doubleSided, n[35] = e.alphaMode === `OPAQUE` ? 0 : e.alphaMode === `MASK` ? 1 : 2, n[36] = e.specularColor[0], n[37] = e.specularColor[1], n[38] = e.specularColor[2], n[39] = e.ior === 0 ? 1 : ((e.ior - 1) / (e.ior + 1)) ** 2, n[40] = e.specular, n[41] = +(e.ior === 0), n[42] = +!!r.specularTexture, n[43] = +!!r.specularColorTexture, n[44] = e.clearcoat, n[45] = e.clearcoatRoughness, n[46] = e.clearcoatNormalScale, n[48] = +!!r.clearcoatTexture, n[49] = +!!r.clearcoatRoughnessTexture, n[50] = +!!r.clearcoatNormalTexture, n[51] = +(require_mesh.materialBaseTexture(e).kind === `native`), n[52] = e.sheenColor[0], n[53] = e.sheenColor[1], n[54] = e.sheenColor[2], n[55] = e.sheenRoughness, n[56] = +!!r.sheenColorTexture, n[57] = +!!r.sheenRoughnessTexture, n[58] = e.specularAntiAliasing, n[59] = +!!e.alphaToCoverage, n[60] = e.transmission, n[61] = e.thickness, n[62] = 1 / e.attenuationDistance, n[63] = e.ior, n[64] = e.attenuationColor[0], n[65] = e.attenuationColor[1], n[66] = e.attenuationColor[2], require_optical_maps.fillOpticalMapSettings(n, 68, r.transmissionTexture, e.transmissionSampler), require_optical_maps.fillOpticalMapSettings(n, 72, r.thicknessTexture, e.thicknessSampler), require_native_material3d.isNativeMaterial3D(e) && n.set(e.uniforms, Y), require_material_uv.fillMaterialUV(e, Pe, n, X), require_pbr_material.fillPBRFinish(e, n, Z), require_optical_maps.fillMappedOpticalSettings(e, n, $);
 		let i = !1;
 		for (let e = X + 6; e < X + require_optical_maps.mappedMaterialUVFloatCount; e += 8) n[e] === 1 && (i = !0);
 		if (!t) {

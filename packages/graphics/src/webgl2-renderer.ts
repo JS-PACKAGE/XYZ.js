@@ -53,7 +53,7 @@ import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
 import {
   PBRMaterial,
-  pbrEmissiveSlot,
+  pbrEmissiveMode,
   pbrTextureSources,
 } from '../../core/src/pbr-material.js';
 import type { TextureSamplerOptions } from '../../core/src/texture-sampler.js';
@@ -3150,14 +3150,20 @@ export class WebGL2Renderer implements Renderer {
             material.emissive[2],
             material.alphaCutoff,
           );
-          const emissive = pbrEmissiveSlot(material);
+          const emissiveMode = pbrEmissiveMode(material);
+          const emissiveTexture =
+            emissiveMode === 2 ? material.lightmap : pbrSources.emissiveTexture;
+          const emissiveSampler =
+            emissiveMode === 2
+              ? material.lightmapSampler
+              : material.emissiveSampler;
           this.uniformValues.uniform4i(
             gl,
             uniforms.maps,
             pbrSources.metallicRoughnessTexture ? 1 : 0,
             pbrSources.normalTexture ? 1 : 0,
             pbrSources.occlusionTexture ? 1 : 0,
-            emissive.mode,
+            emissiveMode,
           );
           this.uniformValues.uniform4f(
             gl,
@@ -3220,9 +3226,9 @@ export class WebGL2Renderer implements Renderer {
             material.occlusionSampler,
           );
           this.bindMaterialTexture(
-            emissive.texture ?? materialBaseTexture(material),
+            emissiveTexture ?? materialBaseTexture(material),
             4,
-            emissive.sampler,
+            emissiveSampler,
           );
         }
         const packed = visibility?.instances;

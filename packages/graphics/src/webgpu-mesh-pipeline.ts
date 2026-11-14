@@ -30,7 +30,7 @@ import {
 import {
   PBRMaterial,
   fillPBRFinish,
-  pbrEmissiveSlot,
+  pbrEmissiveMode,
   pbrTextureSources,
   PBR_FINISH_FLOATS,
 } from '../../core/src/pbr-material.js';
@@ -3080,9 +3080,16 @@ export class WebGPUMeshPipeline {
       : native && native[2]
         ? this.cacheTexture(native[2], false).view
         : this.whiteView;
-    const emissiveSlot = pbr ? pbrEmissiveSlot(material) : undefined;
-    const emissive = emissiveSlot?.texture
-      ? this.cacheTexture(emissiveSlot.texture, false).view
+    const emissiveMode = pbr ? pbrEmissiveMode(material) : 0;
+    const emissiveTexture =
+      pbr && emissiveMode === 2 ? material.lightmap : sources?.emissiveTexture;
+    const emissiveSampler = pbr
+      ? emissiveMode === 2
+        ? material.lightmapSampler
+        : material.emissiveSampler
+      : undefined;
+    const emissive = emissiveTexture
+      ? this.cacheTexture(emissiveTexture, false).view
       : native && native[3]
         ? this.cacheTexture(native[3], false).view
         : this.whiteView;
@@ -3266,9 +3273,7 @@ export class WebGPUMeshPipeline {
           },
           {
             binding: 9,
-            resource: emissiveSlot
-              ? this.cacheSampler(emissiveSlot.sampler)
-              : this.sampler,
+            resource: pbr ? this.cacheSampler(emissiveSampler) : this.sampler,
           },
           { binding: 10, resource: specular },
           { binding: 11, resource: specularColor },
@@ -3601,7 +3606,7 @@ export class WebGPUMeshPipeline {
     data[28] = sources.metallicRoughnessTexture ? 1 : 0;
     data[29] = sources.normalTexture ? 1 : 0;
     data[30] = sources.occlusionTexture ? 1 : 0;
-    data[31] = pbrEmissiveSlot(material).mode;
+    data[31] = pbrEmissiveMode(material);
     data[32] = material.alphaCutoff;
     data[33] = material.doubleSided ? 1 : 0;
     data[35] =

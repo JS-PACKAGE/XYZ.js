@@ -14,7 +14,7 @@ import {
   PBRMaterial,
   PBR_FINISH_FLOATS,
   fillPBRFinish,
-  pbrEmissiveSlot,
+  pbrEmissiveMode,
 } from '../packages/core/src/pbr-material.js';
 import {
   opticalMaterialMaps,
@@ -252,21 +252,20 @@ describe('PBR finish', () => {
     );
   });
 
-  it('lets a lightmap own the emissive sampler without sampling the emissive map', () => {
+  it('selects emissive occupancy with lightmap priority', () => {
     const emissive = new Texture(bitmap());
     const baked = new Texture(bitmap());
     expect(
-      pbrEmissiveSlot(new PBRMaterial({ texture, emissiveTexture: emissive })),
-    ).toMatchObject({ texture: emissive, mode: 1 });
+      pbrEmissiveMode(new PBRMaterial({ texture, emissiveTexture: emissive })),
+    ).toBe(1);
     const both = new PBRMaterial({
       texture,
       emissiveTexture: emissive,
       lightmap: baked,
       lightmapSampler: { magFilter: 'nearest' },
     });
-    expect(pbrEmissiveSlot(both)).toMatchObject({ texture: baked, mode: 2 });
-    expect(pbrEmissiveSlot(both).sampler).toEqual({ magFilter: 'nearest' });
-    expect(pbrEmissiveSlot(new PBRMaterial({ texture })).mode).toBe(0);
+    expect(pbrEmissiveMode(both)).toBe(2);
+    expect(pbrEmissiveMode(new PBRMaterial({ texture }))).toBe(0);
     expect(() => new PBRMaterial({ texture, lightmap: {} as never })).toThrow(
       TypeError,
     );
