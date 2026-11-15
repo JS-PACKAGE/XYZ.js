@@ -6197,3 +6197,9 @@ color 中的 mesh 原本已被同一 renderer 的 visibility records／entries �
 GPU 的 `draws` 與 `visibleDraws` 並不是另一種索引：前者逐一複製 `visibility.shadows`，後者逐一複製 `visibility.color`。所有使用都在同一次同步 render 的 collect 之後、finally 之前，不需隔離生命週期。移除欄位與複製，直接遷移 shadow cache／shadow pass、scene blocks、contact depth、color／weighted pass、sorting、velocity 的全部 caller；保留原本的 gathered union 與準備／update 邊界。
 
 sorting 現在就地改 color，但下次 collect 仍由 records 的 insertion order 重寫，shadows 是不同的陣列；offscreen caster 不可改從 color 選取。無 3D 仍清空 cache／entries／兩個清單，destroy 直接清空原清單，既有 ownership 不變。十二份 GPU profiles 顯示總 sampled bytes 每對均降低，但 CPU clocks 混合；效益只宣稱該 workloads 的配置取樣結果，不推為 FPS、精確配置次數或 retained heap。完整證據見 ACCEPTANCE P230。
+
+## P231 — GPU texture cache 的命中與冷配置 scope
+
+`cacheTexture` 原有 destroyed 檢查、cache domain 選擇、dimension 命中、touch 與 version upload 不變；miss 才把 texture、premultiplied、cache 及 existing 傳給 private `replaceTexture`。從舊 allocation destroy 到 cold upload／cache set 的本體逐 byte 保留，沒有新 cache、closure、公開 API 或資源生命週期。這是依實測採納的 scope 分離，不斷言引擎的 JIT／escape-analysis 機制。
+
+十二份 GPU heap profiles 的 distinct-maps total sampled bytes median 約減 81.80%，shared 幾乎不變；CPU clocks 混合，GL 是未修改控制組。不推為 CPU／FPS、精確配置次數、retained heap 或 GPU bytes 結論。雙 domain 可更新 texture 的冷／熱、更新、resize、還原與銷毀 consumer 證據見 ACCEPTANCE P231。

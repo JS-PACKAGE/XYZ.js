@@ -7349,3 +7349,9 @@ GL 普通 frame 的 `visibility.color` 清空改為只在失敗時執行；成�
 ## P230：GPU 直接使用 visibility draw 清單
 
 GPU 不再把 `visibility.color`／`visibility.shadows` 複製到 private `visibleDraws`／`draws`。sorting、scene blocks、color／weighted／contact pass、velocity、shadow cache 與 shadow draw 的全部同步 caller 改用原陣列；gathered union 的準備與逐 draw update 不變。排序 color 不影響 offscreen shadow membership，下次 collect 仍還原 insertion order。無 3D 清理不變，destroy 直接清空原陣列。六對 GPU heap profiles 的 total sampled bytes 均下降（shared median −27.07%、distinct-maps −6.53%）；CPU clocks 混合，GL 為未修改控制組。不宣稱 CPU／FPS、精確 allocation 次數或 retained heap。配對資料、shadow 清單反例與原生 consumer 範圍見 [ACCEPTANCE](../ACCEPTANCE.md) P230。
+
+## P231：分離 GPU texture 的冷配置路徑
+
+`cacheTexture` 保留原順序的 destroyed 檢查、straight／premultiplied cache 選擇、dimension 命中、touch 與 version upload；只有 miss 委派 private `replaceTexture(texture, premultiplied, cache, existing)`。從 allocation destroy 到 cold upload／cache insertion 的原始本體逐 byte 保留，沒有新 cache、資源持有者或公開 API。這是實測支持的 scope 分離，不斷言 JIT 內部機制。
+
+十二份 GPU heap profiles 的 distinct-maps total sampled bytes median 約減 81.80%，shared 幾乎不變；CPU clocks 混合，GL 為未修改控制組，不支援 CPU／FPS 改善結論。取樣不是精確配置次數、retained heap 或 GPU memory 量測。完整配對 clocks、straight PBR 與 premultiplied legacy 的原生 texture 生命週期驗證見 [ACCEPTANCE](../ACCEPTANCE.md) P231。

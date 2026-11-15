@@ -7704,3 +7704,9 @@ The GL ordinary-frame `visibility.color` reset now runs only on failure. Success
 ## P230: direct GPU visibility draw lists
 
 GPU no longer copies `visibility.color` and `visibility.shadows` into private `visibleDraws` and `draws` arrays. Every synchronous consumer now uses the owner arrays directly: sorting, scene blocks, color/weighted/contact passes, velocity, shadow cache and shadow draws. Gathered-union preparation and per-draw updates are unchanged. Sorting color cannot affect offscreen shadow membership; the next collect restores insertion order. No-3D cleanup remains, and destruction clears the owner arrays directly. All six GPU heap pairs sampled fewer total bytes (shared median −27.07%, distinct-maps −6.53%). CPU clocks are mixed, with GL an unchanged control; no CPU/FPS, exact-allocation or retained-heap claim is made. See [ACCEPTANCE](../ACCEPTANCE.md) P230 for paired data, shadow-list negative control and native consumer scope.
+
+## P231: isolate cold GPU texture allocation
+
+`cacheTexture` retains its destroyed check, straight/premultiplied cache selection, dimension hit, touch and version upload in the original order. Only a miss delegates to private `replaceTexture(texture, premultiplied, cache, existing)`; the original body from allocation destruction through cold upload and cache insertion is byte-identical. There is no new cache, resource holder or public API. This is an empirical scope split, not a claim about JIT internals.
+
+Twelve GPU heap profiles show a distinct-maps total sampled-byte median reduction of 81.80%; shared is effectively unchanged. Mixed CPU clocks and the unchanged GL control do not support a CPU/FPS claim. Sampling is not an exact allocation count, retained heap or GPU memory measurement. See [ACCEPTANCE](../ACCEPTANCE.md) P231 for complete paired timings and native straight/PBR plus premultiplied/legacy texture lifecycle proof.

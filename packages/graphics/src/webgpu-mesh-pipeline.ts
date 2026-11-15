@@ -3517,6 +3517,15 @@ export class WebGPUMeshPipeline {
       }
       return existing;
     }
+    return this.replaceTexture(texture, premultiplied, cache, existing);
+  }
+
+  private replaceTexture(
+    texture: MaterialTexture,
+    premultiplied: boolean,
+    cache: Map<MaterialTexture, CachedTexture>,
+    existing: CachedTexture | undefined,
+  ): CachedTexture {
     existing?.allocation.destroy();
     const { width, height } = texture;
     const limit = this.device.limits.maxTextureDimension2D;

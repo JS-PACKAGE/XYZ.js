@@ -6041,3 +6041,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 保留 gathered union、資源準備／update、排序規則、shadow cache、contact depth 與 object motion；destroy 直接清空原 visibility 陣列。
 - 固定 192-row CPU matrix 與十二份 GPU heap profiles；GL 是未修改控制組。不以混合 clocks 宣稱 CPU／FPS 改善。
 - 原生 membership／失敗恢復、sorted／weighted、offscreen shadow／cache／移除再加入與錯用 color list 的 mutant、contact depth、source／dist 與 showcase 另記 ACCEPTANCE；按功能提交，不 push／升版。
+
+## P231 — Isolate cold GPU texture allocation
+
+- 保留 destroyed／dimension／version 檢查與 hit upload；cache miss 的原始配置本體完整搬至 private `replaceTexture`，沒有新 cache、資源持有者或公開 API。
+- 固定 192-row CPU matrix 與十二份 GPU heap profiles。distinct-maps total sampled bytes median 約減 81.80%；shared 幾乎不變，混合 clocks 不支援 CPU／FPS 改善結論。
+- 同一可更新 CanvasTexture2D 同時走 straight PBR 與 premultiplied legacy cache；驗證 cold／hit、version、resize、還原、destroy／fallback，source／dist 與正式 effects／showcase 另記 ACCEPTANCE。按功能提交，不 push／升版。

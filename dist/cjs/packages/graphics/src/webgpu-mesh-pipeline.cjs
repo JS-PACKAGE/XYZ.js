@@ -1909,10 +1909,12 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	cacheTexture(e, t) {
 		if (e.destroyed) throw new require_errors.GraphicsError(`WebGPU material map has been destroyed.`);
 		let n = t ? this.premultipliedTextures : this.textures, r = n.get(e);
-		if (r && r.resource.width === e.width && r.resource.height === e.height) return r.allocation.touch(), r.seen = this.frame, r.version !== e.version && (e instanceof require_native_texture.NativeTexture2D ? require_native_texture_upload.uploadNativeWebGPU(this.device, r.resource, e) : this.device.queue.copyExternalImageToTexture({ source: e.image }, {
+		return r && r.resource.width === e.width && r.resource.height === e.height ? (r.allocation.touch(), r.seen = this.frame, r.version !== e.version && (e instanceof require_native_texture.NativeTexture2D ? require_native_texture_upload.uploadNativeWebGPU(this.device, r.resource, e) : this.device.queue.copyExternalImageToTexture({ source: e.image }, {
 			texture: r.resource,
 			premultipliedAlpha: t
-		}, [e.width, e.height]), r.version = e.version, this.stats.upload(e instanceof require_native_texture.NativeTexture2D ? e.byteLength : e.width * e.height * 4)), r;
+		}, [e.width, e.height]), r.version = e.version, this.stats.upload(e instanceof require_native_texture.NativeTexture2D ? e.byteLength : e.width * e.height * 4)), r) : this.replaceTexture(e, t, n, r);
+	}
+	replaceTexture(e, t, n, r) {
 		r?.allocation.destroy();
 		let { width: i, height: a } = e, o = this.device.limits.maxTextureDimension2D;
 		if (!Number.isSafeInteger(i) || !Number.isSafeInteger(a) || i < 1 || a < 1 || i > o || a > o) throw new require_errors.GraphicsError(`WebGPU texture size ${i}×${a} exceeds this device's maximum texture dimension of ${o} pixels per side.`);

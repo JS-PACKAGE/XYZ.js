@@ -90,6 +90,8 @@ P229 讓 GL 的成功 3D frame 保留 `visibility.color`，由下一次 gather �
 
 P230 移除 GPU 的兩份重複 draw 清單，color／shadow／contact／motion 直接使用既有 visibility 陣列。P230 removes GPU's duplicate draw lists and consumes the existing visibility arrays directly. P230 は GPU の重複 draw 配列を除き、既存の visibility 配列を直接使います。六對 GPU heap profiles 的總 sampled bytes 均下降，shared／distinct-maps median 分別約減 27.07%／6.53%；不是 CPU、FPS、精確 allocation 次數或 retained heap 結論。完整 clocks、offscreen shadow 反例及原生 consumer 範圍見 [ACCEPTANCE](./ACCEPTANCE.md) P230。
 
+P231 將 GPU texture cache 的冷配置路徑移至 private helper，命中與 version upload 保持原順序。P231 isolates cold GPU texture allocation without changing cache-hit uploads. P231 は GPU texture の cold allocation を分離し、cache hit の更新契約を維持します。十二份 GPU heap profiles 中，distinct-maps total sampled bytes median 約減 81.80%，shared 幾乎不變；不宣稱 CPU／FPS 或 retained heap 改善。雙 cache domain 的更新、resize、還原與銷毀驗證見 [ACCEPTANCE](./ACCEPTANCE.md) P231。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
