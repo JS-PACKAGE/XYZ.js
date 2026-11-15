@@ -3141,25 +3141,13 @@ export class WebGPUMeshPipeline {
     }
     const allocation =
       existing?.allocation ??
-      this.residency.geometry.allocate(
+      this.allocateMesh(
+        object,
         meshUniformFloats * 4 +
           skinBytes +
           (object instanceof InstancedMesh
             ? object.matrices.byteLength + (object.colors?.byteLength ?? 0)
             : 0),
-        () => {
-          const cached = this.meshes.get(object);
-          if (!cached) return;
-          cached.uniform.destroy();
-          cached.visibleInstance?.destroy();
-          cached.visibleColors?.destroy();
-          cached.instanceColors?.destroy();
-          cached.palette?.destroy();
-          cached.influences?.destroy();
-          if (cached.instance !== this.identityBuffer)
-            cached.instance.destroy();
-          this.meshes.delete(object);
-        },
       );
     let uniform = existing?.uniform;
     let instance = existing?.instance ?? this.identityBuffer;
@@ -3361,6 +3349,21 @@ export class WebGPUMeshPipeline {
       }
       throw error;
     }
+  }
+
+  private allocateMesh(object: Mesh, bytes: number): ResidencyAllocation {
+    return this.residency.geometry.allocate(bytes, () => {
+      const cached = this.meshes.get(object);
+      if (!cached) return;
+      cached.uniform.destroy();
+      cached.visibleInstance?.destroy();
+      cached.visibleColors?.destroy();
+      cached.instanceColors?.destroy();
+      cached.palette?.destroy();
+      cached.influences?.destroy();
+      if (cached.instance !== this.identityBuffer) cached.instance.destroy();
+      this.meshes.delete(object);
+    });
   }
 
   private cacheSampler(options: TextureSamplerOptions | undefined): GPUSampler {

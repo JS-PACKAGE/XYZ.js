@@ -7716,3 +7716,9 @@ Twelve GPU heap profiles show a distinct-maps total sampled-byte median reductio
 GPU `cacheOpticalMaps` keeps the no-source allocation destruction and empty-view return. Mapped sources delegate to private `cacheOpticalMapsWithSources`, following the existing GL P226 convention. The mapped body is byte-identical, including destroyed checks, identity/version hits, side changes, compute packing and cleanup; no new cache, holder or public API is added.
 
 Twelve GPU heap profiles show total sampled-byte medians down 13.22% for shared and 13.62% for distinct-maps, with all six pairs lower. These workloads have no optical maps; they do not establish mapped-path speed. Mixed CPU clocks and an unchanged GL control do not support a CPU/FPS claim. Sampling is not exact allocation count, retained heap or GPU bytes. Paired timings and native anisotropy/iridescence/thickness version, resize and unmapped restoration proof are in [ACCEPTANCE](../ACCEPTANCE.md) P232.
+
+## P233: isolate GPU mesh residency callback scope
+
+`cacheMesh` preserves its byte estimate and `existing?.allocation` short circuit. Only a miss calls private `allocateMesh(object, bytes)`, moving the retire-closure scope out of the hit path without a parameter container, new cache, holder or public API. The callback's tokens are unchanged: retire uniform/visible-instance/visible-color/instance-color/palette/influence buffers, retire the instance buffer only when it is not the shared identity buffer, then delete the mesh cache entry.
+
+Twelve GPU heap profiles show shared/distinct-maps total sampled-byte medians down 36.99%/37.51%, all six pairs lower. CPU clocks are mixed and GL is an unchanged control; no CPU/FPS, retained-heap, exact-allocation or GPU-byte improvement is claimed. See [ACCEPTANCE](../ACCEPTANCE.md) P233 for full paired data and native ordinary/instanced/four- and eight-influence skin lease, budget eviction, recreation and pixel-restoration proof.

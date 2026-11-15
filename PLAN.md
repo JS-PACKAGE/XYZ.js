@@ -6053,3 +6053,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 沿用 P226 的 GL 慣例；GPU `cacheOpticalMaps` 保留無來源的 allocation destroy／empty view return，只把有來源路徑委派 private `cacheOpticalMapsWithSources`，原本體逐 byte 不變。
 - 固定 192-row CPU matrix 與十二份 GPU heap profiles；shared／distinct-maps total sampled bytes median 約減 13.22%／13.62%。CPU clocks 混合，GL 是未修改控制組。
 - 驗證三種 mapped optical consumer 的首次效果、repeat、version、resize 與 unmapped material 還原；source／dist、正式 effects／showcase 與 packed-version 反例另記 ACCEPTANCE。按功能提交，不 push／升版。
+
+## P233 — Isolate GPU mesh residency callback scope
+
+- GPU mesh cache 的 residency miss 改呼叫 private `allocateMesh(object, bytes)`；byte estimate、nullish allocation reuse 與原 retire callback 的全部操作不變，不新增參數容器或 cache。
+- 固定 192-row CPU matrix 與十二份 GPU heap profiles；shared／distinct-maps total sampled bytes median 約減 36.99%／37.51%。CPU clocks 混合，GL 是未修改控制組。
+- 原生 ordinary mesh、colored／culled instances、4／8-influence skin 驗證 lease 阻止 budget 縮減、強制 eviction、同物件重建、public update 與逐 byte 像素還原；source／dist、正式 effects／showcase 與 stale mesh entry 反例另記 ACCEPTANCE。按功能提交，不 push／升版。

@@ -6209,3 +6209,9 @@ sorting 現在就地改 color，但下次 collect 仍由 records 的 insertion o
 無 optical sources 的檢查、既有 allocation destroy 與 empty view return 保留在 `cacheOpticalMaps`；只有有來源時呼叫 private `cacheOpticalMapsWithSources`。有來源的原始本體逐 byte 保留，包括 destroyed 檢查、source identity／version、array side resize、packing 與 cleanup，沒有另一個 map cache、公開 API 或新資源持有者。這與現有 GL P226 慣例一致；不以 allocation sampling 推測特定 JIT 機制。
 
 十二份 GPU heap profiles 的 shared／distinct-maps total sampled bytes median 約減 13.22%／13.62%，六對總量均下降；CPU clocks 混合，不宣稱 CPU／FPS、精確配置次數、retained heap 或 GPU bytes 改善。完整 paired clocks 與 consumer proof 見 ACCEPTANCE P232。
+
+## P233 — GPU mesh cache 與 residency retire callback 的 scope
+
+`cacheMesh` 的 byte estimate 不變；`existing?.allocation` 仍先短路命中，miss 才呼叫 private `allocateMesh(object, bytes)`，把含 retire closure 的 scope 移出 cache hit。沒有新參數物件、cache、holder 或公開 API。原 callback 的 uniform／visible instance／visible colors／instance colors／palette／influences destruction、非 identity instance buffer destruction 與 mesh entry deletion 保持相同 token；只調整縮排與格式。
+
+十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 36.99%／37.51%，六對總量均下降；CPU clocks 混合，不推為 CPU／FPS、retained heap、精確配置次數或 GPU bytes。原生 lease／eviction／recreation 的完整 consumer 證據見 ACCEPTANCE P233；不以取樣斷言特定 JIT 機制。

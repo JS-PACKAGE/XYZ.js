@@ -1669,10 +1669,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	cacheMesh(e) {
 		let t = e.material, n = t instanceof require_pbr_material.PBRMaterial, r = n ? require_pbr_material.pbrTextureSources(t) : void 0, i = t instanceof require_native_material3d.NativeMaterial3D ? require_native_material3d.nativeMaterialSources(t) : void 0, a = this.cacheTexture(require_mesh.materialBaseTexture(t), !n).view, s = r?.metallicRoughnessTexture ? this.cacheTexture(r.metallicRoughnessTexture, !1).view : i && i[0] ? this.cacheTexture(i[0], !1).view : this.whiteView, l = r?.normalTexture ? this.cacheTexture(r.normalTexture, !1).view : i && i[1] ? this.cacheTexture(i[1], !1).view : this.whiteView, u = r?.occlusionTexture ? this.cacheTexture(r.occlusionTexture, !1).view : i && i[2] ? this.cacheTexture(i[2], !1).view : this.whiteView, d = n ? require_pbr_material.pbrEmissiveMode(t) : 0, f = n && d === 2 ? t.lightmap : r?.emissiveTexture, p = n ? d === 2 ? t.lightmapSampler : t.emissiveSampler : void 0, m = f ? this.cacheTexture(f, !1).view : i && i[3] ? this.cacheTexture(i[3], !1).view : this.whiteView, h = r?.specularTexture ? this.cacheTexture(r.specularTexture, !1).view : this.whiteView, v = r?.specularColorTexture ? this.cacheTexture(r.specularColorTexture, !1).view : this.whiteView, x = r?.clearcoatTexture ? this.cacheTexture(r.clearcoatTexture, !1).view : this.whiteView, w = r?.clearcoatRoughnessTexture ? this.cacheTexture(r.clearcoatRoughnessTexture, !1).view : this.whiteView, T = r?.clearcoatNormalTexture ? this.cacheTexture(r.clearcoatNormalTexture, !1).view : this.whiteView, E = r?.sheenColorTexture ? this.cacheTexture(r.sheenColorTexture, !1).view : this.whiteView, D = r?.sheenRoughnessTexture ? this.cacheTexture(r.sheenRoughnessTexture, !1).view : this.whiteView, O = n ? this.cacheOpticalMaps(t) : this.emptyOpticalView, k = this.meshes.get(e), A = e instanceof require_skinned_mesh.SkinnedMesh ? e : void 0, j = A ? A.jointPalette.byteLength + A.renderGeometry.vertices.length / 8 * 64 : 0;
 		if (k && (k.allocation.resize(k.uniform.size + (k.visibleInstance?.size ?? 0) + (k.visibleColors?.size ?? 0) + j + (e instanceof require_instanced_mesh.InstancedMesh ? e.matrices.byteLength + Math.max(k.instanceColors?.size ?? 0, e.colors?.byteLength ?? 0) : 0)), A && k.paletteVersion !== A.paletteVersion && (this.device.queue.writeBuffer(k.palette, 0, A.jointPalette), this.stats.upload(A.jointPalette.byteLength), k.paletteVersion = A.paletteVersion), k.textureEpoch === this.textureEpoch && k.material === t)) return k;
-		let M = k?.allocation ?? this.residency.geometry.allocate(J * 4 + j + (e instanceof require_instanced_mesh.InstancedMesh ? e.matrices.byteLength + (e.colors?.byteLength ?? 0) : 0), () => {
-			let t = this.meshes.get(e);
-			t && (t.uniform.destroy(), t.visibleInstance?.destroy(), t.visibleColors?.destroy(), t.instanceColors?.destroy(), t.palette?.destroy(), t.influences?.destroy(), t.instance !== this.identityBuffer && t.instance.destroy(), this.meshes.delete(e));
-		}), N = k?.uniform, P = k?.instance ?? this.identityBuffer, F = k?.instanceColors, I = k?.palette, L = k?.influences;
+		let M = k?.allocation ?? this.allocateMesh(e, J * 4 + j + (e instanceof require_instanced_mesh.InstancedMesh ? e.matrices.byteLength + (e.colors?.byteLength ?? 0) : 0)), N = k?.uniform, P = k?.instance ?? this.identityBuffer, F = k?.instanceColors, I = k?.palette, L = k?.influences;
 		try {
 			if (N ??= this.device.createBuffer({
 				size: J * 4,
@@ -1839,6 +1836,12 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		} catch (e) {
 			throw k || (N?.destroy(), F?.destroy(), I?.destroy(), L?.destroy(), P !== this.identityBuffer && P.destroy(), M.destroy()), e;
 		}
+	}
+	allocateMesh(e, t) {
+		return this.residency.geometry.allocate(t, () => {
+			let t = this.meshes.get(e);
+			t && (t.uniform.destroy(), t.visibleInstance?.destroy(), t.visibleColors?.destroy(), t.instanceColors?.destroy(), t.palette?.destroy(), t.influences?.destroy(), t.instance !== this.identityBuffer && t.instance.destroy(), this.meshes.delete(e));
+		});
 	}
 	cacheSampler(e) {
 		let t = e?.minFilter ?? `linear`, n = e?.magFilter ?? `linear`, r = e?.addressModeU ?? `clamp-to-edge`, i = e?.addressModeV ?? `clamp-to-edge`, a = e?.mipmapFilter ?? `linear`, o = e?.lodMinClamp ?? 0, s = e?.lodMaxClamp ?? 32, c = e?.maxAnisotropy ?? 1;

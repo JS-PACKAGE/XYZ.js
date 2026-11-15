@@ -7361,3 +7361,9 @@ GPU 不再把 `visibility.color`／`visibility.shadows` 複製到 private `visib
 GPU `cacheOpticalMaps` 保留無來源的 allocation destroy 與 empty view return；有來源時委派 private `cacheOpticalMapsWithSources`，沿用 GL P226 的既有慣例。有來源本體逐 byte 不變，包含 destroyed 檢查、identity／version 命中、side 改變、compute packing 與 cleanup；不新增 cache、holder 或公開 API。
 
 十二份 GPU heap profiles 的 shared／distinct-maps total sampled bytes median 約減 13.22%／13.62%，六對總量均下降；這些 workloads 沒有 optical maps，不能推為 mapped path 加速。CPU clocks 混合，GL 是未修改控制組，不支援 CPU／FPS 結論；取樣不是精確配置次數、retained heap 或 GPU bytes。完整配對 clocks、anisotropy／iridescence／thickness 原生更新、resize 與 unmapped 還原見 [ACCEPTANCE](../ACCEPTANCE.md) P232。
+
+## P233：分離 GPU mesh residency callback scope
+
+`cacheMesh` 保留 byte estimate 與 `existing?.allocation` 的短路命中；只有 miss 呼叫 private `allocateMesh(object, bytes)`，將 retire closure 的 scope 移出命中路徑，不新增參數容器、cache、holder 或公開 API。callback token 不變：清理 uniform／visible instance／visible color／instance color／palette／influence buffers，只在 instance buffer 不是共用 identity buffer 時清理，最後刪除 mesh cache entry。
+
+十二份 GPU heap profiles 的 shared／distinct-maps total sampled bytes median 約減 36.99%／37.51%，六對總量均下降。CPU clocks 混合，GL 為未修改控制組；不宣稱 CPU／FPS、retained heap、精確 allocation 或 GPU bytes 改善。完整配對資料、ordinary／instanced／4／8-influence skin 的原生 lease、budget eviction、重建及像素還原驗證見 [ACCEPTANCE](../ACCEPTANCE.md) P233。

@@ -28051,3 +28051,193 @@ Official unchanged effects pass 24 scenarios on each source/dist × GL/GPU page 
 TypeScript check, 71 tests across four existing material-finish/native-pbr-material/resource-residency/resilient-renderer files, source ESLint and source Prettier pass. Isolated production build minifies 377 JS files and builds 720 CJS tree files. Five GPU module outputs are promoted after byte guards; declaration differs only by added private optical helper. User-owned physics/world2d source/dist outputs are not touched or staged.
 
 README Chinese/English/Japanese note, PLAN, DESIGN and both technical references are synchronized. ACCEPTANCE is append-only, preserving the entire historical prefix. Owned temporary fixtures, services, profiles and build staging are cleaned before feature-only commit. No push, version bump, permanent test addition or unrun full-suite/runtime certification.
+
+## P233 — GPU mesh residency callback scope (2026-11-15)
+
+### Scope and fixed protocol
+
+Baseline `267e05fc2` (P232). `cacheMesh` keeps its byte estimate and nullish existing-allocation reuse; only a miss calls private `allocateMesh(object, bytes)`. This moves the closure-bearing residency-allocation scope out of the cache hit without a new parameter container, cache, resource holder, dependency or public API. Callback tokens are asserted equal after whitespace normalization: uniform, visible instance/colors, instance colors, palette and influences destruction; instance destruction only when not the shared identity buffer; mesh entry deletion. No JIT/escape-analysis mechanism or retained-heap improvement is inferred.
+
+Pinned Playwright-managed Chromium 153.0.8010.12, darwin/arm64, desktop automation. Predeclared six fresh ABBA rounds × eight workloads × before/after × GL/GPU, 24 synchronous full submits per row (192 CPU rows), completed before twelve GPU heap profiles. GL code is unchanged. No favorable-result retiming; clocks are CPU submission, not RAF/presentation/GPU completion or FPS.
+
+### CPU matrix — mixed, no uniform speed claim
+
+| Backend | Workload         | Before median ms/submit | After median ms/submit | Change % | Before upload bytes | After upload bytes |
+| ------- | ---------------- | ----------------------- | ---------------------- | -------- | ------------------- | ------------------ |
+| webgl2  | none             | 0.829167                | 0.787500               | -5.03    | 4048                | 4048               |
+| webgl2  | shared           | 0.979167                | 0.977083               | -0.21    | 4048                | 4048               |
+| webgl2  | unique           | 2.508333                | 2.716667               | 8.31     | 4048                | 4048               |
+| webgl2  | instance         | 0.237500                | 0.247917               | 4.39     | 4048                | 4048               |
+| webgl2  | alternating      | 1.820833                | 1.839583               | 1.03     | 4048                | 4048               |
+| webgl2  | single           | 0.014583                | 0.012500               | -14.29   | 4048                | 4048               |
+| webgl2  | distinct-maps    | 1.002083                | 1.058333               | 5.61     | 4048                | 4048               |
+| webgl2  | alternating-maps | 0.985417                | 0.962500               | -2.33    | 4048                | 4048               |
+| webgpu  | none             | 0.683333                | 0.702083               | 2.74     | 7856                | 7856               |
+| webgpu  | shared           | 0.837500                | 0.816667               | -2.49    | 135856              | 135856             |
+| webgpu  | unique           | 1.102083                | 1.093750               | -0.76    | 135856              | 135856             |
+| webgpu  | instance         | 0.145833                | 0.143750               | -1.43    | 135856              | 135856             |
+| webgpu  | alternating      | 0.960417                | 0.941667               | -1.95    | 135856              | 135856             |
+| webgpu  | single           | 0.020833                | 0.016667               | -20.00   | 7984                | 7984               |
+| webgpu  | distinct-maps    | 1.018750                | 1.012500               | -0.61    | 135856              | 135856             |
+| webgpu  | alternating-maps | 0.985417                | 0.952083               | -3.38    | 135856              | 135856             |
+
+GPU shared is −2.49% and distinct-maps −0.61%, but none is +2.74%; quantized single clocks move −20.00%. The unchanged GL control varies substantially (unique +8.31%, instance +4.39%, distinct-maps +5.61%). Allocation evidence is not a replacement for these mixed clocks. Every paired upload-byte count is equal. Full fixed pairs follow.
+
+#### WebGL2 pairs
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           3.062500 |          0.816667 |
+| shared / 1           |           1.008333 |          0.983333 |
+| unique / 1           |           2.870833 |          2.754167 |
+| instance / 1         |           0.237500 |          0.250000 |
+| alternating / 1      |           1.820833 |          1.825000 |
+| single / 1           |           0.020833 |          0.012500 |
+| distinct-maps / 1    |           1.054167 |          1.054167 |
+| alternating-maps / 1 |           1.108333 |          0.933333 |
+| none / 2             |           0.816667 |          0.762500 |
+| shared / 2           |           0.945833 |          0.941667 |
+| unique / 2           |           2.437500 |          2.679167 |
+| instance / 2         |           0.237500 |          0.245833 |
+| alternating / 2      |           1.766667 |          1.854167 |
+| single / 2           |           0.016667 |          0.012500 |
+| distinct-maps / 2    |           0.987500 |          1.020833 |
+| alternating-maps / 2 |           0.904167 |          0.962500 |
+| none / 3             |           0.766667 |          0.770833 |
+| shared / 3           |           0.950000 |          0.950000 |
+| unique / 3           |           2.437500 |          2.816667 |
+| instance / 3         |           0.233333 |          0.254167 |
+| alternating / 3      |           1.820833 |          1.925000 |
+| single / 3           |           0.012500 |          0.016667 |
+| distinct-maps / 3    |           1.004167 |          1.016667 |
+| alternating-maps / 3 |           0.979167 |          0.962500 |
+| none / 4             |           0.841667 |          0.783333 |
+| shared / 4           |           0.983333 |          1.016667 |
+| unique / 4           |           2.616667 |          2.820833 |
+| instance / 4         |           0.229167 |          0.266667 |
+| alternating / 4      |           1.812500 |          1.987500 |
+| single / 4           |           0.012500 |          0.012500 |
+| distinct-maps / 4    |           1.000000 |          1.262500 |
+| alternating-maps / 4 |           0.991667 |          1.395833 |
+| none / 5             |           0.808333 |          0.812500 |
+| shared / 5           |           0.975000 |          0.970833 |
+| unique / 5           |           2.491667 |          2.562500 |
+| instance / 5         |           0.241667 |          0.237500 |
+| alternating / 5      |           1.820833 |          1.775000 |
+| single / 5           |           0.012500 |          0.012500 |
+| distinct-maps / 5    |           0.995833 |          1.062500 |
+| alternating-maps / 5 |           0.970833 |          0.991667 |
+| none / 6             |           0.916667 |          0.791667 |
+| shared / 6           |           1.004167 |          1.000000 |
+| unique / 6           |           2.525000 |          2.533333 |
+| instance / 6         |           0.245833 |          0.241667 |
+| alternating / 6      |           1.820833 |          1.791667 |
+| single / 6           |           0.016667 |          0.008333 |
+| distinct-maps / 6    |           1.133333 |          1.075000 |
+| alternating-maps / 6 |           1.000000 |          0.962500 |
+
+#### WebGPU pairs
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           0.675000 |          0.666667 |
+| shared / 1           |           0.820833 |          0.820833 |
+| unique / 1           |           1.075000 |          1.087500 |
+| instance / 1         |           0.145833 |          0.141667 |
+| alternating / 1      |           0.975000 |          0.941667 |
+| single / 1           |           0.016667 |          0.016667 |
+| distinct-maps / 1    |           1.012500 |          1.033333 |
+| alternating-maps / 1 |           0.954167 |          0.991667 |
+| none / 2             |           0.675000 |          0.683333 |
+| shared / 2           |           0.841667 |          0.825000 |
+| unique / 2           |           1.095833 |          1.058333 |
+| instance / 2         |           0.141667 |          0.141667 |
+| alternating / 2      |           0.954167 |          0.962500 |
+| single / 2           |           0.016667 |          0.016667 |
+| distinct-maps / 2    |           1.045833 |          1.029167 |
+| alternating-maps / 2 |           0.987500 |          0.954167 |
+| none / 3             |           0.679167 |          0.675000 |
+| shared / 3           |           0.833333 |          0.812500 |
+| unique / 3           |           1.108333 |          1.108333 |
+| instance / 3         |           0.145833 |          0.150000 |
+| alternating / 3      |           0.950000 |          0.941667 |
+| single / 3           |           0.020833 |          0.016667 |
+| distinct-maps / 3    |           1.008333 |          0.991667 |
+| alternating-maps / 3 |           1.058333 |          0.950000 |
+| none / 4             |           0.691667 |          0.720833 |
+| shared / 4           |           0.820833 |          0.808333 |
+| unique / 4           |           1.070833 |          1.087500 |
+| instance / 4         |           0.145833 |          0.141667 |
+| alternating / 4      |           1.008333 |          0.945833 |
+| single / 4           |           0.020833 |          0.016667 |
+| distinct-maps / 4    |           1.029167 |          1.016667 |
+| alternating-maps / 4 |           0.995833 |          0.937500 |
+| none / 5             |           0.695833 |          0.725000 |
+| shared / 5           |           0.845833 |          0.812500 |
+| unique / 5           |           1.108333 |          1.100000 |
+| instance / 5         |           0.150000 |          0.145833 |
+| alternating / 5      |           0.958333 |          0.937500 |
+| single / 5           |           0.020833 |          0.016667 |
+| distinct-maps / 5    |           1.004167 |          1.008333 |
+| alternating-maps / 5 |           0.983333 |          0.945833 |
+| none / 6             |           0.687500 |          0.775000 |
+| shared / 6           |           0.841667 |          0.829167 |
+| unique / 6           |           1.154167 |          1.112500 |
+| instance / 6         |           0.137500 |          0.145833 |
+| alternating / 6      |           0.962500 |          0.937500 |
+| single / 6           |           0.020833 |          0.016667 |
+| distinct-maps / 6    |           1.025000 |          1.008333 |
+| alternating-maps / 6 |           0.970833 |          1.000000 |
+
+### Native GPU heap sampling
+
+Three counterbalanced before/after pairs per shared/distinct-maps cohort, 512 warmed full submits/profile, 128-byte sampling interval and stack depth 128, including minor/major collected allocations. Total sums node self bytes; pipeline sums GPU module self bytes; mesh sums both `cacheMesh` and `allocateMesh`, so extraction cannot hide attribution. Profiled elapsed times are not substituted for the separate CPU matrix.
+
+| Round | Cohort        | Variant | Total sampled self bytes | Pipeline sampled self bytes | Both mesh helpers sampled self bytes | Sample records |
+| ----- | ------------- | ------- | ------------------------ | --------------------------- | ------------------------------------ | -------------- |
+| 1     | shared        | before  | 33314312                 | 24282208                    | 12403652                             | 189635         |
+| 1     | shared        | after   | 20946256                 | 11880016                    | 1256                                 | 101572         |
+| 1     | distinct-maps | before  | 33205248                 | 24153664                    | 12397920                             | 188842         |
+| 1     | distinct-maps | after   | 20794396                 | 11754640                    | 0                                    | 100425         |
+| 2     | shared        | after   | 21061424                 | 12015620                    | 0                                    | 102416         |
+| 2     | shared        | before  | 33115084                 | 24086220                    | 12339240                             | 188230         |
+| 2     | distinct-maps | after   | 20748340                 | 11720252                    | 0                                    | 100088         |
+| 2     | distinct-maps | before  | 33168648                 | 24162764                    | 12332756                             | 188574         |
+| 3     | shared        | before  | 33242828                 | 24265700                    | 12354240                             | 189147         |
+| 3     | shared        | after   | 20622744                 | 11653276                    | 0                                    | 99216          |
+| 3     | distinct-maps | before  | 33232392                 | 24246968                    | 12418392                             | 189021         |
+| 3     | distinct-maps | after   | 20712728                 | 11711928                    | 576                                  | 99833          |
+
+| Cohort        | Before total median bytes | After total median bytes | Change % | Before mesh helper median bytes | After mesh helper median bytes |
+| ------------- | ------------------------- | ------------------------ | -------- | ------------------------------- | ------------------------------ |
+| shared        | 33242828                  | 20946256                 | -36.9902 | 12354240                        | 0                              |
+| distinct-maps | 33205248                  | 20748340                 | -37.5149 | 12397920                        | 0                              |
+
+All six paired totals are lower. Total medians fall 36.9902% shared and 37.5149% distinct-maps. Mesh helper medians become zero sampled bytes, with small nonzero after attribution in individual profiles; this is not exact zero allocation. Sampling is not exact allocation count, retained heap, native/GPU bytes or FPS. The cohorts are warm ordinary meshes, not a separate skin/instance performance certification.
+
+### Native budget eviction and recreation consumer
+
+A deterministic public-renderer fixture uses ordinary Mesh, colored/partly culled InstancedMesh, and SkinnedMesh with four/eight influences. Each case proves a visible cold frame and stable hit; a retained-frame lease rejects geometryBytes=0 atomically without changing the current bytes/budget; a retained draw remains exact; releasing the lease allows a real zero-byte geometry budget to retire all resident geometry/mesh allocations. The same live object is then rendered/recreated with byte-exact original pixels and a stable hit. Public material color, instance matrix/color/visibility or joint pose updates must change at least 100 pixels. A second budget eviction and recreation restores those updated pixels exactly; a third eviction leaves zero live bytes/entries before scene disposal. Reusing the same renderer across all cases also exercises preservation of its shared identity buffer.
+
+Canonical source/dist × native GL/GPU pass against preserved P232 source/dist: 38 frames/page, 152 paired frames, 9,961,472 RGBA bytes plus 13 deterministic counters/frame exactly equal between before/after, with empty initial/final pixel and geometry baselines. Each page has four lease rejections and twelve real budget-eviction operations. Original isolated source prototype passes another 76 pairs, not double-counted in canonical totals. Data below is after/source (dist observations match). Byte counts are tracked residency estimates, not total VRAM; zero is measured before final renderer destruction.
+
+| Backend | Family    | First live geometry bytes | First entries | First retired entries | Second retired entries | Final retired entries | Public update changed pixels | Exact reloads |
+| ------- | --------- | ------------------------- | ------------- | --------------------- | ---------------------- | --------------------- | ---------------------------- | ------------- |
+| webgl2  | mesh      | 216                       | 1             | 1                     | 1                      | 1                     | 676                          | true          |
+| webgl2  | instances | 444                       | 2             | 2                     | 2                      | 2                     | 1326                         | true          |
+| webgl2  | skin4     | 408                       | 2             | 2                     | 2                      | 2                     | 930                          | true          |
+| webgl2  | skin8     | 536                       | 2             | 2                     | 2                      | 2                     | 930                          | true          |
+| webgpu  | mesh      | 2728                      | 2             | 2                     | 2                      | 2                     | 676                          | true          |
+| webgpu  | instances | 3184                      | 2             | 2                     | 2                      | 2                     | 1326                         | true          |
+| webgpu  | skin4     | 3048                      | 2             | 2                     | 2                      | 2                     | 930                          | true          |
+| webgpu  | skin8     | 3048                      | 2             | 2                     | 2                      | 2                     | 930                          | true          |
+
+The GPU negative control retains the retire callback's destruction but omits only mesh entry deletion. Four frames render successfully, the lease rejection passes, and the real geometry budget retires two entries (2,728→0 tracked bytes); the next same-object render fails with `GraphicsError: Native resource was retired.`. No setup/page error substitutes for the expected consumer failure. The initial positive driver expected all raw frame-proof stats to have thirteen fields, but raw stats have seventeen; it was corrected to the same thirteen deterministic-counter projection already used by native fixtures. This harness correction is separate from measurements; no benchmark rerun. Infinity budget serializes as null in raw JSON but the fixture compares the actual numeric Infinity before serialization.
+
+Official unchanged effects pass 24 scenarios on each source/dist × GL/GPU page (96 cases). Both official showcase backends switch Scene A→B and pass pagehide cleanup instrumentation without page errors. The actual dist/GPU recreated-instance native PNG is opened and visually inspected. Fixture page/runtime/graphics errors are empty in positive runs. Optical/MSAA, other browsers, physical devices, GPU destructive loss/recovery, audible audio/unlock, failure-injected native buffer creation and Canvas2D are not newly certified here.
+
+### Checks and delivery
+
+TypeScript check, 42 tests across four existing files (native-skinning, render-visibility, resource-residency, resilient-renderer), changed-source ESLint and Prettier pass. Isolated production build minifies 377 JS files and creates a 720-file CJS tree. Only five GPU module outputs are promoted after byte guards; declaration differs by one private allocator only, with no public API changes. User-owned physics/world2d source/dist files are not overwritten or staged.
+
+README Chinese/English/Japanese note, PLAN, DESIGN and both technical references are synchronized. ACCEPTANCE is append-only and preserves historical bytes. Owned temporary fixtures/services/profiles/build staging are cleaned before the feature-only commit. No push, version bump, permanent test addition or unrun full-suite certification.
