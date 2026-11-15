@@ -7355,3 +7355,9 @@ GPU 不再把 `visibility.color`／`visibility.shadows` 複製到 private `visib
 `cacheTexture` 保留原順序的 destroyed 檢查、straight／premultiplied cache 選擇、dimension 命中、touch 與 version upload；只有 miss 委派 private `replaceTexture(texture, premultiplied, cache, existing)`。從 allocation destroy 到 cold upload／cache insertion 的原始本體逐 byte 保留，沒有新 cache、資源持有者或公開 API。這是實測支持的 scope 分離，不斷言 JIT 內部機制。
 
 十二份 GPU heap profiles 的 distinct-maps total sampled bytes median 約減 81.80%，shared 幾乎不變；CPU clocks 混合，GL 為未修改控制組，不支援 CPU／FPS 改善結論。取樣不是精確配置次數、retained heap 或 GPU memory 量測。完整配對 clocks、straight PBR 與 premultiplied legacy 的原生 texture 生命週期驗證見 [ACCEPTANCE](../ACCEPTANCE.md) P231。
+
+## P232：分離 GPU optical cache 的有來源 scope
+
+GPU `cacheOpticalMaps` 保留無來源的 allocation destroy 與 empty view return；有來源時委派 private `cacheOpticalMapsWithSources`，沿用 GL P226 的既有慣例。有來源本體逐 byte 不變，包含 destroyed 檢查、identity／version 命中、side 改變、compute packing 與 cleanup；不新增 cache、holder 或公開 API。
+
+十二份 GPU heap profiles 的 shared／distinct-maps total sampled bytes median 約減 13.22%／13.62%，六對總量均下降；這些 workloads 沒有 optical maps，不能推為 mapped path 加速。CPU clocks 混合，GL 是未修改控制組，不支援 CPU／FPS 結論；取樣不是精確配置次數、retained heap 或 GPU bytes。完整配對 clocks、anisotropy／iridescence／thickness 原生更新、resize 與 unmapped 還原見 [ACCEPTANCE](../ACCEPTANCE.md) P232。

@@ -3395,6 +3395,10 @@ export class WebGPUMeshPipeline {
       this.opticalTextures.get(material)?.allocation.destroy();
       return this.emptyOpticalView;
     }
+    return this.cacheOpticalMapsWithSources(material);
+  }
+
+  private cacheOpticalMapsWithSources(material: PBRMaterial): GPUTextureView {
     const sources = opticalMapSources(material);
     if (sources.some((source) => source?.destroyed))
       throw new GraphicsError('WebGPU optical map has been destroyed.');

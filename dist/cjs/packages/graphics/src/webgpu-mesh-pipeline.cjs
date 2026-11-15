@@ -1858,7 +1858,9 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		return this.samplers.set(l, d), d;
 	}
 	cacheOpticalMaps(e) {
-		if (!require_optical_maps.hasOpticalMapSources(e)) return this.opticalTextures.get(e)?.allocation.destroy(), this.emptyOpticalView;
+		return require_optical_maps.hasOpticalMapSources(e) ? this.cacheOpticalMapsWithSources(e) : (this.opticalTextures.get(e)?.allocation.destroy(), this.emptyOpticalView);
+	}
+	cacheOpticalMapsWithSources(e) {
 		let t = require_optical_maps.opticalMapSources(e);
 		if (t.some((e) => e?.destroyed)) throw new require_errors.GraphicsError(`WebGPU optical map has been destroyed.`);
 		let n = this.opticalTextures.get(e), r = t.map((e) => e?.version ?? -1);

@@ -7710,3 +7710,9 @@ GPU no longer copies `visibility.color` and `visibility.shadows` into private `v
 `cacheTexture` retains its destroyed check, straight/premultiplied cache selection, dimension hit, touch and version upload in the original order. Only a miss delegates to private `replaceTexture(texture, premultiplied, cache, existing)`; the original body from allocation destruction through cold upload and cache insertion is byte-identical. There is no new cache, resource holder or public API. This is an empirical scope split, not a claim about JIT internals.
 
 Twelve GPU heap profiles show a distinct-maps total sampled-byte median reduction of 81.80%; shared is effectively unchanged. Mixed CPU clocks and the unchanged GL control do not support a CPU/FPS claim. Sampling is not an exact allocation count, retained heap or GPU memory measurement. See [ACCEPTANCE](../ACCEPTANCE.md) P231 for complete paired timings and native straight/PBR plus premultiplied/legacy texture lifecycle proof.
+
+## P232: separate the GPU optical mapped-source scope
+
+GPU `cacheOpticalMaps` keeps the no-source allocation destruction and empty-view return. Mapped sources delegate to private `cacheOpticalMapsWithSources`, following the existing GL P226 convention. The mapped body is byte-identical, including destroyed checks, identity/version hits, side changes, compute packing and cleanup; no new cache, holder or public API is added.
+
+Twelve GPU heap profiles show total sampled-byte medians down 13.22% for shared and 13.62% for distinct-maps, with all six pairs lower. These workloads have no optical maps; they do not establish mapped-path speed. Mixed CPU clocks and an unchanged GL control do not support a CPU/FPS claim. Sampling is not exact allocation count, retained heap or GPU bytes. Paired timings and native anisotropy/iridescence/thickness version, resize and unmapped restoration proof are in [ACCEPTANCE](../ACCEPTANCE.md) P232.

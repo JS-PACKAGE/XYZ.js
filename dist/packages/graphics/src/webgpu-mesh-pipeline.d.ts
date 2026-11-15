@@ -238,6 +238,7 @@ export declare class WebGPUMeshPipeline {
     private cacheMesh;
     private cacheSampler;
     private cacheOpticalMaps;
+    private cacheOpticalMapsWithSources;
     private cacheTexture;
     private replaceTexture;
     /** The material-derived words of `updateMesh`, refreshed once per render. */

@@ -6203,3 +6203,9 @@ sorting 現在就地改 color，但下次 collect 仍由 records 的 insertion o
 `cacheTexture` 原有 destroyed 檢查、cache domain 選擇、dimension 命中、touch 與 version upload 不變；miss 才把 texture、premultiplied、cache 及 existing 傳給 private `replaceTexture`。從舊 allocation destroy 到 cold upload／cache set 的本體逐 byte 保留，沒有新 cache、closure、公開 API 或資源生命週期。這是依實測採納的 scope 分離，不斷言引擎的 JIT／escape-analysis 機制。
 
 十二份 GPU heap profiles 的 distinct-maps total sampled bytes median 約減 81.80%，shared 幾乎不變；CPU clocks 混合，GL 是未修改控制組。不推為 CPU／FPS、精確配置次數、retained heap 或 GPU bytes 結論。雙 domain 可更新 texture 的冷／熱、更新、resize、還原與銷毀 consumer 證據見 ACCEPTANCE P231。
+
+## P232 — GPU optical map 空來源分支的 scope 邊界
+
+無 optical sources 的檢查、既有 allocation destroy 與 empty view return 保留在 `cacheOpticalMaps`；只有有來源時呼叫 private `cacheOpticalMapsWithSources`。有來源的原始本體逐 byte 保留，包括 destroyed 檢查、source identity／version、array side resize、packing 與 cleanup，沒有另一個 map cache、公開 API 或新資源持有者。這與現有 GL P226 慣例一致；不以 allocation sampling 推測特定 JIT 機制。
+
+十二份 GPU heap profiles 的 shared／distinct-maps total sampled bytes median 約減 13.22%／13.62%，六對總量均下降；CPU clocks 混合，不宣稱 CPU／FPS、精確配置次數、retained heap 或 GPU bytes 改善。完整 paired clocks 與 consumer proof 見 ACCEPTANCE P232。

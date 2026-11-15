@@ -92,6 +92,8 @@ P230 移除 GPU 的兩份重複 draw 清單，color／shadow／contact／motion 
 
 P231 將 GPU texture cache 的冷配置路徑移至 private helper，命中與 version upload 保持原順序。P231 isolates cold GPU texture allocation without changing cache-hit uploads. P231 は GPU texture の cold allocation を分離し、cache hit の更新契約を維持します。十二份 GPU heap profiles 中，distinct-maps total sampled bytes median 約減 81.80%，shared 幾乎不變；不宣稱 CPU／FPS 或 retained heap 改善。雙 cache domain 的更新、resize、還原與銷毀驗證見 [ACCEPTANCE](./ACCEPTANCE.md) P231。
 
+P232 比照既有 GL 慣例分離 GPU optical cache 的有來源路徑。P232 isolates the GPU optical cache's mapped-source scope using the existing GL convention. P232 は既存 GL と同じ形で GPU optical cache の mapped-source scope を分離します。十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 13.22%／13.62%；CPU clocks 混合，不宣稱 FPS、精確配置次數或 retained heap。更新、resize、無 map 還原與原生 consumer 範圍見 [ACCEPTANCE](./ACCEPTANCE.md) P232。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
