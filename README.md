@@ -84,6 +84,8 @@ P226 將 GL 的空 optical-map guard 與既有 packing scope 分開；六對 nat
 
 P227 在沒有 local light 也沒有使用 light grid 時，讓 `selectMesh` 傳入常數 query radius；此時 radius 只被驗證、不被讀取。六對 native heap profiles 的總 sampled bytes 均下降，兩組 median 約減 16%。With no local lights and no light grid, P227 passes a constant query radius from `selectMesh`, where the radius is validated but never read; all six native heap pairs sampled fewer total bytes. P227 は local light も light grid も無いとき `selectMesh` から定数の query radius を渡し、全6ペアで総 sampled bytes が減りました。同模組 A/A 對照顯示固定 CPU clocks 的雜訊已達約 ±7%，CPU 在兩個方向都測不出變化；不是 FPS、精確 allocation count 或 V8 機制證明。有燈光時的選取、像素與限制見 [ACCEPTANCE](./ACCEPTANCE.md) P227。
 
+P228 讓 `DrawSorter` 保留 blended draw 的 private 暫存陣列，不再每次排序後清空再逐一 push；六對 native heap profiles 的總 sampled bytes 均下降，兩組 median 約減 22%。P228 keeps `DrawSorter`'s private blended-draw scratch array between sorts, rather than emptying it and pushing every draw again; all six native heap pairs sampled fewer total bytes. P228 は `DrawSorter` の private な blended draw 用配列を保持し、毎回空にして push し直すのをやめました。全6ペアで総 sampled bytes が減りました。排序結果、mesh 參照的釋放與公開 API 不變；固定 CPU clocks 的差異落在同模組 A/A 對照的雜訊內，不宣稱 CPU 或 FPS 變化。數量縮減、兩條排序路徑的像素驗證與限制見 [ACCEPTANCE](./ACCEPTANCE.md) P228。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

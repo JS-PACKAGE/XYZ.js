@@ -14,32 +14,31 @@ var DrawSorter = class {
 	orderB = /* @__PURE__ */ new Uint32Array();
 	counts = /* @__PURE__ */ new Uint32Array(2048);
 	sort(e, t, n = isBlended) {
-		let r = this.active, i = 0;
-		for (let a = 0; a < e.length; a++) {
-			let o = e[a];
-			if (!n(o)) {
-				e[i++] = o;
+		let r = this.active, i = 0, a = 0;
+		for (let o = 0; o < e.length; o++) {
+			let s = e[o];
+			if (!n(s)) {
+				e[a++] = s;
 				continue;
 			}
-			let s = this.pool[r.length] ??= {
+			let c = this.pool[i] ??= {
 				mesh: void 0,
 				distance: 0
 			};
-			s.mesh = o, s.distance = o.distanceSquaredTo(t.x, t.y, t.z), r.push(s);
+			c.mesh = s, c.distance = s.distanceSquaredTo(t.x, t.y, t.z), r[i++] = c;
 		}
-		if (r.length === 0) return;
-		let a = r.length >= 128 ? this.radixOrder(r) : void 0;
-		if (a) {
+		if (i === 0) return;
+		r.length !== i && (r.length = i);
+		let o = r.length >= 128 ? this.radixOrder(r) : void 0;
+		if (o) {
 			for (let t = 0; t < r.length; t++) {
-				let n = r[a[t]];
-				e[i++] = n.mesh, n.mesh = void 0;
+				let n = r[o[t]];
+				e[a++] = n.mesh, n.mesh = void 0;
 			}
-			r.length = 0;
 			return;
 		}
 		r.sort(compareFarthestFirst);
-		for (let t of r) e[i++] = t.mesh, t.mesh = void 0;
-		r.length = 0;
+		for (let t of r) e[a++] = t.mesh, t.mesh = void 0;
 	}
 	radixOrder(e) {
 		let t = e.length;

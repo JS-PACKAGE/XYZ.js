@@ -7337,3 +7337,7 @@ cacheOpticalMaps 保留無 source guard，只有 positive-source 工作進入 ca
 ## P227：沒有 local light 時的常數 query radius
 
 `SpatialLightSelector.selectMesh` 仍會刷新 bounds、寫入 query center、執行 `select()` 的完整驗證、清空輸出與統計，並以 bounds 本身更新 per-mesh cache。兩個 local-light pool 皆空且兩個 light grid 都未使用時，傳入的 query radius 改為常數 0：兩次 `selectType` 都是零次迴圈、不查 grid，radius 只被驗證，而 `sphereIsFinite` 已保證通過。只要有燈光或 grid 就維持原本的 bounds radius。Heap sampling 把每次 draw 約 12 bytes 歸在傳遞 bounds radius，常數則為零；六對 total 均下降。同模組 A/A 對照顯示固定 CPU clocks 自身變動約 7%，因此不宣稱 CPU 任何方向的變化，也不推定 FPS、精確 allocation 次數或 V8 機制。新增永久單元測試：空 pool 選取後，只有 mesh bounds 半徑才搆得到的點光必須被選中。兩個 renderer 都呼叫這個共用 helper。全部配對、拆解、原生像素與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P227。
+
+## P228：保留 draw sorter 的暫存陣列
+
+`DrawSorter.sort` 改為以計數覆寫 private `active` 陣列，只在本次 blended draw 比上一次少時截短，不再每次排序後清空、下一次再逐一 push。排序後仍逐一清除 entry 上的 mesh 參照，sorter 不保留任何 mesh；entry pool、radix scratch、穩定的由遠到近順序與公開簽章不變。全部不透明的清單仍在截短之前返回。Heap sampling 在 512 次 submit、每次 1,000 個 blended draw 下，把約 7.3 MB 歸在 `sort`，改動後幾乎為零；六對 total 均下降，median 約低 22%。固定 CPU clocks 落在同模組 A/A 對照自身的變動內，不宣稱 CPU 或 FPS 變化。新增永久單元測試：同一個 sorter 依序排序 200、150、3、0、5、130 個 blended draw；少了截短的 mutant 只會讓這一項失敗。兩個 renderer 共用這個 sorter。全部配對、原生 blended 排序像素與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P228。

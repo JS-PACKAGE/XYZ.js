@@ -6020,3 +6020,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 第一個候選同時跳過 private center 寫入並在空 pool 傳 radius 0；拆成兩個單一改動後，只有 radius 一項讓 sampled bytes 歸零，center 寫入無效果，因此移除。最終只在 point／spot pool 皆空且未使用 grid 時傳常數 0，其餘路徑、bounds 刷新、驗證、統計與 cache 記錄不變。
 - 固定 192-row CPU matrix 與十二份 heap sampling 對最終候選重新量測；另以同模組 A/A 對照量 harness 雜訊，不把雜訊內的 CPU 差異寫成增減。
 - 新增永久單元測試：空 pool 選取後加入只有 mesh bounds 半徑才搆得到的點光，必須被選中；radius 恆為 0 的 mutant 會讓它失敗。原生 point／spot／邊緣光像素、source／dist 與 showcase 證據見 ACCEPTANCE P227；只提交本功能、產物與六份文件，不 push／升版。
+
+## P228 — Keep the draw sorter's blended scratch between sorts
+
+- 依 P227 的 sampling 與算術定位 Core `DrawSorter.sort`：`active` 每次排序後 `length = 0`，下一幀再逐一 `push`，1000 個 blended draw 的指標陣列每幀從空的長回來。GL 與 GPU 共用這個 sorter，沒有未改動的 backend 控制組。
+- 改為以計數就地覆寫 `active`，只在本幀 blended 數量比上一幀少時截短；每個 entry 的 mesh 參照仍在排序後逐一清除，pool、radix scratch、排序規則與公開簽章不變。
+- 固定 192-row CPU matrix、同模組 A/A 對照與十二份 heap sampling；新增永久單元測試涵蓋 200→150→3→0→5→130 的數量變化（radix 與 Array#sort 兩條路徑），「不截短殘留尾端」的 mutant 只會讓這一項失敗。
+- 原生 blended 排序像素（160／140／5／0／130／160、深度鏡像）、source／dist 與 showcase 證據見 ACCEPTANCE P228；只提交本功能、產物與六份文件，不 push／升版。GL `visibility.color` 與 GPU `draws`／`visibleDraws` 的同類重長另案評估。

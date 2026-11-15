@@ -27103,3 +27103,225 @@ after 的歸因不是每份都為零（最大 2,292 bytes）。這是統計取�
 全部 runtime 為 Chromium 153.0.8010.12、darwin/arm64、pinned Playwright-managed desktop automation；不是 physical-device、Safari／Firefox／Canvas2D 或三 backend 認證。未量測 GPU 時間、呈現 FPS、retained heap 或 GC 暫停。有燈光或使用 light grid 的路徑沒有改動，也沒有任何效能宣告。
 
 六份既有文件同步，ACCEPTANCE 在 size／mtimeNs／4,096-byte-tail guard 下只 append。exact allowlist 為一 source／一測試／四 outputs／六 docs，不 push。
+
+## P228 — DrawSorter 保留 blended 暫存陣列
+
+- 日期：2026-11-14。基準 commit：`6f21285d9`（P227）。版本維持 1.23.0，不 push、不升版。
+- 結論：採用。`DrawSorter.sort` 以計數覆寫 private `active`，只在本次 blended draw 比上一次少時截短，不再每次排序後 `length = 0`、下一次再逐一 `push`。配置導向：六對 heap profiles 的 total sampled bytes 全部下降（兩組 median -22.02%／-22.01%）；固定 CPU clocks 的差異與同模組 A/A 對照同一量級，不宣稱 CPU 或 FPS 變化。
+
+### 來源與範圍
+
+- P227 的 baseline profile 把約 6.6–7.3 MB／512 submits 歸在 `sort`。這個量約等於一個 1,000 元素的指標陣列每幀從空的重新成長所累計的 backing store；`render-visibility.ts` 的 `collect` 早已有一段註解記錄 `length = 0` 會丟掉 backing store。這是與數字相符的解釋，不是對 V8 成長策略或精確配置次數的量測。
+- 改動只在 `packages/core/src/draw-order.ts`：新增計數、以 `active[count++] = entry` 取代 `push`、在 `count === 0` 的提早返回之後加入 `if (active.length !== count) active.length = count`，並移除兩處排序後的 `active.length = 0`。entry 上的 mesh 參照仍在排序後逐一設為 `undefined`；pool、radix scratch、`RADIX_MINIMUM`、比較函式、NaN 回退與公開簽章不變，宣告檔逐 byte 相同。
+- GL 與 GPU 共用這個 Core sorter；沒有未改動的 backend 控制組。固定 workloads 的 PBR 材質預設為 BLEND，每幀 1,000（instance cohort 為 1）個 blended draw 且數量固定，所以量到的是「數量穩定」的情況。
+
+### Heap sampling
+
+CDP `HeapProfiler.startSampling`，interval 128 bytes，包含已被 minor／major GC 回收的物件；GL、BLEND、每份 512 個完整 submit。三輪 × 兩個 cohort × 兩個 variant，共十二份。
+
+| Round | Cohort        | Variant | Total sampled bytes | draw-order.ts bytes | sort/radixOrder self bytes | Samples |
+| ----: | ------------- | ------- | ------------------: | ------------------: | -------------------------: | ------: |
+|     1 | shared        | before  |            33129280 |             7325048 |                    7325048 |  144159 |
+|     1 | shared        | after   |            25799532 |                 420 |                        420 |  140013 |
+|     1 | distinct-maps | before  |            33295560 |             7330856 |                    7330856 |  145399 |
+|     1 | distinct-maps | after   |            25968620 |                   0 |                          0 |  141236 |
+|     2 | shared        | after   |            25833208 |                 704 |                        704 |  140236 |
+|     2 | shared        | before  |            33123648 |             7321076 |                    7321076 |  144177 |
+|     2 | distinct-maps | after   |            25912564 |                   0 |                          0 |  140824 |
+|     2 | distinct-maps | before  |            33340568 |             7325772 |                    7325772 |  145743 |
+|     3 | shared        | before  |            33167708 |             7328248 |                    7328248 |  144486 |
+|     3 | shared        | after   |            25911032 |                1968 |                       1968 |  140847 |
+|     3 | distinct-maps | before  |            33225524 |             7321160 |                    7321160 |  144956 |
+|     3 | distinct-maps | after   |            25967596 |                   0 |                          0 |  141213 |
+
+| Cohort        | sort/radixOrder median before | after median | after max | Total median before | Total median after |  Change | 每對 total 皆下降 |
+| ------------- | ----------------------------: | -----------: | --------: | ------------------: | -----------------: | ------: | ----------------- |
+| shared        |                       7325048 |          704 |      1968 |            33129280 |           25833208 | -22.02% | 是                |
+| distinct-maps |                       7325772 |            0 |         0 |            33295560 |           25967596 | -22.01% | 是                |
+
+這是統計取樣的位元組歸因，不是精確配置次數、retained heap、GC 暫停、GPU bytes 或 FPS。採用後 shared cohort 第一份 after profile 剩餘的主要歸因如下，供下一階段參考（不是本階段的成果）：
+
+| Function          | File                                | Sampled self bytes | Per submit |
+| ----------------- | ----------------------------------- | -----------------: | ---------: |
+| drawMeshes        | graphics/src/webgl2-renderer.ts     |           11107392 |      21694 |
+| collect           | core/src/render-visibility.ts       |            6589848 |      12871 |
+| drawMeshes        | graphics/src/webgl2-renderer.ts     |            1242780 |       2427 |
+| render            | graphics/src/webgl-object-motion.ts |             789192 |       1541 |
+| collect           | core/src/render-visibility.ts       |             728672 |       1423 |
+| startMeshPrograms | graphics/src/webgl2-renderer.ts     |             610852 |       1193 |
+| next              | (native)                            |             415620 |        812 |
+| collectMeshes     | graphics/src/webgl2-renderer.ts     |             399448 |        780 |
+
+### 固定 CPU matrix 與 A/A 對照
+
+六輪 AB/BA 交替、每輪每個 variant 使用新的 browser、八個 workload、每列 24 次完整 native submit；兩個 backend 各 96 列，全部保留。每列記錄實際提供的 draw-order 模組 SHA-256：候選量測的 before／after 各只有一個且互不相同；A/A 的兩邊是同一個 SHA。draw calls 與 upload bytes 在每個 workload 的 before／after 完全相同。
+
+候選：
+
+| Backend / workload        | Before ms/submit | After ms/submit | Change | Faster/slower/equal rounds | Upload bytes before / after |
+| ------------------------- | ---------------: | --------------: | -----: | -------------------------: | --------------------------: |
+| webgl2 / none             |         0.918750 |        0.904167 | -1.59% |                      2/4/0 |                 4048 / 4048 |
+| webgl2 / shared           |         1.147917 |        1.152083 |  0.36% |                      3/2/1 |                 4048 / 4048 |
+| webgl2 / unique           |         2.914583 |        2.922917 |  0.29% |                      3/3/0 |                 4048 / 4048 |
+| webgl2 / instance         |         0.262500 |        0.262500 | -0.00% |                      3/2/1 |                 4048 / 4048 |
+| webgl2 / alternating      |         2.154167 |        2.127083 | -1.26% |                      4/2/0 |                 4048 / 4048 |
+| webgl2 / single           |         0.016667 |        0.016667 |  0.00% |                      3/1/2 |                 4048 / 4048 |
+| webgl2 / distinct-maps    |         1.181250 |        1.206250 |  2.12% |                      3/3/0 |                 4048 / 4048 |
+| webgl2 / alternating-maps |         1.145833 |        1.129167 | -1.45% |                      4/2/0 |                 4048 / 4048 |
+| webgpu / none             |         0.825000 |        0.797917 | -3.28% |                      6/0/0 |                 7856 / 7856 |
+| webgpu / shared           |         0.989583 |        0.991667 |  0.21% |                      2/4/0 |             135856 / 135856 |
+| webgpu / unique           |         1.335417 |        1.318750 | -1.25% |                      3/3/0 |             135856 / 135856 |
+| webgpu / instance         |         0.164583 |        0.166667 |  1.27% |                      1/4/1 |             135856 / 135856 |
+| webgpu / alternating      |         1.210417 |        1.147917 | -5.16% |                      4/2/0 |             135856 / 135856 |
+| webgpu / single           |         0.020833 |        0.022917 | 10.00% |                      2/3/1 |                 7984 / 7984 |
+| webgpu / distinct-maps    |         1.225000 |        1.258333 |  2.72% |                      1/4/1 |             135856 / 135856 |
+| webgpu / alternating-maps |         1.218750 |        1.216667 | -0.17% |                      2/4/0 |             135856 / 135856 |
+
+#### webgl2 paired rounds
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           0.895833 |          0.904167 |
+| shared / 1           |           1.108333 |          1.150000 |
+| unique / 1           |           2.795833 |          2.837500 |
+| instance / 1         |           0.262500 |          0.258333 |
+| alternating / 1      |           2.066667 |          2.125000 |
+| single / 1           |           0.012500 |          0.008333 |
+| distinct-maps / 1    |           1.162500 |          1.137500 |
+| alternating-maps / 1 |           1.145833 |          1.112500 |
+| none / 2             |           0.895833 |          0.904167 |
+| shared / 2           |           1.133333 |          1.108333 |
+| unique / 2           |           2.912500 |          3.237500 |
+| instance / 2         |           0.262500 |          0.266667 |
+| alternating / 2      |           2.145833 |          2.170833 |
+| single / 2           |           0.016667 |          0.016667 |
+| distinct-maps / 2    |           1.170833 |          1.237500 |
+| alternating-maps / 2 |           1.162500 |          1.112500 |
+| none / 3             |           0.916667 |          0.900000 |
+| shared / 3           |           1.137500 |          1.162500 |
+| unique / 3           |           2.900000 |          3.345833 |
+| instance / 3         |           0.258333 |          0.258333 |
+| alternating / 3      |           2.137500 |          2.133333 |
+| single / 3           |           0.016667 |          0.016667 |
+| distinct-maps / 3    |           1.212500 |          1.208333 |
+| alternating-maps / 3 |           1.154167 |          1.125000 |
+| none / 4             |           0.933333 |          0.962500 |
+| shared / 4           |           1.166667 |          1.154167 |
+| unique / 4           |           2.916667 |          2.912500 |
+| instance / 4         |           0.262500 |          0.270833 |
+| alternating / 4      |           2.162500 |          2.100000 |
+| single / 4           |           0.020833 |          0.016667 |
+| distinct-maps / 4    |           1.158333 |          1.170833 |
+| alternating-maps / 4 |           1.137500 |          1.154167 |
+| none / 5             |           0.920833 |          0.904167 |
+| shared / 5           |           1.162500 |          1.162500 |
+| unique / 5           |           3.095833 |          2.933333 |
+| instance / 5         |           0.283333 |          0.279167 |
+| alternating / 5      |           2.179167 |          2.112500 |
+| single / 5           |           0.016667 |          0.016667 |
+| distinct-maps / 5    |           1.191667 |          1.204167 |
+| alternating-maps / 5 |           1.145833 |          1.133333 |
+| none / 6             |           0.925000 |          0.966667 |
+| shared / 6           |           1.158333 |          1.141667 |
+| unique / 6           |           3.166667 |          2.841667 |
+| instance / 6         |           0.279167 |          0.254167 |
+| alternating / 6      |           2.166667 |          2.129167 |
+| single / 6           |           0.012500 |          0.016667 |
+| distinct-maps / 6    |           1.225000 |          1.212500 |
+| alternating-maps / 6 |           1.129167 |          1.162500 |
+
+#### webgpu paired rounds
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           0.829167 |          0.795833 |
+| shared / 1           |           0.958333 |          0.983333 |
+| unique / 1           |           1.275000 |          1.325000 |
+| instance / 1         |           0.170833 |          0.154167 |
+| alternating / 1      |           1.208333 |          1.204167 |
+| single / 1           |           0.016667 |          0.016667 |
+| distinct-maps / 1    |           1.225000 |          1.266667 |
+| alternating-maps / 1 |           1.200000 |          1.212500 |
+| none / 2             |           0.854167 |          0.775000 |
+| shared / 2           |           1.004167 |          0.991667 |
+| unique / 2           |           1.520833 |          1.245833 |
+| instance / 2         |           0.158333 |          0.166667 |
+| alternating / 2      |           1.225000 |          1.108333 |
+| single / 2           |           0.025000 |          0.020833 |
+| distinct-maps / 2    |           1.220833 |          1.225000 |
+| alternating-maps / 2 |           1.237500 |          1.187500 |
+| none / 3             |           0.808333 |          0.808333 |
+| shared / 3           |           0.970833 |          0.991667 |
+| unique / 3           |           1.325000 |          1.470833 |
+| instance / 3         |           0.166667 |          0.175000 |
+| alternating / 3      |           1.116667 |          1.275000 |
+| single / 3           |           0.020833 |          0.025000 |
+| distinct-maps / 3    |           1.204167 |          1.333333 |
+| alternating-maps / 3 |           1.220833 |          1.258333 |
+| none / 4             |           0.808333 |          0.800000 |
+| shared / 4           |           0.991667 |          1.000000 |
+| unique / 4           |           1.341667 |          1.545833 |
+| instance / 4         |           0.166667 |          0.175000 |
+| alternating / 4      |           1.079167 |          1.162500 |
+| single / 4           |           0.025000 |          0.020833 |
+| distinct-maps / 4    |           1.295833 |          1.250000 |
+| alternating-maps / 4 |           1.216667 |          1.225000 |
+| none / 5             |           0.820833 |          0.783333 |
+| shared / 5           |           0.987500 |          0.991667 |
+| unique / 5           |           1.329167 |          1.287500 |
+| instance / 5         |           0.162500 |          0.166667 |
+| alternating / 5      |           1.216667 |          1.133333 |
+| single / 5           |           0.020833 |          0.045833 |
+| distinct-maps / 5    |           1.312500 |          1.312500 |
+| alternating-maps / 5 |           1.225000 |          1.216667 |
+| none / 6             |           0.833333 |          0.804167 |
+| shared / 6           |           1.004167 |          1.000000 |
+| unique / 6           |           1.366667 |          1.312500 |
+| instance / 6         |           0.162500 |          0.162500 |
+| alternating / 6      |           1.212500 |          1.133333 |
+| single / 6           |           0.020833 |          0.025000 |
+| distinct-maps / 6    |           1.225000 |          1.233333 |
+| alternating-maps / 6 |           1.200000 |          1.216667 |
+
+同模組 A/A（兩個 port 都提供 baseline 模組，流程相同）：
+
+| Backend / workload        | Before ms/submit | After ms/submit | Change | Faster/slower/equal rounds | Upload bytes before / after |
+| ------------------------- | ---------------: | --------------: | -----: | -------------------------: | --------------------------: |
+| webgl2 / none             |         0.933333 |        0.939583 |  0.67% |                      2/3/1 |                 4048 / 4048 |
+| webgl2 / shared           |         1.212500 |        1.185417 | -2.23% |                      4/2/0 |                 4048 / 4048 |
+| webgl2 / unique           |         2.991667 |        2.956250 | -1.18% |                      3/3/0 |                 4048 / 4048 |
+| webgl2 / instance         |         0.277083 |        0.279167 |  0.75% |                      3/2/1 |                 4048 / 4048 |
+| webgl2 / alternating      |         2.175000 |        2.220833 |  2.11% |                      2/4/0 |                 4048 / 4048 |
+| webgl2 / single           |         0.016667 |        0.016667 | -0.00% |                      4/1/1 |                 4048 / 4048 |
+| webgl2 / distinct-maps    |         1.250000 |        1.225000 | -2.00% |                      4/2/0 |                 4048 / 4048 |
+| webgl2 / alternating-maps |         1.162500 |        1.172917 |  0.90% |                      2/4/0 |                 4048 / 4048 |
+| webgpu / none             |         0.802083 |        0.814583 |  1.56% |                      3/3/0 |                 7856 / 7856 |
+| webgpu / shared           |         0.991667 |        1.008333 |  1.68% |                      2/4/0 |             135856 / 135856 |
+| webgpu / unique           |         1.331250 |        1.366667 |  2.66% |                      2/3/1 |             135856 / 135856 |
+| webgpu / instance         |         0.158333 |        0.166667 |  5.26% |                      1/4/1 |             135856 / 135856 |
+| webgpu / alternating      |         1.164583 |        1.127083 | -3.22% |                      4/2/0 |             135856 / 135856 |
+| webgpu / single           |         0.022917 |        0.020833 | -9.09% |                      3/2/1 |                 7984 / 7984 |
+| webgpu / distinct-maps    |         1.252083 |        1.256250 |  0.33% |                      3/3/0 |             135856 / 135856 |
+| webgpu / alternating-maps |         1.225000 |        1.220833 | -0.34% |                      3/3/0 |             135856 / 135856 |
+
+候選的 median 差最大為 10.00%，A/A 為 9.09%；兩者的最大值都出現在 webgpu/single，該 workload 的時間只有一個量化刻度（0.020833 與 0.022917 ms）。排除 single 後分別為 5.16% 與 5.26%。webgpu/none 在候選量測中六輪皆較快（−3.28%），但 P227 的 A/A 已出現過 5/1 的同向偏斜，所以不據此宣稱 CPU 改善。
+
+### 語意驗證
+
+- 單元測試：新增「同一個 sorter 依序排序 200、150、3、0、5、130 個 blended draw」，每次都必須等於由遠到近的參考順序。它在 baseline、候選與正式 source 都通過。移除截短那一行的 mutant（已確認 override 確實載入）只讓這一項失敗：第二次排序得到 200 個元素而不是 150 個；原有 6 項測試在 mutant 下全部通過，所以這項測試是必要的。
+- 原生 probe 走公開入口：一個不透明背景加 160 個位置重疊、深度與插入順序無關的半透明 quad（三種顏色、opacity 0.5），每個 backend 的 single／MSAA 各八個 frame：160 → 全部隱藏 → 140 → 5 → 全部隱藏（必須與前一次隱藏逐像素相同）→ 130 → 160（必須與第一個 frame 逐像素相同）→ 所有 quad 的深度鏡像。每個 frame 檢查 draw call 數等於可見 blended 數加一。
+- before／after 的 RGBA 與 13 個公開計數器完全相同：source 與 built dist × webgl2 與 webgpu，共 64 組 frame pair、4,194,304 RGBA bytes。blended 覆蓋改變 5,863–6,011 px，隱藏 20 個改變 1,875–1,985 px，深度鏡像改變 6,367–6,567 px（排序順序確實決定畫面）。
+- 反例：同一個 mutant 在兩個 backend 都通過 `radix-160` 與 `none`，並在 `radix-shrink-140` 因 draw 清單出現 `undefined` 而以 TypeError 失敗（GL 在 `startMeshPrograms`、GPU 在 `selectMesh`）。空的那一幀不會失敗，因為 `count === 0` 在讀取殘留尾端之前就返回。
+- 官方 `tests/browser/post-effects` 未修改 fixture：source／dist × webgpu／webgl2 各 24 scenarios 通過；showcase 在兩個 backend 完成 Scene A→B 切換與 pagehide 清理，blended probe 的截圖與 WebGPU showcase 截圖已實際檢視。
+
+### 檢查與產物
+
+- `prettier --check`、`eslint`（改動的 source 與測試檔）、`tsc -p tsconfig.check.json` 通過；Vitest 5 檔 55 項通過（draw-order、render-visibility、light-selection、resilient-renderer、resource-residency）。未執行完整單元測試套件、CJS runtime、全庫 lint 或 API 相容性檢查。
+- 正式 source 與量測用候選以 `cmp` 確認逐 byte 相同。隔離目錄以正式流程建置（377 個 JS、720 個 CJS）；與 root `dist` 相比只有 draw-order 的 `.js`／`.js.map`／`.cjs`／`.cjs.map` 四個檔案不同，`.d.ts` 相同；只推進這四個檔案，推進後 root dist 與隔離建置完全一致。使用者既有的 physics2d／world2d 修改未被 stage、覆寫或還原。
+
+### Harness 修正與未驗證
+
+- 量測指令第一次因為 shell 殘留的 `set -e` 在印出模組標記數量時就中止，任何 profile 或 clock 都還沒開始；解除後重新執行。反例 driver 原本預期在第二個 frame 失敗，實際是第三個（空的一幀不觸發），執行前已依程式碼修正預期。
+- 全部 runtime 為 Chromium 153.0.8010.12、darwin/arm64、pinned Playwright-managed desktop automation；不是 physical-device、Safari／Firefox／Canvas2D 或三 backend 認證。未量測 blended 數量逐幀變動時的配置、weighted OIT 路徑的效能、GPU 時間、呈現 FPS、retained heap 或 GC 暫停。GL 每幀清空 `visibility.color` 與 GPU 每幀清空 `draws`／`visibleDraws` 的同類重長尚未處理。
+
+六份既有文件同步，ACCEPTANCE 在 size／mtimeNs／4,096-byte-tail guard 下只 append。exact allowlist 為一 source／一測試／四 outputs／六 docs，不 push。

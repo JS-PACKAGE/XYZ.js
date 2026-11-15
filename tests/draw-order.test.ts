@@ -84,6 +84,24 @@ describe('DrawSorter', () => {
     sorter.sort([], camera);
   });
 
+  it('sorts frames with fewer blended draws without resurrecting earlier entries', () => {
+    const sorter = new DrawSorter();
+    const fake = (id: number, distance: number) =>
+      ({ id, distanceSquaredTo: () => distance }) as unknown as Mesh;
+    // 200 and 150 take the radix path, 3 and 5 use Array#sort, and 0 leaves nothing to sort.
+    for (const count of [200, 150, 3, 0, 5, 130]) {
+      const items = Array.from({ length: count }, (_, i) =>
+        fake(i, ((i * 37) % 101) + i / 1000),
+      );
+      const expected = [...items].sort(
+        (a, b) => b.distanceSquaredTo(0, 0, 0) - a.distanceSquaredTo(0, 0, 0),
+      );
+      const draws = [...items];
+      sorter.sort(draws, camera, () => true);
+      expect(draws).toEqual(expected);
+    }
+  });
+
   it('measures from the bounding-sphere center, not the mesh origin', () => {
     // Geometry offset far from its origin: the origin is nearer than the visible center.
     const offset = new Geometry({

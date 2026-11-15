@@ -41,6 +41,7 @@ export class DrawSorter {
     blended: (mesh: Mesh) => boolean = isBlended,
   ): void {
     const active = this.active;
+    let count = 0;
     let kept = 0;
     for (let i = 0; i < draws.length; i++) {
       const mesh = draws[i];
@@ -48,15 +49,18 @@ export class DrawSorter {
         draws[kept++] = mesh;
         continue;
       }
-      const entry = (this.pool[active.length] ??= {
+      const entry = (this.pool[count] ??= {
         mesh: undefined,
         distance: 0,
       });
       entry.mesh = mesh;
       entry.distance = mesh.distanceSquaredTo(camera.x, camera.y, camera.z);
-      active.push(entry);
+      active[count++] = entry;
     }
-    if (active.length === 0) return;
+    if (count === 0) return;
+    // Emptying `active` after each sort dropped its storage, which then regrew for every
+    // frame's blended draws. It keeps its entries and only shrinks to a smaller frame.
+    if (active.length !== count) active.length = count;
     const order =
       active.length >= RADIX_MINIMUM ? this.radixOrder(active) : undefined;
     if (order) {
@@ -65,7 +69,6 @@ export class DrawSorter {
         draws[kept++] = entry.mesh!;
         entry.mesh = undefined;
       }
-      active.length = 0;
       return;
     }
     // Array#sort is stable, so equal distances keep scene insertion order. The
@@ -76,7 +79,6 @@ export class DrawSorter {
       draws[kept++] = entry.mesh!;
       entry.mesh = undefined;
     }
-    active.length = 0;
   }
 
   /**

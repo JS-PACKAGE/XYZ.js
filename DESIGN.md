@@ -6179,3 +6179,9 @@ sampling 同時聚合兩個方法名稱，並核對 renderer／total sampled byt
 `selectMesh` 仍然每次刷新 bounds、設定 query center、經過 `select()` 的完整驗證、清空輸出與統計，並在 presentation 內更新 per-mesh cache（cache 記錄的是 bounds 本身，不是傳入的參數）。唯一差別是 point／spot pool 皆空且 `pointGridded`／`spotGridded` 皆為 false 時，傳給 `select()` 的 radius 改為常數 0：這時兩次 `selectType` 都走零次迴圈、也不查 grid，radius 只經過 `sphereIsFinite` 已保證會通過的有限非負檢查。條件刻意包含 grid 旗標，等價性因此可由程式碼直接推得，不依賴「呈現期間不移動燈光」的契約。
 
 不採用 early return：那會跳過驗證、輸出清空與 cache 維護，可能留住舊燈光參照。也不採用跳過 center 寫入：單獨量測沒有效果。sampling 把每次 draw 約 12 bytes 記在傳遞 bounds radius 上，常數則為零；這是歸因觀察，不是對 V8 表示法、精確配置次數或 retained heap 的結論。有燈光或使用 grid 的路徑完全沒有改動，也不因本階段獲得任何效能宣告。完整資料見 ACCEPTANCE P227。
+
+## P228 — Sorter 的暫存陣列是容量，不是生命週期
+
+`DrawSorter.active` 與 `pool` 持有的是同一批可重用 entry；真正需要在排序後釋放的是 entry 上的 mesh 參照，這件事由逐一 `entry.mesh = undefined` 完成，與 `active` 是否清空無關。因此 `active` 可以保留內容：下一次排序以計數從頭覆寫，blended 數量變少時先截短到本次數量再排序，`Array#sort` 與 radix 兩條路徑看到的長度與原本相同。沒有 blended draw 時仍在截短之前返回，殘留的 entry 不含 mesh 參照，也不會被讀取。
+
+截短是唯一的正確性關鍵：少了它，上一幀多出來的 entry 會被當成本幀的 draw 排進去，寫出 `undefined`。單元測試與原生 probe 都以 mutant 確認抓得到這個錯誤。沒有新增欄位、快取或公開 API；有 blended draw 的幀在數量穩定時不再重長這個陣列，數量上下變動時最多依 JavaScript 陣列自己的成長策略重新配置。sampling 是位元組歸因，不是精確配置次數、retained heap 或 FPS 結論。完整資料見 ACCEPTANCE P228。
