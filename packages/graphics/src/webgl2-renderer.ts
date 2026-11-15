@@ -2072,8 +2072,8 @@ export class WebGL2Renderer implements Renderer {
       if (!this.frameRendered) {
         this.temporalState.invalidate();
         this.objectMotion?.releaseTarget();
+        this.visibility.color.length = 0;
       }
-      this.visibility.color.length = 0;
       this.releaseUnused();
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.activeTexture(gl.TEXTURE0);
@@ -3304,7 +3304,7 @@ export class WebGL2Renderer implements Renderer {
     // Also re-establishes what particle drawing leaves unrestored.
     gl.depthMask(true);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    // Probe captures have no later velocity pass; ordinary frames release in finally.
+    // Probe captures have no later velocity pass.
     if (this.capturingProbe) draws.length = 0;
   }
 

@@ -6185,3 +6185,9 @@ sampling 同時聚合兩個方法名稱，並核對 renderer／total sampled byt
 `DrawSorter.active` 與 `pool` 持有的是同一批可重用 entry；真正需要在排序後釋放的是 entry 上的 mesh 參照，這件事由逐一 `entry.mesh = undefined` 完成，與 `active` 是否清空無關。因此 `active` 可以保留內容：下一次排序以計數從頭覆寫，blended 數量變少時先截短到本次數量再排序，`Array#sort` 與 radix 兩條路徑看到的長度與原本相同。沒有 blended draw 時仍在截短之前返回，殘留的 entry 不含 mesh 參照，也不會被讀取。
 
 截短是唯一的正確性關鍵：少了它，上一幀多出來的 entry 會被當成本幀的 draw 排進去，寫出 `undefined`。單元測試與原生 probe 都以 mutant 確認抓得到這個錯誤。沒有新增欄位、快取或公開 API；有 blended draw 的幀在數量穩定時不再重長這個陣列，數量上下變動時最多依 JavaScript 陣列自己的成長策略重新配置。sampling 是位元組歸因，不是精確配置次數、retained heap 或 FPS 結論。完整資料見 ACCEPTANCE P228。
+
+## P229 — 成功 frame 的 color 陣列由下次 gather 覆寫
+
+`RenderVisibilityCache.collect` 已經以計數覆寫 `out.color` 並截短尾端；GL 卻在普通 frame 的 finally 清空它，讓下一次 gather 重新長大。把清空移入 `!frameRendered` 分支，成功幀就能保留陣列。失敗仍清空，probe 在 draw 後清空，無 3D 與 destroy 仍同時清空 visibility cache、entries 與 color。每次 draw 前必須完成 collect，因此保留的排序順序不會成為下次的輸入順序。
+
+color 中的 mesh 原本已被同一 renderer 的 visibility records／entries 持有；此改動不改變資源 ownership 或新增 cache。下一次 membership sync 及 gather 會覆寫／截短；無 3D 與 teardown 會釋放參照。六對 heap profiles 的 collect sampled self 約從 7.3 MB／512 submits 變成零，但這不等於精確 allocation 次數、retained heap、CPU 或 FPS 結論。GPU 未改動，作為 clocks 的控制組。完整證據見 ACCEPTANCE P229。

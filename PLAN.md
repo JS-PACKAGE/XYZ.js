@@ -6027,3 +6027,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 改為以計數就地覆寫 `active`，只在本幀 blended 數量比上一幀少時截短；每個 entry 的 mesh 參照仍在排序後逐一清除，pool、radix scratch、排序規則與公開簽章不變。
 - 固定 192-row CPU matrix、同模組 A/A 對照與十二份 heap sampling；新增永久單元測試涵蓋 200→150→3→0→5→130 的數量變化（radix 與 Array#sort 兩條路徑），「不截短殘留尾端」的 mutant 只會讓這一項失敗。
 - 原生 blended 排序像素（160／140／5／0／130／160、深度鏡像）、source／dist 與 showcase 證據見 ACCEPTANCE P228；只提交本功能、產物與六份文件，不 push／升版。GL `visibility.color` 與 GPU `draws`／`visibleDraws` 的同類重長另案評估。
+
+## P229 — Retain GL color draws after successful frames
+
+- 依 P228 採用後 heap sampling 的 `collect` 歸因，確認 Core gather 原本就會覆寫並截短 color 陣列，但 GL 普通 frame 的 finally 又清空了它。
+- 只把普通 frame 的清空移入既有失敗分支；probe、無 3D 與 teardown 的清空維持原樣，不改 GPU 或公開 API。
+- 固定 192-row CPU matrix、十二份 heap profiles，以及縮減／重新加入 draw、空場景切換、刻意排序失敗後恢復的原生像素驗證；既有 visibility 測試已涵蓋 membership 與順序，不新增重複測試。
+- source／dist、per-object motion 與 showcase 的實際驗證另記 ACCEPTANCE；只提交本功能、產物與六份文件，不 push／升版。

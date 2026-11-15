@@ -7341,3 +7341,7 @@ cacheOpticalMaps 保留無 source guard，只有 positive-source 工作進入 ca
 ## P228：保留 draw sorter 的暫存陣列
 
 `DrawSorter.sort` 改為以計數覆寫 private `active` 陣列，只在本次 blended draw 比上一次少時截短，不再每次排序後清空、下一次再逐一 push。排序後仍逐一清除 entry 上的 mesh 參照，sorter 不保留任何 mesh；entry pool、radix scratch、穩定的由遠到近順序與公開簽章不變。全部不透明的清單仍在截短之前返回。Heap sampling 在 512 次 submit、每次 1,000 個 blended draw 下，把約 7.3 MB 歸在 `sort`，改動後幾乎為零；六對 total 均下降，median 約低 22%。固定 CPU clocks 落在同模組 A/A 對照自身的變動內，不宣稱 CPU 或 FPS 變化。新增永久單元測試：同一個 sorter 依序排序 200、150、3、0、5、130 個 blended draw；少了截短的 mutant 只會讓這一項失敗。兩個 renderer 共用這個 sorter。全部配對、原生 blended 排序像素與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P228。
+
+## P229：成功 frame 後保留 GL color draw 陣列
+
+GL 普通 frame 的 `visibility.color` 清空改為只在失敗時執行；成功後讓下一次 `RenderVisibilityCache.collect` 依既有邏輯覆寫並截短。probe、無 3D 與 teardown 的清空不變。color 中的 mesh 原本已被同一 renderer 的 visibility records／entries 持有，不改變資源 ownership；下次完整 gather 取代過期 membership，並在排序前還原 insertion order。六對 native heap profiles 的總 sampled bytes 均下降（median 約減 28%），`collect` self 歸因約從 7.3 MB／512 submits 降為零。CPU clocks 混合，未修改的 GPU 控制組也有漂移；不宣稱 CPU、FPS、精確 allocation 次數或 retained heap 改善。全部配對、失敗恢復、場景／membership 變化、像素與 runtime 範圍見 [ACCEPTANCE](../ACCEPTANCE.md) P229。

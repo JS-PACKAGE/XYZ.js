@@ -86,6 +86,8 @@ P227 在沒有 local light 也沒有使用 light grid 時，讓 `selectMesh` 傳
 
 P228 讓 `DrawSorter` 保留 blended draw 的 private 暫存陣列，不再每次排序後清空再逐一 push；六對 native heap profiles 的總 sampled bytes 均下降，兩組 median 約減 22%。P228 keeps `DrawSorter`'s private blended-draw scratch array between sorts, rather than emptying it and pushing every draw again; all six native heap pairs sampled fewer total bytes. P228 は `DrawSorter` の private な blended draw 用配列を保持し、毎回空にして push し直すのをやめました。全6ペアで総 sampled bytes が減りました。排序結果、mesh 參照的釋放與公開 API 不變；固定 CPU clocks 的差異落在同模組 A/A 對照的雜訊內，不宣稱 CPU 或 FPS 變化。數量縮減、兩條排序路徑的像素驗證與限制見 [ACCEPTANCE](./ACCEPTANCE.md) P228。
 
+P229 讓 GL 的成功 3D frame 保留 `visibility.color`，由下一次 gather 就地覆寫；六對 native heap profiles 的總 sampled bytes 均下降，兩組 median 約減 28%。P229 retains GL's color-draw array after successful 3D frames for the next gather to overwrite; all six native heap pairs sampled fewer total bytes. P229 は GL の成功した 3D frame の color draw 配列を保持し、全6ペアで総 sampled bytes が減りました。失敗、probe、無 3D 與 destroy 的清理路徑不變；不是 CPU、FPS、精確配置次數或 retained heap 結論。配對 clocks、場景切換／失敗恢復／像素驗證與限制見 [ACCEPTANCE](./ACCEPTANCE.md) P229。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
