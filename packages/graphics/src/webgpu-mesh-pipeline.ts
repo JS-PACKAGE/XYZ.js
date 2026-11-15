@@ -1378,12 +1378,12 @@ export class WebGPUMeshPipeline {
       let hasTransmission = false,
         weighted = false,
         coverage = false;
-      this.gathered.length = 0;
+      let gatheredCount = 0;
       const epoch = ++this.gatherEpoch;
       for (const object of this.visibility.color) {
         if (this.gatheredEpochs.get(object) !== epoch) {
           this.gatheredEpochs.set(object, epoch);
-          this.gathered.push(object);
+          this.gathered[gatheredCount++] = object;
         }
         if (
           object.material instanceof PBRMaterial &&
@@ -1406,15 +1406,14 @@ export class WebGPUMeshPipeline {
       // Casters outside the camera view are drawn only by the shadow pass. Without it their
       // uniforms are not needed this frame; each upload diffs against what the GPU holds, so
       // they are caught up whenever they are drawn again. They stay resident either way.
-      const drawnGathered = scene.shadows.enabled
-        ? Infinity
-        : this.gathered.length;
+      const drawnGathered = scene.shadows.enabled ? Infinity : gatheredCount;
       for (const object of this.visibility.shadows) {
         if (this.gatheredEpochs.get(object) !== epoch) {
           this.gatheredEpochs.set(object, epoch);
-          this.gathered.push(object);
+          this.gathered[gatheredCount++] = object;
         }
       }
+      this.gathered.length = gatheredCount;
       this.refreshProbeBlend(scene);
       for (let index = 0; index < this.gathered.length; index++) {
         const object = this.gathered[index]!;
@@ -1650,6 +1649,7 @@ export class WebGPUMeshPipeline {
       }
       return true;
     } catch (error) {
+      this.gathered.length = 0;
       this.temporalState.invalidate();
       this.objectMotion?.releaseTarget();
       throw error;

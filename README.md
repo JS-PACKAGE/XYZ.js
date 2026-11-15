@@ -96,6 +96,8 @@ P232 比照既有 GL 慣例分離 GPU optical cache 的有來源路徑。P232 is
 
 P233 將 GPU mesh residency 的 retire callback 移到只在 miss 呼叫的 private allocator。P233 isolates mesh residency callback scope from GPU mesh-cache hits. P233 は GPU mesh cache hit から residency callback の scope を分離します。十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 36.99%／37.51%；不宣稱 CPU／FPS 或 retained heap 改善。lease、強制 eviction、instance／skin 與像素還原範圍見 [ACCEPTANCE](./ACCEPTANCE.md) P233。
 
+P234 讓 GPU color／shadow union scratch 以 indexed overwrite 重用，並在 consumer 前截斷、失敗時清空。P234 reuses GPU gather-union storage while preserving order and cleanup. P234 は順序と cleanup を保ち GPU gather union の配列を再利用します。十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 34.89%／35.04%；不宣稱 CPU／FPS 或 retained heap 改善。原生像素與公開 residency 反例見 [ACCEPTANCE](./ACCEPTANCE.md) P234。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

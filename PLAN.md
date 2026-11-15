@@ -6059,3 +6059,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - GPU mesh cache 的 residency miss 改呼叫 private `allocateMesh(object, bytes)`；byte estimate、nullish allocation reuse 與原 retire callback 的全部操作不變，不新增參數容器或 cache。
 - 固定 192-row CPU matrix 與十二份 GPU heap profiles；shared／distinct-maps total sampled bytes median 約減 36.99%／37.51%。CPU clocks 混合，GL 是未修改控制組。
 - 原生 ordinary mesh、colored／culled instances、4／8-influence skin 驗證 lease 阻止 budget 縮減、強制 eviction、同物件重建、public update 與逐 byte 像素還原；source／dist、正式 effects／showcase 與 stale mesh entry 反例另記 ACCEPTANCE。按功能提交，不 push／升版。
+
+## P234 — Reuse GPU gathered union storage
+
+- color／shadow union 保留 epoch dedupe 與 first-seen order，改為 indexed overwrite，consumer 前截斷；`drawnGathered` 使用本輪 color prefix count，不誤用前一輪 array length。
+- 無 3D／destroy 原本清理不變，失敗清空 scratch；不新增 cache、容器或公開 API。固定 192-row CPU matrix 與十二份 GPU heap profiles，shared／distinct-maps total sampled bytes median 約減 34.89%／35.04%。
+- 原生 membership／sorted／weighted／失敗恢復、offscreen shadow 與四個公開 residency counters 驗證截斷；不截斷的 mutant 必須顯示額外 native residency。source／dist、auxiliary capture 與正式 runtime 範圍另記 ACCEPTANCE；按功能提交，不 push／升版。

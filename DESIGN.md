@@ -6215,3 +6215,9 @@ sorting 現在就地改 color，但下次 collect 仍由 records 的 insertion o
 `cacheMesh` 的 byte estimate 不變；`existing?.allocation` 仍先短路命中，miss 才呼叫 private `allocateMesh(object, bytes)`，把含 retire closure 的 scope 移出 cache hit。沒有新參數物件、cache、holder 或公開 API。原 callback 的 uniform／visible instance／visible colors／instance colors／palette／influences destruction、非 identity instance buffer destruction 與 mesh entry deletion 保持相同 token；只調整縮排與格式。
 
 十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 36.99%／37.51%，六對總量均下降；CPU clocks 混合，不推為 CPU／FPS、retained heap、精確配置次數或 GPU bytes。原生 lease／eviction／recreation 的完整 consumer 證據見 ACCEPTANCE P233；不以取樣斷言特定 JIT 機制。
+
+## P234 — GPU gathered union 的 active prefix
+
+`gathered` 原本每輪設 length=0 再 push；現在以 local `gatheredCount` 覆寫有效前綴，保留既有 epoch dedupe 與 color-first／shadow-second 的順序。`drawnGathered` 在收 shadow 之前保存 color prefix count；收集完成立即將 length 截斷，再開始資源準備／uniform update，避免 stale suffix 被誤認為本輪物件而延長 native residency。catch 清空 scratch；無 3D／destroy 清理不變，不新增狀態欄位、cache、holder 或公開 API。
+
+十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 34.89%／35.04%，六對總量均下降。CPU clocks 混合，GL 是未修改控制組；不推為 CPU／FPS、精確配置次數、retained heap 或 GPU bytes。public residency counter 反例與原生 color／shadow／auxiliary consumer 證據見 ACCEPTANCE P234。

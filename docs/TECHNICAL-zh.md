@@ -7367,3 +7367,9 @@ GPU `cacheOpticalMaps` 保留無來源的 allocation destroy 與 empty view retu
 `cacheMesh` 保留 byte estimate 與 `existing?.allocation` 的短路命中；只有 miss 呼叫 private `allocateMesh(object, bytes)`，將 retire closure 的 scope 移出命中路徑，不新增參數容器、cache、holder 或公開 API。callback token 不變：清理 uniform／visible instance／visible color／instance color／palette／influence buffers，只在 instance buffer 不是共用 identity buffer 時清理，最後刪除 mesh cache entry。
 
 十二份 GPU heap profiles 的 shared／distinct-maps total sampled bytes median 約減 36.99%／37.51%，六對總量均下降。CPU clocks 混合，GL 為未修改控制組；不宣稱 CPU／FPS、retained heap、精確 allocation 或 GPU bytes 改善。完整配對資料、ordinary／instanced／4／8-influence skin 的原生 lease、budget eviction、重建及像素還原驗證見 [ACCEPTANCE](../ACCEPTANCE.md) P233。
+
+## P234：重用 GPU gathered union 的有效前綴
+
+GPU gather 不再清空 array 再 push；改以 local count 覆寫既有儲存空間，保留 epoch dedupe 與 color-first／shadow-second 順序，先記錄 drawn color prefix 才收 shadow。在 resource preparation／uniform update 前截斷 array，避免 stale suffix 延長 native residency；失敗時清空 scratch，無 3D／destroy 清理不變。不新增狀態欄位、cache、holder 或公開 API。
+
+十二份 GPU heap profiles 的 shared／distinct-maps total sampled bytes median 約減 34.89%／35.04%，六對總量均下降。CPU clocks 混合，GL 為未修改控制組；不宣稱 CPU／FPS、精確 allocation、retained heap 或 GPU bytes 改善。配對資料、原生 color／shadow／lifecycle 與「像素相同但公開 native residency 增加」的不截斷反例見 [ACCEPTANCE](../ACCEPTANCE.md) P234。
