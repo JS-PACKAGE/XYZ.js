@@ -100,6 +100,8 @@ P234 讓 GPU color／shadow union scratch 以 indexed overwrite 重用，並在 
 
 P235 讓 GPU 以常駐 `Map.forEach` visitor 清理未使用 geometry／mesh cache，避免每個 entry 配置 iterator result。P235 prunes unseen GPU geometry and mesh caches with a persistent Map visitor instead of per-entry iterator results. P235 は永続 visitor で未使用の GPU geometry／mesh cache を整理し、entry ごとの iterator 結果を避けます。十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 26.80%／26.22%；不宣稱 CPU／FPS 或 retained heap 改善。原生 lease／finite budget／destroy 剪除與兩個 mutant 反例見 [ACCEPTANCE](./ACCEPTANCE.md) P235。
 
+P236 記錄並拒絕 GPU render-mesh observation 的 `Set.forEach` visitor：total sampled bytes median 僅約 −1.97%／−1.93% 且一對上升，`render` self 反增。P236 records and rejects a GPU render-mesh `Set.forEach` visitor: sampled totals barely move and one pair worsens. P236 は GPU render-mesh 観測の `Set.forEach` visitor を記録して不採用とします。另附 steady-state CPU 剖析與 GL 同材質 block 跳過的上限實驗（約 −4.2%，不採用）；source／dist 不變，見 [ACCEPTANCE](./ACCEPTANCE.md) P236。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

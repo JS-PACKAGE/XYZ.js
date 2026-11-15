@@ -6227,3 +6227,9 @@ sorting 現在就地改 color，但下次 collect 仍由 records 的 insertion o
 無限 geometry budget 時，`releaseUnused()` 先前以兩個 `for…of` 掃 geometry 與 mesh cache；現在改以 `Map.forEach` 呼叫同一個 private prototype visitor `releaseUnseenGeometry`，並明確傳入 `this`。剪除條件仍是 `seen !== frame` 且沒有 residency references，順序仍是 geometry 再 mesh，有限 budget 仍整段跳過。`destroy` 在走訪中刪除 entry 時，尚未走到的已刪 entry 會被跳過，語意與原 iterator 相同；不新增狀態欄位、cache、參數容器、依賴或公開 API，GL 路徑不變。
 
 十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 26.80%／26.22%，六對總量均下降；差異來自移除 `releaseUnused` 底下的 native iterator `next` 取樣，source-attributed render／pipeline bytes 沒有下降。CPU clocks 混合，不推為 CPU／FPS、精確配置次數、retained heap 或 GPU bytes。原生 lease／budget／destroy 剪除證據、兩個 mutant 與 geometry allocator 未採用候選見 ACCEPTANCE P235。
+
+## P236 — 未採用的 GPU render-mesh observation visitor
+
+以 `Set.forEach` 與 private prototype visitor 取代 `render()` 內對 `scene.renderMeshes` 的每輪 `for…of`，語意相同，但十二份 GPU profiles 的 total sampled bytes median 僅約 −1.97%／−1.93%，一對上升；native `next` 取樣大幅減少，同時 `render` self 取樣增加約 27%，CPU clocks 混合，因此不採用，source／dist 保持 P235，也不刪除 `emptyMeshes`。
+
+steady-state CPU profile 顯示 WebGPU shared 影格沒有單一 JS 函式超過約 8%；GL 同材質重複時跳過 per-material uniform／texture block 的上限實驗僅約 −4.2%，而 `PBRMaterial` 為無版本計數的可變欄位，無法在不引入額外失效模型下證明跳過安全。完整表格與負面結論見 ACCEPTANCE P236。

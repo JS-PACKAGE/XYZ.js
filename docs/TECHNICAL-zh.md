@@ -7379,3 +7379,9 @@ GPU gather 不再清空 array 再 push；改以 local count 覆寫既有儲存�
 預設無限 geometry budget 時，`releaseUnused()` 改用 `Map.forEach` 與單一 private prototype visitor `releaseUnseenGeometry`（明確傳入 `this`）走訪 geometry／mesh cache，取代每輪對每個 entry 配置 iterator result 的兩個 `for…of`。剪除仍需 `seen !== frame` 且沒有 residency references，先 geometry 後 mesh，有限 budget 仍跳過；走訪中被 destroy 而尚未走到的 entry 會被跳過，與原 iterator 相同。不新增狀態欄位、cache、參數容器、依賴或公開 API，GL 不變。
 
 十二份 GPU heap profiles 的 shared／distinct-maps total sampled bytes median 約減 26.80%／26.22%，六對總量均下降，原因是 `releaseUnused` 底下的 native iterator `next` 取樣消失；source-attributed render／pipeline bytes 並未下降。CPU clocks 混合，GL 為未修改控制組；不宣稱 CPU／FPS、精確 allocation、retained heap 或 GPU bytes 改善。配對資料、原生共用／局部／lease／有限 budget／destroy 剪除、兩個 mutant 與未採用的 geometry allocator 候選見 [ACCEPTANCE](../ACCEPTANCE.md) P235。
+
+## P236：未採用的 GPU render-mesh observation visitor
+
+原型把 WebGPU `render()` 對 `scene.renderMeshes` 的 loop 改為 `Set.forEach` 與 private prototype visitor，loop body 完全保留。十二份 GPU heap profiles 的 total sampled bytes median 僅約減 1.97%／1.93%（一對上升）；native iterator `next` 取樣約減 1.3 MB，但 `render` self 取樣約增 1.1 MB，CPU clocks 混合，故不採用，source 與 `dist` 維持 P235。
+
+steady-state CDP CPU profile（600 暖機＋3,000 幀）顯示 WebGPU shared 影格沒有 JS 函式超過約 8%；GL 同材質／program 重複時跳過 per-material uniform／texture block 的上限原型僅約省 4.2%。`PBRMaterial` 沒有 version／dirty 計數，重用需要新的失效模型，因此未做此變更。配對資料與 profiles 見 [ACCEPTANCE](../ACCEPTANCE.md) P236。

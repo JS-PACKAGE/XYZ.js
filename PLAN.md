@@ -6071,3 +6071,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 無限 geometry budget 時，`releaseUnused()` 以 private prototype visitor `releaseUnseenGeometry` 搭配 `Map.forEach(visitor, this)` 掃 geometry／mesh cache；條件（本輪未見且沒有 lease references）、先 geometry 後 mesh 的順序與有限 budget 跳過不變，不新增 cache、容器或公開 API。
 - 固定 192-row CPU matrix 與十二份 GPU heap profiles；shared／distinct-maps total sampled bytes median 約減 26.80%／26.22%，六對總量均下降，native iterator `next` 的 sampled bytes 由約 5.5 MB 降到約 1.7 MB。CPU clocks 混合，GL 是未修改控制組。另一個 geometry allocator scope 候選只有約 −0.85%／−1.21% 且一對上升，未採用。
 - 原生六物件 fixture 驗證共用 geometry 部分／全部移除、lease 保護、釋放後剪除、有限 budget 保留、回到無限後剪除、局部成長與 destroyed mesh；source／dist、既有 consumer、正式 runtime 與兩個 mutant 反例另記 ACCEPTANCE。按功能提交，不 push／升版。
+
+## P236 — Reject GPU render-mesh observation visitor
+
+- 候選把 WebGPU `render()` 每輪觀察 `scene.renderMeshes` 的 `for…of` 改成 `Set.forEach` 與 private prototype visitor，並移除 `emptyMeshes`。固定 192-row CPU matrix 與十二份 GPU heap profiles 顯示 total sampled bytes median 僅約 −1.97%／−1.93%，一對上升；native iterator `next` 減少約 1.3 MB，但 `render` self 增加約 1.1 MB，CPU clocks 混合。**不採用**，source／dist 維持 P235。
+- 另以 600 暖機＋3,000 幀的 steady-state CDP CPU profile 排序 GPU／GL 成本，無單一 JS 函式超過約 8%；GL 同材質重複時跳過 per-material uniform／texture block 的上限實驗僅約 −4.2%，且 `PBRMaterial` 沒有 version／dirty 計數可證明安全，故不採用。
+- 只提交證據與拒絕紀錄到 ACCEPTANCE 與文件；不 push／升版。
