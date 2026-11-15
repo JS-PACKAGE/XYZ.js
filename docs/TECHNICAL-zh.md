@@ -7373,3 +7373,9 @@ GPU `cacheOpticalMaps` 保留無來源的 allocation destroy 與 empty view retu
 GPU gather 不再清空 array 再 push；改以 local count 覆寫既有儲存空間，保留 epoch dedupe 與 color-first／shadow-second 順序，先記錄 drawn color prefix 才收 shadow。在 resource preparation／uniform update 前截斷 array，避免 stale suffix 延長 native residency；失敗時清空 scratch，無 3D／destroy 清理不變。不新增狀態欄位、cache、holder 或公開 API。
 
 十二份 GPU heap profiles 的 shared／distinct-maps total sampled bytes median 約減 34.89%／35.04%，六對總量均下降。CPU clocks 混合，GL 為未修改控制組；不宣稱 CPU／FPS、精確 allocation、retained heap 或 GPU bytes 改善。配對資料、原生 color／shadow／lifecycle 與「像素相同但公開 native residency 增加」的不截斷反例見 [ACCEPTANCE](../ACCEPTANCE.md) P234。
+
+## P235：以常駐 visitor 剪除未使用 GPU geometry
+
+預設無限 geometry budget 時，`releaseUnused()` 改用 `Map.forEach` 與單一 private prototype visitor `releaseUnseenGeometry`（明確傳入 `this`）走訪 geometry／mesh cache，取代每輪對每個 entry 配置 iterator result 的兩個 `for…of`。剪除仍需 `seen !== frame` 且沒有 residency references，先 geometry 後 mesh，有限 budget 仍跳過；走訪中被 destroy 而尚未走到的 entry 會被跳過，與原 iterator 相同。不新增狀態欄位、cache、參數容器、依賴或公開 API，GL 不變。
+
+十二份 GPU heap profiles 的 shared／distinct-maps total sampled bytes median 約減 26.80%／26.22%，六對總量均下降，原因是 `releaseUnused` 底下的 native iterator `next` 取樣消失；source-attributed render／pipeline bytes 並未下降。CPU clocks 混合，GL 為未修改控制組；不宣稱 CPU／FPS、精確 allocation、retained heap 或 GPU bytes 改善。配對資料、原生共用／局部／lease／有限 budget／destroy 剪除、兩個 mutant 與未採用的 geometry allocator 候選見 [ACCEPTANCE](../ACCEPTANCE.md) P235。

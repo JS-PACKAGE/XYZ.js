@@ -6065,3 +6065,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - color／shadow union 保留 epoch dedupe 與 first-seen order，改為 indexed overwrite，consumer 前截斷；`drawnGathered` 使用本輪 color prefix count，不誤用前一輪 array length。
 - 無 3D／destroy 原本清理不變，失敗清空 scratch；不新增 cache、容器或公開 API。固定 192-row CPU matrix 與十二份 GPU heap profiles，shared／distinct-maps total sampled bytes median 約減 34.89%／35.04%。
 - 原生 membership／sorted／weighted／失敗恢復、offscreen shadow 與四個公開 residency counters 驗證截斷；不截斷的 mutant 必須顯示額外 native residency。source／dist、auxiliary capture 與正式 runtime 範圍另記 ACCEPTANCE；按功能提交，不 push／升版。
+
+## P235 — Prune unseen GPU geometry without iterator results
+
+- 無限 geometry budget 時，`releaseUnused()` 以 private prototype visitor `releaseUnseenGeometry` 搭配 `Map.forEach(visitor, this)` 掃 geometry／mesh cache；條件（本輪未見且沒有 lease references）、先 geometry 後 mesh 的順序與有限 budget 跳過不變，不新增 cache、容器或公開 API。
+- 固定 192-row CPU matrix 與十二份 GPU heap profiles；shared／distinct-maps total sampled bytes median 約減 26.80%／26.22%，六對總量均下降，native iterator `next` 的 sampled bytes 由約 5.5 MB 降到約 1.7 MB。CPU clocks 混合，GL 是未修改控制組。另一個 geometry allocator scope 候選只有約 −0.85%／−1.21% 且一對上升，未採用。
+- 原生六物件 fixture 驗證共用 geometry 部分／全部移除、lease 保護、釋放後剪除、有限 budget 保留、回到無限後剪除、局部成長與 destroyed mesh；source／dist、既有 consumer、正式 runtime 與兩個 mutant 反例另記 ACCEPTANCE。按功能提交，不 push／升版。

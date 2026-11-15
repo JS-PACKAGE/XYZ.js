@@ -1999,11 +1999,11 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		} else r.set(this.probeBlend, 76), p = uploadChangedSpan(f, t.uniform, t.bits, t.sent, 0, r.length), t.probeRevision = this.probeBlendRevision;
 		p && this.stats.upload(p);
 	}
+	releaseUnseenGeometry(e) {
+		e.seen !== this.frame && !e.allocation.references && e.allocation.destroy();
+	}
 	releaseUnused() {
-		if (this.residency.geometry.budgetBytes === 1 / 0) {
-			for (let e of this.geometries.values()) e.seen !== this.frame && !e.allocation.references && e.allocation.destroy();
-			for (let e of this.meshes.values()) e.seen !== this.frame && !e.allocation.references && e.allocation.destroy();
-		}
+		this.residency.geometry.budgetBytes === 1 / 0 && (this.geometries.forEach(this.releaseUnseenGeometry, this), this.meshes.forEach(this.releaseUnseenGeometry, this));
 		for (let e of this.environments.keys()) {
 			let t = this.environments.get(e);
 			(e.destroyed || this.residency.textures.budgetBytes === 1 / 0 && t.seen !== this.frame && !t.allocation.references) && t.allocation.destroy();

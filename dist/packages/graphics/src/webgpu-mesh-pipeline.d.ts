@@ -245,6 +245,12 @@ export declare class WebGPUMeshPipeline {
     /** The material-derived words of `updateMesh`, refreshed once per render. */
     private pbrBlock;
     private updateMesh;
+    /**
+     * Map.forEach with this prototype visitor: for…of over these maps allocated an
+     * iterator result per entry every frame. Deleting entries while visiting is
+     * fine; a Map visit skips deleted entries exactly as its iterator does.
+     */
+    private releaseUnseenGeometry;
     private releaseUnused;
     private releaseUnusedTextures;
     destroy(): void;

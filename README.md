@@ -98,6 +98,8 @@ P233 將 GPU mesh residency 的 retire callback 移到只在 miss 呼叫的 priv
 
 P234 讓 GPU color／shadow union scratch 以 indexed overwrite 重用，並在 consumer 前截斷、失敗時清空。P234 reuses GPU gather-union storage while preserving order and cleanup. P234 は順序と cleanup を保ち GPU gather union の配列を再利用します。十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 34.89%／35.04%；不宣稱 CPU／FPS 或 retained heap 改善。原生像素與公開 residency 反例見 [ACCEPTANCE](./ACCEPTANCE.md) P234。
 
+P235 讓 GPU 以常駐 `Map.forEach` visitor 清理未使用 geometry／mesh cache，避免每個 entry 配置 iterator result。P235 prunes unseen GPU geometry and mesh caches with a persistent Map visitor instead of per-entry iterator results. P235 は永続 visitor で未使用の GPU geometry／mesh cache を整理し、entry ごとの iterator 結果を避けます。十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 26.80%／26.22%；不宣稱 CPU／FPS 或 retained heap 改善。原生 lease／finite budget／destroy 剪除與兩個 mutant 反例見 [ACCEPTANCE](./ACCEPTANCE.md) P235。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

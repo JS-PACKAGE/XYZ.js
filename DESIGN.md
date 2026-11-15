@@ -6221,3 +6221,9 @@ sorting 現在就地改 color，但下次 collect 仍由 records 的 insertion o
 `gathered` 原本每輪設 length=0 再 push；現在以 local `gatheredCount` 覆寫有效前綴，保留既有 epoch dedupe 與 color-first／shadow-second 的順序。`drawnGathered` 在收 shadow 之前保存 color prefix count；收集完成立即將 length 截斷，再開始資源準備／uniform update，避免 stale suffix 被誤認為本輪物件而延長 native residency。catch 清空 scratch；無 3D／destroy 清理不變，不新增狀態欄位、cache、holder 或公開 API。
 
 十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 34.89%／35.04%，六對總量均下降。CPU clocks 混合，GL 是未修改控制組；不推為 CPU／FPS、精確配置次數、retained heap 或 GPU bytes。public residency counter 反例與原生 color／shadow／auxiliary consumer 證據見 ACCEPTANCE P234。
+
+## P235 — 未使用 GPU geometry cache 的 visitor 剪除
+
+無限 geometry budget 時，`releaseUnused()` 先前以兩個 `for…of` 掃 geometry 與 mesh cache；現在改以 `Map.forEach` 呼叫同一個 private prototype visitor `releaseUnseenGeometry`，並明確傳入 `this`。剪除條件仍是 `seen !== frame` 且沒有 residency references，順序仍是 geometry 再 mesh，有限 budget 仍整段跳過。`destroy` 在走訪中刪除 entry 時，尚未走到的已刪 entry 會被跳過，語意與原 iterator 相同；不新增狀態欄位、cache、參數容器、依賴或公開 API，GL 路徑不變。
+
+十二份 GPU profiles 的 shared／distinct-maps total sampled bytes median 約減 26.80%／26.22%，六對總量均下降；差異來自移除 `releaseUnused` 底下的 native iterator `next` 取樣，source-attributed render／pipeline bytes 沒有下降。CPU clocks 混合，不推為 CPU／FPS、精確配置次數、retained heap 或 GPU bytes。原生 lease／budget／destroy 剪除證據、兩個 mutant 與 geometry allocator 未採用候選見 ACCEPTANCE P235。

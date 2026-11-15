@@ -3907,14 +3907,20 @@ export class WebGPUMeshPipeline {
     if (bytes) this.stats.upload(bytes);
   }
 
+  /**
+   * Map.forEach with this prototype visitor: for…of over these maps allocated an
+   * iterator result per entry every frame. Deleting entries while visiting is
+   * fine; a Map visit skips deleted entries exactly as its iterator does.
+   */
+  private releaseUnseenGeometry(entry: CachedGeometry | CachedMesh): void {
+    if (entry.seen !== this.frame && !entry.allocation.references)
+      entry.allocation.destroy();
+  }
+
   private releaseUnused(): void {
     if (this.residency.geometry.budgetBytes === Infinity) {
-      for (const entry of this.geometries.values())
-        if (entry.seen !== this.frame && !entry.allocation.references)
-          entry.allocation.destroy();
-      for (const entry of this.meshes.values())
-        if (entry.seen !== this.frame && !entry.allocation.references)
-          entry.allocation.destroy();
+      this.geometries.forEach(this.releaseUnseenGeometry, this);
+      this.meshes.forEach(this.releaseUnseenGeometry, this);
     }
     // Keys and get, not entries: an [key, value] pair per entry was allocated every frame.
     for (const map of this.environments.keys()) {
