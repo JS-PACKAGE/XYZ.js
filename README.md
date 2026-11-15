@@ -88,6 +88,8 @@ P228 讓 `DrawSorter` 保留 blended draw 的 private 暫存陣列，不再每�
 
 P229 讓 GL 的成功 3D frame 保留 `visibility.color`，由下一次 gather 就地覆寫；六對 native heap profiles 的總 sampled bytes 均下降，兩組 median 約減 28%。P229 retains GL's color-draw array after successful 3D frames for the next gather to overwrite; all six native heap pairs sampled fewer total bytes. P229 は GL の成功した 3D frame の color draw 配列を保持し、全6ペアで総 sampled bytes が減りました。失敗、probe、無 3D 與 destroy 的清理路徑不變；不是 CPU、FPS、精確配置次數或 retained heap 結論。配對 clocks、場景切換／失敗恢復／像素驗證與限制見 [ACCEPTANCE](./ACCEPTANCE.md) P229。
 
+P230 移除 GPU 的兩份重複 draw 清單，color／shadow／contact／motion 直接使用既有 visibility 陣列。P230 removes GPU's duplicate draw lists and consumes the existing visibility arrays directly. P230 は GPU の重複 draw 配列を除き、既存の visibility 配列を直接使います。六對 GPU heap profiles 的總 sampled bytes 均下降，shared／distinct-maps median 分別約減 27.07%／6.53%；不是 CPU、FPS、精確 allocation 次數或 retained heap 結論。完整 clocks、offscreen shadow 反例及原生 consumer 範圍見 [ACCEPTANCE](./ACCEPTANCE.md) P230。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

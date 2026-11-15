@@ -174,9 +174,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	recentMeshPipeline = -1;
 	pendingMeshPipelines = /* @__PURE__ */ new Set();
 	renderScene;
-	draws = [];
 	passBindings = new PassBindings();
-	visibleDraws = [];
 	frustum = new require_frustum.Frustum();
 	shadowFrustum = new require_frustum.Frustum();
 	drawSorter = new require_draw_order.DrawSorter();
@@ -873,7 +871,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	render(t, n, r, a, o, c, l, u = o, f) {
 		this.renderScene = t, this.frame++;
 		for (let e of this.retired) e.destroy();
-		this.retired.length = 0, this.draws.length = 0, this.visibleDraws.length = 0;
+		this.retired.length = 0;
 		try {
 			if (!t?.has3DContent) return this.releaseContactDepth(), this.visibilityCache.clear(), this.visibility.color.length = this.visibility.shadows.length = 0, this.visibility.entries.clear(), this.visibility.occlusionCandidates.length = 0, this.gathered.length = 0, this.occlusion?.clear(), this.post.releaseTarget(), this.oit.release(), this.depthTexture && (this.depthTexture.destroy(), this.stats.target(-this.depthWidth * this.depthHeight * 4 * this.sampleCount), this.depthTexture = void 0, this.depthView = void 0), this.msaaTexture && (this.msaaTexture.destroy(), this.stats.target(-this.msaaWidth * this.msaaHeight * (this.msaaFormat === `rgba16float` ? 8 : 4) * this.sampleCount), this.msaaTexture = void 0, this.msaaView = void 0), this.shadowTexture && (this.shadowTexture.destroy(), this.stats.target(-this.shadowSize * this.shadowSize * 4), this.shadowTexture = void 0, this.shadowView = void 0, this.sceneBindGroup = this.shadowSceneBindGroup), this.releaseRefraction(), (this.environmentView !== this.dummyEnvironmentArrayView || this.backgroundView !== this.dummyEnvironmentView) && (this.probeAllocation?.destroy(), this.probeAllocation = void 0, this.probeMaps.length = 0, this.selectedProbes.length = 0, this.environmentView = this.dummyEnvironmentArrayView, this.backgroundView = this.dummyEnvironmentView, this.shadowSceneBindGroup = this.createSceneGroup(this.emptyShadowView, this.dummyEnvironmentView), this.sceneBindGroup = this.skyBindGroup = this.shadowSceneBindGroup), this.temporal.releaseTarget(), this.temporalState.invalidate(), this.objectMotion?.releaseTarget(), !1;
 			require_render_data.validateRenderSettings(t), t.lightSelection.update(t), require_render_data.fillLightingData(t, this.lightingData, t.lightSelection), this.atlas.update(t, c), this.ensureShadow(t), this.ensureEnvironment(t), this.frustum.setFromMatrix(t.camera3D.updateMatrix(c));
@@ -890,14 +888,14 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			this.gathered.length = 0;
 			let b = ++this.gatherEpoch;
 			for (let e of this.visibility.color) {
-				if (this.visibleDraws.push(e), this.gatheredEpochs.get(e) !== b && (this.gatheredEpochs.set(e, b), this.gathered.push(e)), e.material instanceof require_pbr_material.PBRMaterial && e.material.alphaToCoverage) {
+				if (this.gatheredEpochs.get(e) !== b && (this.gatheredEpochs.set(e, b), this.gathered.push(e)), e.material instanceof require_pbr_material.PBRMaterial && e.material.alphaToCoverage) {
 					if (this.sampleCount < 2) throw new require_errors.GraphicsError(`WebGPU alpha-to-coverage requires renderer antialiasing.`);
 					y = !0;
 				}
 				t.transparency === `weighted` && this.blendedDraw(e) && (v = !0), e.material instanceof require_pbr_material.PBRMaterial && e.material.transmission > 0 && (h = !0);
 			}
 			let x = t.shadows.enabled ? 1 / 0 : this.gathered.length;
-			for (let e of this.visibility.shadows) this.draws.push(e), this.gatheredEpochs.get(e) !== b && (this.gatheredEpochs.set(e, b), this.gathered.push(e));
+			for (let e of this.visibility.shadows) this.gatheredEpochs.get(e) !== b && (this.gatheredEpochs.set(e, b), this.gathered.push(e));
 			this.refreshProbeBlend(t);
 			for (let e = 0; e < this.gathered.length; e++) {
 				let t = this.gathered[e];
@@ -906,11 +904,11 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				let n = this.cacheGeometry(t.renderGeometry), r = this.cacheMesh(t);
 				n.seen = r.seen = this.frame, e < x && this.updateMesh(t, r);
 			}
-			t.transparency === `sorted` && this.drawSorter.sort(this.visibleDraws, t.camera3D.position, this.blendedDraw), v || this.oit.release(), t.shadows.enabled && this.renderShadows(n, t, a, o);
+			t.transparency === `sorted` && this.drawSorter.sort(this.visibility.color, t.camera3D.position, this.blendedDraw), v || this.oit.release(), t.shadows.enabled && this.renderShadows(n, t, a, o);
 			let S = !!f || t.postProcessing.enabled || h || v || y;
 			this.temporalActive = !f && t.postProcessing.enabled && (t.postProcessing.taa || t.postProcessing.ssr || require_post_effects.getPostEffects(t.postProcessing)?.motionBlur?.enabled === !0), this.temporalActive ? this.temporalState.begin(t, t.camera3D, a, o, t.postProcessing, c) : (this.temporal.releaseTarget(), this.temporalState.invalidate()), !f && (!t.postProcessing.enabled || !require_post_effects.getPostEffects(t.postProcessing)?.motionBlur?.enabled || !require_post_effects.getPostEffects(t.postProcessing)?.motionBlur?.perObject) && this.objectMotion?.releaseTarget(), this.prepareScene(t, c, S), S || this.post.releaseTarget(), h ? this.ensureRefraction(a, o) : this.releaseRefraction();
 			let C = require_render_data.activeBackground(t);
-			if (!this.visibleDraws.length && !S && !C && (t.gpuParticleEmitters?.size ?? 0) === 0) return !1;
+			if (!this.visibility.color.length && !S && !C && (t.gpuParticleEmitters?.size ?? 0) === 0) return !1;
 			this.ensureDepth(a, o), this.captureContactDepth(n, t, a, o);
 			let T = S ? this.post.target(a, o, this.depthView) : r;
 			this.colorAttachment.resolveTarget = void 0, this.sampleCount > 1 ? (this.colorAttachment.view = this.ensureMultisample(S ? `rgba16float` : this.format, a, o), this.colorAttachment.resolveTarget = T) : this.colorAttachment.view = T, this.colorAttachment.clearValue = S ? this.decodeClear(l) : l, this.depthAttachment.view = this.depthView;
@@ -921,7 +919,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				try {
 					r.setViewport(0, 0, a, o, 0, 1), C && e === 0 && (r.setBindGroup(0, this.skyBindGroup), r.setPipeline(S ? this.skyHdrPipeline : this.skyPipeline), r.draw(3)), r.setBindGroup(0, this.sceneBindGroup);
 					let n = this.passBindings.begin(r);
-					for (let t of this.visibleDraws) {
+					for (let t of this.visibility.color) {
 						if (v && this.blendedDraw(t) || (h || E) && (this.blendedDraw(t) || t.material instanceof require_pbr_material.PBRMaterial && t.material.transmission > 0) !== (e === 1)) continue;
 						r.setBindGroup(0, this.reflectionGroup(this.meshes.get(t)));
 						let i = this.drawMesh(n, t, +!!S);
@@ -937,7 +935,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				let e = this.oit.begin(n, a, o, this.depthView);
 				try {
 					let t = this.passBindings.begin(e);
-					for (let n of this.visibleDraws) {
+					for (let n of this.visibility.color) {
 						if (!this.blendedDraw(n)) continue;
 						e.setBindGroup(0, this.reflectionGroup(this.meshes.get(n)));
 						let r = this.drawMesh(t, n, 2);
@@ -951,7 +949,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			if (f) this.post.copyColor(n, f);
 			else if (S) {
 				let i = require_post_effects.getPostEffects(t.postProcessing)?.motionBlur, a;
-				i?.enabled && i.perObject ? (this.objectMotion ??= new require_webgpu_object_motion.WebGPUObjectMotion(this.device, this.sampleCount, this.stats), a = this.objectMotion.render(n, this.visibleDraws, this.temporalState, this.depthView, this.motionGeometry)) : this.objectMotion?.releaseTarget();
+				i?.enabled && i.perObject ? (this.objectMotion ??= new require_webgpu_object_motion.WebGPUObjectMotion(this.device, this.sampleCount, this.stats), a = this.objectMotion.render(n, this.visibility.color, this.temporalState, this.depthView, this.motionGeometry)) : this.objectMotion?.releaseTarget();
 				let o = this.temporalActive && t.postProcessing.taa ? this.temporal.applyTAA(n, this.post.colorTexture, this.depthView, this.temporalState, t.postProcessing) : void 0;
 				this.post.render(n, r, t.postProcessing, t.camera3D, this.invViewProjection, o, this.depthView, t, this.temporalActive ? this.temporalState : void 0, a), this.temporalActive && this.temporalState.commit();
 			}
@@ -959,7 +957,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		} catch (e) {
 			throw this.temporalState.invalidate(), this.objectMotion?.releaseTarget(), e;
 		} finally {
-			this.colorAttachment.view = void 0, this.colorAttachment.resolveTarget = void 0, this.depthAttachment.view = void 0, this.shadowAttachment.view = void 0, this.renderScene = void 0, this.draws.length = 0, this.visibleDraws.length = 0, this.releaseUnused();
+			this.colorAttachment.view = void 0, this.colorAttachment.resolveTarget = void 0, this.depthAttachment.view = void 0, this.shadowAttachment.view = void 0, this.renderScene = void 0, this.releaseUnused();
 		}
 	}
 	createSceneGroup(e, t = this.refractionView ?? this.dummyEnvironmentView, n = this.environmentView, r = this.sceneBuffer, i = this.identityBuffer) {
@@ -1035,7 +1033,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		o?.validate(), r[860] = o?.distance ?? 0, r[861] = o?.thickness ?? 0, r[862] = o?.bias ?? 0, r[863] = o?.steps ?? 0, r[864] = o?.strength ?? 0, r[865] = this.proofWidth, r[866] = this.proofHeight, this.device.queue.writeBuffer(this.sceneBuffer, 0, r), this.stats.upload(r.byteLength);
 		let s = this.sceneSlots, c = 0, l;
 		this.sceneSlotIndex.clear();
-		for (let t of this.visibleDraws) {
+		for (let t of this.visibility.color) {
 			let i = this.meshes.get(t), a = e.lightSelection.selectMesh(t), o = l && sameSelection(l, a) ? l : void 0;
 			if (!o) {
 				let t = selectionKey(a), i = this.sceneSlotIndex.get(t);
@@ -1440,7 +1438,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		try {
 			o.setBindGroup(0, this.createSceneGroup(this.emptyShadowView, this.dummyEnvironmentView, this.environmentView, this.sceneBuffer, this.identityBuffer)), this.projectionOffsets[0] = 0, o.setBindGroup(3, this.contactProjectionGroup, this.projectionOffsets);
 			let e = this.passBindings.begin(o);
-			for (let t of this.visibleDraws) {
+			for (let t of this.visibility.color) {
 				if (this.blendedDraw(t) || t.material instanceof require_pbr_material.PBRMaterial && t.material.transmission > 0) continue;
 				let n = this.drawMesh(e, t, 3);
 				this.stats.draw(t.renderGeometry.indices.length, n);
@@ -1456,7 +1454,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		}
 	}
 	renderShadows(e, t, n, i) {
-		if (!this.shadowCache.needsRender(t, this.atlas, this.draws, this.visibility.entries, n, i)) {
+		if (!this.shadowCache.needsRender(t, this.atlas, this.visibility.shadows, this.visibility.entries, n, i)) {
 			this.shadowCache.commit(), this.stats.shadowCacheHits++;
 			return;
 		}
@@ -1470,7 +1468,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				let i = n % this.atlas.grid * t, o = Math.floor(n / this.atlas.grid) * t;
 				a.setViewport(i, o, t, t, 0, 1), a.setScissorRect(i, o, t, t), this.projectionOffsets[0] = n * 256, a.setBindGroup(3, this.projectionGroup, this.projectionOffsets);
 				let s = this.shadowFrustum.setFromMatrix(this.atlas.matrices[n]);
-				for (let t of this.draws) t.castShadow && require_render_visibility.castsIntoShadowView(s, t, this.visibility.entries.get(t)) && (this.drawMesh(e, t, 3), this.stats.shadowDrawCalls++);
+				for (let t of this.visibility.shadows) t.castShadow && require_render_visibility.castsIntoShadowView(s, t, this.visibility.entries.get(t)) && (this.drawMesh(e, t, 3), this.stats.shadowDrawCalls++);
 			}
 			this.shadowCache.commit();
 		} finally {
@@ -2031,7 +2029,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		for (let e of this.environments.values()) e.texture.destroy();
 		this.environments.clear(), this.dummyEnvironment.destroy();
 		for (let e of this.premultipliedTextures.values()) e.resource.destroy();
-		this.textures.clear(), this.premultipliedTextures.clear(), this.draws.length = 0, this.samplers.clear();
+		this.textures.clear(), this.premultipliedTextures.clear(), this.visibility.color.length = this.visibility.shadows.length = 0, this.samplers.clear();
 	}
 };
 function wordsDiffer(e, t, n, r) {

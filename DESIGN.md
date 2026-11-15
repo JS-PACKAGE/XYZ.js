@@ -6191,3 +6191,9 @@ sampling 同時聚合兩個方法名稱，並核對 renderer／total sampled byt
 `RenderVisibilityCache.collect` 已經以計數覆寫 `out.color` 並截短尾端；GL 卻在普通 frame 的 finally 清空它，讓下一次 gather 重新長大。把清空移入 `!frameRendered` 分支，成功幀就能保留陣列。失敗仍清空，probe 在 draw 後清空，無 3D 與 destroy 仍同時清空 visibility cache、entries 與 color。每次 draw 前必須完成 collect，因此保留的排序順序不會成為下次的輸入順序。
 
 color 中的 mesh 原本已被同一 renderer 的 visibility records／entries 持有；此改動不改變資源 ownership 或新增 cache。下一次 membership sync 及 gather 會覆寫／截短；無 3D 與 teardown 會釋放參照。六對 heap profiles 的 collect sampled self 約從 7.3 MB／512 submits 變成零，但這不等於精確 allocation 次數、retained heap、CPU 或 FPS 結論。GPU 未改動，作為 clocks 的控制組。完整證據見 ACCEPTANCE P229。
+
+## P230 — GPU 直接消費 visibility 的原始清單
+
+GPU 的 `draws` 與 `visibleDraws` 並不是另一種索引：前者逐一複製 `visibility.shadows`，後者逐一複製 `visibility.color`。所有使用都在同一次同步 render 的 collect 之後、finally 之前，不需隔離生命週期。移除欄位與複製，直接遷移 shadow cache／shadow pass、scene blocks、contact depth、color／weighted pass、sorting、velocity 的全部 caller；保留原本的 gathered union 與準備／update 邊界。
+
+sorting 現在就地改 color，但下次 collect 仍由 records 的 insertion order 重寫，shadows 是不同的陣列；offscreen caster 不可改從 color 選取。無 3D 仍清空 cache／entries／兩個清單，destroy 直接清空原清單，既有 ownership 不變。十二份 GPU profiles 顯示總 sampled bytes 每對均降低，但 CPU clocks 混合；效益只宣稱該 workloads 的配置取樣結果，不推為 FPS、精確配置次數或 retained heap。完整證據見 ACCEPTANCE P230。

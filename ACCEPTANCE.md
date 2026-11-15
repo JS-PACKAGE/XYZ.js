@@ -27503,3 +27503,184 @@ Chromium CDP HeapProfiler，interval 128 bytes、stackDepth 128，包含 minor�
 - 全部 runtime 為 pinned Playwright-managed Chromium 153.0.8010.12、darwin/arm64 desktop automation。未驗證 physical device、Safari／Firefox／Canvas2D、三 backend 認證、audio unlock、CJS runtime、全套 Vitest／全庫 lint／API compatibility、GPU 時間／呈現 FPS／retained heap／GC pauses。probe 清空維持原實作，未重跑 reflection capture 專項。
 
 六份既有文件同步；驗收在 size／mtimeNs／4,096-byte-tail guard 下只 append。僅提交一 source、四 outputs、六 docs，不 push。
+
+## P230 — 移除 GPU 的重複 draw 清單
+
+- 日期：2026-11-15；基準 commit：`ceeb1ba36`（P229）。維持 1.23.0，不 push／升版。
+- 採用：移除 GPU pipeline 的 private `draws`／`visibleDraws` 欄位與每幀 push 複製，全部消費端直接使用 visibility.shadows／color。六對 GPU heap profiles 的 total sampled bytes 全下降；shared median 52,672,884 → 38,415,060（−27.07%）、distinct-maps 225,592,892 → 210,866,460（−6.53%）。CPU clocks 混合，不宣稱 CPU／FPS 改善。
+
+### 契約與來源
+
+P229 記錄 GPU 清單逐幀清空／重長尚未處理。實查後確認這兩個清單不含額外資訊：color 與 shadows gather 完後被逐一 push 複製，所有使用都在同一次同步 render 中。比起維持兩份 retained arrays，更小的架構是直接刪除副本。
+
+- 移除兩個 private 欄位、過期的 subset 註解、開頭與 finally 的兩次清空、兩個 push。sorting、scene blocks、color／weighted pass、contact depth、velocity、shadow cache／shadow pass 共用既有 owner arrays，不加 alias、shim、cache 或配置。destroy 改為直接清空 owner arrays。
+- gathered union、epoch 去重、資源預備／更新、offscreen caster residency 與 drawnGathered 分界保留。ShadowCache 的 meshes 是 readonly、只走訪；shadows 不會因 color sorting 改變。下次 collect 由 records insertion order 重寫 color，所以不是承接上次排序順序。
+- GL 完全沒改，作為 CPU／native consumers 的控制組；不改公開 API、依賴或資源 ownership。私有宣告只移除兩個 readonly 欄位及相應註解。
+
+### 獨立 GPU heap sampling
+
+CDP HeapProfiler：128-byte interval、stackDepth 128，包含 major／minor GC 已回收物件。三輪 × shared／distinct-maps × before／after，共十二份；每份 512 次真實 WebGPU 完整 submit、1,000 BLEND draws、per-object motion 開啟。所有 CPU clocks 完成後才啟用 sampler。固定 cohorts 的 shadow 清單也含 mesh（即使 workload 未啟用 shadow pass），因此刪除的是兩份逐幀副本。
+
+| Round | Cohort        | Variant | Total sampled bytes | GPU pipeline self bytes | render self bytes | Samples |
+| ----: | ------------- | ------- | ------------------: | ----------------------: | ----------------: | ------: |
+|     1 | shared        | before  |            52741996 |                43808720 |          25567092 |  230844 |
+|     1 | shared        | after   |            38415060 |                29385872 |          11145728 |  224889 |
+|     1 | distinct-maps | before  |           225595604 |               216748288 |          25401340 | 1443672 |
+|     1 | distinct-maps | after   |           210866460 |               202101840 |          10825720 | 1434819 |
+|     2 | shared        | after   |            38442396 |                29463268 |          11182868 |  225084 |
+|     2 | shared        | before  |            52672884 |                43712952 |          25561300 |  230360 |
+|     2 | distinct-maps | after   |           210764876 |               201937364 |          10797784 | 1434117 |
+|     2 | distinct-maps | before  |           225381444 |               216562816 |          25334080 | 1442171 |
+|     3 | shared        | before  |            52641620 |                43780340 |          25591516 |  230142 |
+|     3 | shared        | after   |            38316484 |                29282640 |          11148876 |  224151 |
+|     3 | distinct-maps | before  |           225592892 |               216729100 |          25402552 | 1443633 |
+|     3 | distinct-maps | after   |           210919760 |               202084760 |          10798028 | 1435210 |
+
+總計六對 total 皆下降，render self 約少 14–15 MB／512 submits，但不變成零；整個 source 的 self 也同時下降，不是改方法名稱造成歸因消失。統計 sampled bytes 不等於精確 allocation 次數、VM 機制、retained heap、GPU bytes、GC 暫停或 FPS。distinct-maps 的大量 cacheTexture 歸因仍在，本階段不宣稱解決。
+
+### 固定 CPU matrix
+
+六輪 AB/BA、每列 24 次完整 submit、每輪 variant 以新 browser 跑八個 workloads，共 192 列。每列記錄所提供 GPU pipeline 模組 SHA（before／after 各一種且不同）；GL 不執行它，是未修改控制組。draw calls／upload bytes 逐 workload 一致。保留所有初始 rounds 與量化的 single cohort，不重測挑結果，不引用前階段 A/A 當本輪資料。
+
+| Backend / workload        | Before ms/submit | After ms/submit | Change % | Upload bytes before / after |
+| ------------------------- | ---------------: | --------------: | -------: | --------------------------: |
+| webgl2 / none             |         0.779167 |        0.785417 |     0.80 |                 4048 / 4048 |
+| webgl2 / shared           |         0.956250 |        0.964583 |     0.87 |                 4048 / 4048 |
+| webgl2 / unique           |         2.481250 |        2.450000 |    -1.26 |                 4048 / 4048 |
+| webgl2 / instance         |         0.247917 |        0.239583 |    -3.36 |                 4048 / 4048 |
+| webgl2 / alternating      |         1.787500 |        1.779167 |    -0.47 |                 4048 / 4048 |
+| webgl2 / single           |         0.012500 |        0.012500 |     0.00 |                 4048 / 4048 |
+| webgl2 / distinct-maps    |         0.997917 |        1.002083 |     0.42 |                 4048 / 4048 |
+| webgl2 / alternating-maps |         0.929167 |        0.925000 |    -0.45 |                 4048 / 4048 |
+| webgpu / none             |         0.683333 |        0.677083 |    -0.91 |                 7856 / 7856 |
+| webgpu / shared           |         0.862500 |        0.850000 |    -1.45 |             135856 / 135856 |
+| webgpu / unique           |         1.087500 |        1.091667 |     0.38 |             135856 / 135856 |
+| webgpu / instance         |         0.145833 |        0.143750 |    -1.43 |             135856 / 135856 |
+| webgpu / alternating      |         0.941667 |        0.947917 |     0.66 |             135856 / 135856 |
+| webgpu / single           |         0.018750 |        0.020833 |    11.11 |                 7984 / 7984 |
+| webgpu / distinct-maps    |         1.047917 |        1.039583 |    -0.80 |             135856 / 135856 |
+| webgpu / alternating-maps |         1.004167 |        0.985417 |    -1.87 |             135856 / 135856 |
+
+#### GL 未修改控制組全部配對
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           1.829167 |          0.791667 |
+| shared / 1           |           0.954167 |          0.962500 |
+| unique / 1           |           2.475000 |          2.462500 |
+| instance / 1         |           0.237500 |          0.245833 |
+| alternating / 1      |           1.795833 |          1.754167 |
+| single / 1           |           0.012500 |          0.012500 |
+| distinct-maps / 1    |           0.987500 |          1.008333 |
+| alternating-maps / 1 |           0.900000 |          0.900000 |
+| none / 2             |           0.770833 |          0.779167 |
+| shared / 2           |           0.954167 |          0.937500 |
+| unique / 2           |           2.495833 |          2.437500 |
+| instance / 2         |           0.254167 |          0.233333 |
+| alternating / 2      |           1.779167 |          1.770833 |
+| single / 2           |           0.008333 |          0.016667 |
+| distinct-maps / 2    |           0.991667 |          0.979167 |
+| alternating-maps / 2 |           0.908333 |          0.929167 |
+| none / 3             |           0.783333 |          0.783333 |
+| shared / 3           |           0.954167 |          0.966667 |
+| unique / 3           |           2.470833 |          2.425000 |
+| instance / 3         |           0.237500 |          0.241667 |
+| alternating / 3      |           1.754167 |          1.850000 |
+| single / 3           |           0.016667 |          0.012500 |
+| distinct-maps / 3    |           1.016667 |          0.995833 |
+| alternating-maps / 3 |           0.916667 |          0.925000 |
+| none / 4             |           0.779167 |          0.783333 |
+| shared / 4           |           0.958333 |          0.945833 |
+| unique / 4           |           2.483333 |          2.437500 |
+| instance / 4         |           0.245833 |          0.233333 |
+| alternating / 4      |           1.758333 |          1.741667 |
+| single / 4           |           0.016667 |          0.012500 |
+| distinct-maps / 4    |           1.012500 |          1.033333 |
+| alternating-maps / 4 |           0.975000 |          0.925000 |
+| none / 5             |           0.779167 |          0.845833 |
+| shared / 5           |           0.995833 |          0.983333 |
+| unique / 5           |           2.479167 |          2.495833 |
+| instance / 5         |           0.250000 |          0.241667 |
+| alternating / 5      |           1.879167 |          1.795833 |
+| single / 5           |           0.008333 |          0.012500 |
+| distinct-maps / 5    |           1.000000 |          0.995833 |
+| alternating-maps / 5 |           0.941667 |          0.925000 |
+| none / 6             |           0.775000 |          0.787500 |
+| shared / 6           |           1.037500 |          0.995833 |
+| unique / 6           |           2.658333 |          2.520833 |
+| instance / 6         |           0.266667 |          0.237500 |
+| alternating / 6      |           1.870833 |          1.787500 |
+| single / 6           |           0.012500 |          0.012500 |
+| distinct-maps / 6    |           0.995833 |          1.008333 |
+| alternating-maps / 6 |           1.008333 |          0.950000 |
+
+#### GPU 全部配對
+
+| Workload / round     | Before (ms/submit) | After (ms/submit) |
+| -------------------- | -----------------: | ----------------: |
+| none / 1             |           0.687500 |          0.679167 |
+| shared / 1           |           0.866667 |          0.850000 |
+| unique / 1           |           1.100000 |          1.095833 |
+| instance / 1         |           0.150000 |          0.145833 |
+| alternating / 1      |           0.958333 |          0.945833 |
+| single / 1           |           0.020833 |          0.020833 |
+| distinct-maps / 1    |           1.066667 |          1.033333 |
+| alternating-maps / 1 |           1.004167 |          1.033333 |
+| none / 2             |           0.716667 |          0.712500 |
+| shared / 2           |           0.850000 |          0.933333 |
+| unique / 2           |           1.104167 |          1.154167 |
+| instance / 2         |           0.145833 |          0.145833 |
+| alternating / 2      |           0.941667 |          0.950000 |
+| single / 2           |           0.016667 |          0.020833 |
+| distinct-maps / 2    |           1.041667 |          1.408333 |
+| alternating-maps / 2 |           1.037500 |          1.050000 |
+| none / 3             |           0.679167 |          0.675000 |
+| shared / 3           |           0.875000 |          0.850000 |
+| unique / 3           |           1.083333 |          1.066667 |
+| instance / 3         |           0.145833 |          0.137500 |
+| alternating / 3      |           0.941667 |          0.920833 |
+| single / 3           |           0.016667 |          0.020833 |
+| distinct-maps / 3    |           1.075000 |          1.045833 |
+| alternating-maps / 3 |           1.004167 |          0.983333 |
+| none / 4             |           0.708333 |          0.662500 |
+| shared / 4           |           0.858333 |          0.845833 |
+| unique / 4           |           1.058333 |          1.091667 |
+| instance / 4         |           0.145833 |          0.145833 |
+| alternating / 4      |           0.925000 |          0.950000 |
+| single / 4           |           0.016667 |          0.025000 |
+| distinct-maps / 4    |           1.054167 |          1.020833 |
+| alternating-maps / 4 |           1.008333 |          0.987500 |
+| none / 5             |           0.670833 |          0.662500 |
+| shared / 5           |           0.900000 |          0.850000 |
+| unique / 5           |           1.091667 |          1.087500 |
+| instance / 5         |           0.141667 |          0.141667 |
+| alternating / 5      |           0.958333 |          0.950000 |
+| single / 5           |           0.025000 |          0.020833 |
+| distinct-maps / 5    |           1.041667 |          1.016667 |
+| alternating-maps / 5 |           0.975000 |          0.979167 |
+| none / 6             |           0.679167 |          0.679167 |
+| shared / 6           |           0.858333 |          0.866667 |
+| unique / 6           |           1.070833 |          1.091667 |
+| instance / 6         |           0.150000 |          0.141667 |
+| alternating / 6      |           0.941667 |          0.945833 |
+| single / 6           |           0.020833 |          0.016667 |
+| distinct-maps / 6    |           1.033333 |          1.050000 |
+| alternating-maps / 6 |           0.995833 |          0.983333 |
+
+### 正式 source／built dist consumer 證明
+
+- 既有 P229 lifecycle probe 每頁 single／MSAA 各 13 frames，涵蓋 160→0→140→5→0→130→160、深度鏡像、空 Scene／恢復、刻意排序失敗後恢復、真正移除／重新加入 mesh；本輪再增加 weighted／weighted repeat／sorted restore，每頁共 32 frames。GL weighted 每個 blended mesh 有 accumulation／revealage 兩次 draw，GPU 為一次；都按正式程式的實際契約檢查計數。
+- 專用 offscreen shadow probe：orthographic 視域外的 cube 必須被 color cull，但在 receiver 投影可見陰影（首幀 1 color draw／1 culled／1 shadow draw）；驗證 cache hit、不再重畫 atlas、停用 shadows、castShadow=false、恢復、移動、移除與重新加入。single／MSAA 各八 frames，共 16 frames／page。陰影改變 2,240 px、移動改變 1,120 px；還原／移除／重新加入均 exact。
+- 兩個 probes 在 canonical source／dist × GL／GPU，比對 before／after 全部 RGBA 與 13 個穩定公開計數器：128 lifecycle pairs + 64 shadow pairs = 192 pairs／12,582,912 RGBA bytes，完全相同。GPU validation scopes、graphics／page／console errors 為零。
+- 反例只在 throwaway GPU module 把 shadow pass 的 shadows 清單錯換成 color：真正 GPU 第一幀 shadowDrawCalls 變成 0，probe 以「Offscreen caster missing from shadow-only list」失敗；不是 shader／setup 錯誤，也不改正式實作。
+- contact-shadows 正式 fixture body 不變，只把 entry import 改為 source 或 built dist；共八頁，每頁 single／MSAA 兩個 cases。before／after PNG 及 changedPixels 完全相同：GL 254／254、GPU 254／255 px；fixture 亦檢查停用後恢復原圖。沒有把 PNG 壓縮大小當 RGBA byte 數。
+- 官方 post-effects 未修改 fixture：source／dist × GL／GPU 各 24 scenarios 通過，包含 per-object motion；沒有新增 native velocity payload／buffer instrumentation，不推為歷史矩陣 proof 的重測。showcase 兩 backend Scene A→B／pagehide native cleanup 通過；offscreen shadow dist PNG 與 GPU showcase PNG 已實際檢視，音訊仍 locked。
+
+### 檢查、建置與限制
+
+- 正式 source 與候選逐 byte 一致。tsc -p tsconfig.check.json、改動 GPU source 的 eslint／prettier 通過；Vitest 5 檔／49 項通過（draw-order、render-visibility、shadow-cache、resilient-renderer、resource-residency）。既有 membership／shadow cache tests 與原生 consumer 已覆蓋，不新增重複永久測試。
+- 隔離目錄跑正式 build（377 JS／720 CJS）；舊輸出 byte guards 通過後只推進 GPU pipeline 的四個 JS／map 與一個 d.ts。宣告 byte guard 證明只有兩個 private readonly 欄位及 subset 註解移除。既有 physics2d／world2d 不 stage、不覆寫／還原。
+- Harness 錯誤：宣告 guard 第一版預期 private 而漏掉 readonly，promotion 前即失敗；按實際宣告修正。weighted probe 第一版預期 GL blended draw 一次，baseline 以 321≠161 失敗；閱讀正式兩個 OIT pass 後改為 backend-specific 計數。都未修改 candidate、放寬像素門檻或重測 CPU／heap。
+- runtime 只限 pinned Playwright-managed Chromium 153.0.8010.12、darwin/arm64 desktop automation，不是實機、Safari／Firefox／Canvas2D 或三 backend 認證。未跑全套 Vitest／全庫 lint／API gate、CJS runtime、audio unlock、GPU 時間／呈現 FPS／retained heap／GC pause；未重跑 reflection capture／device loss 專項。
+
+六份既有文件同步；ACCEPTANCE 於 size／mtimeNs／4,096-byte-tail guard 下只 append。僅提交一 source、五 outputs、六 docs，不 push。

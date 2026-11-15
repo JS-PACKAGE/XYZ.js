@@ -483,10 +483,7 @@ export class WebGPUMeshPipeline {
   private recentMeshPipeline = -1;
   private readonly pendingMeshPipelines = new Set<Promise<void>>();
   private renderScene?: Scene;
-  private readonly draws: Mesh[] = [];
   private readonly passBindings = new PassBindings();
-  /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
-  private readonly visibleDraws: Mesh[] = [];
   private readonly frustum = new Frustum();
   private readonly shadowFrustum = new Frustum();
   private readonly drawSorter = new DrawSorter();
@@ -1269,8 +1266,6 @@ export class WebGPUMeshPipeline {
     this.frame++;
     for (const buffer of this.retired) buffer.destroy();
     this.retired.length = 0;
-    this.draws.length = 0;
-    this.visibleDraws.length = 0;
     try {
       if (!scene?.has3DContent) {
         this.releaseContactDepth();
@@ -1386,7 +1381,6 @@ export class WebGPUMeshPipeline {
       this.gathered.length = 0;
       const epoch = ++this.gatherEpoch;
       for (const object of this.visibility.color) {
-        this.visibleDraws.push(object);
         if (this.gatheredEpochs.get(object) !== epoch) {
           this.gatheredEpochs.set(object, epoch);
           this.gathered.push(object);
@@ -1416,7 +1410,6 @@ export class WebGPUMeshPipeline {
         ? Infinity
         : this.gathered.length;
       for (const object of this.visibility.shadows) {
-        this.draws.push(object);
         if (this.gatheredEpochs.get(object) !== epoch) {
           this.gatheredEpochs.set(object, epoch);
           this.gathered.push(object);
@@ -1441,7 +1434,7 @@ export class WebGPUMeshPipeline {
       }
       if (scene.transparency === 'sorted')
         this.drawSorter.sort(
-          this.visibleDraws,
+          this.visibility.color,
           scene.camera3D.position,
           this.blendedDraw,
         );
@@ -1486,7 +1479,7 @@ export class WebGPUMeshPipeline {
       else this.releaseRefraction();
       const background = activeBackground(scene);
       if (
-        !this.visibleDraws.length &&
+        !this.visibility.color.length &&
         !linear &&
         !background &&
         (scene.gpuParticleEmitters?.size ?? 0) === 0
@@ -1528,7 +1521,7 @@ export class WebGPUMeshPipeline {
           }
           pass.setBindGroup(0, this.sceneBindGroup);
           const bindings = this.passBindings.begin(pass);
-          for (const object of this.visibleDraws) {
+          for (const object of this.visibility.color) {
             if (weighted && this.blendedDraw(object)) continue;
             if (hasTransmission || ssr) {
               const deferred =
@@ -1599,7 +1592,7 @@ export class WebGPUMeshPipeline {
         const pass = this.oit.begin(encoder, width, height, this.depthView!);
         try {
           const bindings = this.passBindings.begin(pass);
-          for (const object of this.visibleDraws) {
+          for (const object of this.visibility.color) {
             if (!this.blendedDraw(object)) continue;
             pass.setBindGroup(
               0,
@@ -1625,7 +1618,7 @@ export class WebGPUMeshPipeline {
           );
           velocity = this.objectMotion.render(
             encoder,
-            this.visibleDraws,
+            this.visibility.color,
             this.temporalState,
             this.depthView!,
             this.motionGeometry,
@@ -1666,8 +1659,6 @@ export class WebGPUMeshPipeline {
       this.depthAttachment.view = undefined;
       this.shadowAttachment.view = undefined;
       this.renderScene = undefined;
-      this.draws.length = 0;
-      this.visibleDraws.length = 0;
       this.releaseUnused();
     }
   }
@@ -1773,7 +1764,7 @@ export class WebGPUMeshPipeline {
     let used = 0,
       previous: SceneSlot | undefined;
     this.sceneSlotIndex.clear();
-    for (const object of this.visibleDraws) {
+    for (const object of this.visibility.color) {
       const mesh = this.meshes.get(object)!;
       const selected = scene.lightSelection.selectMesh(object);
       let slot =
@@ -2526,7 +2517,7 @@ export class WebGPUMeshPipeline {
         this.projectionOffsets,
       );
       const bindings = this.passBindings.begin(pass);
-      for (const object of this.visibleDraws) {
+      for (const object of this.visibility.color) {
         if (
           this.blendedDraw(object) ||
           (object.material instanceof PBRMaterial &&
@@ -2561,7 +2552,7 @@ export class WebGPUMeshPipeline {
       !this.shadowCache.needsRender(
         scene,
         this.atlas,
-        this.draws,
+        this.visibility.shadows,
         this.visibility.entries,
         width,
         height,
@@ -2589,7 +2580,7 @@ export class WebGPUMeshPipeline {
         const frustum = this.shadowFrustum.setFromMatrix(
           this.atlas.matrices[tile]!,
         );
-        for (const object of this.draws)
+        for (const object of this.visibility.shadows)
           if (
             object.castShadow &&
             castsIntoShadowView(
@@ -4032,7 +4023,7 @@ export class WebGPUMeshPipeline {
       entry.resource.destroy();
     this.textures.clear();
     this.premultipliedTextures.clear();
-    this.draws.length = 0;
+    this.visibility.color.length = this.visibility.shadows.length = 0;
     this.samplers.clear();
   }
 }

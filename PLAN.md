@@ -6034,3 +6034,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 只把普通 frame 的清空移入既有失敗分支；probe、無 3D 與 teardown 的清空維持原樣，不改 GPU 或公開 API。
 - 固定 192-row CPU matrix、十二份 heap profiles，以及縮減／重新加入 draw、空場景切換、刻意排序失敗後恢復的原生像素驗證；既有 visibility 測試已涵蓋 membership 與順序，不新增重複測試。
 - source／dist、per-object motion 與 showcase 的實際驗證另記 ACCEPTANCE；只提交本功能、產物與六份文件，不 push／升版。
+
+## P230 — Remove duplicate GPU draw arrays
+
+- `visibleDraws` 與 `draws` 只是逐幀 push 複製 visibility 的 color／shadows；刪除兩個 private 欄位、複製與清空，全部 caller 直接使用原陣列，不保留 alias／shim。
+- 保留 gathered union、資源準備／update、排序規則、shadow cache、contact depth 與 object motion；destroy 直接清空原 visibility 陣列。
+- 固定 192-row CPU matrix 與十二份 GPU heap profiles；GL 是未修改控制組。不以混合 clocks 宣稱 CPU／FPS 改善。
+- 原生 membership／失敗恢復、sorted／weighted、offscreen shadow／cache／移除再加入與錯用 color list 的 mutant、contact depth、source／dist 與 showcase 另記 ACCEPTANCE；按功能提交，不 push／升版。
