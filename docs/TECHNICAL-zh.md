@@ -7397,3 +7397,7 @@ Node／Chromium 六輪 ABBA／BAAB 完整 public update 量測，預設布料 CP
 spring-force 沿用 P237 的 scalar 慣例，保留 robust hypot3、短 spring guard、先 reciprocal 再逐 component 相乘、relative velocity 加法與 force accumulation 順序。integration、projection、世界 sweep、validation、mesh upload 與公開契約不變，不新增 state／cache／依賴。
 
 一般布料完整 public update median 在 Node 約省 1.5–2.4%、Chromium 約省 2.6–3.6%；無 spring 控制組與高 iteration 有混合配對 clocks，不宣稱普遍收益、配置／GC 或 GPU／FPS 改善。完整控制組、source／ESM／CJS 精確 state／error 對拍、錯誤 force mutant 與原生 source／dist 變形驗證見 [ACCEPTANCE](../ACCEPTANCE.md) P238。
+
+## P239：未採用預先計算 soft-body drag 衰減
+
+constructor 以 exp(-drag*fixedDelta) 預先計算值取代 private drag，包含可變 update delta 與 pin transitions 的精確 state／error 對拍一致；但完整 update paired clocks 混合，一般 median 大多只變約 0–2%，Chromium cloth16／iter1 退步，因此不採用。source／dist／tests 維持 P238，不以 source-level Math.exp 次數推論 compiled CPU、配置或 FPS 效益。完整配對與額外 8,640 次可變 timestep 對拍見 [ACCEPTANCE](../ACCEPTANCE.md) P239；本次文件拒絕紀錄不代表重新 native／build 驗證。

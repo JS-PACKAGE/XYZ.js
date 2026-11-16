@@ -6091,3 +6091,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 六輪 Node／Chromium 完整 update 量測另含無 spring 控制組；一般布料 median 約省 1.5–2.4%／2.6–3.6%，高 iteration 與控制組含混合 clocks，不宣稱普遍收益或 GPU／FPS／配置改善。
 - canonical／ESM／CJS 各 17,280 次狀態與 104 組極端輸入對拍、反向 y-force mutant、46 項既有測試及 source／dist 雙 backend 原生變形驗證見 ACCEPTANCE。
 - 隔離 build 只更新四個 softbody JS／map 產物，使用者 physics2d／world2d 修改不納入；按功能提交，不 push／升版。
+
+## P239 — Reject precomputed soft-body drag attenuation
+
+- 候選把 private drag 換成依 readonly fixedDelta 預先計算的 attenuation，不增欄位；完整 public update 六輪 Node／Chromium 配對 clocks 混合，多數 median 只變約 0–2%，Chromium cloth16／iter1 退步，因此不採用。
+- 17,280 次狀態對拍、104 組極端輸入與額外 36 組 drag／fixedDelta 配置的 8,640 次可變 delta／pin 對拍相同，但正確性不能代替效能證據。
+- source／dist／tests 維持 P238；只同步六份文件並記錄拒絕，不重跑或冒稱 native／build 驗證，不 push／升版。

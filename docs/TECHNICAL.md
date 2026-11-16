@@ -7752,3 +7752,7 @@ Six-round Node/Chromium ABBA/BAAB measurements of complete public updates show a
 The spring-force loop follows P237's scalar convention, preserving robust hypot3, the short-spring guard, reciprocal-then-component multiplication, relative-velocity addition and force accumulation order. Integration, projection, world sweeps, validation, mesh upload and public contracts do not change; no new state/cache/dependency.
 
 Complete public-update medians for ordinary cloth improve about 1.5–2.4% in Node and 2.6–3.6% in Chromium. The no-spring control and high-iteration cases have mixed paired clocks, so there is no unconditional speedup, allocation/GC or GPU/FPS claim. See [ACCEPTANCE](../ACCEPTANCE.md) P238 for full paired controls, exact source/ESM/CJS state/error comparisons, a wrong-force mutant and native source/dist deformation verification.
+
+## P239: rejected precomputed soft-body drag attenuation
+
+Replacing the private drag field with exp(-drag*fixedDelta) computed at construction preserved exact state/error behavior, including variable public update deltas and pin transitions. Full-update paired clocks were mixed, typical medians moved only around 0–2%, and Chromium cloth16/iter1 regressed. The candidate is not adopted; source/dist/tests stay at P238. Fewer source-level Math.exp expressions do not establish compiled CPU, allocation or FPS gains. See [ACCEPTANCE](../ACCEPTANCE.md) P239 for full pairs and 8,640 additional variable-timestep comparisons; no native/build rerun is implied by this documentation-only rejection.

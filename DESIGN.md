@@ -6245,3 +6245,7 @@ Node／Chromium 六輪 public update 的預設布料 CPU 約減 5–6%，16 次 
 沿用 P237 的 scalar 慣例，spring-force 只在 locals 保存差值與 unit direction；hypot3、length <1e-12 的 early exit、先 reciprocal 再逐 component 相乘、relative velocity 的加法與 force accumulation 順序皆不變。沒有新的 state／cache／公開型別，integration、世界 sweep、mesh upload 與 ownership 不變。
 
 完整 public update 的一般布料 median 在 Node 約減 1.5–2.4%、Chromium 約減 2.6–3.6%；無 spring 控制組與高 iteration 有混合 clocks，不宣稱 unconditional speedup、GPU／FPS、配置或 GC 改善。配對數據、精確 state／error 對拍與原生證據見 ACCEPTANCE P238。
+
+## P239 — 不採用預先計算 drag 衰減
+
+用 exp(-drag*fixedDelta) 預先計算 private attenuation 取代 drag 欄位，在 readonly fixedDelta 契約下數值對拍一致，但一般完整 update median 大多僅變約 0–2%，paired clocks 混合且部分 Chromium workload 退步。沒有足夠效益支持改變 derived-state 表示，保留 P238 的 per-particle 表達式；不能從 source-level Math.exp 次數推論實際 compiled CPU 或配置減少。完整量測與可變 delta 對拍見 ACCEPTANCE P239。

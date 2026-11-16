@@ -29101,3 +29101,75 @@ The gain is modest: representative cloth medians improve about 1.5–2.4% in Nod
 - Focused existing native soft-body scenario, public source/dist roots ×WebGL2/WebGPU: all four pass sag/pins, released-particle settling, repin and real native geometry upload; each changes 1,247 pixels with geometry version 721, and graphics/page errors are empty. These are pinned Chromium desktop automation results, not physical-device/Safari/other-browser certification.
 - Isolated full production build from P237 HEAD plus this source change differs only in four softbody ESM/CJS JavaScript/map files; declarations unchanged. Those four artifacts were guarded and promoted while preserving hashes for all eleven user-owned physics2d/world2d files.
 - Six project documents synchronized, Markdown format and relative-file links checked; historical ACCEPTANCE bytes retained unchanged. Throwaway scripts/modules/profiles/build trees and services removed before commit. Exact staged allowlist includes only this feature, four outputs and six documents; no push/version bump.
+
+## P239 — Reject precomputed soft-body drag attenuation (2026-11-17)
+
+### Candidate and decision
+
+An isolated candidate replaced the private drag scalar with an attenuation scalar computed once after validating readonly fixedDelta: exp(-drag*fixedDelta). The particle integration loop loaded that factor instead of expressing exp(-drag*dt) per particle. No extra field was added and step always receives fixedDelta. Constructor validation order otherwise stayed intact. This candidate is **not adopted**: typical medians move only around 0–2%, paired clocks are mixed and Chromium cloth16/iter1 get slower. A reduced source-level Math.exp count is not evidence that compiled execution, CPU cost or allocations materially improve. Formal source, declarations, tests and dist remain at P238.
+
+### Complete public-update CPU measurements
+
+Same isolated TypeScript 6.0.3 ES2022 comparison, Node v26.7.0 and pinned Chromium 153.0.8010.12 darwin/arm64, fixture and timing boundary as P238. Node cloth masses are heterogeneous; browser masses are 1. Six counterbalanced ABBA/BAAB rounds, 600 warm-up plus 1,200 measured public updates per sample, no mesh/renderer. One pinned particle with no springs is the unchanged-loop control (10,000 warm-up /120,000 timed updates). Tables contain six-pair medians and per-round averages of two samples per variant, in CPU wall ms/update. Browser visible; page errors empty. No assistant-owned test/build/profile ran during timing.
+
+| Case       | Node before ms/update | Node candidate | Node change % | Node paired range % | Chromium before ms/update | Chromium candidate | Chromium change % | Chromium paired range % |
+| ---------- | --------------------- | -------------- | ------------- | ------------------- | ------------------------- | ------------------ | ----------------- | ----------------------- |
+| small      | 0.003042              | 0.003008       | -1.12         | -26.92…1.99         | 0.003250                  | 0.003229           | -0.64             | -25.81…13.92            |
+| cloth16    | 0.058827              | 0.058676       | -0.26         | -2.09…7.30          | 0.061312                  | 0.062083           | 1.26              | -1.22…5.48              |
+| cloth32    | 0.242371              | 0.240459       | -0.79         | -7.78…-0.25         | 0.249187                  | 0.246667           | -1.01             | -3.40…7.13              |
+| tight32    | 0.275820              | 0.270553       | -1.91         | -5.83…-0.56         | 0.280771                  | 0.278250           | -0.90             | -4.65…3.91              |
+| iter1      | 0.204755              | 0.202519       | -1.09         | -3.39…-0.65         | 0.210396                  | 0.213625           | 1.53              | -5.32…28.31             |
+| iter16     | 0.396506              | 0.393450       | -0.77         | -1.70…5.89          | 0.419812                  | 0.415271           | -1.08             | -1.61…3.15              |
+| no-springs | 0.000080              | 0.000079       | -0.63         | -1.47…6.07          | 0.000074                  | 0.000075           | 1.40              | -21.48…11.76            |
+
+| Round | Case       | Node before ms/update | Node candidate | Chromium before ms/update | Chromium candidate |
+| ----- | ---------- | --------------------- | -------------- | ------------------------- | ------------------ |
+| 1     | small      | 0.005695              | 0.004162       | 0.005167                  | 0.003833           |
+| 1     | cloth16    | 0.059967              | 0.058714       | 0.062625                  | 0.063292           |
+| 1     | cloth32    | 0.261241              | 0.240903       | 0.240375                  | 0.232208           |
+| 1     | tight32    | 0.278268              | 0.273926       | 0.278458                  | 0.265500           |
+| 1     | iter1      | 0.215164              | 0.207875       | 0.206333                  | 0.264750           |
+| 1     | iter16     | 0.397958              | 0.404728       | 0.405792                  | 0.406500           |
+| 1     | no-springs | 0.000082              | 0.000087       | 0.000075                  | 0.000075           |
+| 2     | small      | 0.003152              | 0.003023       | 0.003125                  | 0.003125           |
+| 2     | cloth16    | 0.058892              | 0.058880       | 0.061292                  | 0.060542           |
+| 2     | cloth32    | 0.242548              | 0.241944       | 0.247833                  | 0.245542           |
+| 2     | tight32    | 0.278990              | 0.270691       | 0.281125                  | 0.285833           |
+| 2     | iter1      | 0.204626              | 0.202342       | 0.228125                  | 0.216000           |
+| 2     | iter16     | 0.396519              | 0.392701       | 0.431208                  | 0.426833           |
+| 2     | no-springs | 0.000080              | 0.000079       | 0.000071                  | 0.000079           |
+| 3     | small      | 0.003017              | 0.002994       | 0.003583                  | 0.003292           |
+| 3     | cloth16    | 0.058704              | 0.062989       | 0.061208                  | 0.060750           |
+| 3     | cloth32    | 0.245631              | 0.240202       | 0.248625                  | 0.256292           |
+| 3     | tight32    | 0.286922              | 0.270207       | 0.281500                  | 0.278125           |
+| 3     | iter1      | 0.205879              | 0.202042       | 0.208750                  | 0.205958           |
+| 3     | iter16     | 0.398003              | 0.391225       | 0.432542                  | 0.446167           |
+| 3     | no-springs | 0.000080              | 0.000080       | 0.000107                  | 0.000084           |
+| 4     | small      | 0.003048              | 0.002959       | 0.003292                  | 0.003750           |
+| 4     | cloth16    | 0.059498              | 0.058328       | 0.067083                  | 0.068417           |
+| 4     | cloth32    | 0.242065              | 0.240715       | 0.275708                  | 0.295375           |
+| 4     | tight32    | 0.271979              | 0.270446       | 0.320750                  | 0.333292           |
+| 4     | iter1      | 0.204124              | 0.202695       | 0.223625                  | 0.216958           |
+| 4     | iter16     | 0.394501              | 0.391243       | 0.418500                  | 0.415333           |
+| 4     | no-springs | 0.000080              | 0.000079       | 0.000075                  | 0.000072           |
+| 5     | small      | 0.002999              | 0.003059       | 0.003208                  | 0.003167           |
+| 5     | cloth16    | 0.058587              | 0.058096       | 0.060875                  | 0.064208           |
+| 5     | cloth32    | 0.242194              | 0.239042       | 0.249750                  | 0.247000           |
+| 5     | tight32    | 0.272733              | 0.270623       | 0.280125                  | 0.276625           |
+| 5     | iter1      | 0.204884              | 0.201789       | 0.209917                  | 0.211250           |
+| 5     | iter16     | 0.393853              | 0.394199       | 0.414875                  | 0.415208           |
+| 5     | no-springs | 0.000077              | 0.000077       | 0.000073                  | 0.000076           |
+| 6     | small      | 0.003036              | 0.002984       | 0.003167                  | 0.003167           |
+| 6     | cloth16    | 0.058762              | 0.058637       | 0.061333                  | 0.060875           |
+| 6     | cloth32    | 0.241941              | 0.240166       | 0.251833                  | 0.246333           |
+| 6     | tight32    | 0.273372              | 0.270483       | 0.280417                  | 0.278375           |
+| 6     | iter1      | 0.204228              | 0.202894       | 0.210875                  | 0.207917           |
+| 6     | iter16     | 0.396492              | 0.419853       | 0.421125                  | 0.414333           |
+| 6     | no-springs | 0.000075              | 0.000075       | 0.000072                  | 0.000074           |
+
+### Numerical evidence and limits
+
+- Candidate and unchanged P238 baseline match exactly for 17,280 deterministic particle updates plus 104 extreme/near-boundary state/error probes (the same independent-state harness as P238).
+- An additional 36 configurations ×240 calls =8,640 exact state comparisons vary fixedDelta across 1e-5, 1/1024, 1/240, 1/120, 1/30 and 0.5, and drag across -0, 0, 0.01, 1, 1000 and Number.MAX_VALUE. Fractional/zero/multi-substep update deltas, external velocity edits and pin/unpin transitions agree. Matching numerical behavior is not a performance win.
+- A draft fixed-substep drag contract test was kept only in the temporary directory and discarded with the rejected candidate; no permanent tests/source/dist changed. No build/typecheck/unit/native renderer rerun, heap/GC sampling, GPU/FPS or browser-compatibility claim is made for this docs-only rejection. P238 runtime evidence remains historical, not reverified here.
+- Six documents synchronized and formatting/relative-file links checked; historical ACCEPTANCE prefix unchanged. Candidate modules, proof scripts, profiles, unused build/native drivers and services are removed. Exact staged allowlist includes only six documents; user-owned physics2d/world2d files are not overwritten or staged. No push/version bump.

@@ -106,6 +106,8 @@ P237 將 SoftBody3D 的 stretch projection 暫存向量改為 scalar，保留原
 
 P238 將 SoftBody3D 的 spring-force 暫存方向改為 scalar，沿用 P237 的精確運算方式。P238 keeps soft-body spring-force directions in scalar locals without changing arithmetic. P238 は soft-body のばね力計算も演算順序を保って scalar 化します。一般布料完整 CPU update median 在 Node 約省 1.5–2.4%、Chromium 約省 2.6–3.6%；無 spring 與高 iteration 控制組不保證收益，不推為 FPS／配置改善。完整對拍與原生驗證見 [ACCEPTANCE](./ACCEPTANCE.md) P238。
 
+P239 記錄並拒絕預先計算 soft-body drag 衰減值：完整 update 的 paired CPU clocks 混合，Chromium 部分一般 workload 反而變慢。P239 rejects precomputed soft-body drag attenuation after mixed full-update timings. P239 は全 update の計測が混在したため drag 減衰値の事前計算を不採用とします。減少原始碼中的 Math.exp 不代表已證明的效能改善；source／dist 保持 P238，數值對拍與完整數據見 [ACCEPTANCE](./ACCEPTANCE.md) P239。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
