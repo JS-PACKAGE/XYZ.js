@@ -6084,3 +6084,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 六輪 Node 與 Chromium ABBA／BAAB 完整 public update：預設布料 CPU 約省 5–6%、16 次 iteration 約省 12–13%；單次 iteration 為小幅混合控制組，不宣稱 GPU／FPS 或配置改善。平方距離早退與無修正 round 早退均未採用。
 - canonical source／ESM／CJS 各 17,280 次精確狀態對拍、104 組極端輸入 state／error 比對、反向 z correction mutant；46 個既有測試與 source／dist 雙 backend 原生變形驗證另記 ACCEPTANCE。
 - 隔離 build 只更新 softbody 四個 JS／map 產物，保留使用者 physics2d／world2d 修改；按功能提交，不 push／升版。
+
+## P238 — Scalar soft-body spring forces
+
+- spring-force 以 scalar differences／normalized direction／relative velocity 取代 Vector3 scratch；hypot3、短 spring guard、reciprocal 與乘加順序不變，不改 P237 projection 或公開契約。
+- 六輪 Node／Chromium 完整 update 量測另含無 spring 控制組；一般布料 median 約省 1.5–2.4%／2.6–3.6%，高 iteration 與控制組含混合 clocks，不宣稱普遍收益或 GPU／FPS／配置改善。
+- canonical／ESM／CJS 各 17,280 次狀態與 104 組極端輸入對拍、反向 y-force mutant、46 項既有測試及 source／dist 雙 backend 原生變形驗證見 ACCEPTANCE。
+- 隔離 build 只更新四個 softbody JS／map 產物，使用者 physics2d／world2d 修改不納入；按功能提交，不 push／升版。

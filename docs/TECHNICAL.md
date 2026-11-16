@@ -7746,3 +7746,9 @@ A steady-state CDP CPU profile (600 warm-up plus 3,000 frames) found no JS funct
 The private stretch-projection loop keeps differences and scaled corrections in scalar locals instead of repeatedly writing a shared Vector3 scratch. Magnitude still uses the same robust hypot3, with identical subtraction, scale-factor and inverse-mass multiplication order. Spring/iteration order, pin handling, force integration, world sweeps, validation, mesh upload and public types are unchanged; no cache or dependency is added.
 
 Six-round Node/Chromium ABBA/BAAB measurements of complete public updates show about 5–6% lower CPU time for default cloth workloads and 12–13% for sixteen projection iterations. Timings exclude mesh upload/rendering and do not establish GPU/FPS, allocation, heap or GC gains. A squared-distance guard and a no-projection-round early exit were rejected. See [ACCEPTANCE](../ACCEPTANCE.md) P237 for full paired data, exact source/ESM/CJS state/error comparisons, a wrong-z mutant, and source/dist native WebGL2/WebGPU deformation consumers.
+
+## P238: scalar soft-body spring forces
+
+The spring-force loop follows P237's scalar convention, preserving robust hypot3, the short-spring guard, reciprocal-then-component multiplication, relative-velocity addition and force accumulation order. Integration, projection, world sweeps, validation, mesh upload and public contracts do not change; no new state/cache/dependency.
+
+Complete public-update medians for ordinary cloth improve about 1.5–2.4% in Node and 2.6–3.6% in Chromium. The no-spring control and high-iteration cases have mixed paired clocks, so there is no unconditional speedup, allocation/GC or GPU/FPS claim. See [ACCEPTANCE](../ACCEPTANCE.md) P238 for full paired controls, exact source/ESM/CJS state/error comparisons, a wrong-force mutant and native source/dist deformation verification.

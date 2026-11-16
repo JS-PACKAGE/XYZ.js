@@ -178,24 +178,29 @@ export class SoftBody3D {
     for (const s of this.springs) {
       const a = this.particles[s.a]!,
         b = this.particles[s.b]!;
-      const n = this.difference.copy(b.position).subtract(a.position),
-        length = n.length();
+      const dx = b.position.x - a.position.x,
+        dy = b.position.y - a.position.y,
+        dz = b.position.z - a.position.z,
+        length = hypot3(dx, dy, dz);
       if (length < 1e-12) continue;
-      n.scale(1 / length);
+      const inverseLength = 1 / length,
+        x = dx * inverseLength,
+        y = dy * inverseLength,
+        z = dz * inverseLength;
       const relative =
-        (b.velocity.x - a.velocity.x) * n.x +
-        (b.velocity.y - a.velocity.y) * n.y +
-        (b.velocity.z - a.velocity.z) * n.z;
+        (b.velocity.x - a.velocity.x) * x +
+        (b.velocity.y - a.velocity.y) * y +
+        (b.velocity.z - a.velocity.z) * z;
       const force =
         s.stiffness * (length - s.restLength) + s.damping * relative;
       const fa = this.forces[s.a]!,
         fb = this.forces[s.b]!;
-      fa.x += n.x * force;
-      fa.y += n.y * force;
-      fa.z += n.z * force;
-      fb.x -= n.x * force;
-      fb.y -= n.y * force;
-      fb.z -= n.z * force;
+      fa.x += x * force;
+      fa.y += y * force;
+      fa.z += z * force;
+      fb.x -= x * force;
+      fb.y -= y * force;
+      fb.z -= z * force;
     }
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i]!;

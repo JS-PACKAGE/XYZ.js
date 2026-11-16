@@ -78,11 +78,10 @@ var SoftBody3D = class {
 			this.old[e].copy(t.position), this.forces[e].copy(this.world.gravity).scale(t.mass);
 		}
 		for (let e of this.springs) {
-			let t = this.particles[e.a], n = this.particles[e.b], r = this.difference.copy(n.position).subtract(t.position), i = r.length();
-			if (i < 1e-12) continue;
-			r.scale(1 / i);
-			let a = (n.velocity.x - t.velocity.x) * r.x + (n.velocity.y - t.velocity.y) * r.y + (n.velocity.z - t.velocity.z) * r.z, o = e.stiffness * (i - e.restLength) + e.damping * a, s = this.forces[e.a], c = this.forces[e.b];
-			s.x += r.x * o, s.y += r.y * o, s.z += r.z * o, c.x -= r.x * o, c.y -= r.y * o, c.z -= r.z * o;
+			let t = this.particles[e.a], r = this.particles[e.b], i = r.position.x - t.position.x, a = r.position.y - t.position.y, o = r.position.z - t.position.z, s = require_hypot.hypot3(i, a, o);
+			if (s < 1e-12) continue;
+			let c = 1 / s, l = i * c, u = a * c, d = o * c, f = (r.velocity.x - t.velocity.x) * l + (r.velocity.y - t.velocity.y) * u + (r.velocity.z - t.velocity.z) * d, p = e.stiffness * (s - e.restLength) + e.damping * f, m = this.forces[e.a], h = this.forces[e.b];
+			m.x += l * p, m.y += u * p, m.z += d * p, h.x -= l * p, h.y -= u * p, h.z -= d * p;
 		}
 		for (let t = 0; t < this.particles.length; t++) {
 			let n = this.particles[t];

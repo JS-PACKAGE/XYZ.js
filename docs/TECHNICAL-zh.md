@@ -7391,3 +7391,9 @@ steady-state CDP CPU profile（600 暖機＋3,000 幀）顯示 WebGPU shared 影
 private stretch-projection loop 改以 scalar locals 保存差值與 scaled correction，不再反覆寫入共用 Vector3 scratch。長度仍用相同 robust hypot3，減法、scale factor 與 inverse-mass multiplication 順序相同；spring／iteration 順序、pin、force integration、世界 sweep、validation、mesh upload 與公開型別不變，沒有新 cache／依賴。
 
 Node／Chromium 六輪 ABBA／BAAB 完整 public update 量測，預設布料 CPU 約省 5–6%、16 次 iteration 約省 12–13%。計時不含 mesh upload／rendering，不宣稱 GPU／FPS、配置、heap 或 GC 改善；平方距離 guard 與無 projection round 早退均未採用。完整配對數據、source／ESM／CJS 精確 state／error 對拍、錯誤 z mutant 與 source／dist 原生雙 backend 變形驗證見 [ACCEPTANCE](../ACCEPTANCE.md) P237。
+
+## P238：soft-body spring-force 的 scalar 暫存
+
+spring-force 沿用 P237 的 scalar 慣例，保留 robust hypot3、短 spring guard、先 reciprocal 再逐 component 相乘、relative velocity 加法與 force accumulation 順序。integration、projection、世界 sweep、validation、mesh upload 與公開契約不變，不新增 state／cache／依賴。
+
+一般布料完整 public update median 在 Node 約省 1.5–2.4%、Chromium 約省 2.6–3.6%；無 spring 控制組與高 iteration 有混合配對 clocks，不宣稱普遍收益、配置／GC 或 GPU／FPS 改善。完整控制組、source／ESM／CJS 精確 state／error 對拍、錯誤 force mutant 與原生 source／dist 變形驗證見 [ACCEPTANCE](../ACCEPTANCE.md) P238。

@@ -6239,3 +6239,9 @@ steady-state CPU profile 顯示 WebGPU shared 影格沒有單一 JS 函式超過
 Stretch projection 原本對每條 spring、每次 iteration 都透過同一個 private Vector3 先 copy／subtract、取 length，再 scale。差值與 correction 改為 scalar locals；length 仍呼叫 Vector3.length 原本使用的 robust hypot3，所有減法、scale factor 與 inverse-mass multiplication 順序相同。不改 force integration、pin、世界 sweep snapshot、validation、mesh upload 或公開型別，也不新增 cache。
 
 Node／Chromium 六輪 public update 的預設布料 CPU 約減 5–6%，16 次 iteration 約減 12–13%；量測不含 mesh upload／renderer，不推為 GPU／FPS、heap 或 GC 結論。精確狀態／錯誤對拍、原生 geometry upload、未採用候選與配對數據見 ACCEPTANCE P237。
+
+## P238 — spring-force 的 scalar 暫存
+
+沿用 P237 的 scalar 慣例，spring-force 只在 locals 保存差值與 unit direction；hypot3、length <1e-12 的 early exit、先 reciprocal 再逐 component 相乘、relative velocity 的加法與 force accumulation 順序皆不變。沒有新的 state／cache／公開型別，integration、世界 sweep、mesh upload 與 ownership 不變。
+
+完整 public update 的一般布料 median 在 Node 約減 1.5–2.4%、Chromium 約減 2.6–3.6%；無 spring 控制組與高 iteration 有混合 clocks，不宣稱 unconditional speedup、GPU／FPS、配置或 GC 改善。配對數據、精確 state／error 對拍與原生證據見 ACCEPTANCE P238。
