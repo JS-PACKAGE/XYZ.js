@@ -6097,3 +6097,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 候選把 private drag 換成依 readonly fixedDelta 預先計算的 attenuation，不增欄位；完整 public update 六輪 Node／Chromium 配對 clocks 混合，多數 median 只變約 0–2%，Chromium cloth16／iter1 退步，因此不採用。
 - 17,280 次狀態對拍、104 組極端輸入與額外 36 組 drag／fixedDelta 配置的 8,640 次可變 delta／pin 對拍相同，但正確性不能代替效能證據。
 - source／dist／tests 維持 P238；只同步六份文件並記錄拒絕，不重跑或冒稱 native／build 驗證，不 push／升版。
+
+## P240 — Reject scalar soft-body integration
+
+- 候選把 integration 展為 scalar，省略會在下輪／sweep 前覆寫的 private force／displacement scratch writes；保留原 per-particle drag 與浮點運算順序，不含 P239 預先計算。
+- Node 一般布料約省 6–7%，但 Chromium 初輪配對混合；獨立較長 32×32 對照（1,800 暖機＋12,000 updates/sample）median 僅 −1.17%，仍有 +3.68% 配對，因此不採用。
+- 精確狀態、可變 timestep、可變 gravity／all-pin、錯誤恢復與 destroy 對拍另記 ACCEPTANCE；source／dist／永久 tests 維持 P238，只提交六份文件，不 push／升版。

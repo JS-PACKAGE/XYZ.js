@@ -29173,3 +29173,92 @@ Same isolated TypeScript 6.0.3 ES2022 comparison, Node v26.7.0 and pinned Chromi
 - An additional 36 configurations ×240 calls =8,640 exact state comparisons vary fixedDelta across 1e-5, 1/1024, 1/240, 1/120, 1/30 and 0.5, and drag across -0, 0, 0.01, 1, 1000 and Number.MAX_VALUE. Fractional/zero/multi-substep update deltas, external velocity edits and pin/unpin transitions agree. Matching numerical behavior is not a performance win.
 - A draft fixed-substep drag contract test was kept only in the temporary directory and discarded with the rejected candidate; no permanent tests/source/dist changed. No build/typecheck/unit/native renderer rerun, heap/GC sampling, GPU/FPS or browser-compatibility claim is made for this docs-only rejection. P238 runtime evidence remains historical, not reverified here.
 - Six documents synchronized and formatting/relative-file links checked; historical ACCEPTANCE prefix unchanged. Candidate modules, proof scripts, profiles, unused build/native drivers and services are removed. Exact staged allowlist includes only six documents; user-owned physics2d/world2d files are not overwritten or staged. No push/version bump.
+
+## P240 — Reject scalar soft-body integration (2026-11-17)
+
+### Candidate and decision
+
+An isolated candidate expanded particle integration into scalar component operations. It stopped overwriting private force/displacement scratch during integration, because forces are reset at the start of every substep and collideParticles overwrites displacement before each sweep. Public velocity additions, the original per-particle exp(-drag*dt), velocity scaling and position additions retained their arithmetic order. There was no P239 precomputed attenuation, extra state, API or approximate math.
+
+**Not adopted.** Node default cloth medians improve about 6–7%, but this is a browser engine: initial Chromium timings have mixed pairs and only small gains. A separate longer browser comparison still shows only about 1.17% lower median and a +3.68% pair. The Node-only improvement does not establish a material repeatable browser win, and does not justify replacing readable vector operations. Source, dist and permanent tests remain at P238; P239 was documentation-only.
+
+### Complete public-update measurements
+
+Same independent ES2022 modules /TypeScript 6.0.3 and same production dependencies, Node v26.7.0 and pinned Chromium 153.0.8010.12 darwin/arm64. Full moving-anchor pin +update(1/240), including actual rigid-plane sphere sweeps; no mesh upload/renderer. Node uses heterogeneous masses, browser mass 1. Same seven workload definitions as P238: four iterations/stretch 1.2 by default, small/cloth16/cloth32 =4×4/16×16/32×32, tight32 stretch 1, iter1/iter16 one/sixteen iterations. Unchanged no-springs control is one pinned particle.
+
+Six counterbalanced ABBA/BAAB rounds. Each ordinary sample has 600 warm-up /1,200 timed updates; control 10,000 /120,000. Pair values average two samples per variant and summaries are six-pair medians, CPU wall ms/update. Setup/destruction excluded, browser visible, page errors empty. No assistant-owned build/test/profile ran during measurement.
+
+| Case       | Node before ms/update | Node candidate | Node change % | Node paired range % | Chromium before ms/update | Chromium candidate | Chromium change % | Chromium paired range % |
+| ---------- | --------------------- | -------------- | ------------- | ------------------- | ------------------------- | ------------------ | ----------------- | ----------------------- |
+| small      | 0.003049              | 0.002917       | -4.33         | -14.32…5.09         | 0.003229                  | 0.003167           | -1.94             | -28.79…1.33             |
+| cloth16    | 0.058631              | 0.054857       | -6.44         | -8.35…-6.17         | 0.062646                  | 0.061083           | -2.49             | -6.51…2.17              |
+| cloth32    | 0.242433              | 0.225892       | -6.82         | -11.82…-5.63        | 0.259646                  | 0.250937           | -3.35             | -4.83…3.91              |
+| tight32    | 0.273454              | 0.256351       | -6.25         | -7.01…-5.33         | 0.283896                  | 0.281500           | -0.84             | -2.88…3.05              |
+| iter1      | 0.204001              | 0.188741       | -7.48         | -8.22…-6.88         | 0.210292                  | 0.206333           | -1.88             | -7.73…-1.07             |
+| iter16     | 0.396397              | 0.378068       | -4.62         | -7.33…-4.10         | 0.416229                  | 0.411604           | -1.11             | -2.61…1.47              |
+| no-springs | 0.000074              | 0.000075       | 0.92          | 0.23…11.65          | 0.000073                  | 0.000072           | -0.29             | -5.71…8.14              |
+
+| Round | Case       | Node before ms/update | Node candidate | Chromium before ms/update | Chromium candidate |
+| ----- | ---------- | --------------------- | -------------- | ------------------------- | ------------------ |
+| 1     | small      | 0.004783              | 0.004098       | 0.005500                  | 0.003917           |
+| 1     | cloth16    | 0.058516              | 0.054578       | 0.061583                  | 0.061167           |
+| 1     | cloth32    | 0.256448              | 0.226135       | 0.243000                  | 0.231875           |
+| 1     | tight32    | 0.274009              | 0.255780       | 0.266958                  | 0.264000           |
+| 1     | iter1      | 0.204197              | 0.188549       | 0.194458                  | 0.192375           |
+| 1     | iter16     | 0.396331              | 0.378815       | 0.408875                  | 0.414875           |
+| 1     | no-springs | 0.000077              | 0.000085       | 0.000075                  | 0.000074           |
+| 2     | small      | 0.006255              | 0.006573       | 0.003250                  | 0.003167           |
+| 2     | cloth16    | 0.058574              | 0.054926       | 0.065250                  | 0.061000           |
+| 2     | cloth32    | 0.240914              | 0.227357       | 0.260208                  | 0.252667           |
+| 2     | tight32    | 0.274067              | 0.257208       | 0.293958                  | 0.285500           |
+| 2     | iter1      | 0.203691              | 0.188932       | 0.225875                  | 0.208417           |
+| 2     | iter16     | 0.396463              | 0.378252       | 0.423375                  | 0.412333           |
+| 2     | no-springs | 0.000075              | 0.000075       | 0.000072                  | 0.000070           |
+| 3     | small      | 0.003028              | 0.002885       | 0.003208                  | 0.003167           |
+| 3     | cloth16    | 0.060780              | 0.055702       | 0.061417                  | 0.060417           |
+| 3     | cloth32    | 0.250183              | 0.225862       | 0.262208                  | 0.249542           |
+| 3     | tight32    | 0.271648              | 0.257165       | 0.281250                  | 0.277500           |
+| 3     | iter1      | 0.204963              | 0.188157       | 0.210208                  | 0.206375           |
+| 3     | iter16     | 0.396316              | 0.377884       | 0.416875                  | 0.410583           |
+| 3     | no-springs | 0.000074              | 0.000074       | 0.000073                  | 0.000069           |
+| 4     | small      | 0.003063              | 0.002901       | 0.003125                  | 0.003167           |
+| 4     | cloth16    | 0.058828              | 0.054712       | 0.061333                  | 0.062667           |
+| 4     | cloth32    | 0.241989              | 0.225269       | 0.249583                  | 0.259333           |
+| 4     | tight32    | 0.272898              | 0.256497       | 0.287875                  | 0.296667           |
+| 4     | iter1      | 0.203448              | 0.188374       | 0.216542                  | 0.213125           |
+| 4     | iter16     | 0.405908              | 0.376165       | 0.415583                  | 0.410875           |
+| 4     | no-springs | 0.000075              | 0.000081       | 0.000072                  | 0.000072           |
+| 5     | small      | 0.003025              | 0.002932       | 0.003167                  | 0.003167           |
+| 5     | cloth16    | 0.058688              | 0.055066       | 0.063708                  | 0.064500           |
+| 5     | cloth32    | 0.241016              | 0.225922       | 0.259083                  | 0.250208           |
+| 5     | tight32    | 0.271613              | 0.255807       | 0.280917                  | 0.276750           |
+| 5     | iter1      | 0.203805              | 0.189792       | 0.210042                  | 0.205875           |
+| 5     | iter16     | 0.393303              | 0.377163       | 0.424500                  | 0.429000           |
+| 5     | no-springs | 0.000074              | 0.000075       | 0.000072                  | 0.000078           |
+| 6     | small      | 0.003035              | 0.002892       | 0.003250                  | 0.003125           |
+| 6     | cloth16    | 0.058569              | 0.054788       | 0.063958                  | 0.060750           |
+| 6     | cloth32    | 0.242877              | 0.225123       | 0.260500                  | 0.251667           |
+| 6     | tight32    | 0.275506              | 0.256205       | 0.286542                  | 0.287083           |
+| 6     | iter1      | 0.205910              | 0.188977       | 0.210375                  | 0.206292           |
+| 6     | iter16     | 0.410825              | 0.380913       | 0.415292                  | 0.410292           |
+| 6     | no-springs | 0.000074              | 0.000075       | 0.000073                  | 0.000073           |
+
+### Longer independent Chromium comparison
+
+The initial browser spread prompted one independent longer 32×32 /four-iteration unit-mass cohort: six fresh ABBA/BAAB rounds, 1,800 warm-up /12,000 timed updates per sample, otherwise identical full-update boundary. This is a different input history and is not pooled with the initial matrix. Median 0.237190 →0.234419 ms/update (-1.17%); one pair regresses. Visible document and empty page errors again.
+
+| Round | Before ms/update | Candidate ms/update | Change % |
+| ----- | ---------------- | ------------------- | -------- |
+| 1     | 0.237383         | 0.232742            | -1.96    |
+| 2     | 0.236379         | 0.234417            | -0.83    |
+| 3     | 0.236996         | 0.245721            | 3.68     |
+| 4     | 0.240875         | 0.234475            | -2.66    |
+| 5     | 0.241596         | 0.234421            | -2.97    |
+| 6     | 0.236825         | 0.232992            | -1.62    |
+
+### Numerical and cleanup evidence
+
+- Exact unchanged-baseline vs prototype comparison: 17,280 particle updates and 104 extreme/near-boundary state/error probes. Additional 8,640 comparisons cover 36 drag/fixedDelta configurations with fractional/zero/multi-step public deltas and pin transitions.
+- Another 4,096 comparisons mutate public world.gravity each tick and alternate all-pinned/unpinned states, confirming that omitting private scratch writes does not leak force from previous steps in those histories. Nine NaN/Infinity/-Infinity velocity-coordinate error histories yield matching errors and partial public states, then 540 exact recovered-update comparisons and identical destroyed-update errors. These are throwaway CPU comparisons, not native renderer certification.
+- No source/dist/permanent-test change, build/typecheck/unit/native rerun or GPU/FPS/heap/GC/allocation claim. P238 runtime results remain historical, not reverified here.
+- Six docs synchronized; formatting/relative-file links checked and historical ACCEPTANCE bytes retained. Prototype, long/short benchmark drivers/results, unused build/native drivers and proof scripts removed; owned browser/server instances close in finally. Docs-only exact staged allowlist excludes user physics2d/world2d changes. No push or version bump.

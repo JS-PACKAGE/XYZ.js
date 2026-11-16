@@ -7401,3 +7401,7 @@ spring-force 沿用 P237 的 scalar 慣例，保留 robust hypot3、短 spring g
 ## P239：未採用預先計算 soft-body drag 衰減
 
 constructor 以 exp(-drag*fixedDelta) 預先計算值取代 private drag，包含可變 update delta 與 pin transitions 的精確 state／error 對拍一致；但完整 update paired clocks 混合，一般 median 大多只變約 0–2%，Chromium cloth16／iter1 退步，因此不採用。source／dist／tests 維持 P238，不以 source-level Math.exp 次數推論 compiled CPU、配置或 FPS 效益。完整配對與額外 8,640 次可變 timestep 對拍見 [ACCEPTANCE](../ACCEPTANCE.md) P239；本次文件拒絕紀錄不代表重新 native／build 驗證。
+
+## P240：未採用 scalar soft-body integration
+
+scalar integration 原型略過下次 substep／sweep 必定覆寫的 private force／displacement scratch writes，保留原浮點運算順序與 per-particle drag；狀態／錯誤、可變 timestep／gravity、pin、恢復與銷毀對拍一致。Node 一般布料約省 6–7%，但 browser 配對混合，獨立較長 Chromium 32×32 cohort median 僅約 −1.17% 且一對退步，效益不足，因此 source／dist／tests 維持 P238。完整短／長 CPU 數據及數值驗證限制見 [ACCEPTANCE](../ACCEPTANCE.md) P240，不代表重新 native／build 或 GPU／FPS／heap 驗證。

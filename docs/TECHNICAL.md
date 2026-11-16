@@ -7756,3 +7756,7 @@ Complete public-update medians for ordinary cloth improve about 1.5–2.4% in No
 ## P239: rejected precomputed soft-body drag attenuation
 
 Replacing the private drag field with exp(-drag*fixedDelta) computed at construction preserved exact state/error behavior, including variable public update deltas and pin transitions. Full-update paired clocks were mixed, typical medians moved only around 0–2%, and Chromium cloth16/iter1 regressed. The candidate is not adopted; source/dist/tests stay at P238. Fewer source-level Math.exp expressions do not establish compiled CPU, allocation or FPS gains. See [ACCEPTANCE](../ACCEPTANCE.md) P239 for full pairs and 8,640 additional variable-timestep comparisons; no native/build rerun is implied by this documentation-only rejection.
+
+## P240: rejected scalar soft-body integration
+
+An isolated scalar integration candidate skipped private force/displacement scratch writes that the next substep/sweep overwrites, retaining original arithmetic order and per-particle drag. Exact state/error, mutable timestep/gravity, pin, recovery and destruction comparisons agreed. Node cloth improved about 6–7%, but browser pairs were mixed; an independent longer 32×32 Chromium cohort saved only 1.17% at the median and one pair regressed. The browser-scoped gain was insufficient, so source/dist/tests remain at P238. See [ACCEPTANCE](../ACCEPTANCE.md) P240 for full short/long CPU data and numerical limits; no fresh native/build or GPU/FPS/heap claim.
