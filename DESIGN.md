@@ -6233,3 +6233,9 @@ sorting 現在就地改 color，但下次 collect 仍由 records 的 insertion o
 以 `Set.forEach` 與 private prototype visitor 取代 `render()` 內對 `scene.renderMeshes` 的每輪 `for…of`，語意相同，但十二份 GPU profiles 的 total sampled bytes median 僅約 −1.97%／−1.93%，一對上升；native `next` 取樣大幅減少，同時 `render` self 取樣增加約 27%，CPU clocks 混合，因此不採用，source／dist 保持 P235，也不刪除 `emptyMeshes`。
 
 steady-state CPU profile 顯示 WebGPU shared 影格沒有單一 JS 函式超過約 8%；GL 同材質重複時跳過 per-material uniform／texture block 的上限實驗僅約 −4.2%，而 `PBRMaterial` 為無版本計數的可變欄位，無法在不引入額外失效模型下證明跳過安全。完整表格與負面結論見 ACCEPTANCE P236。
+
+## P237 — soft-body projection 的 scalar 暫存
+
+Stretch projection 原本對每條 spring、每次 iteration 都透過同一個 private Vector3 先 copy／subtract、取 length，再 scale。差值與 correction 改為 scalar locals；length 仍呼叫 Vector3.length 原本使用的 robust hypot3，所有減法、scale factor 與 inverse-mass multiplication 順序相同。不改 force integration、pin、世界 sweep snapshot、validation、mesh upload 或公開型別，也不新增 cache。
+
+Node／Chromium 六輪 public update 的預設布料 CPU 約減 5–6%，16 次 iteration 約減 12–13%；量測不含 mesh upload／renderer，不推為 GPU／FPS、heap 或 GC 結論。精確狀態／錯誤對拍、原生 geometry upload、未採用候選與配對數據見 ACCEPTANCE P237。

@@ -102,6 +102,8 @@ P235 讓 GPU 以常駐 `Map.forEach` visitor 清理未使用 geometry／mesh cac
 
 P236 記錄並拒絕 GPU render-mesh observation 的 `Set.forEach` visitor：total sampled bytes median 僅約 −1.97%／−1.93% 且一對上升，`render` self 反增。P236 records and rejects a GPU render-mesh `Set.forEach` visitor: sampled totals barely move and one pair worsens. P236 は GPU render-mesh 観測の `Set.forEach` visitor を記録して不採用とします。另附 steady-state CPU 剖析與 GL 同材質 block 跳過的上限實驗（約 −4.2%，不採用）；source／dist 不變，見 [ACCEPTANCE](./ACCEPTANCE.md) P236。
 
+P237 將 SoftBody3D 的 stretch projection 暫存向量改為 scalar，保留原本的 robust magnitude 與浮點運算順序。P237 uses scalar soft-body stretch projection with unchanged robust magnitude and arithmetic order. P237 は soft-body の伸長補正を scalar 化し、従来の長さ計算と演算順序を保持します。Node／Chromium 的完整 CPU update 量測，預設布料約省 5–6%、16 次迭代約省 12–13%；不是 GPU／FPS 結論。對拍、source／dist 原生變形與未採用候選見 [ACCEPTANCE](./ACCEPTANCE.md) P237。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

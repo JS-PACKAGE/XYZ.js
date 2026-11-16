@@ -28935,3 +28935,94 @@ Median 0.9802 → 0.9390 ms/frame (−4.20%). Even in the most favorable shared-
 ### Checks and delivery
 
 No source or `dist` change. Rejected prototypes ran only through temporary Vite overrides and were deleted with their fixtures, profiles and services. README Chinese/English/Japanese note, PLAN, DESIGN and both technical references record the rejection. ACCEPTANCE is append-only, preserving its historical prefix. User-owned physics/world2d source/dist outputs are not overwritten or staged; no push, version bump, permanent test addition or full-suite certification is implied.
+
+## P237 — Scalar soft-body stretch projection (2026-11-17)
+
+### Scope and decision
+
+Only the private SoftBody3D stretch-projection loop changes. Spring differences and scaled corrections use scalar locals instead of overwriting the shared Vector3 scratch for every spring on every iteration. Magnitude still calls the existing robust hypot3 with the same three differences; correction multiplication, inverse masses, pin handling, spring order and iteration count retain their original arithmetic order. Force accumulation, integration, rigid-world sweeps, validation and mesh upload are unchanged. No approximate magnitude, new cache, public API, tunable, dependency or version change.
+
+A baseline Node CPU profile of a 32×32 cloth over a real plane (600 warm-up plus 2,400 updates, 100 µs sampling) attributed about 26% to step self time and 8% to hypot3. This only ranked work and includes profiler overhead; it is not the speedup measurement. Two earlier candidates were rejected before the scalar change, as recorded below.
+
+### Complete public-update CPU boundary
+
+Node v26.7.0 and pinned Playwright Chromium 153.0.8010.12, darwin/arm64. Isolated before/after source modules are transpiled by TypeScript 6.0.3 to ES2022 and share the same production dist dependencies. Each sample constructs a fresh SoftBody3D with horizontal/vertical cloth springs, a real PhysicsWorld3D and PlaneCollider3D; its first row is pinned and the first anchor oscillates each update. The measured operation is pin plus public update(1/240), including force, integration, stretch projection, pose snapshot and actual engine sphere sweeps against the plane. There is no mesh or renderer in this CPU workload; mesh upload, GPU work, RAF and presentation FPS are not timed. Fixture construction and destruction are outside the timer.
+
+Each of six rounds uses ABBA, alternating to BAAB on even rounds; every sample has 600 warm-up and 1,200 timed updates. Pair values average the two samples for that variant; summary values are medians of the six pair values. The small/cloth16/cloth32 cases use 4×4/16×16/32×32 particles, four projection iterations and maxStretch 1.2. tight32 uses maxStretch 1; iter1 and iter16 use one/sixteen iterations at 32×32. Browser document visibility was visible and page errors were empty; no profiling/build/tests ran concurrently with these timings.
+
+| Case    | Node before ms/update | Node after | Change % | Chromium before ms/update | Chromium after | Change % |
+| ------- | --------------------- | ---------- | -------- | ------------------------- | -------------- | -------- |
+| small   | 0.003424              | 0.003167   | -7.50    | 0.003479                  | 0.003312       | -4.79    |
+| cloth16 | 0.065202              | 0.061333   | -5.93    | 0.066562                  | 0.063250       | -4.98    |
+| cloth32 | 0.265116              | 0.250234   | -5.61    | 0.270896                  | 0.256063       | -5.48    |
+| tight32 | 0.301256              | 0.281673   | -6.50    | 0.303937                  | 0.289125       | -4.87    |
+| iter1   | 0.215333              | 0.211003   | -2.01    | 0.222792                  | 0.218062       | -2.12    |
+| iter16  | 0.476603              | 0.416612   | -12.59   | 0.481271                  | 0.422917       | -12.13   |
+
+All six Node pairs improve in each case. All six Chromium pairs improve for small, cloth16, cloth32, tight32 and iter16; the one-iteration control has one +1.45% pair and mixed small deltas. Thus the repeatable claim is about 5–6% less CPU time for the default cloth workloads and about 12–13% for sixteen projection iterations, not an unconditional speedup. No allocation/heap/GC or GPU/FPS improvement is claimed.
+
+| Round | Case    | Node before ms/step | Node after | Chromium before ms/step | Chromium after |
+| ----- | ------- | ------------------- | ---------- | ----------------------- | -------------- |
+| 1     | small   | 0.005061            | 0.003984   | 0.005292                | 0.004333       |
+| 1     | cloth16 | 0.065219            | 0.061357   | 0.069167                | 0.064333       |
+| 1     | cloth32 | 0.264637            | 0.250151   | 0.271417                | 0.255125       |
+| 1     | tight32 | 0.302196            | 0.283574   | 0.304083                | 0.289333       |
+| 1     | iter1   | 0.215034            | 0.211472   | 0.219583                | 0.217917       |
+| 1     | iter16  | 0.475435            | 0.416960   | 0.483958                | 0.423000       |
+| 2     | small   | 0.003438            | 0.003164   | 0.004500                | 0.003708       |
+| 2     | cloth16 | 0.065553            | 0.062205   | 0.066833                | 0.066292       |
+| 2     | cloth32 | 0.264493            | 0.257571   | 0.272417                | 0.259417       |
+| 2     | tight32 | 0.302403            | 0.283215   | 0.303792                | 0.289375       |
+| 2     | iter1   | 0.214377            | 0.210985   | 0.220750                | 0.218542       |
+| 2     | iter16  | 0.479680            | 0.416234   | 0.481417                | 0.425875       |
+| 3     | small   | 0.003395            | 0.003170   | 0.003500                | 0.003292       |
+| 3     | cloth16 | 0.065190            | 0.061309   | 0.066583                | 0.063458       |
+| 3     | cloth32 | 0.271464            | 0.249868   | 0.269333                | 0.257708       |
+| 3     | tight32 | 0.300316            | 0.281161   | 0.303333                | 0.287125       |
+| 3     | iter1   | 0.215435            | 0.210512   | 0.220000                | 0.216667       |
+| 3     | iter16  | 0.477277            | 0.416263   | 0.489458                | 0.421833       |
+| 4     | small   | 0.003410            | 0.003169   | 0.003458                | 0.003250       |
+| 4     | cloth16 | 0.065215            | 0.061437   | 0.066292                | 0.063042       |
+| 4     | cloth32 | 0.264614            | 0.249643   | 0.270375                | 0.255583       |
+| 4     | tight32 | 0.298026            | 0.280587   | 0.302542                | 0.291042       |
+| 4     | iter1   | 0.220832            | 0.210949   | 0.224833                | 0.216917       |
+| 4     | iter16  | 0.483009            | 0.417052   | 0.479708                | 0.422833       |
+| 5     | small   | 0.003477            | 0.003166   | 0.003458                | 0.003333       |
+| 5     | cloth16 | 0.065141            | 0.061267   | 0.066542                | 0.062958       |
+| 5     | cloth32 | 0.265595            | 0.250318   | 0.271583                | 0.256542       |
+| 5     | tight32 | 0.308912            | 0.282185   | 0.306375                | 0.288917       |
+| 5     | iter1   | 0.216240            | 0.211021   | 0.227208                | 0.230500       |
+| 5     | iter16  | 0.472845            | 0.415720   | 0.481125                | 0.426000       |
+| 6     | small   | 0.003381            | 0.003155   | 0.003417                | 0.003292       |
+| 6     | cloth16 | 0.064739            | 0.060529   | 0.066375                | 0.063042       |
+| 6     | cloth32 | 0.274197            | 0.256455   | 0.270208                | 0.254667       |
+| 6     | tight32 | 0.298763            | 0.281028   | 0.305000                | 0.287708       |
+| 6     | iter1   | 0.215230            | 0.211603   | 0.227208                | 0.218208       |
+| 6     | iter16  | 0.475929            | 0.418785   | 0.480167                | 0.422458       |
+
+### Rejected candidates
+
+Each independent candidate started from the same unchanged baseline, with the same six-round Node workload and timing boundary. The squared-distance candidate retained an exact hypot fallback for rounding boundaries and underflow/overflow; it was slower. The convergence candidate stopped only after a full round corrected no spring; active cloth still needs every round, so it did not give a consistent gain. Neither is included in source or dist. Both passed 17,280 deterministic differential updates and 104 extreme-input state/error comparisons before rejection. Instrumentation outside timings found roughly 46–55% of spring checks still projected in representative default cloth cases, explaining why a global no-projection break seldom applies; this is not an allocation measurement.
+
+| Candidate                        | Case    | Before ms/update | Candidate | Median change % | Paired change range % |
+| -------------------------------- | ------- | ---------------- | --------- | --------------- | --------------------- |
+| Squared-distance guard           | small   | 0.003352         | 0.003630  | 8.31            | -12.60…10.02          |
+| Squared-distance guard           | cloth16 | 0.064946         | 0.069670  | 7.27            | 6.64…8.74             |
+| Squared-distance guard           | cloth32 | 0.264101         | 0.290777  | 10.10           | 6.29…15.02            |
+| Squared-distance guard           | tight32 | 0.294078         | 0.319446  | 8.63            | 6.03…10.15            |
+| Squared-distance guard           | iter1   | 0.211326         | 0.216278  | 2.34            | 0.14…2.86             |
+| Squared-distance guard           | iter16  | 0.469942         | 0.562919  | 19.78           | 18.76…20.43           |
+| Stop unchanged projection rounds | small   | 0.003343         | 0.003355  | 0.36            | -16.38…1.23           |
+| Stop unchanged projection rounds | cloth16 | 0.064579         | 0.064547  | -0.05           | -0.48…0.36            |
+| Stop unchanged projection rounds | cloth32 | 0.263673         | 0.263593  | -0.03           | -0.25…1.14            |
+| Stop unchanged projection rounds | tight32 | 0.298119         | 0.297351  | -0.26           | -3.79…0.41            |
+| Stop unchanged projection rounds | iter1   | 0.214630         | 0.214114  | -0.24           | -5.61…0.48            |
+| Stop unchanged projection rounds | iter16  | 0.472096         | 0.472404  | 0.07            | -0.80…0.93            |
+
+### Behavioral and delivery evidence
+
+- Canonical source, production ESM and production CJS each match the isolated unchanged baseline for 48 deterministic histories ×360 updates =17,280 updates, comparing every particle position, velocity and pinned flag exactly (including signed zero). Histories use heterogeneous masses, mutable velocities/positions, pin/unpin operations, one to eight iterations and four stretch limits. Each entry also matches 104 tiny/huge and near-boundary state/error probes, from Number.MIN_VALUE through 1e160; matching errors do not imply extreme inputs produce valid finite simulation. A reversed z-correction mutant fails the differential at history 0, tick 0.
+- Existing tests cover sag, pins, world contacts and mesh versioning; no duplicate permanent tests were added. Prettier on the changed source, strict tsc, targeted eslint, and three physics3d test files /46 tests all pass. No full-suite or cross-browser certification is implied.
+- A focused extraction of the existing native soft-body scenario runs through the public source root and public dist root on WebGL2 and WebGPU. All four consumers pass sag/pin, unpin/settle, repin and real geometry upload: 1,247 changed native pixels and geometry version 721; graphics/page error lists are empty. The dist driver retained the original report label “public source root”, but its import is /dist/src/index.js. The WebGPU dist PNG was visually inspected. Browser identity is the pinned desktop automation above, not Safari/physical-device certification.
+- An isolated full production build from a HEAD archive plus only this source change differs from HEAD dist in exactly the four softbody ESM/CJS JavaScript and map outputs; declarations are unchanged. Only those artifacts were promoted after byte guards, preserving hashes of all eleven user-owned physics2d/world2d source/dist files.
+- README Chinese/English/Japanese note, PLAN, DESIGN and both technical references are synchronized; document formatting and relative-file links are checked. ACCEPTANCE retains its complete historical byte prefix. Throwaway benchmarks, proofs, profiles, build tree and services are removed before the feature commit. Only this feature and its six documents are staged, with an exact allowlist; no push or version bump.

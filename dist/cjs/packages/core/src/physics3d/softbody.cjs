@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_collider = require("./collider.cjs");
 const require_physics_profiles = require("../../../../src/data/physics-profiles.cjs");
@@ -25,16 +26,16 @@ var SoftBody3D = class {
 	query = {};
 	accumulator = 0;
 	disposed = !1;
-	constructor(e, o) {
+	constructor(e, n) {
 		this.world = e;
 		let s = require_physics_profiles.physicsProfiles.softBody;
-		if (!o.particles.length || o.particles.length > s.maxParticles || o.springs.length > s.maxSprings) throw RangeError(`SoftBody exceeds particle/spring bounds.`);
-		if (this.particles = o.particles.map((e) => (require_collider.vector3D(e.position, `particle`), {
+		if (!n.particles.length || n.particles.length > s.maxParticles || n.springs.length > s.maxSprings) throw RangeError(`SoftBody exceeds particle/spring bounds.`);
+		if (this.particles = n.particles.map((e) => (require_collider.vector3D(e.position, `particle`), {
 			position: new require_math3d.Vector3(e.position.x, e.position.y, e.position.z),
 			velocity: new require_math3d.Vector3(),
 			mass: require_collider.positive3D(e.mass ?? 1, `mass`),
 			pinned: e.pinned ?? !1
-		})), this.anchors = this.particles.map((e) => e.position.clone()), this.forces = this.particles.map(() => new require_math3d.Vector3()), this.old = this.particles.map((e) => e.position.clone()), this.springs = o.springs.map((e) => {
+		})), this.anchors = this.particles.map((e) => e.position.clone()), this.forces = this.particles.map(() => new require_math3d.Vector3()), this.old = this.particles.map((e) => e.position.clone()), this.springs = n.springs.map((e) => {
 			if (this.index(e.a), this.index(e.b), e.a === e.b) throw RangeError(`Spring endpoints must differ.`);
 			let t = this.difference.copy(this.particles[e.a].position).subtract(this.particles[e.b].position).length();
 			return {
@@ -44,13 +45,13 @@ var SoftBody3D = class {
 				stiffness: require_collider.nonnegative3D(e.stiffness ?? s.stiffness, `stiffness`),
 				damping: require_collider.nonnegative3D(e.damping ?? s.damping, `damping`)
 			};
-		}), this.radius = require_collider.positive3D(o.radius ?? s.radius, `radius`), this.drag = require_collider.nonnegative3D(o.drag ?? s.drag, `drag`), this.friction = require_collider.nonnegative3D(o.friction ?? .5, `friction`), this.fixedDelta = require_collider.positive3D(o.fixedDelta ?? s.fixedDelta, `fixedDelta`), this.iterations = o.iterations ?? s.iterations, !Number.isInteger(this.iterations) || this.iterations < 1 || this.iterations > 32) throw RangeError(`iterations must be within [1,32].`);
-		if (this.stretch = require_collider.positive3D(o.maxStretch ?? s.maxStretch, `maxStretch`), this.stretch < 1) throw RangeError(`maxStretch must be >= 1.`);
-		if (this.mesh = o.mesh, this.mesh) {
+		}), this.radius = require_collider.positive3D(n.radius ?? s.radius, `radius`), this.drag = require_collider.nonnegative3D(n.drag ?? s.drag, `drag`), this.friction = require_collider.nonnegative3D(n.friction ?? .5, `friction`), this.fixedDelta = require_collider.positive3D(n.fixedDelta ?? s.fixedDelta, `fixedDelta`), this.iterations = n.iterations ?? s.iterations, !Number.isInteger(this.iterations) || this.iterations < 1 || this.iterations > 32) throw RangeError(`iterations must be within [1,32].`);
+		if (this.stretch = require_collider.positive3D(n.maxStretch ?? s.maxStretch, `maxStretch`), this.stretch < 1) throw RangeError(`maxStretch must be >= 1.`);
+		if (this.mesh = n.mesh, this.mesh) {
 			if (this.mesh.morph) throw Error(`SoftBody cannot share geometry with morph deformation.`);
-			if (!o.vertexParticles || o.vertexParticles.length !== this.mesh.geometry.vertices.length / 8) throw RangeError(`One particle mapping is required for each mesh vertex.`);
-			o.vertexParticles.forEach((e) => this.index(e)), this.mapping = [...o.vertexParticles];
-		} else if (o.vertexParticles) throw Error(`vertexParticles requires a mesh.`);
+			if (!n.vertexParticles || n.vertexParticles.length !== this.mesh.geometry.vertices.length / 8) throw RangeError(`One particle mapping is required for each mesh vertex.`);
+			n.vertexParticles.forEach((e) => this.index(e)), this.mapping = [...n.vertexParticles];
+		} else if (n.vertexParticles) throw Error(`vertexParticles requires a mesh.`);
 	}
 	index(e) {
 		if (!Number.isInteger(e) || e < 0 || e >= this.particles.length) throw RangeError(`Particle index is out of range.`);
@@ -92,8 +93,10 @@ var SoftBody3D = class {
 			n.velocity.add(this.forces[t].scale(e / n.mass)).scale(Math.exp(-this.drag * e)), n.position.add(this.displacement.copy(n.velocity).scale(e));
 		}
 		for (let e = 0; e < this.iterations; e++) for (let e of this.springs) {
-			let t = this.particles[e.a], n = this.particles[e.b], r = this.difference.copy(n.position).subtract(t.position), i = r.length(), a = t.pinned ? 0 : 1 / t.mass, o = n.pinned ? 0 : 1 / n.mass;
-			i <= e.restLength * this.stretch || a + o === 0 || (r.scale((i - e.restLength * this.stretch) / i / (a + o)), t.position.x += r.x * a, t.position.y += r.y * a, t.position.z += r.z * a, n.position.x -= r.x * o, n.position.y -= r.y * o, n.position.z -= r.z * o);
+			let t = this.particles[e.a], r = this.particles[e.b], i = r.position.x - t.position.x, a = r.position.y - t.position.y, o = r.position.z - t.position.z, s = require_hypot.hypot3(i, a, o), c = t.pinned ? 0 : 1 / t.mass, l = r.pinned ? 0 : 1 / r.mass;
+			if (s <= e.restLength * this.stretch || c + l === 0) continue;
+			let u = (s - e.restLength * this.stretch) / s / (c + l), d = i * u, f = a * u, p = o * u;
+			t.position.x += d * c, t.position.y += f * c, t.position.z += p * c, r.position.x -= d * l, r.position.y -= f * l, r.position.z -= p * l;
 		}
 		this.world.withPoseSnapshot(this.collideParticles);
 	}

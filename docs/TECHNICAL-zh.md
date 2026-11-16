@@ -7385,3 +7385,9 @@ GPU gather 不再清空 array 再 push；改以 local count 覆寫既有儲存�
 原型把 WebGPU `render()` 對 `scene.renderMeshes` 的 loop 改為 `Set.forEach` 與 private prototype visitor，loop body 完全保留。十二份 GPU heap profiles 的 total sampled bytes median 僅約減 1.97%／1.93%（一對上升）；native iterator `next` 取樣約減 1.3 MB，但 `render` self 取樣約增 1.1 MB，CPU clocks 混合，故不採用，source 與 `dist` 維持 P235。
 
 steady-state CDP CPU profile（600 暖機＋3,000 幀）顯示 WebGPU shared 影格沒有 JS 函式超過約 8%；GL 同材質／program 重複時跳過 per-material uniform／texture block 的上限原型僅約省 4.2%。`PBRMaterial` 沒有 version／dirty 計數，重用需要新的失效模型，因此未做此變更。配對資料與 profiles 見 [ACCEPTANCE](../ACCEPTANCE.md) P236。
+
+## P237：soft-body stretch projection 的 scalar 暫存
+
+private stretch-projection loop 改以 scalar locals 保存差值與 scaled correction，不再反覆寫入共用 Vector3 scratch。長度仍用相同 robust hypot3，減法、scale factor 與 inverse-mass multiplication 順序相同；spring／iteration 順序、pin、force integration、世界 sweep、validation、mesh upload 與公開型別不變，沒有新 cache／依賴。
+
+Node／Chromium 六輪 ABBA／BAAB 完整 public update 量測，預設布料 CPU 約省 5–6%、16 次 iteration 約省 12–13%。計時不含 mesh upload／rendering，不宣稱 GPU／FPS、配置、heap 或 GC 改善；平方距離 guard 與無 projection round 早退均未採用。完整配對數據、source／ESM／CJS 精確 state／error 對拍、錯誤 z mutant 與 source／dist 原生雙 backend 變形驗證見 [ACCEPTANCE](../ACCEPTANCE.md) P237。

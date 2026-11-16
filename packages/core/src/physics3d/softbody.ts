@@ -1,4 +1,5 @@
 import { Matrix4, Vector3 } from '../../../math/src/index.js';
+import { hypot3 } from '../../../math/src/hypot.js';
 import type { Mesh } from '../mesh.js';
 import type { PhysicsWorld3D, PhysicsHit3D } from './world.js';
 import { nonnegative3D, positive3D, vector3D } from './collider.js';
@@ -212,18 +213,24 @@ export class SoftBody3D {
       for (const s of this.springs) {
         const a = this.particles[s.a]!,
           b = this.particles[s.b]!,
-          n = this.difference.copy(b.position).subtract(a.position),
-          length = n.length();
+          dx = b.position.x - a.position.x,
+          dy = b.position.y - a.position.y,
+          dz = b.position.z - a.position.z,
+          length = hypot3(dx, dy, dz);
         const ia = a.pinned ? 0 : 1 / a.mass,
           ib = b.pinned ? 0 : 1 / b.mass;
         if (length <= s.restLength * this.stretch || ia + ib === 0) continue;
-        n.scale((length - s.restLength * this.stretch) / length / (ia + ib));
-        a.position.x += n.x * ia;
-        a.position.y += n.y * ia;
-        a.position.z += n.z * ia;
-        b.position.x -= n.x * ib;
-        b.position.y -= n.y * ib;
-        b.position.z -= n.z * ib;
+        const scale =
+          (length - s.restLength * this.stretch) / length / (ia + ib);
+        const x = dx * scale,
+          y = dy * scale,
+          z = dz * scale;
+        a.position.x += x * ia;
+        a.position.y += y * ia;
+        a.position.z += z * ia;
+        b.position.x -= x * ib;
+        b.position.y -= y * ib;
+        b.position.z -= z * ib;
       }
     // Particle positions do not move rigid colliders; share their pose refresh
     // across all sweeps rather than rescanning the rigid world per particle.
