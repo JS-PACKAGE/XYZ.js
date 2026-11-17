@@ -6425,3 +6425,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 八cohort的192個Game samples顯示部分大型場景下降、但小量／offscreen submit代價與普通local不穩定。空pool的simulation、其他未直接修改分項也有一致方向差異：這是觀察，不是已確認根因，不能當成traversal的因果收益。
 - 目前成對loader為各side建立一致但分開的完整module graph，避免跨graph instanceof錯誤；它沒有隔離掉不同graph／實例／JIT狀態的所有差異。下一實驗須改善隔離方式，而不是重複同一矩陣直到方向好看。
 - 不採用，正式source／dist維持 P267。完整五分項、全部raw值／ties／outliers與方法限制見 `ACCEPTANCE.md` P268。
+
+## P269：縮小量測狀態差異，不製造新的收益敘事
+
+- 原型在同module中保留原partition與候選partition，既有collect入口改讀可變function binding；只有一份其餘collector／buffer程式與canonical core classes。每cohort同一Game／renderer／Scene／pool持續存在，samples間只在warm前切換選擇。
+- 這消除兩套core graph與不同Game實例的直接對照差異，卻不消除時間序列、tiering／inlining或warmup不對稱。可變call target也不是正式產物的直接binding；只屬source-slot校準，不能擴張成production速度證明。
+- A/A共192samples、A/B共192samples，包含實際selected partition；不以A/A median去修正A/B。大型world／nested舊收益未重現，不證明舊差異唯一由graph造成，因canvas數與callsite等也同時不同。
+- 三backend66cases及完整getter／exception契約通過，但沒有穩定效能理由採用，正式source／dist不變，後續轉查其他熱路徑。完整值與限制見 `ACCEPTANCE.md` P269。

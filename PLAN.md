@@ -6297,3 +6297,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - Sprite／target layer各11 modes ×三backend共66個真實 Game cases、562,716數字與 nonblank PNG相同，world-isolated不再用blank作PASS。
 - 八cohort固定六輪ABBA／BAAB、每sample8 warm＋48量測frames，共192 samples。world／nested合計下降，但一般local不穩定，小量local及offscreen submit多數退步；empty simulation等未直接修改分項也出現大差異，不將sum改善直接歸因traversal。
 - 量測期間未執行其他formatter／tests／build／profile；保留全部timing與control、不重跑到出現想要方向。本輪只交付六份文件，正式source／dist不變，未宣稱production／CJS CPU或fps認證；詳見 `ACCEPTANCE.md` P268，不 push／升版。
+
+## P269：同狀態 A/A＋A/B calibration 仍不採用 traversal
+
+- 隔離 fixture 使用單一 canonical core module graph、每cohort一個Game／Scene／renderer／canvas與同一套particle pool／command buffer。只有private partition entry以可變binding切換，selector在sample warm前執行；其餘collector與buffer實作共用，不在正式source加入switch或API。
+- shared-graph Sprite／target layer三backend共66個Game cases、562,716個Object.is數字與nonblank pixels一致；collector完整report仍與 P266 corrected相同。
+- 先固定八cohort A/A（所有label都選原函式），再固定同八cohort A/B，共384 samples／18,432量測frames。A/A仍有波動，A/B大型場景方向不穩定，先前明顯收益未重現，候選不採用；不扣除A/A median、不以跨期absolute時間比較宣稱改善。
+- 單一Game在量測前實際以兩個選擇各render probe再截圖；不是在最後狀態重複截圖冒充before/after。記錄每sample實際選中函式、全部分項／ties／outliers，量測期間無其他自啟工作。
+- 保留fixture文字替換失敗、未更新的native entryAfter metadata與原有Vite音訊dynamic-import warning，沒有因此改引擎或壓制validation。只交付六份證據文件，正式source／dist不變；方法仍有inlining／warmup／時間序列限制，見 `ACCEPTANCE.md` P269，不 push／升版。

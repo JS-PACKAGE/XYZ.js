@@ -7586,3 +7586,11 @@ P267 bounds 修正後，parent-link traversal 隔離原型通過Sprite／target 
 固定八cohort source-slot Game矩陣保留全部192 samples。world／nested的category sum下降，但一般local未穩定改善，小量local／offscreen submit有代價，未直接修改的control分項也出現大差異。兩側一致但分離的完整module graph可避免混用class ownership，卻沒有消除graph／實例／JIT狀態的所有不確定性；control差異沒有已確認因果解釋。量測中未跑formatter／tests／build／profiler，也不重跑同一批尋找好看方向。
 
 不採用，正式source／dist不變。這些具名wall-clock spans不是完整RAF CPU、GPU時間、fps或heap證據，source-slot也不是production／CJS CPU認證。全部samples、五分項、零分母處理、PNG hashes與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P268，不 push／升版。
+
+## P269：同狀態 A/A＋A/B 仍不採用 traversal
+
+throwaway module含原partition與候選partition，其他collector／buffer只有一份，core classes共用canonical module graph。每cohort同一Game／Scene／renderer／canvas／command buffer／pool持續存在，只在sample warm前切換function binding。量測前兩個選擇各自真正render再截圖，不以最後畫面重複截圖冒充對照。
+
+固定A/A的192 samples全部選原函式；固定A/B另192 samples各選原／候選96次。全部384 samples與五項分項／sum統計保留；大型場景方向不穩定，先前world／nested明顯收益未重現。不扣A/A median、不臆測舊差異唯一由graph造成，因canvas／實例數、callsite、warmup也有不同。可變target仍有inlining／tiering／時間序列限制，不當成production／CJS CPU認證。
+
+shared-graph三backend Sprite／target共66cases、562,716個數字與nonblank PNG相同，collector完整report與 P266 corrected相同。native entryAfter metadata保留了未使用舊prefix，實際import與更正說明均記錄，不悄悄改寫原報告。沒有正式source／dist或validation／vendor修改，仍不採用。完整timing、Vite原警告、準備失敗與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P269，不 push／升版。

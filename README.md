@@ -166,6 +166,8 @@ P267 修正 world 粒子與自訂 world pose 的 group coverage：只有非普�
 
 P268 在 P267 修正後重新評估 parent-link traversal，仍不採用：world／深層 nested 的計測合計下降，但一般 local 不穩定，小量 local 與 offscreen submit 有代價，empty control 也出現非 traversal 分項差異。P268 rejects parent-link traversal after fixed-baseline Game measurements expose tradeoffs and control-span uncertainty. P268 は traversal 案を不採用、module graph 間の対照限界も記録。66個三 backend Game cases、562,716個數字與getter trace一致；固定八cohort全部192 samples保留。正式source／dist不變，不將計測差異當作因果改善；見 [ACCEPTANCE](./ACCEPTANCE.md) P268，不 push／升版。
 
+P269 改用同 Game／Scene／renderer／command buffer，只切換 private traversal entry；固定 A/A＋A/B 共384 samples仍未證明候選收益，維持不採用。P269 finds no stable traversal gain with shared-state A/A and A/B calibration. P269 は同一状態で対照を改善したが traversal を不採用。66個三 backend Game cases、562,716個數字、完整getter／例外trace及全部timing保留；不把舊收益消失臆測成單一已確認原因，也不以A/A中位數校正A/B。正式source／dist不變，方法與metadata限制見 [ACCEPTANCE](./ACCEPTANCE.md) P269，不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
