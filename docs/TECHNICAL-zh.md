@@ -7684,3 +7684,9 @@ sandbox候選刪除獨立resolution getter／key／write，sourceSizes三個doub
 每個搜尋 pool 改為擁有一個 readonly release callback，不再逐 job 建立 closure。active 移除、workspace 回收、立即 unreachable、取消／失效／銷毀維持原順序，terminal jobs 仍清除 callback 引用。交換成本是每個 pool 多一個欄位及建構時 callback，即使該 pool 從未搜尋；沒有公開 API 或跨 pool 共用狀態。
 
 八個 concurrent jobs 在原版保留八個 callback identities，新 source／正式 ESM／CJS root 均為一個。25項既有 tests、strict／scoped checks、隔離 full build 通過，只帶回五個 jobs artifacts，保護11個使用者檔案。同 canonical class 的 Node／headless Chromium 固定 A/A→A/B CPU 結果混合且 controls 漂移；成果限於 callback 重用，不宣稱 CPU、heap／GC 或 FPS 加速。完整界線與未採用 grid-loop 原型見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P283 — 不採用 input／animation／demux／solver 原型
+
+固定 controls 不支持 button-slot Map（含 Chromium first button／無pad frame 回退）、root-motion rest-copy 刪減、safe-integer MP4 timestamp fast path、contact relative-velocity 合併及 clipping projection 重用。精確功能比較不等於加速；source operation 數或 Node profiler 採樣權重也不是 CPU／FPS 或配置量測。
+
+button Map 亦重現 P156 既有拒絕的 tradeoff。正式沒有保留新 table／helper／cache／API／source／artifact 變更；本階段只有證據文件，沒有重跑正式 tests／build、畫面、production ESM／CJS CPU 或實機認證。完整矩陣與限制見 [ACCEPTANCE](../ACCEPTANCE.md)。

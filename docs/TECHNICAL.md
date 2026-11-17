@@ -8039,3 +8039,9 @@ All 624 fixed 13-cohort A/A→A/B samples remain, including unfavorable large/sm
 Each search pool now owns one readonly release callback instead of creating a closure for every job. Active removal, workspace recycling, immediate unreachable results and cancellation/invalidation/destruction retain their existing order. Terminal jobs still clear their callback reference. This adds one field and a callback at pool construction, even for an unused pool; it introduces no public API or cross-pool state.
 
 Eight concurrent jobs retain eight distinct callbacks before versus one in current source and the formal ESM/CJS public roots. Twenty-five existing tests, strict/scoped checks and an isolated full build pass; only five jobs artifacts are promoted, preserving eleven user-owned files. Fixed same-class Node/headless Chromium A/A→A/B comparisons have mixed CPU results and drifting controls. This is callback reuse, not a measured CPU, heap/GC or FPS gain. Full limits and rejected grid-loop experiments: [ACCEPTANCE](../ACCEPTANCE.md).
+
+## P283 — rejected input, animation, demux and solver prototypes
+
+Fixed controls reject the button-slot Map (including slower first-button/no-pad Chromium frames), root-motion rest-copy elision, a safe-integer MP4 timestamp fast path, fused contact-relative-velocity writes and reused clipping projections. Exact functional comparisons do not establish a speedup; source-operation counts and Node sampling weights are not CPU/FPS or allocation measurements.
+
+The input Map also repeats P156's previously rejected tradeoff. No table, helper, cache, API, source or artifact change remains. This evidence-only phase did not rerun formal tests/build, rendered surfaces, production ESM/CJS CPU or hardware certification. Full matrices and limitations: [ACCEPTANCE](../ACCEPTANCE.md).

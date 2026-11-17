@@ -6399,3 +6399,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - source／正式 minified ESM root／CJS root 的八個 concurrent jobs 分別只保留一個 callback identity，原版為八個；25 項既有 tests、strict／scoped lint／format、保護 11 個使用者檔案的隔離 full build 通過，只帶回五個 jobs artifacts。
 - Node／managed headless Chromium 各固定十 cohort、八輪 A/A→A/B，共 1,280 samples。CPU 結果混合且有控制組漂移，採用理由限定為重用 JS callback，不宣稱 CPU／GC／heap／FPS 加速。另保留三個未採用 grid-loop 原型及跨 graph 計時誤導的界線，詳見 ACCEPTANCE。
 - API／package 1.23.0 不變，按功能提交、不 push，繼續調查其他瓶頸。
+
+## P283 — 否決有回退或落於漂移內的效能候選
+
+- Gamepad button Map 重查在同 canonical class 的 Node／Chromium 完整 frame matrix 後不採用：Chromium first button +4.593%、無pad的17 actions +2.926%，各八輪較慢。這也符合 P156 既有拒絕紀錄；不因 JSC 的後段按鈕收益重加 table。
+- Root-motion rest-copy elision、MP4 numeric timestamp fast path、3D solver relative-velocity fusion、box clipping projection reuse 均完成隔離原型／功能比較，卻沒有足夠整體 CPU 理由；全部不採用，不加 cache／場景門檻來追有利結果。
+- 正式 minified PhysicsWorld3D 的256剛體 profile 將調查轉向 solver／box narrowphase；採樣權重不是逐幀 CPU 分布或加速證明。只同步六份研究紀錄、依階段提交，不 build 或冒稱正式 runtime 重新驗收，source／dist／API／版本不變。完整矩陣與限制見 ACCEPTANCE。

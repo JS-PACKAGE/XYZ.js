@@ -230,6 +230,12 @@ P282: Navigation jobs reuse one release callback per pool, reducing eight concur
 
 P282：Navigation poolごとにrelease callbackを再利用し、同時8 jobsのcallback identityを8個から1個へ削減。終了時の参照解除・slot回収は維持。既存テストとsource／ESM／CJS lifecycleを確認。CPU結果は混在し、FPS／GCや普遍的な高速化は主張しない。[検収記録](ACCEPTANCE.md) を参照。
 
+P283：拒絕有回退或收益不明確的 input／animation／MP4／3D physics 原型，正式 source／dist 不變。button Map 的 Chromium 常用按鈕退步與其他負向結果均見 [ACCEPTANCE](ACCEPTANCE.md)；不把功能等價或較少運算當成效能成果。
+
+P283: Reject input/animation/MP4/3D-physics prototypes with regressions or inconclusive gains. Formal source/artifacts remain unchanged; negative results and limits are in [ACCEPTANCE](ACCEPTANCE.md).
+
+P283：input／animation／MP4／3D physicsの試案は回退または利益不明確のため不採用。正式source／distは不変。負の結果と検証範囲は [検収記録](ACCEPTANCE.md) を参照。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

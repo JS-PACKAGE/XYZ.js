@@ -95453,3 +95453,55 @@ Chromium A/A walls-cardinal為+22.689%且八輪較慢，Node A/A weighted-cardin
 三個獨立原型各執行640組Node確定性cases、十cohort固定A/A→A/B各640 samples。V1只迭代四／八方向、V2保留中心skip且縮小dx範圍，雖使open／walls cardinal paired median約下降5–10%，walls-diagonal卻分別+2.825%與+1.164%、八輪皆慢；V3 hoist row bounds／row start亦無穩定收益，open-diagonal+26.832%、七輪較慢。全部不採用，正式grid保持原樣；沒有把它們當成browser或production驗證。
 
 完整raw暫存於執行環境 `/tmp/xyz-p282-results.json`、`/tmp/xyz-p282-*-results.json` 及跨graph callback原型的 `/tmp/xyz-p283-results.json`；不是發佈檔案或永久可用連結。throwaway drivers 驗證後移除，沒有新增產品測試掛鉤或巨大base64附件。只依功能提交本輪變更，不push、升版或更動既有歷史。
+
+## P283 — 固定對照下否決五個效能原型（2026-11-18）
+
+所有正式 source／dist 維持 P282；唯一曾暫套用的 gamepad Map 已只撤回本輪新增行，其餘只在隔離 module／prototype fixture 研究。沒有升版、push、新依賴或新增產品測試掛鉤。本段不冒稱重跑正式 tests／strict／build／renderer／audio／showcase。
+
+### Input：不重新採用 P156 的 button Map
+
+最初 Bun 1.4.2／JSC 分離 modules、七輪20萬frame 的探索在home／all17／無pad有收益，但無bindings median 21.255→22.732ms。父代理再以同 canonical GamepadState／ActionMap、相同 module table、只切換私有 buttonSlot binding，Node26.7.0及headless Chromium153.0.8010.12各五cohort、八輪、四次ABBA／BAAB，先A/A後A/B，各320 samples。每sample先warm1,000再量100,000個poll／action update／endFrame；兩函式及fixtures預熱50,000 frames，setup不計時。
+
+| cohort       | Node paired median % | Chromium paired median % |
+| ------------ | -------------------: | -----------------------: |
+| first button |               +0.733 |                   +4.593 |
+| last button  |              -10.737 |                  -11.921 |
+| all17        |               +0.852 |                   -0.025 |
+| no-bindings  |               +0.337 |                   -0.148 |
+| no-pad/all17 |               -2.710 |                   +2.926 |
+
+負數較快，百分比先逐輪平均兩個A／B再配對，中位數取中間兩值平均，不扣A/A。Chromium first／no-pad八輪皆慢，Node all17亦八輪皆慢；A/A/control漂移保留，沒有以JSC代替browser。Chromium另25frames×17buttons／374 getter reads／七種非法名稱比對一致，含public layout／bindings mutation、disconnect／reconnect／reset，page errors空；這是合成gamepad snapshots，不是硬體認證。P156的同類Map／dictionary拒絕紀錄亦已核對，不加first-button特例或新table。
+
+### Root motion：省去覆寫前的 rest copies
+
+private MotionPose 在有translation／rotation track時省去立即會被取樣覆寫的rest copy，缺channel仍copy。沒有cache mutable tracks。270次完整pose comparisons、27組profile，涵蓋STEP／LINEAR／CUBIC、mutable times／values、缺channel、repeat／once／pingpong、reverse／seek／fade／mask／pause／errors／cleanup。
+
+Node26.7.0同 canonical sampler／math graph，128rigs×5,000frames；每channel先五輪A/A，再七輪交錯A/B。translation／rotation／both的paired ratio median分別−0.068%、−0.523%、−0.140%，對應A/A為−0.344%、−0.301%、−0.188%。收益不支持採用。CPU只覆蓋LINEAR、固定delta，未量browser；其他interpolation只有功能比較。
+
+### MP4：safe-integer Number timestamp fast path
+
+保留BigInt累積時間及fallback；只有Number(ticks)×1,000,000是safe integer時才Math.trunc除法，並以`|| 0`保留原BigInt轉Number的正零。280組實際容器／constructor trace與100萬組BigInt oracle一致，包括signed offsets、整數邊界與fallback。Node使用copying Chunk shim；Chromium CPU使用真正EncodedVideoChunk，不解碼這些合成AVC samples。
+
+Node／Chromium各六cohort、八輪、四次ABBA／BAAB、先A/A後A/B，各384 samples；每函式各warm100次，每sample另warm3次，small量2,000次、600 samples影片20次、4,096 samples影片4次、negative-zero／fallback各20次、sample-budget control3,000次完整demux。配置與fixture生成不計時。
+
+| cohort                | Node paired median % | Chromium paired median % |
+| --------------------- | -------------------: | -----------------------: |
+| small                 |               +1.314 |                   +6.122 |
+| video600              |               +0.596 |                   -0.497 |
+| fractional4096        |               -2.691 |                   -1.861 |
+| negative-zero         |               -1.815 |                   +0.735 |
+| fallback              |              +11.618 |                   +2.239 |
+| sample-budget-control |               +2.375 |                   -1.581 |
+
+Node small／fallback八輪皆慢，Chromium mixed且A/A small／fractional已有+12.139%／+9.056%偏移，短sample／timer解析度與native constructor／GC波動限制外推，不扣除或挑樣。prototype import rewrite最初因單／雙引號不同失敗，修正fixture後才完成上述完整量測；正式parser未動。
+
+### Physics3D：先profile，再否決兩個原型
+
+正式 minified ESM public root，256個允許旋轉且不sleep的box、floor、warm240＋profile600 fixed ticks；Node26.7.0採樣間隔100µs，9,373 samples，instrumented elapsed1432.240ms。self samples：inverseInertiaInto1,478／applyImpulse1,326／boxes1,255／velocityInto1,043／solve1,038。這些只是採樣權重，不是精確CPU分項、GPU／RAF或加速比例。
+
+- **relative-velocity fusion**：同World class，將四次單body helper寫入六值scratch改成兩次雙body helper寫入相對速度；不重排數值算式。430,080個world pose／velocity／sleep數值、192個含signed-zero／NaN／Infinity及getter traces的primitive cases一致。Node六cohort、六輪、四次ABBA／BAAB、先A/A後A/B，共288 samples，每次new world後warm90、量180ticks。small／box64／box128／sphere64 paired median為+84.697%／+38.330%／+32.149%／+31.845%，各六輪皆慢；sparse／empty controls為−0.235%／−0.457%。直接拒絕，未再以browser重跑同候選追好結果；沒有隔離JIT／boxing單一原因。
+- **clipping projection reuse**：box clipping沿每個plane重用上一條edge的dq作下一條dp，保持算式順序、double精度與private buffer ownership。12,000組隨機OBB完整manifold及430,080個完整world數值一致；相同六cohort／六輪矩陣288 samples。small／box64／box128為+0.210%／+0.045%／−0.507%，faster/slower為2/4、3/3、4/2；sphere／sparse／empty controls為+0.078%／−0.770%／+0.071%。A/A／control亦有偏移，沒有穩定world收益，不採用；未量browser或正式CJS CPU。
+
+上述World matrices均由同一canonical物件圖，在sample warm前切換method；constructor／warm不計入timed180ticks。共同layout、可變call target、source-slot與時間序列仍是限制。所有outliers保留於執行環境raw，不把較少source投影或helper calls換算成heap／GC或FPS。
+
+本輪raw保留於 `/tmp/xyz-input-*-results.json`、`/tmp/xyz-input-slots-cpu.log`、`/tmp/xyz-animation-poseat-results.jsonl`、`/tmp/xyz-mp4-micros-*-results.json`、`/tmp/xyz-physics-relative-results.json`、`/tmp/xyz-physics-clip-results.json`、`/tmp/xyz-physics3d-profile.cpuprofile`。這些是暫存、不是永久連結；throwaway drivers完成後移除。不新增巨大base64附件，只提交六份證據文件，不改或冒稱驗收新的正式能力。

@@ -6524,3 +6524,9 @@ full raw render quad 使用 logical dimensions，view／crop 使用自身 immuta
 這增加每個 pool 的一個欄位及預先建立的 callback，交換重複搜尋時不再逐 job 建立 callback。沒有跨 pool 共用狀態、綁定 API、額外 collection 或公開介面變動。八個 concurrent jobs 的原版／新版 callback identity 為八／一；不是 heap、GC 或 FPS 量測。
 
 分離 module graphs 的首輪 CPU 差異在同 canonical class 比較大幅縮小，不能歸因於 callback 重用。Node／Chromium 固定 A/A→A/B 的 mixed CPU 與 controls 漂移皆記錄；不以此聲稱普遍加速。詳見 ACCEPTANCE。
+
+## P283 — 不以局部收益或較少 source operations 採用候選
+
+button name Map 保留 mutable 公開 layout 與 internal slot 分離、root-motion 候選只省 private rest copies、MP4 候選只在 scaled ticks 為 safe integer 時走 Number 並正規化負零、solver fusion 保留運算順序、clipping 候選只沿 polygon 邊重用上一個 dq。這些都只是隔離原型；功能等價不等於 CPU 改善。
+
+同 class／graph 的 Node 與 Chromium controls 揭露 button first/no-pad 回退、MP4 fallback 成本；root-motion／clipping 收益落於混合與漂移範圍，solver fusion 則明顯更慢。全部拒絕，沒有正式新 field／helper／table／cache、公開 API 或產物變更。profiler 僅用來選研究位置，不宣稱已隔離 JIT／GC 單一原因。完整原型範圍、方法與負向結果見 ACCEPTANCE。
