@@ -134,6 +134,8 @@ P251 不採用 lazy current-distance 快取：完整路徑的 browser 改善太�
 
 P252 改用 query-local 可回收 heap entries，保留 Map 並省去 sift 的重複 slot hash writes；長 navmesh 與 tiled graph 查詢改善，最短稀疏 navmesh 有小幅代價。P252 uses recyclable query-local heap entries with Map lookup: long mesh/tiled paths improve, with a small sparse-mesh tradeoff. P252 は query 内で heap entry を再利用し、長い mesh／tiled 経路を改善。最短の疎な mesh 検索には小さな代償あり。數值陣列原型不採用；40 tests 與兩 caller 的 source／ESM／CJS／browser root 對照通過，全部控制見 [ACCEPTANCE](./ACCEPTANCE.md) P252。不 push／升版。
 
+P253 不採用非負距離剪枝：portal 前版本改變 frozen-array Proxy 讀取，portal 後版本雖改善 Node 長路徑，卻讓 Chromium 六輪皆變慢。P253 rejects nonnegative-distance pruning: the early variant changes frozen-array Proxy reads, while the conservative post-portal variant regresses Chromium long paths despite Node gains. P253 は非負距離による枝刈りを不採用：早期案は Proxy 読み取りが変わり、portal 後の案も Chromium の長経路で悪化。正式 source／dist 不變，完整數據見 [ACCEPTANCE](./ACCEPTANCE.md) P253；不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

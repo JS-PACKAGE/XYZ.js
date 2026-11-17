@@ -6164,3 +6164,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 原始 score→node 排序、lowered offers、±0 同 key 的最後 node 值、distance／parent、primitive／revision／cleanup 均保留。主要長路徑與 tiled graph CPU 改善，但最短 navmesh 稀疏控制小幅較慢，明列代價，不宣稱普遍加速。
 - 40 項既有 targeted tests、scoped 品質、隔離 production build 與兩 caller 的 canonical／ESM／CJS／browser public-root 驗證通過。只提升四個 helper runtime／map outputs 與一份私有欄位 declaration，保留十一個使用者檔案。
 - 兩個原型完整矩陣、frozen baseline、數值 oracle、限制及未量測 heap／GC 邊界見 `ACCEPTANCE.md` P252；按功能提交，不 push／升版。
+
+## P253：拒絕非負距離剪枝
+
+- 檢查以 known distance ≤ current distance 略過不可能改善的非負 edge。portal 前原型雖保留路徑值，卻改變由輸入 Array species 保留的 frozen-array Proxy 讀取歷史，因此不進入效能採用評估。
+- 保守原型留在 portal 後，保留完整幾何／Proxy 歷史，只略過 norm，並於同 expansion 延遲重用 current distance。完整短／長路徑及高 index 稀疏控制一次固定六輪 ABBA／BAAB，全部結果保留。
+- Node 長路徑改善，但 Chromium 長路徑六輪皆較慢，短路徑沒有穩定收益，拒絕增加分支／狀態。正式 mesh 維持 P250、heap 維持 P252。
+- 原型結果、getter／Proxy、retained snapshots、座標域、revision／cleanup 及逐 primitive 預算對照通過；本階段只更新六份文件，未重跑 canonical／build／unit／public-root。完整矩陣與未驗證範圍見 `ACCEPTANCE.md` P253，不 push／升版。

@@ -7462,3 +7462,10 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 - 移出的 entry 經同 query 的 free list 重用；take 先擷取原始 node Number，entry 不外洩、不跨工作共享。re-offer 對 SameValueZero 合併的 ±0 key 仍保留最後 node 值。
 - 數值 slot 陣列因高 index 稀疏退步而拒絕，不加密度特判。entry 表示改善主要長 mesh／tiled 路徑，但最短稀疏 mesh 控制小幅較慢；全部矩陣與離群值見 `../ACCEPTANCE.md` P252，不推定 heap／GC 改善。
 - 40 項既有 targeted tests、scoped 品質、隔離 production build、canonical／ESM／CJS 精確 oracle／caller 對照與實際 source／dist browser 公開入口通過。只更新五個 helper 產物（含私有 declaration metadata），公開 API、使用者檔案、依賴與版本不變；不宣稱 full suite、GPU／呈現 fps、Safari 或實機認證。
+
+## P253：不採用非負距離剪枝
+
+- known distance 不大於 current distance 時，非負 edge 確實不可能改善該節點。但輸入 Array 的自訂 species 可以在 frozen vertices array 保留 Proxy accessor；portal 前的原型雖保留路徑值，卻未通過完整讀取歷史對照，故未進行 CPU 量測。
+- 保守的 portal 後版本保留全部幾何／Proxy 讀取，再按下界略過 norm；current distance 只於單次 expansion 延遲重用。路徑原始數值、快照、getter、revision、cleanup 及 primitive 預算對照一致。
+- Node 與可見 Chromium 各執行一次固定六輪交替 ABBA／BAAB 矩陣，包含完整短／長路徑、高 index 稀疏查詢及未修改 projection 控制。Node 長路徑改善，但 Chromium 長路徑六輪皆較慢，短路徑小幅且混合，因此拒絕，不把較少 norm 當成 CPU 收益。
+- 只更新六份文件；正式 mesh 維持 P250、heap 維持 P252，未重跑 canonical／build／unit／public-root。完整矩陣、離群值、Proxy probe 及未驗證範圍見 `../ACCEPTANCE.md` P253；不宣稱 heap／GC、GPU／呈現 fps、Safari 或實機，不升版、不 push。

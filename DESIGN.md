@@ -6312,3 +6312,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - take 先擷取 node Number，再把移出 entry 放入同 query 的 free list；重新使用時清 next 並設定 node／score／slot，沒有公開 borrowed entry 或跨工作共享。SameValueZero 的 ±0 key 也保留最後 offer 的原始 node 值。
 - 不採用數值 slot 陣列，因高 index 稀疏控制退步；不以動態密度門檻補救。Map-entry 表示保留主要長路徑收益，接受並揭露最短 navmesh 稀疏查詢的小幅 CPU 代價，不聲稱 heap／GC 改善。
 - 凍結 baseline helper，避免產物提升污染 before caller；source、ESM、CJS 及兩個 browser 公開 root 的 oracle／結果／預算／cleanup 對照見 `ACCEPTANCE.md` P252。公開 API 不變，只有 helper 私有 declaration metadata 隨實作更新。
+
+## P253：數學下界不足以證明值得剪枝
+
+- 非負 edge 的確不能改善已達到較短或相同距離的節點，但不能因此任意提前略過幾何處理：輸入 Array 的自訂 species 可能讓凍結後的內部陣列仍保留 Proxy getter，提前原型的讀取歷史實際不同。
+- portal 後原型保留全部幾何讀取，再以已知 distance 下界略過 norm；算式、首次 current-distance 讀取、零值、parent／offer 順序及工作預算均維持。對照確認完整 Proxy 歷史與路徑一致。
+- 即使 Node 長路徑有方向性收益，Chromium 長路徑六輪皆較慢，故拒絕此分支與局部 cache；不由較少 norm 推定 CPU 或 JIT／GC 效果。正式 source／dist、P250 region 重用與 P252 heap 不變。
+- 本階段只提交實際原型證據及六份同步文件；不冒稱 canonical／build／unit 或公開入口重驗。全部控制、離群值與限制見 `ACCEPTANCE.md` P253。
