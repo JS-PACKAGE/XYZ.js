@@ -6361,3 +6361,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 原索引快照可避免 guard 的額外 entry.slot 讀取，但無論讀回 field 或保存原索引，都未建立穩定的完整 mesh／tiled 收益，正式程式不新增此 branch。
 - 既有 hole 搬移、score／node tie、Map 的 ±0 coalescing 與 last-offered raw node、free-list recycling、distance／parent、job primitive 與 path ownership 均維持原設計；不以省略 source stores 推定實際 CPU、heap／GC 或 fps。
 - 所有固定 controls、正負配對與 outliers 保留；兩候選的 heap／兩 caller 數值及 lifecycle probes 通過，但沒有正式產物或能力擴充。全部證據見 `ACCEPTANCE.md` P259。
+
+## P260：保留既有 target 粒子更新架構
+
+- 第一案在單粒子 advance 中保留已確認的 borrowed slot 與積分座標，不略過 generation、source 或 transform／tint 驗證；數值對照通過，但實際 target CPU 沒有收益，因此不引入 helper／private declaration 變動。
+- 第二案只在本 tick 局部保存不可變起訖尺寸／顏色差與現有 buffer 參照，完整保留 source-key 尺寸 memo、live-slot／generation、retire swap-remove、驗證順序及原浮點運算式；generic advance／appearance 仍處理 newborn。這不是 P151 的 instance span cache。
+- 與既有 Sprite 專用 loop 同形不代表 target 一定更快：大型 target 配對約慢 31%，churn 約慢 37%，故不增加重複實作。未修改 Sprite controls 的方向變化也不當成 target 因果收益，未臆測 JIT／GC 根因。
+- 真實 ImageBitmap／Texture、精確 signed-zero／矩陣／slot version、外部 source／generation 變更與 owning-group／borrowed-resource cleanup 對照通過；未採用任何 runtime、資料欄位、配置策略或新能力。全部證據與限制見 `ACCEPTANCE.md` P260。

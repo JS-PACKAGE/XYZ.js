@@ -6219,3 +6219,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - Node／可見 pinned Chromium 各固定十三 mesh＋三 tiled cohorts、六輪 ABBA／BAAB，每版 768 timings 全部保留。第一版收益混合且 Node sparse mesh 多數變慢；第二版 Chrome 短 mesh 僅一輪較快（三慢、兩平），長／稀疏 mesh 多數變慢。少兩次寫入不等於完整 caller 加速，兩版皆不採用。
 - 兩版均通過 9,225 offers／7,416 takes、三數值 domains、±0／reopen、384 tiled paths／552 job steps，以及十組 mesh 數值／getter／Proxy／budget／ownership 對照。
 - 本階段只提交證據文件；source／dist 保留 P258，未重跑 formal tests／strict／lint／build、正式 ESM／CJS CPU 或 browser root 認證。全部原始數據及限制見 `ACCEPTANCE.md` P259，不 push／升版。
+
+## P260：原生資源 profile 後拒絕兩個 target 粒子候選
+
+- 檢查既有 ParticleEmitter／ParticleLayer2D、實際 particles2d benchmark 與歷史 P151／P176 邊界；使用真正 ImageBitmap／Texture，不用 Node 假 texture 代替瀏覽器資源。
+- 目前 source root 的 8,192 粒子 local／world profile 指向 target advance／writeTargetAppearance。第一案重用確認過的 slot 與積分後 x／y、移除 private wrapper；第二案保留 generic newborn 路徑，仿既有 advanceSprites 加 per-tick target loop，不加 instance span cache。
+- 第一案 target world／churn 六輪皆較慢；第二案大型 local／world 約 +31.87%／+31.17%，churn +36.79%，均六輪較慢。保留未修改 Sprite／empty controls、所有離群值及兩案各 192 timings，兩案皆不採用。
+- 每案在原生瀏覽器資源上通過八種 local／world、Sprite／target、burst／rate／expiry 模式的 2,048 組 Object.is 數值／矩陣／version 對照、632 次 lifecycle／source／generation 變動、48 次 invalid-delta 驗證，borrowed texture cleanup 通過。
+- 此階段只提交證據：source／dist／公開 API／使用者檔案維持基線，未重跑 formal tests／strict／lint／build、正式 ESM／CJS CPU 或三 backend／showcase pixels；不冒稱完整 frame、RAF、CPU submit、heap／GC 或 fps 收益。完整 profile／矩陣見 `ACCEPTANCE.md` P260，不 push／升版。

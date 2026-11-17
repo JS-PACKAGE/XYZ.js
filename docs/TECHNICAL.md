@@ -7869,3 +7869,11 @@ Twenty-eight existing tests, strict/scoped checks, a protected isolated build, t
 Fixed thirteen mesh plus three tiled cohorts run six ABBA/BAAB rounds in Node/visible pinned Chromium, preserving all 768 timings per candidate. The first is mixed and usually regresses Node sparse mesh; the captured-slot variant has only one faster Chromium short-mesh pair (three slower, two equal) and usually regresses long/sparse mesh. Neither establishes stable complete-caller gains, so canonical source/dist remain at P258.
 
 Both pass three-domain heap comparisons (9,225 offers / 7,416 takes), signed-zero/reopen checks, 384 tiled paths / 552 incremental steps and ten mesh contract probes. This evidence-only phase does not rerun formal tests/build or certify production ESM/CJS CPU, browser roots, allocation/GC or FPS. Full raw pairs and limits: [ACCEPTANCE](../ACCEPTANCE.md), P259; no push or version change.
+
+## P260: reject target-particle reuse and specialization prototypes
+
+Fresh visible pinned-Chromium profiles use the actual source root and real ImageBitmap/Texture resources, not a mocked Node bitmap. Target-layer `advance` and `writeTargetAppearance` rank as hotspots. One isolated prototype reuses the confirmed borrowed slot/integrated coordinates; another follows the existing Sprite-loop pattern with per-tick target constants, preserving the generic newborn path. Neither adds instance span caches or removes source/generation/numeric validation.
+
+Reject both. The first regresses world targets and churn in all six pairs. The second regresses large local/world targets by +31.87%/+31.17% and churn by +36.79%, all six pairs slower. Every sample, outlier and unchanged Sprite/empty control is retained; profile times and differently scoped paired clocks are not compared as a gain, and no JIT/GC mechanism is invented.
+
+Each candidate passes 2,048 exact Object.is state/matrix/version comparisons across eight native-resource lifecycle modes, 632 mutations and 48 invalid-delta checks, with borrowed-resource cleanup. Source/dist remain unchanged; formal tests/build, production ESM/CJS CPU, rendered backend/showcase pixels and whole-frame/RAF/CPU-submit/heap/FPS certification were not rerun. Full profiles, pairs and boundaries: [ACCEPTANCE](../ACCEPTANCE.md), P260; no push/version change.

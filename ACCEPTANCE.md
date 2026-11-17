@@ -33660,3 +33660,206 @@ Both isolated variants pass the same thirteen real comparison scripts before the
 - Pre-search histories retain eight pending slots, ninth rejection, zero/one budgets, cancellation expansion counts, replacement and invalidation cleanup. Publication comparisons preserve twelve owned paths, twenty-four rejected forgeries, twelve retained snapshots, two lifecycle histories, complete frozen trees, failed Reflect mutations, foreign ownership rejection, true projection-miss versus actual search-unreachable visited counts and revision/destroy invalidation.
 
 No canonical implementation is adopted, so formal tests, strict/scoped lint, build, production ESM/CJS CPU and actual source/dist public-root browser probes are not rerun. P258 verification retains its historical scope; merely locating the existing sparse-frontier test does not claim it ran again. No new permanent test, dependency, capability or runtime artifact is added. Documentation finishing checks cover Prettier on six files, relative file links (not anchors), original ACCEPTANCE-prefix bytes, cleanup of owned temporary files and an empty-index/exact six-document commit allowlist.
+
+## P260 — Reject target-particle reuse and per-tick specialization (2026-11-17)
+
+### Baseline, native resource boundary and decision
+
+Baseline 8c2141ec3 / P259. Existing pooled Sprite integration, target-layer generation/source validation and prior P151/P176 appearance/empty-pool work were inspected, along with the actual particles2d benchmark and backend/showcase runners. This phase uses genuine browser ImageBitmap objects created from ImageData and actual engine Texture objects; no fake Node bitmap, search/update stub, validation suppression or borrowed-resource fallback is used.
+
+Fresh source-root profiles identify target advance and writeTargetAppearance as prominent frames. Candidate A carries the already-confirmed borrowed slot and the integrated x/y values through advance, removing a private targetAppearance wrapper and one duplicate slot lookup while retaining generation/source/numeric checks. Generic Sprite fallback still reads lifetime after the public vector setter, preserving that ordering.
+
+Candidate B starts independently from the canonical baseline, not from A. It follows the existing advanceSprites convention with a specialized active-target loop holding immutable start/end spans and existing buffer/scratch references only for that tick. It preserves the original generic advance/appearance path for rate-born particles, the source-key width/height memo and its per-tick reset, generation checks, swap-remove retirement, full transform/tint validation, world birth axes and exact arithmetic expressions. No instance span cache is introduced, unlike P151; no extra per-particle/per-tick objects or per-instance fields are introduced.
+
+Reject both. A makes large world targets +1.058535% and churn +0.573325% slower in all six pairs; large local +0.293040%, small local +0.590164% and small world +0.563379% are each slower in five pairs. The unchanged populated Sprite-world control moves -9.523008% in all six pairs and is not credited as a target-path gain.
+
+B regresses large target local/world +31.868886% / +31.169572% (all six slower), small local +31.447431% (all six), small world +30.601477% (five slower, one faster) and churn +36.791634% (all six). Its unchanged populated Sprite controls also move +1.942332% / +2.054956% (all six slower), not proof of a target mechanism. Empty controls are only a few nanoseconds/frame with very wide percentage ranges and cannot support meaningful speed claims. All values/outliers are preserved; no speculative JIT/inline/register/GC root cause is asserted.
+
+Canonical source/dist, private declarations, public API, user-owned work, dependencies, vendor and package version 1.23.0 remain unchanged. This is evidence-only documentation, not an adopted runtime optimization or backend certification.
+
+### Actual source-root baseline profile
+
+Pinned Playwright Chromium 153.0.8010.12 darwin/arm64 desktop automation, visible document, zero page errors. Each of four real source-root fixtures has 8,192 particles and native ImageBitmap/Texture, local/world Sprite or target-layer mode. After 256 warm updates, 512 complete updateSimulation calls run at dt=1/120 with finite nonzero speed/acceleration and lifetime 1e6. CPU sampling interval is 100 µs; profiled wall times include observer overhead, and self samples also include RPC/program/idle activity. Runtime frame line numbers are Vite-generated coordinates, not assumed canonical TypeScript lines.
+
+| Mode         | Frames | Particles | Profiled µs/frame |
+| ------------ | ------ | --------- | ----------------- |
+| sprite-local | 512    | 8192      | 61.132812         |
+| sprite-world | 512    | 8192      | 66.210937         |
+| layer-local  | 512    | 8192      | 256.640625        |
+| layer-world  | 512    | 8192      | 258.593750        |
+
+| Mode         | Runtime frame                               | Self sample µs |
+| ------------ | ------------------------------------------- | -------------- |
+| sprite-local | `(program) :0`                              | 97243          |
+| sprite-local | `advanceSprites index.ts:272`               | 31370          |
+| sprite-local | `(idle) :0`                                 | 4479           |
+| sprite-world | `advanceSprites index.ts:272`               | 22017          |
+| sprite-world | `(program) :0`                              | 19419          |
+| sprite-world | `updateSimulation index.ts:234`             | 11675          |
+| sprite-world | `(idle) :0`                                 | 3934           |
+| sprite-world | `run :12`                                   | 306            |
+| layer-local  | `advance index.ts:415`                      | 75820          |
+| layer-local  | `writeTargetAppearance index.ts:461`        | 34768          |
+| layer-local  | `(program) :0`                              | 21805          |
+| layer-local  | `validateTransform particle-layer2d.ts:161` | 14861          |
+| layer-local  | `updateSimulation index.ts:234`             | 4819           |
+| layer-local  | `(idle) :0`                                 | 4076           |
+| layer-local  | `(garbage collector) :0`                    | 1084           |
+| layer-world  | `advance index.ts:415`                      | 74013          |
+| layer-world  | `writeTargetAppearance index.ts:461`        | 36987          |
+| layer-world  | `validateTransform particle-layer2d.ts:161` | 15580          |
+| layer-world  | `(program) :0`                              | 14116          |
+| layer-world  | `updateSimulation index.ts:234`             | 5180           |
+| layer-world  | `(idle) :0`                                 | 878            |
+| layer-world  | `(garbage collector) :0`                    | 735            |
+| layer-world  | `innerSerialize :186`                       | 106            |
+
+The source-root profile is not the frozen-source/shared-production-dependency paired fixture below. Neither its absolute times nor profiler self/GC samples establish a speedup, allocation count, GC pause or end-to-end frame cost. All profile emitters are destroyed before explicitly destroying the borrowed texture; the actual bitmap closes (width becomes zero).
+
+### Fixed visible-browser CPU matrices
+
+The baseline emitter is freshly snapshotted from canonical TypeScript 6.0.3 ES2022 source. Candidate modules use the same actual minified production dependencies for layer, Sprite, math and assets, with no hand-written simulation stand-in. Native real textures are shared as borrowed resources; fixtures are independently initialized. These are source-slot complete simulation-update consumers, not actual deployed minified-emitter or CJS clocks. Node has no equivalent native ImageBitmap in this run, so no mocked Node CPU score is substituted.
+
+Eight cohorts are fixed before either matrix: local/world Sprite 8,192; local/world target 8,192; local/world target 128; empty target capacity 8,192; target churn capacity 1,024. Static CPU cohorts use zero velocity/acceleration, lifetime 1e9 and seeded rectangle birth positions, avoiding cumulative coordinate overflow without changing the engine's validation. Churn uses rate 1,024/s, lifetime 0.05–0.2s and finite speed, so real fractional births, expiry and retirement continue. Parent/emitter rotations and nonuniform scales remain real. Every timed update uses dt=1/240.
+
+Each side warms 128 frames for dense/churn, 1,024 for 128-particle cases, or 4,096 for empty. Each of six alternating ABBA/BAAB rounds takes two samples/side: 512 frames for each 8,192 cohort, 16,384 for each 128 cohort, 65,536 empty updates, 8,192 churn updates. Each candidate has 48 rows / 192 timings; both total 384 timings, all retained. No concurrent build/benchmark, no selected rerun or trimmed outlier. Set-up/destruction and lifecycle proof stay outside clocks; one sample-end public count/output sink is included in the per-frame average.
+
+Units are CPU wall µs per whole-emitter simulation update, not per particle, RAF interval, graphics CPU submit, GPU or presentation FPS. Summary before/after cells are medians of six two-sample pair means, signed changes are medians of six paired percentages (not recomputed from independent medians), and negative is faster. No rendered surface, complete Game frame, allocation/heap/GC or backend performance claim is made.
+
+#### Candidate A: confirmed-slot/coordinate reuse
+
+| Runtime  | Cohort           | Before µs  | After µs   | 配對變化 % | 六輪範圍 %         | 較快輪次 |
+| -------- | ---------------- | ---------- | ---------- | ---------- | ------------------ | -------- |
+| Chromium | sprite-local8192 | 66.015625  | 66.064453  | 0.4175     | -1.6176 … 2.2422   | 2/6      |
+| Chromium | sprite-world8192 | 66.015625  | 59.472656  | -9.5230    | -10.9145 … -2.9703 | 6/6      |
+| Chromium | layer-local8192  | 599.658203 | 601.220703 | 0.2930     | -0.2602 … 0.5220   | 1/6      |
+| Chromium | layer-world8192  | 609.033203 | 615.332031 | 1.0585     | 0.4161 … 1.5271    | 0/6      |
+| Chromium | layer-local128   | 9.307861   | 9.371948   | 0.5902     | -0.9295 … 3.0492   | 1/6      |
+| Chromium | layer-world128   | 9.497070   | 9.550476   | 0.5634     | -1.9500 … 0.9677   | 1/6      |
+| Chromium | layer-empty      | 0.004196   | 0.004578   | 10.0000    | -28.5714 … 60.0000 | 2/6      |
+| Chromium | layer-churn      | 10.119629  | 10.171509  | 0.5733     | 0.3014 … 0.7831    | 0/6      |
+
+| Cohort           | Round | Before 1 µs | Before 2 µs | After 1 µs | After 2 µs | 配對變化 % |
+| ---------------- | ----- | ----------- | ----------- | ---------- | ---------- | ---------- |
+| layer-churn      | 1     | 10.131836   | 10.168457   | 10.229492  | 10.229492  | 0.7817     |
+| layer-churn      | 2     | 10.131836   | 10.131836   | 10.241699  | 10.180664  | 0.7831     |
+| layer-churn      | 3     | 10.107422   | 10.119629   | 10.180664  | 10.168457  | 0.6035     |
+| layer-churn      | 4     | 10.144043   | 10.083008   | 10.205078  | 10.131836  | 0.5432     |
+| layer-churn      | 5     | 10.144043   | 10.107422   | 10.180664  | 10.131836  | 0.3014     |
+| layer-churn      | 6     | 10.119629   | 10.083008   | 10.156250  | 10.119629  | 0.3625     |
+| layer-empty      | 1     | 0.004578    | 0.006104    | 0.003052   | 0.004578   | -28.5714   |
+| layer-empty      | 2     | 0.006104    | 0.004578    | 0.003052   | 0.004578   | -28.5714   |
+| layer-empty      | 3     | 0.004578    | 0.004578    | 0.004578   | 0.004578   | 0.0000     |
+| layer-empty      | 4     | 0.003052    | 0.004578    | 0.006104   | 0.006104   | 60.0000    |
+| layer-empty      | 5     | 0.004578    | 0.003052    | 0.004578   | 0.006104   | 40.0000    |
+| layer-empty      | 6     | 0.003052    | 0.004578    | 0.004578   | 0.004578   | 20.0000    |
+| layer-local128   | 1     | 9.295654    | 9.320068    | 9.753418   | 9.429932   | 3.0492     |
+| layer-local128   | 2     | 9.307861    | 9.307861    | 9.356689   | 9.356689   | 0.5246     |
+| layer-local128   | 3     | 9.320068    | 9.313965    | 9.326172   | 9.320068   | 0.0655     |
+| layer-local128   | 4     | 9.289551    | 9.326172    | 9.362793   | 9.375000   | 0.6557     |
+| layer-local128   | 5     | 9.295654    | 9.301758    | 9.393311   | 9.356689   | 0.8205     |
+| layer-local128   | 6     | 9.417725    | 9.625244    | 9.362793   | 9.503174   | -0.9295    |
+| layer-local8192  | 1     | 601.953125  | 598.632813  | 602.343750 | 601.757813 | 0.2928     |
+| layer-local8192  | 2     | 601.953125  | 597.851563  | 602.929688 | 598.828125 | 0.1628     |
+| layer-local8192  | 3     | 601.562500  | 599.609375  | 599.609375 | 598.437500 | -0.2602    |
+| layer-local8192  | 4     | 599.414062  | 599.414062  | 601.367187 | 600.976563 | 0.2933     |
+| layer-local8192  | 5     | 598.632813  | 598.632813  | 601.757813 | 601.757813 | 0.5220     |
+| layer-local8192  | 6     | 599.218750  | 599.023437  | 601.367187 | 601.171875 | 0.3586     |
+| layer-world128   | 1     | 9.515381    | 9.521484    | 9.539795   | 9.545898   | 0.2565     |
+| layer-world128   | 2     | 9.490967    | 9.484863    | 9.515381   | 9.527588   | 0.3538     |
+| layer-world128   | 3     | 9.533691    | 9.478760    | 9.606934   | 9.576416   | 0.8989     |
+| layer-world128   | 4     | 9.466553    | 9.454346    | 9.558105   | 9.545898   | 0.9677     |
+| layer-world128   | 5     | 9.472656    | 9.478760    | 9.539795   | 9.558105   | 0.7729     |
+| layer-world128   | 6     | 10.333252   | 9.698486    | 9.771729   | 9.869385   | -1.9500    |
+| layer-world8192  | 1     | 610.351563  | 608.984375  | 614.648437 | 614.257813 | 0.7849     |
+| layer-world8192  | 2     | 608.984375  | 608.984375  | 611.718750 | 622.656250 | 1.3470     |
+| layer-world8192  | 3     | 610.546875  | 609.960937  | 612.500000 | 613.085938 | 0.4161     |
+| layer-world8192  | 4     | 608.789063  | 608.593750  | 615.039062 | 615.039062 | 1.0428     |
+| layer-world8192  | 5     | 607.226562  | 607.812500  | 618.554688 | 615.039062 | 1.5271     |
+| layer-world8192  | 6     | 608.984375  | 609.179687  | 615.429688 | 615.820313 | 1.0742     |
+| sprite-local8192 | 1     | 71.875000   | 70.312500   | 71.679687  | 71.484375  | 0.6868     |
+| sprite-local8192 | 2     | 67.578125   | 64.648437   | 65.429688  | 66.601563  | -0.1477    |
+| sprite-local8192 | 3     | 66.406250   | 64.453125   | 66.406250  | 65.820313  | 1.0448     |
+| sprite-local8192 | 4     | 65.039063   | 65.625000   | 67.578125  | 66.015625  | 2.2422     |
+| sprite-local8192 | 5     | 66.601562   | 66.210937   | 66.015625  | 64.648438  | -1.6176    |
+| sprite-local8192 | 6     | 65.625000   | 66.210937   | 66.406250  | 65.625000  | 0.1481     |
+| sprite-world8192 | 1     | 71.484375   | 66.601562   | 66.796875  | 67.187500  | -2.9703    |
+| sprite-world8192 | 2     | 68.945312   | 65.429688   | 59.765625  | 59.960938  | -10.9012   |
+| sprite-world8192 | 3     | 66.210937   | 66.210938   | 59.960938  | 58.007812  | -10.9145   |
+| sprite-world8192 | 4     | 65.625000   | 65.429688   | 59.375000  | 59.765625  | -9.0909    |
+| sprite-world8192 | 5     | 65.039062   | 66.601562   | 59.375000  | 59.375000  | -9.7923    |
+| sprite-world8192 | 6     | 66.406250   | 64.453125   | 58.789063  | 59.960937  | -9.2537    |
+
+#### Candidate B: per-tick specialized target loop
+
+| Runtime  | Cohort           | Before µs  | After µs   | 配對變化 % | 六輪範圍 %         | 較快輪次 |
+| -------- | ---------------- | ---------- | ---------- | ---------- | ------------------ | -------- |
+| Chromium | sprite-local8192 | 65.380859  | 66.845703  | 1.9423     | 1.1782 … 4.0663    | 0/6      |
+| Chromium | sprite-world8192 | 66.601563  | 67.626953  | 2.0550     | 0.7289 … 5.7992    | 0/6      |
+| Chromium | layer-local8192  | 601.708984 | 797.412109 | 31.8689    | 29.1977 … 49.2921  | 0/6      |
+| Chromium | layer-world8192  | 613.427734 | 805.078125 | 31.1696    | 28.5783 … 49.7516  | 0/6      |
+| Chromium | layer-local128   | 9.391785   | 12.353516  | 31.4474    | 29.6200 … 48.9383  | 0/6      |
+| Chromium | layer-world128   | 9.542847   | 12.490845  | 30.6015    | -4.7650 … 33.0557  | 1/6      |
+| Chromium | layer-empty      | 0.004578   | 0.005341   | 16.6667    | -0.0000 … 100.0000 | 2/6      |
+| Chromium | layer-churn      | 10.177612  | 13.928223  | 36.7916    | 35.9113 … 37.9580  | 0/6      |
+
+| Cohort           | Round | Before 1 µs | Before 2 µs | After 1 µs | After 2 µs | 配對變化 % |
+| ---------------- | ----- | ----------- | ----------- | ---------- | ---------- | ---------- |
+| layer-churn      | 1     | 10.156250   | 10.192871   | 13.928223  | 13.928223  | 36.8926    |
+| layer-churn      | 2     | 10.144043   | 10.180664   | 14.062500  | 13.977051  | 37.9580    |
+| layer-churn      | 3     | 10.192871   | 10.168457   | 13.903809  | 13.769531  | 35.9113    |
+| layer-churn      | 4     | 10.217285   | 10.168457   | 13.977051  | 13.879395  | 36.6467    |
+| layer-churn      | 5     | 10.192871   | 10.119629   | 13.989258  | 14.013672  | 37.8606    |
+| layer-churn      | 6     | 10.205078   | 10.156250   | 13.964844  | 13.867187  | 36.6906    |
+| layer-empty      | 1     | 0.004578    | 0.006104    | 0.006104   | 0.004578   | -0.0000    |
+| layer-empty      | 2     | 0.004578    | 0.004578    | 0.006104   | 0.004578   | 16.6667    |
+| layer-empty      | 3     | 0.004578    | 0.004578    | 0.006104   | 0.006104   | 33.3333    |
+| layer-empty      | 4     | 0.004578    | 0.004578    | 0.006104   | 0.004578   | 16.6667    |
+| layer-empty      | 5     | 0.003052    | 0.003052    | 0.006104   | 0.006104   | 100.0000   |
+| layer-empty      | 6     | 0.006104    | 0.004578    | 0.004578   | 0.006104   | -0.0000    |
+| layer-local128   | 1     | 9.344482    | 9.338379    | 13.995361  | 13.830566  | 48.9383    |
+| layer-local128   | 2     | 9.393311    | 9.399414    | 12.261963  | 12.097168  | 29.6200    |
+| layer-local128   | 3     | 9.362793    | 9.442139    | 12.316895  | 12.280273  | 30.8017    |
+| layer-local128   | 4     | 9.442139    | 9.423828    | 12.457275  | 12.463379  | 32.0932    |
+| layer-local128   | 5     | 9.368896    | 9.405518    | 12.487793  | 12.036133  | 30.6242    |
+| layer-local128   | 6     | 9.387207    | 9.387207    | 12.359619  | 12.457275  | 32.1847    |
+| layer-local8192  | 1     | 600.781250  | 599.414062  | 900.390625 | 891.406250 | 49.2921    |
+| layer-local8192  | 2     | 601.171875  | 601.367187  | 780.273438 | 797.070313 | 31.1678    |
+| layer-local8192  | 3     | 599.023438  | 600.585938  | 792.773437 | 794.140625 | 32.2859    |
+| layer-local8192  | 4     | 603.320312  | 604.101562  | 774.609375 | 785.351563 | 29.1977    |
+| layer-local8192  | 5     | 604.882812  | 616.601563  | 798.828125 | 806.835938 | 31.4519    |
+| layer-local8192  | 6     | 602.148438  | 602.148437  | 802.148437 | 800.585937 | 33.0847    |
+| layer-world128   | 1     | 9.478760    | 9.478760    | 9.423828   | 8.630371   | -4.7650    |
+| layer-world128   | 2     | 9.515381    | 9.539795    | 12.719727  | 12.634277  | 33.0557    |
+| layer-world128   | 3     | 9.545898    | 9.539795    | 12.670898  | 12.554932  | 32.1714    |
+| layer-world128   | 4     | 9.576416    | 9.582520    | 12.445068  | 12.384033  | 29.5954    |
+| layer-world128   | 5     | 9.533691    | 9.552002    | 12.261963  | 12.268066  | 28.5257    |
+| layer-world128   | 6     | 9.545898    | 9.552002    | 12.500000  | 12.634277  | 31.6075    |
+| layer-world8192  | 1     | 610.351563  | 608.593750  | 923.437500 | 901.953125 | 49.7516    |
+| layer-world8192  | 2     | 611.523438  | 611.132812  | 806.250000 | 815.234375 | 32.6198    |
+| layer-world8192  | 3     | 611.914062  | 614.843750  | 791.015625 | 786.328125 | 28.5783    |
+| layer-world8192  | 4     | 613.867188  | 615.039062  | 801.757813 | 794.335937 | 29.8792    |
+| layer-world8192  | 5     | 616.015625  | 612.109375  | 813.671875 | 794.140625 | 30.9160    |
+| layer-world8192  | 6     | 614.648437  | 612.304688  | 806.250000 | 806.250000 | 31.4231    |
+| sprite-local8192 | 1     | 68.554688   | 64.062500   | 67.187500  | 66.992187  | 1.1782     |
+| sprite-local8192 | 2     | 65.820313   | 65.429688   | 66.992187  | 66.601562  | 1.7857     |
+| sprite-local8192 | 3     | 65.429688   | 66.015625   | 66.992187  | 66.406250  | 1.4859     |
+| sprite-local8192 | 4     | 65.820312   | 63.867188   | 67.382813  | 67.578125  | 4.0663     |
+| sprite-local8192 | 5     | 65.039063   | 65.039062   | 66.601562  | 67.187500  | 2.8529     |
+| sprite-local8192 | 6     | 63.867187   | 66.406250   | 68.359375  | 64.648438  | 2.0990     |
+| sprite-world8192 | 1     | 66.601562   | 66.015625   | 68.164063  | 66.796875  | 1.7673     |
+| sprite-world8192 | 2     | 65.039062   | 66.015625   | 67.773438  | 67.773437  | 3.4277     |
+| sprite-world8192 | 3     | 73.242188   | 64.843750   | 76.953125  | 69.140625  | 5.7992     |
+| sprite-world8192 | 4     | 67.382813   | 65.625000   | 66.992187  | 67.968750  | 1.4684     |
+| sprite-world8192 | 5     | 66.210937   | 67.773438   | 68.750000  | 66.210937  | 0.7289     |
+| sprite-world8192 | 6     | 65.820313   | 67.578125   | 69.140625  | 67.382813  | 2.3426     |
+
+### Executed exact consumer proof and limits
+
+Each candidate first passes the same real-resource differential: eight modes covering local/world Sprite and target layers, manual bursts and positive-rate churn; 256 ticks/mode, 2,048 state comparisons, 632 lifecycle/source/generation mutations and 48 invalid-delta checks across both sides. Comparisons recursively use Object.is, not a numeric tolerance or JSON serialization that loses signed zero.
+
+Observed state includes active/emitting counts, all Sprite positions/scales/tint/visibility and world matrices; target insertion order, active count/topology version, borrowed slot generation, all affine/tint/anchor values, transform/tint/source/anchor versions, source identity/crop and world matrices. Parent movement/rotation/nonuniform scale, mixed dt=0 / 1/240 / 1/60 / 0.08 / 0.25, stop/start, clear/re-emit, external remove/reuse with different native texture, per-slot crop/source changes, expiry and rate-born particles are exercised. Retained borrowed slot objects continue to match. Invalid negative/NaN/Infinity dt produces the same error class/message; destroyed-target cleanup keeps its existing precedence even with NaN dt.
+
+Owning Group destruction releases emitters/target children but does not destroy borrowed textures; resources are explicitly destroyed after all fixtures. Visible browser documents have no page errors. The existing Vite OPM dynamic-import analysis warning is retained and does not constitute an audio test.
+
+No implementation is adopted, so formal particle tests, strict/scoped checks, build, canonical/production emitter or CJS CPU, actual three-backend/showcase pixels, full-frame/RAF/CPU-submit, allocation/heap/GC-pause, Safari or physical-device certification are not rerun. Reading the existing tests/examples/runners is not recorded as their execution. Documentation finishing checks cover six-file Prettier, relative file links (not anchors), exact original ACCEPTANCE-prefix bytes, cleanup of owned temporary resources and empty-index/exact six-document commit allowlisting. No push or version change.

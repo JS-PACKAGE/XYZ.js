@@ -148,6 +148,8 @@ P258 在同一個 smoothing primitive 重用固定 region，省去兩側 portal 
 
 P259 不採用 heap 無位移寫入 guard：兩個變體的完整 mesh／tiled caller 收益不穩定，第二版 Chrome 常用路徑多數變慢。P259 rejects both no-movement heap-store guards; complete mesh/tiled consumers do not show stable gains. P259 は heap の未移動時書き込み省略を二案とも不採用。mesh／tiled 全体の改善は安定せず、二案目は Chrome の多くの経路で悪化。排序／±0／路徑／job 對照通過；全部 source-slot 配對見 [ACCEPTANCE](./ACCEPTANCE.md) P259，source／dist 保留 P258，不 push／升版。
 
+P260 以真實 ImageBitmap／Texture profile 2D 粒子，不採用 slot／座標重用與 target 專用迴圈兩案：後者的大型 local／world 更新約慢 31%。P260 rejects both target-particle prototypes after native-browser profiling and exact lifecycle comparison; the specialized loop regresses large layers by about 31%. P260 は実 ImageBitmap による計測で二案とも不採用。専用ループは大規模 layer で約31%悪化。每案 2,048 組精確對照及全部 CPU 配對見 [ACCEPTANCE](./ACCEPTANCE.md) P260；正式 source／dist 不變，不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

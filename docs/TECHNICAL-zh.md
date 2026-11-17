@@ -7514,3 +7514,11 @@ source-slot 對照及真實 consumer 探針保留深層 freeze、十二個已擁
 十三 mesh＋三 tiled 固定 cohorts，Node／可見 pinned Chromium 各六輪 ABBA／BAAB，每版保留全部 768 timings。第一版收益混合、Node sparse mesh 多數退步；保存原索引版本的 Chrome 短 mesh 僅一輪較快（三慢、兩平），長／稀疏 mesh 多數變慢。兩版皆不足以建立穩定的完整 caller 收益，正式 source／dist 維持 P258。
 
 兩版均通過三 domains 的 heap 對照（9,225 offers／7,416 takes）、±0／reopen、384 tiled paths／552 incremental steps 與十組 mesh 契約探針。本證據階段未重跑 formal tests／build，不認證正式 ESM／CJS CPU、browser root、allocation／GC 或 fps。全部原始配對與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P259，不 push／升版。
+
+## P260：不採用 target 粒子重用與專用 loop 原型
+
+以可見 pinned Chromium、實際 source root 及真正 ImageBitmap／Texture 重新 profile，不使用 Node 假 bitmap；target-layer advance／writeTargetAppearance 為熱點。第一個隔離原型重用確認過的 borrowed slot／積分座標；第二個仿現有 Sprite loop，將 target 常數留在本 tick locals，保留 generic newborn 路徑。兩案皆不加 instance span cache，也不移除 source／generation／數值驗證。
+
+兩案皆拒絕。第一案 world target／churn 六輪較慢；第二案大型 local／world target 為 +31.87%／+31.17%、churn +36.79%，均六輪較慢。所有 samples、outliers 與未修改 Sprite／empty controls 保留；不跨不同 scope 比 profile／clock 宣稱收益，也不臆測 JIT／GC 根因。
+
+每案通過八種原生資源 lifecycle 模式的 2,048 組 Object.is state／matrix／version 對照、632 次變動與 48 次 invalid-delta 檢查，borrowed-resource cleanup 通過。source／dist 不變；未重跑 formal tests／build、正式 ESM／CJS CPU、backend／showcase 畫面或完整 frame／RAF／CPU-submit／heap／fps 認證。全部 profile／配對／邊界見 [ACCEPTANCE](../ACCEPTANCE.md) P260，不 push／升版。
