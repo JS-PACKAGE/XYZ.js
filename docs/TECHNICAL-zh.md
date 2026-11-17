@@ -7409,3 +7409,7 @@ scalar integration 原型略過下次 substep／sweep 必定覆寫的 private fo
 ## P241：navmesh 邊界長度的精確排除
 
 共用私有 nearest helper 先計算最近邊點的三個座標差，保持 getter 順序；任一分量絕對值嚴格大於目前最近邊距離時，完整長度不可能勝出，可省略 robust hypot3。相等邊與完整長度算法不變，不加 cache、近似或 API，也不改候選數與工作預算。六輪配對下，一般帶 radius 投影 CPU 約降 Node 4.2%／Chromium 4.7%；不是一般路徑或 FPS 保證。source／ESM／CJS 差分、25 個 navigation tests 及 source／dist 公開 Chromium 投影／路徑／增量工作通過；隔離更新四個 mesh ESM／CJS 產物，宣告不變。完整數據與限制見 [ACCEPTANCE.md](../ACCEPTANCE.md)。
+
+## P242：不採用延後建立投影結果
+
+原型用四個 local fields 保留贏家，在原時點捕捉 revision，最後才建立／freeze 公開 projection。2,048 投影、64 路徑與七組 getter trace 對拍相同，但 Chromium 各一般投影工作負載約退步 5–10%，Node 小幅改善不足以採用。source／tests／dist 保留 P241，不宣稱重新 build／runtime 或配置／heap／FPS 收益；六輪逐對數據與驗證限制見 [ACCEPTANCE.md](../ACCEPTANCE.md)。

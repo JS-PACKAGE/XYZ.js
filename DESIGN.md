@@ -6257,3 +6257,7 @@ private forces 每個 substep 開頭重設、displacement 在每次 sweep 前覆
 ## P241：邊界投影分量下界
 
 NavigationMesh3D 的私有 nearest helper 仍按原順序計算 clamped 邊點與 x/y/z 差；某分量的絕對值若已嚴格大於最近邊距離，完整 Euclidean norm 不可能更小，可跳過 hypot3。保留相等邊、穩定 tie、robust hypot 與最後贏家規則；project 和 createSearch 共用此路徑，不新增 cache／欄位／近似。候選數、revision、radius region、工作預算與輸出所有權維持；更激進的半距離排除會漏掉較近斜邊，已由消費者回歸測試與 mutant 反例涵蓋。證據見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P242：投影結果延後建立未採用
+
+延後 freeze／materialize 可在原型中省略中間贏家 record；revision 仍在贏家更新時捕捉，避免錯改為查詢結束時的 epoch。輸出與 getter trace 對拍相同，但 Chromium 一般投影穩定退步約 5–10%，所以保留 P241 的現有結果建立路徑。不把可見的程式碼物件減少等同於實測 CPU／heap 改善，也不憑時序差異推測 JIT／GC 原因；證據見 [ACCEPTANCE.md](ACCEPTANCE.md)。

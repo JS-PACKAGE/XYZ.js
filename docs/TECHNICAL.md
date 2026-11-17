@@ -7764,3 +7764,7 @@ An isolated scalar integration candidate skipped private force/displacement scra
 ## P241: Exact navmesh edge-norm pruning
 
 The shared private nearest-boundary helper eagerly computes all three closest-edge coordinate differences, retaining getter order. If any absolute component is strictly greater than the current closest-edge distance, its robust norm cannot win and is skipped. Equal-distance edges and robust hypot arithmetic remain unchanged; no cache, approximation, public API, candidate-count or search-budget change. Ordinary radius-bearing projection CPU time improves about 4.2% Node / 4.7% Chromium in six paired rounds; this is not a general path/FPS claim. Source/ESM/CJS differential checks, 25 navigation tests and public source/dist Chromium projection/path/incremental-job consumers pass. Four isolated ESM/CJS mesh outputs change, declarations remain identical. See [ACCEPTANCE.md](../ACCEPTANCE.md) for workload boundaries, all pairs and limitations.
+
+## P242: Rejected deferred projection materialization
+
+A prototype stores four local winner fields, captures the winning revision at the original point and freezes/materializes only the final public projection. Its 2,048 projections, 64 paths and seven getter traces match the baseline, but Chromium projection workloads regress about 5–10% despite modest Node gains. The candidate is rejected; source/tests/dist remain at P241, without a fresh build/runtime or allocation/heap/FPS claim. See [ACCEPTANCE.md](../ACCEPTANCE.md) for all six CPU pairs per case and exact verification limits.

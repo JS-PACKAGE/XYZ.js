@@ -29352,3 +29352,87 @@ Radius-bearing ordinary/exterior projections improve about 4.2–4.9% Node and 4
 - Prettier on source/test, strict typecheck, targeted eslint and three navigation test files /25 tests (including the new regression) pass. No full-suite claim.
 - Isolated full production build from HEAD plus only navigation/mesh.ts changes exactly four mesh ESM/CJS JavaScript/map outputs; declarations unchanged. Only these guarded artifacts were promoted, preserving hashes for all eleven user-owned physics2d/world2d source/dist files.
 - README zh/en/ja note, PLAN, DESIGN and both technical references synchronized; format/relative-file links checked, historical ACCEPTANCE byte prefix unchanged. All throwaway modules, workloads, profiles, build tree and browser/server resources are removed before the exact-allowlist feature commit. Only this source/test, four outputs and six docs are staged; no push/version bump.
+
+## P242 — Reject deferred navmesh projection materialization (2026-11-17)
+
+### Candidate and decision
+
+An isolated candidate replaces per-winning-polygon projection records with four local winner fields, capturing the winning revision at the same point, and freezes/materializes only the final public projection/position. The original nearest helper, candidate iteration, distances, stable ties, radius regions and job algorithms remain unchanged. Intermediate private projection records/freeze calls appear avoidable, but this is not evidence of a measured allocation/heap or CPU gain.
+
+A fresh baseline profile after P241, 10,000 warm +50,000 profiled positive-radius quad projections at 100 µs sampling, measured 5.49 µs/query including profiler overhead. Self samples ranked project 78,601 µs, nearest 74,087 µs, candidate iteration 44,001 µs and hypot3 27,583 µs; the profile ranked investigation targets only. No candidate profiler ran during paired CPU timing.
+
+The actual browser result rejects the candidate: ordinary positive-radius quads regress 4.80%, zero-radius quads 10.35%, outside queries 8.30%, slope 8.74% and stacked floors 8.72%, with all six paired values worse in each of those cases. Node's roughly 1–3% gains on several cases do not justify a browser-engine regression. No speculative JIT/GC explanation is presented as root cause. Source, tests and dist remain exactly at P241; this phase is evidence-only documentation, not an adopted optimization.
+
+### CPU boundary and all paired values
+
+Node v26.7.0 /TypeScript 6.0.3 ES2022; pinned Playwright Chromium 153.0.8010.12 darwin/arm64 desktop automation, visible document, empty page errors. Same real public-query workload module in both runtimes as P241, independently regenerated baseline from current canonical source, same production dependencies: one square interior, 48×48 quads at radius 0 or 0.2, outside border points, sloped quads, two stacked 24×24 floors, 24×24 split triangles and 12×12 complete paths. Construction/destruction outside timing; 4,096 project or128 findPath warm calls per variant/case, six ABBA/BAAB rounds with 4,096 projections or128 complete paths per sample. Each paired cell averages two samples/variant; summaries are medians of six pairs in CPU wall ms/query. No concurrent assistant-owned build/test/profiling during timing.
+
+| Case          | Node before ms/query | Node candidate | Node change % | Node paired range % | Chromium before ms/query | Chromium candidate | Chromium change % | Chromium paired range % |
+| ------------- | -------------------- | -------------- | ------------- | ------------------- | ------------------------ | ------------------ | ----------------- | ----------------------- |
+| single-inside | 0.000198             | 0.000186       | -6.27         | -25.21..0.05        | 0.000183                 | 0.000171           | -6.67             | -13.33..13.33           |
+| quad48-r0     | 0.005247             | 0.005258       | 0.22          | -1.02..1.67         | 0.004657                 | 0.005139           | 10.35             | 8.46..11.58             |
+| quad48-r02    | 0.005422             | 0.005301       | -2.23         | -4.91..-0.46        | 0.004834                 | 0.005066           | 4.80              | 4.55..5.32              |
+| outside48     | 0.003825             | 0.003718       | -2.81         | -5.50..-1.21        | 0.003308                 | 0.003583           | 8.30              | 7.33..9.70              |
+| slope48       | 0.005436             | 0.005289       | -2.69         | -4.31..-1.24        | 0.004749                 | 0.005164           | 8.74              | 7.18..9.56              |
+| stacked24     | 0.010530             | 0.010422       | -1.03         | -10.10..5.45        | 0.009174                 | 0.009973           | 8.72              | 6.56..9.77              |
+| tri24         | 0.009225             | 0.009081       | -1.56         | -6.33..8.80         | 0.008044                 | 0.008569           | 6.53              | 5.76..7.28              |
+| paths12       | 0.021121             | 0.021580       | 2.18          | -2.92..7.35         | 0.017969                 | 0.018750           | 4.35              | -2.13..9.09             |
+
+Tiny single-square control samples are noisy; complete-path code is unchanged and its mixed timing does not establish an effect. No RAF/GPU/FPS, allocation, heap or GC benefit is claimed.
+
+| Round | Case          | Node before ms/query | Node candidate | Chromium before ms/query | Chromium candidate |
+| ----- | ------------- | -------------------- | -------------- | ------------------------ | ------------------ |
+| 1     | single-inside | 0.000271             | 0.000271       | 0.000183                 | 0.000208           |
+| 1     | quad48-r0     | 0.005216             | 0.005163       | 0.004944                 | 0.005481           |
+| 1     | quad48-r02    | 0.005386             | 0.005236       | 0.005066                 | 0.005322           |
+| 1     | outside48     | 0.003806             | 0.003652       | 0.003467                 | 0.003748           |
+| 1     | slope48       | 0.005441             | 0.005206       | 0.005078                 | 0.005457           |
+| 1     | stacked24     | 0.010261             | 0.010163       | 0.009302                 | 0.009912           |
+| 1     | tri24         | 0.011314             | 0.012309       | 0.008044                 | 0.008533           |
+| 1     | paths12       | 0.024922             | 0.024432       | 0.020703                 | 0.022266           |
+| 2     | single-inside | 0.000247             | 0.000185       | 0.000183                 | 0.000159           |
+| 2     | quad48-r0     | 0.005091             | 0.005176       | 0.004639                 | 0.005176           |
+| 2     | quad48-r02    | 0.005319             | 0.005249       | 0.004810                 | 0.005042           |
+| 2     | outside48     | 0.003724             | 0.003642       | 0.003320                 | 0.003564           |
+| 2     | slope48       | 0.005303             | 0.005237       | 0.004724                 | 0.005176           |
+| 2     | stacked24     | 0.011580             | 0.010411       | 0.009119                 | 0.010010           |
+| 2     | tri24         | 0.009436             | 0.009162       | 0.008044                 | 0.008569           |
+| 2     | paths12       | 0.021330             | 0.021713       | 0.017969                 | 0.019141           |
+| 3     | single-inside | 0.000199             | 0.000193       | 0.000183                 | 0.000171           |
+| 3     | quad48-r0     | 0.005261             | 0.005257       | 0.004651                 | 0.005054           |
+| 3     | quad48-r02    | 0.005401             | 0.005377       | 0.004822                 | 0.005078           |
+| 3     | outside48     | 0.003943             | 0.003726       | 0.003284                 | 0.003577           |
+| 3     | slope48       | 0.005463             | 0.005307       | 0.004736                 | 0.005139           |
+| 3     | stacked24     | 0.010387             | 0.010224       | 0.009241                 | 0.010010           |
+| 3     | tri24         | 0.008934             | 0.008711       | 0.008044                 | 0.008606           |
+| 3     | paths12       | 0.020987             | 0.020856       | 0.017188                 | 0.018750           |
+| 4     | single-inside | 0.000196             | 0.000187       | 0.000183                 | 0.000171           |
+| 4     | quad48-r0     | 0.005250             | 0.005260       | 0.004663                 | 0.005078           |
+| 4     | quad48-r02    | 0.005473             | 0.005205       | 0.004834                 | 0.005054           |
+| 4     | outside48     | 0.003924             | 0.003729       | 0.003296                 | 0.003613           |
+| 4     | slope48       | 0.005431             | 0.005298       | 0.004761                 | 0.005103           |
+| 4     | stacked24     | 0.010431             | 0.010921       | 0.009204                 | 0.009973           |
+| 4     | tri24         | 0.009014             | 0.009039       | 0.008044                 | 0.008630           |
+| 4     | paths12       | 0.021254             | 0.020633       | 0.017969                 | 0.018750           |
+| 5     | single-inside | 0.000197             | 0.000182       | 0.000159                 | 0.000171           |
+| 5     | quad48-r0     | 0.005243             | 0.005301       | 0.004761                 | 0.005164           |
+| 5     | quad48-r02    | 0.005497             | 0.005354       | 0.004944                 | 0.005188           |
+| 5     | outside48     | 0.003844             | 0.003709       | 0.003333                 | 0.003577           |
+| 5     | slope48       | 0.005372             | 0.005280       | 0.004785                 | 0.005164           |
+| 5     | stacked24     | 0.010629             | 0.010433       | 0.009143                 | 0.009937           |
+| 5     | tri24         | 0.009739             | 0.009123       | 0.008057                 | 0.008521           |
+| 5     | paths12       | 0.020978             | 0.021447       | 0.018359                 | 0.017969           |
+| 6     | single-inside | 0.000197             | 0.000185       | 0.000183                 | 0.000159           |
+| 6     | quad48-r0     | 0.005310             | 0.005357       | 0.004626                 | 0.005115           |
+| 6     | quad48-r02    | 0.005443             | 0.005378       | 0.004834                 | 0.005054           |
+| 6     | outside48     | 0.003798             | 0.003752       | 0.003271                 | 0.003589           |
+| 6     | slope48       | 0.006947             | 0.006838       | 0.004724                 | 0.005164           |
+| 6     | stacked24     | 0.010793             | 0.011381       | 0.009143                 | 0.009973           |
+| 6     | tri24         | 0.009007             | 0.008810       | 0.008032                 | 0.008569           |
+| 6     | paths12       | 0.020870             | 0.022403       | 0.017578                 | 0.018750           |
+
+### Correctness and delivery boundary
+
+The throwaway candidate exactly matches the unchanged baseline for 2,048 projections, 64 complete paths and seven point-getter traces, with radius cycling, enabled-polygon revisions, quad/triangle/slope/stacked-floor histories and retained output snapshots. Arithmetic, metadata, candidate counts and getter order agree in these cases; numeric equivalence does not rescue the CPU regression.
+
+No canonical code/test changes, permanent tests, generated-artifact promotion, full suite, fresh production build or public source/dist runtime proof were needed or claimed for this rejected prototype. README zh/en/ja, PLAN, DESIGN and both technical references are synchronized; six-doc formatting/relative-file links and append-only ACCEPTANCE prefix are checked. Throwaway modules/profile/workloads and browser/server resources are removed before an exact six-doc-only commit. User-owned physics2d/world2d files remain excluded; no push or version bump.

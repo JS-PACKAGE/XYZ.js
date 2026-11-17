@@ -6107,3 +6107,7 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 ## P241：navmesh 邊界長度的精確分量排除
 
 已採用：先保留三個座標差與原 getter 順序，僅在某分量絕對值嚴格大於目前最近邊距離時省略 hypot3。沿用既有 graph 投影做法，不加近似、狀態或 API。一般帶 radius 投影 Node／Chromium CPU 約降 4.2%／4.7%，外側投影約降 4.9%／4.1%；不宣稱所有路徑查詢加速或 FPS 改善。三個 navigation 測試檔 25 tests、source／ESM／CJS 差分與 source／dist 公開瀏覽器查詢／增量工作驗證通過；隔離建置只更新四個 mesh 產物。完整範圍與逐對數據見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P242：拒絕延後建立投影贏家結果
+
+原型以四個 local fields 取代每次最近候選更新時的中間 projection record，最後才建立／freeze 公開結果，保持贏家 revision 與輸出。Node 部分查詢約省 1–3%，但 Chromium 一般帶 radius／零 radius／外側／斜面／多層投影六對全部退步，約 4.8–10.4%，因此不採用。2,048 投影／64 路徑／七組 getter trace 差分相同；只提交六份證據文件，source／tests／dist 保持 P241，不重新宣稱 build／runtime／FPS。詳見 [ACCEPTANCE.md](ACCEPTANCE.md)。
