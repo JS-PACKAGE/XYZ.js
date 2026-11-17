@@ -7780,3 +7780,7 @@ The private spatial index now maps numeric x to a numeric z bucket map, retainin
 ## P245: Query-local sparse candidate membership
 
 Candidate generators group 32 bounded internal polygon indices per numeric membership word, keeping their maps local to each iterator. Nonzero signed-bit checks preserve bit 31, first-visit order and duplicate budget sentinels; no shared epoch, mesh-sized scratch buffer or world-coordinate packing. Main projection workloads improve about 7–10% Node /4–9% Chromium; the longer single-polygon Node control costs about 4 ns more and complete-path gains are not established. No heap/GC/FPS claim follows from fewer membership entries. See [ACCEPTANCE.md](../ACCEPTANCE.md) for signed-word regressions, temporal isolation and complete paired CPU evidence.
+
+## P246: Rejected fixed projection-denominator cache
+
+A prototype precomputes the readonly plane denominator per polygon while retaining exact division/order. Numerical and lifecycle comparisons agree, but ordinary radius-bearing queries are unchanged, several workloads regress slightly and the Node single-polygon control costs about ten nanoseconds more. The small zero-radius gain does not justify an extra stored field. Source/tests/dist remain at P245; no fresh build/public-root, heap/GC or FPS claim. All 54 paired CPU rows and verification limits are in [ACCEPTANCE.md](../ACCEPTANCE.md).

@@ -6123,3 +6123,7 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 ## P245：query-local 稀疏 membership words
 
 候選去重由每個 index 的 Set 改為每 32 個內部 polygon indices 一個 bit-word Map entry，仍隸屬各 generator，不用共享 stamp 或配置整個 mesh 大小的 buffer。主要投影 CPU 約降 Node 7–10%／Chromium 4–9%；單 polygon Node 控制約多 4 ns、完整 path 無一致收益，明記取捨而不宣稱全面加速。首次與重複候選的 yield／budget 語意不變；index 31／63 的 sign-bit／跨 word 重複候選回歸與完整證據見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P246：拒絕固定投影分母 cache
+
+原型將 readonly dx／dz 的 `1 + dx * dx + dz * dz` 在 constructor 預算，保留原除法與浮點運算順序。一般帶 radius 查詢 Node／Chromium 幾乎不變，斜面／多層／三角形略慢，單 polygon Node 約多 10 ns；零 radius 的約 1.6–2.4% 收益不足以增加每 polygon 欄位，因此不採用。精確值與生命週期對拍相同，只提交六份文件，source／tests／dist 維持 P245。完整 54 組配對見 [ACCEPTANCE.md](ACCEPTANCE.md)。

@@ -7425,3 +7425,7 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 ## P245：query-local 稀疏候選 membership
 
 每個候選 generator 以數值 Map word 記錄每 32 個有界內部 polygon indices，保留獨立狀態、首次訪問順序及重複候選的 budget sentinel。非零 bit 判斷涵蓋負值 bit 31，不使用共享 epoch、mesh-sized scratch buffer 或世界座標 packing。主要投影 CPU 約降 Node 7–10%／Chromium 4–9%；較長單 polygon Node 控制約多 4 ns，完整 path 無一致收益。不以 entry 數宣稱 heap／GC／FPS 改善。signed-word 回歸、時間隔離及完整 CPU 配對見 [ACCEPTANCE.md](../ACCEPTANCE.md)。
+
+## P246：不採用固定投影分母 cache
+
+原型為每 polygon 預算 readonly 平面分母，保留原除法／順序，精確值與生命週期對拍相同。但一般帶 radius 查詢幾乎不變、部分案例略慢，Node 單 polygon 約多 10 ns；零 radius 的小幅收益不足以增加常駐欄位。source／tests／dist 保留 P245，不宣稱重新 build／公開 root 或 heap／GC／FPS 改善。54 組 CPU 配對與驗證限制見 [ACCEPTANCE.md](../ACCEPTANCE.md)。

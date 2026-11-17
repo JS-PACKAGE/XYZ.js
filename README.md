@@ -120,6 +120,8 @@ P244 狀態：navmesh 空間索引改以兩層數值 Map 查詢 x／z，省去�
 
 P245 狀態：navmesh 候選去重以 query-local bit-word Map 合併每 32 個內部 polygon indices，主要投影 CPU 約降 Node 7–10%／Chromium 4–9%；單 polygon Node 控制組約多 4 ns。P245 uses isolated sparse membership words: main projection CPU improves about 7–10% Node /4–9% Chromium, with a roughly 4 ns Node single-polygon tradeoff. P245 は query-local の疎な bit-word Map を採用し、主な投影 CPU が Node 約 7–10%／Chromium 約 4–9% 減少。Node の単一 polygon は約 4 ns 増加。完整範圍與取捨見 [ACCEPTANCE](./ACCEPTANCE.md) P245。
 
+P246 不採用固定投影分母 cache：一般帶 radius 查詢幾乎不變，部分其他案例略慢，收益不足以多存一個 polygon 欄位。P246 rejects a cached fixed projection denominator: ordinary radius-bearing queries are unchanged and other cases are mixed. P246 は固定投影分母の cache を不採用：通常の radius 付き投影はほぼ変わらず、追加フィールドに見合う改善なし。保留 P245；完整取捨見 [ACCEPTANCE](./ACCEPTANCE.md) P246。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

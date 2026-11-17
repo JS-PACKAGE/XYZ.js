@@ -6273,3 +6273,7 @@ NavigationMesh3D 的私有 nearest helper 仍按原順序計算 clamped 邊點�
 ## P245：稀疏且獨立的候選 membership words
 
 每個 candidates generator 建立自己的 `Map<number, number>`：內部 index 的 `index >>> 5` 選 word，`1 << (index & 31)` 選 bit。以 `(bits & mask) !== 0` 辨識重複，包含負值的 bit 31；僅首次訪問更新該 word 並 yield index，重複仍 yield 原 budget sentinel。只 pack 有界內部 indices 的 membership，不 pack 世界座標，也不改 tile 索引／順序。Sparse words 避免按整個 mesh 容量配置 buffer，各 query／job／重入仍隔離；不以 entry 數推導未量測的 heap／GC 收益。證據與小型 Node 查詢取捨見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P246：保留原投影分母計算
+
+平面 dx／dz 雖然固定，將平方長度分母移到 Polygon record 仍須用實測判斷。原型沒有用 reciprocal，也沒有改除法順序或數值，但主查詢 CPU 幾乎不變、其他案例混合，單 polygon Node 明確退步；不為此加一個常駐數值欄位。保留 P245 的原式，不以預算運算次數推導速度、heap 或 JIT 原因；證據見 [ACCEPTANCE.md](ACCEPTANCE.md)。
