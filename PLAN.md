@@ -6156,3 +6156,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 原型依非負 edge 成本的不變量，在單次 expansion 首次需要時計入 current distance，之後重用；不改首次讀取順序、算式、預算或零值語意。
 - Node 有小幅方向性改善，Chromium 短／長路徑只有半數配對較快，未超出控制組波動形成穩定收益，故不採用。高 index 稀疏控制事先拉長，不挑選 round 或隱藏離群值。
 - 原型數值、getter、retained snapshot、座標域、交錯預算與 lifecycle 對照通過；正式 source／tests／dist 維持 P250，本次未重跑 build／unit 或 public-root。只提交六份文件，完整矩陣及限制見 `ACCEPTANCE.md` P251。
+
+## P252：query-local recyclable indexed-heap entries
+
+- 數值 slots 陣列雖改善密集路徑，但兩 caller 的高 index 稀疏控制退步，拒絕且不加密度特判。正式保留 Map，value 改為保存 node／score／slot 的 HeapEntry。
+- sift 直接更新 entry.slot；移出 entry 在同 query 的 free list 回收，移除舊 slot Map／parallel scores array，不加跨工作 pool、完整世界 workspace、依賴或公開 API。
+- 原始 score→node 排序、lowered offers、±0 同 key 的最後 node 值、distance／parent、primitive／revision／cleanup 均保留。主要長路徑與 tiled graph CPU 改善，但最短 navmesh 稀疏控制小幅較慢，明列代價，不宣稱普遍加速。
+- 40 項既有 targeted tests、scoped 品質、隔離 production build 與兩 caller 的 canonical／ESM／CJS／browser public-root 驗證通過。只提升四個 helper runtime／map outputs 與一份私有欄位 declaration，保留十一個使用者檔案。
+- 兩個原型完整矩陣、frozen baseline、數值 oracle、限制及未量測 heap／GC 邊界見 `ACCEPTANCE.md` P252；按功能提交，不 push／升版。

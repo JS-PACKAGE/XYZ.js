@@ -30248,3 +30248,73 @@ Node 稀疏結果混合、不宣稱改善；Chromium 六輪較快。這是單獨
 - bit 31／63 的 15／9 unique-candidate 控制、75 次 getter reentry 與 310 retained snapshots，以及獨立 frozen 起終點 consumer 均一致；原始 Number／own values 比對，不使用容差。
 - 這是未進入正式程式的私有原型：沒有本次 canonical／發佈產物提升、public-root 重新驗證、build／typecheck／unit／source lint，亦未量測 heap／GC、GPU／呈現 fps、Safari、三 backend 或實機。P250 的既有通過記錄不算成本次結果。
 - 只更新六份文件，README 中／英／日同步，格式與相對檔案連結檢查，歷史驗收位元組前綴保留；刪除自有暫存原型／腳本後按階段提交，不 push／升版，不含使用者既有改動。
+
+## P252：保留 Map 並在 query 內回收 indexed-heap entries（2026-11-17）
+
+### 選擇與正式架構
+
+- 基準 P251（`82f1d7d81`；正式 navmesh 仍為 P250）。完整路徑 profile 的 take／offer 是熱點，本次評估 slot 寫入，不重做 P167 Floyd sift，也不把 P249 的 region-read 原型當作同一種 workload。
+- 第一個原型將 node→slot Map 改為按需數值陣列，以 slot+1 表示 queued、0／undefined 表示 absent。密集路徑明顯較快，但兩種 caller 的高 index 稀疏控制退步；**拒絕陣列版**，不加密度門檻或特判補丁。
+- 正式採用 Map-backed HeapEntry：entry 同時保存 node／score／slot，heap 移動時直接寫 entry.slot，不再為每次 sift 重新 hash node→slot；移除舊 slots Map 與 parallel score array。distance／parent 的公開數值 Maps 與 offer／take 簽章不變，兩個正式 caller 無需替代入口或 shim。
+- 移出的 entry 放在該 query 自己的 free list，後續 frontier growth 再用；entry 不傳給 caller，take 先擷取原始 node Number 再回收。不是每個 visited node 都建立新物件，也沒有跨工作共享 pool、完整世界陣列或額外 runtime 依賴。未量測總 heap bytes／GC，不宣稱記憶體改善。
+- score→node 排序、decrease-key、distance／parent 更新時機與全部算式保持。Map 的 SameValueZero 合併 ±0 key，但 take 必須保留最後一次 offer 的原始 node 值，所以 lowered re-offer 仍更新 entry.node；query-local 回收不會改寫已回傳的數值。
+
+### 方法與控制
+
+每個表示各跑一次固定矩陣：Node 與 pinned Chromium 153.0.8010.12（darwin/arm64）各六輪 ABBA／BAAB、每 variant 每輪兩次。navmesh 十一組各 runtime 66 paired rows／264 samples；tiled graph 三組各 runtime 18 paired rows／72 samples。fixture 建立及暖身在計時外；計時時無其他助理 build／test／profile。所有 browser 頁面 visible、pageerror 為空，browser／server 均在 finally 關閉。
+
+navmesh 沿 P251：single／empty 每 sample 65,536 projections，其他 projections 4,096，paths12 1,024，paths32 512，32,768-polygons 尾端雙 polygon 路徑 65,536（暖身 4,096）。tiled12／tiled32 是 12²／32² 個 authored nodes 的真實雙向 lattice，有限非整數成本產生 ties 與 lowered offers；每 sample 2,048／512 routes。tiled 稀疏組是八 tile 各 4,096 nodes，只有末端 node 32,766／32,767 相連，每 sample 65,536 routes、暖身 4,096。所有計時路徑均要求找到真實完整結果，不用單獨 Map microbenchmark 代替。
+
+before 的 helper source 在提升產物前即凍結，兩個 before caller 都明確連結該副本，不因 dist 改變而把前後偷偷接到同一份新 helper。以下是完整 source-method modules 搭配正式依賴的 CPU 時間，不是 whole-frame／GPU 時間。前後欄各取六個 pair-mean 的中位數；Δ 每輪先將兩次平均後計算，再取六輪中位數，不能由前後欄相除重建。全部 rounds／離群值保留，不推定原因。
+
+### 陣列 slot 原型：拒絕
+
+| Case              | Node µs/query 前→後 | 配對 Δ 中位數 | 六輪 Δ 範圍     | Chromium µs/query 前→後 | 配對 Δ 中位數 | 六輪 Δ 範圍     |
+| ----------------- | ------------------- | ------------- | --------------- | ----------------------- | ------------- | --------------- |
+| single-inside     | 0.186 → 0.182       | -1.46%        | -2.57%…-0.18%   | 0.163 → 0.163           | 0.47%         | 0.00%…1.75%     |
+| empty48           | 0.117 → 0.118       | 0.74%         | -4.86%…2.32%    | 0.104 → 0.105           | 1.11%         | -4.20%…2.96%    |
+| quad48-r0         | 4.871 → 4.746       | -2.82%        | -14.39%…-2.03%  | 4.279 → 4.205           | -1.71%        | -2.58%…-0.53%   |
+| quad48-r02        | 4.863 → 4.755       | -2.25%        | -3.09%…0.00%    | 4.333 → 4.321           | -0.28%        | -1.13%…1.33%    |
+| outside48         | 3.379 → 3.351       | -0.75%        | -0.95%…2.11%    | 3.064 → 3.015           | -1.59%        | -1.99%…-0.80%   |
+| slope48           | 5.013 → 4.892       | -2.40%        | -3.37%…-0.56%   | 4.395 → 4.364           | -1.24%        | -2.70%…-0.28%   |
+| stacked24         | 9.512 → 9.446       | -1.62%        | -3.48%…1.39%    | 8.508 → 8.447           | -0.58%        | -1.42%…0.00%    |
+| tri24             | 8.213 → 8.118       | -0.80%        | -1.86%…0.69%    | 7.330 → 7.349           | -0.17%        | -0.83%…0.83%    |
+| paths12           | 18.935 → 18.293     | -2.73%        | -3.82%…-0.53%   | 16.553 → 15.894         | -3.71%        | -4.99%…-3.26%   |
+| paths32           | 285.689 → 253.108   | -11.13%       | -14.13%…-8.48%  | 243.896 → 204.932       | -15.91%       | -16.63%…-15.27% |
+| paths-sparse32768 | 1.506 → 1.650       | 10.75%        | 8.58%…23.60%    | 1.380 → 1.461           | 5.75%         | -12.37%…6.18%   |
+| tiled12           | 16.180 → 14.116     | -12.85%       | -17.82%…-11.62% | 15.198 → 13.416         | -11.85%       | -15.00%…-10.29% |
+| tiled32           | 193.650 → 130.310   | -32.77%       | -33.10%…-31.40% | 182.666 → 122.998       | -32.87%       | -34.35%…-31.06% |
+| tiled-sparse32768 | 0.429 → 0.530       | 23.44%        | 13.50%…24.85%   | 0.385 → 0.440           | 14.32%        | 5.13%…15.83%    |
+
+陣列版雖有密集查詢收益，navmesh 稀疏控制 Node 六輪較慢、Chromium 五輪較慢；tiled 稀疏兩 runtime 六輪皆慢，不採用。
+
+### Map-backed recyclable entries：採用
+
+| Case              | Node µs/query 前→後 | 配對 Δ 中位數 | 六輪 Δ 範圍     | Chromium µs/query 前→後 | 配對 Δ 中位數 | 六輪 Δ 範圍     |
+| ----------------- | ------------------- | ------------- | --------------- | ----------------------- | ------------- | --------------- |
+| single-inside     | 0.183 → 0.181       | -0.21%        | -2.48%…4.89%    | 0.164 → 0.165           | 0.70%         | -0.47%…2.76%    |
+| empty48           | 0.117 → 0.117       | 0.16%         | -0.31%…1.16%    | 0.103 → 0.105           | 0.74%         | -9.80%…37.78%   |
+| quad48-r0         | 4.951 → 4.771       | -2.66%        | -4.96%…-1.37%   | 4.266 → 4.224           | -1.28%        | -2.29%…0.79%    |
+| quad48-r02        | 5.025 → 4.892       | -1.78%        | -3.63%…-0.37%   | 4.315 → 4.333           | 0.52%         | -0.85%…2.87%    |
+| outside48         | 3.407 → 3.449       | 1.00%         | -0.75%…50.29%   | 3.027 → 3.021           | 0.00%         | -1.20%…1.13%    |
+| slope48           | 5.051 → 5.014       | -0.23%        | -3.39%…12.01%   | 4.370 → 4.413           | 1.83%         | -0.55%…3.97%    |
+| stacked24         | 9.662 → 9.607       | -0.51%        | -3.08%…6.00%    | 8.447 → 8.490           | 0.51%         | 0.00%…1.00%     |
+| tri24             | 8.288 → 8.242       | -0.58%        | -2.41%…0.39%    | 7.349 → 7.361           | 0.33%         | -1.79%…2.97%    |
+| paths12           | 19.154 → 18.876     | -1.84%        | -3.15%…-0.01%   | 16.406 → 16.138         | -1.64%        | -2.96%…0.60%    |
+| paths32           | 286.265 → 264.716   | -7.58%        | -17.14%…-6.16%  | 241.650 → 212.402       | -11.99%       | -12.87%…-10.37% |
+| paths-sparse32768 | 1.511 → 1.538       | 1.92%         | 1.24%…3.85%     | 1.373 → 1.385           | 1.06%         | 0.61%…1.44%     |
+| tiled12           | 17.042 → 15.400     | -10.26%       | -16.54%…-1.21%  | 17.078 → 14.709         | -14.15%       | -22.21%…-11.24% |
+| tiled32           | 199.507 → 164.112   | -18.02%       | -19.82%…-13.58% | 207.031 → 162.402       | -20.79%       | -30.58%…-15.68% |
+| tiled-sparse32768 | 0.443 → 0.410       | -9.20%        | -11.40%…7.75%   | 0.428 → 0.378           | -10.02%       | -19.05%…-4.46%  |
+
+主要長路徑在兩 runtime 六輪皆較快；tiled 短／長也皆六輪較快，tiled 稀疏 Node 五輪、Chromium 六輪較快。**保留代價**：最短 navmesh 稀疏路徑兩 runtime 六輪皆慢，pair-mean 中位數約增加 Node 26 ns／Chromium 13 ns，不宣稱所有路徑皆加速。採用的是主要路徑明確 CPU 收益與避免 per-sift hash writes 的表示，不宣稱未修改 projection 控制組的變化來自 heap。
+
+### 正式 source／ESM／CJS 與公開入口
+
+- source prettier、`tsc -p tsconfig.check.json --noEmit`、scoped eslint 及 navigation／navigation-mesh／navigation-jobs／navigation-scheduler 四檔既有 **40 tests** 通過。既有 lowered-offer／score-then-node 合約與兩 caller 行為保留，不新增 wiring／source-text tests。
+- canonical、正式 ESM、正式 CJS 每個版本各通過 heap oracle：三種 ID domain，9,225 offers／7,410 takes，涵蓋 dense、最高真實 private index 262,143、named-number probes 至 MAX_SAFE_INTEGER、lowered scores、清空／reopen、distance／parent 原始 Number Maps 與確定性排序。超過引擎節點上限的直接 helper probe 不是擴大引擎支援範圍。另比對 ±0 同 key re-offer 及回收後 node 值，無精度轉換。
+- 每個版本 navmesh 各 2,816 seeded projections、192 完整 paths、10 getter histories；300 座標域 projections、3 active-query lifecycle histories、192 interleaved steps；bit31／63 的 15／9 candidates，75 reentry／310 retained snapshots 與 frozen endpoint consumer 皆一致。
+- 每個版本 tiled graph 各 384 完整 path comparisons、552 個 step comparisons，包含不同半徑／exclusions、孤立節點、保留 frozen results、0／1／2／7 primitive 預算、revision invalidation 與八 slots 釋放。Node 比對 own values 與原始 Number，不以 JSON 容差掩飾差異。
+- 實際 browser public source／dist root **每個 entry**的 navmesh 各 1,408 projections／48 paths／624 step comparisons，tiled graph 各 48 paths／552 step comparisons，均 visible／無 pageerror。Vite 對既有 OPM adapter dynamic import 的分析 warning 原樣保留，不算 audio 驗證。
+- 隔離 HEAD production build 只覆入 partition-search.ts，tsc／minify／vendor copy／CJS 完成；完整 dist 比對只改 helper ESM／CJS runtime 及 maps 四件、helper 私有欄位 metadata 的 d.ts 一件，其他 declarations／公開 API 不變。提升前確認目標未有工作樹改動，十一個使用者自有 source／dist 雜湊前後一致，未覆寫／stage 使用者檔案。
+- 六份文件同步，歷史 ACCEPTANCE 位元組前綴保留；提交前刪除自有原型、benchmarks、proofs 與 isolated build，僅此 source／五個 outputs／六份文件按功能提交，不 push／升版。沒有 full suite／完整 backend 矩陣、heap／GC、GPU／呈現 fps、Safari 或實機認證。

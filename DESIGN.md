@@ -6305,3 +6305,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 非負 hypot3 成本讓 current 的 distance 在一次 neighbor relaxation 期間不會被改善，lazy local 加上 `??=` 也能保留第一次讀取時機與零值語意；原型數值與工作預算對照一致。
 - 但完整路徑 browser 時間只有小幅、混合方向差異，不能由不變量推定 CPU 收益。因此不增加該 scalar-cache local，仍保留 P250 的 region 參照重用及既有距離讀取。
 - 不對未量測的 boxing、heap／GC 或 JIT 成因下結論；只記錄全部控制與拒絕決策，不改正式 source／產物。數據見 `ACCEPTANCE.md` P251。
+
+## P252：以可回收 Entry 避免 sift 重複 hash writes
+
+- heap 保存 entry 參照，query-local Map 將 node 對應至 entry；entry.score 保留優先序數值，entry.slot 在移動時直接寫入。distance／parent 仍是數值 Maps，caller、offer／take 簽章與 score→node 順序不變。
+- take 先擷取 node Number，再把移出 entry 放入同 query 的 free list；重新使用時清 next 並設定 node／score／slot，沒有公開 borrowed entry 或跨工作共享。SameValueZero 的 ±0 key 也保留最後 offer 的原始 node 值。
+- 不採用數值 slot 陣列，因高 index 稀疏控制退步；不以動態密度門檻補救。Map-entry 表示保留主要長路徑收益，接受並揭露最短 navmesh 稀疏查詢的小幅 CPU 代價，不聲稱 heap／GC 改善。
+- 凍結 baseline helper，避免產物提升污染 before caller；source、ESM、CJS 及兩個 browser 公開 root 的 oracle／結果／預算／cleanup 對照見 `ACCEPTANCE.md` P252。公開 API 不變，只有 helper 私有 declaration metadata 隨實作更新。

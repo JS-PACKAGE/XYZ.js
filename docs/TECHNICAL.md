@@ -7810,3 +7810,10 @@ A prototype adopts each winning output directly and clears scratch before reuse,
 ## P251: Rejected lazy current-distance cache
 
 A private prototype reuses the current node's distance within one expansion, relying on nonnegative edge costs while preserving first-read timing and zero values. Exact results, snapshots, getters, lifecycle, and primitive budgets agree. Small directional Node gains and mixed Chromium full-path pairs do not establish a stable benefit beyond unchanged controls, so production retains P250. Sparse high-index samples were lengthened before measurement; all rounds and outliers are preserved in `../ACCEPTANCE.md`, P251. This six-document-only phase did not rerun canonical/build/unit/public-root checks or measure heap/GC, GPU/frame rate, Safari, or physical devices; no version bump or push.
+
+## P252: Query-local recyclable indexed-heap entries
+
+- The sparse frontier retains a node-to-entry Map. Entries hold node, score, and slot, so sifting updates slot fields rather than repeatedly hashing node keys; the obsolete slot Map and parallel scores array are removed. Numeric distance/parent Maps, callers, signatures, and score-then-node ordering remain unchanged.
+- Removed entries are reused through a query-local free list. `take()` captures the original node Number before recycling; no entry escapes or crosses queries. Re-offers preserve the last node value even for SameValueZero-equivalent ±0 keys.
+- A numeric-slot-array prototype was rejected after sparse high-index regressions. The entry representation improves major long mesh and tiled paths, with a small slowdown for the shortest sparse mesh control; all controls and outliers are retained in `../ACCEPTANCE.md`, P252. No heap/GC improvement is inferred.
+- Forty existing targeted tests, scoped checks, isolated production build, exact canonical/ESM/CJS heap and caller comparisons, and actual source/dist public browser consumers passed. Five helper artifacts changed, including private declaration metadata only; public API, user-owned files, dependencies, and version are preserved. No full-suite, GPU/frame-rate, Safari, or physical-device certification is claimed.

@@ -7455,3 +7455,10 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 ## P251：不採用 lazy current-distance 快取
 
 私有原型依非負 edge 成本，在單次 expansion 重用 current distance，保留首次讀取時機與零值；數值、快照、getter、lifecycle 及 primitive 預算對照一致。但 Node 的小幅方向性改善與 Chromium 混合配對不足以支持穩定收益，因此正式程式維持 P250。高 index 稀疏樣本事先拉長，全部 rounds／離群值保留於 `../ACCEPTANCE.md` P251。本階段只更新六份文件，未重跑 canonical／build／unit／public-root，也未量測 heap／GC、GPU／呈現 fps、Safari 或實機，不升版、不 push。
+
+## P252：query-local 可回收 indexed-heap entries
+
+- sparse frontier 保留 node→entry Map，entry 保存 node／score／slot；sift 直接更新 slot 欄位，移除舊 slots Map 與 parallel scores array。數值 distance／parent Maps、callers、簽章及 score→node 排序不變。
+- 移出的 entry 經同 query 的 free list 重用；take 先擷取原始 node Number，entry 不外洩、不跨工作共享。re-offer 對 SameValueZero 合併的 ±0 key 仍保留最後 node 值。
+- 數值 slot 陣列因高 index 稀疏退步而拒絕，不加密度特判。entry 表示改善主要長 mesh／tiled 路徑，但最短稀疏 mesh 控制小幅較慢；全部矩陣與離群值見 `../ACCEPTANCE.md` P252，不推定 heap／GC 改善。
+- 40 項既有 targeted tests、scoped 品質、隔離 production build、canonical／ESM／CJS 精確 oracle／caller 對照與實際 source／dist browser 公開入口通過。只更新五個 helper 產物（含私有 declaration metadata），公開 API、使用者檔案、依賴與版本不變；不宣稱 full suite、GPU／呈現 fps、Safari 或實機認證。

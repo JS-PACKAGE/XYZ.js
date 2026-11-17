@@ -1,61 +1,78 @@
 import { navigationLimits } from '../../../../src/data/navigation.js';
 import type { NavigationSearchStatus } from './jobs.js';
 
+class HeapEntry {
+  node = 0;
+  score = 0;
+  slot = 0;
+  next: HeapEntry | undefined;
+}
+
 /** Sparse indexed heap: a query allocates only for visited partition nodes. */
 export class PartitionSearch {
   readonly distance = new Map<number, number>();
   readonly parent = new Map<number, number>();
-  private readonly slots = new Map<number, number>();
-  private readonly heap: number[] = [];
-  /** Score of `heap[i]` at index `i`: sifting compares slots without map lookups. */
-  private readonly scores: number[] = [];
+  private readonly entries = new Map<number, HeapEntry>();
+  private readonly heap: HeapEntry[] = [];
+  /** Removed entries stay query-local and are reused as the frontier grows. */
+  private free: HeapEntry | undefined;
   offer(node: number, distance: number, score: number, parent: number): void {
     this.distance.set(node, distance);
     this.parent.set(node, parent);
-    const heap = this.heap,
-      scores = this.scores;
-    const priorSlot = this.slots.get(node);
-    let slot: number = priorSlot ?? heap.length;
-    if (priorSlot === undefined) {
-      heap.push(node);
-      scores.push(score);
+    const heap = this.heap;
+    let entry = this.entries.get(node);
+    if (entry) {
+      // Map coalesces ±0 keys; take() still retains the last offered node value.
+      entry.node = node;
+      entry.score = score;
+    } else {
+      entry = this.free ?? new HeapEntry();
+      this.free = entry.next;
+      entry.next = undefined;
+      entry.node = node;
+      entry.score = score;
+      entry.slot = heap.length;
+      this.entries.set(node, entry);
+      heap.push(entry);
     }
+    let slot = entry.slot;
     while (slot > 0) {
       const above = (slot - 1) >>> 1;
       const other = heap[above]!,
-        otherScore = scores[above]!;
-      if (!(score < otherScore || (score === otherScore && node < other)))
+        otherScore = other.score;
+      if (!(score < otherScore || (score === otherScore && node < other.node)))
         break;
       heap[slot] = other;
-      scores[slot] = otherScore;
-      this.slots.set(other, slot);
+      other.slot = slot;
       slot = above;
     }
-    heap[slot] = node;
-    scores[slot] = score;
-    this.slots.set(node, slot);
+    heap[slot] = entry;
+    entry.slot = slot;
   }
   take(): number | undefined {
-    const heap = this.heap,
-      scores = this.scores;
-    const node = heap[0];
-    if (node === undefined) return undefined;
-    this.slots.delete(node);
-    const last = heap.pop()!,
-      lastScore = scores.pop()!;
+    const heap = this.heap;
+    const first = heap[0];
+    if (first === undefined) return undefined;
+    const node = first.node;
+    this.entries.delete(node);
+    const last = heap.pop()!;
     const size = heap.length;
+    first.next = this.free;
+    this.free = first;
     if (size === 0) return node;
+    const lastScore = last.score,
+      lastNode = last.node;
     let slot = 0;
     while (slot * 2 + 1 < size) {
       let child = slot * 2 + 1;
       let other = heap[child]!,
-        otherScore = scores[child]!;
+        otherScore = other.score;
       if (child + 1 < size) {
         const right = heap[child + 1]!,
-          rightScore = scores[child + 1]!;
+          rightScore = right.score;
         if (
           rightScore < otherScore ||
-          (rightScore === otherScore && right < other)
+          (rightScore === otherScore && right.node < other.node)
         ) {
           child++;
           other = right;
@@ -64,17 +81,15 @@ export class PartitionSearch {
       }
       if (!(
         otherScore < lastScore ||
-        (otherScore === lastScore && other < last)
+        (otherScore === lastScore && other.node < lastNode)
       ))
         break;
       heap[slot] = other;
-      scores[slot] = otherScore;
-      this.slots.set(other, slot);
+      other.slot = slot;
       slot = child;
     }
     heap[slot] = last;
-    scores[slot] = lastScore;
-    this.slots.set(last, slot);
+    last.slot = slot;
     return node;
   }
 }

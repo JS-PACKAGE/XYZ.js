@@ -132,6 +132,8 @@ P250 在單次 navmesh expansion 內重用固定的 current／target regions，�
 
 P251 不採用 lazy current-distance 快取：完整路徑的 browser 改善太小且配對混合，保留 P250，不以少一次 lookup 當成收益。P251 rejects lazy current-distance caching: small, mixed full-path browser results do not justify added state; P250 remains unchanged. P251 は current-distance の遅延キャッシュを不採用：経路全体の browser 改善が小さく不安定なため P250 を維持。較長稀疏控制、全部數據與未重驗範圍見 [ACCEPTANCE](./ACCEPTANCE.md) P251。
 
+P252 改用 query-local 可回收 heap entries，保留 Map 並省去 sift 的重複 slot hash writes；長 navmesh 與 tiled graph 查詢改善，最短稀疏 navmesh 有小幅代價。P252 uses recyclable query-local heap entries with Map lookup: long mesh/tiled paths improve, with a small sparse-mesh tradeoff. P252 は query 内で heap entry を再利用し、長い mesh／tiled 経路を改善。最短の疎な mesh 検索には小さな代償あり。數值陣列原型不採用；40 tests 與兩 caller 的 source／ESM／CJS／browser root 對照通過，全部控制見 [ACCEPTANCE](./ACCEPTANCE.md) P252。不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

@@ -1,38 +1,47 @@
 const require_navigation = require("../../../../src/data/navigation.cjs");
 //#region dist/packages/core/src/navigation/partition-search.js
+var HeapEntry = class {
+	node = 0;
+	score = 0;
+	slot = 0;
+	next;
+};
 var PartitionSearch = class {
 	distance = /* @__PURE__ */ new Map();
 	parent = /* @__PURE__ */ new Map();
-	slots = /* @__PURE__ */ new Map();
+	entries = /* @__PURE__ */ new Map();
 	heap = [];
-	scores = [];
+	free;
 	offer(e, t, n, r) {
 		this.distance.set(e, t), this.parent.set(e, r);
-		let i = this.heap, a = this.scores, o = this.slots.get(e), s = o ?? i.length;
-		for (o === void 0 && (i.push(e), a.push(n)); s > 0;) {
-			let t = s - 1 >>> 1, r = i[t], o = a[t];
-			if (!(n < o || n === o && e < r)) break;
-			i[s] = r, a[s] = o, this.slots.set(r, s), s = t;
+		let i = this.heap, a = this.entries.get(e);
+		a ? (a.node = e, a.score = n) : (a = this.free ?? new HeapEntry(), this.free = a.next, a.next = void 0, a.node = e, a.score = n, a.slot = i.length, this.entries.set(e, a), i.push(a));
+		let o = a.slot;
+		for (; o > 0;) {
+			let t = o - 1 >>> 1, r = i[t], a = r.score;
+			if (!(n < a || n === a && e < r.node)) break;
+			i[o] = r, r.slot = o, o = t;
 		}
-		i[s] = e, a[s] = n, this.slots.set(e, s);
+		i[o] = a, a.slot = o;
 	}
 	take() {
-		let e = this.heap, t = this.scores, n = e[0];
-		if (n === void 0) return;
-		this.slots.delete(n);
-		let r = e.pop(), i = t.pop(), a = e.length;
-		if (a === 0) return n;
-		let o = 0;
-		for (; o * 2 + 1 < a;) {
-			let n = o * 2 + 1, s = e[n], c = t[n];
-			if (n + 1 < a) {
-				let r = e[n + 1], i = t[n + 1];
-				(i < c || i === c && r < s) && (n++, s = r, c = i);
+		let e = this.heap, t = e[0];
+		if (t === void 0) return;
+		let n = t.node;
+		this.entries.delete(n);
+		let r = e.pop(), i = e.length;
+		if (t.next = this.free, this.free = t, i === 0) return n;
+		let a = r.score, o = r.node, s = 0;
+		for (; s * 2 + 1 < i;) {
+			let t = s * 2 + 1, n = e[t], r = n.score;
+			if (t + 1 < i) {
+				let i = e[t + 1], a = i.score;
+				(a < r || a === r && i.node < n.node) && (t++, n = i, r = a);
 			}
-			if (!(c < i || c === i && s < r)) break;
-			e[o] = s, t[o] = c, this.slots.set(s, o), o = n;
+			if (!(r < a || r === a && n.node < o)) break;
+			e[s] = n, n.slot = s, s = t;
 		}
-		return e[o] = r, t[o] = i, this.slots.set(r, o), n;
+		return e[s] = r, r.slot = s, n;
 	}
 };
 var PartitionNavigationJob = class {
