@@ -6103,3 +6103,7 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 候選把 integration 展為 scalar，省略會在下輪／sweep 前覆寫的 private force／displacement scratch writes；保留原 per-particle drag 與浮點運算順序，不含 P239 預先計算。
 - Node 一般布料約省 6–7%，但 Chromium 初輪配對混合；獨立較長 32×32 對照（1,800 暖機＋12,000 updates/sample）median 僅 −1.17%，仍有 +3.68% 配對，因此不採用。
 - 精確狀態、可變 timestep、可變 gravity／all-pin、錯誤恢復與 destroy 對拍另記 ACCEPTANCE；source／dist／永久 tests 維持 P238，只提交六份文件，不 push／升版。
+
+## P241：navmesh 邊界長度的精確分量排除
+
+已採用：先保留三個座標差與原 getter 順序，僅在某分量絕對值嚴格大於目前最近邊距離時省略 hypot3。沿用既有 graph 投影做法，不加近似、狀態或 API。一般帶 radius 投影 Node／Chromium CPU 約降 4.2%／4.7%，外側投影約降 4.9%／4.1%；不宣稱所有路徑查詢加速或 FPS 改善。三個 navigation 測試檔 25 tests、source／ESM／CJS 差分與 source／dist 公開瀏覽器查詢／增量工作驗證通過；隔離建置只更新四個 mesh 產物。完整範圍與逐對數據見 [ACCEPTANCE.md](ACCEPTANCE.md)。

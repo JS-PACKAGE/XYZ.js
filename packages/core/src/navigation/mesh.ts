@@ -1096,7 +1096,17 @@ function nearest(
     const x = a.x + dx * t,
       y = a.y + dy * t,
       z = a.z + dz * t;
-    const d = hypot3(x - point.x, y - point.y, z - point.z);
+    const px = x - point.x,
+      py = y - point.y,
+      pz = z - point.z;
+    // Each component bounds the norm; strict checks retain equal-distance edges.
+    if (
+      Math.abs(px) > distance ||
+      Math.abs(py) > distance ||
+      Math.abs(pz) > distance
+    )
+      continue;
+    const d = hypot3(px, py, pz);
     if (d < distance) {
       distance = d;
       found = true;

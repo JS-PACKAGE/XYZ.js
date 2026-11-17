@@ -6253,3 +6253,7 @@ Node／Chromium 六輪 public update 的預設布料 CPU 約減 5–6%，16 次 
 ## P240 — 不採用 scalar integration
 
 private forces 每個 substep 開頭重設、displacement 在每次 sweep 前覆寫，因此 scalar integration 原型可略過這些 scratch writes，仍保留 velocity／position 的原 arithmetic order 及 per-particle drag。各組狀態與錯誤／恢復對拍相同，但 Node 約 6–7% 的一般布料 CPU 收益沒有在 browser 穩定重現：較長 Chromium 32×32 cohort 只有約 −1.17% median，且一對退步。保留 P238 的 vector integration，不以 Node-only 數據宣稱瀏覽器／GPU／FPS 效益；完整邊界與證據見 ACCEPTANCE P240。
+
+## P241：邊界投影分量下界
+
+NavigationMesh3D 的私有 nearest helper 仍按原順序計算 clamped 邊點與 x/y/z 差；某分量的絕對值若已嚴格大於最近邊距離，完整 Euclidean norm 不可能更小，可跳過 hypot3。保留相等邊、穩定 tie、robust hypot 與最後贏家規則；project 和 createSearch 共用此路徑，不新增 cache／欄位／近似。候選數、revision、radius region、工作預算與輸出所有權維持；更激進的半距離排除會漏掉較近斜邊，已由消費者回歸測試與 mutant 反例涵蓋。證據見 [ACCEPTANCE.md](ACCEPTANCE.md)。

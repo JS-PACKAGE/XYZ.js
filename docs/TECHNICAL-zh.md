@@ -7405,3 +7405,7 @@ constructor 以 exp(-drag*fixedDelta) 預先計算值取代 private drag，包�
 ## P240：未採用 scalar soft-body integration
 
 scalar integration 原型略過下次 substep／sweep 必定覆寫的 private force／displacement scratch writes，保留原浮點運算順序與 per-particle drag；狀態／錯誤、可變 timestep／gravity、pin、恢復與銷毀對拍一致。Node 一般布料約省 6–7%，但 browser 配對混合，獨立較長 Chromium 32×32 cohort median 僅約 −1.17% 且一對退步，效益不足，因此 source／dist／tests 維持 P238。完整短／長 CPU 數據及數值驗證限制見 [ACCEPTANCE](../ACCEPTANCE.md) P240，不代表重新 native／build 或 GPU／FPS／heap 驗證。
+
+## P241：navmesh 邊界長度的精確排除
+
+共用私有 nearest helper 先計算最近邊點的三個座標差，保持 getter 順序；任一分量絕對值嚴格大於目前最近邊距離時，完整長度不可能勝出，可省略 robust hypot3。相等邊與完整長度算法不變，不加 cache、近似或 API，也不改候選數與工作預算。六輪配對下，一般帶 radius 投影 CPU 約降 Node 4.2%／Chromium 4.7%；不是一般路徑或 FPS 保證。source／ESM／CJS 差分、25 個 navigation tests 及 source／dist 公開 Chromium 投影／路徑／增量工作通過；隔離更新四個 mesh ESM／CJS 產物，宣告不變。完整數據與限制見 [ACCEPTANCE.md](../ACCEPTANCE.md)。

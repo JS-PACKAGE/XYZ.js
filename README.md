@@ -110,6 +110,8 @@ P239 記錄並拒絕預先計算 soft-body drag 衰減值：完整 update 的 pa
 
 P240 記錄並拒絕 scalar soft-body integration：Node 一般布料約省 6–7%，但較長 Chromium 對照只約 −1.17% 且仍有退步配對。P240 rejects scalar integration: Node improves, but the longer browser comparison is weak and mixed. P240 は Node で改善しても browser の長時間対照が弱く混在するため scalar integration を不採用とします。source／dist 保持 P238，不把 Node 結果冒充瀏覽器／FPS 收益；完整數據見 [ACCEPTANCE](./ACCEPTANCE.md) P240。
 
+P241 狀態：navmesh 邊界投影先以各座標差排除不可能更近的邊，再計算完整長度；一般帶 radius 投影的 CPU 時間約降 4.2%（Node）／4.7%（Chromium），投影／路徑／工作預算契約不變。／P241 status: exact component bounds skip uncompetitive navmesh edge norms; ordinary radius-bearing projection CPU time falls about 4.2% in Node / 4.7% in Chromium, preserving projection, path and work-budget contracts.／P241 状態：navmesh 境界投影で各成分を下限として不要なノルム計算を省略。通常の radius 付き投影の CPU 時間は Node 約 4.2%／Chromium 約 4.7% 減少し、投影・経路・作業予算の契約は維持。[驗收／Evidence／検証](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

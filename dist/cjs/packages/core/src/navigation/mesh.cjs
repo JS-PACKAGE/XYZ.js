@@ -455,8 +455,10 @@ function nearest(t, n, r) {
 	if (inside(n, o)) return o.clone();
 	let c = !1, l = 0, u = 0, d = 0, f = 1 / 0;
 	for (let e = 0; e < n.length; e++) {
-		let t = n[e], i = n[(e + 1) % n.length], o = i.x - t.x, s = i.y - t.y, p = i.z - t.z, m = Math.max(0, Math.min(1, ((r.x - t.x) * o + (r.y - t.y) * s + (r.z - t.z) * p) / (o * o + s * s + p * p))), h = t.x + o * m, g = t.y + s * m, _ = t.z + p * m, v = require_hypot.hypot3(h - r.x, g - r.y, _ - r.z);
-		v < f && (f = v, c = !0, l = h, u = g, d = _);
+		let t = n[e], i = n[(e + 1) % n.length], o = i.x - t.x, s = i.y - t.y, p = i.z - t.z, m = Math.max(0, Math.min(1, ((r.x - t.x) * o + (r.y - t.y) * s + (r.z - t.z) * p) / (o * o + s * s + p * p))), h = t.x + o * m, g = t.y + s * m, _ = t.z + p * m, v = h - r.x, y = g - r.y, b = _ - r.z;
+		if (Math.abs(v) > f || Math.abs(y) > f || Math.abs(b) > f) continue;
+		let x = require_hypot.hypot3(v, y, b);
+		x < f && (f = x, c = !0, l = h, u = g, d = _);
 	}
 	return c ? new require_math3d.Vector3(l, u, d) : void 0;
 }

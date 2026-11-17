@@ -77,6 +77,35 @@ describe('polygon navigation surfaces', () => {
     slope.destroy();
   });
 
+  it('projects to a nearer oblique edge after examining a clamped endpoint', () => {
+    const mesh = new NavigationMesh3D({
+      polygons: [
+        {
+          id: 'triangle',
+          clearanceHeight: 2,
+          vertices: [
+            new Vector3(0, 0, 0),
+            new Vector3(4, 0, 0),
+            new Vector3(0, 0, 4),
+          ],
+        },
+      ],
+    });
+    const point = new Vector3(4.1, 0.1, 2);
+    const options = { ...query, agentRadius: 0, maxDistance: 3 };
+    try {
+      const projection = mesh.project(point, options)!;
+      expect(projection.position.x).toBeCloseTo(3.05, 12);
+      expect(projection.position.z).toBeCloseTo(0.95, 12);
+      expect(projection.distance).toBeCloseTo(Math.hypot(1.05, 0.1, 1.05), 12);
+      const path = mesh.findPath(point, new Vector3(1, 0, 1), options);
+      expect(path.status).toBe('found');
+      expect(path.waypoints[0]!.position).toEqual(projection.position);
+    } finally {
+      mesh.destroy();
+    }
+  });
+
   it('re-clears agent radius from an edge whose neighbor is disabled and re-enabled', () => {
     const mesh = new NavigationMesh3D({
       polygons: [square('left', 0, 0), square('right', 2, 0)],
