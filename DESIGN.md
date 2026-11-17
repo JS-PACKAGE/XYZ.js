@@ -6281,3 +6281,7 @@ NavigationMesh3D 的私有 nearest helper 仍按原順序計算 clamped 邊點�
 ## P247：借用候選與保留贏家的生命週期
 
 nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下次重用之前有效；保留結果必須 clone。project 與每個 createSearch job 使用各自 lazy 暫存，public projection 贏家與兩個搜尋 endpoint 都 clone 後才保留／freeze，避免後續候選覆寫。不能改成共享 global out，因 point／bounds getter 可在 nearest 回傳後重入；舊 global 計算暫存已移除。保留原 arithmetic／getter 順序、候選／budget／revision 語意；CPU 證據與小型 Chromium 取捨見 [ACCEPTANCE.md](ACCEPTANCE.md)，不推導未量測的 heap／GC 收益。
+
+## P248：保留明確 clone-on-retention
+
+直接接收贏家 out 並將 scratch 設回 undefined，語意上可保證不再覆寫該 snapshot；兩個 caller 的原型皆正確處理。實測卻讓多數 Node 主查詢退步，Chromium 無實質收益，因此不把「少一次 clone」當成採用理由，也不放寬 P247 helper 的保留規則。較複雜的 ownership transfer 不進入正式架構；完整對拍與量測見 [ACCEPTANCE.md](ACCEPTANCE.md)。

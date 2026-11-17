@@ -6131,3 +6131,7 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 ## P247：caller-owned nearest 暫存
 
 私有 nearest 改寫入 caller 的 lazy Vector3；project 與 createSearch 各自保留獨立暫存，僅贏家位置／endpoint 才 clone，移除舊 module-global scratch，不留舊簽名或 fallback。主要投影 CPU 約降 Node 3–6%／Chromium 2–3.5%；單 polygon Chromium 控制約多 5 ns，完整 path 不宣稱普遍加速。75 個 coordinate／bounds getter 重入對拍保持輸出與 retained snapshots；公開結果維持 immutable ownership。完整數據及驗證範圍見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P248：拒絕保留暫存的所有權轉移
+
+原型在兩個 caller 保留贏家後清除 scratch reference，直接接收該 Vector3 而不 clone；Vector3 原始碼與完整快照／重入／交錯工作對拍確認數值與所有權相同。但一般帶 radius 查詢 Node 約慢 3.65%、Chromium 幾乎不變，僅小型控制組改善不足以採用。保留 P247 的較直觀 clone 契約，不增加手動 lifetime 管理；只提交六份文件，不改 source／tests／dist。54 組 CPU 配對見 [ACCEPTANCE.md](ACCEPTANCE.md)。

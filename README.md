@@ -124,6 +124,8 @@ P246 不採用固定投影分母 cache：一般帶 radius 查詢幾乎不變，�
 
 P247 狀態：nearest 改借用 query／job 各自的 lazy 暫存，只複製需要保留的贏家；主要投影 CPU 約降 Node 3–6%／Chromium 2–3.5%，單 polygon Chromium 約多 5 ns。P247 uses caller-owned projection scratch with retained-winner clones: main projection CPU improves about 3–6% Node /2–3.5% Chromium, with a roughly 5 ns Chromium single-polygon tradeoff. P247 は query／job ごとの遅延確保した作業ベクトルを使い、保持する候補のみコピー。主な投影 CPU が Node 約 3–6%／Chromium 約 2–3.5% 減少し、単一 polygon の Chromium は約 5 ns 増加。所有權、重入與完整證據見 [ACCEPTANCE](./ACCEPTANCE.md) P247。
 
+P248 不採用贏家暫存的所有權轉移：雖可省略 clone 並保持快照／重入等價，但一般帶 radius 投影在 Node 慢約 3.7%，Chromium 幾乎不變。P248 rejects retained-scratch ownership transfer: exact behavior agrees, but populated Node projection regresses and browser gains are negligible. P248 は作業ベクトルの所有権移転を不採用：動作は同じでも Node の通常投影が約 3.7% 悪化し、browser の改善はほぼなし。保留 P247 的明確 clone 契約；見 [ACCEPTANCE](./ACCEPTANCE.md) P248。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

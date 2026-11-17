@@ -7433,3 +7433,7 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 ## P247：caller-owned nearest 投影暫存
 
 私有 helper 將候選寫入 caller 必傳的 output，回傳的是借用值，保留贏家必須 clone。直接 project 與每個增量 job 都使用獨立 lazy 暫存，維持 public projection／endpoint 的 immutable ownership 及 getter 重入隔離。兩個 caller 完整遷移、移除舊 global scratch，arithmetic／budget／順序不變。主要投影 CPU 約降 Node 3–6%／Chromium 2–3.5%；單 polygon Chromium 約多 5 ns，不宣稱一般 path／heap／GC／FPS 改善。精確快照、重入及完整 CPU 證據見 [ACCEPTANCE.md](../ACCEPTANCE.md)。
+
+## P248：不採用保留暫存的所有權轉移
+
+原型直接接收贏家 output，清除 scratch 後才處理下一候選，省去 clone 且保持數值、重入、endpoint 所有權與快照。一般帶 radius 投影 Node 卻退步 3.65%，Chromium 僅 -0.14%；小型控制組收益不足以增加 lifetime 邏輯。source／tests／dist 保留 P247 明確 clone-on-retention，不宣稱重新 build／公開 root 或配置／heap／FPS 改善。54 組配對及範圍見 [ACCEPTANCE.md](../ACCEPTANCE.md)。

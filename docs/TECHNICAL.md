@@ -7788,3 +7788,7 @@ A prototype precomputes the readonly plane denominator per polygon while retaini
 ## P247: Caller-owned nearest projection scratch
 
 The private helper writes a borrowed candidate into a required caller-owned output; retained winners must be cloned. Direct project calls and incremental jobs each allocate their own scratch lazily, preserving immutable public projection/endpoint ownership and reentrant getter isolation. Both callers migrate, the old global scratch is removed, and arithmetic/budget/order contracts stay unchanged. Main projection CPU improves about 3–6% Node /2–3.5% Chromium; the single-polygon Chromium control costs roughly 5 ns more, without a general path/heap/GC/FPS claim. See [ACCEPTANCE.md](../ACCEPTANCE.md) for exact snapshots, reentry and complete CPU evidence.
+
+## P248: Rejected retained scratch ownership transfer
+
+A prototype adopts each winning output directly and clears scratch before reuse, avoiding clone while preserving values, reentry, endpoint ownership and snapshots. Ordinary positive-radius Node projection regresses 3.65%, while Chromium changes only -0.14%; small controls do not justify added lifetime logic. Source/tests/dist retain P247's explicit clone-on-retention rule. No fresh build/public-root or allocation/heap/FPS claim. See [ACCEPTANCE.md](../ACCEPTANCE.md) for all 54 pairs and exact scope.
