@@ -146,6 +146,8 @@ P257 不採用 path ownership 登記早於 freeze 的候選：Chrome 的 miss／
 
 P258 在同一個 smoothing primitive 重用固定 region，省去兩側 portal 的重複查詢，保留 geometry／Proxy 讀取與 budget。P258 reuses the current smoothing region without cross-step caching; short-route ESM pairs improve, with Node long-route/miss costs disclosed. P258 は smoothing primitive 内の固定 region を再利用し、正式 ESM の短経路で改善。Node の長経路・miss の代償も記録。28 tests、source／ESM／CJS／browser root 與全部矩陣見 [ACCEPTANCE](./ACCEPTANCE.md) P258；不保證全面 CPU／fps 改善，不 push／升版。
 
+P259 不採用 heap 無位移寫入 guard：兩個變體的完整 mesh／tiled caller 收益不穩定，第二版 Chrome 常用路徑多數變慢。P259 rejects both no-movement heap-store guards; complete mesh/tiled consumers do not show stable gains. P259 は heap の未移動時書き込み省略を二案とも不採用。mesh／tiled 全体の改善は安定せず、二案目は Chrome の多くの経路で悪化。排序／±0／路徑／job 對照通過；全部 source-slot 配對見 [ACCEPTANCE](./ACCEPTANCE.md) P259，source／dist 保留 P258，不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

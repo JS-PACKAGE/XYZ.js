@@ -6211,3 +6211,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - source-slot 短路徑 Node／Chromium 各六輪改善；正式 ESM 短路徑為 -0.46%（Node，5/6）／-3.24%（Chromium，6/6）。正式 Node 長路徑 +0.52%、miss +2.02% 均六輪較慢，Chrome 長路徑只有四輪較快；完整控制與離群值全部記錄，不宣稱全面加速。
 - 28 項既有 tests、strict／scoped lint、隔離 production build、canonical source／ESM／CJS 十組 consumer probes 與實際 source／dist browser root 通過；原始數值、Array-species Proxy／getter 順序、budget、slot、ownership 與 retained snapshots 保留。
 - 只提升四份 mesh runtime／map，十一個使用者檔案 SHA256、其餘 build 產物、declarations、vendor、公開型別與版本不變。臨時 build guard 的 digest 名稱錯字已修正後續跑完成；全部 profile／矩陣／限制見 `ACCEPTANCE.md` P258，不 push／升版。
+
+## P259：不採用 heap 無位移寫入 guard
+
+- 共用 PartitionSearch 已是 early-exit hole sift，不重做既有實作或 P167 拒絕的 leaf-first Floyd sift。此次只檢查 offer 未向上移動時省略重複 heap／entry.slot 寫入的候選。
+- 第一版讀回 entry.slot 作 guard；第二版首次讀取時保存 originalSlot，避免 guard 額外的 field read。兩版保留相同比較、raw node、Map、recycle 與 caller；未改正式 source。
+- Node／可見 pinned Chromium 各固定十三 mesh＋三 tiled cohorts、六輪 ABBA／BAAB，每版 768 timings 全部保留。第一版收益混合且 Node sparse mesh 多數變慢；第二版 Chrome 短 mesh 僅一輪較快（三慢、兩平），長／稀疏 mesh 多數變慢。少兩次寫入不等於完整 caller 加速，兩版皆不採用。
+- 兩版均通過 9,225 offers／7,416 takes、三數值 domains、±0／reopen、384 tiled paths／552 job steps，以及十組 mesh 數值／getter／Proxy／budget／ownership 對照。
+- 本階段只提交證據文件；source／dist 保留 P258，未重跑 formal tests／strict／lint／build、正式 ESM／CJS CPU 或 browser root 認證。全部原始數據及限制見 `ACCEPTANCE.md` P259，不 push／升版。

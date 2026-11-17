@@ -7506,3 +7506,11 @@ source-slot 對照及真實 consumer 探針保留深層 freeze、十二個已擁
 新基線 profile 將 region reader 列為長路徑熱點之一。source-slot 短路徑 Node／Chromium 各六輪改善；正式 minified ESM 短路徑為 -0.46%（Node，五輪較快）／-3.24%（Chromium，六輪）。Node 長路徑 +0.52%、miss +2.02% 均六輪較慢，Chrome 長路徑收益混合；保留所有未修改控制及 outliers，不作因果收益或全面 CPU／fps 宣稱。
 
 28 項既有 tests、strict／scoped checks、受保護隔離 build、canonical source／ESM／CJS 十組 consumer probes 與實際 source／dist browser root 通過；frozen ownership／偽造拒絕／revision、Proxy／getter histories、slot、取消、budget 及保留值不變。只改四份 mesh runtime／map，其他產物、declarations、vendor 與十一個使用者檔案保留。臨時 build guard 的 digest 錯字已修正，沿已準備的隔離樹續跑完成。全部 profile／配對／限制見 [ACCEPTANCE](../ACCEPTANCE.md) P258，不 push／升版。
+
+## P259：不採用 heap 無位移寫入 guard
+
+`PartitionSearch` 已採 early-exit hole sift，本階段不重試 P167 的 leaf-first Floyd 版本。兩個隔離候選在 `offer` 未搬移 entry 時省略 final heap／slot stores：一版讀回 `entry.slot`，另一版首次讀取時保存原索引。比較、raw node、Map、recycle 與 caller 不變。
+
+十三 mesh＋三 tiled 固定 cohorts，Node／可見 pinned Chromium 各六輪 ABBA／BAAB，每版保留全部 768 timings。第一版收益混合、Node sparse mesh 多數退步；保存原索引版本的 Chrome 短 mesh 僅一輪較快（三慢、兩平），長／稀疏 mesh 多數變慢。兩版皆不足以建立穩定的完整 caller 收益，正式 source／dist 維持 P258。
+
+兩版均通過三 domains 的 heap 對照（9,225 offers／7,416 takes）、±0／reopen、384 tiled paths／552 incremental steps 與十組 mesh 契約探針。本證據階段未重跑 formal tests／build，不認證正式 ESM／CJS CPU、browser root、allocation／GC 或 fps。全部原始配對與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P259，不 push／升版。

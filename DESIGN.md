@@ -6354,3 +6354,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 不新增跨步 cache、region array、wrapper、mutable scratch 或 mesh metadata；不更動 clipping／portal／crossing／高度計算及驗證順序。仍保留每次必要的 vertices／Proxy 讀取、link barrier 與原 primitive budget。
 - 正式 ESM 短路徑配對有收益，但 Node 長路徑／miss 有代價，Chrome 長路徑亦非六輪一致；未修改的 project／取消 controls 不作因果收益，所有 outliers 保留。
 - 28 tests、canonical source／ESM／CJS 的完整數值／getter／Proxy／lifecycle／ownership 對照與 source／dist browser root 通過；API／declarations、slot accounting、取消／revision 失效與 frozen retained results 不變。完整 profile／矩陣見 `ACCEPTANCE.md` P258，不推定 heap／GC 或 fps 改善。
+
+## P259：保留直接 heap final stores
+
+- 新 entry 經 push、既有 entry 經 active Map 取得後，offer 若不移動，heap 與 slot 原值確實已正確；隔離候選因此嘗試僅在向上搬移後執行 final stores。
+- 原索引快照可避免 guard 的額外 entry.slot 讀取，但無論讀回 field 或保存原索引，都未建立穩定的完整 mesh／tiled 收益，正式程式不新增此 branch。
+- 既有 hole 搬移、score／node tie、Map 的 ±0 coalescing 與 last-offered raw node、free-list recycling、distance／parent、job primitive 與 path ownership 均維持原設計；不以省略 source stores 推定實際 CPU、heap／GC 或 fps。
+- 所有固定 controls、正負配對與 outliers 保留；兩候選的 heap／兩 caller 數值及 lifecycle probes 通過，但沒有正式產物或能力擴充。全部證據見 `ACCEPTANCE.md` P259。
