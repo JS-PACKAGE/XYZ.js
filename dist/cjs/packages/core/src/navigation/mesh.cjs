@@ -360,9 +360,10 @@ var NavigationMesh3D = class {
 		let n = /* @__PURE__ */ new Map();
 		for (let r = Math.floor((e.x - t) / this.tileSize); r <= Math.floor((e.x + t) / this.tileSize); r++) for (let i = Math.floor((e.z - t) / this.tileSize); i <= Math.floor((e.z + t) / this.tileSize); i++) {
 			yield -1;
-			for (let e of this.tiles.get(r)?.get(i) ?? []) {
-				let t = e >>> 5, r = 1 << (e & 31), i = n.get(t) ?? 0;
-				(i & r) === 0 ? (n.set(t, i | r), yield e) : yield -1;
+			let e = this.tiles.get(r)?.get(i);
+			if (e) for (let t of e) {
+				let e = t >>> 5, r = 1 << (t & 31), i = n.get(e) ?? 0;
+				(i & r) === 0 ? (n.set(e, i | r), yield t) : yield -1;
 			}
 		}
 	}

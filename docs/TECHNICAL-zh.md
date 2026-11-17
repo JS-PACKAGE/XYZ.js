@@ -7476,3 +7476,10 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 - 跨 query 留存的只有幾何衍生 scalar；輸入 points／options、結果、distance／parent Maps、region Maps 與 scratch 維持原所有權。不新增 collection／世界大小 workspace，完整保留幾何與 frozen-array Proxy 讀取；每條 edge 的 metadata 槽是代價，不是已量測的 heap／GC 改善。
 - optional-property 與明確 slot 原型各跑固定 warm／fresh-world 矩陣，正式 minified ESM 另行實測。重複長路徑穩定改善，但首條路徑／setup 波動大且部分 Node 配對退步，不保證 cold／所有查詢加速，也不推測 allocation／JIT 因果；source-slot 另有非整數 3D slope 完整路徑量測及對照。
 - 28 項既有 targeted tests、strict／scoped 品質、隔離 production build、source／ESM／CJS 的 route／Proxy／零成本／slope 原始值及實際 source／dist browser 公開入口通過。只更新四份 mesh runtime／map，declarations、公開 API、使用者改動、依賴與版本不變；全部矩陣、cold 代價、離群值及未驗證邊界見 `../ACCEPTANCE.md` P254。不宣稱 full suite、GPU／呈現 fps、Safari／實機，不 push。
+
+## P255：空 tile 不進入 candidate for-of
+
+- candidate generator 保留原 const seen-word Map。每個 tile 仍先 yield primitive，再 live lookup nested Maps；沒有 list 才 continue，不再進入 fallback 空陣列的 for-of。有候選時的 list／duplicate sentinel／signed words、動態座標 getter 與 destroy 順序不變，不跨 yield 快取 column。
+- lazy Map 複合原型因有候選查詢退步而拒絕。正式 guard 不加 collection／runtime 或密度特判／公開 API；P254 center-distance metadata、P252 heap、job 所有權、revision 與 cleanup 保留。少了 fallback 語法不等於已量測 allocation／GC 改善。
+- 兩個 source 原型與實際 minified ESM 各跑固定十二 cohorts，量測前加入完整 empty-endpoint miss。正式空 projection／miss 六輪皆改善，但 Node 長路徑有一致小幅代價，其他控制混合；這是針對空查詢的優化，不是導航全面加速。
+- 28 項既有 tests、strict／scoped 品質、隔離 build、source／ESM／CJS 精確對照與實際 source／dist browser 公開 root 通過。只改四份 mesh runtime／map，declarations／vendor／使用者改動／依賴／版本保留；全部原始樣本、取捨及未驗證範圍見 `../ACCEPTANCE.md` P255。不宣稱 full suite、heap／GC、GPU／呈現 fps、Safari／實機，不升版、不 push。

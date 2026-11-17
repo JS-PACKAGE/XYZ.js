@@ -6179,3 +6179,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - optional-property 與明確 slot 各有一次固定暖／fresh-world 矩陣；正式 minified ESM 另行完整對照。重複長路徑有穩定收益，但 Node 首條路徑／startup 部分配對較慢、控制波動大，不宣稱所有情境加速或由 layout 推定原因。
 - 28 項既有 tests、strict／scoped 品質、隔離 production build、source／ESM／CJS 原始值／getter／Proxy／零成本／浮點 slope 對照，以及實際 browser source／dist 公開入口通過；只提升四份 mesh runtime／map，declarations 與十一個使用者檔案保留。
 - 全部原型、正式產物、cold controls／離群值與未驗證邊界見 `ACCEPTANCE.md` P254；按功能提交，不 push／升版。
+
+## P255：空 tile 不進入候選 for-of
+
+- 僅 guard absent tile：仍先 yield tile primitive，再做 live nested-Map lookup；有 list 才進入原 for-of，保留 const seen-word Map、位元詞、duplicate sentinel、getter 順序與 destroy 邊界。
+- 延遲 seen Map 的複合原型雖改善空查詢，卻讓多個 Node 有候選情境退步，因此拒絕；不由少一次 Map／fallback 請求直接宣稱配置或 JIT／GC 收益。
+- 量測前新增完整 paths-empty48 miss cohort。兩原型及正式 minified ESM 各固定十二 cohorts／六輪 ABBA／BAAB；正式空 projection／miss 改善，但 Node 長路徑有穩定小幅代價，其他控制與離群值照錄，不聲稱導航全面加速。
+- 28 項既有 tests、strict／scoped 品質、隔離 build、source／ESM／CJS 原始值／getter／Proxy／budget 及實際 browser source／dist 公開 root 對照通過；四份 mesh runtime／map 以外 declarations／vendor／使用者檔案保留。
+- 詳細取捨、完整矩陣與未驗證邊界見 `ACCEPTANCE.md` P255；按功能提交，不 push／升版。

@@ -138,6 +138,8 @@ P253 不採用非負距離剪枝：portal 前版本改變 frozen-array Proxy 讀
 
 P254 惰性快取固定 polygon-center edge distance，保留 portal／Proxy 讀取與 job 隔離；正式 ESM 重複長路徑的 Node／Chromium 配對皆改善，但不保證首條路徑或 startup 加速。P254 lazily caches immutable center distances; repeated long paths improve in actual ESM consumers, with cold-start and metadata tradeoffs disclosed. P254 は固定 center 距離を遅延キャッシュし、正式 ESM の反復長経路を改善。初回検索／起動の高速化は保証せず、metadata の代償も記録。28 tests、source／ESM／CJS／browser root 對照通過；全部矩陣與限制見 [ACCEPTANCE](./ACCEPTANCE.md) P254。不 push／升版。
 
+P255 略過空 tile 的 candidate 迭代，保留 const Map、post-yield lookup 與 primitive budget。正式空 projection／完整 miss 查詢改善，但 Node 長路徑有小幅代價，不宣稱導航全面加速。P255 skips absent-tile iteration while preserving Map lifetime and budgets; empty projections/misses improve, with a disclosed Node long-route tradeoff. P255 は空 tile の候補走査を省略し、Map／budget を維持。空検索は改善するが Node 長経路には代償あり。lazy Map 原型不採用；28 tests、source／ESM／CJS／browser root 驗證與完整控制見 [ACCEPTANCE](./ACCEPTANCE.md) P255。不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

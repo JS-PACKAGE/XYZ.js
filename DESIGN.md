@@ -6326,3 +6326,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 不快取使用者 point／options／結果，不加入 collection 或世界大小 workspace；只在幾何 owner 留存一個衍生 scalar，job 的 distance／parent／regions／scratch 隔離保持。幾何／Proxy 讀取完整保留，避免 P253 的可觀察性問題。
 - optional-property 原型與預留 slot 分別量測，不把獨立 run 互除當成 layout 因果。選定明確初始化的表示，正式 ESM 重複長路徑也有收益；cold／setup 的部分退步與波動照錄，不保證首條路徑加速，也不推測 V8 allocation／JIT／GC。
 - 接受每條 edge 的 metadata 槽代價，未量測 retained heap／GC。公開 API／declarations、primitive／revision／cleanup、query-local 所有權與 retained snapshots 不變；source／ESM／CJS 與 browser 公開 root 的數值、Proxy、零成本及 slope 證據見 `ACCEPTANCE.md` P254。
+
+## P255：保留 iterator 語意的 absent-tile guard
+
+- 保留原 const seen Map 建立時機，不採用 lazy Map。每個 tile 的 −1 sentinel 仍在查詢 index 前 yield，之後讀取 list；只有 absent list 才 continue，不跨 yield 留住 column，不改 position x／z 的動態邊界與 getter 次序。
+- 有候選時仍走原 list、word／mask、duplicate primitive 與排序；P254 fixed-center scalar、P252 heap、workspace／revision／cleanup 與輸入／結果所有權不變。沒有 runtime／密度特判或新 collection。
+- source 與實際正式 ESM 分開對照。採用目標是空 projection／完整 miss，不是所有導航；Node 正式長路徑的小幅代價、single-inside／tri24 控制及所有離群值明列，不以少了語法上的 fallback 陣列推定實際 allocation／GC。
+- exact source／ESM／CJS、frozen-array Proxy、reentry／retained snapshots、signed words、empty／duplicate budgets 與 browser 公開 root 證據見 `ACCEPTANCE.md` P255；公開 API／declarations 與既有功能認證邊界不變。

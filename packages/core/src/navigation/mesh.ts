@@ -875,8 +875,11 @@ export class NavigationMesh3D {
         z <= Math.floor((position.z + distance) / this.tileSize);
         z++
       ) {
+        // Empty tiles still consume a primitive; lookup stays after the yield.
         yield -1;
-        for (const index of this.tiles.get(x)?.get(z) ?? []) {
+        const list = this.tiles.get(x)?.get(z);
+        if (!list) continue;
+        for (const index of list) {
           const word = index >>> 5,
             mask = 1 << (index & 31),
             bits = seen.get(word) ?? 0;
