@@ -6289,3 +6289,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 新增兩項 consumer regression：移動／重新縮放帶 world 粒子的 isolation ancestor，以及 child 自訂 world pose 的 group coverage。兩個定向檔案38項通過，strict／scoped lint通過。
 - source-slot、實際 `/src/index.ts`、minified production 各 Canvas2D／WebGL2／WebGPU 共99個真實 Game cases與648,648個 Object.is 數字對照；九組 world isolation 是 blank-before／visible-after，其餘90組 nonblank PNG相同。矩陣是 rendering 後的公開查詢，不冒稱 raw renderer-cache 觀察。
 - CJS 正式入口另驗 world coverage、bounds callback重入與普通 singular local edge；隔離 build只帶回五個 Group2D 產物，11個使用者檔案hash不變。保留型別與 throwaway fixture 初次失敗，不把這次正確性修正算成速度改善。詳見 `ACCEPTANCE.md` P267，不 push／升版。
+
+## P268：不採用 parent-link traversal，保留 control 分項限制
+
+- 以 P267 正常 world-isolation bounds 為基線，只在隔離原型把 boundary test 移到 parent link，不加入cache／state／API；先完成全部 fixture 格式化，再開始 CPU。
+- 六組 collector histories各12 frames，624個數字／12,056個observations／10,028條getter entries／六次bounds或parent例外cleanup一致；完整report逐 byte JSON相同於 P266 corrected report，歷史trace可直接對照。
+- Sprite／target layer各11 modes ×三backend共66個真實 Game cases、562,716數字與 nonblank PNG相同，world-isolated不再用blank作PASS。
+- 八cohort固定六輪ABBA／BAAB、每sample8 warm＋48量測frames，共192 samples。world／nested合計下降，但一般local不穩定，小量local及offscreen submit多數退步；empty simulation等未直接修改分項也出現大差異，不將sum改善直接歸因traversal。
+- 量測期間未執行其他formatter／tests／build／profile；保留全部timing與control、不重跑到出現想要方向。本輪只交付六份文件，正式source／dist不變，未宣稱production／CJS CPU或fps認證；詳見 `ACCEPTANCE.md` P268，不 push／升版。

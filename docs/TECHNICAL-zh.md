@@ -7578,3 +7578,11 @@ strict原生Sprite Canvas2D preflight在未修改before側的world-isolated畫�
 需要 world→local 換算時，group world matrix 必須可逆，singular 時保留 Matrix3.invert 的 RangeError。普通零 scale group 的 local-only bounds 仍可查詢。新增移動／重新縮放 world-particle isolation 及自訂 child pose 兩項 consumer regression，定向38項、strict／scoped lint通過；實際 CJS 入口另驗 world coverage、同 group bounds 重入與普通 singular local edge。
 
 source-slot、實際 `/src/index.ts`、minified production 各三 backend 合計99個真實 Game cases、648,648個 Object.is 數字對照；九組 world-isolated 由 blank 恢復可見，其餘90組 nonblank PNG相同。矩陣採 rendering 後公開查詢，不是 raw rendered-cache 觀察。隔離 build只帶回五個 Group2D 產物，11個使用者檔案hash不變。這是正確性修正，不是CPU／fps／heap／GPU改善證據；僅限記錄的 desktop Chromium。完整失敗、逐 case PNG hashes、bounds及限制見 [ACCEPTANCE](../ACCEPTANCE.md) P267，不 push／升版。
+
+## P268：修正 baseline 後仍不採用 traversal
+
+P267 bounds 修正後，parent-link traversal 隔離原型通過Sprite／target layer各11 modes ×三backend共66個真實 Game cases、562,716個數字與nonblank PNG一致。Sprite採raw post-render matrix，target另有公開slot查詢。六組各12-frame collector的完整report與 P266 corrected逐byte JSON相同，含624數字／10,028條getter entries及六次例外cleanup。
+
+固定八cohort source-slot Game矩陣保留全部192 samples。world／nested的category sum下降，但一般local未穩定改善，小量local／offscreen submit有代價，未直接修改的control分項也出現大差異。兩側一致但分離的完整module graph可避免混用class ownership，卻沒有消除graph／實例／JIT狀態的所有不確定性；control差異沒有已確認因果解釋。量測中未跑formatter／tests／build／profiler，也不重跑同一批尋找好看方向。
+
+不採用，正式source／dist不變。這些具名wall-clock spans不是完整RAF CPU、GPU時間、fps或heap證據，source-slot也不是production／CJS CPU認證。全部samples、五分項、零分母處理、PNG hashes與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P268，不 push／升版。

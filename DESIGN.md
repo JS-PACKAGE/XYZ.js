@@ -6418,3 +6418,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 普通 local path 保留原角點式與 expression order。active physics presentation 才需要反映非 authored pose；static／sleeping body 不走該分支。沒有新的 presentation cache 或公開 API。
 - 公開 matrix callbacks 前先保存 child rectangle；group-owned lazy matrix 在 callbacks 完成後才寫入。CJS 重入對照覆蓋同一 group 的 bounds scratch 被另一 child 使用，普通零 scale group 的 local-only bounds 不要求 inverse。真正需要 world→local 時，singular matrix 的既有 RangeError 不被吞掉。
 - 99個原生 Game cases的九組 world-isolated 由空白恢復，另90組像素不變；source/dev/production 都覆蓋三 backend，但只認證記錄的 desktop Chromium，不宣稱其他瀏覽器、裝置或速度。細節與失敗紀錄見 `ACCEPTANCE.md` P267。
+
+## P268：局部 traversal 收益不能掩蓋 controls 的不確定性
+
+- parent-link候選在 P267 修正後通過raw Sprite matrix／target公開查詢、三backend pixels與public getter／exception對照；沒有藉由漏畫內容換速度。候選仍只移動boundary檢查，不改ownership或排序。
+- 八cohort的192個Game samples顯示部分大型場景下降、但小量／offscreen submit代價與普通local不穩定。空pool的simulation、其他未直接修改分項也有一致方向差異：這是觀察，不是已確認根因，不能當成traversal的因果收益。
+- 目前成對loader為各side建立一致但分開的完整module graph，避免跨graph instanceof錯誤；它沒有隔離掉不同graph／實例／JIT狀態的所有差異。下一實驗須改善隔離方式，而不是重複同一矩陣直到方向好看。
+- 不採用，正式source／dist維持 P267。完整五分項、全部raw值／ties／outliers與方法限制見 `ACCEPTANCE.md` P268。
