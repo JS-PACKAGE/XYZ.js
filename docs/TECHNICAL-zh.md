@@ -7618,3 +7618,9 @@ world/custom child fallback 仍在公開 matrix callbacks 前保存 rectangle，
 隔離原型只把 private mapping scratch 的 identity 移到非 root 分支；isolated-root copy/invert 仍覆寫所有元素，公開 matrix callbacks 與 Float32 arithmetic 時序保留。正式 Game 計數在兩個 GPU backend 的 isolated Sprite 場景各少32,768次語義 identity 呼叫，inverse及普通／Canvas2D controls不變；instrumented counts 不證明真正 stores、CPU／GPU時間或FPS。
 
 66個三backend Game cases、562,716個數字與 nonblank PNG一致。固定十二cohort WebGL2／WebGPU A/A＋A/B共576 samples全部保留，但目標變化小且不穩定，control分項亦有漂移，因此不採用；正式 renderer／產物／API／版本不變。本輪是文件結論，不宣稱新 unit／typecheck／build 或 production／CJS 認證。完整方法、準備失敗及界線見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P274 — 不採用 constructor-time particle endpoint spans
+
+候選把差值存入已由引擎擁有的normalized end tuples，不增加正式陣列／欄位、不改插值運算或source-size refresh。隔離原型的一個canonical class同時保留endpoints及cloned spans，三個固定trampoline一起切Sprite batch、newborn與target appearance；額外fixture tuples與mutable targets限制對正式layout的CPU外推。
+
+288組確定性core cases通過265,800個finite Object.is比較，包含signed zero、caller input ownership、變動端點、出生／退休／clear/reemit；另66個三backend動態Game cases畫面與數字一致。固定八cohort A/A＋A/B全部384 samples顯示world-layer條件性收益不足以抵銷local/small targets及Sprite-world controls的成本，因此不改runtime／產物／API／版本。未宣稱本輪新unit/typecheck/build或production／CJS／GPU／FPS認證；完整證據見 [ACCEPTANCE](../ACCEPTANCE.md)。

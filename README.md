@@ -184,6 +184,8 @@ P272：Group bounds の同一問い合わせ内だけで parent inverse を再�
 
 P273：不採用 isolated GPU mapping 的 redundant-identity elision。雖然原生計數少了重複 `identity()`，WebGL2／WebGPU 固定十二 cohort A/A＋A/B 的收益仍小且不穩定，empty control 亦有偏移。P273 rejects identity elision after retaining all 576 samples and controls; fewer semantic calls are not reliable CPU or FPS evidence. P273 は全対照を保持し、identity 省略案を不採用。66個三 backend 動態畫面案例一致，正式 renderer／dist／版本不變；完整限制見 [ACCEPTANCE](ACCEPTANCE.md)。
 
+P274：不採用 particle endpoint span 預計算。288組確定性案例、265,800個finite數值與66個三backend Game cases通過，但固定 target-layer／Sprite controls 的 A/A＋A/B 共384 samples未支持穩定整體收益。P274 rejects constructor-time span storage after retaining target and control costs. P274 は端点差分の事前計算案を不採用。正式 source／dist／版本不變；完整原型、ownership／signed-zero檢查及限制見 [ACCEPTANCE](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

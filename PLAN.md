@@ -6332,3 +6332,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - source-slot 原型把 `identity()` 限於非 root 分支，root 的 copy/invert 與後續 arithmetic 不變。正式 Game counters 顯示每 backend 的 isolated Sprite 場景少32,768次 identity，inverse不變；普通場景與 Canvas2D 計數不變。
 - 66個三backend動態 Game cases、562,716個 Object.is數字與nonblank PNG一致；固定兩個GPU backend×六cohort，各 A/A 288＋A/B 288，共576 samples全保留。
 - submit／sum 收益未穩定超出 A/A／control 不確定性，故不採用，沒有正式source／dist變更。只檢查文件格式與相對檔案連結，不冒稱重跑 unit/typecheck/build 或正式新產物；詳見 ACCEPTANCE，不 push／升版。
+
+## P274 — 不採用 particle endpoint span 預計算
+
+- 確認 size/color endpoints 已由 constructor 複製且沒有公開 setter；Sprite batch 已逐 emitter hoist spans，target-layer appearance 仍逐粒子做六個差值。
+- 候選將引擎擁有的 normalized end tuples 原地轉為 spans，不增加正式陣列／欄位、不改插值加乘除順序或每tick source-size refresh。隔離同class fixture另保留兩個span tuples供before/after切換，這項與正式候選的差異明確記錄。
+- 288組真正core物件確定性案例、265,800個finite Object.is數字與caller-input ownership／signed-zero／出生／退休／重發射通過；三backend另66個動態Game cases一致。
+- 固定八cohort A/A＋A/B共384 samples全保留。world-layer有條件性收益，local/small target與Sprite-world controls有代價，不採用；沒有正式source／dist或本輪unit/typecheck/build認證。完整證據見ACCEPTANCE，不 push／升版。

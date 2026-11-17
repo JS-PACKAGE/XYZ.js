@@ -70164,3 +70164,7989 @@ P273_MODE=ab node /tmp/xyz-p273/cpu.mjs
 ### 提交前文件檢查補記
 
 六份文件的 Prettier --check 實際通過；409個相對檔案連結目標存在，未檢查anchors。本附錄與補記各自以repo formatter設定格式化後append，保留既有 9968482-byte歷史前綴。僅提交本階段六份文件，未新增正式runtime變更或新unit/typecheck/build認證。
+
+## P274 — 不採用 constructor-time particle endpoint spans
+
+UTC記錄時間：2026-11-17T17:13:11.037Z；baseline P273 commit c36da688f，runtime仍為P272。套件1.23.0，不push。本輪只提交六份證據文件，候選未進正式source／dist。
+
+### 調查、候選與正確性硬指標
+
+- ParticleEmitter constructor的pair/color會複製caller endpoints，且沒有公開reconfiguration setter。Sprite active batch已在迴圈外計算spans，但newborn appearance與target-layer writeTargetAppearance每次都取六個end-start差值。source尺寸則有合法變動生命週期，既有每tick refresh/memo不能改成constructor固定值。
+- 候選把已由引擎擁有的normalized endSize/endColor tuples原地轉為sizeSpan/colorSpan，移除舊private endpoints；public options與錯誤文字不變。沒有新增正式arrays/fields、constant-endpoint特例或跨tick source-size cache。原先的start＋span×progress以及之後除尺寸／world axes乘法順序保留，signed zero不以return-start shortcut處理。Sprite batch、newborn appearance、target appearance三個路徑全部一起切換。未量測配置或heap，不把source結構當heap收益。
+- 實驗僅一個canonical emitter class與core graph，保留原endpoints，再用slice複製兩個tuples並原地做差供候選讀取，保留normalized-array representation的來源；兩個side始終有同樣的額外fixture欄位／tuple。正式候選則不需額外tuples。三個候選methods在module init捕獲後移出prototype，再各裝一次固定trampoline，samples只切private function bindings，getter確保三者選擇一致。Scene仍以真正ParticleEmitter instance前進；不是兩個class或fake emitter。
+- 288組確定性actual-core cases：Sprite/target×local/world×equal/changing/zero endpoints×point/rectangle/circle nozzle×八seed。每組九個snapshot steps，合計2592 steps、265800個finite Object.is數字比較通過，含signed zero、caller-owned arrays在constructor不被改寫、constructor後修改inputs不成為live config、rate births、expiry、stop/clear/reemit。source尺寸有普通16×16與cropped7×5，world birth受旋轉／負scale parent影響。這是原生ImageBitmap與真實core物件的數值proof，明確不是GPU rendering proof。
+- 另有66個Sprite/target layer動態Game cases（各11 modes×Canvas2D/WebGL2/WebGPU），562716個Object.is數字與nonblank PNG一致，2178個真實destroy callbacks；borrowed Texture不被Game銷毀，顯式Texture.destroy關閉native bitmap。native每個side在constructor/emit前及每個actual Game frame前明確選中該side；after WebGL2 target-world圖片有開啟查看。
+- fixed CPU：四個8192-capacity emitter、32768 active particles（small每個128，empty為零）、WebGL2／1280×720／pixelRatio1、static endpoint style、零velocity/acceleration、lifetime1e6、rectangle births512×256。五個layer targets（local/world、各isolated與small）加Sprite-local/Sprite-world/empty-layer三個controls。不以changing-input時序不同的PNG當同圖；timing使用static style，changing endpoints由獨立確定性probe覆蓋。
+
+### 固定配對結果與不採用原因
+
+先八cohort A/A 192samples，再同八cohort A/B 192samples，共384samples／18432量測frames。每cohort只有一個Game/Scene/renderer/canvas/pool；setup明確before65frames，兩個選擇各真正render9-frame probe且nonblank/blank control如預期、matching PNG，再六輪交替ABBA/BAAB，每sample8warm＋48measured。sentinel life expiry確認真的Scene advance；無update/destroy listeners，各sample/cleanup的callbacks與listener counts皆零。A/A labels皆實際before；A/B 96before/96after，已逐sample核對。
+
+不採用。A/B layer-local-large afterUpdate paired median +2.3640386163982967%（+37.5000006364038µs，四輪慢），sum +2.524207167109396%（+112.50000027939632µs，四輪慢）；world-large afterUpdate -1.6670197402829128%（四輪快）、sum -1.4557234750062977%（五輪快），屬條件性收益。local/world-isolated sum分別 +0.6668010642782712%／-0.09161415178917025%，都是3/3方向；small-layer sum +5.183771504293545%（四輪慢）。
+
+Sprite-local control afterUpdate -11.96385123934397%（六輪快），但Sprite-world submit +4.088889157439937%（+254.1666673496361µs，六輪慢），world-control sum +2.521599860039996%（五輪慢）。不能把未直接優化的submit或controls所有差異都歸因span；A/A本身也有大幅變化：Sprite-local sum +2.397789279075213%（五輪慢），small-layer sum -9.597373239456429%（四輪快），world-isolated sum +1.1704166647231347%（五輪慢）。全部raw／ties／outliers與五項分項保留，不減A/A median、不重跑挑方向，也不臆測已確認JIT/GC因果。
+
+static source少六個差值不等於JIT實際少六個每粒子運算；編譯器可能已hoist/elide，這裡沒有測機器指令或證明單一機制。額外fixture tuples/class layout、mutable call targets、warmup/tiering/inlining與時序限制source-slot外推；不能將這些timings當正式production／CJS／GPU／FPS或heap認證。僅記錄Chromium desktop automation，非physical／Safari或其他瀏覽器。
+
+### 原始數值與原生報告
+
+```json
+{
+  "hashes": {
+    "baselineSource": "889a1b428390b66e49185cb639a703eb087adae2e9a2191149211ad6c492dac4",
+    "candidate": "908fc569a1faf80d2ba8880f07ef416882f09ebeb477f4936ae9737549be8270",
+    "sharedFixture": "7acf1841a19167ee7018311b60ee9350147f1e7311167fc6c73fbbecbe80f8be"
+  },
+  "numeric": {
+    "browser": {
+      "engine": "chromium",
+      "version": "153.0.8010.12",
+      "platform": "darwin/arm64",
+      "mode": "desktop-automation",
+      "executable": "pinned-playwright-managed",
+      "physicalDeviceCertification": false,
+      "safariCertification": false
+    },
+    "proof": {
+      "cases": 288,
+      "steps": 2592,
+      "exactFiniteNumbers": 265800,
+      "signedZeroCompared": true,
+      "callerOwnedInputsUnchanged": true,
+      "changingAndEqualEndpoints": true,
+      "rateBirthsExpiryAndClearReemit": true,
+      "nativeImageBitmap": true,
+      "snapshots": [
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        }
+      ]
+    },
+    "errors": [],
+    "pureActualCoreObjects": true,
+    "notAGpuRenderingProof": true
+  },
+  "native": [
+    {
+      "phase": "source",
+      "tag": "sprite",
+      "entryAfter": "/dist/src/index.js",
+      "fixedParticleTrampolineSelection": true,
+      "backend": "webgpu",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "layer",
+      "entryAfter": "/dist/src/index.js",
+      "fixedParticleTrampolineSelection": true,
+      "backend": "webgpu",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "sprite",
+      "entryAfter": "/dist/src/index.js",
+      "fixedParticleTrampolineSelection": true,
+      "backend": "webgl2",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "layer",
+      "entryAfter": "/dist/src/index.js",
+      "fixedParticleTrampolineSelection": true,
+      "backend": "webgl2",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "sprite",
+      "entryAfter": "/dist/src/index.js",
+      "fixedParticleTrampolineSelection": true,
+      "backend": "canvas2d",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "layer",
+      "entryAfter": "/dist/src/index.js",
+      "fixedParticleTrampolineSelection": true,
+      "backend": "canvas2d",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7bb999f18af59b9c4af1fe168d02502e6fdd61c18f485116bd30c3ed6e5d4b1e",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    }
+  ]
+}
+```
+
+### A/A、A/B完整樣本
+
+#### A/A
+
+```json
+{
+  "mode": "aa",
+  "matrixStartedAt": 1794934826864,
+  "matrixCompletedAt": 1794935018473,
+  "elapsedMs": 191609,
+  "cohortProof": [
+    {
+      "config": {
+        "name": "layer-local-large",
+        "space": "local",
+        "capacity": 8192,
+        "target": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "2a9857e9d3b119960c29b911b3d25642a476f9ee1966dc12f6606fb32461e792",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "layer-world-large",
+        "space": "world",
+        "capacity": 8192,
+        "target": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "layer-local-isolated",
+        "space": "local",
+        "capacity": 8192,
+        "target": true,
+        "isolated": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "ad260966840e1254115344c71f82418e6f56f852e97bd9f23f250fcc367ebcae",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "layer-world-isolated",
+        "space": "world",
+        "capacity": 8192,
+        "target": true,
+        "isolated": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "188f942c0bdfad29b1724296abb96d05e7d14f0896bb5035c11ad7b486b6980b",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "layer-local-small",
+        "space": "local",
+        "capacity": 128,
+        "target": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 512
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "319b5bb34c88f7ad952b16f8b8f950ddccf3159c029fa7a0358adf09ce0e17c0",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "sprite-local-control",
+        "space": "local",
+        "capacity": 8192
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "sprite-world-control",
+        "space": "world",
+        "capacity": 8192
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "layer-empty-control",
+        "space": "local",
+        "capacity": 8192,
+        "target": true,
+        "empty": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 0
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+      "nonuniform": [false, false],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    }
+  ],
+  "errors": []
+}
+```
+
+| span          | cohort               | median before µs   | median after µs    | median paired Δ µs    | median paired Δ %         | paired % range                               | faster/slower/equal |
+| ------------- | -------------------- | ------------------ | ------------------ | --------------------- | ------------------------- | -------------------------------------------- | ------------------- |
+| simulationUs  | layer-local-large    | 18.750000279396772 | 20.3125001086543   | 1.5624998292575292    | 8.204333230909215         | -13.333336114883348 … 41.66666232049471      | 1/4/1               |
+| simulationUs  | layer-world-large    | 13.020833100502688 | 16.145832914238174 | -0.5208333798994627   | -0.2024303391500446       | -58.333333643774196 … 149.99999534338727     | 3/3/0               |
+| simulationUs  | layer-local-isolated | 19.270833736906447 | 17.187499984477956 | 1.0416668374091378    | 6.666668179439528         | -40.740740699859636 … 21.052631826612092     | 2/4/0               |
+| simulationUs  | layer-world-isolated | 14.583333317811292 | 14.062500015522044 | -0.5208332246790333   | -2.941180248611437        | -12.500002910383035 … 24.99999860301613      | 4/2/0               |
+| simulationUs  | layer-local-small    | 55.208333690340325 | 55.72916644935807  | -1.041666526968278    | -1.785714015960989        | -30.188679319550122 … 3.9215674530034756     | 4/2/0               |
+| simulationUs  | sprite-local-control | 370.3125002793968  | 385.41666635622585 | 15.104166076829046    | 4.099930198012638         | -4.956268059072412 … 43.25068841189042       | 2/4/0               |
+| simulationUs  | sprite-world-control | 390.62500023283064 | 421.8749995343387  | 32.29166675979894     | 8.259614308985526         | -20.77922082278407 … 46.51898717792148       | 2/4/0               |
+| simulationUs  | layer-empty-control  | 49.479166278615594 | 53.12499970508118  | 6.770833162590861     | 14.716310496387504        | -12.244898089514528 … 25.000001608648088     | 1/5/0               |
+| navigationUs  | layer-local-large    | 0                  | 0.5208333022892475 | 0                     | n/a: 4 zero-before rounds | n/a                                          | 1/2/3               |
+| navigationUs  | layer-world-large    | 0                  | 0.5208333022892475 | 0.5208333022892475    | n/a: 6 zero-before rounds | n/a                                          | 0/3/3               |
+| navigationUs  | layer-local-isolated | 0.5208333022892475 | 1.041666604578495  | 1.041666604578495     | n/a: 3 zero-before rounds | n/a                                          | 1/4/1               |
+| navigationUs  | layer-world-isolated | 0.5208333022892475 | 1.0416667597989242 | 0                     | n/a: 3 zero-before rounds | n/a                                          | 2/2/2               |
+| navigationUs  | layer-local-small    | 3.124999968955914  | 2.604166589056452  | -7.761021447727501e-8 | -0.0000024835266412282034 | -66.66666749450899 … 0.000009934107565988548 | 3/3/0               |
+| navigationUs  | sprite-local-control | 0                  | 0                  | 0                     | n/a: 4 zero-before rounds | n/a                                          | 2/1/3               |
+| navigationUs  | sprite-world-control | 0.5208333798994621 | 1.5624999844779572 | 0.5208332246790329    | n/a: 3 zero-before rounds | n/a                                          | 0/3/3               |
+| navigationUs  | layer-empty-control  | 1.0416667597989242 | 2.0833333643774194 | 0.5208332246790331    | n/a: 1 zero-before rounds | n/a                                          | 1/4/1               |
+| afterUpdateUs | layer-local-large    | 1622.9166665580124 | 1630.2083337213844 | -8.854166371747965    | -0.5391791404688133       | -1.9317449814666092 … 0.9689922674261022     | 4/2/0               |
+| afterUpdateUs | layer-world-large    | 1646.8750001707424 | 1684.8958335661641 | 51.56249972060334     | 3.156838283162097         | -2.8465346029894074 … 14.313471379602777     | 2/4/0               |
+| afterUpdateUs | layer-local-isolated | 1418.7500004190952 | 1429.1666659216085 | 17.187498975545168    | 1.2612718738395705        | -1.9340974667369393 … 7.080350042672529      | 2/4/0               |
+| afterUpdateUs | layer-world-isolated | 1331.7708332712452 | 1355.2083331936349 | 15.104167163371926    | 1.1339123637870363        | -0.07782093748432453 … 9.789029439118456     | 1/5/0               |
+| afterUpdateUs | layer-local-small    | 135.41666612339517 | 121.87500049670537 | -13.541665626689806   | -9.990529591128965        | -28.057554202089396 … 20.168065937862973     | 4/2/0               |
+| afterUpdateUs | sprite-local-control | 774.9999994412065  | 815.1041672875484  | 15.10416848274565     | 2.553323659069275         | -6.718924990036499 … 21.944444302503985      | 3/3/0               |
+| afterUpdateUs | sprite-world-control | 1538.5416662320495 | 1537.4999997050813 | -21.354166014740827   | -1.3534876732857688       | -7.520325121030027 … 6.983050908168388       | 5/1/0               |
+| afterUpdateUs | layer-empty-control  | 13.020833410943547 | 10.416666821887095 | -4.6875003414849425   | -35.89743832952875        | -50.00000037252903 … 33.33333705862357       | 4/2/0               |
+| submitUs      | layer-local-large    | 2945.3124998447793 | 2944.27083277454   | -6.250000170742396    | -0.21192069964569346      | -3.863557204323588 … 1.3527945932520569      | 4/2/0               |
+| submitUs      | layer-world-large    | 2725.5208333954215 | 2755.729166092351  | -1.0416668374089113   | -0.016556814905961836     | -3.483365893333827 … 2.8430629089032027      | 3/3/0               |
+| submitUs      | layer-local-isolated | 3963.5416664338363 | 3986.9791673651584 | 22.91666724098218     | 0.610944681670279         | -0.8008266581270943 … 4.041507330659908      | 3/3/0               |
+| submitUs      | layer-world-isolated | 4788.020833162591  | 4827.604166309659  | 64.06249951881682     | 1.3381699186130622        | -1.8703506872502107 … 6.540328211343541      | 1/5/0               |
+| submitUs      | layer-local-small    | 431.2500004501393  | 394.27083342646563 | -41.66666674427685    | -9.829952284147122        | -19.672131244223763 … 10.268948536782164     | 4/2/0               |
+| submitUs      | sprite-local-control | 6908.854167365159  | 7160.416667272027  | 127.08333445092148    | 1.8110060681158622        | 0.21403453622898488 … 6.971340060648271      | 0/6/0               |
+| submitUs      | sprite-world-control | 6296.3541666201    | 6311.97916646488   | 47.91666551803519     | 0.7601369046256689        | -0.9038619629308223 … 2.138861470050175      | 2/4/0               |
+| submitUs      | layer-empty-control  | 126.0416666045785  | 129.16666672875485 | 1.5625004501392468    | 1.2095165437823123        | -12.605043152203423 … 20.37037070763946      | 3/3/0               |
+| categorySumUs | layer-local-large    | 4591.666666558012  | 4598.958333333333  | -22.91666630965983    | -0.49935525696272326      | -3.1418312024567454 … 1.166247422632763      | 4/2/0               |
+| categorySumUs | layer-world-large    | 4387.500000108654  | 4440.624999425685  | 111.45833305393671    | 2.564576687218784         | -2.282157687964923 … 3.2775288896621033      | 2/4/0               |
+| categorySumUs | layer-local-isolated | 5411.458333333334  | 5437.499999922389  | 32.29166575086629     | 0.641472749222518         | -1.0213731638517085 … 4.879530248886814      | 3/3/0               |
+| categorySumUs | layer-world-isolated | 6140.10416646488   | 6189.583333364377  | 71.87499920837581     | 1.1704166647231347        | -1.4447027619244392 … 7.221719469854422      | 1/5/0               |
+| categorySumUs | layer-local-small    | 622.3958338766049  | 567.1875001086543  | -58.85416688397527    | -9.597373239456429        | -21.39384128632175 … 10.481099393680891      | 4/2/0               |
+| categorySumUs | sprite-local-control | 8051.562500108655  | 8419.791666790843  | 195.8333333022906     | 2.397789279075213         | -0.026171165620410653 … 8.13428874289944     | 1/5/0               |
+| categorySumUs | sprite-world-control | 8246.354166495923  | 8266.145833612729  | 71.87499967403755     | 0.8752587951908268        | -0.8905054514814872 … 2.1714572590311625     | 2/4/0               |
+| categorySumUs | layer-empty-control  | 189.06250037252903 | 195.3125000776102  | 8.333333612730101     | 4.480253500460581         | -7.222222755260671 … 7.6923068869983835      | 2/4/0               |
+
+| cohort               | round | slot | label  | actual particle methods | simulation µs      | navigation µs      | afterUpdate µs     | submit µs          | category sum µs    |
+| -------------------- | ----- | ---- | ------ | ----------------------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
+| layer-local-large    | 0     | 0    | before | before                  | 29.166667411724728 | 0                  | 1606.2500004967053 | 2949.999999254942  | 4585.416667163372  |
+| layer-local-large    | 0     | 1    | after  | before                  | 18.750000124176342 | 0                  | 1614.583333954215  | 3020.833332402011  | 4654.1666664804025 |
+| layer-local-large    | 0     | 2    | after  | before                  | 35.416667039195694 | 0                  | 1654.1666671012838 | 2877.0833322778344 | 4566.666666418314  |
+| layer-local-large    | 0     | 3    | before | before                  | 14.58333277453979  | 0                  | 1679.1666677842538 | 3037.49999931703   | 4731.249999875823  |
+| layer-local-large    | 1     | 0    | after  | before                  | 18.75000074505806  | 0                  | 1595.833333209157  | 2877.0833338300386 | 4491.666667784253  |
+| layer-local-large    | 1     | 1    | before | before                  | 24.999999751647312 | 0                  | 1652.083333581686  | 3052.08333209157   | 4729.166665424903  |
+| layer-local-large    | 1     | 2    | before | before                  | 27.083332960804302 | 0                  | 1593.7500006208818 | 2933.3333329608045 | 4554.166666542491  |
+| layer-local-large    | 1     | 3    | after  | before                  | 33.333331967393555 | 2.0833335195978484 | 1587.5000009934108 | 2877.0833344509206 | 4500.000000931323  |
+| layer-local-large    | 2     | 0    | before | before                  | 18.749999813735485 | 0                  | 1579.1666659836967 | 2852.083334388832  | 4450.0000001862645 |
+| layer-local-large    | 2     | 1    | after  | before                  | 16.666666294137638 | 0                  | 1666.6666669771075 | 2972.916666107873  | 4656.249999379118  |
+| layer-local-large    | 2     | 2    | after  | before                  | 20.833332712451618 | 0                  | 1600.0000005587935 | 2950.000000807146  | 4570.833334078391  |
+| layer-local-large    | 2     | 3    | before | before                  | 16.666666604578495 | 0                  | 1666.666666045785  | 3018.7500013659396 | 4702.083334016303  |
+| layer-local-large    | 3     | 0    | after  | before                  | 12.499999875823656 | 0                  | 1608.3333333954215 | 2939.583333519598  | 4560.416666790843  |
+| layer-local-large    | 3     | 1    | before | before                  | 14.583333395421505 | 0                  | 1685.4166671012838 | 3024.9999997516475 | 4725.000000248353  |
+| layer-local-large    | 3     | 2    | before | before                  | 16.66666753590107  | 2.0833335195978484 | 1539.5833325261872 | 2827.08333277454   | 4385.416666356226  |
+| layer-local-large    | 3     | 3    | after  | before                  | 14.583333395421505 | 2.08333320915699   | 1647.9166668529313 | 2991.6666659216085 | 4656.249999379118  |
+| layer-local-large    | 4     | 0    | before | before                  | 29.166667101283867 | 0                  | 1625               | 2991.6666665424905 | 4645.8333336437745 |
+| layer-local-large    | 4     | 1    | after  | before                  | 18.750000434617203 | 2.0833335195978484 | 1672.916667535901  | 3102.0833322157464 | 4795.833333705863  |
+| layer-local-large    | 4     | 2    | after  | before                  | 25.000000993410747 | 0                  | 1499.9999990686774 | 2775.000000062088  | 4300.000000124176  |
+| layer-local-large    | 4     | 3    | before | before                  | 10.41666759798924  | 2.08333320915699   | 1610.416665673256  | 2908.3333325882754 | 4531.249999068677  |
+| layer-local-large    | 5     | 0    | after  | before                  | 18.750000124176342 | 0                  | 1664.5833343888323 | 2972.9166654869914 | 4656.25            |
+| layer-local-large    | 5     | 1    | before | before                  | 14.583333705862364 | 0                  | 1610.416667535901  | 2897.9166659216085 | 4522.916667163372  |
+| layer-local-large    | 5     | 2    | before | before                  | 10.416666666666666 | 0                  | 1672.9166653628151 | 2983.333334326744  | 4666.666666356226  |
+| layer-local-large    | 5     | 3    | after  | before                  | 16.666665983696777 | 0                  | 1600.0000002483528 | 2906.2500009313226 | 4522.916667163372  |
+| layer-world-large    | 0     | 0    | before | before                  | 12.499999875823656 | 0                  | 1710.4166665424902 | 2818.749999937912  | 4541.666666356226  |
+| layer-world-large    | 0     | 1    | after  | before                  | 6.24999962747097   | 0                  | 1704.166667535901  | 2768.7500001241765 | 4479.166667287549  |
+| layer-world-large    | 0     | 2    | after  | before                  | 4.166666728754838  | 0                  | 1758.333332836628  | 2883.3333334575095 | 4645.8333330228925 |
+| layer-world-large    | 0     | 3    | before | before                  | 12.499999565382799 | 0                  | 1604.166666045785  | 2677.0833345750966 | 4293.7500001862645 |
+| layer-world-large    | 1     | 0    | after  | before                  | 10.416666666666666 | 2.08333320915699   | 1660.4166651765506 | 2720.833335382243  | 4393.7500004346175 |
+| layer-world-large    | 1     | 1    | before | before                  | 16.666665983696777 | 0                  | 1727.0833337679505 | 2835.416665611168  | 4579.166665362815  |
+| layer-world-large    | 1     | 2    | before | before                  | 22.916666542490322 | 0                  | 1489.5833336437743 | 2487.500000745058  | 4000.0000009313226 |
+| layer-world-large    | 1     | 3    | after  | before                  | 22.916666232049465 | 0                  | 2016.6666650523741 | 2416.6666672875485 | 4456.249998571972  |
+| layer-world-large    | 2     | 0    | before | before                  | 8.333333457509676  | 0                  | 1645.8333333333333 | 2722.9166670391955 | 4377.083333830038  |
+| layer-world-large    | 2     | 1    | after  | before                  | 12.500000186264515 | 0                  | 1699.9999998758237 | 2820.8333340783915 | 4533.33333414048   |
+| layer-world-large    | 2     | 2    | after  | before                  | 29.166667101283867 | 0                  | 1572.9166666666667 | 2589.583332029482  | 4191.666665797433  |
+| layer-world-large    | 2     | 3    | before | before                  | 8.333333767950535  | 0                  | 1708.3333336437743 | 2799.9999995032945 | 4516.666666915019  |
+| layer-world-large    | 3     | 0    | after  | before                  | 20.833334264655907 | 0                  | 1660.4166661078732 | 2737.5000001241765 | 4418.750000496706  |
+| layer-world-large    | 3     | 1    | before | before                  | 22.916666232049465 | 0                  | 1710.4166674738128 | 2797.9166666045785 | 4531.250000310441  |
+| layer-world-large    | 3     | 2    | before | before                  | 12.500000496705374 | 0                  | 1562.5000006208818 | 2608.333332464099  | 4183.333333581686  |
+| layer-world-large    | 3     | 3    | after  | before                  | 8.333333147068819  | 0                  | 1716.6666677221656 | 2777.083332029482  | 4502.083332898716  |
+| layer-world-large    | 4     | 0    | before | before                  | 6.249999937911828  | 0                  | 1752.0833344509203 | 2822.9166654249034 | 4581.2499998137355 |
+| layer-world-large    | 4     | 1    | after  | before                  | 16.666666294137638 | 2.08333320915699   | 1716.6666674117248 | 2827.083332464099  | 4562.499999379119  |
+| layer-world-large    | 4     | 2    | after  | before                  | 14.58333246409893  | 0                  | 1554.1666684051354 | 2699.999998944501  | 4268.7499998137355 |
+| layer-world-large    | 4     | 3    | before | before                  | 20.833333022892475 | 0                  | 1614.5833330228925 | 2820.833334388832  | 4456.250000434617  |
+| layer-world-large    | 5     | 0    | after  | before                  | 20.833333643774193 | 0                  | 1693.7500002483528 | 2795.8333330849805 | 4510.4166669771075 |
+| layer-world-large    | 5     | 1    | before | before                  | 8.333333147068819  | 0                  | 1562.5000006208818 | 2562.5             | 4133.3333337679505 |
+| layer-world-large    | 5     | 2    | before | before                  | 16.666666294137638 | 0                  | 1697.9166666666667 | 2824.999999254942  | 4539.583332215747  |
+| layer-world-large    | 5     | 3    | after  | before                  | 18.74999888241291  | 2.0833335195978484 | 1668.7500001862645 | 2712.4999991307654 | 4402.083331719041  |
+| layer-local-isolated | 0     | 0    | before | before                  | 27.08333358168602  | 2.0833335195978484 | 1416.6666663562257 | 4170.833333705862  | 5616.666667163372  |
+| layer-local-isolated | 0     | 1    | after  | before                  | 16.666665983696777 | 6.24999962747097   | 1406.2499993791182 | 4074.9999998758235 | 5504.166664866109  |
+| layer-local-isolated | 0     | 2    | after  | before                  | 16.666667225460213 | 0                  | 1466.666666790843  | 4043.749999254942  | 5527.0833332712455 |
+| layer-local-isolated | 0     | 3    | before | before                  | 29.166666169961292 | 0                  | 1452.0833349476259 | 3981.249999565383  | 5462.5000006829705 |
+| layer-local-isolated | 1     | 0    | after  | before                  | 20.833333333333332 | 0                  | 1416.6666657353442 | 3999.9999993791184 | 5437.499998447796  |
+| layer-local-isolated | 1     | 1    | before | before                  | 20.833334264655907 | 0                  | 1418.7500008071463 | 4047.9166650523744 | 5487.500000124177  |
+| layer-local-isolated | 1     | 2    | before | before                  | 16.666667225460213 | 0                  | 1387.4999995653827 | 3839.583333271245  | 5243.750000062088  |
+| layer-local-isolated | 1     | 3    | after  | before                  | 12.500000186264515 | 2.08333320915699   | 1514.5833327745397 | 4158.333332588275  | 5687.499998758236  |
+| layer-local-isolated | 2     | 0    | before | before                  | 24.999999751647312 | 0                  | 1141.6666666045785 | 3529.1666674117246 | 4695.8333337679505 |
+| layer-local-isolated | 2     | 1    | after  | before                  | 20.833333333333332 | 2.0833335195978484 | 1435.4166674117248 | 4033.333331656953  | 5491.666665921609  |
+| layer-local-isolated | 2     | 2    | after  | before                  | 18.75000074505806  | 8.333333457509676  | 1368.7500000620882 | 3904.166666790843  | 5300.0000010554995 |
+| layer-local-isolated | 2     | 3    | before | before                  | 14.583333705862364 | 2.08333320915699   | 1477.0833340783913 | 4100.000000869234  | 5593.750001862645  |
+| layer-local-isolated | 3     | 0    | after  | before                  | 14.583333395421505 | 0                  | 1433.3333332712452 | 4002.083333519598  | 5450.0000001862645 |
+| layer-local-isolated | 3     | 1    | before | before                  | 18.749999503294628 | 2.08333320915699   | 1468.7500003104408 | 4152.083333892127  | 5641.666666915019  |
+| layer-local-isolated | 3     | 2    | before | before                  | 8.333333147068819  | 0                  | 1247.9166674117248 | 3424.9999998137355 | 4681.250000372529  |
+| layer-local-isolated | 3     | 3    | after  | before                  | 16.666665983696777 | 0                  | 1347.9166654869914 | 3685.416668343047  | 5049.9999998137355 |
+| layer-local-isolated | 4     | 0    | before | before                  | 16.66666567325592  | 0                  | 1499.9999993791182 | 4175.000000745058  | 5691.666665797432  |
+| layer-local-isolated | 4     | 1    | after  | before                  | 8.333333767950535  | 2.08333320915699   | 1391.6666659836967 | 3902.083333581686  | 5304.16666654249   |
+| layer-local-isolated | 4     | 2    | after  | before                  | 27.083332650363445 | 0                  | 1472.9166667287548 | 4097.916667660077  | 5597.916667039195  |
+| layer-local-isolated | 4     | 3    | before | before                  | 14.583333705862364 | 0                  | 1418.7499986340601 | 3889.5833337058625 | 5322.916666045785  |
+| layer-local-isolated | 5     | 0    | after  | before                  | 18.749999813735485 | 0                  | 1433.3333332712452 | 3945.833332526187  | 5397.916665611167  |
+| layer-local-isolated | 5     | 1    | before | before                  | 20.833333333333332 | 0                  | 1449.999999254942  | 3970.8333344509206 | 5441.666667039196  |
+| layer-local-isolated | 5     | 2    | before | before                  | 18.750000124176342 | 0                  | 1458.3333330228925 | 3995.8333329608045 | 5472.916666107873  |
+| layer-local-isolated | 5     | 3    | after  | before                  | 29.166667101283867 | 0                  | 1418.7499977027376 | 4002.0833356926837 | 5450.000000496705  |
+| layer-world-isolated | 0     | 0    | before | before                  | 18.749999813735485 | 2.08333320915699   | 1350.0000008692343 | 4883.333332526187  | 6254.166666418314  |
+| layer-world-isolated | 0     | 1    | after  | before                  | 14.583333705862364 | 2.08333320915699   | 1381.2499999379118 | 4850.0000005587935 | 6247.916667411724  |
+| layer-world-isolated | 0     | 2    | after  | before                  | 14.583333395421505 | 0                  | 1333.3333342646558 | 4768.749998261531  | 6116.666665921608  |
+| layer-world-isolated | 0     | 3    | before | before                  | 12.499999565382799 | 0                  | 1360.4166687776644 | 4918.749999254942  | 6291.666667597989  |
+| layer-world-isolated | 1     | 0    | after  | before                  | 12.499999565382799 | 4.166667039195697  | 1329.1666672254603 | 4827.083332464099  | 6172.916666294138  |
+| layer-world-isolated | 1     | 1    | before | before                  | 22.916666542490322 | 0                  | 1320.8333337679505 | 4812.500000620882  | 6156.250000931323  |
+| layer-world-isolated | 1     | 2    | before | before                  | 12.500000496705374 | 0                  | 1341.6666664804022 | 4760.416666045785  | 6114.5833330228925 |
+| layer-world-isolated | 1     | 3    | after  | before                  | 20.833332402010758 | 0                  | 1347.9166670391958 | 4931.249999130766  | 6299.999998571972  |
+| layer-world-isolated | 2     | 0    | before | before                  | 18.750000434617203 | 0                  | 1324.9999998758237 | 4733.333332464099  | 6077.08333277454   |
+| layer-world-isolated | 2     | 1    | after  | before                  | 14.58333277453979  | 0                  | 1360.4166672254603 | 4891.666666915019  | 6266.666666915019  |
+| layer-world-isolated | 2     | 2    | after  | before                  | 14.583333084980646 | 2.0833335195978484 | 1314.5833338300388 | 4758.333332215746  | 6089.583332650363  |
+| layer-world-isolated | 2     | 3    | before | before                  | 14.583333084980646 | 0                  | 1352.0833325261872 | 4845.8333335195975 | 6212.499999130765  |
+| layer-world-isolated | 3     | 0    | after  | before                  | 8.333333147068819  | 2.0833335195978484 | 1352.0833331470687 | 4814.583332588275  | 6177.0833324020105 |
+| layer-world-isolated | 3     | 1    | before | before                  | 6.249999937911828  | 4.166666728754838  | 1320.8333325261872 | 4797.916667846342  | 6129.166667039195  |
+| layer-world-isolated | 3     | 2    | before | before                  | 10.416666666666666 | 0                  | 1343.7500003104408 | 4825.0000001862645 | 6179.166667163372  |
+| layer-world-isolated | 3     | 3    | after  | before                  | 12.499999875823656 | 0                  | 1358.333334326744  | 4845.8333335195975 | 6216.666667722166  |
+| layer-world-isolated | 4     | 0    | before | before                  | 8.333333457509676  | 2.0833335195978484 | 1329.1666647419333 | 4770.833334885538  | 6110.4166666045785 |
+| layer-world-isolated | 4     | 1    | after  | before                  | 6.249999937911828  | 4.16666641831398   | 1372.9166674117248 | 4841.666666790843  | 6225.0000005587935 |
+| layer-world-isolated | 4     | 2    | after  | before                  | 16.666666604578495 | 0                  | 1383.3333325261872 | 4891.666666294138  | 6291.666665424904  |
+| layer-world-isolated | 4     | 3    | before | before                  | 14.583333705862364 | 2.08333320915699   | 1333.3333324020107 | 4770.8333324020105 | 6120.833331719041  |
+| layer-world-isolated | 5     | 0    | after  | before                  | 12.500000496705374 | 0                  | 1381.249999627471  | 4910.416667039196  | 6304.166667163372  |
+| layer-world-isolated | 5     | 1    | before | before                  | 8.333333767950535  | 0                  | 1341.6666671012838 | 4841.666665238638  | 6191.6666661078725 |
+| layer-world-isolated | 5     | 2    | before | before                  | 18.750000124176342 | 0                  | 1127.0833338300388 | 4172.916665052374  | 5318.749999006589  |
+| layer-world-isolated | 5     | 3    | after  | before                  | 14.583333705862364 | 0                  | 1329.166665673256  | 4693.7499999379115 | 6037.4999993170295 |
+| layer-local-small    | 0     | 0    | before | before                  | 60.416665859520435 | 0                  | 135.41666635622582 | 447.9166666666667  | 643.7499988824129  |
+| layer-local-small    | 0     | 1    | after  | before                  | 43.749998634060226 | 2.0833335195978484 | 85.41666809469461  | 322.9166666666667  | 454.1666669150194  |
+| layer-local-small    | 0     | 2    | after  | before                  | 68.75000149011612  | 4.166666728754838  | 122.91666461775701 | 443.7499999379118  | 639.5833327745397  |
+| layer-local-small    | 0     | 3    | before | before                  | 56.24999850988388  | 6.249999937911828  | 154.16666710128388 | 477.0833325261871  | 693.7499980752667  |
+| layer-local-small    | 1     | 0    | after  | before                  | 64.58333258827527  | 4.166667039195697  | 141.66666691501936 | 460.4166668529312  | 670.8333333954215  |
+| layer-local-small    | 1     | 1    | before | before                  | 60.416667722165585 | 0                  | 118.75000006208818 | 424.9999998137355  | 604.1666675979893  |
+| layer-local-small    | 1     | 2    | before | before                  | 66.66666641831398  | 6.249999937911828  | 129.1666692122817  | 406.24999937911826 | 608.3333349476258  |
+| layer-local-small    | 1     | 3    | after  | before                  | 62.49999968955914  | 2.0833335195978484 | 156.24999968955913 | 447.9166666666667  | 668.7499995653828  |
+| layer-local-small    | 2     | 0    | before | before                  | 54.16666685293118  | 2.08333320915699   | 135.41666635622582 | 450.00000142802793 | 641.6666678463419  |
+| layer-local-small    | 2     | 1    | after  | before                  | 35.416665797432266 | 4.166666728754838  | 116.66666716337204 | 327.0833321536581  | 483.33333184321725 |
+| layer-local-small    | 2     | 2    | after  | before                  | 47.91666722546021  | 0                  | 124.99999937911828 | 402.08333420256776 | 575.0000008071463  |
+| layer-local-small    | 2     | 3    | before | before                  | 45.833333705862366 | 2.08333320915699   | 131.25000055879354 | 383.3333319053054  | 562.4999993791183  |
+| layer-local-small    | 3     | 0    | after  | before                  | 58.333332960804306 | 2.08333320915699   | 112.50000012417634 | 379.1666679705183  | 552.083334264656   |
+| layer-local-small    | 3     | 1    | before | before                  | 47.916668467223644 | 4.166666728754838  | 141.66666443149248 | 449.9999998758237  | 643.7499995032947  |
+| layer-local-small    | 3     | 2    | before | before                  | 62.50000031044086  | 2.0833335195978484 | 133.33333314706883 | 422.91666722546023 | 620.8333342025678  |
+| layer-local-small    | 3     | 3    | after  | before                  | 54.16666561116775  | 4.16666641831398   | 133.33333532015482 | 431.2499991307656  | 622.9166664804022  |
+| layer-local-small    | 4     | 0    | before | before                  | 52.08333364377419  | 6.249999937911828  | 122.91666616996129 | 433.333333581686   | 614.5833333333333  |
+| layer-local-small    | 4     | 1    | after  | before                  | 52.08333426465591  | 4.16666641831398   | 137.50000018626451 | 477.0833334575097  | 670.8333343267441  |
+| layer-local-small    | 4     | 2    | after  | before                  | 58.333332960804306 | 0                  | 147.91666685293117 | 462.50000037252903 | 668.7500001862645  |
+| layer-local-small    | 4     | 3    | before | before                  | 54.166668094694614 | 6.24999962747097   | 131.24999962747097 | 418.7500011175871  | 610.4166684672236  |
+| layer-local-small    | 5     | 0    | after  | before                  | 39.583333457509674 | 0                  | 108.33333246409893 | 352.0833340783914  | 500                |
+| layer-local-small    | 5     | 1    | before | before                  | 52.08333240201076  | 2.0833335195978484 | 133.33333438883224 | 433.33333389212686 | 620.8333342025677  |
+| layer-local-small    | 5     | 2    | before | before                  | 58.33333358168602  | 2.08333320915699   | 147.91666561116776 | 456.2500004346172  | 664.583332836628   |
+| layer-local-small    | 5     | 3    | after  | before                  | 37.49999931703011  | 2.08333320915699   | 108.33333370586236 | 362.49999919285375 | 510.4166654249032  |
+| sprite-local-control | 0     | 0    | before | before                  | 366.66666623204947 | 0                  | 727.0833331470689  | 6745.833333892127  | 7839.583333271245  |
+| sprite-local-control | 0     | 1    | after  | before                  | 320.83333283662796 | 0                  | 768.7500001241764  | 6889.583332464099  | 7979.166665424904  |
+| sprite-local-control | 0     | 2    | after  | before                  | 358.3333346371849  | 0                  | 687.4999987582365  | 6891.666667846342  | 7937.500001241763  |
+| sprite-local-control | 0     | 3    | before | before                  | 347.9166667287548  | 0                  | 797.9166669150194  | 6935.416667411725  | 8081.2500010554995 |
+| sprite-local-control | 1     | 0    | after  | before                  | 495.8333332712452  | 0                  | 689.5833335195979  | 6906.249998758237  | 8091.66666554908   |
+| sprite-local-control | 1     | 1    | before | before                  | 468.75             | 0                  | 687.4999993791183  | 6835.4166668529315 | 7991.6666662320495 |
+| sprite-local-control | 1     | 2    | before | before                  | 383.33333283662796 | 0                  | 645.8333314706882  | 6791.666668218871  | 7820.8333325261865 |
+| sprite-local-control | 1     | 3    | after  | before                  | 343.75000062088174 | 0                  | 754.1666657974323  | 6750.000000931323  | 7847.916667349637  |
+| sprite-local-control | 2     | 0    | before | before                  | 397.9166665424903  | 0                  | 868.7500000620881  | 7108.3333333954215 | 8375               |
+| sprite-local-control | 2     | 1    | after  | before                  | 354.1666666666667  | 2.08333320915699   | 1049.9999985719721 | 7345.833334761362  | 8752.083333209157  |
+| sprite-local-control | 2     | 2    | after  | before                  | 424.99999950329465 | 0                  | 860.4166662941376  | 7058.333334513009  | 8343.750000310441  |
+| sprite-local-control | 2     | 3    | before | before                  | 335.4166677842538  | 0                  | 833.3333333333334  | 6895.833333333333  | 8064.58333445092   |
+| sprite-local-control | 3     | 0    | after  | before                  | 381.2500002483527  | 0                  | 933.3333326503634  | 7283.333333830039  | 8597.916666728755  |
+| sprite-local-control | 3     | 1    | before | before                  | 329.16666753590107 | 2.0833335195978484 | 885.4166663562258  | 7020.833333333333  | 8237.500000745058  |
+| sprite-local-control | 3     | 2    | before | before                  | 327.08333277453977 | 0                  | 974.9999999379119  | 7127.083332588275  | 8429.166665300727  |
+| sprite-local-control | 3     | 3    | after  | before                  | 329.16666691501933 | 0                  | 802.0833333333334  | 6972.916667349637  | 8104.1666675979895 |
+| sprite-local-control | 4     | 0    | before | before                  | 314.583333209157   | 0                  | 741.6666668529311  | 6708.3333336437745 | 7764.583333705863  |
+| sprite-local-control | 4     | 1    | after  | before                  | 354.16666759798926 | 0                  | 879.1666654869914  | 7060.4166664804025 | 8293.749999565383  |
+| sprite-local-control | 4     | 2    | after  | before                  | 408.3333316569527  | 0                  | 950.0000001862645  | 7325.000001428028  | 8683.333333271245  |
+| sprite-local-control | 4     | 3    | before | before                  | 433.333333581686   | 4.16666641831398   | 758.3333340783914  | 6739.5833324020105 | 7935.416666480402  |
+| sprite-local-control | 5     | 0    | after  | before                  | 579.1666659836968  | 0                  | 764.5833352580667  | 7518.7499991928535 | 8862.500000434617  |
+| sprite-local-control | 5     | 1    | before | before                  | 425.0000004346172  | 0                  | 727.0833309739828  | 6927.083334885538  | 8079.166666294138  |
+| sprite-local-control | 5     | 2    | before | before                  | 331.2499998137355  | 0                  | 847.9166667287549  | 7027.0833332712455 | 8206.249999813735  |
+| sprite-local-control | 5     | 3    | after  | before                  | 504.1666654869914  | 0                  | 760.4166679084301  | 7052.0833336437745 | 8316.666667039197  |
+| sprite-world-control | 0     | 0    | before | before                  | 385.41666759798926 | 0                  | 1429.1666659216087 | 6054.166667163372  | 7868.7500006829705 |
+| sprite-world-control | 0     | 1    | after  | before                  | 404.1666661699613  | 0                  | 1445.8333334575098 | 6145.833333333333  | 7995.833332960804  |
+| sprite-world-control | 0     | 2    | after  | before                  | 418.7499998758237  | 0                  | 1402.0833332712452 | 6093.750001552205  | 7914.583334699273  |
+| sprite-world-control | 0     | 3    | before | before                  | 393.74999950329465 | 0                  | 1514.5833333954215 | 6208.333333333333  | 8116.6666662320495 |
+| sprite-world-control | 1     | 0    | after  | before                  | 460.4166659216086  | 0                  | 1595.8333335195978 | 6404.166666790843  | 8460.41666623205   |
+| sprite-world-control | 1     | 1    | before | before                  | 333.3333342646559  | 0                  | 1689.5833328987162 | 6356.2500001862645 | 8379.166667349637  |
+| sprite-world-control | 1     | 2    | before | before                  | 395.8333336437742  | 0                  | 1516.6666653628151 | 6306.249999751647  | 8218.749998758236  |
+| sprite-world-control | 1     | 3    | after  | before                  | 404.1666661699613  | 6.24999962747097   | 1558.333333581686  | 6529.166666790843  | 8497.916666169962  |
+| sprite-world-control | 2     | 0    | before | before                  | 445.8333325261871  | 2.0833335195978484 | 1564.5833344509203 | 6412.499999627471  | 8425.000000124177  |
+| sprite-world-control | 2     | 1    | after  | before                  | 381.25000055879354 | 0                  | 1516.6666659836967 | 6216.66666585952   | 8114.5833324020105 |
+| sprite-world-control | 2     | 2    | after  | before                  | 410.41666734963655 | 4.16666641831398   | 1587.4999997516472 | 6345.833333830039  | 8347.916667349637  |
+| sprite-world-control | 2     | 3    | before | before                  | 377.08333289871615 | 0                  | 1543.7499983236194 | 6264.583334326744  | 8185.41666554908   |
+| sprite-world-control | 3     | 0    | after  | before                  | 572.9166663562258  | 4.166666728754838  | 1406.2500006208818 | 6316.666665797432  | 8299.999999503294  |
+| sprite-world-control | 3     | 1    | before | before                  | 347.91666734963655 | 0                  | 1504.1666657974322 | 6158.333333830039  | 8010.4166669771075 |
+| sprite-world-control | 3     | 2    | before | before                  | 310.41666710128385 | 0                  | 1570.8333331470687 | 6208.3333336437745 | 8089.5833338921275 |
+| sprite-world-control | 3     | 3    | after  | before                  | 391.66666753590107 | 2.08333320915699   | 1437.5000009313226 | 6114.5833324020105 | 7945.833334078391  |
+| sprite-world-control | 4     | 0    | before | before                  | 339.58333389212686 | 0                  | 1504.1666657974322 | 6206.250000124176  | 8049.9999998137355 |
+| sprite-world-control | 4     | 1    | after  | before                  | 518.7500019868215  | 2.0833335195978484 | 1525.0000000620882 | 6529.16666554908   | 8575.000001117587  |
+| sprite-world-control | 4     | 2    | after  | before                  | 349.9999999379118  | 0                  | 1520.8333330228925 | 6156.250000620882  | 8027.083333581686  |
+| sprite-world-control | 4     | 3    | before | before                  | 443.7499999379118  | 2.0833335195978484 | 1575.0000001862645 | 6316.666666418314  | 8337.500000062088  |
+| sprite-world-control | 5     | 0    | after  | before                  | 335.4166668529312  | 2.0833335195978484 | 1660.4166667287548 | 6358.3333327745395 | 8356.249999875823  |
+| sprite-world-control | 5     | 1    | before | before                  | 518.7500004346172  | 2.0833335195978484 | 1583.3333330228925 | 6529.166665238638  | 8633.333332215745  |
+| sprite-world-control | 5     | 2    | before | before                  | 443.7499999379118  | 0                  | 1489.5833327124517 | 6204.166668156783  | 8137.5000008071465 |
+| sprite-world-control | 5     | 3    | after  | before                  | 427.0833330228925  | 0                  | 1627.0833341404796 | 6502.083331967394  | 8556.249999130767  |
+| layer-empty-control  | 0     | 0    | before | before                  | 50.000001986821495 | 2.0833335195978484 | 10.416666666666666 | 137.49999832361937 | 200.00000049670538 |
+| layer-empty-control  | 0     | 1    | after  | before                  | 68.74999993791182  | 2.08333320915699   | 6.249999937911828  | 147.91666716337204 | 225.00000024835268 |
+| layer-empty-control  | 0     | 2    | after  | before                  | 62.5               | 2.08333320915699   | 10.416666356225809 | 137.49999925494194 | 212.49999882032472 |
+| layer-empty-control  | 0     | 3    | before | before                  | 62.5               | 0                  | 14.583333705862364 | 129.16666797051826 | 206.25000167638063 |
+| layer-empty-control  | 1     | 0    | after  | before                  | 43.750000496705375 | 2.0833335195978484 | 6.24999962747097   | 120.83333420256774 | 172.91666784634194 |
+| layer-empty-control  | 1     | 1    | before | before                  | 43.74999925494194  | 2.0833335195978484 | 16.666666604578495 | 122.91666585952044 | 185.41666523863873 |
+| layer-empty-control  | 1     | 2    | before | before                  | 47.91666722546021  | 0                  | 10.416666666666666 | 133.33333376795053 | 191.6666676600774  |
+| layer-empty-control  | 1     | 3    | after  | before                  | 70.83333407839139  | 0                  | 10.416666356225809 | 147.91666654249033 | 229.16666697710752 |
+| layer-empty-control  | 2     | 0    | before | before                  | 49.99999919285377  | 0                  | 20.833334264655907 | 112.50000136593978 | 183.33333482344946 |
+| layer-empty-control  | 2     | 1    | after  | before                  | 41.666666666666664 | 4.166666728754838  | 6.24999962747097   | 145.83333426465592 | 197.9166672875484  |
+| layer-empty-control  | 2     | 2    | after  | before                  | 47.916666915019356 | 2.08333320915699   | 14.58333401630322  | 124.99999937911828 | 189.58333351959783 |
+| layer-empty-control  | 2     | 3    | before | before                  | 52.083334575096764 | 2.08333320915699   | 16.666666604578495 | 112.49999826153119 | 183.33333265036345 |
+| layer-empty-control  | 3     | 0    | after  | before                  | 60.416665549079575 | 0                  | 18.750001055498917 | 122.91666648040216 | 202.08333308498067 |
+| layer-empty-control  | 3     | 1    | before | before                  | 47.916666604578495 | 0                  | 14.583333395421505 | 131.2499993170301  | 193.7499993170301  |
+| layer-empty-control  | 3     | 2    | before | before                  | 49.999999503294625 | 4.16666641831398   | 10.416666977107525 | 122.91666616996129 | 187.49999906867743 |
+| layer-empty-control  | 3     | 3    | after  | before                  | 49.999999503294625 | 2.0833335195978484 | 14.583333705862364 | 124.99999968955915 | 191.66666641831398 |
+| layer-empty-control  | 4     | 0    | before | before                  | 56.25000037252903  | 0                  | 16.666667225460213 | 120.83333327124517 | 193.7500008692344  |
+| layer-empty-control  | 4     | 1    | after  | before                  | 58.33333358168602  | 0                  | 8.333333457509676  | 133.33333345750967 | 200.00000049670535 |
+| layer-empty-control  | 4     | 2    | after  | before                  | 43.750000186264515 | 4.166667039195697  | 12.500000186264515 | 99.99999838570754  | 160.41666579743227 |
+| layer-empty-control  | 4     | 3    | before | before                  | 31.249999689559143 | 0                  | 25.00000037252903  | 129.16666766007742 | 185.41666772216558 |
+| layer-empty-control  | 5     | 0    | after  | before                  | 31.249999379118282 | 2.0833335195978484 | 16.66666753590107  | 106.24999863406022 | 156.24999906867743 |
+| layer-empty-control  | 5     | 1    | before | before                  | 52.08333240201076  | 2.08333320915699   | 4.166666728754838  | 125.00000186264515 | 183.33333420256776 |
+| layer-empty-control  | 5     | 2    | before | before                  | 47.916666604578495 | 4.166666728754838  | 16.666666915019352 | 122.91666710128386 | 191.66666734963655 |
+| layer-empty-control  | 5     | 3    | after  | before                  | 68.75000024835269  | 4.16666641831398   | 8.333333147068819  | 110.41666722546022 | 191.66666703919572 |
+
+#### A/B
+
+```json
+{
+  "mode": "ab",
+  "matrixStartedAt": 1794935019114,
+  "matrixCompletedAt": 1794935210521,
+  "elapsedMs": 191407,
+  "cohortProof": [
+    {
+      "config": {
+        "name": "layer-local-large",
+        "space": "local",
+        "capacity": 8192,
+        "target": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "2a9857e9d3b119960c29b911b3d25642a476f9ee1966dc12f6606fb32461e792",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "layer-world-large",
+        "space": "world",
+        "capacity": 8192,
+        "target": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "layer-local-isolated",
+        "space": "local",
+        "capacity": 8192,
+        "target": true,
+        "isolated": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "ad260966840e1254115344c71f82418e6f56f852e97bd9f23f250fcc367ebcae",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "layer-world-isolated",
+        "space": "world",
+        "capacity": 8192,
+        "target": true,
+        "isolated": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "188f942c0bdfad29b1724296abb96d05e7d14f0896bb5035c11ad7b486b6980b",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "layer-local-small",
+        "space": "local",
+        "capacity": 128,
+        "target": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 512
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "319b5bb34c88f7ad952b16f8b8f950ddccf3159c029fa7a0358adf09ce0e17c0",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "sprite-local-control",
+        "space": "local",
+        "capacity": 8192
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "sprite-world-control",
+        "space": "world",
+        "capacity": 8192
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "layer-empty-control",
+        "space": "local",
+        "capacity": 8192,
+        "target": true,
+        "empty": true
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialParticleVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 0
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+      "nonuniform": [false, false],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    }
+  ],
+  "errors": []
+}
+```
+
+| span          | cohort               | median before µs   | median after µs    | median paired Δ µs   | median paired Δ %         | paired % range                            | faster/slower/equal |
+| ------------- | -------------------- | ------------------ | ------------------ | -------------------- | ------------------------- | ----------------------------------------- | ------------------- |
+| simulationUs  | layer-local-large    | 18.750000124176346 | 16.14583314706882  | -6.250000248352685   | -31.250000970127672       | -55.00000186264512 … 81.8181805866809     | 4/2/0               |
+| simulationUs  | layer-world-large    | 14.062500170742473 | 16.66666652696828  | 3.125000124176344    | 26.893939931438304        | -29.999998435378057 … 73.33332604832148   | 2/4/0               |
+| simulationUs  | layer-local-isolated | 13.541666402791938 | 15.625000232830645 | 2.6041662010053788   | 15.977441343079914        | 6.666670375400212 … 62.50000512227426     | 0/6/0               |
+| simulationUs  | layer-world-isolated | 15.625000077610215 | 16.145833302289248 | 3.104408561327432e-7 | 0.000001702989843806919   | -42.85714346535351 … 13.333332406149978   | 2/4/0               |
+| simulationUs  | layer-local-small    | 45.833334171523646 | 55.72916668218871  | 2.083333597208064    | 4.761905561333266         | -9.37499947613105 … 40.476189090821755    | 3/3/0               |
+| simulationUs  | sprite-local-control | 359.37500023283064 | 341.6666669460634  | -8.854166061307012   | -2.6071386889592953       | -16.708229176322078 … 67.67955807575134   | 4/2/0               |
+| simulationUs  | sprite-world-control | 414.06250031044084 | 409.37500004656613 | 7.761019560348359e-8 | 0.1712767470737715        | -25.098039027316354 … 40.63492059737674   | 3/3/0               |
+| simulationUs  | layer-empty-control  | 48.95833328676721  | 48.95833313154677  | -0.5208334575096778  | -1.0416670718815415       | -25.862069293307343 … 23.255814235554688  | 4/2/0               |
+| navigationUs  | layer-local-large    | 1.0416667597989242 | 0                  | -0.5208333798994621  | n/a: 2 zero-before rounds | n/a                                       | 3/1/2               |
+| navigationUs  | layer-world-large    | 0                  | 0.5208333022892475 | 0.5208333022892475   | n/a: 4 zero-before rounds | n/a                                       | 1/3/2               |
+| navigationUs  | layer-local-isolated | 0.5208333022892475 | 0                  | 0                    | n/a: 3 zero-before rounds | n/a                                       | 2/1/3               |
+| navigationUs  | layer-world-isolated | 0                  | 1.041666604578495  | 0                    | n/a: 4 zero-before rounds | n/a                                       | 2/2/2               |
+| navigationUs  | layer-local-small    | 2.604166744276881  | 2.0833332867672043 | -0.5208334575096765  | -12.500005122274137       | -100 … 0                                  | 4/0/2               |
+| navigationUs  | sprite-local-control | 1.5624999844779572 | 1.0416666821887097 | -0.5208333022892475  | n/a: 1 zero-before rounds | n/a                                       | 3/2/1               |
+| navigationUs  | sprite-world-control | 0                  | 1.041666604578495  | 0.5208333022892475   | n/a: 4 zero-before rounds | n/a                                       | 2/3/1               |
+| navigationUs  | layer-empty-control  | 2.0833334419876337 | 1.0416666821887097 | -1.041666759798924   | -33.33333498901784        | -100 … 99.9999850988401                   | 3/1/2               |
+| afterUpdateUs | layer-local-large    | 1588.0208331315466 | 1621.8749994101624 | 37.5000006364038     | 2.3640386163982967        | -2.472348796453478 … 7.29585006356967     | 2/4/0               |
+| afterUpdateUs | layer-world-large    | 1652.6041662630937 | 1629.1666668839753 | -26.562499968955876  | -1.6670197402829128       | -7.253564789434661 … 8.254568388283563    | 4/2/0               |
+| afterUpdateUs | layer-local-isolated | 1370.312499968956  | 1369.2708338300388 | -4.1666669615856335  | -0.3001982014215848       | -4.332386379285696 … 4.920634920090523    | 4/2/0               |
+| afterUpdateUs | layer-world-isolated | 1363.5416665735343 | 1341.1458325572312 | -10.416668218870882  | -0.7627766198862391       | -4.74368781572848 … 3.201970425812163     | 4/2/0               |
+| afterUpdateUs | layer-local-small    | 135.93749996895593 | 138.54166694606346 | 6.770834016303212    | 4.970640554328543         | -6.666666217792164 … 18.26086725088961    | 2/4/0               |
+| afterUpdateUs | sprite-local-control | 798.9583340628693  | 683.8541669615854  | -90.62499964299298   | -11.96385123934397        | -20.203160104328198 … -0.1209190670297972 | 6/0/0               |
+| afterUpdateUs | sprite-world-control | 1457.8124994877726 | 1406.2499996119489 | -65.62500051222753   | -4.507346416931672        | -11.118378011423031 … 0.27416037768536494 | 5/1/0               |
+| afterUpdateUs | layer-empty-control  | 14.062499860301614 | 16.145833069458604 | 2.604166666666667    | 18.13186806663843         | -55.00000219792122 … 79.9999997019768     | 2/4/0               |
+| submitUs      | layer-local-large    | 2892.708333830039  | 2982.291666868453  | 60.41666624757136    | 2.0956855936559635        | -2.3689877627034552 … 8.988764050023097   | 1/5/0               |
+| submitUs      | layer-world-large    | 2653.6458335661637 | 2552.6041664804025 | -64.06250068296958   | -2.404031877508335        | -9.731412999813065 … 3.2595573362557326   | 4/2/0               |
+| submitUs      | layer-local-isolated | 3858.8541665424905 | 3863.5416662630932 | 44.27083341094294    | 1.1424242345140223        | -2.1711036268533936 … 4.2889390747926095  | 2/4/0               |
+| submitUs      | layer-world-isolated | 4845.833333985259  | 4839.062501210719  | 3.1250005122269613   | 0.06575334384102988       | -3.7226122005878812 … 3.992740470004242   | 3/3/0               |
+| submitUs      | layer-local-small    | 417.1875002793968  | 441.66666703919566 | 18.229166666666657   | 4.374064836063002         | -6.278026741323221 … 16.30434755804563    | 2/4/0               |
+| submitUs      | sprite-local-control | 6942.187500729536  | 6820.312499456729  | -89.58333412495722   | -1.2914984008746613       | -3.5315154097506025 … 21.502976202040184  | 5/1/0               |
+| submitUs      | sprite-world-control | 6188.541667380681  | 6485.416666371748  | 254.1666673496361    | 4.088889157439937         | 1.145475364891616 … 7.269056021721878     | 0/6/0               |
+| submitUs      | layer-empty-control  | 126.56249920837581 | 116.14583370586237 | -13.541665937130666  | -9.942978744702938        | -25.619834831858356 … 19.827587089493566  | 4/2/0               |
+| categorySumUs | layer-local-large    | 4494.791667365159  | 4608.8541666201    | 112.50000027939632   | 2.524207167109396         | -2.647329663867724 … 8.12231248209002     | 2/4/0               |
+| categorySumUs | layer-world-large    | 4338.541666433835  | 4251.562500062088  | -61.97916770664324   | -1.4557234750062977       | -5.502162426885548 … 1.7971442635580877   | 5/1/0               |
+| categorySumUs | layer-local-isolated | 5243.229166526968  | 5246.354167194417  | 35.41666657353426    | 0.6668010642782712        | -2.7221172005783183 … 4.5293995673621374  | 3/3/0               |
+| categorySumUs | layer-world-isolated | 6228.645834683751  | 6209.375000093132  | -5.729168032606594   | -0.09161415178917025      | -3.950207453741097 … 3.8100301099958607   | 3/3/0               |
+| categorySumUs | layer-local-small    | 604.1666668218871  | 636.9791661854833  | 31.249999999999943   | 5.183771504293545         | -4.968943832783719 … 16.12903189960482    | 2/4/0               |
+| categorySumUs | sprite-local-control | 8134.374999906868  | 7833.854166868453  | -209.89583300737104  | -2.589593684532668        | -5.421609886080444 … 21.337378331061995   | 5/1/0               |
+| categorySumUs | sprite-world-control | 8073.437500434617  | 8321.874999829257  | 203.6458333022888    | 2.521599860039996         | -1.5323283895016546 … 5.575868377354356   | 1/5/0               |
+| categorySumUs | layer-empty-control  | 193.22916655801237 | 181.77083282110593 | -13.541666558012352  | -7.012212785242168        | -28.000000470876685 … 15.909091290086511  | 4/2/0               |
+
+| cohort               | round | slot | label  | actual particle methods | simulation µs      | navigation µs      | afterUpdate µs     | submit µs          | category sum µs    |
+| -------------------- | ----- | ---- | ------ | ----------------------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
+| layer-local-large    | 0     | 0    | before | before                  | 29.16666679084301  | 0                  | 1418.750001117587  | 2789.583332836628  | 4237.500000745058  |
+| layer-local-large    | 0     | 1    | after  | after                   | 12.499999875823656 | 2.08333320915699   | 1656.2500003104408 | 3045.8333333954215 | 4716.666666790843  |
+| layer-local-large    | 0     | 2    | after  | after                   | 24.999999130765598 | 2.08333320915699   | 1533.3333347613614 | 2866.666667163372  | 4427.0833342646565 |
+| layer-local-large    | 0     | 3    | before | before                  | 20.833333333333332 | 0                  | 1656.2499996895592 | 2970.833333209157  | 4647.9166662320495 |
+| layer-local-large    | 1     | 0    | after  | after                   | 14.583333395421505 | 0                  | 1660.4166667287548 | 3039.5833337679505 | 4714.583333892127  |
+| layer-local-large    | 1     | 1    | before | before                  | 22.916666542490322 | 2.0833335195978484 | 1554.1666659216087 | 2810.416666790843  | 4389.58333277454   |
+| layer-local-large    | 1     | 2    | before | before                  | 20.833332712451618 | 0                  | 1558.3333329608042 | 2752.083333519598  | 4331.249999192854  |
+| layer-local-large    | 1     | 3    | after  | after                   | 12.500000186264515 | 0                  | 1679.166665300727  | 3022.916666852931  | 4714.583332339922  |
+| layer-local-large    | 2     | 0    | before | before                  | 20.833332712451618 | 0                  | 1604.16666790843   | 2964.5833345130086 | 4589.583335133891  |
+| layer-local-large    | 2     | 1    | after  | after                   | 12.499999875823656 | 0                  | 1668.7499980131786 | 3081.250000434617  | 4762.499998323619  |
+| layer-local-large    | 2     | 2    | after  | after                   | 8.333333457509676  | 0                  | 1581.2499979510903 | 2939.583334761361  | 4529.166666169961  |
+| layer-local-large    | 2     | 3    | before | before                  | 12.500000496705374 | 0                  | 1670.8333330849807 | 3054.1666665424905 | 4737.500000124177  |
+| layer-local-large    | 3     | 0    | after  | after                   | 22.916667473812897 | 0                  | 1577.083334326744  | 2885.416666356226  | 4485.416668156783  |
+| layer-local-large    | 3     | 1    | before | before                  | 16.666666604578495 | 0                  | 1585.4166659216087 | 2920.833334326744  | 4522.9166668529315 |
+| layer-local-large    | 3     | 2    | before | before                  | 6.250000558793545  | 2.0833335195978484 | 1566.6666657974322 | 2854.166668218871  | 4429.166668094695  |
+| layer-local-large    | 3     | 3    | after  | after                   | 18.749999813735485 | 0                  | 1660.4166673496366 | 2979.1666666666665 | 4658.333333830038  |
+| layer-local-large    | 4     | 0    | before | before                  | 22.916666852931183 | 0                  | 1535.4166676600773 | 2770.833331781129  | 4329.166666294137  |
+| layer-local-large    | 4     | 1    | after  | after                   | 10.416666356225809 | 2.0833335195978484 | 1539.5833331470687 | 2770.833333643774  | 4322.916666666666  |
+| layer-local-large    | 4     | 2    | after  | after                   | 8.333333147068819  | 0                  | 1583.3333324020107 | 2895.8333330228925 | 4487.499998571971  |
+| layer-local-large    | 4     | 3    | before | before                  | 18.750000434617203 | 2.0833335195978484 | 1666.6666666666667 | 3033.333332898716  | 4720.8333335195975 |
+| layer-local-large    | 5     | 0    | after  | after                   | 14.58333277453979  | 0                  | 1654.166666790843  | 3037.5000002483525 | 4706.2499998137355 |
+| layer-local-large    | 5     | 1    | before | before                  | 20.833333333333332 | 0                  | 1572.9166663562257 | 2845.833333519598  | 4439.583333209157  |
+| layer-local-large    | 5     | 2    | before | before                  | 8.333334078391394  | 2.0833335195978484 | 1627.0833344509203 | 2949.999999254942  | 4587.500001303852  |
+| layer-local-large    | 5     | 3    | after  | after                   | 22.916666232049465 | 0                  | 1610.4166666045785 | 2979.1666666666665 | 4612.499999503294  |
+| layer-world-large    | 0     | 0    | before | before                  | 12.499999875823656 | 2.08333320915699   | 1624.9999996895592 | 2618.750000062088  | 4258.333332836628  |
+| layer-world-large    | 0     | 1    | after  | after                   | 20.833332712451618 | 4.166667039195697  | 1883.3333337679505 | 2110.4166662941375 | 4018.7499998137355 |
+| layer-world-large    | 0     | 2    | after  | after                   | 12.50000080714623  | 0                  | 1695.8333312844236 | 2720.8333344509206 | 4429.166666542491  |
+| layer-world-large    | 0     | 3    | before | before                  | 10.416667287548384 | 0                  | 1681.249998199443  | 2733.333334016303  | 4424.999999503294  |
+| layer-world-large    | 1     | 0    | after  | after                   | 24.999999441206455 | 0                  | 1531.2500015522044 | 2577.0833330849805 | 4133.333334078391  |
+| layer-world-large    | 1     | 1    | before | before                  | 29.16666679084301  | 0                  | 1693.7499990065892 | 2502.0833344509206 | 4225.000000248353  |
+| layer-world-large    | 1     | 2    | before | before                  | 6.24999962747097   | 0                  | 1741.666667163372  | 2827.0833318432174 | 4574.999998634061  |
+| layer-world-large    | 1     | 3    | after  | after                   | 8.333333767950535  | 0                  | 1747.916666790843  | 2820.8333334575095 | 4577.083334016303  |
+| layer-world-large    | 2     | 0    | before | before                  | 10.416667287548384 | 2.0833335195978484 | 1631.2499999379118 | 2654.166666480402  | 4297.91666722546   |
+| layer-world-large    | 2     | 1    | after  | after                   | 20.833333022892475 | 0                  | 1681.250000372529  | 2664.5833334575095 | 4366.666666852931  |
+| layer-world-large    | 2     | 2    | after  | after                   | 33.33333351959785  | 0                  | 1699.9999998758237 | 2458.333333643774  | 4191.666667039195  |
+| layer-world-large    | 2     | 3    | before | before                  | 20.83333395421505  | 0                  | 1672.9166672254603 | 2700.000001117587  | 4393.750002297263  |
+| layer-world-large    | 3     | 0    | after  | after                   | 20.833333643774193 | 0                  | 1449.9999995653827 | 2449.9999986340604 | 3920.8333318432174 |
+| layer-world-large    | 3     | 1    | before | before                  | 10.41666604578495  | 0                  | 1608.3333337058623 | 2562.499999689559  | 4181.2499994412065 |
+| layer-world-large    | 3     | 2    | before | before                  | 12.500000186264515 | 0                  | 1574.9999989445012 | 2550.0000013659396 | 4137.500000496705  |
+| layer-world-large    | 3     | 3    | after  | after                   | 12.49999925494194  | 0                  | 1633.3333334575098 | 2637.5000001862645 | 4283.333332898716  |
+| layer-world-large    | 4     | 0    | before | before                  | 22.916666542490322 | 0                  | 1595.8333325882752 | 2506.2500002483525 | 4124.999999379118  |
+| layer-world-large    | 4     | 1    | after  | after                   | 12.500000186264515 | 0                  | 1683.3333323399227 | 2772.9166662320495 | 4468.749998758237  |
+| layer-world-large    | 4     | 2    | after  | after                   | 16.666666915019352 | 2.08333320915699   | 1554.1666668529313 | 2572.916665735344  | 4145.833332712451  |
+| layer-world-large    | 4     | 3    | before | before                  | 18.749999813735485 | 0                  | 1647.9166668529313 | 2670.833332153658  | 4337.499998820324  |
+| layer-world-large    | 5     | 0    | after  | after                   | 10.416666977107525 | 0                  | 1618.7499991307657 | 2639.5833333954215 | 4268.749999503295  |
+| layer-world-large    | 5     | 1    | before | before                  | 14.583333395421505 | 0                  | 1620.8333329608042 | 2525.0000013038516 | 4160.416667660077  |
+| layer-world-large    | 5     | 2    | before | before                  | 10.41666604578495  | 0                  | 1739.5833330228925 | 2760.4166666666665 | 4510.4166657353435 |
+| layer-world-large    | 5     | 3    | after  | after                   | 16.666666604578495 | 2.0833335195978484 | 1497.916666790843  | 2408.333333209157  | 3925.000000124176  |
+| layer-local-isolated | 0     | 0    | before | before                  | 12.500000186264515 | 0                  | 1389.5833333954215 | 3958.333333954215  | 5360.416667535901  |
+| layer-local-isolated | 0     | 1    | after  | after                   | 18.750000434617203 | 0                  | 1333.3333336437743 | 3806.2499994412065 | 5158.333333519598  |
+| layer-local-isolated | 0     | 2    | after  | after                   | 10.416666666666666 | 0                  | 1389.5833333954215 | 3945.8333334575095 | 5345.8333335195975 |
+| layer-local-isolated | 0     | 3    | before | before                  | 10.416666977107525 | 2.0833335195978484 | 1370.8333332712452 | 3768.7500001241765 | 5152.0833338921275 |
+| layer-local-isolated | 1     | 0    | after  | after                   | 14.583333705862364 | 0                  | 1404.1666671012838 | 3931.250000062088  | 5350.000000869234  |
+| layer-local-isolated | 1     | 1    | before | before                  | 6.249999937911828  | 2.08333320915699   | 1308.3333326503634 | 3654.166666790843  | 4970.833332588275  |
+| layer-local-isolated | 1     | 2    | before | before                  | 10.416666356225809 | 0                  | 1316.666668901841  | 3729.1666648040214 | 5056.250000062088  |
+| layer-local-isolated | 1     | 3    | after  | after                   | 12.499999875823656 | 0                  | 1350.0000011796753 | 3768.7499998137355 | 5131.250000869235  |
+| layer-local-isolated | 2     | 0    | before | before                  | 25.00000037252903  | 0                  | 1152.0833314086    | 3231.2500020489097 | 4408.333333830039  |
+| layer-local-isolated | 2     | 1    | after  | after                   | 24.999999751647312 | 0                  | 1304.1666668529313 | 3658.3333325882754 | 4987.499999192854  |
+| layer-local-isolated | 2     | 2    | after  | after                   | 18.749999813735485 | 0                  | 1387.5000001862645 | 3958.33333209157   | 5364.58333209157   |
+| layer-local-isolated | 2     | 3    | before | before                  | 14.58333432674408  | 0                  | 1470.8333325882752 | 4081.250001055499  | 5566.666667970519  |
+| layer-local-isolated | 3     | 0    | after  | after                   | 22.916665921608608 | 2.0833335195978484 | 1377.0833338300388 | 3877.0833341404796 | 5279.166667411725  |
+| layer-local-isolated | 3     | 1    | before | before                  | 14.583333395421505 | 0                  | 1508.3333334575098 | 4120.8333332712455 | 5643.750000124177  |
+| layer-local-isolated | 3     | 2    | before | before                  | 10.416666356225809 | 2.0833335195978484 | 1425.000000745058  | 3939.5833325882754 | 5377.083333209157  |
+| layer-local-isolated | 3     | 3    | after  | after                   | 4.16666641831398   | 0                  | 1429.1666665424902 | 4008.333333147069  | 5441.666666107873  |
+| layer-local-isolated | 4     | 0    | before | before                  | 16.666666915019352 | 0                  | 1333.3333333333333 | 3808.3333326503634 | 5158.3333328987155 |
+| layer-local-isolated | 4     | 1    | after  | after                   | 14.583333395421505 | 2.08333320915699   | 1437.4999990686774 | 4037.49999931703   | 5491.666664990285  |
+| layer-local-isolated | 4     | 2    | after  | after                   | 18.750000434617203 | 0                  | 1275.000000372529  | 3664.583332836628  | 4958.3333336437745 |
+| layer-local-isolated | 4     | 3    | before | before                  | 14.58333246409893  | 0                  | 1387.4999998758237 | 3899.9999994412065 | 5302.083331781129  |
+| layer-local-isolated | 5     | 0    | after  | after                   | 12.499999875823656 | 0                  | 1443.7499999379118 | 4033.333333209157  | 5489.5833330228925 |
+| layer-local-isolated | 5     | 1    | before | before                  | 14.58333277453979  | 0                  | 1333.3333345750968 | 3652.0833323399224 | 4999.9999996895585 |
+| layer-local-isolated | 5     | 2    | before | before                  | 14.583333084980646 | 0                  | 1500               | 4102.083332526187  | 5616.666665611168  |
+| layer-local-isolated | 5     | 3    | after  | after                   | 22.916665921608608 | 0                  | 1381.2500005587935 | 3872.916666480402  | 5277.083332960804  |
+| layer-world-isolated | 0     | 0    | before | before                  | 18.749999813735485 | 0                  | 1366.6666668529313 | 4864.583333954215  | 6250.000000620882  |
+| layer-world-isolated | 0     | 1    | after  | after                   | 27.08333358168602  | 0                  | 1277.083333581686  | 4685.4166664804025 | 5989.5833336437745 |
+| layer-world-isolated | 0     | 2    | after  | after                   | 8.333333147068819  | 4.166666728754838  | 1397.916664679845  | 4995.833334513009  | 6406.249999068677  |
+| layer-world-isolated | 0     | 3    | before | before                  | 12.500000496705374 | 0                  | 1391.6666669150193 | 4956.2499998137355 | 6360.41666722546   |
+| layer-world-isolated | 1     | 0    | after  | after                   | 20.833333333333332 | 0                  | 1364.5833345750968 | 4820.83333345751   | 6206.25000136594   |
+| layer-world-isolated | 1     | 1    | before | before                  | 20.833333022892475 | 0                  | 1352.0833325261872 | 4841.666667722166  | 6214.5833332712455 |
+| layer-world-isolated | 1     | 2    | before | before                  | 22.916666852931183 | 0                  | 1358.3333333954215 | 4810.4166664804025 | 6191.666666728755  |
+| layer-world-isolated | 1     | 3    | after  | after                   | 22.91666716337204  | 0                  | 1354.1666672875483 | 4877.083333830039  | 6254.166668280959  |
+| layer-world-isolated | 2     | 0    | before | before                  | 18.750000434617203 | 0                  | 1329.1666669150193 | 4756.250000869234  | 6104.166668218871  |
+| layer-world-isolated | 2     | 1    | after  | after                   | 6.250000248352687  | 0                  | 1352.0833325261872 | 4925.000000124176  | 6283.3333328987155 |
+| layer-world-isolated | 2     | 2    | after  | after                   | 10.416666666666666 | 0                  | 1337.4999994412065 | 4818.7499999379115 | 6166.666666045785  |
+| layer-world-isolated | 2     | 3    | before | before                  | 10.416666977107525 | 0                  | 1402.083333581686  | 4918.7500001862645 | 6331.250000745058  |
+| layer-world-isolated | 3     | 0    | after  | after                   | 18.750000434617203 | 2.08333320915699   | 1291.6666669771075 | 4664.583332836628  | 5977.08333345751   |
+| layer-world-isolated | 3     | 1    | before | before                  | 14.583333395421505 | 2.08333320915699   | 1383.3333334575098 | 4937.500000310441  | 6337.500000372529  |
+| layer-world-isolated | 3     | 2    | before | before                  | 16.666666604578495 | 2.0833335195978484 | 1339.5833323399227 | 4856.249999875824  | 6214.583332339923  |
+| layer-world-isolated | 3     | 3    | after  | after                   | 12.500000186264515 | 0                  | 1302.0833327124517 | 4764.583334947626  | 6079.1666678463425 |
+| layer-world-isolated | 4     | 0    | before | before                  | 12.500000186264515 | 4.166667039195697  | 1170.8333321536581 | 4272.916667473813  | 5460.416666852931  |
+| layer-world-isolated | 4     | 1    | after  | after                   | 14.58333246409893  | 2.08333320915699   | 1281.2499996895592 | 4641.6666672254605 | 5939.583332588276  |
+| layer-world-isolated | 4     | 2    | after  | after                   | 18.750000124176342 | 0                  | 1337.499998199443  | 4908.333333830039  | 6264.583332153658  |
+| layer-world-isolated | 4     | 3    | before | before                  | 18.749999813735485 | 0                  | 1366.6666662320495 | 4910.416667039196  | 6295.833333084981  |
+| layer-world-isolated | 5     | 0    | after  | after                   | 18.750000434617203 | 0                  | 1383.3333309739828 | 4927.083334264656  | 6329.166665673256  |
+| layer-world-isolated | 5     | 1    | before | before                  | 14.583333395421505 | 0                  | 1368.7500000620882 | 4797.916667535901  | 6181.250000993411  |
+| layer-world-isolated | 5     | 2    | before | before                  | 20.833333333333332 | 0                  | 1366.6666680946946 | 4910.416667349637  | 6297.916668777664  |
+| layer-world-isolated | 5     | 3    | after  | after                   | 8.333333147068819  | 4.16666641831398   | 1352.083332836628  | 4747.916669584811  | 6112.500001986821  |
+| layer-local-small    | 0     | 0    | before | before                  | 66.66666672875483  | 4.166666728754838  | 127.08333258827527 | 452.08333308498067 | 649.9999991307657  |
+| layer-local-small    | 0     | 1    | after  | after                   | 62.5               | 6.24999962747097   | 133.3333340783914  | 433.3333332712452  | 635.4166669771075  |
+| layer-local-small    | 0     | 2    | after  | after                   | 58.33333358168602  | 0                  | 143.75000105549893 | 437.50000031044084 | 639.5833349476258  |
+| layer-local-small    | 0     | 3    | before | before                  | 66.66666610787313  | 4.16666641831398   | 143.75000105549893 | 477.0833322157462  | 691.6666657974322  |
+| layer-local-small    | 1     | 0    | after  | after                   | 60.416664617757    | 0                  | 145.83333395421505 | 458.33333395421505 | 664.5833325261871  |
+| layer-local-small    | 1     | 1    | before | before                  | 54.16666685293118  | 4.166666728754838  | 129.1666670391957  | 397.91666623204947 | 585.4166668529311  |
+| layer-local-small    | 1     | 2    | before | before                  | 37.500000869234405 | 2.08333320915699   | 143.74999919285378 | 435.41666741172475 | 618.7500006829699  |
+| layer-local-small    | 1     | 3    | after  | after                   | 52.08333426465591  | 0                  | 147.91666685293117 | 441.666666418314   | 641.6666675359011  |
+| layer-local-small    | 2     | 0    | before | before                  | 43.74999894450108  | 2.08333320915699   | 108.3333349476258  | 385.4166669771075  | 539.5833340783914  |
+| layer-local-small    | 2     | 1    | after  | after                   | 45.833333705862366 | 2.08333320915699   | 145.83333178112903 | 452.08333277453977 | 645.8333314706881  |
+| layer-local-small    | 2     | 2    | after  | after                   | 50.00000074505806  | 2.08333320915699   | 137.49999894450107 | 439.583333209157   | 629.1666661078731  |
+| layer-local-small    | 2     | 3    | before | before                  | 43.749998634060226 | 2.0833335195978484 | 131.2500008692344  | 381.2500008692344  | 558.3333338921268  |
+| layer-local-small    | 3     | 0    | after  | after                   | 50.000000124176346 | 0                  | 143.7499982615312  | 441.6666670391957  | 635.4166654249033  |
+| layer-local-small    | 3     | 1    | before | before                  | 60.416667722165585 | 2.0833335195978484 | 141.66666474193335 | 445.8333331470688  | 649.9999991307656  |
+| layer-local-small    | 3     | 2    | before | before                  | 56.24999850988388  | 2.0833335195978484 | 141.66666784634194 | 466.6666677221656  | 666.6666675979893  |
+| layer-local-small    | 3     | 3    | after  | after                   | 60.416667722165585 | 0                  | 131.24999962747097 | 445.83333438883227 | 637.5000017384689  |
+| layer-local-small    | 4     | 0    | before | before                  | 62.50000186264515  | 0                  | 131.24999838570753 | 435.416666790843   | 629.1666670391957  |
+| layer-local-small    | 4     | 1    | after  | after                   | 43.749999875823654 | 4.166666728754838  | 143.74999950329462 | 445.8333340783914  | 637.5000001862645  |
+| layer-local-small    | 4     | 2    | after  | after                   | 47.916666604578495 | 0                  | 133.33333314706883 | 433.33333265036345 | 614.5833324020108  |
+| layer-local-small    | 4     | 3    | before | before                  | 29.166667101283867 | 4.166666728754838  | 112.50000136593978 | 370.83333171904087 | 516.6666669150194  |
+| layer-local-small    | 5     | 0    | after  | after                   | 68.74999993791182  | 2.08333320915699   | 131.24999900658926 | 458.3333336437742  | 660.4166657974323  |
+| layer-local-small    | 5     | 1    | before | before                  | 33.333334140479565 | 4.16666641831398   | 162.49999776482582 | 435.41666741172475 | 635.4166657353442  |
+| layer-local-small    | 5     | 2    | before | before                  | 54.1666674738129   | 4.166666728754838  | 118.74999975164731 | 400.0000000620882  | 577.0833340163033  |
+| layer-local-small    | 5     | 3    | after  | after                   | 54.166667784253754 | 6.249999937911828  | 131.24999993791184 | 383.33333376795053 | 575.000001428028   |
+| sprite-local-control | 0     | 0    | before | before                  | 329.16666598369676 | 0                  | 702.0833349476258  | 6893.749998882413  | 7924.9999998137355 |
+| sprite-local-control | 0     | 1    | after  | after                   | 343.75             | 2.0833335195978484 | 608.3333330849806  | 6783.333333830039  | 7737.5000004346175 |
+| sprite-local-control | 0     | 2    | after  | after                   | 306.2499997516473  | 0                  | 641.6666675359011  | 6814.583333209157  | 7762.500000496705  |
+| sprite-local-control | 0     | 3    | before | before                  | 345.8333319673936  | 0                  | 681.250000372529   | 6804.1666662320495 | 7831.249998571972  |
+| sprite-local-control | 1     | 0    | after  | after                   | 320.8333331470688  | 0                  | 583.3333333333334  | 6745.833331719041  | 7649.999998199443  |
+| sprite-local-control | 1     | 1    | before | before                  | 414.58333500971395 | 0                  | 677.0833308498064  | 6960.4166668529315 | 8052.083332712452  |
+| sprite-local-control | 1     | 2    | before | before                  | 333.3333333333333  | 2.0833335195978484 | 695.8333325261871  | 6814.583333830039  | 7845.833333209157  |
+| sprite-local-control | 1     | 3    | after  | after                   | 366.6666665424903  | 2.0833335195978484 | 610.4166659836968  | 6662.500000248353  | 7641.666666294138  |
+| sprite-local-control | 2     | 0    | before | before                  | 339.5833320294817  | 2.08333320915699   | 831.2500013659397  | 6891.6666666045785 | 8064.583333209157  |
+| sprite-local-control | 2     | 1    | after  | after                   | 368.7499985098839  | 4.166666728754838  | 777.0833345130086  | 6943.750000869234  | 8093.750000620881  |
+| sprite-local-control | 2     | 2    | after  | after                   | 310.4166680326064  | 0                  | 724.9999983857075  | 6852.083332526187  | 7887.499998944501  |
+| sprite-local-control | 2     | 3    | before | before                  | 350.00000055879354 | 2.08333320915699   | 854.166666045785   | 6935.416667101284  | 8141.666666915019  |
+| sprite-local-control | 3     | 0    | after  | after                   | 356.25000049670535 | 0                  | 760.4166666666666  | 7022.916665300727  | 8139.583332464099  |
+| sprite-local-control | 3     | 1    | before | before                  | 314.5833338300387  | 0                  | 927.0833314706882  | 6900.000001303852  | 8141.6666666045785 |
+| sprite-local-control | 3     | 2    | before | before                  | 314.58333414047956 | 2.08333320915699   | 918.7499992549419  | 7041.66666790843   | 8277.083334513009  |
+| sprite-local-control | 3     | 3    | after  | after                   | 322.91666759798926 | 0                  | 712.5000009934107  | 6660.416665486991  | 7695.833334078391  |
+| sprite-local-control | 4     | 0    | before | before                  | 299.99999919285375 | 2.0833335195978484 | 906.2500012417635  | 7114.583333333333  | 8322.916667287547  |
+| sprite-local-control | 4     | 1    | after  | after                   | 812.5              | 2.08333320915699   | 1120.8333329608042 | 10264.583334326744 | 12200.000000496706 |
+| sprite-local-control | 4     | 2    | after  | after                   | 452.0833318432172  | 0                  | 600.0000008692344  | 6745.833333581686  | 7797.916666294138  |
+| sprite-local-control | 4     | 3    | before | before                  | 454.16666629413766 | 2.08333320915699   | 816.6666673496366  | 6885.4166663562255 | 8158.333333209157  |
+| sprite-local-control | 5     | 0    | after  | after                   | 312.50000031044084 | 0                  | 652.0833332712451  | 6720.8333335195975 | 7685.416667101284  |
+| sprite-local-control | 5     | 1    | before | before                  | 458.33333271245164 | 2.0833335195978484 | 720.833333209157   | 6985.4166672254605 | 8166.666666666667  |
+| sprite-local-control | 5     | 2    | before | before                  | 377.0833319673936  | 2.08333320915699   | 789.5833356305957  | 6995.833332029481  | 8164.583332836628  |
+| sprite-local-control | 5     | 3    | after  | after                   | 383.3333334575097  | 0                  | 610.4166669150194  | 6766.666667535901  | 7760.41666790843   |
+| sprite-world-control | 0     | 0    | before | before                  | 439.58333258827525 | 2.0833335195978484 | 1389.5833337058623 | 6125.000000931323  | 7956.250000745058  |
+| sprite-world-control | 0     | 1    | after  | after                   | 337.50000099341077 | 2.08333320915699   | 1483.333332464099  | 6456.250001055499  | 8279.166667722166  |
+| sprite-world-control | 0     | 2    | after  | after                   | 399.99999788900215 | 0                  | 1283.3333344509203 | 6239.583332712452  | 7922.916665052375  |
+| sprite-world-control | 0     | 3    | before | before                  | 441.66666579743224 | 0                  | 1504.1666676600773 | 6247.916666790843  | 8193.750000248352  |
+| sprite-world-control | 1     | 0    | after  | after                   | 425.0000019868215  | 0                  | 1477.0833319053054 | 6585.416665921609  | 8487.499999813735  |
+| sprite-world-control | 1     | 1    | before | before                  | 406.24999968955916 | 0                  | 1547.9166653628151 | 6429.166668094695  | 8383.33333314707   |
+| sprite-world-control | 1     | 2    | before | before                  | 656.2499993791183  | 0                  | 1381.2500008692343 | 6302.083332712452  | 8339.583332960805  |
+| sprite-world-control | 1     | 3    | after  | after                   | 370.83333265036345 | 0                  | 1316.6666667287548 | 6291.666667287548  | 7979.166666666666  |
+| sprite-world-control | 2     | 0    | before | before                  | 418.74999925494194 | 2.0833335195978484 | 1531.2499993791182 | 6306.250000993411  | 8258.33333314707   |
+| sprite-world-control | 2     | 1    | after  | after                   | 341.666666790843   | 0                  | 1460.4166659216087 | 6618.750001614292  | 8420.833334326744  |
+| sprite-world-control | 2     | 2    | after  | after                   | 506.2500008692344  | 2.08333320915699   | 1370.8333338921268 | 6662.499999006589  | 8541.666666977108  |
+| sprite-world-control | 2     | 3    | before | before                  | 437.5000012417634  | 2.08333320915699   | 1370.8333323399227 | 6075.0000008071465 | 7885.4166675979895 |
+| sprite-world-control | 3     | 0    | after  | after                   | 460.41666561116773 | 0                  | 1322.9166675979893 | 6493.7499994412065 | 8277.083332650363  |
+| sprite-world-control | 3     | 1    | before | before                  | 412.5000002483527  | 0                  | 1395.8333336437743 | 6249.999999379118  | 8058.333333271245  |
+| sprite-world-control | 3     | 2    | before | before                  | 387.50000049670535 | 0                  | 1391.6666669150193 | 6058.333332960804  | 7837.500000372529  |
+| sprite-world-control | 3     | 3    | after  | after                   | 381.2499999379118  | 2.0833335195978484 | 1304.166665300727  | 6327.083334637185  | 8014.5833333954215 |
+| sprite-world-control | 4     | 0    | before | before                  | 360.41666753590107 | 0                  | 1541.66666790843   | 6308.3333314086    | 8210.416666852932  |
+| sprite-world-control | 4     | 1    | after  | after                   | 381.24999931703013 | 2.08333320915699   | 1310.4166677221656 | 6449.999999254942  | 8143.749999503295  |
+| sprite-world-control | 4     | 2    | after  | after                   | 541.6666666666666  | 0                  | 1520.8333336437743 | 6614.5833330228925 | 8677.083333333334  |
+| sprite-world-control | 4     | 3    | before | before                  | 295.8333321536581  | 0                  | 1643.7499998137355 | 6252.083333209157  | 8191.666665176551  |
+| sprite-world-control | 5     | 0    | after  | after                   | 337.4999997516473  | 0                  | 1514.5833327745397 | 6610.4166672254605 | 8462.499999751648  |
+| sprite-world-control | 5     | 1    | before | before                  | 331.24999950329465 | 0                  | 1475.0000002483528 | 6122.91666585952   | 7929.166665611168  |
+| sprite-world-control | 5     | 2    | before | before                  | 302.0833333333333  | 0                  | 1564.583333209157  | 6158.33333414048   | 8025.00000068297   |
+| sprite-world-control | 5     | 3    | after  | after                   | 304.16666623204947 | 2.0833335195978484 | 1533.3333338300388 | 6541.6666669771075 | 8381.250000558794  |
+| layer-empty-control  | 0     | 0    | before | before                  | 35.41666672875484  | 4.166666728754838  | 10.416666666666666 | 147.9166674738129  | 197.91666759798926 |
+| layer-empty-control  | 0     | 1    | after  | after                   | 54.16666716337204  | 2.08333320915699   | 16.666666294137638 | 118.74999944120646 | 191.66666610787314 |
+| layer-empty-control  | 0     | 2    | after  | after                   | 56.25000006208817  | 0                  | 20.833333643774193 | 99.99999931703012  | 177.08333302289248 |
+| layer-empty-control  | 0     | 3    | before | before                  | 54.16666685293118  | 2.0833335195978484 | 10.416666666666666 | 131.25000024835268 | 197.91666728754836 |
+| layer-empty-control  | 1     | 0    | after  | after                   | 58.33333327124516  | 0                  | 20.833333333333332 | 127.08333414047956 | 206.25000074505806 |
+| layer-empty-control  | 1     | 1    | before | before                  | 43.74999925494194  | 2.0833335195978484 | 18.74999888241291  | 133.33333345750967 | 197.91666511446238 |
+| layer-empty-control  | 1     | 2    | before | before                  | 52.083335195978485 | 0                  | 8.333333457509676  | 108.33333153277636 | 168.75000018626451 |
+| layer-empty-control  | 1     | 3    | after  | after                   | 39.58333314706882  | 2.0833335195978484 | 14.583333084980646 | 162.4999993170301  | 218.74999906867743 |
+| layer-empty-control  | 2     | 0    | before | before                  | 39.583333457509674 | 0                  | 20.833333022892475 | 152.08333265036345 | 212.4999991307656  |
+| layer-empty-control  | 2     | 1    | after  | after                   | 41.66666573534409  | 0                  | 29.166667101283867 | 118.75000192473333 | 189.5833347613613  |
+| layer-empty-control  | 2     | 2    | after  | after                   | 39.583332215746246 | 0                  | 8.333333457509676  | 112.5000004346172  | 160.41666610787314 |
+| layer-empty-control  | 2     | 3    | before | before                  | 41.66666573534409  | 12.500000186264515 | 8.333333767950535  | 102.0833325261871  | 164.58333221574625 |
+| layer-empty-control  | 3     | 0    | after  | after                   | 54.166665921608605 | 0                  | 14.583333395421505 | 120.83333389212687 | 189.583333209157   |
+| layer-empty-control  | 3     | 1    | before | before                  | 54.166665921608605 | 0                  | 16.666666294137638 | 104.16666759798925 | 174.99999981373549 |
+| layer-empty-control  | 3     | 2    | before | before                  | 45.83333277453979  | 4.166667039195697  | 12.500000186264515 | 95.83333414047956  | 158.33333414047956 |
+| layer-empty-control  | 3     | 3    | after  | after                   | 43.750000186264515 | 0                  | 12.500000186264515 | 112.49999857197206 | 168.7499989445011  |
+| layer-empty-control  | 4     | 0    | before | before                  | 49.999999503294625 | 0                  | 18.750001055498917 | 106.24999925494194 | 174.99999981373549 |
+| layer-empty-control  | 4     | 1    | after  | after                   | 45.833333705862366 | 0                  | 16.666666294137638 | 99.99999931703012  | 162.49999931703013 |
+| layer-empty-control  | 4     | 2    | after  | after                   | 43.749999875823654 | 4.166666728754838  | 2.08333320915699   | 87.4999991307656   | 137.4999989445011  |
+| layer-empty-control  | 4     | 3    | before | before                  | 70.83333469927311  | 2.0833335195978484 | 22.916666542490322 | 145.83333240201077 | 241.66666716337204 |
+| layer-empty-control  | 5     | 0    | after  | after                   | 58.33333358168602  | 4.166666728754838  | 20.833332712451618 | 129.16666797051826 | 212.50000099341074 |
+| layer-empty-control  | 5     | 1    | before | before                  | 70.83333128442366  | 4.166666728754838  | 12.499999875823656 | 154.16666772216558 | 241.66666561116773 |
+| layer-empty-control  | 5     | 2    | before | before                  | 68.75000055879354  | 0                  | 14.583333084980646 | 133.33333314706883 | 216.666666790843   |
+| layer-empty-control  | 5     | 3    | after  | after                   | 49.999999813735485 | 0                  | 8.333333147068819  | 127.08333196739356 | 185.41666492819786 |
+
+### 完整候選與可重建fixtures
+
+candidate.ts是未採用的正式layout提案，不是目前source。prepare-fixture.mjs讀baseline committed source與candidate，建立同class雙實作；已實際用不同輸出directory重建，cmp與量測shared-particles.mjs逐byte一致。TS target/module為ES2022，使用repo singleQuote/trailingComma。沒有prototype per-sample改寫；clone tuples只在constructor建立，timing前已warm，不主張它們在正式候選也存在。
+
+本輪所有數值/native/CPU gates首次執行即通過，沒有新增engine workaround或壓制validation。保留Vite既有OPM dynamic-import analysis warning，沒有vendor/audio修改或解鎖認證。所有fixtures先格式化；CPU期間沒有其他formatter/tests/build/profile或自啟host工作。page.evaluate為classic callback，只有此邊界內dynamic imports。所有/tmp fixtures完成後移除。
+
+#### candidate.ts
+
+```ts
+import {
+  AssetError,
+  type Texture2DSource,
+  type TextureView2D,
+} from '../../../assets/src/index.js';
+import type { Matrix3 } from '../../../math/src/index.js';
+import { world2dLimits } from '../../../../src/data/world2d.js';
+import { rendering2dLimits } from '../../../../src/data/rendering2d.js';
+import { Group2D } from '../gameplay/group2d.js';
+import {
+  validateSource,
+  type ColorRGBA,
+  type Rect2D,
+} from '../gameplay/contracts.js';
+import { Sprite, type SpriteOptions } from '../sprite.js';
+import {
+  ParticleLayer2D,
+  type ParticleOptions2D,
+  type ParticleSource2D,
+  type ParticleTransform2D,
+} from './particle-layer2d.js';
+export { ParticleLayer2D, ParticleAttribute2D } from './particle-layer2d.js';
+export type {
+  ParticleLayer2DOptions,
+  ParticleOptions2D,
+  ParticleSource2D,
+  ParticleTransform2D,
+  ParticleSlot2D,
+} from './particle-layer2d.js';
+
+export type ParticleNozzle =
+  | { kind: 'point' }
+  | { kind: 'rectangle'; width: number; height: number }
+  | { kind: 'circle'; radius: number };
+
+export interface ParticleEmitterOptions {
+  texture?: Texture2DSource;
+  view?: TextureView2D;
+  /** Empty detached layer attached as a child; otherwise use the ordinary Sprite pool. */
+  target?: ParticleLayer2D;
+  source?: Rect2D;
+  capacity: number;
+  rate: number;
+  lifetime: readonly [number, number];
+  speed: readonly [number, number];
+  angle: readonly [number, number];
+  acceleration?: readonly [number, number];
+  /** Logical width and height, not a random range or replacement source size. */
+  startSize: readonly [number, number];
+  endSize: readonly [number, number];
+  startColor: ColorRGBA;
+  endColor: ColorRGBA;
+  nozzle?: ParticleNozzle;
+  seed?: number;
+  /** Simulation coordinates; independent of inherited world/screen rendering space. */
+  space?: 'local' | 'world';
+}
+
+function pair(
+  value: readonly [number, number],
+  name: string,
+  minimum = -Infinity,
+): [number, number] {
+  if (
+    value.length !== 2 ||
+    !value.every((n) => Number.isFinite(n) && n >= minimum)
+  )
+    throw new RangeError(
+      `${name} must contain two finite values >= ${minimum}.`,
+    );
+  return [value[0], value[1]];
+}
+function range(
+  value: readonly [number, number],
+  name: string,
+  minimum = -Infinity,
+): [number, number] {
+  const result = pair(value, name, minimum);
+  if (result[1] < result[0])
+    throw new RangeError(`${name} must be an ordered range.`);
+  return result;
+}
+function color(
+  value: ColorRGBA,
+  name: string,
+): [number, number, number, number] {
+  if (
+    value.length !== 4 ||
+    !value.every((n) => Number.isFinite(n) && n >= 0 && n <= 1)
+  )
+    throw new RangeError(`${name} must contain four channels between 0 and 1.`);
+  return [value[0], value[1], value[2], value[3]];
+}
+
+/** Local particles inherit ordinary Sprite composition and its presentation reuse. */
+class ParticleSprite extends Sprite {
+  // GameObject retains this tuple. Validated interpolation writes it in place instead
+  // of invoking the public validating setter (and allocating callbacks) each tick.
+  readonly particleColor = this.tint as [number, number, number, number];
+  // The transform's own vectors, held here so the per-tick update skips the getter chain.
+  readonly place = this.position;
+  readonly extent = this.scale;
+
+  constructor(options: SpriteOptions) {
+    super(options);
+    this.renderEnabled = false;
+    this.visible = false;
+  }
+}
+
+/** World births retain their affine axes independently of subsequent ancestor motion. */
+class WorldParticleSprite extends ParticleSprite {
+  private axisXX = 1;
+  private axisXY = 0;
+  private axisYX = 0;
+  private axisYY = 1;
+
+  retainAxes(matrix: Matrix3): void {
+    const e = matrix.elements;
+    this.axisXX = e[0];
+    this.axisXY = e[1];
+    this.axisYX = e[3];
+    this.axisYY = e[4];
+  }
+
+  override updateWorldMatrix(): Matrix3 {
+    const e = this.worldMatrix.elements,
+      scale = this.extent,
+      position = this.place;
+    e[0] = this.axisXX * scale.x;
+    e[1] = this.axisXY * scale.x;
+    e[2] = 0;
+    e[3] = this.axisYX * scale.y;
+    e[4] = this.axisYY * scale.y;
+    e[5] = 0;
+    e[6] = position.x;
+    e[7] = position.y;
+    e[8] = 1;
+    return this.worldMatrix;
+  }
+}
+
+const STRIDE = 8;
+const X = 0,
+  Y = 1,
+  VX = 2,
+  VY = 3,
+  AX = 4,
+  AY = 5,
+  AGE = 6,
+  LIFE = 7;
+
+/** Bounded CPU simulation with a borrowed source and a fixed Sprite or layer pool. */
+export class ParticleEmitter extends Group2D {
+  private readonly simulationSpace: 'local' | 'world';
+  private readonly pool: ParticleSprite[] = [];
+  private state: Float64Array;
+  private active: Int32Array;
+  private free: Int32Array;
+  private freeCount: number;
+  private count = 0;
+  private running = false;
+  private fraction = 0;
+  private spriteWidth = 1;
+  private spriteHeight = 1;
+  /** The source `writeTargetAppearance` last measured and its size; cleared every tick. */
+  private sizeTexture: Texture2DSource | undefined;
+  private sizeView: ParticleSource2D['view'];
+  private sizeSource: ParticleSource2D['source'];
+  private sizeWidth = 1;
+  private sizeHeight = 1;
+  private randomState: number;
+  private readonly rate: number;
+  private readonly lifetime: [number, number];
+  private readonly speed: [number, number];
+  private readonly angle: [number, number];
+  private readonly acceleration: [number, number];
+  private readonly startSize: [number, number];
+  private readonly sizeSpan: [number, number];
+  private readonly startColor: ColorRGBA;
+  private readonly colorSpan: [number, number, number, number];
+  private readonly nozzle: ParticleNozzle;
+  private readonly target: ParticleLayer2D | undefined;
+  private readonly capacity: number;
+  private readonly targetSlots: Int32Array;
+  private readonly targetGenerations: Float64Array;
+  private readonly birthAxes: Float64Array;
+  private readonly birthOptions: ParticleOptions2D & {
+    texture: Texture2DSource;
+  };
+  private readonly particleTransform: ParticleTransform2D = {
+    a: 1,
+    b: 0,
+    c: 0,
+    d: 1,
+    tx: 0,
+    ty: 0,
+  };
+  private readonly particleTint: [number, number, number, number] = [
+    1, 1, 1, 1,
+  ];
+
+  constructor(options: ParticleEmitterOptions) {
+    super();
+    const capacityLimit = options.target
+      ? rendering2dLimits.particleCapacity
+      : world2dLimits.particles;
+    if (
+      !Number.isSafeInteger(options.capacity) ||
+      options.capacity < 1 ||
+      options.capacity > capacityLimit
+    )
+      throw new RangeError(
+        `capacity must be an integer between 1 and ${capacityLimit}.`,
+      );
+    if (!Number.isFinite(options.rate) || options.rate < 0)
+      throw new RangeError('rate must be finite and nonnegative.');
+    this.rate = options.rate;
+    this.lifetime = range(options.lifetime, 'lifetime', 0);
+    if (this.lifetime[0] === 0)
+      throw new RangeError('lifetime must be positive.');
+    this.speed = range(options.speed, 'speed', 0);
+    this.angle = range(options.angle, 'angle');
+    this.acceleration = pair(options.acceleration ?? [0, 0], 'acceleration');
+    this.startSize = pair(options.startSize, 'startSize', 0);
+    this.sizeSpan = pair(options.endSize, 'endSize', 0);
+    this.sizeSpan[0] -= this.startSize[0];
+    this.sizeSpan[1] -= this.startSize[1];
+    this.startColor = color(options.startColor, 'startColor');
+    this.colorSpan = color(options.endColor, 'endColor');
+    for (let i = 0; i < 4; i++) this.colorSpan[i] -= this.startColor[i];
+    this.simulationSpace = options.space ?? 'local';
+    if (this.simulationSpace !== 'local' && this.simulationSpace !== 'world')
+      throw new RangeError('Unknown particle simulation space.');
+    const seed = options.seed ?? 0;
+    if (!Number.isSafeInteger(seed))
+      throw new RangeError('seed must be a safe integer.');
+    this.randomState = seed >>> 0;
+    const nozzle = options.nozzle ?? { kind: 'point' };
+    switch (nozzle.kind) {
+      case 'point':
+        this.nozzle = { kind: 'point' };
+        break;
+      case 'rectangle': {
+        pair([nozzle.width, nozzle.height], 'rectangle dimensions', 0);
+        this.nozzle = {
+          kind: 'rectangle',
+          width: nozzle.width,
+          height: nozzle.height,
+        };
+        break;
+      }
+      case 'circle': {
+        if (!Number.isFinite(nozzle.radius) || nozzle.radius < 0)
+          throw new RangeError('nozzle radius must be finite and nonnegative.');
+        this.nozzle = { kind: 'circle', radius: nozzle.radius };
+        break;
+      }
+      default:
+        throw new RangeError('Unknown particle nozzle.');
+    }
+    const texture = options.texture ?? options.view?.source;
+    if (!texture || texture.destroyed)
+      throw new AssetError(
+        'Cannot use a destroyed or missing Texture for particles.',
+      );
+    if (options.view && (options.view.source !== texture || options.source))
+      throw new RangeError(
+        'Particle view conflicts with texture or source rectangle.',
+      );
+    options.view?.validate();
+    if (options.source)
+      validateSource(options.source, texture.width, texture.height);
+    if (
+      options.target &&
+      (options.target.destroyed ||
+        options.target.parent ||
+        options.target.scene ||
+        options.target.activeCount ||
+        options.target.capacity !== options.capacity)
+    )
+      throw new RangeError(
+        'Particle target must be an empty detached layer with matching capacity.',
+      );
+    this.capacity = options.capacity;
+    this.target = options.target;
+    this.targetSlots = new Int32Array(this.target ? options.capacity : 0).fill(
+      -1,
+    );
+    this.targetGenerations = new Float64Array(
+      this.target ? options.capacity : 0,
+    );
+    this.birthAxes = new Float64Array(
+      this.target && this.simulationSpace === 'world'
+        ? options.capacity * 4
+        : 0,
+    );
+    this.birthOptions = Object.freeze({
+      texture,
+      view: options.view,
+      source: options.source ? Object.freeze({ ...options.source }) : undefined,
+      transform: this.particleTransform,
+      tint: this.particleTint,
+    });
+    this.state = new Float64Array(options.capacity * STRIDE);
+    this.active = new Int32Array(options.capacity);
+    this.free = new Int32Array(options.capacity);
+    this.freeCount = options.capacity;
+    const SpriteType = this.target
+      ? undefined
+      : this.simulationSpace === 'world'
+        ? WorldParticleSprite
+        : ParticleSprite;
+    for (let i = 0; i < options.capacity; i++) {
+      if (SpriteType)
+        this.pool.push(
+          this.add(
+            new SpriteType({
+              texture,
+              view: options.view,
+              source: options.source,
+            }),
+          ),
+        );
+      this.free[i] = options.capacity - i - 1;
+    }
+    if (this.target) this.add(this.target);
+  }
+
+  get activeCount(): number {
+    return this.count;
+  }
+  get emitting(): boolean {
+    return this.running;
+  }
+
+  start(): void {
+    this.assertAlive();
+    this.running = true;
+  }
+  stop(): void {
+    this.running = false;
+  }
+
+  emit(count: number): void {
+    this.assertAlive();
+    if (!Number.isSafeInteger(count) || count < 0)
+      throw new RangeError(
+        'Particle count must be a nonnegative safe integer.',
+      );
+    const accepted = Math.min(
+      count,
+      this.freeCount,
+      this.target?.availableCount ?? this.capacity,
+    );
+    if (accepted === 0) return;
+    this.validateBirthSource();
+    this.refreshSpriteSize();
+    const matrix =
+      this.simulationSpace === 'world'
+        ? this.updateWorldMatrix()
+        : this.worldMatrix;
+    for (let i = 0; i < accepted; i++) this.spawn(matrix);
+  }
+
+  clear(): void {
+    for (let i = 0; i < this.count; i++) {
+      const slot = this.active[i];
+      if (this.target) this.releaseTargetSlot(slot);
+      else {
+        const particle = this.pool[slot];
+        particle.renderEnabled = false;
+        particle.visible = false;
+      }
+    }
+    this.count = 0;
+    this.freeCount = this.destroyed ? 0 : this.capacity;
+    for (let i = 0; i < this.freeCount; i++)
+      this.free[i] = this.freeCount - i - 1;
+    this.fraction = 0;
+  }
+
+  /** @internal Scene invokes this after physics, never through object.update(). */
+  updateSimulation(dt: number): void {
+    if (this.destroyed) return;
+    if (this.target?.destroyed) {
+      this.running = false;
+      this.clear();
+      return;
+    }
+    if (!Number.isFinite(dt) || dt < 0)
+      throw new RangeError('Particle delta must be finite and nonnegative.');
+    if (dt === 0) return;
+    this.refreshSpriteSize();
+    if (this.target) {
+      let i = 0;
+      while (i < this.count) {
+        if (this.advance(this.active[i], dt)) i++;
+        else this.retire(i);
+      }
+    } else this.advanceSprites(dt);
+    if (!this.running || this.rate === 0) return;
+    const previousFraction = this.fraction;
+    const total = previousFraction + this.rate * dt;
+    const births = Math.floor(total);
+    this.fraction = Number.isFinite(total) ? total - births : 0;
+    // Never queue overflow or iterate once per requested birth. Even enormous dt
+    // consumes at most capacity births; accepted newborns age within this tick.
+    const accepted = Math.min(
+      births,
+      this.freeCount,
+      this.target?.availableCount ?? this.capacity,
+    );
+    if (accepted === 0) return;
+    this.validateBirthSource();
+    const matrix =
+      this.simulationSpace === 'world'
+        ? this.updateWorldMatrix()
+        : this.worldMatrix;
+    for (let j = 0; j < accepted; j++) {
+      const slot = this.spawn(matrix);
+      const elapsed = Math.max(0, dt - (1 - previousFraction + j) / this.rate);
+      if (!this.advance(slot, elapsed)) this.retire(this.count - 1);
+    }
+  }
+
+  /**
+   * `advance` for every active pool Sprite with the emitter's constants held in locals; the
+   * expressions (and so every float result) are those of `advance` and `appearance`.
+   */
+  private advanceSprites(dt: number): void {
+    if (this.count === 0) return;
+    const state = this.state,
+      active = this.active,
+      pool = this.pool;
+    const startWidth = this.startSize[0],
+      startHeight = this.startSize[1];
+    const widthSpan = this.sizeSpan[0],
+      heightSpan = this.sizeSpan[1];
+    const width = this.spriteWidth,
+      height = this.spriteHeight;
+    const red = this.startColor[0],
+      green = this.startColor[1],
+      blue = this.startColor[2],
+      alpha = this.startColor[3];
+    const redSpan = this.colorSpan[0],
+      greenSpan = this.colorSpan[1],
+      blueSpan = this.colorSpan[2],
+      alphaSpan = this.colorSpan[3];
+    let i = 0;
+    while (i < this.count) {
+      const slot = active[i];
+      const base = slot * STRIDE;
+      const age = state[base + AGE] + dt;
+      const life = state[base + LIFE];
+      if (age >= life) {
+        this.retire(i);
+        continue;
+      }
+      state[base + AGE] = age;
+      const ax = state[base + AX],
+        ay = state[base + AY];
+      const x = (state[base + X] += state[base + VX] * dt + ax * dt * dt * 0.5);
+      const y = (state[base + Y] += state[base + VY] * dt + ay * dt * dt * 0.5);
+      state[base + VX] += ax * dt;
+      state[base + VY] += ay * dt;
+      const particle = pool[slot];
+      particle.place.set(x, y);
+      const progress = age / life;
+      particle.extent.set(
+        (startWidth + widthSpan * progress) / width,
+        (startHeight + heightSpan * progress) / height,
+      );
+      const color = particle.particleColor;
+      color[0] = red + redSpan * progress;
+      color[1] = green + greenSpan * progress;
+      color[2] = blue + blueSpan * progress;
+      color[3] = alpha + alphaSpan * progress;
+      i++;
+    }
+  }
+
+  override destroy(): void {
+    if (this.destroyed) return;
+    this.running = false;
+    this.clear();
+    try {
+      super.destroy();
+    } finally {
+      this.pool.length = 0;
+      this.freeCount = 0;
+      this.state = new Float64Array(0);
+      this.active = new Int32Array(0);
+      this.free = new Int32Array(0);
+    }
+  }
+
+  private assertAlive(): void {
+    if (this.destroyed)
+      throw new Error('Cannot emit from a destroyed ParticleEmitter.');
+  }
+
+  private validateBirthSource(): void {
+    const source = this.birthOptions;
+    if (source.texture.destroyed)
+      throw new AssetError('Cannot emit from a destroyed particle source.');
+    source.view?.validate();
+    if (source.source)
+      validateSource(
+        source.source,
+        source.texture.width,
+        source.texture.height,
+      );
+  }
+  private random(): number {
+    let n = (this.randomState = (this.randomState + 0x6d2b79f5) >>> 0);
+    n = Math.imul(n ^ (n >>> 15), n | 1);
+    n ^= n + Math.imul(n ^ (n >>> 7), n | 61);
+    return ((n ^ (n >>> 14)) >>> 0) / 4294967296;
+  }
+  private sample(range: readonly [number, number]): number {
+    return range[0] + (range[1] - range[0]) * this.random();
+  }
+
+  private spawn(matrix: Matrix3): number {
+    const slot = this.free[this.freeCount - 1];
+    const base = slot * STRIDE;
+    const particle = this.pool[slot];
+    const randomState = this.randomState;
+    let x = 0,
+      y = 0;
+    if (this.nozzle.kind === 'rectangle') {
+      x = (this.random() - 0.5) * this.nozzle.width;
+      y = (this.random() - 0.5) * this.nozzle.height;
+    } else if (this.nozzle.kind === 'circle') {
+      const angle = this.random() * Math.PI * 2;
+      const radius = Math.sqrt(this.random()) * this.nozzle.radius;
+      x = Math.cos(angle) * radius;
+      y = Math.sin(angle) * radius;
+    }
+    const speed = this.sample(this.speed);
+    const angle = this.sample(this.angle);
+    let vx = Math.cos(angle) * speed,
+      vy = Math.sin(angle) * speed;
+    let ax = this.acceleration[0],
+      ay = this.acceleration[1];
+    if (this.simulationSpace === 'world') {
+      const e = matrix.elements;
+      const wx = e[0] * x + e[3] * y + e[6];
+      y = e[1] * x + e[4] * y + e[7];
+      x = wx;
+      const wvx = e[0] * vx + e[3] * vy;
+      vy = e[1] * vx + e[4] * vy;
+      vx = wvx;
+      const wax = e[0] * ax + e[3] * ay;
+      ay = e[1] * ax + e[4] * ay;
+      ax = wax;
+      if (this.target) {
+        const axis = slot * 4;
+        this.birthAxes[axis] = e[0];
+        this.birthAxes[axis + 1] = e[1];
+        this.birthAxes[axis + 2] = e[3];
+        this.birthAxes[axis + 3] = e[4];
+      } else (particle as WorldParticleSprite).retainAxes(matrix);
+    }
+    const lifetime = this.sample(this.lifetime);
+    if (this.target) {
+      this.writeTargetAppearance(slot, 0, x, y, this.birthOptions);
+      let targetSlot: number;
+      try {
+        targetSlot = this.target.addParticle(this.birthOptions);
+      } catch (error) {
+        this.randomState = randomState;
+        throw error;
+      }
+      if (targetSlot < 0) {
+        this.randomState = randomState;
+        throw new Error('Particle target capacity changed during emission.');
+      }
+      this.targetSlots[slot] = targetSlot;
+      this.targetGenerations[slot] = this.target.getSlot(targetSlot).generation;
+    }
+    this.freeCount--;
+    this.active[this.count++] = slot;
+    this.state[base + X] = x;
+    this.state[base + Y] = y;
+    this.state[base + VX] = vx;
+    this.state[base + VY] = vy;
+    this.state[base + AX] = ax;
+    this.state[base + AY] = ay;
+    this.state[base + AGE] = 0;
+    this.state[base + LIFE] = lifetime;
+    if (!this.target) {
+      particle.place.set(x, y);
+      particle.rotation = 0;
+      particle.opacity = 1;
+      particle.visible = true;
+      particle.renderEnabled = true;
+      this.appearance(particle, 0);
+    }
+    return slot;
+  }
+
+  private advance(slot: number, dt: number): boolean {
+    if (this.target && !this.hasTargetSlot(slot)) return false;
+    const base = slot * STRIDE;
+    const age = this.state[base + AGE] + dt;
+    if (age >= this.state[base + LIFE]) return false;
+    this.state[base + AGE] = age;
+    this.state[base + X] +=
+      this.state[base + VX] * dt + this.state[base + AX] * dt * dt * 0.5;
+    this.state[base + Y] +=
+      this.state[base + VY] * dt + this.state[base + AY] * dt * dt * 0.5;
+    this.state[base + VX] += this.state[base + AX] * dt;
+    this.state[base + VY] += this.state[base + AY] * dt;
+    if (this.target) this.targetAppearance(slot, age / this.state[base + LIFE]);
+    else {
+      const particle = this.pool[slot];
+      particle.place.set(this.state[base + X], this.state[base + Y]);
+      this.appearance(particle, age / this.state[base + LIFE]);
+    }
+    return true;
+  }
+
+  /** Every pool Sprite borrows the emitter's own source, so its size is one per-tick value. */
+  private refreshSpriteSize(): void {
+    // Sizes may change between ticks, so the per-slot size memo never outlives one.
+    this.sizeTexture = undefined;
+    const particle = this.birthOptions;
+    this.spriteWidth =
+      particle.view?.width ??
+      particle.source?.width ??
+      (particle.texture.kind === 'render'
+        ? particle.texture.logicalWidth
+        : particle.texture.width);
+    this.spriteHeight =
+      particle.view?.height ??
+      particle.source?.height ??
+      (particle.texture.kind === 'render'
+        ? particle.texture.logicalHeight
+        : particle.texture.height);
+  }
+
+  private appearance(particle: ParticleSprite, progress: number): void {
+    particle.extent.set(
+      (this.startSize[0] + this.sizeSpan[0] * progress) / this.spriteWidth,
+      (this.startSize[1] + this.sizeSpan[1] * progress) / this.spriteHeight,
+    );
+    const color = particle.particleColor;
+    for (let i = 0; i < 4; i++)
+      color[i] = this.startColor[i] + this.colorSpan[i] * progress;
+  }
+
+  private hasTargetSlot(slot: number): boolean {
+    const targetSlot = this.targetSlots[slot];
+    return (
+      !!this.target &&
+      !this.target.destroyed &&
+      this.target.hasSlot(targetSlot) &&
+      this.target.liveSlot(targetSlot).generation ===
+        this.targetGenerations[slot]
+    );
+  }
+  private releaseTargetSlot(slot: number): void {
+    if (this.hasTargetSlot(slot))
+      this.target!.removeSlot(this.targetSlots[slot]);
+    this.targetSlots[slot] = -1;
+  }
+  /** Only `advance` calls this, right after `hasTargetSlot` confirmed the slot live. */
+  private targetAppearance(slot: number, progress: number): void {
+    const target = this.target!;
+    const index = this.targetSlots[slot];
+    this.writeTargetAppearance(
+      slot,
+      progress,
+      this.state[slot * STRIDE + X],
+      this.state[slot * STRIDE + Y],
+      target.liveSlot(index),
+    );
+    target.setLiveAppearance(index, this.particleTransform, this.particleTint);
+  }
+  private writeTargetAppearance(
+    slot: number,
+    progress: number,
+    x: number,
+    y: number,
+    particle: ParticleSource2D & { texture: Texture2DSource },
+  ): void {
+    // Particles of a tick nearly always share one source, so its size is read once.
+    const texture = particle.texture,
+      view = particle.view,
+      source = particle.source;
+    if (
+      texture !== this.sizeTexture ||
+      view !== this.sizeView ||
+      source !== this.sizeSource
+    ) {
+      this.sizeWidth =
+        view?.width ??
+        source?.width ??
+        (texture.kind === 'render' ? texture.logicalWidth : texture.width);
+      this.sizeHeight =
+        view?.height ??
+        source?.height ??
+        (texture.kind === 'render' ? texture.logicalHeight : texture.height);
+      this.sizeTexture = texture;
+      this.sizeView = view;
+      this.sizeSource = source;
+    }
+    const startSize = this.startSize,
+      sizeSpan = this.sizeSpan;
+    const sx = (startSize[0] + sizeSpan[0] * progress) / this.sizeWidth;
+    const sy = (startSize[1] + sizeSpan[1] * progress) / this.sizeHeight;
+    const transform = this.particleTransform;
+    if (this.simulationSpace === 'world') {
+      const axis = slot * 4,
+        axes = this.birthAxes;
+      transform.a = axes[axis] * sx;
+      transform.b = axes[axis + 1] * sx;
+      transform.c = axes[axis + 2] * sy;
+      transform.d = axes[axis + 3] * sy;
+      transform.space = 'world';
+    } else {
+      transform.a = sx;
+      transform.b = 0;
+      transform.c = 0;
+      transform.d = sy;
+      transform.space = 'local';
+    }
+    transform.tx = x;
+    transform.ty = y;
+    const start = this.startColor,
+      span = this.colorSpan,
+      tint = this.particleTint;
+    tint[0] = start[0] + span[0] * progress;
+    tint[1] = start[1] + span[1] * progress;
+    tint[2] = start[2] + span[2] * progress;
+    tint[3] = start[3] + span[3] * progress;
+  }
+
+  private retire(index: number): void {
+    const slot = this.active[index];
+    if (this.target) this.releaseTargetSlot(slot);
+    else {
+      const particle = this.pool[slot];
+      particle.visible = false;
+      particle.renderEnabled = false;
+    }
+    this.free[this.freeCount++] = slot;
+    this.active[index] = this.active[--this.count];
+  }
+}
+```
+
+#### prepare-fixture.mjs
+
+```js
+import fs from 'node:fs';
+import ts from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/typescript/lib/typescript.js';
+import * as prettier from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/prettier/index.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = process.argv[2] ?? '/tmp/xyz-p274',
+  inputDirectory = process.argv[3] ?? '/tmp/xyz-p274';
+const config = { singleQuote: true, trailingComma: 'all' };
+function once(text, old, next) {
+  if (text.split(old).length !== 2) throw Error('Expected one source region');
+  return text.replace(old, next);
+}
+let source = fs.readFileSync(
+  root + '/packages/core/src/particles2d/index.ts',
+  'utf8',
+);
+const candidate = fs.readFileSync(inputDirectory + '/candidate.ts', 'utf8');
+source = once(
+  source,
+  '  private readonly endColor: ColorRGBA;',
+  '  private readonly endColor: ColorRGBA;\n  private readonly sizeSpan: [number, number];\n  private readonly colorSpan: [number, number, number, number];',
+);
+source = once(
+  source,
+  "    this.endColor = color(options.endColor, 'endColor');",
+  "    this.endColor = color(options.endColor, 'endColor');\n    // The measured fixture retains both endpoint and delta tuples for one class.\n    this.sizeSpan = this.endSize.slice() as [number, number];\n    this.sizeSpan[0] -= this.startSize[0];\n    this.sizeSpan[1] -= this.startSize[1];\n    this.colorSpan = this.endColor.slice() as [number, number, number, number];\n    for (let i = 0; i < 4; i++) this.colorSpan[i] -= this.startColor[i];",
+);
+const methods = [];
+for (const name of ['advanceSprites', 'appearance', 'writeTargetAppearance']) {
+  const start = candidate.indexOf('  private ' + name + '('),
+    ends = ['\n  private ', '\n  override ']
+      .map((marker) => candidate.indexOf(marker, start + 1))
+      .filter((i) => i > start);
+  if (start < 0 || !ends.length) throw Error('Missing method ' + name);
+  methods.push(
+    candidate
+      .slice(start, Math.min(...ends))
+      .replace('private ' + name + '(', 'private ' + name + 'After274('),
+  );
+}
+const end = source.lastIndexOf('\n}');
+source =
+  source.slice(0, end) +
+  '\n' +
+  methods.join('\n') +
+  source.slice(end) +
+  "\ntype Advance274 = (dt: number) => void;\ntype Appearance274 = (particle: ParticleSprite, progress: number) => void;\ntype Write274 = (slot: number, progress: number, x: number, y: number, particle: ParticleSource2D & {texture: Texture2DSource}) => void;\nconst methods274 = ParticleEmitter.prototype as unknown as {advanceSprites: Advance274; appearance: Appearance274; writeTargetAppearance: Write274; advanceSpritesAfter274?: Advance274; appearanceAfter274?: Appearance274; writeTargetAppearanceAfter274?: Write274;};\nconst beforeAdvance274 = methods274.advanceSprites, afterAdvance274 = methods274.advanceSpritesAfter274!;\nconst beforeAppearance274 = methods274.appearance, afterAppearance274 = methods274.appearanceAfter274!;\nconst beforeWrite274 = methods274.writeTargetAppearance, afterWrite274 = methods274.writeTargetAppearanceAfter274!;\ndelete methods274.advanceSpritesAfter274;delete methods274.appearanceAfter274;delete methods274.writeTargetAppearanceAfter274;\nlet advance274 = beforeAdvance274, appearance274 = beforeAppearance274, write274 = beforeWrite274;\nmethods274.advanceSprites = function(this: ParticleEmitter, dt: number): void {advance274.call(this,dt);};\nmethods274.appearance = function(this: ParticleEmitter, particle: ParticleSprite, progress: number): void {appearance274.call(this,particle,progress);};\nmethods274.writeTargetAppearance = function(this: ParticleEmitter, slot: number, progress: number, x: number, y: number, particle: ParticleSource2D & {texture: Texture2DSource}): void {write274.call(this,slot,progress,x,y,particle);};\nexport function setParticleVariant274(side: 'before' | 'after'): void {const after=side==='after';advance274=after?afterAdvance274:beforeAdvance274;appearance274=after?afterAppearance274:beforeAppearance274;write274=after?afterWrite274:beforeWrite274;}\nexport function getParticleVariant274(): string {if(advance274===beforeAdvance274&&appearance274===beforeAppearance274&&write274===beforeWrite274)return 'before';if(advance274===afterAdvance274&&appearance274===afterAppearance274&&write274===afterWrite274)return 'after';throw Error('Mismatched particle visual methods');}\n";
+const emitted = ts.transpileModule(source, {
+  compilerOptions: {
+    target: ts.ScriptTarget.ES2022,
+    module: ts.ModuleKind.ES2022,
+  },
+}).outputText;
+fs.mkdirSync(directory, { recursive: true });
+fs.writeFileSync(
+  directory + '/shared-particles.mjs',
+  await prettier.format(emitted, { ...config, parser: 'babel' }),
+);
+console.log('Prepared one-class particle span fixture');
+```
+
+#### numeric.mjs
+
+```js
+import fs from 'node:fs';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p274';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5274, strictPort: true },
+  plugins: [
+    {
+      name: 'p274-shared-particle-methods',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (url.pathname === '/dist/packages/core/src/particles2d/index.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-particles.mjs'));
+            return;
+          }
+          if (url.pathname === '/p274-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Particle span validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+try {
+  await server.listen();
+  const launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+    }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5274/p274-game');
+  const proof = await page.evaluate(async () => {
+    // Classic browser callbacks require dynamic module loading.
+    const api = await import('/dist/src/index.js'),
+      control = await import('/dist/packages/core/src/particles2d/index.js');
+    const bitmap = await createImageBitmap(
+        new ImageData(new Uint8ClampedArray(16 * 16 * 4).fill(255), 16, 16),
+      ),
+      texture = new api.Texture(bitmap);
+    let numbers = 0,
+      cases = 0,
+      steps = 0;
+    const snapshots = [];
+    function snapshot(emitter, target) {
+      const values = [emitter.activeCount, emitter.emitting ? 1 : 0];
+      const bounds = emitter.getLocalBounds();
+      values.push(bounds.x, bounds.y, bounds.width, bounds.height);
+      if (target) {
+        values.push(target.version);
+        for (let i = 0; i < target.activeCount; i++) {
+          const index = target.activeSlotAt(i),
+            p = target.getSlot(index);
+          values.push(
+            index,
+            p.generation,
+            p.a,
+            p.b,
+            p.c,
+            p.d,
+            p.tx,
+            p.ty,
+            p.tintR,
+            p.tintG,
+            p.tintB,
+            p.tintA,
+            p.anchorX,
+            p.anchorY,
+            p.transformVersion,
+            p.tintVersion,
+            p.sourceVersion,
+            p.anchorVersion,
+            ...target.getSlotWorldMatrix(index, new api.Matrix3()).elements,
+          );
+        }
+      } else
+        for (const p of emitter.children)
+          if (p instanceof api.Sprite && p.renderEnabled)
+            values.push(
+              p.position.x,
+              p.position.y,
+              p.scale.x,
+              p.scale.y,
+              ...p.tint,
+              ...p.updateWorldMatrix().elements,
+            );
+      if (values.some((n) => !Number.isFinite(n)))
+        throw Error('Nonfinite successful particle snapshot');
+      return values;
+    }
+    function run(side, layer, space, style, nozzle, seed) {
+      control.setParticleVariant274(side);
+      const target = layer
+        ? new api.ParticleLayer2D({ capacity: 8 })
+        : undefined;
+      const startSize = style === 0 ? [8, 4] : style === 1 ? [2, 11] : [-0, 0],
+        endSize = style === 0 ? [8, 4] : style === 1 ? [13, 3] : [0, -0];
+      const startColor =
+          style === 0
+            ? [0.7, 0.2, 0.4, 0.8]
+            : style === 1
+              ? [0, 1, 0.2, 0.8]
+              : [-0, 0, -0, 0],
+        endColor =
+          style === 0
+            ? [0.7, 0.2, 0.4, 0.8]
+            : style === 1
+              ? [1, 0, 0.8, 0.2]
+              : [0, -0, 0, -0];
+      const supplied = [...startSize, ...endSize, ...startColor, ...endColor];
+      const emitter = new api.ParticleEmitter({
+        texture,
+        target,
+        capacity: 8,
+        rate: 2.5,
+        lifetime: [0.3, 2],
+        speed: [2, 18],
+        angle: [-2, 2],
+        acceleration: [4, -2],
+        startSize,
+        endSize,
+        startColor,
+        endColor,
+        seed,
+        nozzle,
+        space,
+        source: seed % 2 ? { x: -0, y: -0, width: 7, height: 5 } : undefined,
+      });
+      const after = [...startSize, ...endSize, ...startColor, ...endColor];
+      if (after.some((v, i) => !Object.is(v, supplied[i])))
+        throw Error('Constructor mutated caller-owned endpoints');
+      // Inputs are caller-owned copies, not a live reconfiguration channel.
+      startSize.fill(99);
+      endSize.fill(98);
+      startColor.fill(0.3);
+      endColor.fill(0.4);
+      const root = new api.Group2D();
+      root.position.set(40, -30);
+      root.rotation = 0.2;
+      root.scale.set(-1.25, 0.8);
+      root.add(emitter);
+      emitter.position.set(3, 4);
+      emitter.rotation = -0.1;
+      const result = [];
+      try {
+        emitter.emit(5);
+        emitter.start();
+        result.push(snapshot(emitter, target));
+        for (const dt of [0, 0.125, 0.2, 0.375, 0.05, 0.6, 0.8]) {
+          emitter.updateSimulation(dt);
+          root.position.x += 1;
+          result.push(snapshot(emitter, target));
+        }
+        emitter.stop();
+        emitter.clear();
+        emitter.emit(3);
+        emitter.updateSimulation(0.125);
+        result.push(snapshot(emitter, target));
+        if (control.getParticleVariant274() !== side)
+          throw Error('Wrong selected visual methods');
+        return result;
+      } finally {
+        root.destroy();
+        if (texture.destroyed)
+          throw Error('Emitter destroyed borrowed texture');
+      }
+    }
+    try {
+      for (const layer of [false, true])
+        for (const space of ['local', 'world'])
+          for (const style of [0, 1, 2])
+            for (const nozzle of [
+              { kind: 'point' },
+              { kind: 'rectangle', width: 12, height: 8 },
+              { kind: 'circle', radius: 6 },
+            ])
+              for (let seed = 0; seed < 8; seed++) {
+                const before = run('before', layer, space, style, nozzle, seed),
+                  after = run('after', layer, space, style, nozzle, seed);
+                if (before.length !== after.length)
+                  throw Error('Step count mismatch');
+                for (let step = 0; step < before.length; step++) {
+                  steps++;
+                  if (before[step].length !== after[step].length)
+                    throw Error('Snapshot length mismatch');
+                  before[step].forEach((n, i) => {
+                    numbers++;
+                    if (!Object.is(n, after[step][i]))
+                      throw Error(
+                        'Particle numeric mismatch ' +
+                          [
+                            layer,
+                            space,
+                            style,
+                            nozzle.kind,
+                            seed,
+                            step,
+                            i,
+                          ].join('/') +
+                          ': ' +
+                          n +
+                          ' / ' +
+                          after[step][i],
+                      );
+                  });
+                }
+                snapshots.push({
+                  layer,
+                  space,
+                  style,
+                  nozzle: nozzle.kind,
+                  seed,
+                  steps: before.length,
+                });
+                cases++;
+              }
+      return {
+        cases,
+        steps,
+        exactFiniteNumbers: numbers,
+        signedZeroCompared: true,
+        callerOwnedInputsUnchanged: true,
+        changingAndEqualEndpoints: true,
+        rateBirthsExpiryAndClearReemit: true,
+        nativeImageBitmap: bitmap instanceof ImageBitmap,
+        snapshots,
+      };
+    } finally {
+      texture.destroy();
+      if (bitmap.width !== 0) throw Error('Native bitmap not closed');
+    }
+  });
+  const result = {
+    browser: browserIdentity('chromium', browser, launch),
+    proof,
+    errors,
+    pureActualCoreObjects: true,
+    notAGpuRenderingProof: true,
+  };
+  fs.writeFileSync(directory + '/numeric.json', JSON.stringify(result));
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+#### native-sprite.mjs
+
+```js
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p274',
+  phase = process.env.P274_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5274, strictPort: true },
+  plugins: [
+    {
+      name: 'p274-shared-particle-methods',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (url.pathname === '/dist/packages/core/src/particles2d/index.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-particles.mjs'));
+            return;
+          }
+          if (url.pathname === '/p274-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Particle span validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+const tag = process.env.P274_TAG ?? phase;
+try {
+  await server.listen();
+  const backend = process.env.P274_BACKEND ?? 'webgl2',
+    launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({ viewport: { width: 256, height: 384 } }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5274/p274-game');
+  await page.evaluate(async () => {
+    // Classic page callbacks require dynamic module loading.
+    const apiShared = await import('/dist/src/index.js'),
+      controller = await import('/dist/packages/core/src/particles2d/index.js'),
+      apis = { before: apiShared, after: apiShared };
+    let fixtures = [];
+    globalThis.setupDynamic274 = async ({ backend, mode }) => {
+      document.body.replaceChildren();
+      fixtures = [];
+      for (const side of ['before', 'after']) {
+        controller.setParticleVariant274(side);
+        const api = apis[side],
+          canvas = document.createElement('canvas');
+        canvas.style.display = 'block';
+        document.body.append(canvas);
+        const pixels = new Uint8ClampedArray(16 * 16 * 4);
+        for (let y = 0; y < 16; y++)
+          for (let x = 0; x < 16; x++) {
+            const o = (y * 16 + x) * 4;
+            pixels[o] = x * 17;
+            pixels[o + 1] = y * 17;
+            pixels[o + 2] = (x ^ y) * 17;
+            pixels[o + 3] = 255;
+          }
+        const bitmap = await createImageBitmap(new ImageData(pixels, 16, 16)),
+          texture = new api.Texture(bitmap);
+        const view = mode.endsWith('rotated')
+            ? new api.TextureView2D(texture, {
+                frame: { x: 4, y: 2, width: 6, height: 4 },
+                rotation: 90,
+              })
+            : mode.endsWith('trimmed')
+              ? new api.TextureView2D(texture, {
+                  frame: { x: 2, y: 4, width: 6, height: 4 },
+                  originalSize: [12, 10],
+                  trim: { x: 3, y: 2, width: 6, height: 4 },
+                  resolution: 2,
+                })
+              : undefined,
+          source = mode.endsWith('source')
+            ? { x: -0, y: -0, width: 7, height: 5 }
+            : undefined;
+        let game,
+          complete,
+          runtimeError,
+          tick = 0;
+        const isolated = mode.endsWith('isolated') || mode.endsWith('nested');
+        class Shaken extends (isolated ? api.IsolatedGroup2D : api.Group2D) {
+          updateWorldMatrix() {
+            const matrix = super.updateWorldMatrix();
+            matrix.elements[6] += 2;
+            return matrix;
+          }
+        }
+        const rootGroup = new Shaken();
+        if (isolated) rootGroup.isolate = true;
+        const holder = mode.endsWith('nested')
+          ? rootGroup.add(new api.IsolatedGroup2D())
+          : rootGroup;
+        if (holder !== rootGroup) holder.isolate = true;
+        rootGroup.position.set(30, 20);
+        if (mode === 'local-screen') rootGroup.space = 'screen';
+        const emitter = holder.add(
+          new api.ParticleEmitter({
+            texture,
+            view,
+            source,
+            capacity: 32,
+            rate: 0,
+            lifetime: [1e6, 1e6],
+            speed: [0, 0],
+            angle: [0, 0],
+            acceleration: [0, 0],
+            startSize: [8, 6],
+            endSize: [8, 6],
+            startColor: [0.7, 0.2, 0.4, 0.8],
+            endColor: [0.7, 0.2, 0.4, 0.8],
+            seed: 17,
+            space: mode.startsWith('world') ? 'world' : 'local',
+            nozzle: { kind: 'rectangle', width: 24, height: 12 },
+          }),
+        );
+        emitter.position.set(80, 80);
+        emitter.emit(32);
+        let destroyCalls = 0;
+        let destroyListeners = 0;
+        const onDestroyed = (event) => {
+          if (
+            event.type !== 'destroy' ||
+            !(event.target instanceof api.GameObject)
+          )
+            throw Error('Invalid native destroy callback');
+          destroyCalls++;
+        };
+        for (const actor of emitter.children) {
+          actor.addEventListener('destroy', onDestroyed);
+          destroyListeners++;
+        }
+        const particles = [...emitter.children].filter(
+          (child) => child instanceof api.Sprite && child.renderEnabled,
+        );
+        if (particles.length !== 32)
+          throw Error('Missing ordinary Sprite pool');
+        if (mode === 'local-custom') {
+          const particle = particles[0],
+            original = particle.updateWorldMatrix;
+          particle.updateWorldMatrix = function () {
+            const matrix = original.call(this);
+            matrix.elements[6] += 3;
+            return matrix;
+          };
+        }
+        const finish = () => {
+          game.pause();
+          const callback = complete;
+          complete = undefined;
+          runtimeError
+            ? callback.reject(Error(runtimeError))
+            : callback.resolve();
+        };
+        class PosedScene extends api.Scene {
+          update() {
+            ++tick;
+            rootGroup.position.set(30 + tick, 20 - tick * 0.5);
+            rootGroup.rotation = tick * 0.02;
+            rootGroup.scale.set(1 + tick * 0.01, 0.8 + tick * 0.02);
+            rootGroup.opacity = 0.6 + tick * 0.01;
+            rootGroup.tint = [1, 1 - tick * 0.005, 0.8 + tick * 0.005, 1];
+            emitter.position.set(80 + tick * 0.4, 80 - tick * 0.3);
+            emitter.rotation = tick * 0.03;
+            this.camera2D.position.set(tick * 0.1, -tick * 0.15);
+            this.camera2D.zoom = 1 + tick * 0.01;
+            queueMicrotask(finish);
+          }
+        }
+        let scene = new PosedScene();
+        scene.add(rootGroup);
+        game = await api.Game.create({
+          canvas,
+          renderer: backend,
+          width: 256,
+          height: 192,
+          pixelRatio: 1,
+          autoResize: false,
+        });
+        game.addEventListener('error', (event) => {
+          runtimeError = event.detail?.stack ?? String(event.detail);
+        });
+        await game.setScene(scene);
+        const frame = () =>
+          new Promise((resolve, reject) => {
+            controller.setParticleVariant274(side);
+            complete = { resolve, reject };
+            game.start();
+          });
+        const snapshot = () => ({
+          tick,
+          active: emitter.activeCount,
+          particles: particles.map((p) => ({
+            place: [p.position.x, p.position.y],
+            scale: [p.scale.x, p.scale.y],
+            tint: Array.from(p.tint),
+            worldSpace: p.worldSpace,
+            matrix: Array.from(p.worldMatrix.elements),
+          })),
+        });
+        fixtures.push({
+          side,
+          game,
+          get scene() {
+            return scene;
+          },
+          rootGroup,
+          emitter,
+          destroyListeners,
+          get destroyCalls() {
+            return destroyCalls;
+          },
+          texture,
+          bitmap,
+          frame,
+          snapshot,
+          transfer: async () => {
+            scene.remove(rootGroup);
+            const next = new PosedScene();
+            next.add(rootGroup);
+            await game.setScene(next);
+            scene = next;
+          },
+        });
+      }
+      return {
+        mode,
+        backend,
+        visible: document.visibilityState,
+        nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+      };
+    };
+    globalThis.runDynamic274 = async (mode) => {
+      const snapshots = { before: [], after: [] };
+      for (const f of fixtures)
+        for (let frame = 0; frame < 12; frame++) {
+          if (mode === 'local-transfer' && frame === 6) await f.transfer();
+          await f.frame();
+          snapshots[f.side].push(f.snapshot());
+        }
+      let numbers = 0;
+      function equal(a, b, where) {
+        if (typeof a === 'number' && typeof b === 'number') {
+          numbers++;
+          if (!Object.is(a, b))
+            throw Error('Numeric mismatch at ' + where + ': ' + a + ' / ' + b);
+          return;
+        }
+        if (Array.isArray(a) && Array.isArray(b)) {
+          if (a.length !== b.length) throw Error('Array mismatch at ' + where);
+          a.forEach((value, index) =>
+            equal(value, b[index], where + '/' + index),
+          );
+          return;
+        }
+        if (a && b && typeof a === 'object' && typeof b === 'object') {
+          const keys = Object.keys(a);
+          if (keys.join(',') !== Object.keys(b).join(','))
+            throw Error('Key mismatch at ' + where);
+          for (const key of keys) equal(a[key], b[key], where + '/' + key);
+          return;
+        }
+        if (a !== b) throw Error('Value mismatch at ' + where);
+      }
+      equal(snapshots.before, snapshots.after, mode);
+      return {
+        snapshots: 12,
+        exactNumbers: numbers,
+        signedZeroCompared: true,
+        automaticGameFrames: true,
+      };
+    };
+    globalThis.cleanupDynamic274 = () => {
+      const rows = [];
+      for (const f of fixtures) {
+        f.game.destroy();
+        if (f.destroyCalls !== f.destroyListeners)
+          throw Error(
+            'Native destroy callback mismatch ' +
+              f.destroyCalls +
+              '/' +
+              f.destroyListeners,
+          );
+        if (f.texture.destroyed) throw Error('Borrowed Texture destroyed');
+        f.texture.destroy();
+        if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+        rows.push({
+          side: f.side,
+          gameState: f.game.state,
+          destroyListeners: f.destroyListeners,
+          destroyCallbacks: f.destroyCalls,
+          bitmapClosed: true,
+        });
+      }
+      fixtures = [];
+      return rows;
+    };
+  });
+  const reports = [];
+  for (const mode of [
+    'local',
+    'world',
+    'local-custom',
+    'local-screen',
+    'local-transfer',
+    'local-rotated',
+    'local-trimmed',
+    'local-source',
+    'local-isolated',
+    'world-isolated',
+    'local-nested',
+  ]) {
+    const setup = await page.evaluate(
+        (args) => globalThis.setupDynamic274(args),
+        { backend, mode },
+      ),
+      proof = await page.evaluate(
+        (mode) => globalThis.runDynamic274(mode),
+        mode,
+      ),
+      hashes = [];
+    for (let i = 0; i < 2; i++) {
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: i * 192, width: 256, height: 192 },
+        path:
+          directory +
+          '/' +
+          tag +
+          '-' +
+          backend +
+          '-' +
+          mode +
+          '-' +
+          (i === 0 ? 'before' : 'after') +
+          '.png',
+      });
+      if (!pngPixels(bytes).nonuniform)
+        throw Error('Blank native dynamic canvas');
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1])
+      throw Error('Dynamic Game pixels differ for ' + mode);
+    const cleanup = await page.evaluate(() => globalThis.cleanupDynamic274());
+    reports.push({ setup, proof, matchingPngSha256: hashes[0], cleanup });
+  }
+  const result = {
+    phase,
+    tag,
+    entryAfter: '/dist/src/index.js',
+    fixedParticleTrampolineSelection: true,
+    backend,
+    browser: browserIdentity('chromium', browser, launch),
+    reports,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + tag + '-' + backend + '-dynamic.json',
+    JSON.stringify(result),
+  );
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+#### native-layer.mjs
+
+```js
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p274',
+  phase = process.env.P274_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5274, strictPort: true },
+  plugins: [
+    {
+      name: 'p274-shared-particle-methods',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (url.pathname === '/dist/packages/core/src/particles2d/index.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-particles.mjs'));
+            return;
+          }
+          if (url.pathname === '/p274-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Particle span validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+const tag = process.env.P274_TAG ?? phase;
+try {
+  await server.listen();
+  const backend = process.env.P274_BACKEND ?? 'webgl2',
+    launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({ viewport: { width: 256, height: 384 } }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5274/p274-game');
+  await page.evaluate(async () => {
+    // Classic page callbacks require dynamic module loading.
+    const apiShared = await import('/dist/src/index.js'),
+      controller = await import('/dist/packages/core/src/particles2d/index.js'),
+      apis = { before: apiShared, after: apiShared };
+    let fixtures = [];
+    globalThis.setupDynamic274 = async ({ backend, mode }) => {
+      document.body.replaceChildren();
+      fixtures = [];
+      for (const side of ['before', 'after']) {
+        controller.setParticleVariant274(side);
+        const api = apis[side],
+          canvas = document.createElement('canvas');
+        canvas.style.display = 'block';
+        document.body.append(canvas);
+        const pixels = new Uint8ClampedArray(16 * 16 * 4);
+        for (let y = 0; y < 16; y++)
+          for (let x = 0; x < 16; x++) {
+            const o = (y * 16 + x) * 4;
+            pixels[o] = x * 17;
+            pixels[o + 1] = y * 17;
+            pixels[o + 2] = (x ^ y) * 17;
+            pixels[o + 3] = 255;
+          }
+        const bitmap = await createImageBitmap(new ImageData(pixels, 16, 16)),
+          texture = new api.Texture(bitmap);
+        const view = mode.endsWith('rotated')
+            ? new api.TextureView2D(texture, {
+                frame: { x: 4, y: 2, width: 6, height: 4 },
+                rotation: 90,
+              })
+            : mode.endsWith('trimmed')
+              ? new api.TextureView2D(texture, {
+                  frame: { x: 2, y: 4, width: 6, height: 4 },
+                  originalSize: [12, 10],
+                  trim: { x: 3, y: 2, width: 6, height: 4 },
+                  resolution: 2,
+                })
+              : undefined,
+          source = mode.endsWith('source')
+            ? { x: -0, y: -0, width: 7, height: 5 }
+            : undefined;
+        let game,
+          complete,
+          runtimeError,
+          tick = 0;
+        const isolated = mode.endsWith('isolated') || mode.endsWith('nested');
+        class Shaken extends (isolated ? api.IsolatedGroup2D : api.Group2D) {
+          updateWorldMatrix() {
+            const matrix = super.updateWorldMatrix();
+            matrix.elements[6] += 2;
+            return matrix;
+          }
+        }
+        const rootGroup = new Shaken();
+        if (isolated) rootGroup.isolate = true;
+        const holder = mode.endsWith('nested')
+          ? rootGroup.add(new api.IsolatedGroup2D())
+          : rootGroup;
+        if (holder !== rootGroup) holder.isolate = true;
+        rootGroup.position.set(30, 20);
+        if (mode === 'local-screen') rootGroup.space = 'screen';
+        const target = new api.ParticleLayer2D({ capacity: 32 });
+        const emitter = holder.add(
+          new api.ParticleEmitter({
+            texture,
+            view,
+            source,
+            target,
+            capacity: 32,
+            rate: 0,
+            lifetime: [1e6, 1e6],
+            speed: [0, 0],
+            angle: [0, 0],
+            acceleration: [0, 0],
+            startSize: [8, 6],
+            endSize: [8, 6],
+            startColor: [0.7, 0.2, 0.4, 0.8],
+            endColor: [0.7, 0.2, 0.4, 0.8],
+            seed: 17,
+            space: mode.startsWith('world') ? 'world' : 'local',
+            nozzle: { kind: 'rectangle', width: 24, height: 12 },
+          }),
+        );
+        emitter.position.set(80, 80);
+        emitter.emit(32);
+        let destroyCalls = 0;
+        let destroyListeners = 0;
+        const onDestroyed = (event) => {
+          if (
+            event.type !== 'destroy' ||
+            !(event.target instanceof api.GameObject)
+          )
+            throw Error('Invalid native destroy callback');
+          destroyCalls++;
+        };
+        for (const actor of emitter.children) {
+          actor.addEventListener('destroy', onDestroyed);
+          destroyListeners++;
+        }
+        if (target.activeCount !== 32) throw Error('Missing target particles');
+        if (mode === 'local-custom') {
+          const original = target.updateWorldMatrix;
+          target.updateWorldMatrix = function () {
+            const matrix = original.call(this);
+            matrix.elements[6] += 3;
+            return matrix;
+          };
+        }
+        const finish = () => {
+          game.pause();
+          const callback = complete;
+          complete = undefined;
+          runtimeError
+            ? callback.reject(Error(runtimeError))
+            : callback.resolve();
+        };
+        class PosedScene extends api.Scene {
+          update() {
+            ++tick;
+            rootGroup.position.set(30 + tick, 20 - tick * 0.5);
+            rootGroup.rotation = tick * 0.02;
+            rootGroup.scale.set(1 + tick * 0.01, 0.8 + tick * 0.02);
+            rootGroup.opacity = 0.6 + tick * 0.01;
+            rootGroup.tint = [1, 1 - tick * 0.005, 0.8 + tick * 0.005, 1];
+            emitter.position.set(80 + tick * 0.4, 80 - tick * 0.3);
+            emitter.rotation = tick * 0.03;
+            this.camera2D.position.set(tick * 0.1, -tick * 0.15);
+            this.camera2D.zoom = 1 + tick * 0.01;
+            queueMicrotask(finish);
+          }
+        }
+        let scene = new PosedScene();
+        scene.add(rootGroup);
+        game = await api.Game.create({
+          canvas,
+          renderer: backend,
+          width: 256,
+          height: 192,
+          pixelRatio: 1,
+          autoResize: false,
+        });
+        game.addEventListener('error', (event) => {
+          runtimeError = event.detail?.stack ?? String(event.detail);
+        });
+        await game.setScene(scene);
+        const frame = () =>
+          new Promise((resolve, reject) => {
+            controller.setParticleVariant274(side);
+            complete = { resolve, reject };
+            game.start();
+          });
+        const snapshot = () => ({
+          tick,
+          active: emitter.activeCount,
+          version: target.version,
+          localBounds: { ...target.getLocalBounds() },
+          worldBounds: { ...target.getWorldBounds() },
+          particles: Array.from({ length: target.activeCount }, (_, i) => {
+            const index = target.activeSlotAt(i),
+              p = target.getSlot(index);
+            return {
+              index,
+              generation: p.generation,
+              affine: [p.a, p.b, p.c, p.d, p.tx, p.ty],
+              tint: [p.tintR, p.tintG, p.tintB, p.tintA],
+              anchor: [p.anchorX, p.anchorY],
+              space: p.space,
+              versions: [
+                p.transformVersion,
+                p.tintVersion,
+                p.sourceVersion,
+                p.anchorVersion,
+              ],
+              matrix: Array.from(
+                target.getSlotWorldMatrix(index, new api.Matrix3()).elements,
+              ),
+            };
+          }),
+        });
+        fixtures.push({
+          side,
+          game,
+          get scene() {
+            return scene;
+          },
+          rootGroup,
+          emitter,
+          destroyListeners,
+          get destroyCalls() {
+            return destroyCalls;
+          },
+          texture,
+          bitmap,
+          frame,
+          snapshot,
+          transfer: async () => {
+            scene.remove(rootGroup);
+            const next = new PosedScene();
+            next.add(rootGroup);
+            await game.setScene(next);
+            scene = next;
+          },
+        });
+      }
+      return {
+        mode,
+        backend,
+        visible: document.visibilityState,
+        nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+      };
+    };
+    globalThis.runDynamic274 = async (mode) => {
+      const snapshots = { before: [], after: [] };
+      for (const f of fixtures)
+        for (let frame = 0; frame < 12; frame++) {
+          if (mode === 'local-transfer' && frame === 6) await f.transfer();
+          await f.frame();
+          snapshots[f.side].push(f.snapshot());
+        }
+      let numbers = 0;
+      function equal(a, b, where) {
+        if (typeof a === 'number' && typeof b === 'number') {
+          numbers++;
+          if (!Object.is(a, b))
+            throw Error('Numeric mismatch at ' + where + ': ' + a + ' / ' + b);
+          return;
+        }
+        if (Array.isArray(a) && Array.isArray(b)) {
+          if (a.length !== b.length) throw Error('Array mismatch at ' + where);
+          a.forEach((value, index) =>
+            equal(value, b[index], where + '/' + index),
+          );
+          return;
+        }
+        if (a && b && typeof a === 'object' && typeof b === 'object') {
+          const keys = Object.keys(a);
+          if (keys.join(',') !== Object.keys(b).join(','))
+            throw Error('Key mismatch at ' + where);
+          for (const key of keys) equal(a[key], b[key], where + '/' + key);
+          return;
+        }
+        if (a !== b) throw Error('Value mismatch at ' + where);
+      }
+      equal(snapshots.before, snapshots.after, mode);
+      return {
+        snapshots: 12,
+        exactNumbers: numbers,
+        signedZeroCompared: true,
+        automaticGameFrames: true,
+      };
+    };
+    globalThis.cleanupDynamic274 = () => {
+      const rows = [];
+      for (const f of fixtures) {
+        f.game.destroy();
+        if (f.destroyCalls !== f.destroyListeners)
+          throw Error(
+            'Native destroy callback mismatch ' +
+              f.destroyCalls +
+              '/' +
+              f.destroyListeners,
+          );
+        if (f.texture.destroyed) throw Error('Borrowed Texture destroyed');
+        f.texture.destroy();
+        if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+        rows.push({
+          side: f.side,
+          gameState: f.game.state,
+          destroyListeners: f.destroyListeners,
+          destroyCallbacks: f.destroyCalls,
+          bitmapClosed: true,
+        });
+      }
+      fixtures = [];
+      return rows;
+    };
+  });
+  const reports = [];
+  for (const mode of [
+    'local',
+    'world',
+    'local-custom',
+    'local-screen',
+    'local-transfer',
+    'local-rotated',
+    'local-trimmed',
+    'local-source',
+    'local-isolated',
+    'world-isolated',
+    'local-nested',
+  ]) {
+    const setup = await page.evaluate(
+        (args) => globalThis.setupDynamic274(args),
+        { backend, mode },
+      ),
+      proof = await page.evaluate(
+        (mode) => globalThis.runDynamic274(mode),
+        mode,
+      ),
+      hashes = [];
+    for (let i = 0; i < 2; i++) {
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: i * 192, width: 256, height: 192 },
+        path:
+          directory +
+          '/' +
+          tag +
+          '-' +
+          backend +
+          '-' +
+          mode +
+          '-' +
+          (i === 0 ? 'before' : 'after') +
+          '.png',
+      });
+      if (!pngPixels(bytes).nonuniform)
+        throw Error('Blank native dynamic canvas');
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1])
+      throw Error('Dynamic Game pixels differ for ' + mode);
+    const cleanup = await page.evaluate(() => globalThis.cleanupDynamic274());
+    reports.push({ setup, proof, matchingPngSha256: hashes[0], cleanup });
+  }
+  const result = {
+    phase,
+    tag,
+    entryAfter: '/dist/src/index.js',
+    fixedParticleTrampolineSelection: true,
+    backend,
+    browser: browserIdentity('chromium', browser, launch),
+    reports,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + tag + '-' + backend + '-dynamic.json',
+    JSON.stringify(result),
+  );
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+#### cpu.mjs
+
+```js
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p274',
+  phase = process.env.P274_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5274, strictPort: true },
+  plugins: [
+    {
+      name: 'p274-shared-particle-methods',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (url.pathname === '/dist/packages/core/src/particles2d/index.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-particles.mjs'));
+            return;
+          }
+          if (url.pathname === '/p274-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Particle span validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+try {
+  await server.listen();
+  const launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+    }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5274/p274-game');
+  await page.evaluate(
+    async ({ controlMode }) => {
+      // Classic page callbacks require dynamic module loading.
+      const apiShared = await import('/dist/src/index.js'),
+        contractShared =
+          await import('/dist/packages/core/src/particles2d/index.js');
+      let fixtures = [];
+      globalThis.setupGame274 = async (config) => {
+        contractShared.setParticleVariant274('before');
+        if (document.visibilityState !== 'visible')
+          throw Error('Hidden paired Game page');
+        document.body.replaceChildren();
+        fixtures = [];
+        for (const side of ['shared']) {
+          const api = apiShared,
+            canvas = document.createElement('canvas');
+          canvas.style.display = 'block';
+          document.body.append(canvas);
+          const bitmap = await createImageBitmap(
+              new ImageData(new Uint8ClampedArray(4 * 4 * 4).fill(255), 4, 4),
+            ),
+            texture = new api.Texture(bitmap);
+          let game,
+            pending,
+            runtimeError,
+            postCalls = 0,
+            listenerCount = 0,
+            preCalls = 0,
+            preListenerCount = 0,
+            destroyCalls = 0,
+            destroyListenerCount = 0;
+          const onDestroyed = (event) => {
+            if (
+              event.type !== 'destroy' ||
+              !(event.target instanceof api.GameObject)
+            )
+              throw Error('Invalid actual destroy event');
+            destroyCalls++;
+          };
+          const record = () => {
+            if (!pending) return;
+            if (runtimeError) {
+              const p = pending;
+              pending = undefined;
+              game.pause();
+              p.reject(Error(runtimeError));
+              return;
+            }
+            if (pending.warm > 0) {
+              --pending.warm;
+              return;
+            }
+            if (destroyCalls !== 0) {
+              const p = pending;
+              pending = undefined;
+              game.pause();
+              p.reject(Error('Destroy callbacks during live sample'));
+              return;
+            }
+            const stats = game.frameWork;
+            pending.simulation += stats.simulationMs;
+            pending.navigation += stats.navigationMs;
+            pending.afterUpdate += stats.afterUpdateMs;
+            pending.submit += stats.renderSubmitMs;
+            if (--pending.remaining === 0) {
+              const p = pending;
+              pending = undefined;
+              game.pause();
+              const result = {};
+              for (const key of [
+                'simulation',
+                'navigation',
+                'afterUpdate',
+                'submit',
+              ])
+                result[key + 'Us'] = (p[key] * 1000) / p.frames;
+              result.categorySumUs =
+                result.simulationUs +
+                result.navigationUs +
+                result.afterUpdateUs +
+                result.submitUs;
+              const deliveredPre = preCalls - p.preAtStart;
+              if (deliveredPre !== p.expectedPostFrames * preListenerCount) {
+                p.reject(
+                  Error('Lost/duplicated preupdate callbacks: ' + deliveredPre),
+                );
+                return;
+              }
+              const delivered = postCalls - p.postAtStart;
+              if (delivered !== p.expectedPostFrames * listenerCount) {
+                p.reject(
+                  Error('Lost/duplicated postupdate callbacks: ' + delivered),
+                );
+                return;
+              }
+              p.resolve({
+                ...result,
+                particleVariant: contractShared.getParticleVariant274(),
+                destroyCallbacksDuringSample: destroyCalls,
+                destroyListeners: destroyListenerCount,
+                postupdateCallbacksIncludingWarm: delivered,
+                postListeners: listenerCount,
+                preupdateCallbacksIncludingWarm: deliveredPre,
+                preListeners: preListenerCount,
+              });
+            }
+          };
+          class MeasuredScene extends api.Scene {
+            update() {
+              queueMicrotask(record);
+            }
+          }
+          if (config.bothTypesSeen) {
+            const history = new api.GameObject();
+            let historyCalls = 0;
+            const priorListener = () => {
+              historyCalls++;
+            };
+            history.addEventListener('preupdate', priorListener);
+            history.addEventListener('postupdate', priorListener);
+            history.removeEventListener('preupdate', priorListener);
+            history.removeEventListener('postupdate', priorListener);
+            history.destroy();
+            if (historyCalls !== 0)
+              throw Error('Detached history object unexpectedly updated');
+          }
+          const scene = new MeasuredScene();
+          game = await api.Game.create({
+            canvas,
+            renderer: 'webgl2',
+            width: 1280,
+            height: 720,
+            pixelRatio: 1,
+            autoResize: false,
+            frameWorkBudgetMs: 1000 / 60,
+          });
+          game.addEventListener('error', (event) => {
+            runtimeError = event.detail?.stack ?? String(event.detail);
+          });
+          let holder = scene;
+          for (let depth = 0; depth < (config.depth ?? 0); depth++)
+            holder = holder.add(new api.Group2D());
+          const emitters = [];
+          for (let i = 0; i < 4; i++) {
+            const target = config.target
+              ? new api.ParticleLayer2D({ capacity: config.capacity })
+              : undefined;
+            const emitter = new api.ParticleEmitter({
+              texture,
+              target,
+              capacity: config.capacity,
+              rate: 0,
+              lifetime: [1e6, 1e6],
+              speed: [0, 0],
+              angle: [-Math.PI, Math.PI],
+              acceleration: [0, 0],
+              startSize: [8, 4],
+              endSize: [8, 4],
+              startColor: [0.7, 0.2, 0.4, 0.8],
+              endColor: [0.7, 0.2, 0.4, 0.8],
+              seed: 17 + i,
+              space:
+                config.space === 'mixed'
+                  ? i < 2
+                    ? 'local'
+                    : 'world'
+                  : config.space,
+              nozzle: { kind: 'rectangle', width: 512, height: 256 },
+            });
+            emitter.position.set(
+              config.offscreen ? -10000 + 320 * i : 160 + 320 * i,
+              360,
+            );
+            emitter.rotation = 0.3;
+            emitter.scale.set(1.3, 0.7);
+            if (!config.empty) emitter.emit(config.capacity);
+            if (config.destroyListeners)
+              for (const actor of emitter.children) {
+                actor.addEventListener('destroy', onDestroyed);
+                destroyListenerCount++;
+              }
+            if (config.isolated) {
+              const isolated = holder.add(new api.IsolatedGroup2D());
+              isolated.isolate = true;
+              isolated.opacity = 0.8;
+              isolated.add(emitter);
+            } else holder.add(emitter);
+            emitters.push(emitter);
+          }
+          if (config.diversity) {
+            scene.add(new api.GameObject());
+            scene.add(new api.Sprite({ texture, position: [40, 40] }));
+            scene.add(new api.ParticleLayer2D({ capacity: 1 }));
+          }
+          const sentinel = scene.add(
+            new api.ParticleEmitter({
+              texture,
+              capacity: 1,
+              rate: 0,
+              lifetime: [0.001, 0.001],
+              speed: [0, 0],
+              angle: [0, 0],
+              acceleration: [0, 0],
+              startSize: [1, 1],
+              endSize: [1, 1],
+              startColor: [1, 1, 1, 1],
+              endColor: [1, 1, 1, 1],
+              seed: 1,
+            }),
+          );
+          sentinel.emit(1);
+          if (config.listenersPerEmitter) {
+            for (const emitter of emitters)
+              for (const actor of [...emitter.children].slice(
+                0,
+                config.listenersPerEmitter,
+              )) {
+                actor.addEventListener('postupdate', (event) => {
+                  if (!Number.isFinite(event.detail.dt) || event.detail.dt < 0)
+                    runtimeError = 'Invalid actual postupdate delta';
+                  postCalls++;
+                });
+                listenerCount++;
+              }
+          }
+          if (config.preListenersPerEmitter) {
+            for (const emitter of emitters)
+              for (const actor of [...emitter.children].slice(
+                0,
+                config.preListenersPerEmitter,
+              )) {
+                actor.addEventListener('preupdate', (event) => {
+                  if (!Number.isFinite(event.detail.dt) || event.detail.dt < 0)
+                    runtimeError = 'Invalid actual preupdate delta';
+                  preCalls++;
+                });
+                preListenerCount++;
+              }
+          }
+          await game.setScene(scene);
+          const sample = (frames, warm = 8) =>
+            new Promise((resolve, reject) => {
+              pending = {
+                frames,
+                remaining: frames,
+                warm,
+                expectedPostFrames: frames + warm,
+                postAtStart: postCalls,
+                preAtStart: preCalls,
+                simulation: 0,
+                navigation: 0,
+                afterUpdate: 0,
+                submit: 0,
+                resolve,
+                reject,
+              };
+              game.start();
+            });
+          fixtures.push({
+            side,
+            game,
+            scene,
+            emitters,
+            sentinel,
+            texture,
+            bitmap,
+            sample,
+            listenerCount,
+            preListenerCount,
+            destroyListenerCount,
+            get destroyCalls() {
+              return destroyCalls;
+            },
+          });
+        }
+        for (const fixture of fixtures) {
+          await fixture.sample(1, 64);
+          if (fixture.sentinel.activeCount !== 0)
+            throw Error(
+              'Foreign emitter class: actual Scene did not advance sentinel',
+            );
+          for (const emitter of fixture.emitters)
+            if (emitter.activeCount !== (config.empty ? 0 : config.capacity))
+              throw Error('Main fixture active count changed');
+        }
+        return {
+          visibility: document.visibilityState,
+          nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+          automaticSceneSimulation: true,
+          destroyListenerCount: fixtures.reduce(
+            (n, f) => n + f.destroyListenerCount,
+            0,
+          ),
+          initialParticleVariant: contractShared.getParticleVariant274(),
+          postListenerCount: fixtures.reduce((n, f) => n + f.listenerCount, 0),
+          preListenerCount: fixtures.reduce(
+            (n, f) => n + f.preListenerCount,
+            0,
+          ),
+          activeParticlesPerSide: config.empty ? 0 : config.capacity * 4,
+        };
+      };
+      globalThis.sampleGame274 = async ({ side, frames }) => {
+        const fixture = fixtures[0];
+        if (fixtures.length !== 1) throw Error('Expected one shared Game');
+        contractShared.setParticleVariant274(
+          controlMode === 'aa' ? 'before' : side,
+        );
+        return fixture.sample(frames);
+      };
+      globalThis.cleanupGame274 = () => {
+        const result = [];
+        for (const f of fixtures) {
+          f.game.destroy();
+          if (f.destroyCalls !== f.destroyListenerCount)
+            throw Error(
+              'Actual destroy callback mismatch ' +
+                f.destroyCalls +
+                '/' +
+                f.destroyListenerCount,
+            );
+          if (f.texture.destroyed)
+            throw Error('Game destroyed borrowed Texture');
+          f.texture.destroy();
+          if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+          result.push({
+            side: f.side,
+            gameDestroyed: f.game.state,
+            bitmapClosed: true,
+            destroyListeners: f.destroyListenerCount,
+            destroyCallbacks: f.destroyCalls,
+          });
+        }
+        fixtures = [];
+        return result;
+      };
+    },
+    { controlMode: process.env.P274_MODE ?? 'ab' },
+  );
+  const matrixStartedAt = Date.now();
+  const mode = process.env.P274_MODE ?? 'ab',
+    cohorts = [
+      {
+        name: 'layer-local-large',
+        space: 'local',
+        capacity: 8192,
+        target: true,
+      },
+      {
+        name: 'layer-world-large',
+        space: 'world',
+        capacity: 8192,
+        target: true,
+      },
+      {
+        name: 'layer-local-isolated',
+        space: 'local',
+        capacity: 8192,
+        target: true,
+        isolated: true,
+      },
+      {
+        name: 'layer-world-isolated',
+        space: 'world',
+        capacity: 8192,
+        target: true,
+        isolated: true,
+      },
+      {
+        name: 'layer-local-small',
+        space: 'local',
+        capacity: 128,
+        target: true,
+      },
+      { name: 'sprite-local-control', space: 'local', capacity: 8192 },
+      { name: 'sprite-world-control', space: 'world', capacity: 8192 },
+      {
+        name: 'layer-empty-control',
+        space: 'local',
+        capacity: 8192,
+        target: true,
+        empty: true,
+      },
+    ],
+    rows = [],
+    cohortProof = [];
+  for (const config of cohorts) {
+    const setup = await page.evaluate(
+      (config) => globalThis.setupGame274(config),
+      config,
+    );
+    const hashes = [],
+      nonuniform = [];
+    for (const side of ['before', 'after']) {
+      const probe = await page.evaluate(
+        (args) => globalThis.sampleGame274(args),
+        { side, frames: 1 },
+      );
+      if (probe.particleVariant !== (mode === 'aa' ? 'before' : side))
+        throw Error('Wrong actual particle method');
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: 0, width: 1280, height: 720 },
+        path: directory + '/' + mode + '-' + config.name + '-' + side + '.png',
+      });
+      const pixel = pngPixels(bytes);
+      nonuniform.push(pixel.nonuniform);
+      if (
+        config.empty || config.offscreen ? pixel.nonuniform : !pixel.nonuniform
+      )
+        throw Error('Unexpected probe pixels for ' + config.name);
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1]) throw Error('Shared Game probe pixels differ');
+    for (let round = 0; round < 6; round++) {
+      const order =
+          round % 2 === 0
+            ? ['before', 'after', 'after', 'before']
+            : ['after', 'before', 'before', 'after'],
+        samples = [];
+      for (const side of order) {
+        const sample = await page.evaluate(
+          (args) => globalThis.sampleGame274(args),
+          { side, frames: 48 },
+        );
+        if (sample.particleVariant !== (mode === 'aa' ? 'before' : side))
+          throw Error('Wrong timed particle method');
+        samples.push({ side, ...sample });
+      }
+      rows.push({ name: config.name, round, order: order.join(','), samples });
+    }
+    const cleanup = await page.evaluate(() => globalThis.cleanupGame274());
+    if (cleanup.length !== 1) throw Error('Not one shared Game');
+    cohortProof.push({
+      config,
+      setup,
+      oneSharedGame: true,
+      oneSharedCanvas: true,
+      preTimingNativeProbe: true,
+      matchingPngSha256: hashes[0],
+      nonuniform,
+      cleanup,
+    });
+  }
+  const result = {
+    phase,
+    mode,
+    fixedParticleTrampolineSelection: true,
+    sameCoreGraph: true,
+    matrixStartedAt,
+    matrixCompletedAt: Date.now(),
+    browser: browserIdentity('chromium', browser, launch),
+    cohortProof,
+    rows,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + mode + '-game-results.json',
+    JSON.stringify(result),
+  );
+  console.log(
+    JSON.stringify(
+      {
+        phase,
+        browser: result.browser,
+        cohorts: cohortProof,
+        rows: rows.length,
+        samples: rows.length * 4,
+        errors,
+      },
+      null,
+      2,
+    ),
+  );
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+### 實際執行範圍
+
+```sh
+node /tmp/xyz-p274/numeric.mjs
+for backend in webgpu webgl2 canvas2d; do
+  for kind in sprite layer; do
+    P274_BACKEND="$backend" P274_TAG="$kind" node "/tmp/xyz-p274/native-$kind.mjs"
+  done
+done
+P274_MODE=aa node /tmp/xyz-p274/cpu.mjs
+P274_MODE=ab node /tmp/xyz-p274/cpu.mjs
+node /tmp/xyz-p274/prepare-fixture.mjs /tmp/xyz-p274/reconstruction-proof /tmp/xyz-p274
+cmp /tmp/xyz-p274/shared-particles.mjs /tmp/xyz-p274/reconstruction-proof/shared-particles.mjs
+```
+
+正式source未改，因此本輪沒有新unit/typecheck/lint/build／CJS／showcase／標準Sprite benchmark或audio驗證；不把歷史P272的40 tests等改記為本輪通過。六份文件格式及相對檔案連結另檢查，保留歷史ACCEPTANCE 10295258-byte前綴。
+
+### 提交前文件檢查補記
+
+六份文件 Prettier --check 實際通過；412個相對檔案連結目標存在，未檢查anchors。新附錄與補記各以repo formatter設定格式化後append，保留 10295258-byte歷史前綴。本階段只提交六份文件，不含未採用候選或其他使用者修改。

@@ -6458,3 +6458,9 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 GPU isolated `objectMatrix` 在讀 root world matrix 前先 identity，之後 copy/invert 覆寫九個元素。候選只把 identity 移入非 root 分支，未引入 inverse cache、欄位、跨 pass state 或新 API；公開 root/child callbacks、bounds offset 與 Float32 arithmetic 的相對順序保留。renderer-owned scratch 不作公開輸出。
 
 語義呼叫計數顯著下降且三 backend 畫面一致，固定十二 cohort 的 A/A＋A/B 卻未形成穩定 CPU 理由。counter instrumentation 不證明 JIT 真正保留多少 stores，source-slot timing 亦受可變 target／tiering／時序限制；未確認任何單一根因。不採用，不因程式看似更省就改正式 renderer，完整 controls／raw／ties 見 ACCEPTANCE。
+
+## P274 — 端點不可變仍不足以支持 constructor span cutover
+
+constructor 的 pair/color helpers複製caller arrays，且endpoints沒有公開setter，因此在owned end tuples原地儲存差值可維持資料ownership。候選不建立constant-endpoint特例，不改signed-zero相關加乘順序或source尺寸生命週期，Sprite active batch、newborn appearance與target appearance三條路徑一起切換，不留語義不一致的caller。
+
+數值與原生畫面都一致，但fixed controls不支持採用。實驗的一個canonical emitter class同時保留endpoints及cloned span tuples，正式候選則重用原tuples；額外fixture欄位／tuple shape與mutable targets限制source-slot CPU外推。沒有將僅有部分負載改善寫入runtime，也沒有宣稱JIT／GC根因。完整raw、ties與不利分項見ACCEPTANCE。
