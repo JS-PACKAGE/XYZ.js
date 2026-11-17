@@ -6263,3 +6263,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - local-large 未走 world cache，submit +11.73%、合計 +13.92% 六輪慢；small 合計 +6.53% 五輪慢，empty 合計 -31.39% 六輪快、target +1.83% 五輪慢，全部保留但不冒稱 control 因果或 JIT／GC 機制。
 - 三 forced backends × local/world 的 normal／custom／screen／Scene-transfer 共24 cases，157,248個 Object.is 數字與 nonblank matching PNG 通過；另以unscoped／presentation／matrix pass驗證重複讀取、override還原、同pass pool重生、pass外移動與跨Scene，共300個數字及native cleanup通過。
 - 拒絕新增快取狀態，正式 source／dist 從未套用原型；只交付六份證據文件，未跑 formal tests／build／production／CJS CPU或新gallery認證。全部profiles／timings／取捨／限制見 `ACCEPTANCE.md` P264，不 push／升版。
+
+## P265：不採用 private WebGL2 UV scalar／重複加法共用
+
+- 沿 P264 native frame profile 的 packQuad 成本，確認兩個 caller 都使用 renderer-owned createTextureQuad2D record；只在隔離原型共用六個private UV numbers及重複的u0+ux／v0+vx，不快取public texture／view／Sprite getters、不改加法結合或四角min／span公式。
+- 不是P191的固定參數／required-matrix改版，也不重試P192的Array.fill或P167的trig cache；不新增cache／state／array／API／依賴，正式程式未被寫入。
+- 首批144個source-slot真實Game samples期間有另一次Bun原型格式化，未追蹤是否落在個別sample；完整保留但不稱無干擾。依同一固定負載補測一次，不跑formatter／build／test／profiler，不重選cohort或丟棄首批。
+- 補測world submit -2.51%（5快1慢）、區段合計 -4.60%六輪快，但mixed／大型local合計 +1.10%／+2.61%，各1快5慢；small方向3快3慢，未走packing的empty控制方向不算收益，拒絕通用改動。
+- 65,536組純數值case／4,194,304個Object.is Float32 comparisons保留signed zero／NaN／Infinity與未寫lanes；48個真實native Game cases涵蓋Sprite／target、彩色16×16 atlas、90°／trim／resolution／source、override／screen／Scene transfer，409,248個數字與nonblank matching PNG及cleanup通過。
+- 兩批全部288 samples／所有分項／ties／outliers及干擾時間界線保留。只交付六份證據文件，不跑或宣稱formal tests／build／production／CJS CPU、gallery／heap／GPU／fps／其他平台認證；見 `ACCEPTANCE.md` P265，不 push／升版。

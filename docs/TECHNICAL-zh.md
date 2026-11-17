@@ -7554,3 +7554,11 @@ P262 ownership 分型後更新四組目前 source Game profiles，每組90 warm�
 固定 source-slot 真實 Game 全144 samples保留。mixed submit／區段合計改善2.80%／3.20%，六輪快；目標world卻退步2.54%／2.27%，只有2快4慢。未走world helper的local submit／合計 +11.73%／+13.92%六輪慢，small合計 +6.53%五輪慢；controls／outliers不臆測成JIT／GC因果，也不為mixed單一收益接受新狀態。
 
 三forced backends的local／world normal、custom、screen與Scene-transfer共24個native Game cases，157,248個精確數字及nonblank matching PNG通過；另300個數字涵蓋unscoped／presentation／matrix pass、重複讀取、method還原、同pass pool重生、pass外位移、跨Scene與native cleanup。拒絕原型，正式source／dist不變。本輪未新增tests／build、production／CJS timing、gallery、heap／GPU／fps、audio、實機／Safari認證。完整profiles／pairs／限制見 [ACCEPTANCE](../ACCEPTANCE.md) P264，不 push／升版。
+
+## P265：不採用 private WebGL2 UV scalar 共用
+
+隔離 packQuad 候選只於本call保存renderer-owned六個numeric UV fields，並共用u0+ux／v0+vx；原stores／四角min／加法結合／abs span不動。不快取public texture／view／Sprite getters，不特例atlas representation、不改validation，也不新增state／配置／API；不是P191已拒絕的固定參數案。
+
+首批144個Game samples有明示工具干擾風險：另一次Bun原型格式化在CPU job期間完成，未追蹤個別sample重疊，全部保留。相同固定矩陣僅補一次，期間不跑其他benchmark／formatter／build／test／profiler。world submit -2.51%五輪快、區段合計 -4.60%六輪快，但mixed／local合計 +1.10%／+2.61%各五輪慢，small 3快3慢；拒絕通用改動，不拿未走packing的empty方向當收益。
+
+65,536組數值／4,194,304個Object.is Float32對照包含signed zero／NaN／Infinity與未寫lanes。三backend共48個native Game cases涵蓋Sprite／target彩色atlas、90°、trim／resolution、source、override／screen／Scene transfer；409,248個精確數字、nonblank matching PNG與cleanup通過。正式source／dist不變，兩批288 samples／outliers／干擾時間界線全部保留。未新增formal tests／build、production／CJS CPU、gallery、heap／GPU／fps、audio、實機／Safari認證。證據見 [ACCEPTANCE](../ACCEPTANCE.md) P265，不 push／升版。

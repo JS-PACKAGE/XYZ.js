@@ -35457,3 +35457,547 @@ override updateWorldMatrix(): Matrix3 {
 - 僅同步README中英日、PLAN、DESIGN、英中技術文件與本節；append前6798696bytes的歷史保留，P262／P263的測試與production紀錄不改寫。所有source／dist與十一個使用者修改檔未被寫入，原型／fixture／未執行builder在保留證據後清理。
 - 未跑formaltests／strict／lint／build、newactualminified／directsource root proof、Node／CJS CPU、simulation-onlymicrobenchmark、gallery／showcase、audio unlock／cleanup、fullbrowserregression、heap／GC／allocation／GPU／fps或實機／Safari認證。24cases與300數字只認證本source-slot原型的實際執行情境，不泛稱所有render-time mutation／public getter／瀏覽器行為相容。
 - 文件格式、relative-file links與historicalprefix作scoped檢查，僅stage六份證據文件依功能提交，不push／升版。
+
+## P265：拒絕 private WebGL2 UV scalar／重複 sum 共用（2026-11-17）
+
+### 問題、候選與結果
+
+- 沿用小語持續優化／依功能自動提交授權。P264目前真實frame profile的Sprite local packQuad有58057µs sampledself/180frames，作熱點方向而非本輪paired baseline。檢查已否決的P191固定參數與P192 memberArray.fill／P167 trig案，不重測同一候選。
+- [WebGLRender2D.packQuad](./packages/graphics/src/webgl2-render2d.ts) 兩caller是batchSprite的getSpriteQuad2D與target sourceDirty的getTextureQuad2D；q來自renderer持有的createTextureQuad2D普通numeric record，不是publictexture／view／Sprite的getter物件。本候選只共用q的六個UV scalars與兩次重複的u0+ux／v0+vx。
+- 不新增cache、Map／array／matrix、lifetime state、public API或依賴，不快取publicmetadata，也不以0／90°的atlas representation把通用four-corner min特例化。保留每個store、Math.min參數順序、((u0+ux)+uy)結合、abs span、Float32落點與所有validation／source／material／render ownership。
+- **拒絕採用**：固定follow-on真正Game中world submit -2.510742477378841%（5快1慢）、四段合計 -4.595266063575981%（6快0慢）；但mixed sum +1.1001897528424176%、local-large sum +2.6127368468029655%，各1快5慢。local submit +1.3318959885199821%也是五輪慢，mixed after-update +23.38085690169438%六輪慢。不能用world單一收益接受通用packing改動。
+- small sum -1.5553507153654555%只3快3慢，target control sum -1.11723759856448%五輪快；empty sum -46.27100313992577%六輪快卻沒有主粒子packing，不算UV因果收益。world simulation category -16.38727726566725%六輪快，body根本未改，亦不算privateUV單獨貢獻。完整分項／離群值／ties都保留，不臆測register spill／JIT／GC或fps。
+- 初批有下述工具干擾限制，方向與follow-on不同也照錄；不把初批local／world較慢直接當成候選根因，不將follow-on挑好看數字採用。正式source／dist從未套用此案，本輪只提交六份證據文件，不push／升版。
+
+### 候選精確程式（僅隔離原型，未套用）
+
+```ts
+private packQuad(data: Float32Array, offset: number, q: TextureQuad2D): void {
+    data[offset + 12] = q.x;
+    data[offset + 13] = q.y;
+    data[offset + 14] = q.width;
+    data[offset + 15] = q.height;
+    const u0 = q.u0,
+      v0 = q.v0,
+      ux = q.ux,
+      vx = q.vx,
+      uy = q.uy,
+      vy = q.vy;
+    data[offset + 16] = u0;
+    data[offset + 17] = v0;
+    data[offset + 20] = ux;
+    data[offset + 21] = vx;
+    data[offset + 22] = uy;
+    data[offset + 23] = vy;
+    const u1 = u0 + ux, v1 = v0 + vx;
+    data[offset + 24] = Math.min(u0, u1, u0 + uy, u1 + uy);
+    data[offset + 25] = Math.min(v0, v1, v0 + vy, v1 + vy);
+    data[offset + 26] = Math.abs(ux) + Math.abs(uy);
+    data[offset + 27] = Math.abs(vx) + Math.abs(vy);
+  }
+```
+
+### 純數值等價探針（不是CPU／renderer基線）
+
+- Bun1.4.4中以原與候選private method body建立兩個獨立numeric functions，65536組q、offset31、64-lane Float32Array先填123.5，對全部64個lanes做Object.is共4194304次，連未寫lanes也相等。這只驗證scalar與store行為，不使用fake GPU receiver當效能或native認證。
+- 前512cases輪替0／-0／±MIN_VALUE／±MAX_VALUE／±Infinity／NaN／±1／±.5／1+EPSILON；後續固定seed17 LCG在廣泛exponents產生finite值。每個q的x／y／width／height／u0／v0／ux／vx／uy／vy都為numeric plainfields，符合privateownedrecord邊界。不是public getter／Proxy呼叫數契約的測試，不宣稱NaN payload bytes相等；數值以Object.is判準，未用JSON stringify抹平-0／NaN。
+- 未將這個throwaway function加進正式程式／tests，沒有新增runtimeallocation。Native差異驗證如下另走真正Game／Scene／renderer。
+
+### 初批工具干擾與一次固定 follow-on
+
+- 初批先執行全部48個nativecoloredproof，再跑六cohortCPU矩陣。但在enclosing job尚未結束期間，我另以Bun執行一次原型Prettier.format（只存/tmp，不改正式source），完成mtime落在最後nativeproof與CPU結果之間。未記錄其精確開始時間或落在哪一個sample，不能將初批稱作無工具干擾。錯誤由量測協調造成，不隱藏、不丟原始資料，也不把差異全歸因於這次formatter。
+- 原144samples／PNG hashes先保留，僅補跑一次相同固定matrix。沒有改任何cohort、warm、frames、ABBA／BAAB、sourcebytes、lifetime、seed、fixture負載或判準；只在sample外加matrixStartedAt／matrixCompletedAt metadata與分開輸出名稱。follow-on期間沒有其他CPUbenchmark／formatter／build／test／profiler，未再重跑找理想結果。
+- 保留初批與follow-on各全部144samples、共288timings。這不是OS／其他程序完全隔離的保證；不將兩次不同run的絕對時鐘相減當改善，亦不合併兩批使干擾看不見。
+
+| Observed boundary                      | Host epoch ms      |
+| -------------------------------------- | ------------------ |
+| Initial prototype formatting completed | 1794911353924.2922 |
+| Initial final native proof completed   | 1794911284501.5164 |
+| Initial CPU matrix completed           | 1794911433766.2788 |
+| Fixed follow-on matrix started         | 1794911536574      |
+| Fixed follow-on matrix completed       | 1794911685363      |
+
+### 兩批共同的真實 Game CPU 方法
+
+- pinned Chromium153.0.8010.12 darwin/arm64 desktop-automation，visible page、forcedWebGL2、nativeImageBitmap4×4RGBA255與Texture。Game.create／Scene走正式publicroot，各側完整prefixmodule graph保留相對imports與classidentity；僅WebGL2 render2d slot替換為兩側同TS ES2022／ESM轉譯的source，其他actualminifieddistbytes相同，不混foreignEmitter／Scene。
+- 每側canvas1280×720、viewport1280×1440、pixelRatio1、autoResizefalse、frameWorkBudgetMs1000/60，兩Game從不同時start，一側sample時另一側pause。四個主emitter各capacity8192（small128），rate0／life1e6／speed[0,0]／angle[-π,π]／acceleration[0,0]／start=end size[8,4]／color[.7,.2,.4,.8]，seed17+i、rectangle512×256、position[160+320i,360]／rotation.3／scale[1.3,.7]。
+- cohorts固定mixed-large（前2local後2world）、local-large、world-large、local-small、layer-local-control、empty-Sprite-control，mixed先warm兩種Sprite shapes。各側32768 active主粒子（small512／empty0），empty仍保留32768pool；target用正式ParticleLayer2D。static主粒子避免跨realclock delta的pose差／overflow，仍執行完整simulation／bounds／submit。
+- 各側另有capacity1／life.001／rate0 sentinel，自然過期證明Scene會自動推進。每fixture64warm+1probe後assert mainactive／sentinel0；不是直接updateSimulation假冒Game。每sample8warm+48measuredrealRAFframes，Scene.update只queue重用microtaskobserver，在同步render與frameWork finish後讀既有simulationMs／navigationMs／afterUpdateMs／renderSubmitMs、取µs/frame平均、pause。
+- 每cohort六輪交替ABBA／BAAB、每輪兩before／兩after；每批36rows／144samples／6912sampledframes，warm／probe不計clock。before／after欄是六roundmean之median；pairedΔ是六個各輪aftermean/beforemean-1之median，不是兩獨立median之比。lower=faster，ties／outliers／order不剔除。
+- renderSubmit是同步native-driver wall span，不等待GPUcompletion；categorySum只加simulation／navigation／afterUpdate／submit四段，不含未計測tail／observer，不是完整RAF、process CPUusage、GPUtimestamps或presentedfps，instrumentation負擔存在。
+- 此target control在warm前會sourceDirty並用到packQuad，數值與pixelproof覆蓋；timedstaticloop的source未變，sourceDirty已清，不能將它的時間方向當成大量UVpacking收益。empty沒有active主粒子，Sprite local／world才每frame走batchpacking。
+
+### 初批摘要：完整保留，不能稱無干擾
+
+### Initial matrix, interference caveat: submitUs
+
+| Cohort               | Median before µs   | Median after µs    | Median paired Δ %   | Paired range %                            | Faster/slower/equal |
+| -------------------- | ------------------ | ------------------ | ------------------- | ----------------------------------------- | ------------------- |
+| sprite-mixed-large   | 5243.229166682189  | 4982.291666325182  | -5.0868680821442025 | -16.146062462747114 … -0.6978367028316224 | 6/0/0               |
+| sprite-local-large   | 5306.770833907649  | 6416.666666899498  | 21.22921331386467   | 10.115163160094465 … 39.762480733989825   | 0/6/0               |
+| sprite-world-large   | 5016.145833302289  | 5704.6875007605795 | 14.431498060695226  | 11.056511039434348 … 15.444015421542613   | 0/6/0               |
+| sprite-local-small   | 616.6666659992188  | 578.6458330694586  | -7.488618339797992  | -18.243243312803305 … 2.871621909896227   | 5/1/0               |
+| layer-local-control  | 3190.6250001241765 | 3220.312499674037  | -1.38680855184376   | -3.2448377747811508 … 10.067352027353916  | 4/2/0               |
+| sprite-empty-control | 1450.5208334109436 | 1489.0625001086544 | 2.617206264382632   | -3.9017340986784443 … 15.965051760039195  | 2/4/0               |
+
+### Initial matrix, interference caveat: categorySumUs
+
+| Cohort               | Median before µs   | Median after µs    | Median paired Δ %   | Paired range %                            | Faster/slower/equal |
+| -------------------- | ------------------ | ------------------ | ------------------- | ----------------------------------------- | ------------------- |
+| sprite-mixed-large   | 6237.500000279397  | 5983.333333705862  | -4.258011502489212  | -15.769182939437021 … -0.1772700190765475 | 6/0/0               |
+| sprite-local-large   | 6166.145833597208  | 7365.625000170743  | 19.33690365584778   | 8.87286144684525 … 39.950607897755376     | 0/6/0               |
+| sprite-world-large   | 6066.666666263094  | 6935.937500481183  | 14.464473703812896  | 11.055444227031508 … 16.477768108401712   | 0/6/0               |
+| sprite-local-small   | 809.3750001862645  | 757.8124996895592  | -7.141623460108049  | -17.285531345682013 … 4.980340875569356   | 5/1/0               |
+| layer-local-control  | 4932.2916669771075 | 4930.2083325261865 | -1.3282044352098843 | -5.354528340004339 … 3.2201914734797388   | 4/2/0               |
+| sprite-empty-control | 4388.541666946063  | 3333.854166713233  | -22.42257617493219  | -25.109595712486808 … -18.616318992262848 | 6/0/0               |
+
+### Initial matrix, interference caveat: simulationUs
+
+| Cohort               | Median before µs   | Median after µs    | Median paired Δ %   | Paired range %                            | Faster/slower/equal |
+| -------------------- | ------------------ | ------------------ | ------------------- | ----------------------------------------- | ------------------- |
+| sprite-mixed-large   | 250.00000077610213 | 231.25000010865432 | -9.173770612631127  | -22.522522231457444 … -2.0491803921929286 | 6/0/0               |
+| sprite-local-large   | 221.87500012417635 | 219.79166707023978 | -0.4717399690629287 | -1.8957345539801551 … 4.9549542595432206  | 4/2/0               |
+| sprite-world-large   | 352.0833322933564  | 365.1041673341145  | 5.581377566183743   | -4.802260006746684 … 10.724638115581019   | 2/4/0               |
+| sprite-local-small   | 92.70833378347258  | 85.41666646488011  | -5.970589142295314  | -26.530611968720653 … 12.222222507367885  | 3/3/0               |
+| layer-local-control  | 17.708333286767207 | 17.70833336437742  | 4.761906333115663   | -26.31578724470164 … 55.555547645062745   | 3/3/0               |
+| sprite-empty-control | 2877.083334062869  | 1842.7083333954215 | -37.06664130017133  | -40.31311156325076 … -27.580442949310978  | 6/0/0               |
+
+### Initial matrix, interference caveat: afterUpdateUs
+
+| Cohort               | Median before µs   | Median after µs    | Median paired Δ %  | Paired range %                          | Faster/slower/equal |
+| -------------------- | ------------------ | ------------------ | ------------------ | --------------------------------------- | ------------------- |
+| sprite-mixed-large   | 742.1875000776103  | 719.2708333022892  | 1.4848756636262728 | -15.937500079235178 … 8.534323091572539 | 3/3/0               |
+| sprite-local-large   | 628.1249998913456  | 722.3958333488554  | 14.023717147675018 | -1.325757496062785 … 59.32539734385418  | 1/5/0               |
+| sprite-world-large   | 715.6249994101623  | 880.2083326348414  | 20.83149331686652  | 14.264919927536734 … 29.42073173751165  | 0/6/0               |
+| sprite-local-small   | 97.39583373690644  | 91.66666710128388  | -4.24242354480177  | -14.432990493664432 … 19.99999876817069 | 5/1/0               |
+| layer-local-control  | 1751.0416663717479 | 1692.1874998758235 | -3.074554379509403 | -9.303686367025655 … 1.9206938686156638 | 5/1/0               |
+| sprite-empty-control | 11.979166806365052 | 16.666666604578495 | 60.25640173959525  | 30.000005215406354 … 200.00001490116207 | 0/6/0               |
+
+### 一次固定 follow-on 摘要
+
+### Fixed follow-on matrix: submitUs
+
+| Cohort               | Median before µs   | Median after µs    | Median paired Δ %   | Paired range %                           | Faster/slower/equal |
+| -------------------- | ------------------ | ------------------ | ------------------- | ---------------------------------------- | ------------------- |
+| sprite-mixed-large   | 5579.687499596427  | 5455.729166123396  | -2.221850653510721  | -2.9395138540260324 … 2.9272151680840297 | 5/1/0               |
+| sprite-local-large   | 5402.604166883975  | 5469.270833302289  | 1.3318959885199821  | -5.230530804871236 … 2.4277456462252545  | 1/5/0               |
+| sprite-world-large   | 5788.020833783472  | 5649.479166138917  | -2.510742477378841  | -3.374999988208782 … 0.5875872232838697  | 5/1/0               |
+| sprite-local-small   | 620.8333335040759  | 601.041666775321   | -2.98523845602503   | -12.218649555430394 … 16.533864238315022 | 5/1/0               |
+| layer-local-control  | 2259.8958334419876 | 2099.4791673341147 | -1.1076683417247712 | -13.85567004003817 … 3.1332979322999055  | 5/1/0               |
+| sprite-empty-control | 552.0833330228925  | 297.39583337989944 | -46.274015971589506 | -49.99999990196605 … -41.117764322284344 | 6/0/0               |
+
+### Fixed follow-on matrix: categorySumUs
+
+| Cohort               | Median before µs   | Median after µs   | Median paired Δ %   | Paired range %                           | Faster/slower/equal |
+| -------------------- | ------------------ | ----------------- | ------------------- | ---------------------------------------- | ------------------- |
+| sprite-mixed-large   | 6595.312500527749  | 6627.604165890565 | 1.1001897528424176  | -0.49921998088706676 … 6.522838346024584 | 1/5/0               |
+| sprite-local-large   | 6234.3750003880505 | 6406.249999534339 | 2.6127368468029655  | -5.13463790474602 … 4.024716089822578    | 1/5/0               |
+| sprite-world-large   | 7171.354167396203  | 6854.166666666666 | -4.595266063575981  | -5.473138410902079 … -0.6815824579187835 | 6/0/0               |
+| sprite-local-small   | 797.3958342336118  | 796.3541673962027 | -1.5553507153654555 | -9.768009761967223 … 15.987933623127649  | 3/3/0               |
+| layer-local-control  | 3443.7500002483525 | 3207.812500263875 | -1.11723759856448   | -14.01515150134598 … 3.506944469333617   | 5/1/0               |
+| sprite-empty-control | 1282.291667535901  | 692.7083338766048 | -46.27100313992577  | -51.37039933769354 … -40.54514471839704  | 6/0/0               |
+
+### Fixed follow-on matrix: simulationUs
+
+| Cohort               | Median before µs   | Median after µs    | Median paired Δ %     | Paired range %                           | Faster/slower/equal |
+| -------------------- | ------------------ | ------------------ | --------------------- | ---------------------------------------- | ------------------- |
+| sprite-mixed-large   | 231.25000057431558 | 224.47916717889407 | -3.387604966471397    | -8.888888569525733 … 12.74509782294546   | 4/2/0               |
+| sprite-local-large   | 214.58333303841454 | 215.62499925494194 | -0.034690754000532564 | -1.9607849238653108 … 2.4390243902439046 | 3/3/0               |
+| sprite-world-large   | 424.47916682188713 | 346.3541671323279  | -16.38727726566725    | -25.54744529543531 … -6.578947093925979  | 6/0/0               |
+| sprite-local-small   | 95.31250060535967  | 95.31250037252903  | -1.3061649219409834   | -15.533981474430902 … 11.627908584522274 | 3/3/0               |
+| layer-local-control  | 17.708333441987634 | 20.83333286767205  | 15.773805479631042    | -22.727273219873112 … 49.99999860301616  | 2/4/0               |
+| sprite-empty-control | 723.4374999534339  | 382.81250007761025 | -46.619818078422206   | -52.70270273018659 … -41.19402981436473  | 6/0/0               |
+
+### Fixed follow-on matrix: afterUpdateUs
+
+| Cohort               | Median before µs   | Median after µs    | Median paired Δ %   | Paired range %                           | Faster/slower/equal |
+| -------------------- | ------------------ | ------------------ | ------------------- | ---------------------------------------- | ------------------- |
+| sprite-mixed-large   | 773.9583326814075  | 956.2499995032946  | 23.38085690169438   | 18.108108050201487 … 38.897396759744     | 0/6/0               |
+| sprite-local-large   | 616.1458337058623  | 720.8333339852592  | 17.987092292604544  | -5.70962465328676 … 19.524617828015423   | 2/4/0               |
+| sprite-world-large   | 956.2500012107193  | 867.7083333022892  | -9.4194962061517    | -15.154639106176159 … -4.735682799068364 | 6/0/0               |
+| sprite-local-small   | 84.89583254170915  | 96.35416635622582  | 10.272728152556688  | -4.040403068886633 … 25.675675787243925  | 1/5/0               |
+| layer-local-control  | 1163.541666852931  | 1081.2499999689558 | -0.7378770891771969 | -15.040000039920809 … 3.4693878555809077 | 3/3/0               |
+| sprite-empty-control | 4.6875000310440855 | 6.249999937911828  | 32.499996758997426  | -66.66666721856151 … 250.00002235174313  | 2/4/0               |
+
+### 兩批 actual consumer guards
+
+| Matrix    | Cohort               | Active main particles/side | Automatic simulation | Before/after nonuniform | Matching native PNG SHA256                                       | Cleanup |
+| --------- | -------------------- | -------------------------- | -------------------- | ----------------------- | ---------------------------------------------------------------- | ------- |
+| initial   | sprite-mixed-large   | 32768                      | true                 | true/true               | 1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c | true    |
+| initial   | sprite-local-large   | 32768                      | true                 | true/true               | 1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c | true    |
+| initial   | sprite-world-large   | 32768                      | true                 | true/true               | 1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c | true    |
+| initial   | sprite-local-small   | 512                        | true                 | true/true               | 319b5bb34c88f7ad952b16f8b8f950ddccf3159c029fa7a0358adf09ce0e17c0 | true    |
+| initial   | layer-local-control  | 32768                      | true                 | true/true               | 2a9857e9d3b119960c29b911b3d25642a476f9ee1966dc12f6606fb32461e792 | true    |
+| initial   | sprite-empty-control | 0                          | true                 | false/false             | fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc | true    |
+| follow-on | sprite-mixed-large   | 32768                      | true                 | true/true               | 1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c | true    |
+| follow-on | sprite-local-large   | 32768                      | true                 | true/true               | 1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c | true    |
+| follow-on | sprite-world-large   | 32768                      | true                 | true/true               | 1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c | true    |
+| follow-on | sprite-local-small   | 512                        | true                 | true/true               | 319b5bb34c88f7ad952b16f8b8f950ddccf3159c029fa7a0358adf09ce0e17c0 | true    |
+| follow-on | layer-local-control  | 32768                      | true                 | true/true               | 2a9857e9d3b119960c29b911b3d25642a476f9ee1966dc12f6606fb32461e792 | true    |
+| follow-on | sprite-empty-control | 0                          | true                 | false/false             | fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc | true    |
+
+兩批所有activebefore／afterPNGbytes一致且nonuniform；empty兩側必須uniform。Game.destroy不銷毀borrowed Texture，顯式Texture.destroy才關閉nativebitmap，pageerrors0。
+
+### 初批全部144個 sample（µs/frame，工具干擾風險）
+
+| Cohort               | Round | Order                     | Sample side | Simulation µs      | Navigation µs      | After-update µs    | Submit µs          | Category sum µs    |
+| -------------------- | ----- | ------------------------- | ----------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
+| sprite-mixed-large   | 0     | before,after,after,before | before      | 216.6666661699613  | 2.08333320915699   | 808.3333338921269  | 5581.2499991928535 | 6608.333332464099  |
+| sprite-mixed-large   | 0     | before,after,after,before | after       | 239.58333302289248 | 4.16666641831398   | 889.5833327745398  | 5422.916667846342  | 6556.250000062088  |
+| sprite-mixed-large   | 0     | before,after,after,before | after       | 220.83333351959786 | 2.0833335195978484 | 872.9166674117247  | 5443.749998385708  | 6539.583332836628  |
+| sprite-mixed-large   | 0     | before,after,after,before | before      | 266.6666678463419  | 0                  | 827.0833315327764  | 5629.166667349637  | 6722.9166667287545 |
+| sprite-mixed-large   | 1     | after,before,before,after | after       | 225.0000008692344  | 2.0833335195978484 | 864.5833311602473  | 5387.500001428028  | 6479.1666669771075 |
+| sprite-mixed-large   | 1     | after,before,before,after | before      | 222.9166670391957  | 2.08333320915699   | 806.2500013038516  | 5529.16666585952   | 6560.416667411725  |
+| sprite-mixed-large   | 1     | after,before,before,after | before      | 470.8333322778344  | 0                  | 1043.7500008071463 | 8677.083334264657  | 10191.666667349637 |
+| sprite-mixed-large   | 1     | after,before,before,after | after       | 312.50000062088174 | 0                  | 793.7499998758236  | 6525.0000000620885 | 7631.2500005587935 |
+| sprite-mixed-large   | 2     | before,after,after,before | before      | 345.8333344509204  | 0                  | 752.0833335195979  | 5762.499999875824  | 6860.4166678463425 |
+| sprite-mixed-large   | 2     | before,after,after,before | after       | 212.50000037252903 | 0                  | 556.2500006829699  | 4191.666666418314  | 4960.416667473813  |
+| sprite-mixed-large   | 2     | before,after,after,before | after       | 252.08333351959786 | 0                  | 627.0833341404796  | 5002.08333414048   | 5881.250001800557  |
+| sprite-mixed-large   | 2     | before,after,after,before | before      | 156.25000124176344 | 0                  | 477.0833322157462  | 4125.000000620882  | 4758.333334078392  |
+| sprite-mixed-large   | 3     | after,before,before,after | after       | 216.66666803260645 | 2.08333320915699   | 627.0833338300387  | 4749.999998758237  | 5595.833333830039  |
+| sprite-mixed-large   | 3     | after,before,before,after | before      | 189.58333414047956 | 0                  | 493.7499991307656  | 4243.749998820324  | 4927.08333209157   |
+| sprite-mixed-large   | 3     | after,before,before,after | before      | 308.3333332712452  | 0                  | 629.1666667287549  | 4712.5000000620885 | 5650.0000000620885 |
+| sprite-mixed-large   | 3     | after,before,before,after | after       | 227.08333190530539 | 0                  | 591.6666683430473  | 4143.7500004346175 | 4962.5000006829705 |
+| sprite-mixed-large   | 4     | before,after,after,before | before      | 191.66666517655054 | 0                  | 514.5833340163032  | 4168.749998944501  | 4874.999998137355  |
+| sprite-mixed-large   | 4     | before,after,after,before | after       | 164.58333221574625 | 0                  | 533.3333328987161  | 4000.000000310441  | 4697.916665424904  |
+| sprite-mixed-large   | 4     | before,after,after,before | after       | 193.75000024835268 | 0                  | 587.5000006829699  | 4466.6666664804025 | 5247.916667411725  |
+| sprite-mixed-large   | 4     | before,after,after,before | before      | 229.1666672875484  | 0                  | 818.7500008692344  | 5483.3333327745395 | 6531.250000931323  |
+| sprite-mixed-large   | 5     | after,before,before,after | after       | 241.6666659216086  | 0                  | 918.7500004967054  | 5412.499999627471  | 6572.916666045785  |
+| sprite-mixed-large   | 5     | after,before,before,after | before      | 214.58333327124515 | 0                  | 829.1666675359011  | 5529.16666585952   | 6572.916666666667  |
+| sprite-mixed-large   | 5     | after,before,before,after | before      | 293.74999925494194 | 0                  | 912.4999993170301  | 5556.250000372529  | 6762.4999989445005 |
+| sprite-mixed-large   | 5     | after,before,before,after | after       | 256.24999962747097 | 0                  | 939.5833347613612  | 5322.916665114462  | 6518.749999503294  |
+| sprite-local-large   | 0     | before,after,after,before | before      | 218.75000031044087 | 0                  | 660.4166661078731  | 5287.500000248353  | 6166.666666666667  |
+| sprite-local-large   | 0     | before,after,after,before | after       | 220.8333338300387  | 0                  | 843.7500012417635  | 6604.1666663562255 | 7668.750001428028  |
+| sprite-local-large   | 0     | before,after,after,before | after       | 210.41666654249033 | 0                  | 866.6666665424904  | 6606.250000496705  | 7683.333333581686  |
+| sprite-local-large   | 0     | before,after,after,before | before      | 220.833333209157   | 0                  | 643.7499998137355  | 5316.6666667287545 | 6181.249999751647  |
+| sprite-local-large   | 1     | after,before,before,after | after       | 216.666666790843   | 2.08333320915699   | 829.1666675359011  | 6593.750000310441  | 7641.666667846342  |
+| sprite-local-large   | 1     | after,before,before,after | before      | 225.00000024835268 | 0                  | 706.2500007450581  | 5364.5833336437745 | 6295.8333346371855 |
+| sprite-local-large   | 1     | after,before,before,after | before      | 212.5000013038516  | 4.16666641831398   | 502.08333289871615 | 5302.083332712452  | 6020.833333333334  |
+| sprite-local-large   | 1     | after,before,before,after | after       | 218.74999968955913 | 0                  | 520.8333345750967  | 5979.166665735344  | 6718.75            |
+| sprite-local-large   | 2     | before,after,after,before | before      | 231.25000049670538 | 2.0833335195978484 | 431.25000037252903 | 5368.7499994412065 | 6033.333333830039  |
+| sprite-local-large   | 2     | before,after,after,before | after       | 247.91666554907957 | 0                  | 539.5833340783914  | 5945.8333337679505 | 6733.3333333954215 |
+| sprite-local-large   | 2     | before,after,after,before | after       | 237.49999764064947 | 0                  | 545.8333340163032  | 6006.2500005587935 | 6789.583332215746  |
+| sprite-local-large   | 2     | before,after,after,before | before      | 231.24999925494194 | 2.08333320915699   | 668.7500001862645  | 5485.416666915019  | 6387.4999995653825 |
+| sprite-local-large   | 3     | after,before,before,after | after       | 220.83333414047956 | 0                  | 697.916666045785   | 6364.583334885538  | 7283.333335071802  |
+| sprite-local-large   | 3     | after,before,before,after | before      | 222.91666579743227 | 0                  | 647.9166674738129  | 5279.166666790843  | 6150.0000000620885 |
+| sprite-local-large   | 3     | after,before,before,after | before      | 222.91666641831398 | 0                  | 666.6666669771075  | 5270.83333209157   | 6160.416665486991  |
+| sprite-local-large   | 3     | after,before,before,after | after       | 222.91666766007742 | 0                  | 831.2500001241764  | 6583.3333330228925 | 7637.5000008071465 |
+| sprite-local-large   | 4     | before,after,after,before | before      | 235.41666753590107 | 0                  | 645.8333320915699  | 5279.166667411725  | 6160.416667039196  |
+| sprite-local-large   | 4     | before,after,after,before | after       | 222.91666579743227 | 0                  | 550.0000001241764  | 6022.9166668529315 | 6795.83333277454   |
+| sprite-local-large   | 4     | before,after,after,before | after       | 239.5833320915699  | 0                  | 810.4166671012839  | 6695.833332836628  | 7745.833332029482  |
+| sprite-local-large   | 4     | before,after,after,before | before      | 210.41666778425375 | 0                  | 664.583332836628   | 5343.750001241763  | 6218.750001862645  |
+| sprite-local-large   | 5     | after,before,before,after | after       | 210.41666716337204 | 2.08333320915699   | 856.2500004967054  | 6616.6666662320495 | 7685.4166671012845 |
+| sprite-local-large   | 5     | after,before,before,after | before      | 208.33333426465592 | 0                  | 441.66666579743224 | 4416.6666669771075 | 5066.666667039196  |
+| sprite-local-large   | 5     | after,before,before,after | before      | 233.3333340163032  | 2.0833335195978484 | 608.3333330849806  | 5056.2499994412065 | 5900.0000000620885 |
+| sprite-local-large   | 5     | after,before,before,after | after       | 222.91666517655054 | 0                  | 816.6666698331634  | 6622.916664617757  | 7662.499999627471  |
+| sprite-world-large   | 0     | before,after,after,before | before      | 356.2499989445011  | 0                  | 747.9166683430473  | 5152.083332960804  | 6256.250000248352  |
+| sprite-world-large   | 0     | before,after,after,before | after       | 356.25000049670535 | 2.0833335195978484 | 893.7500001241764  | 5702.083334326744  | 6954.166668467224  |
+| sprite-world-large   | 0     | before,after,after,before | after       | 339.5833332712452  | 4.16666641831398   | 872.9166655490795  | 5708.333334264656  | 6924.999999503294  |
+| sprite-world-large   | 0     | before,after,after,before | before      | 333.33333271245164 | 4.166667039195697  | 735.416667846342   | 5116.6666668529315 | 6189.583334450921  |
+| sprite-world-large   | 1     | after,before,before,after | after       | 375.00000031044084 | 0                  | 893.7500001241764  | 5662.500000869234  | 6931.250001303852  |
+| sprite-world-large   | 1     | after,before,before,after | before      | 337.5000000620882  | 0                  | 743.7500000620881  | 5085.416667163372  | 6166.666667287548  |
+| sprite-world-large   | 1     | after,before,before,after | before      | 433.33333265036345 | 0                  | 785.4166657974323  | 5089.583334513009  | 6308.333332960805  |
+| sprite-world-large   | 1     | after,before,before,after | after       | 391.66666691501933 | 2.08333320915699   | 891.6666669150194  | 5637.499999254942  | 6922.916666294138  |
+| sprite-world-large   | 2     | before,after,after,before | before      | 343.75000031044084 | 2.08333320915699   | 739.5833327124516  | 5131.249999627471  | 6216.66666585952   |
+| sprite-world-large   | 2     | before,after,after,before | after       | 354.16666852931183 | 0                  | 870.8333320294818  | 5708.333334575097  | 6933.333335133891  |
+| sprite-world-large   | 2     | before,after,after,before | after       | 347.91666610787314 | 0                  | 883.333332836628   | 5699.999999875824  | 6931.249998820325  |
+| sprite-world-large   | 2     | before,after,after,before | before      | 393.7500019868215  | 4.166666728754838  | 691.6666639347872  | 4862.500001676381  | 5952.083334326744  |
+| sprite-world-large   | 3     | after,before,before,after | after       | 335.4166665424903  | 0                  | 887.5000004967054  | 5689.583333209157  | 6912.500000248353  |
+| sprite-world-large   | 3     | after,before,before,after | before      | 325.00000080714625 | 0                  | 685.4166661699613  | 4933.333332960804  | 5943.7499999379115 |
+| sprite-world-large   | 3     | after,before,before,after | before      | 324.9999989445011  | 4.16666641831398   | 681.2500009934107  | 4993.749998820324  | 6004.16666517655   |
+| sprite-world-large   | 3     | after,before,before,after | after       | 381.2500008692344  | 2.08333320915699   | 881.2500005587935  | 5739.58333209157   | 7004.1666667287545 |
+| sprite-world-large   | 4     | before,after,after,before | before      | 387.4999986340602  | 2.0833335195978484 | 725.0000005587935  | 4716.666667101284  | 5831.2499998137355 |
+| sprite-world-large   | 4     | before,after,after,before | after       | 406.24999968955916 | 2.0833335195978484 | 860.416667846342   | 5654.16666554908   | 6922.9166666045785 |
+| sprite-world-large   | 4     | before,after,after,before | after       | 389.58333401630324 | 0                  | 774.9999997516474  | 5558.333332339923  | 6722.916666107873  |
+| sprite-world-large   | 4     | before,after,after,before | before      | 331.2499988824129  | 2.08333320915699   | 706.2500004346172  | 4995.833332960804  | 6035.416665486991  |
+| sprite-world-large   | 5     | after,before,before,after | after       | 404.16666710128385 | 4.16666641831398   | 866.6666668529311  | 5795.8333333954215 | 7070.8333337679505 |
+| sprite-world-large   | 5     | after,before,before,after | before      | 335.41666499028605 | 0                  | 677.0833348855376  | 5024.999998199443  | 6037.499998075267  |
+| sprite-world-large   | 5     | after,before,before,after | before      | 337.4999997516473  | 0                  | 677.0833333333334  | 5045.833333705862  | 6060.416666790843  |
+| sprite-world-large   | 5     | after,before,before,after | after       | 339.58333482344943 | 0                  | 868.7499997516474  | 5756.2500005587935 | 6964.583335133891  |
+| sprite-local-small   | 0     | before,after,after,before | before      | 106.25000049670537 | 2.08333320915699   | 89.5833345130086   | 610.4166669150194  | 808.3333351338904  |
+| sprite-local-small   | 0     | before,after,after,before | after       | 70.83333345750968  | 2.0833335195978484 | 77.08333401630323  | 437.49999937911826 | 587.500000372529   |
+| sprite-local-small   | 0     | before,after,after,before | after       | 79.1666666045785   | 6.249999937911828  | 102.08333407839139 | 570.8333331470689  | 758.3333337679505  |
+| sprite-local-small   | 0     | before,after,after,before | before      | 97.9166654869914   | 0                  | 97.91666672875483  | 622.9166664804021  | 818.7499986961484  |
+| sprite-local-small   | 1     | after,before,before,after | after       | 83.33333457509677  | 2.08333320915699   | 99.99999993791182  | 627.083333209157   | 812.5000009313226  |
+| sprite-local-small   | 1     | after,before,before,after | before      | 102.08333469927311 | 2.08333320915699   | 118.74999944120646 | 660.4166654869914  | 883.333332836628   |
+| sprite-local-small   | 1     | after,before,before,after | before      | 106.24999987582366 | 0                  | 160.41666641831398 | 781.2500003104409  | 1047.9166666045785 |
+| sprite-local-small   | 1     | after,before,before,after | after       | 127.08333351959784 | 0                  | 166.66666697710752 | 685.4166658595204  | 979.1666663562257  |
+| sprite-local-small   | 2     | before,after,after,before | before      | 89.58333420256774  | 4.166666728754838  | 116.66666592160861 | 606.2500008071462  | 816.6666676600773  |
+| sprite-local-small   | 2     | before,after,after,before | after       | 89.58333358168602  | 0                  | 85.41666685293119  | 577.0833327745398  | 752.083333209157   |
+| sprite-local-small   | 2     | before,after,after,before | after       | 97.91666734963655  | 0                  | 112.50000105549891 | 631.2499990065893  | 841.6666674117248  |
+| sprite-local-small   | 2     | before,after,after,before | before      | 93.75000124176343  | 4.166667039195697  | 89.58333265036345  | 649.9999997516474  | 837.5000006829699  |
+| sprite-local-small   | 3     | after,before,before,after | after       | 64.58333196739356  | 2.08333320915699   | 79.16666598369677  | 470.8333338300387  | 616.6666649902861  |
+| sprite-local-small   | 3     | after,before,before,after | before      | 87.50000099341075  | 4.16666641831398   | 116.66666716337204 | 602.0833319053054  | 810.4166664804022  |
+| sprite-local-small   | 3     | after,before,before,after | before      | 89.58333420256774  | 6.249999937911828  | 85.41666654249032  | 618.7499997516474  | 800.0000004346173  |
+| sprite-local-small   | 3     | after,before,before,after | after       | 89.5833329608043   | 4.166666728754838  | 93.74999937911828  | 633.3333340783914  | 820.8333331470689  |
+| sprite-local-small   | 4     | before,after,after,before | before      | 102.08333438883226 | 8.333333457509676  | 77.0833333954215   | 614.5833320915699  | 802.0833333333334  |
+| sprite-local-small   | 4     | before,after,after,before | after       | 106.25000049670537 | 0                  | 91.66666554907958  | 641.6666681567827  | 839.5833342025677  |
+| sprite-local-small   | 4     | before,after,after,before | after       | 104.1666663562258  | 2.08333320915699   | 95.83333476136129  | 627.0833325882753  | 829.1666669150194  |
+| sprite-local-small   | 4     | before,after,after,before | before      | 85.41666530072689  | 4.166667039195697  | 79.16666846722364  | 618.7499985098839  | 787.4999993170302  |
+| sprite-local-small   | 5     | after,before,before,after | after       | 83.33333333333333  | 2.0833335195978484 | 91.66666679084301  | 633.333332836628   | 810.4166664804021  |
+| sprite-local-small   | 5     | after,before,before,after | before      | 87.50000161429246  | 6.24999962747097   | 74.99999925494194  | 572.9166675979892  | 741.6666680946946  |
+| sprite-local-small   | 5     | after,before,before,after | before      | 91.66666616996129  | 4.166666728754838  | 93.75000124176343  | 604.166666045785   | 793.7500001862645  |
+| sprite-local-small   | 5     | after,before,before,after | after       | 68.75000117967527  | 2.08333320915699   | 72.91666511446238  | 472.9166676600774  | 616.666667163372   |
+| layer-local-control  | 0     | before,after,after,before | before      | 10.416666356225809 | 0                  | 1718.7500003104408 | 3256.2500008692346 | 4985.416667535901  |
+| layer-local-control  | 0     | before,after,after,before | after       | 16.666665983696777 | 0                  | 1720.8333325882752 | 3243.75000068297   | 4981.249999254942  |
+| layer-local-control  | 0     | before,after,after,before | after       | 6.250000248352687  | 2.0833335195978484 | 1706.2499995032947 | 3264.583334326744  | 4979.1666675979895 |
+| layer-local-control  | 0     | before,after,after,before | before      | 16.666665983696777 | 0                  | 1643.7500004346173 | 3122.916667101284  | 4783.333333519598  |
+| layer-local-control  | 1     | after,before,before,after | after       | 27.08333358168602  | 0                  | 1702.0833340163033 | 3258.333333147069  | 4987.500000745058  |
+| layer-local-control  | 1     | after,before,before,after | before      | 12.499999875823656 | 0                  | 1718.75            | 3266.66666722546   | 4997.916667101284  |
+| layer-local-control  | 1     | after,before,before,after | before      | 31.249999379118282 | 0                  | 1841.6666677221656 | 3089.5833326503634 | 4962.499999751647  |
+| layer-local-control  | 1     | after,before,before,after | after       | 20.833333643774193 | 0                  | 1527.083333581686  | 2891.666665673256  | 4439.583332898716  |
+| layer-local-control  | 2     | before,after,after,before | before      | 8.333333147068819  | 0                  | 1939.5833335195978 | 2641.6666666045785 | 4589.583333271245  |
+| layer-local-control  | 2     | before,after,after,before | after       | 16.666665983696777 | 0                  | 1716.6666664804022 | 3268.750000745058  | 5002.083333209157  |
+| layer-local-control  | 2     | before,after,after,before | after       | 12.499999875823656 | 0                  | 1668.7500004967053 | 3199.9999998758235 | 4881.250000248352  |
+| layer-local-control  | 2     | before,after,after,before | before      | 10.416667287548384 | 0                  | 1739.5833333333333 | 3235.416665983697  | 4985.4166666045785 |
+| layer-local-control  | 3     | after,before,before,after | after       | 12.500000186264515 | 2.08333320915699   | 1706.2499995032947 | 3254.166666418314  | 4974.99999931703   |
+| layer-local-control  | 3     | after,before,before,after | before      | 20.833333643774193 | 0                  | 1756.2499990065892 | 3268.750000434617  | 5045.83333308498   |
+| layer-local-control  | 3     | after,before,before,after | before      | 18.749999503294628 | 4.166666728754838  | 1702.0833330849807 | 3220.8333344509206 | 4945.8333337679505 |
+| layer-local-control  | 3     | after,before,before,after | after       | 16.666667225460213 | 0                  | 1697.9166672875483 | 3233.333334016303  | 4947.916668529311  |
+| layer-local-control  | 4     | before,after,after,before | before      | 20.833333643774193 | 0                  | 1656.2500012417634 | 3199.999999565383  | 4877.083334450921  |
+| layer-local-control  | 4     | before,after,after,before | after       | 22.91666716337204  | 2.08333320915699   | 1739.5833345750968 | 3262.4999983236194 | 5027.0833332712455 |
+| layer-local-control  | 4     | before,after,after,before | after       | 18.750000124176342 | 0                  | 1554.1666659216087 | 2945.833334388832  | 4518.750000434617  |
+| layer-local-control  | 4     | before,after,after,before | before      | 20.833333643774193 | 0                  | 1656.2500006208818 | 3183.3333329608045 | 4860.4166672254605 |
+| layer-local-control  | 5     | after,before,before,after | after       | 20.833333022892475 | 0                  | 1685.4166661699612 | 3193.749999627471  | 4899.999998820324  |
+| layer-local-control  | 5     | after,before,before,after | before      | 22.916666542490322 | 0                  | 1747.9166664804022 | 3306.250000062088  | 5077.08333308498   |
+| layer-local-control  | 5     | after,before,before,after | before      | 8.333333457509676  | 0                  | 1797.9166669150193 | 3293.7499983236194 | 5099.999998696148  |
+| layer-local-control  | 5     | after,before,before,after | after       | 20.833333022892475 | 0                  | 1697.9166663562257 | 3218.749998447796  | 4937.499997826914  |
+| sprite-empty-control | 0     | before,after,after,before | before      | 3229.1666666666665 | 2.08333320915699   | 10.416667287548384 | 1254.1666651765506 | 4495.833332339923  |
+| sprite-empty-control | 0     | before,after,after,before | after       | 2014.5833346371849 | 2.08333320915699   | 25.000000062088173 | 1622.9166674117248 | 3664.583335320155  |
+| sprite-empty-control | 0     | before,after,after,before | after       | 1797.9166647419333 | 2.08333320915699   | 31.250000931322575 | 1418.749999254942  | 3249.999998137355  |
+| sprite-empty-control | 0     | before,after,after,before | before      | 3158.3333341404796 | 0                  | 22.91666716337204  | 1368.7499985098839 | 4549.9999998137355 |
+| sprite-empty-control | 1     | after,before,before,after | after       | 1862.4999998137355 | 8.333333457509676  | 18.750000434617203 | 1514.5833330849807 | 3404.166666790843  |
+| sprite-empty-control | 1     | after,before,before,after | before      | 3183.333333271245  | 4.166666728754838  | 10.416666356225809 | 1435.416666790843  | 4633.333333147069  |
+| sprite-empty-control | 1     | after,before,before,after | before      | 2264.583332464099  | 2.08333320915699   | 16.66666753590107  | 1020.8333330228925 | 3304.1666662320495 |
+| sprite-empty-control | 1     | after,before,before,after | after       | 1512.5000014280279 | 2.0833335195978484 | 16.666666294137638 | 1245.8333314086    | 2777.0833326503634 |
+| sprite-empty-control | 2     | before,after,after,before | before      | 2933.333333892127  | 0                  | 12.500000496705374 | 1454.1666641210516 | 4399.999998509884  |
+| sprite-empty-control | 2     | before,after,after,before | after       | 1889.5833333954215 | 0                  | 18.749999192853767 | 1572.9166672875483 | 3481.2499998758235 |
+| sprite-empty-control | 2     | before,after,after,before | after       | 1870.8333326503634 | 2.08333320915699   | 22.916666232049465 | 1589.5833329608042 | 3485.416665052374  |
+| sprite-empty-control | 2     | before,after,after,before | before      | 2950.0000017384687 | 0                  | 14.583333084980646 | 1635.4166666666667 | 4600.000001490116  |
+| sprite-empty-control | 3     | after,before,before,after | after       | 1889.5833330849807 | 2.0833335195978484 | 14.583333395421505 | 1437.4999993791182 | 3343.749999379118  |
+| sprite-empty-control | 3     | after,before,before,after | before      | 2227.0833337679505 | 0                  | 12.500000496705374 | 1335.4166659216087 | 3575.0000001862645 |
+| sprite-empty-control | 3     | after,before,before,after | before      | 2758.3333334575095 | 2.08333320915699   | 6.250000558793545  | 1547.9166666045785 | 4314.583333830038  |
+| sprite-empty-control | 3     | after,before,before,after | after       | 1720.8333344509203 | 6.249999937911828  | 16.666666294137638 | 1333.3333333333333 | 3077.083334016303  |
+| sprite-empty-control | 4     | before,after,after,before | before      | 3097.916668280959  | 0                  | 10.416666977107525 | 1508.3333325261872 | 4616.666667784254  |
+| sprite-empty-control | 4     | before,after,after,before | after       | 2043.7499998758237 | 6.249999937911828  | 16.666667846341927 | 1689.5833322778344 | 3756.249999937912  |
+| sprite-empty-control | 4     | before,after,after,before | after       | 1831.250000745058  | 4.166666728754838  | 10.416666977107525 | 1516.6666662941377 | 3362.500000745058  |
+| sprite-empty-control | 4     | before,after,after,before | before      | 2920.833334016303  | 0                  | 10.416666666666666 | 1608.3333337058623 | 4539.583334388832  |
+| sprite-empty-control | 5     | after,before,before,after | after       | 1812.5000003104408 | 4.166667039195697  | 4.16666641831398   | 1539.5833334575098 | 3360.4166672254605 |
+| sprite-empty-control | 5     | after,before,before,after | before      | 2754.166666418314  | 0                  | 2.08333320915699   | 1500.0000012417634 | 4256.250000869234  |
+| sprite-empty-control | 5     | after,before,before,after | before      | 2870.8333342025676 | 4.16666641831398   | 4.16666641831398   | 1418.7499998758237 | 4297.916666915019  |
+| sprite-empty-control | 5     | after,before,before,after | after       | 1650.0000000620882 | 6.249999937911828  | 14.583333395421505 | 1375.0000003104408 | 3045.833333705862  |
+
+### 一次 follow-on 全部144個 sample（µs/frame）
+
+| Cohort               | Round | Order                     | Sample side | Simulation µs      | Navigation µs      | After-update µs    | Submit µs          | Category sum µs    |
+| -------------------- | ----- | ------------------------- | ----------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
+| sprite-mixed-large   | 0     | before,after,after,before | before      | 233.33333370586237 | 2.08333320915699   | 779.1666664804021  | 5664.583332526187  | 6679.166665921609  |
+| sprite-mixed-large   | 0     | before,after,after,before | after       | 225.00000055879354 | 0                  | 916.666665735344   | 5504.166666418314  | 6645.833332712451  |
+| sprite-mixed-large   | 0     | before,after,after,before | after       | 208.33333364377418 | 4.16666641831398   | 904.1666652386388  | 5525.000000372529  | 6641.666665673256  |
+| sprite-mixed-large   | 0     | before,after,after,before | before      | 227.08333438883224 | 0                  | 762.499998944501   | 5685.416667411725  | 6675.000000745058  |
+| sprite-mixed-large   | 1     | after,before,before,after | after       | 231.25000080714622 | 0                  | 962.500000372529   | 5575.0000001862645 | 6768.75000136594   |
+| sprite-mixed-large   | 1     | after,before,before,after | before      | 225.00000055879354 | 0                  | 783.3333328987161  | 5668.750000496705  | 6677.083333954215  |
+| sprite-mixed-large   | 1     | after,before,before,after | before      | 241.66666685293117 | 2.08333320915699   | 770.8333324020108  | 5577.083334637185  | 6591.666667101284  |
+| sprite-mixed-large   | 1     | after,before,before,after | after       | 231.2500011175871  | 0                  | 945.8333325261871  | 5491.666667473813  | 6668.750001117587  |
+| sprite-mixed-large   | 2     | before,after,after,before | before      | 210.41666809469461 | 2.0833335195978484 | 797.9166662941376  | 5627.08333414048   | 6637.50000204891   |
+| sprite-mixed-large   | 2     | before,after,after,before | after       | 222.91666734963655 | 0                  | 931.2500000620881  | 5481.249999875824  | 6635.416667287549  |
+| sprite-mixed-large   | 2     | before,after,after,before | after       | 212.49999944120646 | 0                  | 958.3333336437742  | 5360.4166666045785 | 6531.2499996895585 |
+| sprite-mixed-large   | 2     | before,after,after,before | before      | 254.1666661078731  | 0                  | 562.4999993791183  | 4906.250001241763  | 5722.9166667287545 |
+| sprite-mixed-large   | 3     | after,before,before,after | after       | 214.58333482344946 | 4.166667039195697  | 964.5833320294818  | 5504.166665486991  | 6687.499999379119  |
+| sprite-mixed-large   | 3     | after,before,before,after | before      | 243.74999882032475 | 0                  | 812.5000027939677  | 5522.916664990286  | 6579.1666666045785 |
+| sprite-mixed-large   | 3     | after,before,before,after | before      | 225.00000055879354 | 0                  | 764.5833333954215  | 5612.500000745058  | 6602.083334699273  |
+| sprite-mixed-large   | 3     | after,before,before,after | after       | 212.49999944120646 | 0                  | 952.0833330849806  | 5370.8333332712455 | 6535.416665797433  |
+| sprite-mixed-large   | 4     | before,after,after,before | before      | 214.5833338921269  | 0                  | 760.4166663562258  | 5510.416666666667  | 6485.41666691502   |
+| sprite-mixed-large   | 4     | before,after,after,before | after       | 250.0000006208817  | 0                  | 1006.2500002483526 | 5339.583332650363  | 6595.8333335195975 |
+| sprite-mixed-large   | 4     | before,after,after,before | after       | 229.16666666666666 | 0                  | 916.666666045785   | 5391.6666672254605 | 6537.499999937912  |
+| sprite-mixed-large   | 4     | before,after,after,before | before      | 210.4166674738129  | 0                  | 770.833333954215   | 5545.833333705862  | 6527.08333513389   |
+| sprite-mixed-large   | 5     | after,before,before,after | after       | 225.00000149011612 | 0                  | 952.0833337058624  | 5454.166665673256  | 6631.250000869235  |
+| sprite-mixed-large   | 5     | after,before,before,after | before      | 212.50000099341074 | 0                  | 772.9166668529311  | 5545.833333705862  | 6531.250001552204  |
+| sprite-mixed-large   | 5     | after,before,before,after | before      | 231.25000080714622 | 0                  | 799.9999995032946  | 5637.499998944501  | 6668.749999254942  |
+| sprite-mixed-large   | 5     | after,before,before,after | after       | 245.83333420256773 | 0                  | 997.9166664804021  | 5493.7500000620885 | 6737.500000745058  |
+| sprite-local-large   | 0     | before,after,after,before | before      | 210.41666654249033 | 4.166666728754838  | 614.583333954215   | 5379.166665797432  | 6208.3333330228925 |
+| sprite-local-large   | 0     | before,after,after,before | after       | 216.666664617757   | 4.166667039195697  | 720.8333341404796  | 5441.666666418314  | 6383.333332215746  |
+| sprite-local-large   | 0     | before,after,after,before | after       | 208.33333240201077 | 0                  | 712.5000006829699  | 5527.083333581686  | 6447.916666666667  |
+| sprite-local-large   | 0     | before,after,after,before | before      | 222.91666734963655 | 2.0833335195978484 | 604.1666666666666  | 5408.333332277834  | 6237.4999998137355 |
+| sprite-local-large   | 1     | after,before,before,after | after       | 200.00000080714622 | 2.0833335195978484 | 739.5833311602473  | 5527.083333581686  | 6468.749999068677  |
+| sprite-local-large   | 1     | after,before,before,after | before      | 212.49999850988388 | 0                  | 618.7500016142925  | 5349.9999999379115 | 6181.250000062088  |
+| sprite-local-large   | 1     | after,before,before,after | before      | 210.41666623204947 | 0                  | 608.3333327745398  | 5462.50000068297   | 6281.2499996895585 |
+| sprite-local-large   | 1     | after,before,before,after | after       | 216.6666661699613  | 2.08333320915699   | 727.0833346992731  | 5547.916665052374  | 6493.749999130765  |
+| sprite-local-large   | 2     | before,after,after,before | before      | 214.58333327124515 | 0                  | 610.4166675359011  | 5420.8333340163035 | 6245.83333482345   |
+| sprite-local-large   | 2     | before,after,after,before | after       | 220.83333289871612 | 0                  | 714.5833323399225  | 5575.000001117587  | 6510.4166663562255 |
+| sprite-local-large   | 2     | before,after,after,before | after       | 216.66666710128388 | 0                  | 760.4166663562258  | 5489.583334264656  | 6466.666667722166  |
+| sprite-local-large   | 2     | before,after,after,before | before      | 212.50000006208816 | 2.0833335195978484 | 627.0833328987161  | 5387.500000496705  | 6229.1666669771075 |
+| sprite-local-large   | 3     | after,before,before,after | after       | 222.91666517655054 | 0                  | 729.166668218871   | 5381.24999931703   | 6333.333332712452  |
+| sprite-local-large   | 3     | after,before,before,after | before      | 220.83333289871612 | 0                  | 616.6666674738129  | 5412.49999931703   | 6249.999999689559  |
+| sprite-local-large   | 3     | after,before,before,after | before      | 222.91666641831398 | 2.08333320915699   | 608.3333337058624  | 5443.749999627471  | 6277.083332960804  |
+| sprite-local-large   | 3     | after,before,before,after | after       | 227.08333314706883 | 2.08333320915699   | 720.8333328987161  | 5510.416667287548  | 6460.41666654249   |
+| sprite-local-large   | 4     | before,after,after,before | before      | 214.5833345130086  | 0                  | 629.1666661078731  | 5470.833333830039  | 6314.583334450921  |
+| sprite-local-large   | 4     | before,after,after,before | after       | 210.41666623204947 | 2.0833335195978484 | 641.666667846342   | 5033.333332277834  | 5887.499999875824  |
+| sprite-local-large   | 4     | before,after,after,before | after       | 206.24999857197204 | 2.0833335195978484 | 562.5              | 5158.33333414048   | 5929.1666662320495 |
+| sprite-local-large   | 4     | before,after,after,before | before      | 210.41666623204947 | 0                  | 647.9166665424904  | 5283.333332898716  | 6141.666665673256  |
+| sprite-local-large   | 5     | after,before,before,after | after       | 229.16666759798923 | 0                  | 706.2500001241764  | 5583.3333336437745 | 6518.75000136594   |
+| sprite-local-large   | 5     | after,before,before,after | before      | 210.41666654249033 | 0                  | 612.4999995032946  | 5356.249999875824  | 6179.166665921609  |
+| sprite-local-large   | 5     | after,before,before,after | before      | 220.83333227783442 | 0                  | 633.333332836628   | 5445.8333331470685 | 6299.999998261531  |
+| sprite-local-large   | 5     | after,before,before,after | after       | 210.41666716337204 | 0                  | 522.9166668529311  | 5324.9999995653825 | 6058.333333581686  |
+| sprite-world-large   | 0     | before,after,after,before | before      | 406.25             | 0                  | 950.0000011175871  | 5704.166665362815  | 7060.4166664804025 |
+| sprite-world-large   | 0     | before,after,after,before | after       | 331.25000074505806 | 0                  | 866.6666662320495  | 5664.58333345751   | 6862.5000004346175 |
+| sprite-world-large   | 0     | before,after,after,before | after       | 408.3333347613613  | 0                  | 945.833332836628   | 5747.9166664804025 | 7102.083334078392  |
+| sprite-world-large   | 0     | before,after,after,before | before      | 385.4166666666667  | 0                  | 972.9166673496366  | 5641.666667535901  | 7000.000001552205  |
+| sprite-world-large   | 1     | after,before,before,after | after       | 333.3333342646559  | 2.0833335195978484 | 874.9999996895591  | 5649.9999994412065 | 6860.416666915019  |
+| sprite-world-large   | 1     | after,before,before,after | before      | 481.25000080714625 | 0                  | 997.9166671012839  | 5912.499999627471  | 7391.666667535901  |
+| sprite-world-large   | 1     | after,before,before,after | before      | 379.1666667287548  | 6.250000248352687  | 962.5000000620881  | 5731.24999863406   | 7079.166665673256  |
+| sprite-world-large   | 1     | after,before,before,after | after       | 375                | 6.250000558793545  | 872.916666790843   | 5629.166666107873  | 6883.33333345751   |
+| sprite-world-large   | 2     | before,after,after,before | before      | 406.2499990686774  | 0                  | 1008.3333340783914 | 5802.0833330228925 | 7216.666666169962  |
+| sprite-world-large   | 2     | before,after,after,before | after       | 327.08333246409893 | 2.0833335195978484 | 850.0000005587935  | 5612.499998882413  | 6791.666665424903  |
+| sprite-world-large   | 2     | before,after,after,before | after       | 310.41666710128385 | 0                  | 864.5833336437742  | 5706.250000124176  | 6881.250000869234  |
+| sprite-world-large   | 2     | before,after,after,before | before      | 450.00000080714625 | 2.0833335195978484 | 1012.4999986340603 | 5783.3333335195975 | 7247.916666480402  |
+| sprite-world-large   | 3     | after,before,before,after | after       | 358.3333349476258  | 4.166666728754838  | 927.0833327124516  | 5624.999999689559  | 6914.583334078392  |
+| sprite-world-large   | 3     | after,before,before,after | before      | 412.50000055879354 | 0                  | 950.0000001862645  | 5783.333332588275  | 7145.833333333333  |
+| sprite-world-large   | 3     | after,before,before,after | before      | 429.1666668529312  | 0                  | 941.6666667287549  | 5714.583332650363  | 7085.4166662320495 |
+| sprite-world-large   | 3     | after,before,before,after | after       | 356.2500001862645  | 0                  | 875.0000012417635  | 5722.916665486991  | 6954.16666691502   |
+| sprite-world-large   | 4     | before,after,after,before | before      | 418.75000080714625 | 0                  | 941.6666661078731  | 5783.333333830039  | 7143.750000745058  |
+| sprite-world-large   | 4     | before,after,after,before | after       | 312.49999968955916 | 4.166666728754838  | 858.3333337058624  | 5637.499999875824  | 6812.5             |
+| sprite-world-large   | 4     | before,after,after,before | after       | 364.5833345750968  | 2.08333320915699   | 864.5833324020108  | 5614.583332712452  | 6845.833332898716  |
+| sprite-world-large   | 4     | before,after,after,before | before      | 364.5833348855376  | 0                  | 960.4166653007269  | 5783.333334761362  | 7108.333334947626  |
+| sprite-world-large   | 5     | after,before,before,after | after       | 322.91666728754836 | 0                  | 860.4166666045785  | 5606.249999875824  | 6789.5833337679505 |
+| sprite-world-large   | 5     | after,before,before,after | before      | 477.0833331470688  | 2.08333320915699   | 966.6666686534882  | 5870.833332029481  | 7316.666667039195  |
+| sprite-world-large   | 5     | after,before,before,after | before      | 385.41666604578495 | 0                  | 935.4166677221656  | 5795.833333084981  | 7116.6666668529315 |
+| sprite-world-large   | 5     | after,before,before,after | after       | 331.25000074505806 | 0                  | 862.5000001241764  | 5666.666666666667  | 6860.416667535901  |
+| sprite-local-small   | 0     | before,after,after,before | before      | 114.5833336437742  | 2.0833335195978484 | 95.83333196739356  | 295.8333333954215  | 508.3333325261871  |
+| sprite-local-small   | 0     | before,after,after,before | after       | 114.58333333333333 | 4.16666641831398   | 106.25000049670537 | 447.9166663562258  | 672.9166666045785  |
+| sprite-local-small   | 0     | before,after,after,before | after       | 66.6666654869914   | 4.166667039195697  | 85.41666499028604  | 477.08333500971395 | 633.3333325261871  |
+| sprite-local-small   | 0     | before,after,after,before | before      | 100.00000055879354 | 0                  | 87.4999991307656   | 654.1666658595204  | 841.6666655490797  |
+| sprite-local-small   | 1     | after,before,before,after | after       | 100.0000008692344  | 2.08333320915699   | 108.33333401630323 | 654.1666671012839  | 864.5833351959785  |
+| sprite-local-small   | 1     | after,before,before,after | before      | 112.50000074505806 | 4.166667039195697  | 93.75              | 629.166666418314   | 839.5833342025678  |
+| sprite-local-small   | 1     | after,before,before,after | before      | 87.50000006208818  | 2.0833335195978484 | 110.41666629413764 | 666.6666669771075  | 866.6666668529313  |
+| sprite-local-small   | 1     | after,before,before,after | after       | 87.49999850988388  | 2.0833335195978484 | 102.08333469927311 | 483.33333246409893 | 674.9999991928537  |
+| sprite-local-small   | 2     | before,after,after,before | before      | 102.08333438883226 | 2.08333320915699   | 114.58333333333333 | 622.9166658595204  | 841.666666790843   |
+| sprite-local-small   | 2     | before,after,after,before | after       | 102.08333345750968 | 2.0833335195978484 | 102.08333345750968 | 577.0833327745398  | 783.333333209157   |
+| sprite-local-small   | 2     | before,after,after,before | after       | 91.66666648040216  | 2.08333320915699   | 95.83333414047956  | 620.8333332712451  | 810.4166671012838  |
+| sprite-local-small   | 2     | before,after,after,before | before      | 79.1666666045785   | 8.333334078391394  | 91.66666554907958  | 629.1666657974323  | 808.3333320294818  |
+| sprite-local-small   | 3     | after,before,before,after | after       | 104.16666728754838 | 4.16666641831398   | 77.08333277453978  | 589.5833326503634  | 774.9999991307656  |
+| sprite-local-small   | 3     | after,before,before,after | before      | 79.16666691501935  | 0                  | 79.16666598369677  | 435.4166677221656  | 593.7500006208817  |
+| sprite-local-small   | 3     | after,before,before,after | before      | 99.99999900658925  | 4.16666641831398   | 72.91666666666667  | 610.4166675359011  | 787.499999627471   |
+| sprite-local-small   | 3     | after,before,before,after | after       | 95.83333476136129  | 2.0833335195978484 | 99.99999962747097  | 629.166666418314   | 827.0833343267441  |
+| sprite-local-small   | 4     | before,after,after,before | before      | 108.33333432674408 | 2.0833335195978484 | 66.66666672875483  | 635.416666045785   | 812.5000006208817  |
+| sprite-local-small   | 4     | before,after,after,before | after       | 89.58333482344945  | 4.16666641831398   | 97.91666672875483  | 610.4166684672236  | 802.0833364377419  |
+| sprite-local-small   | 4     | before,after,after,before | after       | 104.1666679084301  | 6.24999962747097   | 83.33333395421505  | 608.3333327745398  | 802.083334264656   |
+| sprite-local-small   | 4     | before,after,after,before | before      | 97.91666766007741  | 2.08333320915699   | 89.58333233992259  | 599.9999999379119  | 789.5833331470689  |
+| sprite-local-small   | 5     | after,before,before,after | after       | 93.75000062088172  | 2.0833335195978484 | 95.83333383003871  | 593.7500003104409  | 785.4166682809591  |
+| sprite-local-small   | 5     | after,before,before,after | before      | 93.7500015522043   | 2.0833335195978484 | 79.1666650523742   | 620.8333354443312  | 795.8333355685074  |
+| sprite-local-small   | 5     | after,before,before,after | before      | 87.50000006208818  | 2.0833335195978484 | 75.00000142802794  | 627.0833325882753  | 791.6666675979893  |
+| sprite-local-small   | 5     | after,before,before,after | after       | 93.75000093132257  | 2.08333320915699   | 97.91666610787313  | 612.5000007450581  | 806.2500009934108  |
+| layer-local-control  | 0     | before,after,after,before | before      | 14.583333084980646 | 0                  | 1775.000000372529  | 3285.416666418314  | 5074.999999875824  |
+| layer-local-control  | 0     | before,after,after,before | after       | 14.583333084980646 | 2.08333320915699   | 1720.833333209157  | 3245.8333348234496 | 4983.333334326744  |
+| layer-local-control  | 0     | before,after,after,before | after       | 22.916665611167748 | 0                  | 1691.6666679705183 | 3150.00000068297   | 4864.5833342646565 |
+| layer-local-control  | 0     | before,after,after,before | before      | 18.75000074505806  | 2.0833335195978484 | 1695.8333343888323 | 3189.5833325882754 | 4906.250001241764  |
+| layer-local-control  | 1     | after,before,before,after | after       | 16.666666915019352 | 0                  | 1783.333333209157  | 2864.583333643774  | 4664.5833337679505 |
+| layer-local-control  | 1     | after,before,before,after | before      | 29.166666480402153 | 0                  | 1808.3333354443312 | 3024.9999991307654 | 4862.500001055499  |
+| layer-local-control  | 1     | after,before,before,after | before      | 16.666667225460213 | 0                  | 1741.666667163372  | 3272.916664990286  | 5031.249999379118  |
+| layer-local-control  | 1     | after,before,before,after | after       | 18.749999813735485 | 0                  | 1795.8333337058623 | 3302.083333643774  | 5116.666667163372  |
+| layer-local-control  | 2     | before,after,after,before | before      | 16.666666915019352 | 0                  | 1545.8333327745397 | 2947.91666790843   | 4510.416667597989  |
+| layer-local-control  | 2     | before,after,after,before | after       | 35.41666610787312  | 4.166666728754838  | 1129.166666418314  | 2191.6666676600776 | 3360.4166669150195 |
+| layer-local-control  | 2     | before,after,after,before | after       | 16.666665983696777 | 0                  | 1083.3333333333333 | 2160.4166685914    | 3260.41666790843   |
+| layer-local-control  | 2     | before,after,after,before | before      | 27.083332960804302 | 0                  | 1058.3333348234494 | 2104.1666651144624 | 3189.583332898716  |
+| layer-local-control  | 3     | after,before,before,after | after       | 29.166666480402153 | 0                  | 1093.7500003104408 | 2102.0833340783915 | 3225.0000008692346 |
+| layer-local-control  | 3     | after,before,before,after | before      | 14.583333395421505 | 2.0833335195978484 | 1020.8333324020108 | 1964.5833323399227 | 3002.083331656953  |
+| layer-local-control  | 3     | after,before,before,after | before      | 18.750000124176342 | 0                  | 1020.8333324020108 | 1958.333333954215  | 2997.9166664804025 |
+| layer-local-control  | 3     | after,before,before,after | after       | 20.833333333333332 | 2.08333320915699   | 1018.7499998137355 | 1943.7499990065892 | 2985.416665362815  |
+| layer-local-control  | 4     | before,after,after,before | before      | 14.583333084980646 | 0                  | 1006.2499993170301 | 1977.0833331470687 | 2997.9166655490794 |
+| layer-local-control  | 4     | before,after,after,before | after       | 10.41666604578495  | 0                  | 1025.0000000620882 | 1966.6666677221656 | 3002.083333830039  |
+| layer-local-control  | 4     | before,after,after,before | after       | 14.583333395421505 | 2.08333320915699   | 1012.5000001862645 | 1945.8333331470687 | 2974.9999999379115 |
+| layer-local-control  | 4     | before,after,after,before | before      | 14.583333395421505 | 0                  | 1027.0833329608042 | 1950.0000004967053 | 2991.666666852931  |
+| layer-local-control  | 5     | after,before,before,after | after       | 20.833332712451618 | 0                  | 1000.0000003104409 | 1972.9166673496366 | 2993.750000372529  |
+| layer-local-control  | 5     | after,before,before,after | before      | 20.833333643774193 | 0                  | 1029.1666661699612 | 2012.5000008071463 | 3062.500000620882  |
+| layer-local-control  | 5     | after,before,before,after | before      | 16.666666294137638 | 0                  | 1020.8333336437742 | 1974.9999999379118 | 3012.4999998758235 |
+| layer-local-control  | 5     | after,before,before,after | after       | 25.000000062088173 | 2.08333320915699   | 1012.5000001862645 | 1974.9999986961484 | 3014.5833321536584 |
+| sprite-empty-control | 0     | before,after,after,before | before      | 699.9999992549419  | 4.166666728754838  | 2.08333320915699   | 508.33333500971395 | 1214.5833342025678 |
+| sprite-empty-control | 0     | before,after,after,before | after       | 366.66666499028605 | 2.08333320915699   | 12.49999925494194  | 279.16666865348816 | 660.4166661078732  |
+| sprite-empty-control | 0     | before,after,after,before | after       | 395.8333345750968  | 0                  | 2.08333320915699   | 277.0833320294817  | 674.9999998137355  |
+| sprite-empty-control | 0     | before,after,after,before | before      | 731.2499992549419  | 0                  | 8.333333457509676  | 531.2500009313226  | 1270.833333643774  |
+| sprite-empty-control | 1     | after,before,before,after | after       | 377.083333209157   | 2.08333320915699   | 8.333333147068819  | 285.41666734963655 | 672.9166669150193  |
+| sprite-empty-control | 1     | after,before,before,after | before      | 654.1666677221656  | 2.08333320915699   | 12.500000186264515 | 514.5833324640989  | 1183.333333581686  |
+| sprite-empty-control | 1     | after,before,before,after | before      | 737.5000007450581  | 0                  | 10.416666977107525 | 585.4166662320495  | 1333.333333954215  |
+| sprite-empty-control | 1     | after,before,before,after | after       | 383.3333325261871  | 0                  | 4.166667039195697  | 291.6666663562258  | 679.1666659216087  |
+| sprite-empty-control | 2     | before,after,after,before | before      | 681.2500006829699  | 0                  | 4.166666728754838  | 533.3333335195979  | 1218.7500009313226 |
+| sprite-empty-control | 2     | before,after,after,before | after       | 370.833333581686   | 0                  | 2.08333320915699   | 289.5833340783914  | 662.5000008692343  |
+| sprite-empty-control | 2     | before,after,after,before | after       | 358.3333333954215  | 0                  | 8.333333767950535  | 264.58333370586234 | 631.2500008692343  |
+| sprite-empty-control | 2     | before,after,after,before | before      | 860.4166675359011  | 2.08333320915699   | 4.166666728754838  | 574.9999998758236  | 1441.6666673496366 |
+| sprite-empty-control | 3     | after,before,before,after | after       | 416.6666666666667  | 0                  | 12.500000186264515 | 310.41666710128385 | 739.583333954215   |
+| sprite-empty-control | 3     | after,before,before,after | before      | 697.916668218871   | 2.08333320915699   | 2.08333320915699   | 524.9999988203248  | 1227.0833334575098 |
+| sprite-empty-control | 3     | after,before,before,after | before      | 697.916666045785   | 0                  | 2.08333320915699   | 518.7500001241764  | 1218.7499993791184 |
+| sprite-empty-control | 3     | after,before,before,after | after       | 404.1666677221656  | 4.16666641831398   | 2.08333320915699   | 304.16666716337204 | 714.5833345130086  |
+| sprite-empty-control | 4     | before,after,after,before | before      | 689.5833335195979  | 2.0833335195978484 | 2.08333320915699   | 579.1666675359011  | 1272.9166677842538 |
+| sprite-empty-control | 4     | before,after,after,before | after       | 377.0833338300387  | 2.08333320915699   | 6.24999962747097   | 304.16666871557635 | 689.583335382243   |
+| sprite-empty-control | 4     | before,after,after,before | after       | 391.66666691501933 | 0                  | 6.249999937911828  | 331.2500004346172  | 729.1666672875483  |
+| sprite-empty-control | 4     | before,after,after,before | before      | 772.9166677842537  | 0                  | 6.24999962747097   | 560.4166674117247  | 1339.5833348234494 |
+| sprite-empty-control | 5     | after,before,before,after | after       | 410.4166676600774  | 2.08333320915699   | 4.16666641831398   | 297.91666598369676 | 714.5833332712451  |
+| sprite-empty-control | 5     | after,before,before,after | before      | 737.5000016763806  | 0                  | 8.333333147068819  | 572.9166669771075  | 1318.7500018005571 |
+| sprite-empty-control | 5     | after,before,before,after | before      | 816.6666676600775  | 2.08333320915699   | 10.416666977107525 | 562.5              | 1391.666667846342  |
+| sprite-empty-control | 5     | after,before,before,after | after       | 420.83333308498067 | 4.166666728754838  | 2.0833335195978484 | 314.5833338300387  | 741.666667163372   |
+
+### 彩色 atlas／trim／source 真正三 backend Game proof
+
+- 兩fixtures：普通Spritepool與targetParticleLayer2D；各在Canvas2D／WebGL2／WebGPU跑八modes，共48cases。只有WebGL2slot改動，另外兩backend是未改邏輯的功能控制，不假稱它們也得到packing收益。
+- 每側native16×16ImageBitmap由逐pixel R=x×17／G=y×17／B=(x xor y)×17／A255產生，不是白色texture掩飾UV錯誤。Mode為local／world／local-custom／local-screen／local-transfer／local-rotated／local-trimmed／local-source。
+- rotated使用TextureView2D frame(4,2,6,4)／rotation90；trimmed使用frame(2,4,6,4)／original(12,10)／trim(3,2,6,4)／resolution2；sourceRect為(-0,-0,7,5)。直接走已閱讀的正式TextureView2D constructor／validation，不手造rawquad或shaderreceiver；resource仍borrowed。
+- 每case每側32liveparticles、12realGameframes，parent ShakenGroup矩陣override+2，deterministic移動／旋轉／nonuniformscale、root tint／opacity與camera position／zoom；custom在一個Sprite或targetlayer的原matrix呼叫後+3，transfer於第7frame前移root至新Scene。Scene只overridepublicupdatehook驅動fixture pose，不替換Game／Scene引擎。
+- zero velocity／acceleration、constantstart=endappearance、life1e6消除不同clock造成的pose差。Sprite在render後讀raw既有worldMatrix，不多呼matrixhelper掩飾stale；target在render後讀slot／version／bounds並呼公開slotmatrixhelper，明示這個差異。
+- 每Spritecase6552數字、targetcase10500，24case各一種共409248個Object.is exactnumbers，包含signedzero，JSONserialize前比較；每case12matchedsnapshots。實際同backend兩側nativePNGbytes一致且nonblank，不宣稱跨backendparity；所有Game／borrowedTexture／nativebitmapcleanup通過，pageerrors0。實際開啟WebGL2 rotatedSprite與trimmedLayer screenshots觀察彩色particle surface。
+
+| Source-slot fixture | Backend  | Mode           | Matched snapshots | Object.is exact numbers | Matching nonblank native PNG SHA256                              | Cleanup |
+| ------------------- | -------- | -------------- | ----------------- | ----------------------- | ---------------------------------------------------------------- | ------- |
+| source-sprite       | canvas2d | local          | 12                | 6552                    | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 | true    |
+| source-sprite       | canvas2d | world          | 12                | 6552                    | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 | true    |
+| source-sprite       | canvas2d | local-custom   | 12                | 6552                    | 1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace | true    |
+| source-sprite       | canvas2d | local-screen   | 12                | 6552                    | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f | true    |
+| source-sprite       | canvas2d | local-transfer | 12                | 6552                    | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 | true    |
+| source-sprite       | canvas2d | local-rotated  | 12                | 6552                    | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c | true    |
+| source-sprite       | canvas2d | local-trimmed  | 12                | 6552                    | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 | true    |
+| source-sprite       | canvas2d | local-source   | 12                | 6552                    | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d | true    |
+| source-sprite       | webgl2   | local          | 12                | 6552                    | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | true    |
+| source-sprite       | webgl2   | world          | 12                | 6552                    | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 | true    |
+| source-sprite       | webgl2   | local-custom   | 12                | 6552                    | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 | true    |
+| source-sprite       | webgl2   | local-screen   | 12                | 6552                    | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 | true    |
+| source-sprite       | webgl2   | local-transfer | 12                | 6552                    | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | true    |
+| source-sprite       | webgl2   | local-rotated  | 12                | 6552                    | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f | true    |
+| source-sprite       | webgl2   | local-trimmed  | 12                | 6552                    | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 | true    |
+| source-sprite       | webgl2   | local-source   | 12                | 6552                    | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd | true    |
+| source-sprite       | webgpu   | local          | 12                | 6552                    | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | true    |
+| source-sprite       | webgpu   | world          | 12                | 6552                    | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 | true    |
+| source-sprite       | webgpu   | local-custom   | 12                | 6552                    | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 | true    |
+| source-sprite       | webgpu   | local-screen   | 12                | 6552                    | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 | true    |
+| source-sprite       | webgpu   | local-transfer | 12                | 6552                    | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | true    |
+| source-sprite       | webgpu   | local-rotated  | 12                | 6552                    | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f | true    |
+| source-sprite       | webgpu   | local-trimmed  | 12                | 6552                    | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 | true    |
+| source-sprite       | webgpu   | local-source   | 12                | 6552                    | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd | true    |
+| source-layer        | canvas2d | local          | 12                | 10500                   | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 | true    |
+| source-layer        | canvas2d | world          | 12                | 10500                   | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 | true    |
+| source-layer        | canvas2d | local-custom   | 12                | 10500                   | 7bb999f18af59b9c4af1fe168d02502e6fdd61c18f485116bd30c3ed6e5d4b1e | true    |
+| source-layer        | canvas2d | local-screen   | 12                | 10500                   | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f | true    |
+| source-layer        | canvas2d | local-transfer | 12                | 10500                   | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 | true    |
+| source-layer        | canvas2d | local-rotated  | 12                | 10500                   | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c | true    |
+| source-layer        | canvas2d | local-trimmed  | 12                | 10500                   | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 | true    |
+| source-layer        | canvas2d | local-source   | 12                | 10500                   | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d | true    |
+| source-layer        | webgl2   | local          | 12                | 10500                   | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | true    |
+| source-layer        | webgl2   | world          | 12                | 10500                   | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 | true    |
+| source-layer        | webgl2   | local-custom   | 12                | 10500                   | 89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842 | true    |
+| source-layer        | webgl2   | local-screen   | 12                | 10500                   | ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52 | true    |
+| source-layer        | webgl2   | local-transfer | 12                | 10500                   | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | true    |
+| source-layer        | webgl2   | local-rotated  | 12                | 10500                   | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f | true    |
+| source-layer        | webgl2   | local-trimmed  | 12                | 10500                   | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 | true    |
+| source-layer        | webgl2   | local-source   | 12                | 10500                   | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd | true    |
+| source-layer        | webgpu   | local          | 12                | 10500                   | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | true    |
+| source-layer        | webgpu   | world          | 12                | 10500                   | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 | true    |
+| source-layer        | webgpu   | local-custom   | 12                | 10500                   | 89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842 | true    |
+| source-layer        | webgpu   | local-screen   | 12                | 10500                   | ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52 | true    |
+| source-layer        | webgpu   | local-transfer | 12                | 10500                   | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | true    |
+| source-layer        | webgpu   | local-rotated  | 12                | 10500                   | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f | true    |
+| source-layer        | webgpu   | local-trimmed  | 12                | 10500                   | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 | true    |
+| source-layer        | webgpu   | local-source   | 12                | 10500                   | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd | true    |
+
+### 交付與未驗證邊界
+
+- 只同步README中／英／日、PLAN、DESIGN、英中技術文件與本節；append前6862851bytes的歷史保留，不覆寫P262–P264的結果。正式source／dist與十一個使用者修改檔未被寫入，原型／proof／未執行builder在保留完整證據後刪除。
+- 本輪沒有formal tests／strict／lint／build、actual direct-source-root或新minifiedslot驗證、Node／CJS CPU、newprofile／heap／GC／allocation／GPUtime／fps、gallery／showcase、audio unlock／cleanup、fullbrowserregression或實機／Safari認證。已閱讀Sprite quad／TextureView既有tests，但未冒稱本輪重跑。數值functionproof不等於CJS或nativeGPU私有method benchmark。
+- 文件格式、relative-file links與historicalprefix作scoped檢查，只stage六份證據文件依功能提交，不push／升版；不為局部正面方向擴大API或新增狀態。

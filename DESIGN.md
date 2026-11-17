@@ -6397,3 +6397,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 隔離原型只讓 private WorldParticleSprite 持一個 global Scene pass stamp；僅 exact method 在 nonzero pass可重用，custom呼叫後清stamp以免恢復原method時沿用調整過的matrix，新出生retainAxes失效，pass0仍重算。未改 parent／source／resource ownership 或數值body。
 - 原生動態與300個pass／pool／override邊界數字一致，不代表應接受新狀態。mixed改善但target world合計四輪慢，local／small controls也有成本，拒絕此案；未測heap，不能把一個欄位的source分析包裝成量測。
 - 正式world仍每次計算原矩陣，不新增state／API／production認證。保留四組current Game profiles、144個原始timings與三backend24個cases，詳見 `ACCEPTANCE.md` P264。
+
+## P265：private scalar 共用仍以完整 Game 決定
+
+- packQuad 的record來自renderer持有的普通numeric quad，與public texture／view／Sprite getters不同；候選只在本call保存六個UV值與兩個已重複的sum，原stores、四角min順序、加法結合、abs spans與source validation不動，不做atlas representation特例。
+- 65,536個finite／IEEE-edge inputs在全部64個Float32 lanes精確一致，且彩色rotation／trim／source真實consumer通過；這不能代替效能門檻，也不是WebGPU／Canvas被改動的宣稱。
+- 首批CPU有工具干擾風險，留下完整數據與限制，僅以同一工作矩陣補一次；補測world有益但mixed／local退步，不接受通用scalar改動。兩批都保留，不挑有利run、不臆測register spill／JIT／GC或FPS。
+- 正式source／dist保持原packQuad，沒有新cache／state／API；只保存數值、三backend48cases及兩批288個timing證據，完整scope見 `ACCEPTANCE.md` P265。
