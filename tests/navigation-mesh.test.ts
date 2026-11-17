@@ -106,6 +106,35 @@ describe('polygon navigation surfaces', () => {
     }
   });
 
+  it('keeps negative, swapped-axis and distant spatial tiles distinct', () => {
+    const origins = [
+      [0, 0],
+      [-16, -32],
+      [-32, -16],
+      [2 ** 28, -(2 ** 28)],
+      [0, 2 ** 28],
+    ] as const;
+    const mesh = new NavigationMesh3D({
+      tileSize: 8,
+      polygons: origins.map(([x, z], i) => square(String(i), x, z)),
+    });
+    try {
+      for (let i = 0; i < origins.length; i++) {
+        const [x, z] = origins[i]!;
+        const projection = mesh.project(new Vector3(x + 1, 0.1, z + 1), {
+          ...query,
+          maxDistance: 0.25,
+          agentRadius: 0,
+        })!;
+        expect(projection.polygon.id).toBe(String(i));
+        expect(projection.position).toEqual(new Vector3(x + 1, 0, z + 1));
+        expect(projection.candidates).toBe(1);
+      }
+    } finally {
+      mesh.destroy();
+    }
+  });
+
   it('re-clears agent radius from an edge whose neighbor is disabled and re-enabled', () => {
     const mesh = new NavigationMesh3D({
       polygons: [square('left', 0, 0), square('right', 2, 0)],

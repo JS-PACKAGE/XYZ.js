@@ -6115,3 +6115,7 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 ## P243：拒絕條件式閉合邊 wrapping
 
 最近邊與 containment helper 的 `% vertices.length` 改為最後一邊明確 wrap 到零，combined 原型在帶 radius 查詢略快，但零 radius 六對全部退步。再拆 inside-only／nearest-only 量測，仍分別有 Node 明確退步／Chromium 收益不足，三組皆不採用、不加形狀或 runtime 特例。每組 2,048 投影／64 路徑／七組 getter traces 相同；source／tests／dist 保持 P241，僅提交六份文件。144 組配對與範圍見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P244：navmesh 數值座標空間索引
+
+採用兩層 `Map<x, Map<z, polygonIndices>>` 取代 `${x}:${z}` 複合 key，不壓位元或限制新增座標範圍。候選座標迴圈、列表順序、去重、budget sentinel 與每次 yield 後的即時 lookup 保持；destroy 清除 outer Map。帶 radius 一般投影 Node／Chromium CPU 約降 2.4%／8.9%，六輪 browser 投影各主要情境皆下降；不宣稱所有路徑加速、配置／heap 或 FPS 收益。負座標、交換軸與合法遠距 tile 回歸及驗證邊界見 [ACCEPTANCE.md](ACCEPTANCE.md)。

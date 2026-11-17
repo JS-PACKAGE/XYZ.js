@@ -116,6 +116,8 @@ P242 不採用延後建立 navmesh 投影結果：Node 部分查詢約省 1–3%
 
 P243 不採用閉合邊的條件式 wrapping：combined／inside-only／nearest-only 三組對照皆有情境或 runtime 退步，保留既有 `%` 寫法。P243 rejects conditional cyclic-edge wrapping after three ablations; fewer remainder expressions did not yield a consistent cross-case gain. P243 は閉合辺の条件分岐化を三通り比較し、不安定な改善と退行のため不採用。source／dist 維持 P241；完整配對見 [ACCEPTANCE](./ACCEPTANCE.md) P243。
 
+P244 狀態：navmesh 空間索引改以兩層數值 Map 查詢 x／z，省去每次 tile lookup 的複合字串 key；一般帶 radius 投影 CPU 約降 Node 2.4%／Chromium 8.9%。P244 uses nested numeric x/z tile maps; ordinary radius-bearing projection CPU time falls about 2.4% Node /8.9% Chromium. P244 は navmesh の x/z tile 索引を二段の数値 Map に変更し、通常の radius 付き投影 CPU 時間が Node 約 2.4%／Chromium 約 8.9% 減少。不是 FPS 或 heap 改善保證；量測與驗證範圍見 [ACCEPTANCE](./ACCEPTANCE.md) P244。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

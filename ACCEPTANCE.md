@@ -29650,3 +29650,92 @@ All three visible browser cohorts have empty page-error lists, with no concurren
 Each of all three candidates independently passes 2,048 exact public projections, 64 complete paths and seven point-getter trace comparisons against the unchanged baseline. Histories include varying radius/positions, enabled-state revisions, quads, triangles, slopes, stacked floors and retained output snapshots. This numerical agreement does not rescue the CPU regressions.
 
 No canonical source/test edit, permanent test, artifact promotion, fresh full build/full suite or new public-root runtime proof is needed or claimed for rejected prototypes. Six documentation files record the decision, README zh/en/ja synchronized; formatting, relative-file links and historical ACCEPTANCE byte-prefix preservation are checked. All temporary benchmark/proof modules, profiles and browser/server resources are removed before a six-doc-only phase commit. User-owned files remain excluded, no push or version bump.
+
+## P244 — Numeric navmesh tile coordinates (2026-11-17)
+
+### Adopted index and contract
+
+The private spatial index changes from Map<string, polygonIndices> with interpolated x:z keys to Map<number, Map<number, polygonIndices>>. Construction creates/reuses an x column and appends the same polygon indices to its z buckets. Candidate iteration still runs the same x/z coordinate loops, emits the same budget sentinel before each lookup, retrieves tiles.get(x)?.get(z) after that yield, and keeps its per-query Set/deduplication/list order. No column reference is retained across yields. destroy clears the outer map.
+
+This avoids per-query composite string creation/hashing without bit packing, coordinate truncation, a new extent restriction, query caching, shared mutable query state or public API/dependency changes. Safe integer keys preserve negative coordinates and signed-zero equivalence. Column maps add a storage-level tradeoff; neither retained heap nor net allocation/GC reduction was measured or claimed. Existing candidate-generator self samples (44,001 µs in P242's unchanged-P241 baseline profile) motivated this lookup investigation, not a performance claim.
+
+### Complete public-query CPU boundary
+
+Node v26.7.0, TypeScript 6.0.3 ES2022, pinned Playwright Chromium 153.0.8010.12 darwin/arm64 desktop automation. Isolated before/after modules share production dependencies and the same real NavigationMesh3D workload module as P241. Two-unit cells, tileSize 8, geometry setup/destruction outside timing; 4,096 project /128 findPath warm calls per variant/case, six ABBA/BAAB pairs with 4,096 projections /128 complete paths per sample. Pair cells average two samples per variant; summary values are medians of six pairs, CPU wall ms/query.
+
+Cases cover single-square interior, 48×48 zero-/positive-radius quads, exterior border points, a continuous slope, two stacked 24×24 floors, 24×24 split triangles and complete paths on 12×12 quads. All but explicit zero-radius/single cases use radius 0.2, height 1.4, maxDistance 1, maxVerticalDistance 0.5, with 128 deterministic point positions/eight path pairs. All geometry and cache warmup precede timing; no concurrent assistant build/test/profile. Browser document visible, page-error list empty.
+
+| Case          | Node before ms/query | Candidate | Change % | Pair range %  | Chromium before ms/query | Candidate | Change % | Pair range %  |
+| ------------- | -------------------- | --------- | -------- | ------------- | ------------------------ | --------- | -------- | ------------- |
+| single-inside | 0.000205             | 0.000184  | -10.31   | -22.23..-7.57 | 0.000183                 | 0.000146  | -20.00   | -25.00..-7.14 |
+| quad48-r0     | 0.005392             | 0.005365  | -0.49    | -2.31..5.37   | 0.005017                 | 0.004712  | -6.08    | -10.42..-5.11 |
+| quad48-r02    | 0.005520             | 0.005385  | -2.44    | -4.63..-0.61  | 0.005200                 | 0.004736  | -8.92    | -10.23..-7.53 |
+| outside48     | 0.003831             | 0.003739  | -2.39    | -9.36..0.88   | 0.003589                 | 0.003271  | -8.84    | -9.36..-6.25  |
+| slope48       | 0.005511             | 0.005426  | -1.54    | -5.35..1.05   | 0.005188                 | 0.004785  | -7.76    | -8.25..-6.89  |
+| stacked24     | 0.010453             | 0.010335  | -1.13    | -1.36..-0.78  | 0.010004                 | 0.009302  | -7.02    | -7.56..-6.38  |
+| tri24         | 0.009009             | 0.008868  | -1.56    | -5.65..-1.23  | 0.008582                 | 0.008112  | -5.48    | -6.40..-5.00  |
+| paths12       | 0.021325             | 0.020819  | -2.37    | -19.20..1.72  | 0.018359                 | 0.017578  | -4.26    | -6.38..0.00   |
+
+Ordinary positive-radius queries improve 2.44% Node /8.92% Chromium, all six pairs lower in both. Every main Chromium projection case improves at the median with all six paired values lower; Node's other scenarios show smaller/mixed pairs. The tiny single-square cohort is quantized and is not a broad speedup claim. Complete paths are mixed in Node. No constructor/renderer/GPU/RAF/FPS, heap or GC gain is inferred.
+
+| Round | Case          | Node before ms/query | Candidate | Chromium before ms/query | Candidate |
+| ----- | ------------- | -------------------- | --------- | ------------------------ | --------- |
+| 1     | single-inside | 0.000268             | 0.000243  | 0.000195                 | 0.000171  |
+| 1     | quad48-r0     | 0.005259             | 0.005301  | 0.005237                 | 0.004883  |
+| 1     | quad48-r02    | 0.005495             | 0.005329  | 0.005457                 | 0.004980  |
+| 1     | outside48     | 0.003824             | 0.003597  | 0.003711                 | 0.003479  |
+| 1     | slope48       | 0.005465             | 0.005275  | 0.005322                 | 0.004907  |
+| 1     | stacked24     | 0.010432             | 0.010308  | 0.010010                 | 0.009302  |
+| 1     | tri24         | 0.009002             | 0.008891  | 0.008594                 | 0.008105  |
+| 1     | paths12       | 0.024303             | 0.024721  | 0.021875                 | 0.021875  |
+| 2     | single-inside | 0.000206             | 0.000190  | 0.000195                 | 0.000146  |
+| 2     | quad48-r0     | 0.005208             | 0.005262  | 0.005273                 | 0.004724  |
+| 2     | quad48-r02    | 0.005530             | 0.005376  | 0.005188                 | 0.004797  |
+| 2     | outside48     | 0.003791             | 0.003597  | 0.003601                 | 0.003284  |
+| 2     | slope48       | 0.005372             | 0.005345  | 0.005200                 | 0.004822  |
+| 2     | stacked24     | 0.010425             | 0.010320  | 0.009949                 | 0.009314  |
+| 2     | tri24         | 0.009287             | 0.009094  | 0.008545                 | 0.008118  |
+| 2     | paths12       | 0.021705             | 0.020926  | 0.018750                 | 0.017578  |
+| 3     | single-inside | 0.000205             | 0.000173  | 0.000183                 | 0.000146  |
+| 3     | quad48-r0     | 0.005389             | 0.005532  | 0.004968                 | 0.004700  |
+| 3     | quad48-r02    | 0.005656             | 0.005394  | 0.005200                 | 0.004700  |
+| 3     | outside48     | 0.003785             | 0.003698  | 0.003577                 | 0.003247  |
+| 3     | slope48       | 0.005412             | 0.005469  | 0.005139                 | 0.004785  |
+| 3     | stacked24     | 0.010507             | 0.010425  | 0.009961                 | 0.009277  |
+| 3     | tri24         | 0.008983             | 0.008762  | 0.008582                 | 0.008032  |
+| 3     | paths12       | 0.020567             | 0.020374  | 0.017969                 | 0.017578  |
+| 4     | single-inside | 0.000195             | 0.000178  | 0.000183                 | 0.000146  |
+| 4     | quad48-r0     | 0.005417             | 0.005292  | 0.004968                 | 0.004700  |
+| 4     | quad48-r02    | 0.005476             | 0.005443  | 0.005188                 | 0.004724  |
+| 4     | outside48     | 0.003837             | 0.003871  | 0.003564                 | 0.003247  |
+| 4     | slope48       | 0.005558             | 0.005383  | 0.005176                 | 0.004749  |
+| 4     | stacked24     | 0.010496             | 0.010353  | 0.010010                 | 0.009253  |
+| 4     | tri24         | 0.009016             | 0.008845  | 0.008569                 | 0.008093  |
+| 4     | paths12       | 0.020633             | 0.020713  | 0.017969                 | 0.017578  |
+| 5     | single-inside | 0.000203             | 0.000172  | 0.000171                 | 0.000159  |
+| 5     | quad48-r0     | 0.005395             | 0.005430  | 0.005017                 | 0.004687  |
+| 5     | quad48-r02    | 0.005701             | 0.005451  | 0.005249                 | 0.004712  |
+| 5     | outside48     | 0.004071             | 0.003966  | 0.003650                 | 0.003308  |
+| 5     | slope48       | 0.006068             | 0.005743  | 0.005200                 | 0.004785  |
+| 5     | stacked24     | 0.010475             | 0.010350  | 0.010010                 | 0.009326  |
+| 5     | tri24         | 0.010089             | 0.009519  | 0.008691                 | 0.008154  |
+| 5     | paths12       | 0.029651             | 0.023957  | 0.018359                 | 0.017578  |
+| 6     | single-inside | 0.000331             | 0.000257  | 0.000171                 | 0.000146  |
+| 6     | quad48-r0     | 0.005703             | 0.006010  | 0.005017                 | 0.004761  |
+| 6     | quad48-r02    | 0.005510             | 0.005327  | 0.005200                 | 0.004749  |
+| 6     | outside48     | 0.004171             | 0.003780  | 0.003577                 | 0.003259  |
+| 6     | slope48       | 0.005724             | 0.005599  | 0.005176                 | 0.004773  |
+| 6     | stacked24     | 0.010394             | 0.010267  | 0.009998                 | 0.009302  |
+| 6     | tri24         | 0.008891             | 0.008713  | 0.008582                 | 0.008130  |
+| 6     | paths12       | 0.020945             | 0.020665  | 0.018359                 | 0.017188  |
+
+### Numerical, temporal and consumer evidence
+
+- Canonical source, production ESM and CJS each match the isolated unchanged baseline for 2,048 exact projections, 64 complete paths and seven point-getter traces. Comparisons include IDs, values, revisions, candidate counts, path costs/visited/waypoints, radius cycling, enabled edits and retained snapshots over quads/triangles/slopes/stacked floors. CJS uses own-value comparison preserving exact Numbers rather than comparing its Vector3 prototype to the separate ESM class; frozen output and clone values are checked.
+- Each of the same three variants additionally matches 300 coordinate-domain projections, three active-query lifecycle histories and 192 interleaved-job steps. Domain cases include negative/swapped axes, signed zero, distant valid world coordinates, missing buckets, variable radius and a 0.25-wide square /0.0625 tileSize with tile coordinate 4,294,967,296. No finite-coordinate or tile-span limit is relaxed.
+- Lifecycle histories fire an option getter during an active projection, then disable a polygon, destroy the mesh or reenter project; result metadata, getter counts, nested output, revision and slots match. Three simultaneous jobs compare zero/small budgets, exact expansions/results, invalidation, destruction and slot release; each step remains within its primitive budget. This directly covers lookup visibility after yield without a cached column.
+- A throwaway 32-bit-truncating numeric-index mutant collides distant buckets and fails the real public candidates assertion (Tile-coordinate collision); the canonical index passes. One permanent regression checks negative, swapped-axis and distant buckets with only its expected polygon and candidate count.
+- The first permanent-test fixture used world coordinate 2**35, exceeding the existing 1,000,000,000 extent, and correctly failed constructor validation. It was corrected to 2**28; no engine validation was weakened. Prettier, strict typecheck and targeted eslint passed; the initially successful two navigation test files were not rerun, while the failed mesh file was rerun successfully (20 tests). Across the three files, 26 targeted tests pass; no full-suite claim.
+- Public source/dist Chromium roots each compare 1,024 projections, 16 complete paths and 60 budgeted-job steps to the unchanged baseline, with enabled invalidation and slot release. Both consumers are visible and have empty page errors. Vite emits its existing OPM dynamic-import analysis warning; no audio, graphics, Safari, physical-device or backend-parity certification is claimed.
+- Full isolated production build from HEAD plus only mesh.ts changes exactly four mesh JavaScript/map outputs (ESM/CJS); declarations stay byte-identical. Only those guarded artifacts are promoted, all eleven user-owned physics2d/world2d source/dist file hashes preserved. No global rebuild overwrites user files.
+- README zh/en/ja, PLAN, DESIGN and both technical references synchronized, six-doc format and relative-file links checked, historical ACCEPTANCE prefix preserved byte-for-byte. Temporary workloads/proofs/modules/build tree and browser/server resources removed before the exact twelve-file source/test/four-output/six-doc commit. No push/version bump.

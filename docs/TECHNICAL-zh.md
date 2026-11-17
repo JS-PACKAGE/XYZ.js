@@ -7417,3 +7417,7 @@ scalar integration 原型略過下次 substep／sweep 必定覆寫的 private fo
 ## P243：不採用條件式閉合邊 wrapping
 
 nearest／inside 的取餘改為最後一邊明確回到零，分 combined、inside-only、nearest-only 三組量測。combined 零 radius 約退步 Node 2.5%／Chromium 3.3%；inside-only 有 Node 明確退步，nearest-only 的 Node 收益未在 browser 成立。每組 2,048 投影／64 路徑／七組 getter traces 相同仍不採用；source／tests／dist 維持 P241，不加 runtime／形狀特例，不宣稱重新 build／heap／FPS。144 組 CPU 配對與限制見 [ACCEPTANCE.md](../ACCEPTANCE.md)。
+
+## P244：navmesh 數值 tile lookup
+
+私有空間索引以數值 x 對應數值 z bucket Map，維持 polygon list 順序與每個 query 獨立去重。每次原有 budget yield 之後才取得 bucket，不跨 yield 保存 column；destroy 清除 outer Map。不 pack 座標、不新增 extent 限制、不改 API 或 region／job 狀態。一般帶 radius 投影 CPU 約降 Node 2.4%／Chromium 8.9%；column Maps 是儲存取捨，不是實測配置／heap 或 FPS 減少。完整工作負載、座標域與生命週期證據見 [ACCEPTANCE.md](../ACCEPTANCE.md)。

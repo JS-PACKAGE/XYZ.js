@@ -6265,3 +6265,7 @@ NavigationMesh3D 的私有 nearest helper 仍按原順序計算 clamped 邊點�
 ## P243：保留既有閉合邊取餘
 
 在合法整數邊索引下，`(i + 1) % length` 與 `i + 1 === length ? 0 : i + 1` 等價，但不是效能上可互換。combined 與兩個獨立 helper ablations 顯示不同 case／runtime 的得失，不以 Node-only、少一個 remainder 或推測的 JIT 原因選擇新實作。保留 P241 的 nearest／inside，冷路徑 clipping／construction 也不無關改寫；完整對照見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P244：x／z 分層數值 tile 索引
+
+私有 tile buckets 改為 `Map<number, Map<number, number[]>>`，constructor 依 x 建立 column，再以 z 保存原序 polygon index list；query 仍在原 budget yield 之後逐格取 `tiles.get(x)?.get(z)`。不把數值座標 pack 到有限 bit width，不快取跨 yield 的 column，保留負數／signed-zero 的 key 語意、候選順序與 destroy 後後續 lookup 的可見性。新增 column Maps 是儲存結構取捨，不宣稱 retained heap 減少。公開介面與各 region／job 的狀態隔離不變；量測與生命週期證據見 [ACCEPTANCE.md](ACCEPTANCE.md)。

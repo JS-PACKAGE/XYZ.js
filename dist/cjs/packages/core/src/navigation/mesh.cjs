@@ -70,10 +70,14 @@ var NavigationMesh3D = class {
 				x
 			].every(Number.isSafeInteger)) throw RangeError(`Navigation tile coordinates must be safe integers.`);
 			if ((y - v + 1) * (x - b + 1) > require_navigation.navigationLimits.meshTilesPerPolygon) throw RangeError(`Polygon spans too many spatial tiles; subdivide it.`);
-			for (let e = v; e <= y; e++) for (let n = b; n <= x; n++) {
-				let r = `${e}:${n}`, i = this.tiles.get(r) ?? [];
-				if (i.length >= require_navigation.navigationLimits.meshTilePolygons) throw RangeError(`Navigation tile polygon budget exceeded; reduce tileSize.`);
-				i.push(g), this.tiles.set(r, i);
+			for (let e = v; e <= y; e++) {
+				let n = this.tiles.get(e);
+				n || (n = /* @__PURE__ */ new Map(), this.tiles.set(e, n));
+				for (let e = b; e <= x; e++) {
+					let r = n.get(e) ?? [];
+					if (r.length >= require_navigation.navigationLimits.meshTilePolygons) throw RangeError(`Navigation tile polygon budget exceeded; reduce tileSize.`);
+					r.push(g), n.set(e, r);
+				}
 			}
 			for (let e = 0; e < n.length; e++) {
 				let t = n[e], i = n[(e + 1) % n.length], a = `${t.x},${t.y},${t.z}`, o = `${i.x},${i.y},${i.z}`, s = a < o ? `${a}/${o}` : `${o}/${a}`, c = r.get(s);
@@ -350,7 +354,7 @@ var NavigationMesh3D = class {
 		let n = /* @__PURE__ */ new Set();
 		for (let r = Math.floor((e.x - t) / this.tileSize); r <= Math.floor((e.x + t) / this.tileSize); r++) for (let i = Math.floor((e.z - t) / this.tileSize); i <= Math.floor((e.z + t) / this.tileSize); i++) {
 			yield -1;
-			for (let e of this.tiles.get(`${r}:${i}`) ?? []) n.has(e) ? yield -1 : (n.add(e), yield e);
+			for (let e of this.tiles.get(r)?.get(i) ?? []) n.has(e) ? yield -1 : (n.add(e), yield e);
 		}
 	}
 	region(e, t) {

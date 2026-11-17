@@ -93,7 +93,7 @@ export class NavigationMesh3D {
     { radius: number; epoch: number; region: Region } | undefined
   )[] = [];
   private readonly ids = new Map<string, number>();
-  private readonly tiles = new Map<string, number[]>();
+  private readonly tiles = new Map<number, Map<number, number[]>>();
   private readonly vertexTopology = new Map<
     string,
     { polygon: Polygon; edge: number }[]
@@ -239,17 +239,22 @@ export class NavigationMesh3D {
         throw new RangeError(
           'Polygon spans too many spatial tiles; subdivide it.',
         );
-      for (let x = minX; x <= maxX; x++)
+      for (let x = minX; x <= maxX; x++) {
+        let column = this.tiles.get(x);
+        if (!column) {
+          column = new Map<number, number[]>();
+          this.tiles.set(x, column);
+        }
         for (let z = minZ; z <= maxZ; z++) {
-          const key = `${x}:${z}`;
-          const list = this.tiles.get(key) ?? [];
+          const list = column.get(z) ?? [];
           if (list.length >= navigationLimits.meshTilePolygons)
             throw new RangeError(
               'Navigation tile polygon budget exceeded; reduce tileSize.',
             );
           list.push(index);
-          this.tiles.set(key, list);
+          column.set(z, list);
         }
+      }
       for (let i = 0; i < vertices.length; i++) {
         const v = vertices[i]!,
           w = vertices[(i + 1) % vertices.length]!;
@@ -837,7 +842,7 @@ export class NavigationMesh3D {
         z++
       ) {
         yield -1;
-        for (const index of this.tiles.get(`${x}:${z}`) ?? []) {
+        for (const index of this.tiles.get(x)?.get(z) ?? []) {
           if (seen.has(index)) yield -1;
           else {
             seen.add(index);

@@ -7772,3 +7772,7 @@ A prototype stores four local winner fields, captures the winning revision at th
 ## P243: Rejected conditional cyclic-edge wrapping
 
 Replacing modulo with an exact closing-edge conditional in nearest/inside was measured together and separately. Combined wrapping regresses zero-radius quads about 2.5% Node /3.3% Chromium; inside-only has clear Node regressions, while nearest-only's Node gains do not yield meaningful browser gains. All three pass 2,048 projections, 64 paths and seven getter traces, but are rejected. Source/tests/dist remain at P241, without runtime/shape special cases or fresh build/heap/FPS claims. See [ACCEPTANCE.md](../ACCEPTANCE.md) for all 144 paired CPU rows and limits.
+
+## P244: Numeric navmesh tile lookup
+
+The private spatial index now maps numeric x to a numeric z bucket map, retaining polygon-list order and per-query deduplication. Queries retrieve the bucket after each existing budget yield, without retaining a column across yields; destroy clears the outer map. No packed coordinates, new extent restriction, public API or region/job state change. Ordinary radius-bearing projection CPU time improves about 2.4% Node /8.9% Chromium in six paired rounds; column maps are a storage tradeoff, not a measured allocation/heap or FPS reduction. See [ACCEPTANCE.md](../ACCEPTANCE.md) for complete workload, coordinate-domain and lifecycle evidence.
