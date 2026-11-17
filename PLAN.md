@@ -6325,3 +6325,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 第一版只省 inverse、仍重複 copy，收益不足；第二版保留 parent Float32 元素讀取與公開 matrix callback／multiply 時序，只在同一查詢內重用六個 inverse 數值並省去重複 copy。兩版固定八 cohort，各自完成 A/A＋A/B；共768 samples，全量保留。
 - 採用第二版，新增 parent mutation／singular／reentrant consumer tests，40項定向測試、strict typecheck、scoped lint 通過；隔離完整 build 只帶回四個 Group2D 產物，11個使用者檔案受 hash guard 保護。
 - 實際 dev／minified ESM dist 三 backend 共24個大型 Game cases、正式 CJS 15項 assertions，以及未修改的標準 Sprite benchmark 均實際執行；RAF 與 CPU submit 分別記錄。source-slot 配對收益不是 production／CJS CPU、GPU／FPS 或實體裝置認證，oracle 初次參數錯誤與修正亦保留，見 ACCEPTANCE。不 push／升版。
+
+## P273 — 不以 redundant identity 計數推論 GPU mapping 速度
+
+- Canvas2D 已按 pass 共用 inverse，WebGL2／WebGPU 仍逐 isolated item invert；本輪先評估更小的 identity elision，不新增 cache 或狀態，也不省掉公開 matrix callbacks。
+- source-slot 原型把 `identity()` 限於非 root 分支，root 的 copy/invert 與後續 arithmetic 不變。正式 Game counters 顯示每 backend 的 isolated Sprite 場景少32,768次 identity，inverse不變；普通場景與 Canvas2D 計數不變。
+- 66個三backend動態 Game cases、562,716個 Object.is數字與nonblank PNG一致；固定兩個GPU backend×六cohort，各 A/A 288＋A/B 288，共576 samples全保留。
+- submit／sum 收益未穩定超出 A/A／control 不確定性，故不採用，沒有正式source／dist變更。只檢查文件格式與相對檔案連結，不冒稱重跑 unit/typecheck/build 或正式新產物；詳見 ACCEPTANCE，不 push／升版。

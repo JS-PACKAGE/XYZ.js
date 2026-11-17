@@ -182,6 +182,8 @@ P272: Group bounds reuse an affine parent inverse only within the current query,
 
 P272：Group bounds の同一問い合わせ内だけで parent inverse を再利用する。再入可能な callback と Float32 結果を維持し、isolated-world の計測対象で改善を確認した。全対照・不利な標本・数値 oracle の訂正と検証範囲は [検収記録](ACCEPTANCE.md) に記載。全場面の FPS 改善を意味しない。
 
+P273：不採用 isolated GPU mapping 的 redundant-identity elision。雖然原生計數少了重複 `identity()`，WebGL2／WebGPU 固定十二 cohort A/A＋A/B 的收益仍小且不穩定，empty control 亦有偏移。P273 rejects identity elision after retaining all 576 samples and controls; fewer semantic calls are not reliable CPU or FPS evidence. P273 は全対照を保持し、identity 省略案を不採用。66個三 backend 動態畫面案例一致，正式 renderer／dist／版本不變；完整限制見 [ACCEPTANCE](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

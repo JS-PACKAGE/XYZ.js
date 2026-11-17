@@ -7612,3 +7612,9 @@ shared-graph三backend Sprite／target共66cases、562,716個數字與nonblank P
 world/custom child fallback 仍在公開 matrix callbacks 前保存 rectangle，callbacks 後重新讀取 parent Float32 元素；六個 affine 分量以 `Object.is` 比較，不用 matrix identity／revision 代替。parent 改變時照舊 `invert()` 並保留 singular／nonfinite RangeError；相同時直接 materialize 已存 Float32 inverse，再呼叫既有 `multiply(world)`。inverse 僅存於目前 query 的數值 locals，nested bounds query 不會取代 outer 的 inverse，不新增 instance state／API，也不改普通 local 角點運算。
 
 初版仍重複 copy，未採用；省去 redundant parent stores 的第二版在固定 shared-Game isolated-world 負載改善。兩版各自固定八 cohort A/A＋A/B，共768 samples、全部 controls／不利值保留。source-slot wall-clock spans 不等於正式 production／CJS CPU、GPU time 或 FPS 認證。正式 dev／minified ESM dist 三 backend 24個 Game cases、實際 CJS assertions、40項定向測試、strict／scoped lint／隔離完整 build 通過；未修改的標準 Sprite benchmark 分開記錄 RAF／CPU submit，但它不走本次 fallback。finite oracle 修正、fixture 初次失敗與完整限制見 [ACCEPTANCE](../ACCEPTANCE.md)，不 push／升版。
+
+## P273 — 不採用 isolated GPU mapping 的 identity elision
+
+隔離原型只把 private mapping scratch 的 identity 移到非 root 分支；isolated-root copy/invert 仍覆寫所有元素，公開 matrix callbacks 與 Float32 arithmetic 時序保留。正式 Game 計數在兩個 GPU backend 的 isolated Sprite 場景各少32,768次語義 identity 呼叫，inverse及普通／Canvas2D controls不變；instrumented counts 不證明真正 stores、CPU／GPU時間或FPS。
+
+66個三backend Game cases、562,716個數字與 nonblank PNG一致。固定十二cohort WebGL2／WebGPU A/A＋A/B共576 samples全部保留，但目標變化小且不穩定，control分項亦有漂移，因此不採用；正式 renderer／產物／API／版本不變。本輪是文件結論，不宣稱新 unit／typecheck／build 或 production／CJS 認證。完整方法、準備失敗及界線見 [ACCEPTANCE](../ACCEPTANCE.md)。

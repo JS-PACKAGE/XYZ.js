@@ -63386,3 +63386,6781 @@ node /tmp/xyz-p272/cjs-smoke.mjs
 ### 提交前文件檢查補記
 
 八個修改的 source/test/docs paths 的 Prettier --check 實際通過；六份文件共406個相對檔案連結目標存在，僅檢查檔案存在，不宣稱 anchor 認證。上列新附錄及本補記均以 repo 的 singleQuote/trailingComma 設定格式化後 append，未重排既有 9443787-byte 歷史前綴。只提交本階段十二個 allowlisted paths，清除自建 temporary fixtures，不 push、不升版。
+
+## P273 — 不採用 isolated GPU mapping 的 identity elision
+
+UTC 記錄時間：2026-11-17T16:37:02.124Z。基線為 P272 commit 3ad6ac034，套件仍1.23.0。本輪只提交六份證據文件，不改正式 renderer／dist／API，不 push。
+
+### 調查與硬指標
+
+- Canvas2D 在每次 draw/pass 先準備 root inverse，未發現同樣逐 item inverse；WebGL2／WebGPU 的 private objectMatrix 則先 identity，再對 root world matrix copy/invert。除 actual Game counters 外，讀取三個backend的執行時序，沒有假定普通 world 會觸發隔離分支。
+- 先評估最小無狀態改動，而非加入新 cache：只把 identity 移入非 root 分支；root copy/invert 覆寫全部九個元素，公開 root/child world callback、bounds offset 與 Float32 arithmetic 相對順序不變。renderer-owned scratch 不在正式 facade 公開。沒有新欄位、物件或跨pass狀態；這是 source 結構觀察，不是配置數量測。
+- count-only 真實 Game：四個8192-capacity Sprite emitter、32768 active particles，1280×720、pixelRatio1、16 warm＋四個記錄frames。local/world isolation 在兩個GPU backend，每幀 total identity由32772變4，其中root-mapping identity由32768變0；root-mapping inverse仍32768、沒有省下inverse。普通 local/world的32719次identity不變（不把activeCount當實際逐item繪製數），Canvas2D全為零不變。每個case、每個frame完整保留。
+- counter wrappers在初始化時安裝一次、delegate實際原方法並以finally平衡depth，沒有fake輸出；但會改變JIT可見副作用，因此只能說semantic call counts減少，不能說真正CPU stores少了固定數目，也不能換算CPU/GPU時間或FPS。它們沒有裝在CPU driver。
+- 66個 native dynamic Game cases：Sprite／target layer各11modes×Canvas2D/WebGL2/WebGPU；562716個Object.is數字、signed zero比較、每case非空before/after PNG相同，2178個真實destroy callbacks與borrowed Texture／native ImageBitmap cleanup通過。world-isolated不是blank PASS；after WebGL2畫面有實際開啟查看。
+- 固定12 cohort，WebGL2／WebGPU各world/local isolation、nested world isolation、plain-world、target-layer world isolation、empty isolation。每cohort同一Game／Scene／renderer／canvas／pool，actual backend明確檢查；先A/A 288samples、再A/B 288samples，共576samples／27648量測frames。每sample8warm＋48measured、六輪交替ABBA/BAAB，65-frame setup明確選before；兩個選擇各真正render probe才截圖。
+- 每個GPU renderer只在module init把private objectMatrix裝一次固定trampoline；sample僅切兩個module的private function binding，controller逐次確保兩backend選擇相同。沒有每sample prototype mutation、沒有分開core classes、沒有混用Graph。A/A每label實際全before；A/B 144before/144after，逐sample檢查。全部五分項與raw/ties/outliers保留。
+
+### 結論與對照界線
+
+不採用。A/B WebGL2 world isolated sum median paired -0.12398152553977845%（3快3慢），local +0.280578402457853%（3/3），nested -0.4944802871173982%（4快2慢）；WebGPU world/local/nested sum分別 -0.4638572528587925%／-0.5252578755993668%／-0.08281324269326193%，皆4快2慢。目標submit方向也沒有任何六輪一致。A/A本身已有同量級方向差異，不扣除A/A median當作校正或把跨批absolute值當收益。
+
+WebGPU empty control的simulation paired median +9.1867698807128%（絕對+164.58333353512µs、五輪慢），submit +10.788674556428548%（+163.54166584399854µs、四輪慢），sum +10.915127368300318%（+371.8750001086546µs、五輪慢）；A/A該sum範圍 -12.23847017279313%到+20.567375872853606%，也不穩定。保留這些偏移，不推斷已確認的單一JIT／GC原因或因果回退。plain/layer controls與所有微小／零分母分項均在下表，不挑較好方向重跑。
+
+即使看似可以省掉source writes，本次沒有可靠CPU理由採用。mutable-call-target的trampoline、不同函式位置／class-method與standalone候選形狀、tiering/inlining、warmup及時間序列仍有source-slot限制；不是正式production／CJS CPU證明。frameWork四分項的和不是完整RAF CPU，submit不是GPU time，未量測heap／allocations／呈現FPS。只認證記錄的Chromium desktop automation，不是physical device／Safari／其他瀏覽器。
+
+### 原始正確性與count-only報告
+
+```json
+{
+  "counts": {
+    "browser": {
+      "engine": "chromium",
+      "version": "153.0.8010.12",
+      "platform": "darwin/arm64",
+      "mode": "desktop-automation",
+      "executable": "pinned-playwright-managed",
+      "physicalDeviceCertification": false,
+      "safariCertification": false
+    },
+    "counts": [
+      {
+        "side": "before",
+        "mode": "sprite-local-plain",
+        "visibility": "visible",
+        "backend": "webgl2",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-local-plain",
+        "visibility": "visible",
+        "backend": "webgl2",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "before",
+        "mode": "sprite-world-plain",
+        "visibility": "visible",
+        "backend": "webgl2",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-world-plain",
+        "visibility": "visible",
+        "backend": "webgl2",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "before",
+        "mode": "sprite-local-isolated",
+        "visibility": "visible",
+        "backend": "webgl2",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32772,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32772,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32772,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32772,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-local-isolated",
+        "visibility": "visible",
+        "backend": "webgl2",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32772,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32772,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32772,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32772,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "before",
+        "mode": "sprite-world-isolated",
+        "visibility": "visible",
+        "backend": "webgl2",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32784,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32784,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32784,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32784,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-world-isolated",
+        "visibility": "visible",
+        "backend": "webgl2",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32784,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32784,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32784,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32784,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "before",
+        "mode": "sprite-local-plain",
+        "visibility": "visible",
+        "backend": "webgpu",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-local-plain",
+        "visibility": "visible",
+        "backend": "webgpu",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "before",
+        "mode": "sprite-world-plain",
+        "visibility": "visible",
+        "backend": "webgpu",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-world-plain",
+        "visibility": "visible",
+        "backend": "webgpu",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 32719,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "before",
+        "mode": "sprite-local-isolated",
+        "visibility": "visible",
+        "backend": "webgpu",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32768,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32768,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32768,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32768,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-local-isolated",
+        "visibility": "visible",
+        "backend": "webgpu",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32768,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32768,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32768,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 32768,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "before",
+        "mode": "sprite-world-isolated",
+        "visibility": "visible",
+        "backend": "webgpu",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32780,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32780,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32780,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32780,
+            "identities": 32772,
+            "rootIdentities": 32768,
+            "rootInverses": 32768
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-world-isolated",
+        "visibility": "visible",
+        "backend": "webgpu",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32780,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32780,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32780,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 32780,
+            "identities": 4,
+            "rootIdentities": 0,
+            "rootInverses": 32768
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "before",
+        "mode": "sprite-local-plain",
+        "visibility": "visible",
+        "backend": "canvas2d",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-local-plain",
+        "visibility": "visible",
+        "backend": "canvas2d",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "before",
+        "mode": "sprite-world-plain",
+        "visibility": "visible",
+        "backend": "canvas2d",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-world-plain",
+        "visibility": "visible",
+        "backend": "canvas2d",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 0,
+            "groupInverses": 0,
+            "allInverses": 0,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "before",
+        "mode": "sprite-local-isolated",
+        "visibility": "visible",
+        "backend": "canvas2d",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 4,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 4,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 4,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 4,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-local-isolated",
+        "visibility": "visible",
+        "backend": "canvas2d",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 4,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 4,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 4,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 0,
+            "allInverses": 4,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "before",
+        "mode": "sprite-world-isolated",
+        "visibility": "visible",
+        "backend": "canvas2d",
+        "forcedBackendMatches": true,
+        "actualVariant": "before",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 16,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 16,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 16,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 16,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      },
+      {
+        "side": "after",
+        "mode": "sprite-world-isolated",
+        "visibility": "visible",
+        "backend": "canvas2d",
+        "forcedBackendMatches": true,
+        "actualVariant": "after",
+        "nativeImageBitmap": true,
+        "registeredObjects": 32776,
+        "activeParticles": 32768,
+        "warmFrames": 16,
+        "measuredCountFrames": [
+          {
+            "frame": 17,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 16,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 18,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 16,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 19,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 16,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          },
+          {
+            "frame": 20,
+            "queries": 24,
+            "groupInverses": 12,
+            "allInverses": 16,
+            "identities": 0,
+            "rootIdentities": 0,
+            "rootInverses": 0
+          }
+        ],
+        "note": "Operation counts only; wrappers preserve real calls and invalidate timing comparisons."
+      }
+    ],
+    "errors": [],
+    "countsNotTimings": true,
+    "sameCoreGraph": true
+  },
+  "native": [
+    {
+      "phase": "source",
+      "tag": "sprite",
+      "entryAfter": "/dist/src/index.js",
+      "fixedMatrixTrampolineSelection": true,
+      "backend": "webgpu",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "layer",
+      "entryAfter": "/dist/src/index.js",
+      "fixedMatrixTrampolineSelection": true,
+      "backend": "webgpu",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "sprite",
+      "entryAfter": "/dist/src/index.js",
+      "fixedMatrixTrampolineSelection": true,
+      "backend": "webgl2",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "layer",
+      "entryAfter": "/dist/src/index.js",
+      "fixedMatrixTrampolineSelection": true,
+      "backend": "webgl2",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "sprite",
+      "entryAfter": "/dist/src/index.js",
+      "fixedMatrixTrampolineSelection": true,
+      "backend": "canvas2d",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "layer",
+      "entryAfter": "/dist/src/index.js",
+      "fixedMatrixTrampolineSelection": true,
+      "backend": "canvas2d",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7bb999f18af59b9c4af1fe168d02502e6fdd61c18f485116bd30c3ed6e5d4b1e",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "sharedModuleSha256": {
+    "webgl2": "f7e73a2e49533c78fba05f705e4d4e9e4e2bf56ce4d179a0d5d54182860739d4",
+    "webgpu": "075ceb87722465d0ca4561e0364b9dbd0672d8ae9a4528b6b94e5ee792fc7cfc"
+  }
+}
+```
+
+### 固定 A/A 與 A/B 全量
+
+四個8192-capacity emitter，static size/color/lifetime，isolate holder每emitter一個且opacity0.8，rectangle births512×256，rotation0.3/scale1.3,0.7；nested加四層Group。source未加counter或observer狀態。每cohort sentinel life expiry確認真正Scene advance，native probes確認matching pixels；所有timed sample與cleanup的pre/post/destroy listener/callback數皆0，已逐項檢查。
+
+#### A/A
+
+```json
+{
+  "mode": "aa",
+  "matrixStartedAt": 1794932329074,
+  "matrixCompletedAt": 1794932616925,
+  "elapsedMs": 287851,
+  "cohortProof": [
+    {
+      "config": {
+        "name": "webgl2-world-isolated-large",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "6b4592186f78dbe4b328136a7cdbf572d57ddeda41ff6279e72367b06b62fef1",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgl2-local-isolated-large",
+        "space": "local",
+        "capacity": 8192,
+        "isolated": true,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "e50d02f740d6850ce2aeeaf02ac0129e70acdb7d65fa9b7cd574ad0a78a0f393",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgl2-world-isolated-nested",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "depth": 4,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "6b4592186f78dbe4b328136a7cdbf572d57ddeda41ff6279e72367b06b62fef1",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgl2-world-plain-control",
+        "space": "world",
+        "capacity": 8192,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgl2-layer-world-isolated-control",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "target": true,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "188f942c0bdfad29b1724296abb96d05e7d14f0896bb5035c11ad7b486b6980b",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgl2-empty-isolated-control",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "empty": true,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 0
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+      "nonuniform": [false, false],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-world-isolated-large",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "750fd2c5e0c8d31f03bd54a462eab5255060e2255a79ed9ff6d2f3b93b79a4f4",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-local-isolated-large",
+        "space": "local",
+        "capacity": 8192,
+        "isolated": true,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "7543ad1ac5ca6454572af6ee086acc1cbb5ce30e31199aca36921da2264d0298",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-world-isolated-nested",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "depth": 4,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "750fd2c5e0c8d31f03bd54a462eab5255060e2255a79ed9ff6d2f3b93b79a4f4",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-world-plain-control",
+        "space": "world",
+        "capacity": 8192,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "7e1a1b020aacffc7d5f0ba64f43ba77962c55b4dfa6df291f673f33ea603873b",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-layer-world-isolated-control",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "target": true,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "342018efc6c2406925262030fb2112a714703c6cdc2c4b54ff30564fef48bdbd",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-empty-isolated-control",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "empty": true,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 0
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+      "nonuniform": [false, false],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    }
+  ],
+  "errors": []
+}
+```
+
+| span          | cohort                              | median before µs   | median after µs    | median paired Δ µs   | median paired Δ %         | paired % range                           | faster/slower/equal |
+| ------------- | ----------------------------------- | ------------------ | ------------------ | -------------------- | ------------------------- | ---------------------------------------- | ------------------- |
+| simulationUs  | webgl2-world-isolated-large         | 241.14583393869302 | 247.39583441987634 | -0.5208326037973166  | -0.2074685915319902       | -12.639404109541399 … 11.711711359772917 | 3/3/0               |
+| simulationUs  | webgl2-local-isolated-large         | 202.60416716337204 | 194.27083393869302 | -7.812499146287635   | -3.9990019150903096       | -16.74641109845218 … 0.5181349138467223  | 4/2/0               |
+| simulationUs  | webgl2-world-isolated-nested        | 481.2500001862645  | 508.85416714785    | 24.47916707023981    | 5.10931295029321          | 2.3404254226352186 … 7.8947370966495605  | 0/6/0               |
+| simulationUs  | webgl2-world-plain-control          | 479.16666651144624 | 469.27083299184835 | -21.354166713232786  | -4.4169945652251865       | -27.987897047842175 … 19.36218700233091  | 4/2/0               |
+| simulationUs  | webgl2-layer-world-isolated-control | 13.54166663562258  | 15.104166697710752 | 1.562500062088171    | 12.500000341484949        | -12.500001629814461 … 40.00000685453444  | 2/4/0               |
+| simulationUs  | webgl2-empty-isolated-control       | 2522.916667163372  | 2520.833333410944  | 134.37500013969884   | 6.040715376929906         | -2.9905776420838124 … 16.474464560751407 | 3/3/0               |
+| simulationUs  | webgpu-world-isolated-large         | 481.249999642993   | 476.5625004656613  | -6.770833084980694   | -1.3926049264906362       | -7.610993553270617 … 6.636155767303569   | 4/2/0               |
+| simulationUs  | webgpu-local-isolated-large         | 396.8750012572855  | 395.31249964299303 | -3.645833659296244   | -0.908781102136616        | -13.513513438995146 … 1.1049727675391399 | 5/1/0               |
+| simulationUs  | webgpu-world-isolated-nested        | 463.0208332867672  | 459.3749997826914  | -7.291667008151563   | -1.5695546811241516       | -13.743219156223766 … 13.7440757313169   | 4/2/0               |
+| simulationUs  | webgpu-world-plain-control          | 494.27083289871615 | 493.2291667597989  | -4.16666595265275    | -0.8278101212139983       | -6.508875931468092 … 13.588110449408788  | 4/2/0               |
+| simulationUs  | webgpu-layer-world-isolated-control | 14.583333317811292 | 14.583333473031722 | -0.5208329918483887  | -4.545453047128307        | -29.411768005793377 … 61.538463742775306 | 3/3/0               |
+| simulationUs  | webgpu-empty-isolated-control       | 2029.6875006364037 | 2051.0416667287545 | -26.562500977888703  | -1.0159329796164682       | -13.97153940642898 … 20.653377604130963  | 3/3/0               |
+| navigationUs  | webgl2-world-isolated-large         | 1.041666604578495  | 0                  | -0.5208333022892475  | n/a: 2 zero-before rounds | n/a                                      | 3/0/3               |
+| navigationUs  | webgl2-local-isolated-large         | 1.041666604578495  | 0                  | -0.5208333022892475  | n/a: 2 zero-before rounds | n/a                                      | 3/1/2               |
+| navigationUs  | webgl2-world-isolated-nested        | 0.5208333022892475 | 0.5208333022892475 | 0                    | n/a: 3 zero-before rounds | n/a                                      | 2/2/2               |
+| navigationUs  | webgl2-world-plain-control          | 0.5208333022892475 | 0                  | 0                    | n/a: 3 zero-before rounds | n/a                                      | 1/1/4               |
+| navigationUs  | webgl2-layer-world-isolated-control | 0                  | 0                  | 0                    | n/a: 5 zero-before rounds | n/a                                      | 1/1/4               |
+| navigationUs  | webgl2-empty-isolated-control       | 0                  | 0.5208333022892475 | 0                    | n/a: 5 zero-before rounds | n/a                                      | 1/2/3               |
+| navigationUs  | webgpu-world-isolated-large         | 0                  | 0                  | 0                    | n/a: 5 zero-before rounds | n/a                                      | 1/1/4               |
+| navigationUs  | webgpu-local-isolated-large         | 0                  | 0                  | 0                    | n/a: 4 zero-before rounds | n/a                                      | 2/2/2               |
+| navigationUs  | webgpu-world-isolated-nested        | 0.5208333022892475 | 0.5208333798994621 | 7.761021458829731e-8 | n/a: 3 zero-before rounds | n/a                                      | 1/3/2               |
+| navigationUs  | webgpu-world-plain-control          | 0                  | 0.5208333022892475 | 0                    | n/a: 4 zero-before rounds | n/a                                      | 1/2/3               |
+| navigationUs  | webgpu-layer-world-isolated-control | 0                  | 1.041666604578495  | 7.761021458829731e-8 | n/a: 4 zero-before rounds | n/a                                      | 1/3/2               |
+| navigationUs  | webgpu-empty-isolated-control       | 2.0833333643774194 | 1.5624999844779572 | 0                    | n/a: 1 zero-before rounds | n/a                                      | 2/1/3               |
+| afterUpdateUs | webgl2-world-isolated-large         | 470.3124997516473  | 481.249999642993   | 3.12499942568445     | 0.6563517389736075        | -7.630522458112547 … 4.231625748340222   | 3/3/0               |
+| afterUpdateUs | webgl2-local-isolated-large         | 463.020833209157   | 469.7916670702398  | 4.166666573534428    | 0.8986506122975864        | -5.857740480904284 … 4.109589102613163   | 2/4/0               |
+| afterUpdateUs | webgl2-world-isolated-nested        | 1124.479167085762  | 1127.604167054718  | 6.249999937911866    | 0.5602240836844695        | -1.286764738259119 … 5.101058663380289   | 2/4/0               |
+| afterUpdateUs | webgl2-world-plain-control          | 1353.6458335195978 | 1344.2708329918485 | -10.937499736125233  | -0.8051170472200354       | -4.663212422717563 … 0.7009345026492698  | 5/1/0               |
+| afterUpdateUs | webgl2-layer-world-isolated-control | 1450.0000001862645 | 1442.1874999534339 | 8.854166604578609    | 0.6058389980013111        | -6.290207255899956 … 2.8260870037275234  | 3/3/0               |
+| afterUpdateUs | webgl2-empty-isolated-control       | 5.72916679084301   | 4.166666651144624  | -0.520833379899462   | -3.3333380189205606       | -75 … 66.66666832235123                  | 3/3/0               |
+| afterUpdateUs | webgpu-world-isolated-large         | 820.8333334575098  | 815.6249993480742  | -6.2499993946403265  | -0.7578386485868325       | -3.69458140775486 … 1.8181815908819332   | 4/2/0               |
+| afterUpdateUs | webgpu-local-isolated-large         | 609.3750000776103  | 614.5833335661639  | -1.5624995964268464  | -0.25817549311798854      | -2.4038462008026182 … 2.422145364312941  | 3/3/0               |
+| afterUpdateUs | webgpu-world-isolated-nested        | 602.0833330694586  | 600.5208340939134  | -14.062499937911866  | -2.380967208658488        | -8.294930555437398 … 3.4482758106856504  | 5/1/0               |
+| afterUpdateUs | webgpu-world-plain-control          | 429.68750038805103 | 420.8333335506419  | -10.937500357007025  | -2.571842630014059        | -5.9241709936549 … 11.479591433911494    | 4/2/0               |
+| afterUpdateUs | webgpu-layer-world-isolated-control | 1295.8333334730319 | 1290.6250006829698 | -6.770833473031757   | -0.5211946580039928       | -6.464485321358171 … 0.9756096846500065  | 4/2/0               |
+| afterUpdateUs | webgpu-empty-isolated-control       | 8.854166759798925  | 11.458333348855376 | 0.5208336127301054   | 5.8333336644702225        | -35.71428624647003 … 239.99999046325712  | 3/3/0               |
+| submitUs      | webgl2-world-isolated-large         | 7305.20833392317   | 7282.291666216528  | -33.33333429569939   | -0.4546716678078846       | -0.7998857170288167 … 2.3079170315788726 | 5/1/0               |
+| submitUs      | webgl2-local-isolated-large         | 7252.083333286768  | 7280.208333162591  | 14.583333628251694   | 0.20096826969931927       | -1.5300393130165497 … 2.790491638900049  | 2/4/0               |
+| submitUs      | webgl2-world-isolated-nested        | 9490.624999937912  | 9510.937499968957  | 30.208333473031416   | 0.3186343091544941        | -0.6140350984829742 … 1.28078819579755   | 2/4/0               |
+| submitUs      | webgl2-world-plain-control          | 7350.52083308498   | 7351.04166615444   | 9.375000527750217    | 0.12805007669744337       | -4.117330462044791 … 1.540400495732828   | 3/3/0               |
+| submitUs      | webgl2-layer-world-isolated-control | 4663.020833628252  | 4602.083334233612  | -44.791665471469514  | -0.9740397695551186       | -7.052561519458939 … 2.44067794119822    | 4/2/0               |
+| submitUs      | webgl2-empty-isolated-control       | 1363.0208331160247 | 1416.1458332867671 | 45.83333386108279    | 3.428864366133558         | -5.72490708820493 … 11.308562074277225   | 2/4/0               |
+| submitUs      | webgpu-world-isolated-large         | 9773.437499146286  | 9748.95833269693   | -5.729165393859148   | -0.05851728080312237      | -0.626061143249103 … 0.1820908379074709  | 3/3/0               |
+| submitUs      | webgpu-local-isolated-large         | 9733.854167163372  | 9720.833333364379  | -19.27083358168693   | -0.19807974159589165      | -2.270596809361094 … 0.12856223468496242 | 5/1/0               |
+| submitUs      | webgpu-world-isolated-nested        | 10131.770833473032 | 10136.458333814517 | -10.416666977107525  | -0.10286213737565005      | -3.045283770748525 … 1.1461022208156046  | 3/3/0               |
+| submitUs      | webgpu-world-plain-control          | 7360.937499285986  | 7375.520833302289  | -3.125000357006229   | -0.043930660973515        | -1.3239436336510524 … 1.2822339322285596 | 3/3/0               |
+| submitUs      | webgpu-layer-world-isolated-control | 5724.479166092351  | 5708.854166247572  | 5.208333643774495    | 0.09157547002110716       | -5.47920432414315 … 1.0911781007701415   | 3/3/0               |
+| submitUs      | webgpu-empty-isolated-control       | 1993.2291665269681 | 2010.4166658905644 | -58.8541663407035    | -2.974446786385167        | -10.142180101909155 … 20.467836236314493 | 4/2/0               |
+| categorySumUs | webgl2-world-isolated-large         | 8013.020833333333  | 7996.874999798213  | -24.47916745829025   | -0.3055478036730582       | -0.5049197314577836 … 1.1030860290119573 | 5/1/0               |
+| categorySumUs | webgl2-local-isolated-large         | 7917.708332650363  | 7949.4791667287545 | 17.18750099341014    | 0.2166491722188578        | -1.2247002669000482 … 1.6890080439927262 | 2/4/0               |
+| categorySumUs | webgl2-world-isolated-nested        | 11097.916666651145 | 11147.395833705863 | 49.479167054718346   | 0.4458463614954229        | -0.23505077095468457 … 1.341267595479589 | 2/4/0               |
+| categorySumUs | webgl2-world-plain-control          | 9209.89583331781   | 9174.479166123394  | -9.895833674817368   | -0.10826630926308316      | -5.866158400159373 … 2.3014440354954684  | 5/1/0               |
+| categorySumUs | webgl2-layer-world-isolated-control | 6126.041666992629  | 6061.458334404354  | -34.37499896002328   | -0.5673981369903153       | -6.759040178554235 … 2.5077293012234185  | 4/2/0               |
+| categorySumUs | webgl2-empty-isolated-control       | 3892.1875000620885 | 3940.6249992704643 | 160.93750018626451   | 4.52678293522127          | -2.3109771421184626 … 14.472980221193138 | 3/3/0               |
+| categorySumUs | webgpu-world-isolated-large         | 11083.333333255723 | 11039.062499534339 | -9.374999674037099   | -0.08425538666766902      | -1.1148585311214825 … 0.5217226290565489 | 3/3/0               |
+| categorySumUs | webgpu-local-isolated-large         | 10738.020833348855 | 10725.000000015523 | -24.479166759800137  | -0.22796888549455238      | -2.77414533521907 … 0.0291233771087389   | 5/1/0               |
+| categorySumUs | webgpu-world-isolated-nested        | 11209.89583292976  | 11200.000000574315 | -38.5416663872702    | -0.34465311714583724      | -3.869941690670596 … 1.7778609482225243  | 4/2/0               |
+| categorySumUs | webgpu-world-plain-control          | 8279.166666790843  | 8304.687500155222  | 17.187500760580406   | 0.20738133836960831       | -1.021934205161911 … 0.8980521135081891  | 2/4/0               |
+| categorySumUs | webgpu-layer-world-isolated-control | 7037.500000248352  | 7018.229167209938  | 13.541667334114663   | 0.19330147044407975       | -5.532666273450458 … 0.901036200522954   | 3/3/0               |
+| categorySumUs | webgpu-empty-isolated-control       | 4036.458333954215  | 4072.916666045785  | -76.56250055879354   | -1.7724309181772013       | -12.23847017279313 … 20.567375872853606  | 3/3/0               |
+
+| cohort                              | round | slot | label  | actual mapping | simulation µs      | navigation µs      | afterUpdate µs     | submit µs          | category sum µs    |
+| ----------------------------------- | ----- | ---- | ------ | -------------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
+| webgl2-world-isolated-large         | 0     | 0    | before | before         | 243.75000006208816 | 0                  | 479.1666669771075  | 7291.666665735344  | 8014.58333277454   |
+| webgl2-world-isolated-large         | 0     | 1    | after  | before         | 247.91666648040214 | 0                  | 491.6666659216086  | 7306.250001614292  | 8045.833334016303  |
+| webgl2-world-isolated-large         | 0     | 2    | after  | before         | 252.08333351959786 | 0                  | 483.3333333954215  | 7162.499999627471  | 7897.91666654249   |
+| webgl2-world-isolated-large         | 0     | 3    | before | before         | 258.3333334575097  | 0                  | 456.2499998137355  | 7293.7500001862645 | 8008.33333345751   |
+| webgl2-world-isolated-large         | 1     | 0    | after  | before         | 264.5833343267441  | 0                  | 489.5833333333333  | 7216.66666585952   | 7970.8333335195975 |
+| webgl2-world-isolated-large         | 1     | 1    | before | before         | 231.24999987582365 | 2.08333320915699   | 464.5833329608043  | 7306.25000068297   | 8004.1666667287545 |
+| webgl2-world-isolated-large         | 1     | 2    | before | before         | 231.25000235935053 | 0                  | 472.91666517655057 | 7329.1666659836965 | 8033.3333335195975 |
+| webgl2-world-isolated-large         | 1     | 3    | after  | before         | 252.083333209157   | 2.08333320915699   | 477.0833340783914  | 7308.3333332712455 | 8039.5833337679505 |
+| webgl2-world-isolated-large         | 2     | 0    | before | before         | 249.99999968955913 | 2.0833335195978484 | 456.2499982615312  | 7327.083335568507  | 8035.416667039195  |
+| webgl2-world-isolated-large         | 2     | 1    | after  | before         | 241.6666674738129  | 0                  | 458.33333178112906 | 7245.833332650363  | 7945.833331905305  |
+| webgl2-world-isolated-large         | 2     | 2    | after  | before         | 264.5833349476258  | 0                  | 464.5833320294817  | 7291.666666666667  | 8020.8333336437745 |
+| webgl2-world-isolated-large         | 2     | 3    | before | before         | 256.24999962747097 | 0                  | 479.1666669771075  | 7258.33333345751   | 7993.7500000620885 |
+| webgl2-world-isolated-large         | 3     | 0    | after  | before         | 229.16666883975267 | 0                  | 460.4166659216086  | 7304.16666654249   | 7993.750001303852  |
+| webgl2-world-isolated-large         | 3     | 1    | before | before         | 254.1666648661097  | 0                  | 481.25000049670535 | 7087.5000000620885 | 7822.916665424904  |
+| webgl2-world-isolated-large         | 3     | 2    | before | before         | 306.2499997516473  | 4.166666728754838  | 556.2500013038516  | 7174.999998882413  | 8041.666666666667  |
+| webgl2-world-isolated-large         | 3     | 3    | after  | before         | 260.4166688397527  | 0                  | 497.9166652386387  | 7287.499999006589  | 8045.83333308498   |
+| webgl2-world-isolated-large         | 4     | 0    | before | before         | 231.25000018626451 | 2.08333320915699   | 468.74999937911826 | 7372.916667101284  | 8074.999999875823  |
+| webgl2-world-isolated-large         | 4     | 1    | after  | before         | 210.41666716337204 | 0                  | 481.24999925494194 | 7275.0000000620885 | 7966.6666664804025 |
+| webgl2-world-isolated-large         | 4     | 2    | after  | before         | 210.41666654249033 | 0                  | 487.50000074505806 | 7345.8333335195975 | 8043.750000807146  |
+| webgl2-world-isolated-large         | 4     | 3    | before | before         | 208.3333320915699  | 0                  | 475.0000014901161  | 7333.333333954215  | 8016.666667535901  |
+| webgl2-world-isolated-large         | 5     | 0    | after  | before         | 227.08333066354194 | 0                  | 487.5000001241763  | 7372.916667411725  | 8087.499998199443  |
+| webgl2-world-isolated-large         | 5     | 1    | before | before         | 208.3333327124516  | 0                  | 487.4999998137355  | 7300.000000745058  | 7995.8333332712455 |
+| webgl2-world-isolated-large         | 5     | 2    | before | before         | 195.83333376795053 | 0                  | 483.3333321536581  | 7337.500000993411  | 8016.66666691502   |
+| webgl2-world-isolated-large         | 5     | 3    | after  | before         | 204.16666784634194 | 0                  | 460.41666623204947 | 7224.999999627471  | 7889.583333705862  |
+| webgl2-local-isolated-large         | 0     | 0    | before | before         | 200.00000018626451 | 2.0833335195978484 | 462.5000000620882  | 7320.83333345751   | 7985.4166672254605 |
+| webgl2-local-isolated-large         | 0     | 1    | after  | before         | 212.50000006208816 | 0                  | 437.4999987582366  | 7410.416667349637  | 8060.416666169961  |
+| webgl2-local-isolated-large         | 0     | 2    | after  | before         | 197.91666759798923 | 0                  | 462.4999997516473  | 7333.333333333333  | 7993.75000068297   |
+| webgl2-local-isolated-large         | 0     | 3    | before | before         | 208.33333333333334 | 0                  | 437.50000031044084 | 7425.000000745058  | 8070.833334388833  |
+| webgl2-local-isolated-large         | 1     | 0    | after  | before         | 204.16666753590107 | 0                  | 464.583333581686   | 7412.499998696148  | 8081.2499998137355 |
+| webgl2-local-isolated-large         | 1     | 1    | before | before         | 202.0833327745398  | 0                  | 452.0833333954215  | 7414.583332836628  | 8068.749999006589  |
+| webgl2-local-isolated-large         | 1     | 2    | before | before         | 202.08333432674408 | 2.08333320915699   | 460.4166665424903  | 7427.083333333333  | 8091.666667411724  |
+| webgl2-local-isolated-large         | 1     | 3    | after  | before         | 193.7500008692344  | 0                  | 485.41666691501933 | 7202.0833327745395 | 7881.2500005587935 |
+| webgl2-local-isolated-large         | 2     | 0    | before | before         | 202.08333432674408 | 0                  | 468.75000031044084 | 7322.916665735344  | 7993.750000372529  |
+| webgl2-local-isolated-large         | 2     | 1    | after  | before         | 214.58333420256773 | 0                  | 491.66666623204947 | 7260.416667287548  | 7966.666667722166  |
+| webgl2-local-isolated-large         | 2     | 2    | after  | before         | 189.58333476136127 | 2.0833335195978484 | 470.8333322778344  | 7306.249999751647  | 7968.750000310441  |
+| webgl2-local-isolated-large         | 2     | 3    | before | before         | 200.00000049670538 | 0                  | 470.8333316569527  | 7202.083333705862  | 7872.91666585952   |
+| webgl2-local-isolated-large         | 3     | 0    | after  | before         | 168.7499995653828  | 0                  | 477.0833331470688  | 7295.833333705862  | 7941.666666418314  |
+| webgl2-local-isolated-large         | 3     | 1    | before | before         | 214.58333265036345 | 2.08333320915699   | 470.83333289871615 | 7199.999999875824  | 7887.499998634061  |
+| webgl2-local-isolated-large         | 3     | 2    | before | before         | 172.91666474193335 | 0                  | 460.41666716337204 | 7283.333333830039  | 7916.666665735344  |
+| webgl2-local-isolated-large         | 3     | 3    | after  | before         | 193.74999993791184 | 0                  | 464.5833332712452  | 7204.166666915019  | 7862.500000124176  |
+| webgl2-local-isolated-large         | 4     | 0    | before | before         | 212.5000013038516  | 0                  | 466.66666585952044 | 7241.666667163372  | 7920.833334326744  |
+| webgl2-local-isolated-large         | 4     | 1    | after  | before         | 187.50000124176344 | 2.08333320915699   | 458.3333330228925  | 7283.333332277834  | 7931.249999751647  |
+| webgl2-local-isolated-large         | 4     | 2    | after  | before         | 191.6666661078731  | 0                  | 468.74999968955916 | 7270.833333333333  | 7931.249999130765  |
+| webgl2-local-isolated-large         | 4     | 3    | before | before         | 193.75000024835268 | 2.08333320915699   | 454.16666691501933 | 7208.33333209157   | 7858.333332464099  |
+| webgl2-local-isolated-large         | 5     | 0    | after  | before         | 179.16666778425375 | 0                  | 464.58333389212686 | 7285.416666418314  | 7929.166668094695  |
+| webgl2-local-isolated-large         | 5     | 1    | before | before         | 212.49999850988388 | 0                  | 516.6666669150194  | 7033.333335382243  | 7762.500000807146  |
+| webgl2-local-isolated-large         | 5     | 2    | before | before         | 222.9166670391957  | 0                  | 479.16666728754836 | 7077.083332464099  | 7779.166666790843  |
+| webgl2-local-isolated-large         | 5     | 3    | after  | before         | 183.3333329608043  | 0                  | 472.9166679705183  | 7218.749998758237  | 7874.999999689559  |
+| webgl2-world-isolated-nested        | 0     | 0    | before | before         | 489.5833333333333  | 2.08333320915699   | 1110.4166672254603 | 9527.0833314086    | 11129.16666517655  |
+| webgl2-world-isolated-nested        | 0     | 1    | after  | before         | 508.3333331470688  | 2.0833335195978484 | 1129.166666418314  | 9722.916667970518  | 11362.500001055498 |
+| webgl2-world-isolated-nested        | 0     | 2    | after  | before         | 493.7499997516473  | 0                  | 1127.0833338300388 | 9552.083332712451  | 11172.916666294137 |
+| webgl2-world-isolated-nested        | 0     | 3    | before | before         | 489.58333395421505 | 2.08333320915699   | 1120.833333581686  | 9504.166665797433  | 11116.666666542491 |
+| webgl2-world-isolated-nested        | 1     | 0    | after  | before         | 502.08333507180214 | 2.08333320915699   | 1116.6666656111677 | 9531.250000931323  | 11152.08333482345  |
+| webgl2-world-isolated-nested        | 1     | 1    | before | before         | 481.25000049670535 | 0                  | 1150.0000009934108 | 9481.249999565383  | 11112.5000010555   |
+| webgl2-world-isolated-nested        | 1     | 2    | before | before         | 470.83333351959783 | 2.08333320915699   | 1116.6666665424902 | 9489.583332712451  | 11079.166665983696 |
+| webgl2-world-isolated-nested        | 1     | 3    | after  | before         | 522.9166653007269  | 2.0833335195978484 | 1120.8333345130086 | 9497.91666585952   | 11143.749999192854 |
+| webgl2-world-isolated-nested        | 2     | 0    | before | before         | 472.91666734963655 | 0                  | 1152.0833304772775 | 9443.750000869235  | 11068.749998696148 |
+| webgl2-world-isolated-nested        | 2     | 1    | after  | before         | 508.3333340783914  | 2.08333320915699   | 1147.9166659216087 | 9458.333332712451  | 11116.666665921608 |
+| webgl2-world-isolated-nested        | 2     | 2    | after  | before         | 502.08333414047956 | 0                  | 1143.749998882413  | 9493.749999751648  | 11139.58333277454  |
+| webgl2-world-isolated-nested        | 2     | 3    | before | before         | 504.16666579743224 | 0                  | 1139.5833340163033 | 9547.916666604578  | 11191.666666418314 |
+| webgl2-world-isolated-nested        | 3     | 0    | after  | before         | 529.1666677221656  | 0                  | 1137.4999986340601 | 9572.916667287549  | 11239.583333643775 |
+| webgl2-world-isolated-nested        | 3     | 1    | before | before         | 485.4166666045785  | 0                  | 1093.75            | 9481.250000186265  | 11060.416666790843 |
+| webgl2-world-isolated-nested        | 3     | 2    | before | before         | 464.58333265036345 | 0                  | 1070.8333337679505 | 9460.416665921608  | 10995.833332339922 |
+| webgl2-world-isolated-nested        | 3     | 3    | after  | before         | 495.83333389212686 | 0                  | 1137.5000008071463 | 9479.166664804021  | 11112.499999503294 |
+| webgl2-world-isolated-nested        | 4     | 0    | before | before         | 477.08333376795053 | 2.08333320915699   | 1133.333332836628  | 9485.416666604578  | 11097.916666418314 |
+| webgl2-world-isolated-nested        | 4     | 1    | after  | before         | 510.4166669771075  | 0                  | 1141.6666669150193 | 9483.33333277454   | 11135.416666666668 |
+| webgl2-world-isolated-nested        | 4     | 2    | after  | before         | 524.9999997516474  | 0                  | 1102.0833340783913 | 9531.250000310441  | 11158.33333414048  |
+| webgl2-world-isolated-nested        | 4     | 3    | before | before         | 495.8333329608043  | 0                  | 1139.5833330849807 | 9466.666667101284  | 11102.08333314707  |
+| webgl2-world-isolated-nested        | 5     | 0    | after  | before         | 487.5000001241763  | 0                  | 1127.0833341404796 | 9460.416665921608  | 11075.000000186265 |
+| webgl2-world-isolated-nested        | 5     | 1    | before | before         | 462.4999991307656  | 0                  | 1120.8333332712452 | 9539.583334078392  | 11122.916666480403 |
+| webgl2-world-isolated-nested        | 5     | 2    | before | before         | 470.8333338300387  | 0                  | 1104.1666675979893 | 9460.416666542491  | 11035.41666797052  |
+| webgl2-world-isolated-nested        | 5     | 3    | after  | before         | 481.2500011175871  | 0                  | 1127.0833338300388 | 9422.916665983697  | 11031.250000931323 |
+| webgl2-world-plain-control          | 0     | 0    | before | before         | 506.25000055879354 | 0                  | 1335.4166659216087 | 7431.25000068297   | 9272.916667163372  |
+| webgl2-world-plain-control          | 0     | 1    | after  | before         | 464.583333581686   | 0                  | 1341.6666677221656 | 7404.166666790843  | 9210.416668094695  |
+| webgl2-world-plain-control          | 0     | 2    | after  | before         | 527.0833345130086  | 0                  | 1341.6666655490797 | 7441.6666667287545 | 9310.416666790843  |
+| webgl2-world-plain-control          | 0     | 3    | before | before         | 870.8333332712451  | 0                  | 1479.1666669771075 | 8052.083332712452  | 10402.083332960805 |
+| webgl2-world-plain-control          | 1     | 0    | after  | before         | 602.0833343888322  | 0                  | 1352.0833325261872 | 7566.666666418314  | 9520.833333333334  |
+| webgl2-world-plain-control          | 1     | 1    | before | before         | 468.75000031044084 | 0                  | 1345.8333325882752 | 7475.000000869234  | 9289.58333376795   |
+| webgl2-world-plain-control          | 1     | 2    | before | before         | 445.8333325261871  | 0                  | 1329.1666681567829 | 7402.083332960804  | 9177.083333643774  |
+| webgl2-world-plain-control          | 1     | 3    | after  | before         | 489.5833336437742  | 0                  | 1341.6666661699612 | 7539.583332836628  | 9370.833332650363  |
+| webgl2-world-plain-control          | 2     | 0    | before | before         | 533.3333335195979  | 0                  | 1358.3333318432171 | 7425.0000004346175 | 9316.666665797433  |
+| webgl2-world-plain-control          | 2     | 1    | after  | before         | 470.83333351959783 | 4.166666728754838  | 1360.4166662941377 | 7395.833332712452  | 9231.249999254942  |
+| webgl2-world-plain-control          | 2     | 2    | after  | before         | 454.16666691501933 | 0                  | 1345.8333338300388 | 7327.083332153658  | 9127.083332898717  |
+| webgl2-world-plain-control          | 2     | 3    | before | before         | 449.9999995653828  | 2.08333320915699   | 1352.083335320155  | 7252.083332898716  | 9056.250000993412  |
+| webgl2-world-plain-control          | 3     | 0    | after  | before         | 460.41666623204947 | 0                  | 1347.9166685914    | 7358.333331532776  | 9166.666666356226  |
+| webgl2-world-plain-control          | 3     | 1    | before | before         | 460.41666623204947 | 0                  | 1343.7500006208818 | 7287.499999627471  | 9091.666666480402  |
+| webgl2-world-plain-control          | 3     | 2    | before | before         | 547.9166675359011  | 2.0833335195978484 | 1387.4999995653827 | 7437.499999379118  | 9375               |
+| webgl2-world-plain-control          | 3     | 3    | after  | before         | 485.41666691501933 | 2.0833335195978484 | 1362.4999982615311 | 7322.916667287548  | 9172.916665983696  |
+| webgl2-world-plain-control          | 4     | 0    | before | before         | 464.58333420256776 | 0                  | 1356.2499986340601 | 7335.41666654249   | 9156.249999379117  |
+| webgl2-world-plain-control          | 4     | 1    | after  | before         | 481.2499995653828  | 0                  | 1327.0833337058623 | 7322.916666666667  | 9131.249999937912  |
+| webgl2-world-plain-control          | 4     | 2    | after  | before         | 449.99999925494194 | 0                  | 1322.9166663562257 | 7297.916668777664  | 9070.833334388832  |
+| webgl2-world-plain-control          | 4     | 3    | before | before         | 456.25000074505806 | 4.166666728754838  | 1322.91666790843   | 7287.499999627471  | 9070.833335009715  |
+| webgl2-world-plain-control          | 5     | 0    | after  | before         | 458.33333271245164 | 0                  | 1335.4166659216087 | 7352.083334388833  | 9145.833333022892  |
+| webgl2-world-plain-control          | 5     | 1    | before | before         | 491.6666665424903  | 0                  | 1358.3333337058623 | 7372.916666790843  | 9222.916667039195  |
+| webgl2-world-plain-control          | 5     | 2    | before | before         | 441.666666418314   | 0                  | 1345.833333209157  | 7268.750000124176  | 9056.249999751646  |
+| webgl2-world-plain-control          | 5     | 3    | after  | before         | 447.91666604578495 | 0                  | 1345.833335382243  | 7329.166665362815  | 9122.916666790843  |
+| webgl2-layer-world-isolated-control | 0     | 0    | before | before         | 18.749999503294628 | 2.08333320915699   | 1404.1666664804022 | 4483.3333340163035 | 5908.333333209157  |
+| webgl2-layer-world-isolated-control | 0     | 1    | after  | before         | 18.749999503294628 | 0                  | 1472.9166673496366 | 4710.416665300727  | 6202.083332153658  |
+| webgl2-layer-world-isolated-control | 0     | 2    | after  | before         | 12.500000186264515 | 2.0833335195978484 | 1483.333334326744  | 4733.333334947626  | 6231.250002980232  |
+| webgl2-layer-world-isolated-control | 0     | 3    | before | before         | 12.499999875823656 | 2.08333320915699   | 1470.8333338300388 | 4735.416668467224  | 6220.833335382244  |
+| webgl2-layer-world-isolated-control | 1     | 0    | after  | before         | 18.750000124176342 | 2.0833335195978484 | 1441.6666670391958 | 4652.083335133891  | 6114.58333581686   |
+| webgl2-layer-world-isolated-control | 1     | 1    | before | before         | 8.33333283662796   | 0                  | 1449.9999998758237 | 4675.000000745058  | 6133.33333345751   |
+| webgl2-layer-world-isolated-control | 1     | 2    | before | before         | 12.499999565382799 | 0                  | 1464.5833338921268 | 4718.749999689559  | 6195.833333147069  |
+| webgl2-layer-world-isolated-control | 1     | 3    | after  | before         | 10.416666666666666 | 2.0833335195978484 | 1289.5833343888323 | 4079.166667535901  | 5381.250002110998  |
+| webgl2-layer-world-isolated-control | 2     | 0    | before | before         | 18.75000074505806  | 0                  | 1479.166666045785  | 4808.333332960804  | 6306.249999751647  |
+| webgl2-layer-world-isolated-control | 2     | 1    | after  | before         | 12.500000186264515 | 0                  | 1420.8333340163033 | 4522.9166668529315 | 5956.2500010554995 |
+| webgl2-layer-world-isolated-control | 2     | 2    | after  | before         | 16.666666915019352 | 0                  | 1368.7500000620882 | 4408.333333830039  | 5793.7500008071465 |
+| webgl2-layer-world-isolated-control | 2     | 3    | before | before         | 14.583333705862364 | 0                  | 1270.833333954215  | 4197.916666666667  | 5483.333334326744  |
+| webgl2-layer-world-isolated-control | 3     | 0    | after  | before         | 22.916667473812897 | 0                  | 1427.0833327124517 | 4629.166667660077  | 6079.166667846342  |
+| webgl2-layer-world-isolated-control | 3     | 1    | before | before         | 10.416666666666666 | 0                  | 1433.333333581686  | 4618.7500000620885 | 6062.5000003104415 |
+| webgl2-layer-world-isolated-control | 3     | 2    | before | before         | 18.749999813735485 | 0                  | 1452.0833333954215 | 4720.833333209157  | 6191.666666418314  |
+| webgl2-layer-world-isolated-control | 3     | 3    | after  | before         | 14.583333395421505 | 0                  | 1456.2499991928537 | 4606.250002669792  | 6077.083335258067  |
+| webgl2-layer-world-isolated-control | 4     | 0    | before | before         | 2.0833335195978484 | 0                  | 1460.4166665424902 | 4635.416668218871  | 6097.916668280959  |
+| webgl2-layer-world-isolated-control | 4     | 1    | after  | before         | 6.249999937911828  | 0                  | 1458.3333330228925 | 4660.416668280959  | 6125.000001241763  |
+| webgl2-layer-world-isolated-control | 4     | 2    | after  | before         | 8.333333457509676  | 0                  | 1500.0000015522044 | 4722.9166667287545 | 6231.250001738468  |
+| webgl2-layer-world-isolated-control | 4     | 3    | before | before         | 14.583333395421505 | 0                  | 1460.4166665424902 | 4677.0833330228925 | 6152.083332960804  |
+| webgl2-layer-world-isolated-control | 5     | 0    | after  | before         | 10.416666977107525 | 0                  | 1431.250000372529  | 4495.833332650363  | 5937.5             |
+| webgl2-layer-world-isolated-control | 5     | 1    | before | before         | 8.333333767950535  | 0                  | 1491.6666668529313 | 4702.0833327745395 | 6202.0833333954215 |
+| webgl2-layer-world-isolated-control | 5     | 2    | before | before         | 16.666666294137638 | 0                  | 1485.4166662941377 | 4716.66666585952   | 6218.749998447796  |
+| webgl2-layer-world-isolated-control | 5     | 3    | after  | before         | 20.833333022892475 | 0                  | 1454.166667535901  | 4677.083333954215  | 6152.083334513009  |
+| webgl2-empty-isolated-control       | 0     | 0    | before | before         | 2633.333333147069  | 0                  | 4.166666728754838  | 1385.4166672875483 | 4022.916667163372  |
+| webgl2-empty-isolated-control       | 0     | 1    | after  | before         | 2631.249999627471  | 2.08333320915699   | 10.416666356225809 | 1424.999998882413  | 4068.749998075267  |
+| webgl2-empty-isolated-control       | 0     | 2    | after  | before         | 2408.3333344509206 | 0                  | 6.250000248352687  | 1445.8333319053054 | 3860.4166666045785 |
+| webgl2-empty-isolated-control       | 0     | 3    | before | before         | 1772.9166674738128 | 0                  | 8.333333767950535  | 1193.7499999379118 | 2975.000001179675  |
+| webgl2-empty-isolated-control       | 1     | 0    | after  | before         | 2522.9166665424905 | 0                  | 0                  | 1385.4166663562257 | 3908.3333328987164 |
+| webgl2-empty-isolated-control       | 1     | 1    | before | before         | 1856.2500008071463 | 4.166666728754838  | 2.08333320915699   | 1277.0833329608042 | 3139.583333705862  |
+| webgl2-empty-isolated-control       | 1     | 2    | before | before         | 2627.0833325882754 | 2.08333320915699   | 8.333333457509676  | 1370.833333581686  | 4008.333332836628  |
+| webgl2-empty-isolated-control       | 1     | 3    | after  | before         | 2520.8333330228925 | 2.08333320915699   | 6.24999962747097   | 1395.8333336437743 | 3924.999999503295  |
+| webgl2-empty-isolated-control       | 2     | 0    | before | before         | 2422.9166669150195 | 0                  | 4.16666641831398   | 1472.9166657974322 | 3899.999999130766  |
+| webgl2-empty-isolated-control       | 2     | 1    | after  | before         | 2541.6666672875485 | 0                  | 4.166666728754838  | 1410.4166657974322 | 3956.2499998137355 |
+| webgl2-empty-isolated-control       | 2     | 2    | after  | before         | 2391.66666722546   | 0                  | 6.249999937911828  | 1462.4999994412065 | 3860.4166666045785 |
+| webgl2-empty-isolated-control       | 2     | 3    | before | before         | 2662.500001490116  | 0                  | 2.0833335195978484 | 1418.7500004967053 | 4083.3333355064196 |
+| webgl2-empty-isolated-control       | 3     | 0    | after  | before         | 2197.9166648040214 | 0                  | 4.166666728754838  | 1393.7500019868214 | 3595.8333335195975 |
+| webgl2-empty-isolated-control       | 3     | 1    | before | before         | 2297.9166669150195 | 0                  | 4.16666641831398   | 1366.666667163372  | 3668.7500004967055 |
+| webgl2-empty-isolated-control       | 3     | 2    | before | before         | 2735.4166662941375 | 0                  | 0                  | 1377.083333209157  | 4112.499999503294  |
+| webgl2-empty-isolated-control       | 3     | 3    | after  | before         | 2741.6666677842536 | 0                  | 2.08333320915699   | 1400.000000372529  | 4143.750001365939  |
+| webgl2-empty-isolated-control       | 4     | 0    | before | before         | 1975.0000005587935 | 0                  | 10.416666356225809 | 1245.833333581686  | 3231.250000496705  |
+| webgl2-empty-isolated-control       | 4     | 1    | after  | before         | 2712.500000062088  | 0                  | 4.16666641831398   | 1431.2500009934108 | 4147.916667473813  |
+| webgl2-empty-isolated-control       | 4     | 2    | after  | before         | 3179.1666680946946 | 0                  | 6.250000248352687  | 1581.2499991928537 | 4766.666667535901  |
+| webgl2-empty-isolated-control       | 4     | 3    | before | before         | 3083.3333348855376 | 0                  | 10.416666356225809 | 1462.4999985098839 | 4556.249999751648  |
+| webgl2-empty-isolated-control       | 5     | 0    | after  | before         | 2897.916667163372  | 2.08333320915699   | 4.166666728754838  | 1331.2500004346173 | 4235.416667535901  |
+| webgl2-empty-isolated-control       | 5     | 1    | before | before         | 2802.0833327124515 | 0                  | 6.249999937911828  | 1368.7500006829698 | 4177.083333333333  |
+| webgl2-empty-isolated-control       | 5     | 2    | before | before         | 2672.916667535901  | 0                  | 10.416666977107525 | 1433.3333323399227 | 4116.6666668529315 |
+| webgl2-empty-isolated-control       | 5     | 3    | after  | before         | 2554.166667473813  | 2.08333320915699   | 0                  | 1310.4166652386386 | 3866.666665921609  |
+| webgpu-world-isolated-large         | 0     | 0    | before | before         | 475.0000002483527  | 0                  | 820.8333340783914  | 9774.999997889003  | 11070.833332215747 |
+| webgpu-world-isolated-large         | 0     | 1    | after  | before         | 491.6666674738129  | 0                  | 837.5000000620881  | 9797.916666294137  | 11127.083333830038 |
+| webgpu-world-isolated-large         | 0     | 2    | after  | before         | 462.4999997516473  | 0                  | 829.1666656732559  | 9750.000001241764  | 11041.666666666668 |
+| webgpu-world-isolated-large         | 0     | 3    | before | before         | 483.33333277453977 | 2.0833335195978484 | 820.8333346992731  | 9758.333332215747  | 11064.583333209157 |
+| webgpu-world-isolated-large         | 1     | 0    | after  | before         | 483.3333333954215  | 0                  | 818.7500008692344  | 9789.583332836628  | 11091.666667101284 |
+| webgpu-world-isolated-large         | 1     | 1    | before | before         | 460.41666561116773 | 0                  | 816.666666418314   | 9745.833334202567  | 11022.91666623205  |
+| webgpu-world-isolated-large         | 1     | 2    | before | before         | 506.2499999379118  | 0                  | 824.9999986340603  | 9887.500001117587  | 11218.749999689559 |
+| webgpu-world-isolated-large         | 1     | 3    | after  | before         | 458.3333333333333  | 0                  | 808.3333348234495  | 9720.833331346512  | 10987.499999503294 |
+| webgpu-world-isolated-large         | 2     | 0    | before | before         | 456.2499982615312  | 0                  | 804.1666680946946  | 9724.99999900659   | 10985.416665362816 |
+| webgpu-world-isolated-large         | 2     | 1    | after  | before         | 504.1666667287548  | 2.08333320915699   | 824.9999992549419  | 9760.416666977108  | 11091.666666169962 |
+| webgpu-world-isolated-large         | 2     | 2    | after  | before         | 452.08333277453977 | 0                  | 808.3333329608043  | 9724.999999627471  | 10985.416665362814 |
+| webgpu-world-isolated-large         | 2     | 3    | before | before         | 452.08333308498067 | 0                  | 800.000001055499   | 9724.999999627471  | 10977.08333376795  |
+| webgpu-world-isolated-large         | 3     | 0    | after  | before         | 443.7499999379118  | 0                  | 808.3333329608043  | 9727.083334388832  | 10979.166667287547 |
+| webgpu-world-isolated-large         | 3     | 1    | before | before         | 499.99999937911826 | 0                  | 852.0833337679505  | 9802.083333954215  | 11154.166667101284 |
+| webgpu-world-isolated-large         | 3     | 2    | before | before         | 485.41666691501933 | 0                  | 839.583333581686   | 9758.333332526186  | 11083.333333022892 |
+| webgpu-world-isolated-large         | 3     | 3    | after  | before         | 466.66666741172475 | 0                  | 820.8333322157463  | 9722.916667349637  | 11010.416666977108 |
+| webgpu-world-isolated-large         | 4     | 0    | before | before         | 441.66666579743224 | 0                  | 812.5000003104409  | 9687.5             | 10941.666666107873 |
+| webgpu-world-isolated-large         | 4     | 1    | after  | before         | 475.0000002483527  | 0                  | 808.3333320294818  | 9710.416668405136  | 10993.75000068297  |
+| webgpu-world-isolated-large         | 4     | 2    | after  | before         | 495.8333329608043  | 0                  | 810.4166664804021  | 9758.333335009715  | 11064.583334450921 |
+| webgpu-world-isolated-large         | 4     | 3    | before | before         | 468.74999937911826 | 0                  | 825.0000008071462  | 9749.999999689559  | 11043.749999875823 |
+| webgpu-world-isolated-large         | 5     | 0    | after  | before         | 460.4166674738129  | 0                  | 847.9166651765505  | 9785.416667039195  | 11093.749999689559 |
+| webgpu-world-isolated-large         | 5     | 1    | before | before         | 464.583333581686   | 0                  | 825.0000008071462  | 9764.583332464099  | 11054.16666685293  |
+| webgpu-world-isolated-large         | 5     | 2    | before | before         | 510.41666759798926 | 0                  | 835.4166668529311  | 9797.916666294137  | 11143.750000745058 |
+| webgpu-world-isolated-large         | 5     | 3    | after  | before         | 491.66666716337204 | 0                  | 802.083334264656   | 9739.583332712451  | 11033.33333414048  |
+| webgpu-local-isolated-large         | 0     | 0    | before | before         | 599.9999983857075  | 0                  | 693.7500014901161  | 10322.916666045785 | 11616.666665921608 |
+| webgpu-local-isolated-large         | 0     | 1    | after  | before         | 412.5000008692344  | 2.08333320915699   | 616.6666662320495  | 9725.000000558794  | 10756.250000869235 |
+| webgpu-local-isolated-large         | 0     | 2    | after  | before         | 454.1666653628151  | 0                  | 652.083333581686   | 9822.916667287549  | 10929.16666623205  |
+| webgpu-local-isolated-large         | 0     | 3    | before | before         | 402.083333581686   | 0                  | 606.249998944501   | 9679.166667784253  | 10687.50000031044  |
+| webgpu-local-isolated-large         | 1     | 0    | after  | before         | 381.25000055879354 | 0                  | 597.9166670391957  | 9683.333332339922  | 10662.49999993791  |
+| webgpu-local-isolated-large         | 1     | 1    | before | before         | 408.3333356926839  | 0                  | 606.2499980131785  | 9741.666667473814  | 10756.250001179676 |
+| webgpu-local-isolated-large         | 1     | 2    | before | before         | 385.4166666666667  | 2.0833335195978484 | 614.5833333333334  | 9724.999999937912  | 10727.08333345751  |
+| webgpu-local-isolated-large         | 1     | 3    | after  | before         | 410.4166676600774  | 0                  | 622.9166652386388  | 9739.583334575096  | 10772.916667473812 |
+| webgpu-local-isolated-large         | 2     | 0    | before | before         | 389.5833349476258  | 2.08333320915699   | 622.9166652386388  | 9714.583332339922  | 10729.166665735343 |
+| webgpu-local-isolated-large         | 2     | 1    | after  | before         | 393.7499988824129  | 0                  | 622.9166677221656  | 9710.416667473814  | 10727.083334078392 |
+| webgpu-local-isolated-large         | 2     | 2    | after  | before         | 381.24999931703013 | 0                  | 612.5000004346172  | 9741.66666685293   | 10735.416666604578 |
+| webgpu-local-isolated-large         | 2     | 3    | before | before         | 404.1666677221656  | 0                  | 633.3333319053054  | 9754.16666890184   | 10791.666668529311 |
+| webgpu-local-isolated-large         | 3     | 0    | after  | before         | 397.91666716337204 | 0                  | 602.083332836628   | 9718.750000310441  | 10718.750000310441 |
+| webgpu-local-isolated-large         | 3     | 1    | before | before         | 364.5833320915699  | 0                  | 604.1666672875484  | 9754.166666728755  | 10722.916666107874 |
+| webgpu-local-isolated-large         | 3     | 2    | before | before         | 389.5833312223355  | 0                  | 612.5000016763806  | 9743.749999751648  | 10745.833332650363 |
+| webgpu-local-isolated-large         | 3     | 3    | after  | before         | 364.58333240201074 | 0                  | 622.9166674117247  | 9712.499998820325  | 10699.99999863406  |
+| webgpu-local-isolated-large         | 4     | 0    | before | before         | 404.166666790843   | 0                  | 597.9166670391957  | 9718.75            | 10720.833333830038 |
+| webgpu-local-isolated-large         | 4     | 1    | after  | before         | 381.2500008692344  | 2.0833335195978484 | 610.4166666045785  | 9724.99999931703   | 10718.75000031044  |
+| webgpu-local-isolated-large         | 4     | 2    | after  | before         | 408.3333319673936  | 0                  | 622.9166674117247  | 9687.499999689559  | 10718.749999068677 |
+| webgpu-local-isolated-large         | 4     | 3    | before | before         | 387.5000001862645  | 0                  | 606.2499998758236  | 9727.083332836628  | 10720.833332898716 |
+| webgpu-local-isolated-large         | 5     | 0    | after  | before         | 385.4166669771075  | 0                  | 602.0833337679505  | 9708.333333333334  | 10695.833334078392 |
+| webgpu-local-isolated-large         | 5     | 1    | before | before         | 397.9166665424903  | 0                  | 602.083332836628   | 9718.750001241764  | 10718.750000620883 |
+| webgpu-local-isolated-large         | 5     | 2    | before | before         | 406.24999968955916 | 0                  | 608.3333333954215  | 9727.083334078392  | 10741.666667163372 |
+| webgpu-local-isolated-large         | 5     | 3    | after  | before         | 406.2499987582366  | 0                  | 602.0833331470689  | 9762.499999875823  | 10770.833331781128 |
+| webgpu-world-isolated-nested        | 0     | 0    | before | before         | 452.08333308498067 | 2.08333320915699   | 618.7499997516474  | 10139.58333277454  | 11212.499998820325 |
+| webgpu-world-isolated-nested        | 0     | 1    | after  | before         | 452.08333277453977 | 0                  | 635.4166672875484  | 10141.666666604578 | 11229.166666666666 |
+| webgpu-world-isolated-nested        | 0     | 2    | after  | before         | 472.9166670391957  | 2.0833335195978484 | 629.1666667287549  | 10156.25           | 11260.416667287549 |
+| webgpu-world-isolated-nested        | 0     | 3    | before | before         | 468.75000031044084 | 0                  | 650.000000372529   | 10135.416666045785 | 11254.166666728755 |
+| webgpu-world-isolated-nested        | 1     | 0    | after  | before         | 462.50000037252903 | 0                  | 595.8333335195979  | 10072.916666977108 | 11131.250000869235 |
+| webgpu-world-isolated-nested        | 1     | 1    | before | before         | 422.91666691501933 | 0                  | 608.3333327745398  | 10070.833333457509 | 11102.083333147068 |
+| webgpu-world-isolated-nested        | 1     | 2    | before | before         | 456.2500010554989  | 0                  | 600.0000005587935  | 10106.250000496706 | 11162.500002110999 |
+| webgpu-world-isolated-nested        | 1     | 3    | after  | before         | 537.5000002483526  | 2.0833335195978484 | 654.1666658595204  | 10335.416667163372 | 11529.166666790843 |
+| webgpu-world-isolated-nested        | 2     | 0    | before | before         | 700.0000020489097  | 0                  | 768.749998571972   | 10945.833332836628 | 12414.583333457509 |
+| webgpu-world-isolated-nested        | 2     | 1    | after  | before         | 524.9999994412065  | 0                  | 650.0000009934107  | 10285.416666107873 | 11460.41666654249  |
+| webgpu-world-isolated-nested        | 2     | 2    | after  | before         | 468.74999968955916 | 0                  | 593.7500012417635  | 10143.749998882413 | 11206.249999813735 |
+| webgpu-world-isolated-nested        | 2     | 3    | before | before         | 452.0833349476258  | 0                  | 587.4999991307656  | 10125              | 11164.583334078392 |
+| webgpu-world-isolated-nested        | 3     | 0    | after  | before         | 439.583333209157   | 0                  | 577.0833337058624  | 10099.99999931703  | 11116.66666623205  |
+| webgpu-world-isolated-nested        | 3     | 1    | before | before         | 468.75             | 0                  | 560.4166661699613  | 10089.583334513009 | 11118.75000068297  |
+| webgpu-world-isolated-nested        | 3     | 2    | before | before         | 462.4999997516473  | 0                  | 616.6666662320495  | 10162.500000558794 | 11241.666666542491 |
+| webgpu-world-isolated-nested        | 3     | 3    | after  | before         | 466.66666648040217 | 0                  | 581.2500004346172  | 10104.166666356226 | 11152.083333271246 |
+| webgpu-world-isolated-nested        | 4     | 0    | before | before         | 441.66666517655057 | 2.0833335195978484 | 585.4166668529311  | 10114.583333333334 | 11143.749998882413 |
+| webgpu-world-isolated-nested        | 4     | 1    | after  | before         | 441.66666610787314 | 4.166666728754838  | 579.1666672254602  | 10145.833333954215 | 11170.833334016303 |
+| webgpu-world-isolated-nested        | 4     | 2    | after  | before         | 468.7500015522043  | 2.08333320915699   | 566.6666648661097  | 10102.083334699273 | 11139.583334326744 |
+| webgpu-world-isolated-nested        | 4     | 3    | before | before         | 504.1666667287548  | 0                  | 597.9166667287549  | 10127.083333830038 | 11229.166667287547 |
+| webgpu-world-isolated-nested        | 5     | 0    | after  | before         | 462.4999991307656  | 0                  | 577.0833330849806  | 10100.000001490116 | 11139.583333705863 |
+| webgpu-world-isolated-nested        | 5     | 1    | before | before         | 460.4166668529312  | 0                  | 612.4999991928538  | 10172.916666294137 | 11245.833332339922 |
+| webgpu-world-isolated-nested        | 5     | 2    | before | before         | 456.2500004346172  | 2.08333320915699   | 587.4999997516474  | 10185.41666585952  | 11231.249999254942 |
+| webgpu-world-isolated-nested        | 5     | 3    | after  | before         | 450.0000001862645  | 0                  | 560.4166664804021  | 10114.583333954215 | 11125.000000620881 |
+| webgpu-world-plain-control          | 0     | 0    | before | before         | 487.5000004346172  | 0                  | 435.41666741172475 | 7347.916666418314  | 8270.833334264657  |
+| webgpu-world-plain-control          | 0     | 1    | after  | before         | 483.3333343267441  | 2.0833335195978484 | 420.8333321536581  | 7439.58333445092   | 8345.83333445092   |
+| webgpu-world-plain-control          | 0     | 2    | after  | before         | 487.50000074505806 | 2.08333320915699   | 406.24999937911826 | 7400.0000000620885 | 8295.833333395422  |
+| webgpu-world-plain-control          | 0     | 3    | before | before         | 500.00000031044084 | 0                  | 443.7500008692344  | 7339.583331719041  | 8283.333332898716  |
+| webgpu-world-plain-control          | 1     | 0    | after  | before         | 481.25000049670535 | 0                  | 406.2500009313226  | 7458.333332712452  | 8345.83333414048   |
+| webgpu-world-plain-control          | 1     | 1    | before | before         | 485.4166653628151  | 0                  | 422.9166666045785  | 7356.250000496705  | 8264.583332464099  |
+| webgpu-world-plain-control          | 1     | 2    | before | before         | 468.75000031044084 | 0                  | 418.7500001862645  | 7410.416667039196  | 8297.916667535901  |
+| webgpu-world-plain-control          | 1     | 3    | after  | before         | 491.66666716337204 | 0                  | 422.91666691501933 | 7339.5833332712455 | 8254.166667349637  |
+| webgpu-world-plain-control          | 2     | 0    | before | before         | 495.83333420256776 | 0                  | 414.5833331470688  | 7352.083332836628  | 8262.500000186265  |
+| webgpu-world-plain-control          | 2     | 1    | after  | before         | 487.5000010554989  | 2.08333320915699   | 418.7500001862645  | 7349.999998385708  | 8258.333332836628  |
+| webgpu-world-plain-control          | 2     | 2    | after  | before         | 512.499998944501   | 0                  | 466.6666677221656  | 7214.583333581686  | 8193.750000248352  |
+| webgpu-world-plain-control          | 2     | 3    | before | before         | 516.6666666045785  | 0                  | 450.00000049670535 | 7256.249999006589  | 8222.916666107873  |
+| webgpu-world-plain-control          | 3     | 0    | after  | before         | 508.33333438883227 | 0                  | 395.8333320915699  | 7366.66666654249   | 8270.833333022892  |
+| webgpu-world-plain-control          | 3     | 1    | before | before         | 483.3333333954215  | 2.0833335195978484 | 425.00000074505806 | 7391.6666659836965 | 8302.083333643774  |
+| webgpu-world-plain-control          | 3     | 2    | before | before         | 497.91666648040217 | 0                  | 391.66666753590107 | 7399.999998199443  | 8289.583332215747  |
+| webgpu-world-plain-control          | 3     | 3    | after  | before         | 606.2499992549419  | 2.0833335195978484 | 514.5833330849806  | 7229.166668529312  | 8352.083334388833  |
+| webgpu-world-plain-control          | 4     | 0    | before | before         | 554.1666674738129  | 0                  | 479.1666679084301  | 7374.999998447795  | 8408.333333830038  |
+| webgpu-world-plain-control          | 4     | 1    | after  | before         | 493.7500000620882  | 0                  | 427.08333240201074 | 7406.250000931323  | 8327.083333395422  |
+| webgpu-world-plain-control          | 4     | 2    | after  | before         | 493.7499991307656  | 0                  | 427.08333395421505 | 7297.916666294138  | 8218.749999379119  |
+| webgpu-world-plain-control          | 4     | 3    | before | before         | 502.0833338300387  | 0                  | 424.99999919285375 | 7381.2500005587935 | 8308.333333581686  |
+| webgpu-world-plain-control          | 5     | 0    | after  | before         | 489.5833342646559  | 0                  | 420.8333333954215  | 7389.583332464099  | 8300.000000124177  |
+| webgpu-world-plain-control          | 5     | 1    | before | before         | 502.0833322778344  | 4.166667039195697  | 420.83333308498067 | 7300.0000004346175 | 8227.083332836628  |
+| webgpu-world-plain-control          | 5     | 2    | before | before         | 487.49999857197207 | 0                  | 433.33333482344943 | 7322.916666045785  | 8243.749999441206  |
+| webgpu-world-plain-control          | 5     | 3    | after  | before         | 495.833333581686   | 0                  | 402.0833320294817  | 7420.8333333954215 | 8318.74999900659   |
+| webgpu-layer-world-isolated-control | 0     | 0    | before | before         | 12.500000496705374 | 0                  | 1310.4166674117248 | 5745.833333581686  | 7068.750001490116  |
+| webgpu-layer-world-isolated-control | 0     | 1    | after  | before         | 6.24999962747097   | 2.08333320915699   | 1306.2500000620882 | 5772.916668405135  | 7087.500001303852  |
+| webgpu-layer-world-isolated-control | 0     | 2    | after  | before         | 18.750000434617203 | 0                  | 1283.333333209157  | 5729.166665114462  | 7031.249998758237  |
+| webgpu-layer-world-isolated-control | 0     | 3    | before | before         | 18.749999503294628 | 4.166667039195697  | 1295.8333349476259 | 5670.833331843217  | 6989.583333333333  |
+| webgpu-layer-world-isolated-control | 1     | 0    | after  | before         | 20.833334264655907 | 0                  | 1287.5000014901161 | 5731.249998013179  | 7039.5833337679505 |
+| webgpu-layer-world-isolated-control | 1     | 1    | before | before         | 14.58333277453979  | 0                  | 1302.0833342646558 | 5797.9166666045785 | 7114.583333643774  |
+| webgpu-layer-world-isolated-control | 1     | 2    | before | before         | 22.916665921608608 | 2.08333320915699   | 1260.4166688397527 | 5616.666665300727  | 6902.0833332712455 |
+| webgpu-layer-world-isolated-control | 1     | 3    | after  | before         | 16.666666294137638 | 2.0833335195978484 | 1299.9999998137355 | 5716.666666790843  | 7035.416666418314  |
+| webgpu-layer-world-isolated-control | 2     | 0    | before | before         | 16.666666915019352 | 0                  | 1289.5833343888323 | 5787.499999627471  | 7093.750000931323  |
+| webgpu-layer-world-isolated-control | 2     | 1    | after  | before         | 10.416666977107525 | 0                  | 1293.7500004967053 | 5760.416666666667  | 7064.58333414048   |
+| webgpu-layer-world-isolated-control | 2     | 2    | after  | before         | 10.416666356225809 | 0                  | 1304.1666677842538 | 5708.333333954215  | 7022.916668094695  |
+| webgpu-layer-world-isolated-control | 2     | 3    | before | before         | 6.250000248352687  | 0                  | 1297.916665673256  | 5693.74999931703   | 6997.916665238639  |
+| webgpu-layer-world-isolated-control | 3     | 0    | after  | before         | 16.666666604578495 | 0                  | 1302.0833358168602 | 5789.583331905305  | 7108.333334326744  |
+| webgpu-layer-world-isolated-control | 3     | 1    | before | before         | 4.166666728754838  | 0                  | 1306.2499997516472 | 5629.166666107873  | 6939.583332588276  |
+| webgpu-layer-world-isolated-control | 3     | 2    | before | before         | 18.75000074505806  | 0                  | 1279.1666664804022 | 5635.4166675979895 | 6933.33333482345   |
+| webgpu-layer-world-isolated-control | 3     | 3    | after  | before         | 16.666667225460213 | 2.08333320915699   | 1272.9166656111677 | 5597.916668280959  | 6889.583334326744  |
+| webgpu-layer-world-isolated-control | 4     | 0    | before | before         | 14.583333395421505 | 0                  | 1310.4166661699612 | 5750.000001552205  | 7075.000001117587  |
+| webgpu-layer-world-isolated-control | 4     | 1    | after  | before         | 6.249999937911828  | 2.08333320915699   | 1266.6666666045785 | 5629.166667039196  | 6904.166666790843  |
+| webgpu-layer-world-isolated-control | 4     | 2    | after  | before         | 18.749999813735485 | 0                  | 1283.3333341404796 | 5658.333334761362  | 6960.416668715577  |
+| webgpu-layer-world-isolated-control | 4     | 3    | before | before         | 20.833334575096767 | 0                  | 1285.4166676600773 | 5733.333331843217  | 7039.583334078391  |
+| webgpu-layer-world-isolated-control | 5     | 0    | after  | before         | 16.666666915019352 | 0                  | 1302.0833333333333 | 5733.333333705862  | 7052.083333954215  |
+| webgpu-layer-world-isolated-control | 5     | 1    | before | before         | 20.833333022892475 | 0                  | 1287.5000002483528 | 5754.166667039196  | 7062.5000003104415 |
+| webgpu-layer-world-isolated-control | 5     | 2    | before | before         | 6.250000248352687  | 0                  | 1322.9166682188709 | 5766.666664431493  | 7095.833332898716  |
+| webgpu-layer-world-isolated-control | 5     | 3    | after  | before         | 27.08333358168602  | 0                  | 1139.5833327745397 | 5156.249999689559  | 6322.916666045785  |
+| webgpu-empty-isolated-control       | 0     | 0    | before | before         | 1962.5000019247334 | 0                  | 16.666666604578495 | 1945.8333325261872 | 3925.000001055499  |
+| webgpu-empty-isolated-control       | 0     | 1    | after  | before         | 1737.5000004346173 | 0                  | 14.583333395421505 | 1941.6666657974322 | 3693.749999627471  |
+| webgpu-empty-isolated-control       | 0     | 2    | after  | before         | 1725.0000005587935 | 0                  | 8.33333283662796   | 1681.250000372529  | 3414.5833337679505 |
+| webgpu-empty-isolated-control       | 0     | 3    | before | before         | 2004.1666685914    | 0                  | 8.333333147068819  | 2047.9166653628151 | 4060.4166671012836 |
+| webgpu-empty-isolated-control       | 1     | 0    | after  | before         | 1856.2499986340601 | 2.08333320915699   | 14.583333705862364 | 2122.9166658595204 | 3995.8333314086    |
+| webgpu-empty-isolated-control       | 1     | 1    | before | before         | 2110.4166662941375 | 0                  | 4.16666641831398   | 2102.0833334575095 | 4216.666666169961  |
+| webgpu-empty-isolated-control       | 1     | 2    | before | before         | 2116.666667163372  | 2.08333320915699   | 4.16666641831398   | 2175.000000434617  | 4297.91666722546   |
+| webgpu-empty-isolated-control       | 1     | 3    | after  | before         | 2060.416666790843  | 0                  | 8.333333457509676  | 2099.999999937912  | 4168.7500001862645 |
+| webgpu-empty-isolated-control       | 2     | 0    | before | before         | 1579.1666678463419 | 2.08333320915699   | 2.0833335195978484 | 1722.9166654869914 | 3306.250000062088  |
+| webgpu-empty-isolated-control       | 2     | 1    | after  | before         | 2079.1666666045785 | 2.08333320915699   | 20.833333643774193 | 1987.500000745058  | 4089.5833342025676 |
+| webgpu-empty-isolated-control       | 2     | 2    | after  | before         | 1968.7499993791182 | 2.08333320915699   | 14.583333084980646 | 1702.083334326744  | 3687.5             |
+| webgpu-empty-isolated-control       | 2     | 3    | before | before         | 2264.583334016303  | 6.250000248352687  | 8.333333457509676  | 2147.916666852931  | 4427.083334575096  |
+| webgpu-empty-isolated-control       | 3     | 0    | after  | before         | 2493.750000372529  | 6.249999937911828  | 10.416667287548384 | 2272.9166665424905 | 4783.33333414048   |
+| webgpu-empty-isolated-control       | 3     | 1    | before | before         | 1479.1666663562257 | 0                  | 6.250000248352687  | 1429.1666668529313 | 2914.58333345751   |
+| webgpu-empty-isolated-control       | 3     | 2    | before | before         | 2283.333335071802  | 4.16666641831398   | 8.333333147068819  | 2133.3333337679505 | 4429.166668405136  |
+| webgpu-empty-isolated-control       | 3     | 3    | after  | before         | 2045.8333337058623 | 4.16666641831398   | 2.0833335195978484 | 2018.7500001241763 | 4070.8333337679505 |
+| webgpu-empty-isolated-control       | 4     | 0    | before | before         | 2420.833332464099  | 2.0833335195978484 | 10.416666977107525 | 2222.9166657974324 | 4656.249998758237  |
+| webgpu-empty-isolated-control       | 4     | 1    | after  | before         | 1991.6666662320495 | 0                  | 14.583333395421505 | 1952.0833327745397 | 3958.3333324020105 |
+| webgpu-empty-isolated-control       | 4     | 2    | after  | before         | 2164.583334699273  | 2.0833335195978484 | 4.166666728754838  | 1997.9166652386386 | 4168.7500001862645 |
+| webgpu-empty-isolated-control       | 4     | 3    | before | before         | 2410.4166657974324 | 2.0833335195978484 | 18.750000124176342 | 2172.916665673256  | 4604.166665114462  |
+| webgpu-empty-isolated-control       | 5     | 0    | after  | before         | 2481.2499998758235 | 4.166667039195697  | 18.75000074505806  | 2210.4166659216085 | 4714.583333581686  |
+| webgpu-empty-isolated-control       | 5     | 1    | before | before         | 1954.1666662941377 | 6.250000248352687  | 4.16666641831398   | 1829.1666678463419 | 3793.7500008071465 |
+| webgpu-empty-isolated-control       | 5     | 2    | before | before         | 2197.916665735344  | 2.0833335195978484 | 16.666667225460213 | 2150.000000372529  | 4366.666666852931  |
+| webgpu-empty-isolated-control       | 5     | 3    | after  | before         | 1897.9166674738128 | 4.166666728754838  | 6.249999937911828  | 1881.249999627471  | 3789.5833337679505 |
+
+#### A/B
+
+```json
+{
+  "mode": "ab",
+  "matrixStartedAt": 1794932617549,
+  "matrixCompletedAt": 1794932905533,
+  "elapsedMs": 287984,
+  "cohortProof": [
+    {
+      "config": {
+        "name": "webgl2-world-isolated-large",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "6b4592186f78dbe4b328136a7cdbf572d57ddeda41ff6279e72367b06b62fef1",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgl2-local-isolated-large",
+        "space": "local",
+        "capacity": 8192,
+        "isolated": true,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "e50d02f740d6850ce2aeeaf02ac0129e70acdb7d65fa9b7cd574ad0a78a0f393",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgl2-world-isolated-nested",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "depth": 4,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "6b4592186f78dbe4b328136a7cdbf572d57ddeda41ff6279e72367b06b62fef1",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgl2-world-plain-control",
+        "space": "world",
+        "capacity": 8192,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgl2-layer-world-isolated-control",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "target": true,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "188f942c0bdfad29b1724296abb96d05e7d14f0896bb5035c11ad7b486b6980b",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgl2-empty-isolated-control",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "empty": true,
+        "backend": "webgl2"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgl2"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 0
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+      "nonuniform": [false, false],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-world-isolated-large",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "750fd2c5e0c8d31f03bd54a462eab5255060e2255a79ed9ff6d2f3b93b79a4f4",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-local-isolated-large",
+        "space": "local",
+        "capacity": 8192,
+        "isolated": true,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "7543ad1ac5ca6454572af6ee086acc1cbb5ce30e31199aca36921da2264d0298",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-world-isolated-nested",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "depth": 4,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "750fd2c5e0c8d31f03bd54a462eab5255060e2255a79ed9ff6d2f3b93b79a4f4",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-world-plain-control",
+        "space": "world",
+        "capacity": 8192,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "7e1a1b020aacffc7d5f0ba64f43ba77962c55b4dfa6df291f673f33ea603873b",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-layer-world-isolated-control",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "target": true,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 32768
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "342018efc6c2406925262030fb2112a714703c6cdc2c4b54ff30564fef48bdbd",
+      "nonuniform": [true, true],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "webgpu-empty-isolated-control",
+        "space": "world",
+        "capacity": 8192,
+        "isolated": true,
+        "empty": true,
+        "backend": "webgpu"
+      },
+      "setup": {
+        "visibility": "visible",
+        "nativeBitmaps": true,
+        "actualBackends": ["webgpu"],
+        "automaticSceneSimulation": true,
+        "destroyListenerCount": 0,
+        "initialMatrixVariant": "before",
+        "postListenerCount": 0,
+        "preListenerCount": 0,
+        "activeParticlesPerSide": 0
+      },
+      "oneSharedGame": true,
+      "oneSharedCanvas": true,
+      "preTimingNativeProbe": true,
+      "matchingPngSha256": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+      "nonuniform": [false, false],
+      "cleanup": [
+        {
+          "side": "shared",
+          "gameDestroyed": "destroyed",
+          "bitmapClosed": true,
+          "destroyListeners": 0,
+          "destroyCallbacks": 0
+        }
+      ]
+    }
+  ],
+  "errors": []
+}
+```
+
+| span          | cohort                              | median before µs   | median after µs    | median paired Δ µs    | median paired Δ %         | paired % range                            | faster/slower/equal |
+| ------------- | ----------------------------------- | ------------------ | ------------------ | --------------------- | ------------------------- | ----------------------------------------- | ------------------- |
+| simulationUs  | webgl2-world-isolated-large         | 218.7500004656613  | 212.5000002949188  | -5.729167411724731    | -2.6134709809010093       | -13.596491090765292 … 4.958677950061585   | 4/2/0               |
+| simulationUs  | webgl2-local-isolated-large         | 190.62500020178658 | 197.39583297632635 | 8.85416598369676      | 4.6875473304217845        | -5.612244624109227 … 8.743170040534942    | 1/5/0               |
+| simulationUs  | webgl2-world-isolated-nested        | 468.7500009313226  | 467.7083330849806  | -3.124999658515037    | -0.6944319546315288       | -14.06551049125328 … 2.2026429046037546   | 3/3/0               |
+| simulationUs  | webgl2-world-plain-control          | 447.395833209157   | 435.41666663562256 | -18.750000201786577   | -4.1911964467114355       | -8.869179310557454 … 11.633663339403963   | 4/2/0               |
+| simulationUs  | webgl2-layer-world-isolated-control | 13.541666713232795 | 14.583333007370433 | 3.1249995809048414    | 26.736111316993814        | -53.33333551883691 … 36.36363439323487    | 2/4/0               |
+| simulationUs  | webgl2-empty-isolated-control       | 925.5208324175329  | 930.2083333022892  | 1.0416680791724389    | 0.050957307176553834      | -24.25093634092107 … 1.5852047191836531   | 3/3/0               |
+| simulationUs  | webgpu-world-isolated-large         | 528.1249996429931  | 527.0833329608042  | -2.604166278615537    | -0.4950494318835218       | -8.078994588980132 … 7.207207011524399    | 4/2/0               |
+| simulationUs  | webgpu-local-isolated-large         | 457.29166688397527 | 452.60416638726986 | -8.333334233611794    | -1.781532941505954        | -4.708520395792469 … 8.937198070327975    | 5/1/0               |
+| simulationUs  | webgpu-world-isolated-nested        | 447.39583351959783 | 440.6249998913457  | -6.770833550641953    | -1.4806202033741873       | -4.78359907461141 … 2.3310021545762707    | 4/2/0               |
+| simulationUs  | webgpu-world-plain-control          | 475.5208333178113  | 466.66666624757147 | -14.06249993791181    | -2.9522064280827456       | -16.949152670318618 … 7.226107099475573   | 4/2/0               |
+| simulationUs  | webgpu-layer-world-isolated-control | 5.729166635622581  | 7.291666775320967  | 2.604166666666666     | 57.499997597187956        | -72.7272732198731 … 166.66667163372065    | 2/4/0               |
+| simulationUs  | webgpu-empty-isolated-control       | 1463.0208330539367 | 1733.3333340939134 | 164.58333353512       | 9.1867698807128           | -3.291138528612355 … 19.259962107415895   | 1/5/0               |
+| navigationUs  | webgl2-world-isolated-large         | 0                  | 0                  | 0                     | n/a: 5 zero-before rounds | n/a                                       | 1/0/5               |
+| navigationUs  | webgl2-local-isolated-large         | 0.5208333022892475 | 0.5208333022892475 | 0                     | n/a: 3 zero-before rounds | n/a                                       | 0/0/6               |
+| navigationUs  | webgl2-world-isolated-nested        | 0                  | 0                  | 0                     | n/a: 5 zero-before rounds | n/a                                       | 1/2/3               |
+| navigationUs  | webgl2-world-plain-control          | 1.0416666821887097 | 1.041666604578495  | 0.5208332246790329    | n/a: 2 zero-before rounds | n/a                                       | 3/3/0               |
+| navigationUs  | webgl2-layer-world-isolated-control | 0                  | 0                  | 0                     | n/a: 5 zero-before rounds | n/a                                       | 0/1/5               |
+| navigationUs  | webgl2-empty-isolated-control       | 1.0416666821887097 | 0.5208333798994621 | 0                     | n/a: 2 zero-before rounds | n/a                                       | 2/2/2               |
+| navigationUs  | webgpu-world-isolated-large         | 0.5208333022892475 | 0                  | -0.5208333022892475   | n/a: 3 zero-before rounds | n/a                                       | 3/2/1               |
+| navigationUs  | webgpu-local-isolated-large         | 0.5208333022892475 | 0                  | 0                     | n/a: 3 zero-before rounds | n/a                                       | 1/1/4               |
+| navigationUs  | webgpu-world-isolated-nested        | 0                  | 0                  | 0                     | n/a: 4 zero-before rounds | n/a                                       | 2/1/3               |
+| navigationUs  | webgpu-world-plain-control          | 0                  | 1.0416667597989242 | 7.761021458829731e-8  | n/a: 4 zero-before rounds | n/a                                       | 1/3/2               |
+| navigationUs  | webgpu-layer-world-isolated-control | 0                  | 1.0416666821887097 | 0.5208333022892475    | n/a: 5 zero-before rounds | n/a                                       | 0/3/3               |
+| navigationUs  | webgpu-empty-isolated-control       | 1.041666604578495  | 1.0416666821887097 | 7.761021458829731e-8  | n/a: 2 zero-before rounds | n/a                                       | 2/3/1               |
+| afterUpdateUs | webgl2-world-isolated-large         | 482.812500015522   | 480.208333581686   | -1.562500605359645    | -0.331335458535438        | -5.465587049907817 … 4.536082389593139    | 3/3/0               |
+| afterUpdateUs | webgl2-local-isolated-large         | 490.62500055879354 | 494.79166651144624 | 4.6874992549418835    | 0.9782607148661733        | -1.495726310672993 … 5.531914778805894    | 3/3/0               |
+| afterUpdateUs | webgl2-world-isolated-nested        | 585.4166665424902  | 584.3750002483528  | -6.208817922015442e-7 | -1.0382751792847464e-7    | -6.0606062825802995 … 1.6216214413709062  | 4/2/0               |
+| afterUpdateUs | webgl2-world-plain-control          | 712.4999996740371  | 712.5000005277494  | -0.5208336903403961   | -0.0745156990938874       | -2.359882039612467 … 2.0467837663163997   | 4/2/0               |
+| afterUpdateUs | webgl2-layer-world-isolated-control | 1439.5833327434957 | 1435.9375005587935 | 3.6458343577882033    | 0.25531561804937075       | -11.94563666065796 … 1.5486726058301756   | 3/3/0               |
+| afterUpdateUs | webgl2-empty-isolated-control       | 2.604166744276881  | 3.6458333488553762 | 0.5208332246790333    | 12.499997206032326        | -66.6666676600774 … 200.00001490116213    | 1/3/2               |
+| afterUpdateUs | webgpu-world-isolated-large         | 658.3333332867671  | 651.562500357007   | -3.1250004346172204   | -0.4735188609980934       | -5.847076534853258 … 2.232855114145369    | 3/3/0               |
+| afterUpdateUs | webgpu-local-isolated-large         | 633.3333329142382  | 627.6041665114462  | -9.374999596426903    | -1.4552823312550602       | -2.4429968146479393 … 1.8151815339766484  | 4/2/0               |
+| afterUpdateUs | webgpu-world-isolated-nested        | 485.93750006208813 | 485.41666683740914 | 3.645833271245152     | 0.7599284635963596        | -2.335456653787077 … 1.298701351061036    | 2/4/0               |
+| afterUpdateUs | webgpu-world-plain-control          | 461.97916699262953 | 456.7708341249575  | -0.5208335351198343   | -0.11389525963668166      | -13.346613628126603 … 1.5981735596341349  | 4/2/0               |
+| afterUpdateUs | webgpu-layer-world-isolated-control | 1161.4583334885538 | 1155.2083323864888 | -6.984918172747712e-7 | -6.065983924390784e-8     | -5.47945198978196 … 0.44843045300093737   | 4/2/0               |
+| afterUpdateUs | webgpu-empty-isolated-control       | 6.770833240201076  | 8.33333337989946   | 2.6041666666666665    | n/a: 1 zero-before rounds | n/a                                       | 1/5/0               |
+| submitUs      | webgl2-world-isolated-large         | 7276.562499658516  | 7267.187499984478  | -10.416666589056604   | -0.14534883610917676      | -0.9980039899042012 … 0.9644450954415028  | 4/2/0               |
+| submitUs      | webgl2-local-isolated-large         | 7267.708333131547  | 7208.333333566164  | 16.14583345750907     | 0.22093710736050537       | -2.8269560247390966 … 1.3059427808711594  | 3/3/0               |
+| submitUs      | webgl2-world-isolated-nested        | 10040.104166759798 | 10033.333334218089 | -54.68749922389725    | -0.545858557360743        | -3.601356739167453 … 0.2184996414134476   | 4/2/0               |
+| submitUs      | webgl2-world-plain-control          | 7669.270833410944  | 7684.374999953434  | -8.333333767950535    | -0.10826147520464983      | -0.45865370922787096 … 1.1618370674095257 | 3/3/0               |
+| submitUs      | webgl2-layer-world-isolated-control | 4660.937501039977  | 4662.49999939464   | 17.70833188978304     | 0.3804834066704773        | -12.114488564514279 … 1.5381135383095128  | 3/3/0               |
+| submitUs      | webgl2-empty-isolated-control       | 834.3750005587935  | 827.0833325417091  | -14.583333473031757   | -1.8957293488123366       | -9.93328383181576 … 0.4683838718504074    | 4/2/0               |
+| submitUs      | webgpu-world-isolated-large         | 10765.10416592161  | 10681.77083375243  | -40.10416575086674    | -0.3794303066912955       | -2.457142848378925 … 2.8794813079237724   | 5/1/0               |
+| submitUs      | webgpu-local-isolated-large         | 11322.91666713233  | 11288.54166646488  | -48.43749913076499    | -0.4218146420348946       | -1.9033674987733469 … 1.8936229413326626  | 4/2/0               |
+| submitUs      | webgpu-world-isolated-nested        | 10995.312500046566 | 11006.770833240202 | -9.895834062868744    | -0.08994876279525946      | -0.455192031030567 … 0.3984441791603977   | 4/2/0               |
+| submitUs      | webgpu-world-plain-control          | 7431.770832665886  | 7423.958333131546  | -9.895832821106069    | -0.1327164954991291       | -4.259607627330415 … 2.021487161085745    | 3/3/0               |
+| submitUs      | webgpu-layer-world-isolated-control | 5207.812500341485  | 5234.8958337679505 | 8.333333690339714     | 0.16036080060587032       | -5.651520831865371 … 1.185929637280845    | 3/3/0               |
+| submitUs      | webgpu-empty-isolated-control       | 1507.8125004656613 | 1671.3541663096598 | 163.54166584399854    | 10.788674556428548        | -1.1661813771207088 … 14.219330793703506  | 2/4/0               |
+| categorySumUs | webgl2-world-isolated-large         | 7969.791666682188  | 7959.895833628252  | -9.895833053936258    | -0.12398152553977845      | -0.9769441303817945 … 0.7742782257375476  | 3/3/0               |
+| categorySumUs | webgl2-local-isolated-large         | 7953.645833379899  | 7924.479167365158  | 22.395833240200318    | 0.280578402457853         | -2.6267642341159756 … 1.7539162022293548  | 3/3/0               |
+| categorySumUs | webgl2-world-isolated-nested        | 11091.145833643775 | 11095.833333441988 | -54.687500232829734   | -0.4944802871173982       | -4.228766387442795 … 0.3295978891637651   | 4/2/0               |
+| categorySumUs | webgl2-world-plain-control          | 8828.64583330229   | 8837.50000006209   | -17.708332821106524   | -0.1987315886331214       | -0.7510855540435531 … 1.605613690495226   | 3/3/0               |
+| categorySumUs | webgl2-layer-world-isolated-control | 6113.020834047347  | 6110.937499906868  | 19.270832572753534    | 0.3168912851736072        | -11.957439615968319 … 1.5727618378670944  | 3/3/0               |
+| categorySumUs | webgl2-empty-isolated-control       | 1764.0624997826917 | 1757.8124998447797 | -7.812499223897817    | -0.4899566177663832       | -18.65864142514285 … 0.6891798757636102   | 3/3/0               |
+| categorySumUs | webgpu-world-isolated-large         | 11951.56249939464  | 11858.333333783472 | -54.68749945672971    | -0.4638572528587925       | -2.933651709542335 … 3.0000000060495964   | 4/2/0               |
+| categorySumUs | webgpu-local-isolated-large         | 12417.18750090028  | 12360.416666915018 | -66.14583272797336    | -0.5252578755993668       | -2.0440513883294935 … 2.136860846205      | 4/2/0               |
+| categorySumUs | webgpu-world-isolated-nested        | 11933.333333426466 | 11931.770833286766 | -9.895833752428189    | -0.08281324269326193      | -0.6983849886344334 … 0.41073145571055647 | 4/2/0               |
+| categorySumUs | webgpu-world-plain-control          | 8367.7083333799    | 8342.187499860302  | -35.41666634070407    | -0.4214701832705856       | -5.569321543164109 … 2.2793099289213514   | 3/2/1               |
+| categorySumUs | webgpu-layer-world-isolated-control | 6374.479166930541  | 6397.916665999219  | 16.666666371748306    | 0.2604541426191762        | -5.734050712737107 … 1.0512483339323462   | 3/3/0               |
+| categorySumUs | webgpu-empty-isolated-control       | 2978.6458333643777 | 3416.6666670547174 | 371.8750001086546     | 10.915127368300318        | -2.1650878664925095 … 16.77570093853282   | 1/5/0               |
+
+| cohort                              | round | slot | label  | actual mapping | simulation µs      | navigation µs      | afterUpdate µs     | submit µs          | category sum µs    |
+| ----------------------------------- | ----- | ---- | ------ | -------------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
+| webgl2-world-isolated-large         | 0     | 0    | before | before         | 208.3333327124516  | 2.0833335195978484 | 491.66666623204947 | 7318.750000248353  | 8020.833332712452  |
+| webgl2-world-isolated-large         | 0     | 1    | after  | after          | 204.1666659836968  | 0                  | 493.7499997516473  | 7304.166667473813  | 8002.083333209157  |
+| webgl2-world-isolated-large         | 0     | 2    | after  | after          | 206.25000074505806 | 0                  | 479.1666669771075  | 7260.416665114462  | 7945.833332836628  |
+| webgl2-world-isolated-large         | 0     | 3    | before | before         | 266.6666666045785  | 2.08333320915699   | 537.5000005587935  | 7245.833332650363  | 8052.0833330228925 |
+| webgl2-world-isolated-large         | 1     | 0    | after  | after          | 312.50000062088174 | 0                  | 577.0833324640989  | 6991.6666668529315 | 7881.249999937912  |
+| webgl2-world-isolated-large         | 1     | 1    | before | before         | 245.8333329608043  | 0                  | 493.74999944120646 | 7087.500000372529  | 7827.0833327745395 |
+| webgl2-world-isolated-large         | 1     | 2    | before | before         | 258.3333331470688  | 0                  | 516.6666669150194  | 7245.833332960804  | 8020.8333330228925 |
+| webgl2-world-isolated-large         | 1     | 3    | after  | after          | 216.666666790843   | 0                  | 479.1666663562258  | 7300.0000004346175 | 7995.833333581686  |
+| webgl2-world-isolated-large         | 2     | 0    | before | before         | 220.8333338300387  | 0                  | 489.58333271245164 | 7274.999999751647  | 7985.416666294137  |
+| webgl2-world-isolated-large         | 2     | 1    | after  | after          | 216.66666554907957 | 0                  | 472.9166667287548  | 7168.7499995653825 | 7858.333331843217  |
+| webgl2-world-isolated-large         | 2     | 2    | after  | after          | 204.16666784634194 | 0                  | 477.0833322157462  | 7297.9166672254605 | 7979.166667287549  |
+| webgl2-world-isolated-large         | 2     | 3    | before | before         | 218.75000155220428 | 0                  | 452.08333308498067 | 7337.5000000620885 | 8008.333334699273  |
+| webgl2-world-isolated-large         | 3     | 0    | after  | after          | 202.0833327745398  | 0                  | 462.4999997516473  | 7277.0833332712455 | 7941.666665797433  |
+| webgl2-world-isolated-large         | 3     | 1    | before | before         | 210.41666654249033 | 0                  | 477.0833340783914  | 7264.5833327745395 | 7952.0833333954215 |
+| webgl2-world-isolated-large         | 3     | 2    | before | before         | 224.99999993791184 | 0                  | 470.83333351959783 | 7277.083332960804  | 7972.916666418314  |
+| webgl2-world-isolated-large         | 3     | 3    | after  | after          | 206.2500004346172  | 0                  | 477.0833322157462  | 7312.500001862645  | 7995.833334513009  |
+| webgl2-world-isolated-large         | 4     | 0    | before | before         | 237.50000105549893 | 0                  | 502.083333209157   | 7224.9999999379115 | 7964.583334202567  |
+| webgl2-world-isolated-large         | 4     | 1    | after  | after          | 218.75             | 0                  | 472.9166667287548  | 7300.000000124176  | 7991.666666852931  |
+| webgl2-world-isolated-large         | 4     | 2    | after  | after          | 210.41666778425375 | 0                  | 483.3333343267441  | 7312.500000310441  | 8006.250002421439  |
+| webgl2-world-isolated-large         | 4     | 3    | before | before         | 195.83333438883224 | 0                  | 466.666666790843   | 7247.91666554908   | 7910.416666728755  |
+| webgl2-world-isolated-large         | 5     | 0    | after  | after          | 212.50000006208816 | 0                  | 481.2499998758237  | 7185.416667101284  | 7879.166667039195  |
+| webgl2-world-isolated-large         | 5     | 1    | before | before         | 197.9166672875484  | 0                  | 485.41666691501933 | 7306.249998820324  | 7989.5833330228925 |
+| webgl2-world-isolated-large         | 5     | 2    | before | before         | 216.66666741172472 | 0                  | 477.0833331470688  | 7270.833333333333  | 7964.583333892127  |
+| webgl2-world-isolated-large         | 5     | 3    | after  | after          | 220.83333351959786 | 0                  | 483.3333333954215  | 7318.750000248353  | 8022.916667163372  |
+| webgl2-local-isolated-large         | 0     | 0    | before | before         | 197.91666821887097 | 0                  | 506.24999807526666 | 7372.916666790843  | 8077.083333084981  |
+| webgl2-local-isolated-large         | 0     | 1    | after  | after          | 208.33333488553762 | 0                  | 506.24999900658923 | 7268.750000745058  | 7983.333334637185  |
+| webgl2-local-isolated-large         | 0     | 2    | after  | after          | 193.75000024835268 | 0                  | 506.24999962747097 | 7181.25000068297   | 7881.2500005587935 |
+| webgl2-local-isolated-large         | 0     | 3    | before | before         | 183.33333575477204 | 0                  | 479.1666654249032  | 7133.333332526187  | 7795.833333705863  |
+| webgl2-local-isolated-large         | 1     | 0    | after  | after          | 183.33333265036345 | 2.0833335195978484 | 481.25000142802793 | 7185.416666169961  | 7852.0833337679505 |
+| webgl2-local-isolated-large         | 1     | 1    | before | before         | 183.33333358168602 | 0                  | 487.49999919285375 | 7222.916667039196  | 7893.7499998137355 |
+| webgl2-local-isolated-large         | 1     | 2    | before | before         | 189.58333289871612 | 2.0833335195978484 | 487.5000010554989  | 7368.7499994412065 | 8047.916666915019  |
+| webgl2-local-isolated-large         | 1     | 3    | after  | after          | 197.91666697710752 | 0                  | 479.16666728754836 | 6993.750000372529  | 7670.833334637185  |
+| webgl2-local-isolated-large         | 2     | 0    | before | before         | 185.416666790843   | 4.16666641831398   | 481.25000204890966 | 7152.083332650363  | 7822.91666790843   |
+| webgl2-local-isolated-large         | 2     | 1    | after  | after          | 191.6666670391957  | 2.08333320915699   | 479.16666604578495 | 7089.583332960804  | 7762.499999254942  |
+| webgl2-local-isolated-large         | 2     | 2    | after  | after          | 210.41666561116776 | 2.08333320915699   | 497.91666710128385 | 7264.5833327745395 | 7974.999998696148  |
+| webgl2-local-isolated-large         | 2     | 3    | before | before         | 195.83333500971398 | 0                  | 477.0833325261871  | 7039.583334078391  | 7712.500001614292  |
+| webgl2-local-isolated-large         | 3     | 0    | after  | after          | 225.00000024835268 | 0                  | 543.7500001862645  | 7064.58333414048   | 7833.333334575097  |
+| webgl2-local-isolated-large         | 3     | 1    | before | before         | 187.49999875823656 | 0                  | 489.5833330228925  | 6958.333334264656  | 7635.416666045785  |
+| webgl2-local-isolated-large         | 3     | 2    | before | before         | 193.75000024835268 | 2.08333320915699   | 489.5833348855376  | 7239.583330849807  | 7924.999999192854  |
+| webgl2-local-isolated-large         | 3     | 3    | after  | after          | 189.58333445092043 | 2.08333320915699   | 489.5833333333333  | 7318.749998696148  | 7999.999999689559  |
+| webgl2-local-isolated-large         | 4     | 0    | before | before         | 197.91666666666666 | 0                  | 493.75000037252903 | 7314.58333414048   | 8006.250001179676  |
+| webgl2-local-isolated-large         | 4     | 1    | after  | after          | 189.58333414047956 | 0                  | 474.99999962747097 | 7337.499999751647  | 8002.0833335195975 |
+| webgl2-local-isolated-large         | 4     | 2    | after  | after          | 195.8333346992731  | 0                  | 508.3333331470688  | 7347.916665176551  | 8052.0833330228925 |
+| webgl2-local-isolated-large         | 4     | 3    | before | before         | 210.41666778425375 | 0                  | 489.58333395421505 | 7249.999999068677  | 7950.0000008071465 |
+| webgl2-local-isolated-large         | 5     | 0    | after  | after          | 183.33333265036345 | 0                  | 485.41666691501933 | 7310.4166664804025 | 7979.166666045785  |
+| webgl2-local-isolated-large         | 5     | 1    | before | before         | 185.41666585952044 | 0                  | 510.41666728754836 | 7410.4166667287545 | 8106.249999875823  |
+| webgl2-local-isolated-large         | 5     | 2    | before | before         | 187.50000031044087 | 0                  | 497.91666741172475 | 7374.999999379118  | 8060.416667101284  |
+| webgl2-local-isolated-large         | 5     | 3    | after  | after          | 204.1666666045785  | 0                  | 510.4166663562258  | 7339.583333892127  | 8054.166666852931  |
+| webgl2-world-isolated-nested        | 0     | 0    | before | before         | 454.16666753590107 | 0                  | 581.2499995032946  | 9952.083332464099  | 10987.499999503294 |
+| webgl2-world-isolated-nested        | 0     | 1    | after  | after          | 470.83333351959783 | 0                  | 574.999998944501   | 9920.833333705863  | 10966.666666169962 |
+| webgl2-world-isolated-nested        | 0     | 2    | after  | after          | 441.66666734963655 | 0                  | 585.4166662320495  | 9920.833333395422  | 10947.916666977108 |
+| webgl2-world-isolated-nested        | 0     | 3    | before | before         | 475.0000008692344  | 0                  | 579.1666662941376  | 10037.500000248352 | 11091.666667411724 |
+| webgl2-world-isolated-nested        | 1     | 0    | after  | after          | 477.0833325261871  | 0                  | 570.8333331470689  | 9931.25000099341   | 10979.166666666666 |
+| webgl2-world-isolated-nested        | 1     | 1    | before | before         | 468.75000062088174 | 0                  | 570.8333331470689  | 10020.833333022892 | 11060.416666790843 |
+| webgl2-world-isolated-nested        | 1     | 2    | before | before         | 477.0833346992731  | 0                  | 583.333331781129   | 10002.083333830038 | 11062.50000031044  |
+| webgl2-world-isolated-nested        | 1     | 3    | after  | after          | 489.5833336437742  | 0                  | 591.6666661699613  | 10135.416666977108 | 11216.666666790843 |
+| webgl2-world-isolated-nested        | 2     | 0    | before | before         | 483.3333343267441  | 0                  | 593.75             | 10095.833331656953 | 11172.916665983697 |
+| webgl2-world-isolated-nested        | 2     | 1    | after  | after          | 485.41666598369676 | 0                  | 589.583333581686   | 10033.33333414048  | 11108.333333705863 |
+| webgl2-world-isolated-nested        | 2     | 2    | after  | after          | 456.24999950329465 | 0                  | 589.5833323399225  | 10033.33333476136  | 11079.166666604578 |
+| webgl2-world-isolated-nested        | 2     | 3    | before | before         | 439.58333258827525 | 0                  | 587.500000372529   | 10041.666668529311 | 11068.750001490116 |
+| webgl2-world-isolated-nested        | 3     | 0    | after  | after          | 431.2499997516473  | 0                  | 583.3333333333334  | 10025.000000372529 | 11039.583333457509 |
+| webgl2-world-isolated-nested        | 3     | 1    | before | before         | 454.1666650523742  | 0                  | 583.3333348855376  | 9983.333331843218  | 11020.83333178113  |
+| webgl2-world-isolated-nested        | 3     | 2    | before | before         | 427.08333271245164 | 0                  | 572.9166672875484  | 10025.000000062088 | 11025.000000062088 |
+| webgl2-world-isolated-nested        | 3     | 3    | after  | after          | 433.33333420256776 | 2.0833335195978484 | 591.666666790843   | 10008.333333457509 | 11035.416667970518 |
+| webgl2-world-isolated-nested        | 4     | 0    | before | before         | 470.8333322778344  | 0                  | 591.6666695848107  | 10179.166664369404 | 11241.66666623205  |
+| webgl2-world-isolated-nested        | 4     | 1    | after  | after          | 485.41666691501933 | 0                  | 579.1666666045785  | 10085.41666685293  | 11150.000000372529 |
+| webgl2-world-isolated-nested        | 4     | 2    | after  | after          | 443.7499999379118  | 0                  | 583.333334264656   | 10045.833331843218 | 11072.916666045785 |
+| webgl2-world-isolated-nested        | 4     | 3    | before | before         | 610.4166666045785  | 2.08333320915699   | 645.833334264656   | 10704.166666604578 | 11962.50000068297  |
+| webgl2-world-isolated-nested        | 5     | 0    | after  | after          | 585.4166665424904  | 2.08333320915699   | 612.4999988824129  | 10312.500001862645 | 11512.500000496706 |
+| webgl2-world-isolated-nested        | 5     | 1    | before | before         | 500.00000031044084 | 0                  | 591.6666671012839  | 10320.833332526186 | 11412.49999993791  |
+| webgl2-world-isolated-nested        | 5     | 2    | before | before         | 529.1666683430473  | 0                  | 616.6666665424904  | 10327.083331532776 | 11472.916666418314 |
+| webgl2-world-isolated-nested        | 5     | 3    | after  | after          | 447.91666728754836 | 0                  | 595.8333328987161  | 10060.416668343047 | 11104.166668529311 |
+| webgl2-world-plain-control          | 0     | 0    | before | before         | 439.583333209157   | 0                  | 706.250001055499   | 7731.24999863406   | 8877.083332898716  |
+| webgl2-world-plain-control          | 0     | 1    | after  | after          | 433.33333265036345 | 4.166666728754838  | 689.583333209157   | 7675.000000745058  | 8802.083333333334  |
+| webgl2-world-plain-control          | 0     | 2    | after  | after          | 427.0833330228925  | 2.08333320915699   | 689.5833338300387  | 7697.9166663562255 | 8816.666666418314  |
+| webgl2-world-plain-control          | 0     | 3    | before | before         | 456.2499998137355  | 0                  | 706.2499998137355  | 7712.50000068297   | 8875.00000031044   |
+| webgl2-world-plain-control          | 1     | 0    | after  | after          | 418.75000142802793 | 0                  | 681.2499991307656  | 7716.666667101284  | 8816.666667660076  |
+| webgl2-world-plain-control          | 1     | 1    | before | before         | 483.33333246409893 | 0                  | 702.0833340163032  | 7777.083332960804  | 8962.499999441206  |
+| webgl2-world-plain-control          | 1     | 2    | before | before         | 456.2500001241763  | 2.0833335195978484 | 695.8333331470689  | 7677.083333954215  | 8831.250000745058  |
+| webgl2-world-plain-control          | 1     | 3    | after  | after          | 437.50000062088174 | 2.08333320915699   | 714.583333581686   | 7743.7499994412065 | 8897.91666685293   |
+| webgl2-world-plain-control          | 2     | 0    | before | before         | 485.41666722546023 | 0                  | 716.666666790843   | 7729.166666045785  | 8931.250000062088  |
+| webgl2-world-plain-control          | 2     | 1    | after  | after          | 445.83333376795053 | 0                  | 704.1666666045785  | 7679.1666668529315 | 8829.166667225461  |
+| webgl2-world-plain-control          | 2     | 2    | after  | after          | 435.41666710128385 | 2.08333320915699   | 724.9999993170301  | 7685.41666585952   | 8847.916665486991  |
+| webgl2-world-plain-control          | 2     | 3    | before | before         | 466.6666677221656  | 0                  | 712.4999994412065  | 7675.00000136594   | 8854.166668529313  |
+| webgl2-world-plain-control          | 3     | 0    | after  | after          | 429.16666561116773 | 2.08333320915699   | 720.8333350718021  | 7627.083333209157  | 8779.166667101284  |
+| webgl2-world-plain-control          | 3     | 1    | before | before         | 414.5833331470688  | 2.0833335195978484 | 702.0833324640989  | 7554.166667473813  | 8672.916666604578  |
+| webgl2-world-plain-control          | 3     | 2    | before | before         | 479.1666666666667  | 2.08333320915699   | 722.9166667287549  | 7647.916667163372  | 8852.08333376795   |
+| webgl2-world-plain-control          | 3     | 3    | after  | after          | 425.00000074505806 | 0                  | 733.3333327745398  | 7735.416666915019  | 8893.750000434617  |
+| webgl2-world-plain-control          | 4     | 0    | before | before         | 429.1666680946946  | 0                  | 729.1666669771075  | 7593.749999068677  | 8752.08333414048   |
+| webgl2-world-plain-control          | 4     | 1    | after  | after          | 466.66666648040217 | 0                  | 704.166667846342   | 7604.1666663562255 | 8775.000000682969  |
+| webgl2-world-plain-control          | 4     | 2    | after  | after          | 452.08333308498067 | 0                  | 716.6666683430473  | 7627.083332277834  | 8795.833333705863  |
+| webgl2-world-plain-control          | 4     | 3    | before | before         | 431.24999944120646 | 4.166666728754838  | 695.8333325261871  | 7679.166667163372  | 8810.41666585952   |
+| webgl2-world-plain-control          | 5     | 0    | after  | after          | 410.4166667287548  | 2.0833335195978484 | 706.2499995032946  | 7606.249999875824  | 8724.999999627471  |
+| webgl2-world-plain-control          | 5     | 1    | before | before         | 422.9166666045785  | 2.08333320915699   | 716.6666677221656  | 7624.999999689559  | 8766.666667225461  |
+| webgl2-world-plain-control          | 5     | 2    | before | before         | 418.7499998758237  | 0                  | 714.5833338921269  | 7616.6666668529315 | 8750.000000620883  |
+| webgl2-world-plain-control          | 5     | 3    | after  | after          | 529.1666661699613  | 2.0833335195978484 | 729.1666669771075  | 7812.499999689559  | 9072.916666356226  |
+| webgl2-layer-world-isolated-control | 0     | 0    | before | before         | 20.833333333333332 | 0                  | 1452.0833340163033 | 4672.9166666045785 | 6145.833333954215  |
+| webgl2-layer-world-isolated-control | 0     | 1    | after  | after          | 22.916667473812897 | 0                  | 1262.4999983236194 | 4050.000001055499  | 5335.4166668529315 |
+| webgl2-layer-world-isolated-control | 0     | 2    | after  | after          | 20.833333643774193 | 0                  | 1302.0833333333333 | 4202.083333705862  | 5525.00000068297   |
+| webgl2-layer-world-isolated-control | 0     | 3    | before | before         | 12.500000186264515 | 0                  | 1460.416665300727  | 4716.666667411725  | 6189.583332898716  |
+| webgl2-layer-world-isolated-control | 1     | 0    | after  | after          | 8.333333147068819  | 0                  | 1479.1666669771075 | 4710.416664369404  | 6197.91666449358   |
+| webgl2-layer-world-isolated-control | 1     | 1    | before | before         | 12.500000186264515 | 0                  | 1483.3333318432171 | 4718.749998758237  | 6214.583330787718  |
+| webgl2-layer-world-isolated-control | 1     | 2    | before | before         | 18.75000074505806  | 0                  | 1460.4166656111677 | 4687.5             | 6166.6666663562255 |
+| webgl2-layer-world-isolated-control | 1     | 3    | after  | after          | 6.249999937911828  | 0                  | 1460.416667163372  | 4695.8333331470685 | 6162.500000248352  |
+| webgl2-layer-world-isolated-control | 2     | 0    | before | before         | 18.75000074505806  | 0                  | 1454.166665673256  | 4670.833334326744  | 6143.750000745058  |
+| webgl2-layer-world-isolated-control | 2     | 1    | after  | after          | 12.499999875823656 | 0                  | 1431.249998199443  | 4587.50000068297   | 6031.249998758236  |
+| webgl2-layer-world-isolated-control | 2     | 2    | after  | after          | 20.833333333333332 | 0                  | 1358.333334326744  | 4433.3333332712455 | 5812.500000931323  |
+| webgl2-layer-world-isolated-control | 2     | 3    | before | before         | 6.250000558793545  | 0                  | 1429.1666656111677 | 4664.583332526187  | 6099.999998696148  |
+| webgl2-layer-world-isolated-control | 3     | 0    | after  | after          | 12.500000496705374 | 0                  | 1439.5833344509203 | 4666.666665735344  | 6118.7500006829705 |
+| webgl2-layer-world-isolated-control | 3     | 1    | before | before         | 6.250000248352687  | 0                  | 1397.9166668529313 | 4560.4166664804025 | 5964.583333581686  |
+| webgl2-layer-world-isolated-control | 3     | 2    | before | before         | 12.500000496705374 | 0                  | 1427.0833333333333 | 4649.9999994412065 | 6089.583333271245  |
+| webgl2-layer-world-isolated-control | 3     | 3    | after  | after          | 10.416666666666666 | 0                  | 1429.1666668529313 | 4685.41666585952   | 6124.999999379119  |
+| webgl2-layer-world-isolated-control | 4     | 0    | before | before         | 12.500000186264515 | 2.08333320915699   | 1435.4166664804022 | 4704.166669088106  | 6154.16666896393   |
+| webgl2-layer-world-isolated-control | 4     | 1    | after  | after          | 12.499999875823656 | 2.0833335195978484 | 1443.7500002483528 | 4650.0000000620885 | 6108.333333705863  |
+| webgl2-layer-world-isolated-control | 4     | 2    | after  | after          | 18.749999503294628 | 0                  | 1450.0000001862645 | 4729.166666045785  | 6197.916665735344  |
+| webgl2-layer-world-isolated-control | 4     | 3    | before | before         | 10.416666356225809 | 0                  | 1439.583333209157  | 4604.166668218871  | 6054.166667784253  |
+| webgl2-layer-world-isolated-control | 5     | 0    | after  | after          | 16.666666604578495 | 0                  | 1450.0000004967053 | 4683.333332339923  | 6149.9999994412065 |
+| webgl2-layer-world-isolated-control | 5     | 1    | before | before         | 16.666665983696777 | 0                  | 1408.333333209157  | 4514.583334326744  | 5939.5833335195975 |
+| webgl2-layer-world-isolated-control | 5     | 2    | before | before         | 12.499999565382799 | 0                  | 1441.6666670391958 | 4647.916667784254  | 6102.083334388833  |
+| webgl2-layer-world-isolated-control | 5     | 3    | after  | after          | 10.41666604578495  | 0                  | 1425.0000004346173 | 4614.5833336437745 | 6050.000000124177  |
+| webgl2-empty-isolated-control       | 0     | 0    | before | before         | 2399.999998820325  | 2.08333320915699   | 18.750000434617203 | 1510.4166682188709 | 3931.2500006829696 |
+| webgl2-empty-isolated-control       | 0     | 1    | after  | after          | 2210.4166662320495 | 2.0833335195978484 | 6.249999937911828  | 1460.4166668529313 | 3679.166666542491  |
+| webgl2-empty-isolated-control       | 0     | 2    | after  | after          | 2481.2500001862645 | 0                  | 4.166666728754838  | 1543.7500017384689 | 4029.166668653488  |
+| webgl2-empty-isolated-control       | 0     | 3    | before | before         | 2668.749998944501  | 4.166667039195697  | 12.500000496705374 | 1568.7500002483528 | 4254.1666667287545 |
+| webgl2-empty-isolated-control       | 1     | 0    | after  | after          | 2018.7500001241763 | 0                  | 2.08333320915699   | 1435.416666790843  | 3456.250000124176  |
+| webgl2-empty-isolated-control       | 1     | 1    | before | before         | 2474.99999931703   | 0                  | 4.166666728754838  | 1499.9999987582366 | 3979.166664804022  |
+| webgl2-empty-isolated-control       | 1     | 2    | before | before         | 1974.999999627471  | 0                  | 4.166666728754838  | 1310.4166674117248 | 3289.5833337679505 |
+| webgl2-empty-isolated-control       | 1     | 3    | after  | after          | 1352.0833319053054 | 0                  | 8.333333147068819  | 1095.8333350718021 | 2456.250000124176  |
+| webgl2-empty-isolated-control       | 2     | 0    | before | before         | 1322.9166675979893 | 4.166666728754838  | 0                  | 1029.1666674117248 | 2356.250001738469  |
+| webgl2-empty-isolated-control       | 2     | 1    | after  | after          | 1327.0833333954215 | 0                  | 4.166666728754838  | 1008.3333325261871 | 2339.5833326503634 |
+| webgl2-empty-isolated-control       | 2     | 2    | after  | after          | 791.666666045785   | 0                  | 0                  | 779.1666664804021  | 1570.833332526187  |
+| webgl2-empty-isolated-control       | 2     | 3    | before | before         | 785.4166636243463  | 0                  | 2.0833335195978484 | 750.0000018626451  | 1537.4999990065894 |
+| webgl2-empty-isolated-control       | 3     | 0    | after  | after          | 747.916666790843   | 0                  | 0                  | 739.5833336437742  | 1487.500000434617  |
+| webgl2-empty-isolated-control       | 3     | 1    | before | before         | 758.3333331470689  | 0                  | 2.08333320915699   | 743.7500009934107  | 1504.1666673496366 |
+| webgl2-empty-isolated-control       | 3     | 2    | before | before         | 785.4166679705182  | 0                  | 0                  | 733.333332153658   | 1518.7500001241763 |
+| webgl2-empty-isolated-control       | 3     | 3    | after  | after          | 816.6666667287549  | 0                  | 2.08333320915699   | 737.5000004346172  | 1556.250000372529  |
+| webgl2-empty-isolated-control       | 4     | 0    | before | before         | 810.4166652386388  | 2.0833335195978484 | 8.333333457509676  | 783.333333209157   | 1604.1666654249034 |
+| webgl2-empty-isolated-control       | 4     | 1    | after  | after          | 814.5833338300387  | 2.0833335195978484 | 8.333333457509676  | 768.749998571972   | 1593.7499993791182 |
+| webgl2-empty-isolated-control       | 4     | 2    | after  | after          | 772.9166687155763  | 2.0833335195978484 | 0                  | 752.0833325882753  | 1527.0833348234496 |
+| webgl2-empty-isolated-control       | 4     | 3    | before | before         | 783.333333209157   | 0                  | 0                  | 774.9999997516474  | 1558.3333329608045 |
+| webgl2-empty-isolated-control       | 5     | 0    | after  | after          | 810.4166671012839  | 4.16666641831398   | 4.16666641831398   | 752.0833347613612  | 1570.833334699273  |
+| webgl2-empty-isolated-control       | 5     | 1    | before | before         | 752.0833338300387  | 0                  | 0                  | 762.4999992549419  | 1514.5833330849805 |
+| webgl2-empty-isolated-control       | 5     | 2    | before | before         | 825.0000004967054  | 2.08333320915699   | 2.08333320915699   | 741.6666668529311  | 1570.8333337679505 |
+| webgl2-empty-isolated-control       | 5     | 3    | after  | after          | 791.6666666666666  | 0                  | 2.0833335195978484 | 731.2499992549419  | 1524.9999994412065 |
+| webgpu-world-isolated-large         | 0     | 0    | before | before         | 547.9166662941376  | 2.08333320915699   | 645.8333348855376  | 10422.916666604578 | 11618.75000099341  |
+| webgpu-world-isolated-large         | 0     | 1    | after  | after          | 516.6666669150194  | 0                  | 654.1666661699613  | 10364.583333333334 | 11535.416666418314 |
+| webgpu-world-isolated-large         | 0     | 2    | after  | after          | 529.1666661699613  | 0                  | 635.416665735344   | 10500.000000620881 | 11664.583332526186 |
+| webgpu-world-isolated-large         | 0     | 3    | before | before         | 504.16666517655057 | 2.0833335195978484 | 635.4166663562258  | 10543.750000186265 | 11685.41666523864  |
+| webgpu-world-isolated-large         | 1     | 0    | after  | after          | 522.9166659216086  | 0                  | 658.3333350718021  | 10520.833331470689 | 11702.083332464099 |
+| webgpu-world-isolated-large         | 1     | 1    | before | before         | 508.3333334575097  | 0                  | 658.3333328987161  | 10618.750001614293 | 11785.41666797052  |
+| webgpu-world-isolated-large         | 1     | 2    | before | before         | 525.000000372529   | 0                  | 647.9166656111678  | 10570.833334078392 | 11743.75000006209  |
+| webgpu-world-isolated-large         | 1     | 3    | after  | after          | 537.5000002483526  | 0                  | 677.0833333333334  | 10620.833333271245 | 11835.41666685293  |
+| webgpu-world-isolated-large         | 2     | 0    | before | before         | 587.4999988203248  | 0                  | 700.000001428028   | 10929.166665921608 | 12216.66666616996  |
+| webgpu-world-isolated-large         | 2     | 1    | after  | after          | 533.3333338300387  | 0                  | 654.1666661699613  | 10700.000001428029 | 11887.500001428029 |
+| webgpu-world-isolated-large         | 2     | 2    | after  | after          | 533.3333328987161  | 0                  | 654.166666790843   | 10637.500000186265 | 11824.999999875823 |
+| webgpu-world-isolated-large         | 2     | 3    | before | before         | 572.9166675979892  | 4.166666728754838  | 689.5833325882753  | 10945.83333376795  | 12212.50000068297  |
+| webgpu-world-isolated-large         | 3     | 0    | after  | after          | 495.8333323399226  | 2.08333320915699   | 635.4166679084301  | 10718.749998137355 | 11852.083331594864 |
+| webgpu-world-isolated-large         | 3     | 1    | before | before         | 543.7499995653828  | 0                  | 681.2500000620881  | 10724.99999900659  | 11949.99999863406  |
+| webgpu-world-isolated-large         | 3     | 2    | before | before         | 516.6666666045785  | 0                  | 645.8333345750967  | 10722.916664555669 | 11885.416665735343 |
+| webgpu-world-isolated-large         | 3     | 3    | after  | after          | 535.416666418314   | 0                  | 662.5000005587935  | 10670.833335258067 | 11868.750002235174 |
+| webgpu-world-isolated-large         | 4     | 0    | before | before         | 635.4166669771075  | 0                  | 712.4999988203248  | 11127.083332588276 | 12474.999998385709 |
+| webgpu-world-isolated-large         | 4     | 1    | after  | after          | 722.9166667287549  | 2.08333320915699   | 747.9166671012839  | 11660.416665797433 | 13133.333332836628 |
+| webgpu-world-isolated-large         | 4     | 2    | after  | after          | 516.6666656732559  | 0                  | 637.5000008071462  | 10818.750000558794 | 11972.916667039195 |
+| webgpu-world-isolated-large         | 4     | 3    | before | before         | 520.833334264656   | 0                  | 656.249997826914   | 10722.916667970518 | 11900.000000062088 |
+| webgpu-world-isolated-large         | 5     | 0    | after  | after          | 514.5833333954215  | 0                  | 631.2500008692344  | 10643.750000124177 | 11789.583334388833 |
+| webgpu-world-isolated-large         | 5     | 1    | before | before         | 558.3333326503634  | 0                  | 652.0833332712451  | 10875.000000310441 | 12085.41666623205  |
+| webgpu-world-isolated-large         | 5     | 2    | before | before         | 493.7499997516473  | 2.08333320915699   | 652.0833342025677  | 10737.499999813735 | 11885.416666977108 |
+| webgpu-world-isolated-large         | 5     | 3    | after  | after          | 533.3333322778344  | 0                  | 652.0833342025677  | 10760.416666045785 | 11945.833332526186 |
+| webgpu-local-isolated-large         | 0     | 0    | before | before         | 470.83333258827525 | 0                  | 629.1666670391957  | 11293.750001117587 | 12393.750000745058 |
+| webgpu-local-isolated-large         | 0     | 1    | after  | after          | 447.9166666666667  | 0                  | 637.5000001862645  | 11366.66666685293  | 12452.083333705861 |
+| webgpu-local-isolated-large         | 0     | 2    | after  | after          | 477.0833334575097  | 0                  | 624.9999996895591  | 11283.333333209157 | 12385.416666356226 |
+| webgpu-local-isolated-large         | 0     | 3    | before | before         | 460.4166668529312  | 0                  | 620.8333329608043  | 11231.250000496706 | 12312.500000310441 |
+| webgpu-local-isolated-large         | 1     | 0    | after  | after          | 437.5000009313226  | 2.08333320915699   | 639.5833327745398  | 11147.916667473814 | 12227.083334388833 |
+| webgpu-local-isolated-large         | 1     | 1    | before | before         | 443.74999931703013 | 2.0833335195978484 | 637.500001428028   | 11354.166667287549 | 12437.500001552206 |
+| webgpu-local-isolated-large         | 1     | 2    | before | before         | 456.25000074505806 | 0                  | 641.6666656732559  | 11427.083334575096 | 12525.00000099341  |
+| webgpu-local-isolated-large         | 1     | 3    | after  | after          | 431.2499997516473  | 2.0833335195978484 | 608.3333333954215  | 11275.000000372529 | 12316.666667039195 |
+| webgpu-local-isolated-large         | 2     | 0    | before | before         | 491.6666665424903  | 4.16666641831398   | 652.083333581686   | 11485.41666722546  | 12633.33333376795  |
+| webgpu-local-isolated-large         | 2     | 1    | after  | after          | 443.74999962747097 | 0                  | 618.7500009934107  | 11250              | 12312.500000620881 |
+| webgpu-local-isolated-large         | 2     | 2    | after  | after          | 441.66666579743224 | 0                  | 622.9166683430473  | 11083.333333022892 | 12147.916667163372 |
+| webgpu-local-isolated-large         | 2     | 3    | before | before         | 437.5000009313226  | 0                  | 618.7499988203248  | 11281.249999689559 | 12337.499999441206 |
+| webgpu-local-isolated-large         | 3     | 0    | after  | after          | 420.8333343267441  | 0                  | 627.0833322778344  | 11106.250000496706 | 12154.166667101284 |
+| webgpu-local-isolated-large         | 3     | 1    | before | before         | 443.7500002483527  | 0                  | 639.5833327745398  | 11462.499998820325 | 12545.833331843218 |
+| webgpu-local-isolated-large         | 3     | 2    | before | before         | 418.7500001862645  | 0                  | 614.5833333333334  | 11054.166666542491 | 12087.50000006209  |
+| webgpu-local-isolated-large         | 3     | 3    | after  | after          | 435.4166677221656  | 0                  | 616.6666674738129  | 11397.916665300727 | 12450.000000496706 |
+| webgpu-local-isolated-large         | 4     | 0    | before | before         | 435.416666790843   | 0                  | 622.9166661699613  | 11139.583332464099 | 12197.916665424904 |
+| webgpu-local-isolated-large         | 4     | 1    | after  | after          | 485.41666691501933 | 0                  | 652.0833326503634  | 11539.58333314707  | 12677.083332712453 |
+| webgpu-local-isolated-large         | 4     | 2    | after  | after          | 454.16666691501933 | 0                  | 633.3333334575096  | 11329.166665052375 | 12416.666665424904 |
+| webgpu-local-isolated-large         | 4     | 3    | before | before         | 427.0833336437742  | 0                  | 639.5833330849806  | 11304.16666685293  | 12370.833333581686 |
+| webgpu-local-isolated-large         | 5     | 0    | after  | after          | 466.66666648040217 | 0                  | 643.7499995032946  | 11437.500001241764 | 12547.916667225461 |
+| webgpu-local-isolated-large         | 5     | 1    | before | before         | 481.25000142802793 | 0                  | 660.416666418314   | 11529.166666169962 | 12670.833334016304 |
+| webgpu-local-isolated-large         | 5     | 2    | before | before         | 472.9166676600774  | 2.08333320915699   | 641.6666650523742  | 11468.750000620881 | 12585.41666654249  |
+| webgpu-local-isolated-large         | 5     | 3    | after  | after          | 460.41666499028605 | 2.08333320915699   | 631.2499999379119  | 11379.1666685914   | 12472.916666728755 |
+| webgpu-world-isolated-nested        | 0     | 0    | before | before         | 475.0000008692344  | 0                  | 535.416666418314   | 11199.999999254942 | 12210.416666542491 |
+| webgpu-world-isolated-nested        | 0     | 1    | after  | after          | 462.5000000620882  | 0                  | 535.4166667287549  | 11166.666666977108 | 12164.58333376795  |
+| webgpu-world-isolated-nested        | 0     | 2    | after  | after          | 462.4999997516473  | 0                  | 514.5833340163032  | 11108.333333395422 | 12085.416667163372 |
+| webgpu-world-isolated-nested        | 0     | 3    | before | before         | 462.4999991307656  | 0                  | 502.08333351959783 | 11031.250001241764 | 11995.833333892127 |
+| webgpu-world-isolated-nested        | 1     | 0    | after  | after          | 464.5833329608043  | 0                  | 485.41666691501933 | 11062.500001241764 | 12012.500001117587 |
+| webgpu-world-isolated-nested        | 1     | 1    | before | before         | 439.58333414047956 | 0                  | 506.2499999379118  | 10974.999999937912 | 11920.833334016304 |
+| webgpu-world-isolated-nested        | 1     | 2    | before | before         | 454.16666691501933 | 0                  | 479.1666663562258  | 10985.416665983697 | 11918.749999254942 |
+| webgpu-world-isolated-nested        | 1     | 3    | after  | after          | 449.9999998758237  | 2.08333320915699   | 487.5000001241763  | 10985.416666604578 | 11924.999999813735 |
+| webgpu-world-isolated-nested        | 2     | 0    | before | before         | 456.2500001241763  | 0                  | 491.6666665424903  | 10933.333333581686 | 11881.250000248352 |
+| webgpu-world-isolated-nested        | 2     | 1    | after  | after          | 437.5              | 0                  | 483.3333318432172  | 10918.750001117587 | 11839.583332960805 |
+| webgpu-world-isolated-nested        | 2     | 2    | after  | after          | 433.333333581686   | 0                  | 474.99999931703013 | 10949.999999565383 | 11858.333332464099 |
+| webgpu-world-isolated-nested        | 2     | 3    | before | before         | 458.3333333333333  | 0                  | 489.5833330228925  | 11035.416666418314 | 11983.33333277454  |
+| webgpu-world-isolated-nested        | 3     | 0    | after  | after          | 422.91666753590107 | 0                  | 493.7500000620882  | 10962.499999751648 | 11879.166667349637 |
+| webgpu-world-isolated-nested        | 3     | 1    | before | before         | 447.9166669771075  | 0                  | 477.08333376795053 | 11031.250000310441 | 11956.2500010555   |
+| webgpu-world-isolated-nested        | 3     | 2    | before | before         | 445.83333283662796 | 0                  | 485.41666691501933 | 10981.249999875823 | 11912.499999627471 |
+| webgpu-world-isolated-nested        | 3     | 3    | after  | after          | 433.3333329608043  | 0                  | 472.9166676600774  | 11016.666665362814 | 11922.916665983696 |
+| webgpu-world-isolated-nested        | 4     | 0    | before | before         | 439.58333258827525 | 4.166667039195697  | 491.6666677842538  | 10945.833334388832 | 11881.250001800556 |
+| webgpu-world-isolated-nested        | 4     | 1    | after  | after          | 439.583333209157   | 0                  | 493.7499997516473  | 10970.833334450921 | 11904.166667411726 |
+| webgpu-world-isolated-nested        | 4     | 2    | after  | after          | 441.66666579743224 | 0                  | 475.00000055879354 | 10977.083332526186 | 11893.749998882413 |
+| webgpu-world-isolated-nested        | 4     | 3    | before | before         | 456.2500004346172  | 0                  | 466.66666648040217 | 11008.33333376795  | 11931.25000068297  |
+| webgpu-world-isolated-nested        | 5     | 0    | after  | after          | 439.58333351959783 | 0                  | 491.6666668529312  | 11033.333332898716 | 11964.583333271245 |
+| webgpu-world-isolated-nested        | 5     | 1    | before | before         | 439.58333351959783 | 2.0833335195978484 | 487.5000001241763  | 11064.583331656953 | 11993.749998820325 |
+| webgpu-world-isolated-nested        | 5     | 2    | before | before         | 435.41666648040217 | 2.08333320915699   | 474.99999931703013 | 11043.750000807146 | 11956.249999813735 |
+| webgpu-world-isolated-nested        | 5     | 3    | after  | after          | 441.6666670391957  | 0                  | 483.33333308498067 | 11035.416666418314 | 11960.416666542491 |
+| webgpu-world-plain-control          | 0     | 0    | before | before         | 479.1666669771075  | 2.08333320915699   | 468.7500015522043  | 7487.5000004346175 | 8437.500002173087  |
+| webgpu-world-plain-control          | 0     | 1    | after  | after          | 445.8333340783914  | 0                  | 458.3333342646559  | 7489.5833330228925 | 8393.75000136594   |
+| webgpu-world-plain-control          | 0     | 2    | after  | after          | 452.0833343267441  | 2.0833335195978484 | 454.16666598369676 | 7362.500000745058  | 8270.833334575096  |
+| webgpu-world-plain-control          | 0     | 3    | before | before         | 477.0833334575097  | 0                  | 474.9999999379118  | 7416.666665735344  | 8368.749999130767  |
+| webgpu-world-plain-control          | 1     | 0    | after  | after          | 452.0833333954215  | 0                  | 447.9166669771075  | 7341.666665238638  | 8241.666665611167  |
+| webgpu-world-plain-control          | 1     | 1    | before | before         | 464.5833345130086  | 0                  | 464.58333265036345 | 7406.249999068677  | 8335.41666623205   |
+| webgpu-world-plain-control          | 1     | 2    | before | before         | 641.6666662941376  | 0                  | 581.2500016763806  | 8097.916665486991  | 9320.833333457509  |
+| webgpu-world-plain-control          | 1     | 3    | after  | after          | 466.66666585952044 | 4.166666728754838  | 458.3333330228925  | 7502.0833335195975 | 8431.249999130765  |
+| webgpu-world-plain-control          | 2     | 0    | before | before         | 495.833333581686   | 4.16666641831398   | 454.16666753590107 | 7556.2500000620885 | 8510.41666759799   |
+| webgpu-world-plain-control          | 2     | 1    | after  | after          | 435.41666648040217 | 2.0833335195978484 | 454.1666678463419  | 7381.24999931703   | 8272.916667163372  |
+| webgpu-world-plain-control          | 2     | 2    | after  | after          | 472.91666734963655 | 0                  | 458.3333336437742  | 7316.666667349637  | 8247.916668343047  |
+| webgpu-world-plain-control          | 2     | 3    | before | before         | 449.99999925494194 | 0                  | 460.4166674738129  | 7293.749998323619  | 8204.166665052375  |
+| webgpu-world-plain-control          | 3     | 0    | after  | after          | 525.000000372529   | 0                  | 487.4999998137355  | 7479.166667287548  | 8491.666667473812  |
+| webgpu-world-plain-control          | 3     | 1    | before | before         | 456.2500004346172  | 0                  | 464.58333265036345 | 7281.250000620882  | 8202.083333705863  |
+| webgpu-world-plain-control          | 3     | 2    | before | before         | 466.66666648040217 | 0                  | 468.75000031044084 | 7404.1666664804025 | 8339.583333271246  |
+| webgpu-world-plain-control          | 3     | 3    | after  | after          | 462.50000037252903 | 0                  | 445.8333325261871  | 7295.833334326744  | 8204.16666722546   |
+| webgpu-world-plain-control          | 4     | 0    | before | before         | 443.7500008692344  | 0                  | 449.9999998758237  | 7308.333332029481  | 8202.083332774539  |
+| webgpu-world-plain-control          | 4     | 1    | after  | after          | 495.833333581686   | 0                  | 474.99999900658923 | 7552.083333954215  | 8522.916666542491  |
+| webgpu-world-plain-control          | 4     | 2    | after  | after          | 462.4999997516473  | 0                  | 452.08333308498067 | 7483.333334637185  | 8397.916667473812  |
+| webgpu-world-plain-control          | 4     | 3    | before | before         | 450.0000001862645  | 0                  | 462.4999985098839  | 7429.1666662320495 | 8341.666664928198  |
+| webgpu-world-plain-control          | 5     | 0    | after  | after          | 487.5000001241763  | 4.166666728754838  | 456.2500010554989  | 7558.333332339923  | 8506.250000248354  |
+| webgpu-world-plain-control          | 5     | 1    | before | before         | 489.5833333333333  | 0                  | 470.83333351959783 | 7389.5833340163035 | 8350.000000869235  |
+| webgpu-world-plain-control          | 5     | 2    | before | before         | 477.0833331470688  | 0                  | 441.66666859139997 | 7487.499998261531  | 8406.25            |
+| webgpu-world-plain-control          | 5     | 3    | after  | after          | 460.41666561116773 | 0                  | 458.33333395421505 | 7331.250001055499  | 8250.000000620881  |
+| webgpu-layer-world-isolated-control | 0     | 0    | before | before         | 8.333333147068819  | 0                  | 1164.5833340783913 | 5202.0833333954215 | 6375.000000620881  |
+| webgpu-layer-world-isolated-control | 0     | 1    | after  | after          | 4.166666728754838  | 0                  | 1177.0833330228925 | 5285.4166685914    | 6466.666668343047  |
+| webgpu-layer-world-isolated-control | 0     | 2    | after  | after          | 10.416666977107525 | 4.166666728754838  | 1147.9166656111677 | 5235.416667535901  | 6397.916666852931  |
+| webgpu-layer-world-isolated-control | 0     | 3    | before | before         | 2.0833335195978484 | 0                  | 1158.3333322778344 | 5231.2500008071465 | 6391.6666666045785 |
+| webgpu-layer-world-isolated-control | 1     | 0    | after  | after          | 4.166666728754838  | 0                  | 1149.9999994412065 | 5150.0000000620885 | 6304.1666662320495 |
+| webgpu-layer-world-isolated-control | 1     | 1    | before | before         | 14.583333395421505 | 0                  | 1204.1666669150193 | 5402.083333581686  | 6620.833333892127  |
+| webgpu-layer-world-isolated-control | 1     | 2    | before | before         | 4.166666728754838  | 0                  | 1156.2499990686774 | 5254.1666667287545 | 6414.5833325261865 |
+| webgpu-layer-world-isolated-control | 1     | 3    | after  | after          | 8.333334078391394  | 0                  | 1160.4166670391958 | 5302.0833330228925 | 6470.83333414048   |
+| webgpu-layer-world-isolated-control | 2     | 0    | before | before         | 2.0833335195978484 | 0                  | 1154.1666652386386 | 5162.500001179676  | 6318.749999937912  |
+| webgpu-layer-world-isolated-control | 2     | 1    | after  | after          | 8.333333457509676  | 2.0833335195978484 | 1164.5833325261872 | 5268.750000124176  | 6443.749999627471  |
+| webgpu-layer-world-isolated-control | 2     | 2    | after  | after          | 6.249999937911828  | 2.08333320915699   | 1145.8333305393655 | 5218.750000310441  | 6372.916663996875  |
+| webgpu-layer-world-isolated-control | 2     | 3    | before | before         | 6.250000248352687  | 0                  | 1156.2499993791182 | 5202.083333705862  | 6364.583333333333  |
+| webgpu-layer-world-isolated-control | 3     | 0    | after  | after          | 0                  | 0                  | 1137.4999989445012 | 5202.0833340163035 | 6339.583332960805  |
+| webgpu-layer-world-isolated-control | 3     | 1    | before | before         | 6.250000248352687  | 0                  | 1168.7499989445012 | 5297.9166659836965 | 6472.91666517655   |
+| webgpu-layer-world-isolated-control | 3     | 2    | before | before         | 16.666666604578495 | 0                  | 1264.5833315327764 | 5797.916666915019  | 7079.166665052374  |
+| webgpu-layer-world-isolated-control | 3     | 3    | after  | after          | 6.249999937911828  | 0                  | 1162.4999999379118 | 5266.6666666045785 | 6435.416666480402  |
+| webgpu-layer-world-isolated-control | 4     | 0    | before | before         | 8.333333457509676  | 0                  | 1175.0000010554988 | 5206.249998882413  | 6389.5833333954215 |
+| webgpu-layer-world-isolated-control | 4     | 1    | after  | after          | 12.500000186264515 | 2.08333320915699   | 1170.833332464099  | 5264.583333705862  | 6449.9999995653825 |
+| webgpu-layer-world-isolated-control | 4     | 2    | after  | after          | 10.416666356225809 | 0                  | 1162.5000008692343 | 5206.250000745058  | 6379.166667970518  |
+| webgpu-layer-world-isolated-control | 4     | 3    | before | before         | 4.16666641831398   | 0                  | 1147.9166665424902 | 5189.58333414048   | 6341.666667101284  |
+| webgpu-layer-world-isolated-control | 5     | 0    | after  | after          | 10.41666604578495  | 2.0833335195978484 | 1162.4999999379118 | 5233.333333705862  | 6408.333333209157  |
+| webgpu-layer-world-isolated-control | 5     | 1    | before | before         | 2.08333320915699   | 2.0833335195978484 | 1168.7500004967053 | 5237.4999998137355 | 6410.416667039195  |
+| webgpu-layer-world-isolated-control | 5     | 2    | before | before         | 4.16666641831398   | 0                  | 1125.0000009313226 | 5160.416667349637  | 6289.583334699273  |
+| webgpu-layer-world-isolated-control | 5     | 3    | after  | after          | 6.249999937911828  | 0                  | 1131.2500002483528 | 5122.916666790843  | 6260.4166669771075 |
+| webgpu-empty-isolated-control       | 0     | 0    | before | before         | 404.1666677221656  | 0                  | 0                  | 354.1666657353441  | 758.3333334575098  |
+| webgpu-empty-isolated-control       | 0     | 1    | after  | after          | 418.7499989445011  | 0                  | 2.08333320915699   | 360.41666691501933 | 781.2499990686774  |
+| webgpu-empty-isolated-control       | 0     | 2    | after  | after          | 402.08333265036345 | 2.0833335195978484 | 2.0833335195978484 | 350.00000055879354 | 756.2500002483526  |
+| webgpu-empty-isolated-control       | 0     | 3    | before | before         | 404.1666661699613  | 0                  | 0                  | 360.4166687776645  | 764.5833349476258  |
+| webgpu-empty-isolated-control       | 1     | 0    | after  | after          | 389.5833358789484  | 0                  | 4.166666728754838  | 349.99999838570756 | 743.7500009934108  |
+| webgpu-empty-isolated-control       | 1     | 1    | before | before         | 416.66666604578495 | 0                  | 0                  | 358.3333343267441  | 775.000000372529   |
+| webgpu-empty-isolated-control       | 1     | 2    | before | before         | 406.2499975164731  | 0                  | 2.0833335195978484 | 356.25000298023224 | 764.5833340163032  |
+| webgpu-empty-isolated-control       | 1     | 3    | after  | after          | 406.25000031044084 | 0                  | 0                  | 356.2500011175871  | 762.5000014280279  |
+| webgpu-empty-isolated-control       | 2     | 0    | before | before         | 445.8333325261871  | 2.08333320915699   | 6.249999937911828  | 422.91666753590107 | 877.083333209157   |
+| webgpu-empty-isolated-control       | 2     | 1    | after  | after          | 420.8333333954215  | 0                  | 4.166666728754838  | 397.9166668529312  | 822.9166669771075  |
+| webgpu-empty-isolated-control       | 2     | 2    | after  | after          | 2197.9166672875485 | 2.0833335195978484 | 20.833333022892475 | 2162.4999990065894 | 4383.333332836628  |
+| webgpu-empty-isolated-control       | 2     | 3    | before | before         | 1750.0000003104408 | 0                  | 12.499999875823656 | 1818.749999627471  | 3581.2499998137355 |
+| webgpu-empty-isolated-control       | 3     | 0    | after  | after          | 2104.1666666666665 | 0                  | 14.583333395421505 | 2145.8333330228925 | 4264.58333308498   |
+| webgpu-empty-isolated-control       | 3     | 1    | before | before         | 1560.4166658595204 | 2.08333320915699   | 6.24999962747097   | 1731.250001117587  | 3299.9999998137355 |
+| webgpu-empty-isolated-control       | 3     | 2    | before | before         | 2275.0000009934106 | 6.249999937911828  | 12.500000496705374 | 2193.7499983857074 | 4487.4999998137355 |
+| webgpu-empty-isolated-control       | 3     | 3    | after  | after          | 2227.083332836628  | 2.08333320915699   | 16.666666915019352 | 2289.5833340783915 | 4535.416667039196  |
+| webgpu-empty-isolated-control       | 4     | 0    | before | before         | 1579.1666666045785 | 0                  | 4.16666641831398   | 1675.000000745058  | 3258.3333337679505 |
+| webgpu-empty-isolated-control       | 4     | 1    | after  | after          | 2345.833334761361  | 0                  | 14.583333395421505 | 2087.499998820325  | 4447.9166669771075 |
+| webgpu-empty-isolated-control       | 4     | 2    | after  | after          | 1968.7500009313226 | 0                  | 6.249999937911828  | 2037.5000005587935 | 4012.5000014280276 |
+| webgpu-empty-isolated-control       | 4     | 3    | before | before         | 2077.08333277454   | 2.08333320915699   | 4.166666728754838  | 2114.583333954215  | 4197.916666666667  |
+| webgpu-empty-isolated-control       | 5     | 0    | after  | after          | 2354.1666654249034 | 4.166667039195697  | 4.166666728754838  | 2339.583333581686  | 4702.08333277454   |
+| webgpu-empty-isolated-control       | 5     | 1    | before | before         | 2220.8333325882754 | 2.08333320915699   | 12.500000186264515 | 2004.1666667287548 | 4239.583332712452  |
+| webgpu-empty-isolated-control       | 5     | 2    | before | before         | 2102.083332526187  | 0                  | 12.500000186264515 | 2022.9166680946946 | 4137.500000807146  |
+| webgpu-empty-isolated-control       | 5     | 3    | after  | after          | 2204.166665983697  | 2.0833335195978484 | 8.333333457509676  | 2200.000001428028  | 4414.583334388833  |
+
+### 可重建 fixtures 與失敗紀錄
+
+以下prepare-fixture.mjs從基線commit的兩個renderer source產生隔離module，不複製整份renderer到本記錄；TS target/module均ES2022，再用repo singleQuote/trailingComma格式化。已實際用不同輸出directory重建，cmp確認兩個shared renderer與controller逐byte相同。controller/prototype中保留的mappingProof273 export沒有被本輪使用，不作額外matrix oracle主張，也不是正式API。
+
+準備count driver時，最初把未閉合try區段送給Prettier，得到Unexpected token/EOF；未啟動測量。改為先處理完整script、最後才切prefix與補finally，格式化後才執行。沒有engine或native gate failure。原有Vite OPM dynamic-import warning保留，未壓制或修改vendor。CPU期間沒有formatter／tests／build／profile／其他自啟host工作，沒有重跑計時尋求想要方向。
+
+每個Game新建canvas，避免P272已記錄的跨backend context綁定問題。分頁必須visible、強制backend失敗不fallback。page.evaluate是classic callback，只有此邊界內dynamic import；其餘static imports維持static。以下scripts全在/tmp，測完刪除。
+
+#### prepare-fixture.mjs
+
+```js
+import fs from 'node:fs';
+import ts from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/typescript/lib/typescript.js';
+import * as prettier from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/prettier/index.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = process.argv[2] ?? '/tmp/xyz-p273';
+const config = { singleQuote: true, trailingComma: 'all' };
+const oldBody =
+    "    const e = out.identity().elements;\n    if (context.root) out.copy(context.root.updateWorldMatrix()).invert();\n    else if (object.worldSpace === 'world') {\n      const camera = context.scene.camera2D;\n      e[0] = e[4] = camera.zoom;\n      e[6] = -camera.position.x * camera.zoom + camera.renderOffset.x;\n      e[7] = -camera.position.y * camera.zoom + camera.renderOffset.y;\n    }",
+  newBody =
+    "    const e = out.elements;\n    if (context.root) out.copy(context.root.updateWorldMatrix()).invert();\n    else {\n      out.identity();\n      if (object.worldSpace === 'world') {\n        const camera = context.scene.camera2D;\n        e[0] = e[4] = camera.zoom;\n        e[6] = -camera.position.x * camera.zoom + camera.renderOffset.x;\n        e[7] = -camera.position.y * camera.zoom + camera.renderOffset.y;\n      }\n    }";
+const paths = {
+  webgl2: 'packages/graphics/src/webgl2-render2d.ts',
+  webgpu: 'packages/graphics/src/webgpu-render2d.ts',
+};
+fs.mkdirSync(directory, { recursive: true });
+for (const backend of ['webgl2', 'webgpu']) {
+  const before = fs.readFileSync(root + '/' + paths[backend], 'utf8');
+  if (before.split(oldBody).length !== 2)
+    throw Error('Expected baseline mapping once');
+  const after = await prettier.format(before.replace(oldBody, newBody), {
+    ...config,
+    parser: 'typescript',
+  });
+  const start = after.indexOf('  private objectMatrix('),
+    end = after.indexOf('\n  private ', start + 1);
+  if (start < 0 || end < 0) throw Error('Missing mapping method');
+  const candidate = after
+    .slice(start, end)
+    .replace('  private objectMatrix(', 'function objectMatrixAfter273(');
+  const className = backend === 'webgl2' ? 'WebGLRender2D' : 'WebGPURender2D';
+  const extra = `\n${candidate}\nconst prototype273 = ${className}.prototype as unknown as {objectMatrix: typeof objectMatrixAfter273};\nconst before273 = prototype273.objectMatrix;\nlet selected273 = before273;\nprototype273.objectMatrix = function(this: ${className}, object: GameObject, context: Context2D, out: Matrix3, worldOnly = false): Matrix3 {return selected273.call(this, object, context, out, worldOnly);};\nexport function setMatrixVariant273(side: 'before' | 'after'): void {selected273 = side === 'after' ? objectMatrixAfter273 : before273;}\nexport function getMatrixVariant273(): string {return selected273 === before273 ? 'before' : selected273 === objectMatrixAfter273 ? 'after' : 'other';}\nexport function mappingProof273(object: GameObject, context: Context2D, out: Matrix3, worldOnly = false): Matrix3 {return selected273(object, context, out, worldOnly); }\n`;
+  const emitted = ts.transpileModule(before + extra, {
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ES2022,
+    },
+  }).outputText;
+  fs.writeFileSync(
+    directory + '/shared-' + backend + '.mjs',
+    await prettier.format(emitted, { ...config, parser: 'babel' }),
+  );
+}
+fs.writeFileSync(
+  directory + '/controller.mjs',
+  "import * as gl from '/dist/packages/graphics/src/webgl2-render2d.js';\nimport * as gpu from '/dist/packages/graphics/src/webgpu-render2d.js';\nexport function setMatrixVariant273(side) {\n  gl.setMatrixVariant273(side);\n  gpu.setMatrixVariant273(side);\n}\nexport function getMatrixVariant273() {\n  const side = gl.getMatrixVariant273();\n  if (side !== gpu.getMatrixVariant273())\n    throw Error('Mismatched backend selection');\n  return side;\n}\nexport function mappingProof273(backend, ...args) {\n  return (backend === 'webgl2' ? gl : gpu).mappingProof273(...args);\n}\n",
+);
+console.log('Prepared shared private mapping fixture modules');
+```
+
+#### controller.mjs
+
+```js
+import * as gl from '/dist/packages/graphics/src/webgl2-render2d.js';
+import * as gpu from '/dist/packages/graphics/src/webgpu-render2d.js';
+export function setMatrixVariant273(side) {
+  gl.setMatrixVariant273(side);
+  gpu.setMatrixVariant273(side);
+}
+export function getMatrixVariant273() {
+  const side = gl.getMatrixVariant273();
+  if (side !== gpu.getMatrixVariant273())
+    throw Error('Mismatched backend selection');
+  return side;
+}
+export function mappingProof273(backend, ...args) {
+  return (backend === 'webgl2' ? gl : gpu).mappingProof273(...args);
+}
+```
+
+#### counts.mjs
+
+```js
+import fs from 'node:fs';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js';
+const directory = '/tmp/xyz-p273';
+const port = 5273;
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port, strictPort: true },
+  plugins: [
+    {
+      name: 'p273-shared-private-mapping',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          const routes = {
+            '/dist/packages/graphics/src/webgl2-render2d.js':
+              '/shared-webgl2.mjs',
+            '/dist/packages/graphics/src/webgpu-render2d.js':
+              '/shared-webgpu.mjs',
+            '/p273-controller.mjs': '/controller.mjs',
+          };
+          if (Object.hasOwn(routes, url.pathname)) {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + routes[url.pathname]));
+            return;
+          }
+          if (url.pathname === '/p273-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Isolated matrix overwrite validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+try {
+  await server.listen();
+  const launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const errors = [];
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+  });
+  page.on('pageerror', (error) => errors.push(error.stack ?? error.message));
+  await page.goto(`http://127.0.0.1:${port}/p273-game`);
+  await page.evaluate(async () => {
+    // page.evaluate is a classic callback; module loading must happen inside it.
+    const api = await import('/dist/src/index.js');
+    const controller = await import('/p273-controller.mjs');
+    const gl = await import('/dist/packages/graphics/src/webgl2-render2d.js');
+    const gpu = await import('/dist/packages/graphics/src/webgpu-render2d.js');
+    let rootMappingDepth = 0;
+    for (const Renderer of [gl.WebGLRender2D, gpu.WebGPURender2D]) {
+      const map = Renderer.prototype.objectMatrix;
+      Renderer.prototype.objectMatrix = function (
+        object,
+        context,
+        out,
+        worldOnly,
+      ) {
+        if (context.root) rootMappingDepth++;
+        try {
+          return map.call(this, object, context, out, worldOnly);
+        } finally {
+          if (context.root) rootMappingDepth--;
+        }
+      };
+    }
+    const getBounds = api.Group2D.prototype.getLocalBounds;
+    const invert = api.Matrix3.prototype.invert;
+    let depth = 0;
+    let queries = 0;
+    let groupInverses = 0;
+    let allInverses = 0;
+    let identities = 0,
+      rootIdentities = 0,
+      rootInverses = 0;
+    const identity = api.Matrix3.prototype.identity;
+    api.Matrix3.prototype.identity = function () {
+      identities++;
+      if (rootMappingDepth > 0) rootIdentities++;
+      return identity.call(this);
+    };
+    api.Group2D.prototype.getLocalBounds = function (out) {
+      queries++;
+      depth++;
+      try {
+        return getBounds.call(this, out);
+      } finally {
+        depth--;
+      }
+    };
+    api.Matrix3.prototype.invert = function () {
+      allInverses++;
+      if (rootMappingDepth > 0) rootInverses++;
+      if (depth > 0) groupInverses++;
+      return invert.call(this);
+    };
+    globalThis.countGroup273 = async ({ mode, side, backend }) => {
+      controller.setMatrixVariant273(side);
+      if (document.visibilityState !== 'visible')
+        throw Error('Hidden counting page');
+      const bitmap = await createImageBitmap(
+        new ImageData(new Uint8ClampedArray(64).fill(255), 4, 4),
+      );
+      const texture = new api.Texture(bitmap);
+      const canvas = document.createElement('canvas');
+      document.body.replaceChildren(canvas);
+      const game = await api.Game.create({
+        canvas,
+        renderer: backend,
+        width: 1280,
+        height: 720,
+        pixelRatio: 1,
+        autoResize: false,
+      });
+      let rejectFrames;
+      let runtimeError;
+      const frames = [];
+      const completed = new Promise((resolve, reject) => {
+        rejectFrames = reject;
+        const record = () => {
+          if (runtimeError) {
+            game.pause();
+            reject(Error(runtimeError));
+            return;
+          }
+          if (depth !== 0) {
+            game.pause();
+            reject(Error('Unbalanced bounds query'));
+            return;
+          }
+          if (scene.tick > 16)
+            frames.push({
+              frame: scene.tick,
+              queries,
+              groupInverses,
+              allInverses,
+              identities,
+              rootIdentities,
+              rootInverses,
+            });
+          queries = 0;
+          groupInverses = 0;
+          allInverses = 0;
+          identities = 0;
+          rootIdentities = 0;
+          rootInverses = 0;
+          if (scene.tick >= 20) {
+            game.pause();
+            resolve();
+          }
+        };
+        class CountedScene extends api.Scene {
+          tick = 0;
+          update() {
+            this.tick++;
+            queueMicrotask(record);
+          }
+        }
+        globalThis.sceneCount273 = new CountedScene();
+      });
+      const scene = globalThis.sceneCount273;
+      game.addEventListener('error', (event) => {
+        runtimeError = event.detail?.stack ?? String(event.detail);
+        rejectFrames(Error(runtimeError));
+      });
+      const emitters = [];
+      for (let i = 0; i < 4; i++) {
+        const holder = mode.includes('isolated')
+          ? new api.IsolatedGroup2D()
+          : new api.Group2D();
+        if (mode.includes('isolated')) {
+          holder.isolate = true;
+          holder.opacity = 0.8;
+        }
+        const emitter = holder.add(
+          new api.ParticleEmitter({
+            texture,
+            capacity: 8192,
+            rate: 0,
+            lifetime: [1e6, 1e6],
+            speed: [0, 0],
+            angle: [0, 0],
+            acceleration: [0, 0],
+            startSize: [8, 4],
+            endSize: [8, 4],
+            startColor: [0.7, 0.2, 0.4, 0.8],
+            endColor: [0.7, 0.2, 0.4, 0.8],
+            seed: 17 + i,
+            space: mode.includes('world') ? 'world' : 'local',
+            nozzle: { kind: 'rectangle', width: 256, height: 128 },
+          }),
+        );
+        emitter.position.set(160 + i * 320, 360);
+        emitter.rotation = 0.3;
+        emitter.scale.set(1.3, 0.7);
+        emitter.emit(8192);
+        scene.add(holder);
+        emitters.push(emitter);
+      }
+      try {
+        await game.setScene(scene);
+        queries = 0;
+        groupInverses = 0;
+        allInverses = 0;
+        identities = 0;
+        rootIdentities = 0;
+        rootInverses = 0;
+        game.start();
+        await completed;
+        if (emitters.some((emitter) => emitter.activeCount !== 8192))
+          throw Error('Unexpected active count');
+        return {
+          mode,
+          visibility: document.visibilityState,
+          backend: game.graphics.backend,
+          forcedBackendMatches: game.graphics.backend === backend,
+          actualVariant: controller.getMatrixVariant273(),
+          nativeImageBitmap: bitmap instanceof ImageBitmap,
+          registeredObjects: scene.objects.size,
+          activeParticles: 32768,
+          warmFrames: 16,
+          measuredCountFrames: frames,
+          note: 'Operation counts only; wrappers preserve real calls and invalidate timing comparisons.',
+        };
+      } finally {
+        game.destroy();
+        if (texture.destroyed)
+          throw Error('Borrowed texture destroyed by Game');
+        texture.destroy();
+        if (bitmap.width !== 0) throw Error('Native bitmap not closed');
+      }
+    };
+  });
+  const counts = [];
+  for (const backend of ['webgl2', 'webgpu', 'canvas2d'])
+    for (const mode of [
+      'sprite-local-plain',
+      'sprite-world-plain',
+      'sprite-local-isolated',
+      'sprite-world-isolated',
+    ])
+      for (const side of ['before', 'after']) {
+        const result = await page.evaluate(
+          (args) => globalThis.countGroup273(args),
+          { mode, side, backend },
+        );
+        if (!result.forcedBackendMatches || result.actualVariant !== side)
+          throw Error('Wrong backend or mapping variant');
+        counts.push({ side, ...result });
+      }
+  const report = {
+    browser: browserIdentity('chromium', browser, launch),
+    counts,
+    errors,
+    countsNotTimings: true,
+    sameCoreGraph: true,
+  };
+  fs.writeFileSync(directory + '/counts.json', JSON.stringify(report));
+  console.log(JSON.stringify(report, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+#### native-sprite.mjs
+
+```js
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p273',
+  phase = process.env.P273_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5273, strictPort: true },
+  plugins: [
+    {
+      name: 'p273-shared-private-mapping',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          const routes = {
+            '/dist/packages/graphics/src/webgl2-render2d.js':
+              '/shared-webgl2.mjs',
+            '/dist/packages/graphics/src/webgpu-render2d.js':
+              '/shared-webgpu.mjs',
+            '/p273-controller.mjs': '/controller.mjs',
+          };
+          if (Object.hasOwn(routes, url.pathname)) {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + routes[url.pathname]));
+            return;
+          }
+          if (url.pathname === '/p273-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Isolated matrix overwrite validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+const tag = process.env.P273_TAG ?? phase;
+try {
+  await server.listen();
+  const backend = process.env.P273_BACKEND ?? 'webgl2',
+    launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({ viewport: { width: 256, height: 384 } }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5273/p273-game');
+  await page.evaluate(async () => {
+    // Classic page callbacks require dynamic module loading.
+    const apiShared = await import('/dist/src/index.js'),
+      controller = await import('/p273-controller.mjs'),
+      apis = { before: apiShared, after: apiShared };
+    let fixtures = [];
+    globalThis.setupDynamic273 = async ({ backend, mode }) => {
+      document.body.replaceChildren();
+      fixtures = [];
+      for (const side of ['before', 'after']) {
+        const api = apis[side],
+          canvas = document.createElement('canvas');
+        canvas.style.display = 'block';
+        document.body.append(canvas);
+        const pixels = new Uint8ClampedArray(16 * 16 * 4);
+        for (let y = 0; y < 16; y++)
+          for (let x = 0; x < 16; x++) {
+            const o = (y * 16 + x) * 4;
+            pixels[o] = x * 17;
+            pixels[o + 1] = y * 17;
+            pixels[o + 2] = (x ^ y) * 17;
+            pixels[o + 3] = 255;
+          }
+        const bitmap = await createImageBitmap(new ImageData(pixels, 16, 16)),
+          texture = new api.Texture(bitmap);
+        const view = mode.endsWith('rotated')
+            ? new api.TextureView2D(texture, {
+                frame: { x: 4, y: 2, width: 6, height: 4 },
+                rotation: 90,
+              })
+            : mode.endsWith('trimmed')
+              ? new api.TextureView2D(texture, {
+                  frame: { x: 2, y: 4, width: 6, height: 4 },
+                  originalSize: [12, 10],
+                  trim: { x: 3, y: 2, width: 6, height: 4 },
+                  resolution: 2,
+                })
+              : undefined,
+          source = mode.endsWith('source')
+            ? { x: -0, y: -0, width: 7, height: 5 }
+            : undefined;
+        let game,
+          complete,
+          runtimeError,
+          tick = 0;
+        const isolated = mode.endsWith('isolated') || mode.endsWith('nested');
+        class Shaken extends (isolated ? api.IsolatedGroup2D : api.Group2D) {
+          updateWorldMatrix() {
+            const matrix = super.updateWorldMatrix();
+            matrix.elements[6] += 2;
+            return matrix;
+          }
+        }
+        const rootGroup = new Shaken();
+        if (isolated) rootGroup.isolate = true;
+        const holder = mode.endsWith('nested')
+          ? rootGroup.add(new api.IsolatedGroup2D())
+          : rootGroup;
+        if (holder !== rootGroup) holder.isolate = true;
+        rootGroup.position.set(30, 20);
+        if (mode === 'local-screen') rootGroup.space = 'screen';
+        const emitter = holder.add(
+          new api.ParticleEmitter({
+            texture,
+            view,
+            source,
+            capacity: 32,
+            rate: 0,
+            lifetime: [1e6, 1e6],
+            speed: [0, 0],
+            angle: [0, 0],
+            acceleration: [0, 0],
+            startSize: [8, 6],
+            endSize: [8, 6],
+            startColor: [0.7, 0.2, 0.4, 0.8],
+            endColor: [0.7, 0.2, 0.4, 0.8],
+            seed: 17,
+            space: mode.startsWith('world') ? 'world' : 'local',
+            nozzle: { kind: 'rectangle', width: 24, height: 12 },
+          }),
+        );
+        emitter.position.set(80, 80);
+        emitter.emit(32);
+        let destroyCalls = 0;
+        let destroyListeners = 0;
+        const onDestroyed = (event) => {
+          if (
+            event.type !== 'destroy' ||
+            !(event.target instanceof api.GameObject)
+          )
+            throw Error('Invalid native destroy callback');
+          destroyCalls++;
+        };
+        for (const actor of emitter.children) {
+          actor.addEventListener('destroy', onDestroyed);
+          destroyListeners++;
+        }
+        const particles = [...emitter.children].filter(
+          (child) => child instanceof api.Sprite && child.renderEnabled,
+        );
+        if (particles.length !== 32)
+          throw Error('Missing ordinary Sprite pool');
+        if (mode === 'local-custom') {
+          const particle = particles[0],
+            original = particle.updateWorldMatrix;
+          particle.updateWorldMatrix = function () {
+            const matrix = original.call(this);
+            matrix.elements[6] += 3;
+            return matrix;
+          };
+        }
+        const finish = () => {
+          game.pause();
+          const callback = complete;
+          complete = undefined;
+          runtimeError
+            ? callback.reject(Error(runtimeError))
+            : callback.resolve();
+        };
+        class PosedScene extends api.Scene {
+          update() {
+            ++tick;
+            rootGroup.position.set(30 + tick, 20 - tick * 0.5);
+            rootGroup.rotation = tick * 0.02;
+            rootGroup.scale.set(1 + tick * 0.01, 0.8 + tick * 0.02);
+            rootGroup.opacity = 0.6 + tick * 0.01;
+            rootGroup.tint = [1, 1 - tick * 0.005, 0.8 + tick * 0.005, 1];
+            emitter.position.set(80 + tick * 0.4, 80 - tick * 0.3);
+            emitter.rotation = tick * 0.03;
+            this.camera2D.position.set(tick * 0.1, -tick * 0.15);
+            this.camera2D.zoom = 1 + tick * 0.01;
+            queueMicrotask(finish);
+          }
+        }
+        let scene = new PosedScene();
+        scene.add(rootGroup);
+        game = await api.Game.create({
+          canvas,
+          renderer: backend,
+          width: 256,
+          height: 192,
+          pixelRatio: 1,
+          autoResize: false,
+        });
+        game.addEventListener('error', (event) => {
+          runtimeError = event.detail?.stack ?? String(event.detail);
+        });
+        await game.setScene(scene);
+        const frame = () =>
+          new Promise((resolve, reject) => {
+            controller.setMatrixVariant273(side);
+            complete = { resolve, reject };
+            game.start();
+          });
+        const snapshot = () => ({
+          tick,
+          active: emitter.activeCount,
+          particles: particles.map((p) => ({
+            place: [p.position.x, p.position.y],
+            scale: [p.scale.x, p.scale.y],
+            tint: Array.from(p.tint),
+            worldSpace: p.worldSpace,
+            matrix: Array.from(p.worldMatrix.elements),
+          })),
+        });
+        fixtures.push({
+          side,
+          game,
+          get scene() {
+            return scene;
+          },
+          rootGroup,
+          emitter,
+          destroyListeners,
+          get destroyCalls() {
+            return destroyCalls;
+          },
+          texture,
+          bitmap,
+          frame,
+          snapshot,
+          transfer: async () => {
+            scene.remove(rootGroup);
+            const next = new PosedScene();
+            next.add(rootGroup);
+            await game.setScene(next);
+            scene = next;
+          },
+        });
+      }
+      return {
+        mode,
+        backend,
+        visible: document.visibilityState,
+        nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+      };
+    };
+    globalThis.runDynamic273 = async (mode) => {
+      const snapshots = { before: [], after: [] };
+      for (const f of fixtures)
+        for (let frame = 0; frame < 12; frame++) {
+          if (mode === 'local-transfer' && frame === 6) await f.transfer();
+          await f.frame();
+          snapshots[f.side].push(f.snapshot());
+        }
+      let numbers = 0;
+      function equal(a, b, where) {
+        if (typeof a === 'number' && typeof b === 'number') {
+          numbers++;
+          if (!Object.is(a, b))
+            throw Error('Numeric mismatch at ' + where + ': ' + a + ' / ' + b);
+          return;
+        }
+        if (Array.isArray(a) && Array.isArray(b)) {
+          if (a.length !== b.length) throw Error('Array mismatch at ' + where);
+          a.forEach((value, index) =>
+            equal(value, b[index], where + '/' + index),
+          );
+          return;
+        }
+        if (a && b && typeof a === 'object' && typeof b === 'object') {
+          const keys = Object.keys(a);
+          if (keys.join(',') !== Object.keys(b).join(','))
+            throw Error('Key mismatch at ' + where);
+          for (const key of keys) equal(a[key], b[key], where + '/' + key);
+          return;
+        }
+        if (a !== b) throw Error('Value mismatch at ' + where);
+      }
+      equal(snapshots.before, snapshots.after, mode);
+      return {
+        snapshots: 12,
+        exactNumbers: numbers,
+        signedZeroCompared: true,
+        automaticGameFrames: true,
+      };
+    };
+    globalThis.cleanupDynamic273 = () => {
+      const rows = [];
+      for (const f of fixtures) {
+        f.game.destroy();
+        if (f.destroyCalls !== f.destroyListeners)
+          throw Error(
+            'Native destroy callback mismatch ' +
+              f.destroyCalls +
+              '/' +
+              f.destroyListeners,
+          );
+        if (f.texture.destroyed) throw Error('Borrowed Texture destroyed');
+        f.texture.destroy();
+        if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+        rows.push({
+          side: f.side,
+          gameState: f.game.state,
+          destroyListeners: f.destroyListeners,
+          destroyCallbacks: f.destroyCalls,
+          bitmapClosed: true,
+        });
+      }
+      fixtures = [];
+      return rows;
+    };
+  });
+  const reports = [];
+  for (const mode of [
+    'local',
+    'world',
+    'local-custom',
+    'local-screen',
+    'local-transfer',
+    'local-rotated',
+    'local-trimmed',
+    'local-source',
+    'local-isolated',
+    'world-isolated',
+    'local-nested',
+  ]) {
+    const setup = await page.evaluate(
+        (args) => globalThis.setupDynamic273(args),
+        { backend, mode },
+      ),
+      proof = await page.evaluate(
+        (mode) => globalThis.runDynamic273(mode),
+        mode,
+      ),
+      hashes = [];
+    for (let i = 0; i < 2; i++) {
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: i * 192, width: 256, height: 192 },
+        path:
+          directory +
+          '/' +
+          tag +
+          '-' +
+          backend +
+          '-' +
+          mode +
+          '-' +
+          (i === 0 ? 'before' : 'after') +
+          '.png',
+      });
+      if (!pngPixels(bytes).nonuniform)
+        throw Error('Blank native dynamic canvas');
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1])
+      throw Error('Dynamic Game pixels differ for ' + mode);
+    const cleanup = await page.evaluate(() => globalThis.cleanupDynamic273());
+    reports.push({ setup, proof, matchingPngSha256: hashes[0], cleanup });
+  }
+  const result = {
+    phase,
+    tag,
+    entryAfter: '/dist/src/index.js',
+    fixedMatrixTrampolineSelection: true,
+    backend,
+    browser: browserIdentity('chromium', browser, launch),
+    reports,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + tag + '-' + backend + '-dynamic.json',
+    JSON.stringify(result),
+  );
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+#### native-layer.mjs
+
+```js
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p273',
+  phase = process.env.P273_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5273, strictPort: true },
+  plugins: [
+    {
+      name: 'p273-shared-private-mapping',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          const routes = {
+            '/dist/packages/graphics/src/webgl2-render2d.js':
+              '/shared-webgl2.mjs',
+            '/dist/packages/graphics/src/webgpu-render2d.js':
+              '/shared-webgpu.mjs',
+            '/p273-controller.mjs': '/controller.mjs',
+          };
+          if (Object.hasOwn(routes, url.pathname)) {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + routes[url.pathname]));
+            return;
+          }
+          if (url.pathname === '/p273-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Isolated matrix overwrite validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+const tag = process.env.P273_TAG ?? phase;
+try {
+  await server.listen();
+  const backend = process.env.P273_BACKEND ?? 'webgl2',
+    launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({ viewport: { width: 256, height: 384 } }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5273/p273-game');
+  await page.evaluate(async () => {
+    // Classic page callbacks require dynamic module loading.
+    const apiShared = await import('/dist/src/index.js'),
+      controller = await import('/p273-controller.mjs'),
+      apis = { before: apiShared, after: apiShared };
+    let fixtures = [];
+    globalThis.setupDynamic273 = async ({ backend, mode }) => {
+      document.body.replaceChildren();
+      fixtures = [];
+      for (const side of ['before', 'after']) {
+        const api = apis[side],
+          canvas = document.createElement('canvas');
+        canvas.style.display = 'block';
+        document.body.append(canvas);
+        const pixels = new Uint8ClampedArray(16 * 16 * 4);
+        for (let y = 0; y < 16; y++)
+          for (let x = 0; x < 16; x++) {
+            const o = (y * 16 + x) * 4;
+            pixels[o] = x * 17;
+            pixels[o + 1] = y * 17;
+            pixels[o + 2] = (x ^ y) * 17;
+            pixels[o + 3] = 255;
+          }
+        const bitmap = await createImageBitmap(new ImageData(pixels, 16, 16)),
+          texture = new api.Texture(bitmap);
+        const view = mode.endsWith('rotated')
+            ? new api.TextureView2D(texture, {
+                frame: { x: 4, y: 2, width: 6, height: 4 },
+                rotation: 90,
+              })
+            : mode.endsWith('trimmed')
+              ? new api.TextureView2D(texture, {
+                  frame: { x: 2, y: 4, width: 6, height: 4 },
+                  originalSize: [12, 10],
+                  trim: { x: 3, y: 2, width: 6, height: 4 },
+                  resolution: 2,
+                })
+              : undefined,
+          source = mode.endsWith('source')
+            ? { x: -0, y: -0, width: 7, height: 5 }
+            : undefined;
+        let game,
+          complete,
+          runtimeError,
+          tick = 0;
+        const isolated = mode.endsWith('isolated') || mode.endsWith('nested');
+        class Shaken extends (isolated ? api.IsolatedGroup2D : api.Group2D) {
+          updateWorldMatrix() {
+            const matrix = super.updateWorldMatrix();
+            matrix.elements[6] += 2;
+            return matrix;
+          }
+        }
+        const rootGroup = new Shaken();
+        if (isolated) rootGroup.isolate = true;
+        const holder = mode.endsWith('nested')
+          ? rootGroup.add(new api.IsolatedGroup2D())
+          : rootGroup;
+        if (holder !== rootGroup) holder.isolate = true;
+        rootGroup.position.set(30, 20);
+        if (mode === 'local-screen') rootGroup.space = 'screen';
+        const target = new api.ParticleLayer2D({ capacity: 32 });
+        const emitter = holder.add(
+          new api.ParticleEmitter({
+            texture,
+            view,
+            source,
+            target,
+            capacity: 32,
+            rate: 0,
+            lifetime: [1e6, 1e6],
+            speed: [0, 0],
+            angle: [0, 0],
+            acceleration: [0, 0],
+            startSize: [8, 6],
+            endSize: [8, 6],
+            startColor: [0.7, 0.2, 0.4, 0.8],
+            endColor: [0.7, 0.2, 0.4, 0.8],
+            seed: 17,
+            space: mode.startsWith('world') ? 'world' : 'local',
+            nozzle: { kind: 'rectangle', width: 24, height: 12 },
+          }),
+        );
+        emitter.position.set(80, 80);
+        emitter.emit(32);
+        let destroyCalls = 0;
+        let destroyListeners = 0;
+        const onDestroyed = (event) => {
+          if (
+            event.type !== 'destroy' ||
+            !(event.target instanceof api.GameObject)
+          )
+            throw Error('Invalid native destroy callback');
+          destroyCalls++;
+        };
+        for (const actor of emitter.children) {
+          actor.addEventListener('destroy', onDestroyed);
+          destroyListeners++;
+        }
+        if (target.activeCount !== 32) throw Error('Missing target particles');
+        if (mode === 'local-custom') {
+          const original = target.updateWorldMatrix;
+          target.updateWorldMatrix = function () {
+            const matrix = original.call(this);
+            matrix.elements[6] += 3;
+            return matrix;
+          };
+        }
+        const finish = () => {
+          game.pause();
+          const callback = complete;
+          complete = undefined;
+          runtimeError
+            ? callback.reject(Error(runtimeError))
+            : callback.resolve();
+        };
+        class PosedScene extends api.Scene {
+          update() {
+            ++tick;
+            rootGroup.position.set(30 + tick, 20 - tick * 0.5);
+            rootGroup.rotation = tick * 0.02;
+            rootGroup.scale.set(1 + tick * 0.01, 0.8 + tick * 0.02);
+            rootGroup.opacity = 0.6 + tick * 0.01;
+            rootGroup.tint = [1, 1 - tick * 0.005, 0.8 + tick * 0.005, 1];
+            emitter.position.set(80 + tick * 0.4, 80 - tick * 0.3);
+            emitter.rotation = tick * 0.03;
+            this.camera2D.position.set(tick * 0.1, -tick * 0.15);
+            this.camera2D.zoom = 1 + tick * 0.01;
+            queueMicrotask(finish);
+          }
+        }
+        let scene = new PosedScene();
+        scene.add(rootGroup);
+        game = await api.Game.create({
+          canvas,
+          renderer: backend,
+          width: 256,
+          height: 192,
+          pixelRatio: 1,
+          autoResize: false,
+        });
+        game.addEventListener('error', (event) => {
+          runtimeError = event.detail?.stack ?? String(event.detail);
+        });
+        await game.setScene(scene);
+        const frame = () =>
+          new Promise((resolve, reject) => {
+            controller.setMatrixVariant273(side);
+            complete = { resolve, reject };
+            game.start();
+          });
+        const snapshot = () => ({
+          tick,
+          active: emitter.activeCount,
+          version: target.version,
+          localBounds: { ...target.getLocalBounds() },
+          worldBounds: { ...target.getWorldBounds() },
+          particles: Array.from({ length: target.activeCount }, (_, i) => {
+            const index = target.activeSlotAt(i),
+              p = target.getSlot(index);
+            return {
+              index,
+              generation: p.generation,
+              affine: [p.a, p.b, p.c, p.d, p.tx, p.ty],
+              tint: [p.tintR, p.tintG, p.tintB, p.tintA],
+              anchor: [p.anchorX, p.anchorY],
+              space: p.space,
+              versions: [
+                p.transformVersion,
+                p.tintVersion,
+                p.sourceVersion,
+                p.anchorVersion,
+              ],
+              matrix: Array.from(
+                target.getSlotWorldMatrix(index, new api.Matrix3()).elements,
+              ),
+            };
+          }),
+        });
+        fixtures.push({
+          side,
+          game,
+          get scene() {
+            return scene;
+          },
+          rootGroup,
+          emitter,
+          destroyListeners,
+          get destroyCalls() {
+            return destroyCalls;
+          },
+          texture,
+          bitmap,
+          frame,
+          snapshot,
+          transfer: async () => {
+            scene.remove(rootGroup);
+            const next = new PosedScene();
+            next.add(rootGroup);
+            await game.setScene(next);
+            scene = next;
+          },
+        });
+      }
+      return {
+        mode,
+        backend,
+        visible: document.visibilityState,
+        nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+      };
+    };
+    globalThis.runDynamic273 = async (mode) => {
+      const snapshots = { before: [], after: [] };
+      for (const f of fixtures)
+        for (let frame = 0; frame < 12; frame++) {
+          if (mode === 'local-transfer' && frame === 6) await f.transfer();
+          await f.frame();
+          snapshots[f.side].push(f.snapshot());
+        }
+      let numbers = 0;
+      function equal(a, b, where) {
+        if (typeof a === 'number' && typeof b === 'number') {
+          numbers++;
+          if (!Object.is(a, b))
+            throw Error('Numeric mismatch at ' + where + ': ' + a + ' / ' + b);
+          return;
+        }
+        if (Array.isArray(a) && Array.isArray(b)) {
+          if (a.length !== b.length) throw Error('Array mismatch at ' + where);
+          a.forEach((value, index) =>
+            equal(value, b[index], where + '/' + index),
+          );
+          return;
+        }
+        if (a && b && typeof a === 'object' && typeof b === 'object') {
+          const keys = Object.keys(a);
+          if (keys.join(',') !== Object.keys(b).join(','))
+            throw Error('Key mismatch at ' + where);
+          for (const key of keys) equal(a[key], b[key], where + '/' + key);
+          return;
+        }
+        if (a !== b) throw Error('Value mismatch at ' + where);
+      }
+      equal(snapshots.before, snapshots.after, mode);
+      return {
+        snapshots: 12,
+        exactNumbers: numbers,
+        signedZeroCompared: true,
+        automaticGameFrames: true,
+      };
+    };
+    globalThis.cleanupDynamic273 = () => {
+      const rows = [];
+      for (const f of fixtures) {
+        f.game.destroy();
+        if (f.destroyCalls !== f.destroyListeners)
+          throw Error(
+            'Native destroy callback mismatch ' +
+              f.destroyCalls +
+              '/' +
+              f.destroyListeners,
+          );
+        if (f.texture.destroyed) throw Error('Borrowed Texture destroyed');
+        f.texture.destroy();
+        if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+        rows.push({
+          side: f.side,
+          gameState: f.game.state,
+          destroyListeners: f.destroyListeners,
+          destroyCallbacks: f.destroyCalls,
+          bitmapClosed: true,
+        });
+      }
+      fixtures = [];
+      return rows;
+    };
+  });
+  const reports = [];
+  for (const mode of [
+    'local',
+    'world',
+    'local-custom',
+    'local-screen',
+    'local-transfer',
+    'local-rotated',
+    'local-trimmed',
+    'local-source',
+    'local-isolated',
+    'world-isolated',
+    'local-nested',
+  ]) {
+    const setup = await page.evaluate(
+        (args) => globalThis.setupDynamic273(args),
+        { backend, mode },
+      ),
+      proof = await page.evaluate(
+        (mode) => globalThis.runDynamic273(mode),
+        mode,
+      ),
+      hashes = [];
+    for (let i = 0; i < 2; i++) {
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: i * 192, width: 256, height: 192 },
+        path:
+          directory +
+          '/' +
+          tag +
+          '-' +
+          backend +
+          '-' +
+          mode +
+          '-' +
+          (i === 0 ? 'before' : 'after') +
+          '.png',
+      });
+      if (!pngPixels(bytes).nonuniform)
+        throw Error('Blank native dynamic canvas');
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1])
+      throw Error('Dynamic Game pixels differ for ' + mode);
+    const cleanup = await page.evaluate(() => globalThis.cleanupDynamic273());
+    reports.push({ setup, proof, matchingPngSha256: hashes[0], cleanup });
+  }
+  const result = {
+    phase,
+    tag,
+    entryAfter: '/dist/src/index.js',
+    fixedMatrixTrampolineSelection: true,
+    backend,
+    browser: browserIdentity('chromium', browser, launch),
+    reports,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + tag + '-' + backend + '-dynamic.json',
+    JSON.stringify(result),
+  );
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+#### cpu.mjs
+
+```js
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p273',
+  phase = process.env.P273_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5273, strictPort: true },
+  plugins: [
+    {
+      name: 'p273-shared-private-mapping',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          const routes = {
+            '/dist/packages/graphics/src/webgl2-render2d.js':
+              '/shared-webgl2.mjs',
+            '/dist/packages/graphics/src/webgpu-render2d.js':
+              '/shared-webgpu.mjs',
+            '/p273-controller.mjs': '/controller.mjs',
+          };
+          if (Object.hasOwn(routes, url.pathname)) {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + routes[url.pathname]));
+            return;
+          }
+          if (url.pathname === '/p273-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Isolated matrix overwrite validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+try {
+  await server.listen();
+  const launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+    }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5273/p273-game');
+  await page.evaluate(
+    async ({ controlMode }) => {
+      // Classic page callbacks require dynamic module loading.
+      const apiShared = await import('/dist/src/index.js'),
+        contractShared = await import('/p273-controller.mjs');
+      let fixtures = [];
+      globalThis.setupGame273 = async (config) => {
+        contractShared.setMatrixVariant273('before');
+        if (document.visibilityState !== 'visible')
+          throw Error('Hidden paired Game page');
+        document.body.replaceChildren();
+        fixtures = [];
+        for (const side of ['shared']) {
+          const api = apiShared,
+            canvas = document.createElement('canvas');
+          canvas.style.display = 'block';
+          document.body.append(canvas);
+          const bitmap = await createImageBitmap(
+              new ImageData(new Uint8ClampedArray(4 * 4 * 4).fill(255), 4, 4),
+            ),
+            texture = new api.Texture(bitmap);
+          let game,
+            pending,
+            runtimeError,
+            postCalls = 0,
+            listenerCount = 0,
+            preCalls = 0,
+            preListenerCount = 0,
+            destroyCalls = 0,
+            destroyListenerCount = 0;
+          const onDestroyed = (event) => {
+            if (
+              event.type !== 'destroy' ||
+              !(event.target instanceof api.GameObject)
+            )
+              throw Error('Invalid actual destroy event');
+            destroyCalls++;
+          };
+          const record = () => {
+            if (!pending) return;
+            if (runtimeError) {
+              const p = pending;
+              pending = undefined;
+              game.pause();
+              p.reject(Error(runtimeError));
+              return;
+            }
+            if (pending.warm > 0) {
+              --pending.warm;
+              return;
+            }
+            if (destroyCalls !== 0) {
+              const p = pending;
+              pending = undefined;
+              game.pause();
+              p.reject(Error('Destroy callbacks during live sample'));
+              return;
+            }
+            const stats = game.frameWork;
+            pending.simulation += stats.simulationMs;
+            pending.navigation += stats.navigationMs;
+            pending.afterUpdate += stats.afterUpdateMs;
+            pending.submit += stats.renderSubmitMs;
+            if (--pending.remaining === 0) {
+              const p = pending;
+              pending = undefined;
+              game.pause();
+              const result = {};
+              for (const key of [
+                'simulation',
+                'navigation',
+                'afterUpdate',
+                'submit',
+              ])
+                result[key + 'Us'] = (p[key] * 1000) / p.frames;
+              result.categorySumUs =
+                result.simulationUs +
+                result.navigationUs +
+                result.afterUpdateUs +
+                result.submitUs;
+              const deliveredPre = preCalls - p.preAtStart;
+              if (deliveredPre !== p.expectedPostFrames * preListenerCount) {
+                p.reject(
+                  Error('Lost/duplicated preupdate callbacks: ' + deliveredPre),
+                );
+                return;
+              }
+              const delivered = postCalls - p.postAtStart;
+              if (delivered !== p.expectedPostFrames * listenerCount) {
+                p.reject(
+                  Error('Lost/duplicated postupdate callbacks: ' + delivered),
+                );
+                return;
+              }
+              p.resolve({
+                ...result,
+                matrixVariant: contractShared.getMatrixVariant273(),
+                destroyCallbacksDuringSample: destroyCalls,
+                destroyListeners: destroyListenerCount,
+                postupdateCallbacksIncludingWarm: delivered,
+                postListeners: listenerCount,
+                preupdateCallbacksIncludingWarm: deliveredPre,
+                preListeners: preListenerCount,
+              });
+            }
+          };
+          class MeasuredScene extends api.Scene {
+            update() {
+              queueMicrotask(record);
+            }
+          }
+          if (config.bothTypesSeen) {
+            const history = new api.GameObject();
+            let historyCalls = 0;
+            const priorListener = () => {
+              historyCalls++;
+            };
+            history.addEventListener('preupdate', priorListener);
+            history.addEventListener('postupdate', priorListener);
+            history.removeEventListener('preupdate', priorListener);
+            history.removeEventListener('postupdate', priorListener);
+            history.destroy();
+            if (historyCalls !== 0)
+              throw Error('Detached history object unexpectedly updated');
+          }
+          const scene = new MeasuredScene();
+          game = await api.Game.create({
+            canvas,
+            renderer: config.backend,
+            width: 1280,
+            height: 720,
+            pixelRatio: 1,
+            autoResize: false,
+            frameWorkBudgetMs: 1000 / 60,
+          });
+          game.addEventListener('error', (event) => {
+            runtimeError = event.detail?.stack ?? String(event.detail);
+          });
+          let holder = scene;
+          for (let depth = 0; depth < (config.depth ?? 0); depth++)
+            holder = holder.add(new api.Group2D());
+          const emitters = [];
+          for (let i = 0; i < 4; i++) {
+            const target = config.target
+              ? new api.ParticleLayer2D({ capacity: config.capacity })
+              : undefined;
+            const emitter = new api.ParticleEmitter({
+              texture,
+              target,
+              capacity: config.capacity,
+              rate: 0,
+              lifetime: [1e6, 1e6],
+              speed: [0, 0],
+              angle: [-Math.PI, Math.PI],
+              acceleration: [0, 0],
+              startSize: [8, 4],
+              endSize: [8, 4],
+              startColor: [0.7, 0.2, 0.4, 0.8],
+              endColor: [0.7, 0.2, 0.4, 0.8],
+              seed: 17 + i,
+              space:
+                config.space === 'mixed'
+                  ? i < 2
+                    ? 'local'
+                    : 'world'
+                  : config.space,
+              nozzle: { kind: 'rectangle', width: 512, height: 256 },
+            });
+            emitter.position.set(
+              config.offscreen ? -10000 + 320 * i : 160 + 320 * i,
+              360,
+            );
+            emitter.rotation = 0.3;
+            emitter.scale.set(1.3, 0.7);
+            if (!config.empty) emitter.emit(config.capacity);
+            if (config.destroyListeners)
+              for (const actor of emitter.children) {
+                actor.addEventListener('destroy', onDestroyed);
+                destroyListenerCount++;
+              }
+            if (config.isolated) {
+              const isolated = holder.add(new api.IsolatedGroup2D());
+              isolated.isolate = true;
+              isolated.opacity = 0.8;
+              isolated.add(emitter);
+            } else holder.add(emitter);
+            emitters.push(emitter);
+          }
+          if (config.diversity) {
+            scene.add(new api.GameObject());
+            scene.add(new api.Sprite({ texture, position: [40, 40] }));
+            scene.add(new api.ParticleLayer2D({ capacity: 1 }));
+          }
+          const sentinel = scene.add(
+            new api.ParticleEmitter({
+              texture,
+              capacity: 1,
+              rate: 0,
+              lifetime: [0.001, 0.001],
+              speed: [0, 0],
+              angle: [0, 0],
+              acceleration: [0, 0],
+              startSize: [1, 1],
+              endSize: [1, 1],
+              startColor: [1, 1, 1, 1],
+              endColor: [1, 1, 1, 1],
+              seed: 1,
+            }),
+          );
+          sentinel.emit(1);
+          if (config.listenersPerEmitter) {
+            for (const emitter of emitters)
+              for (const actor of [...emitter.children].slice(
+                0,
+                config.listenersPerEmitter,
+              )) {
+                actor.addEventListener('postupdate', (event) => {
+                  if (!Number.isFinite(event.detail.dt) || event.detail.dt < 0)
+                    runtimeError = 'Invalid actual postupdate delta';
+                  postCalls++;
+                });
+                listenerCount++;
+              }
+          }
+          if (config.preListenersPerEmitter) {
+            for (const emitter of emitters)
+              for (const actor of [...emitter.children].slice(
+                0,
+                config.preListenersPerEmitter,
+              )) {
+                actor.addEventListener('preupdate', (event) => {
+                  if (!Number.isFinite(event.detail.dt) || event.detail.dt < 0)
+                    runtimeError = 'Invalid actual preupdate delta';
+                  preCalls++;
+                });
+                preListenerCount++;
+              }
+          }
+          await game.setScene(scene);
+          const sample = (frames, warm = 8) =>
+            new Promise((resolve, reject) => {
+              pending = {
+                frames,
+                remaining: frames,
+                warm,
+                expectedPostFrames: frames + warm,
+                postAtStart: postCalls,
+                preAtStart: preCalls,
+                simulation: 0,
+                navigation: 0,
+                afterUpdate: 0,
+                submit: 0,
+                resolve,
+                reject,
+              };
+              game.start();
+            });
+          fixtures.push({
+            side,
+            game,
+            scene,
+            emitters,
+            sentinel,
+            texture,
+            bitmap,
+            sample,
+            listenerCount,
+            preListenerCount,
+            destroyListenerCount,
+            get destroyCalls() {
+              return destroyCalls;
+            },
+          });
+        }
+        for (const fixture of fixtures) {
+          if (fixture.game.graphics.backend !== config.backend)
+            throw Error('Wrong forced backend');
+          await fixture.sample(1, 64);
+          if (fixture.sentinel.activeCount !== 0)
+            throw Error(
+              'Foreign emitter class: actual Scene did not advance sentinel',
+            );
+          for (const emitter of fixture.emitters)
+            if (emitter.activeCount !== (config.empty ? 0 : config.capacity))
+              throw Error('Main fixture active count changed');
+        }
+        return {
+          visibility: document.visibilityState,
+          nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+          actualBackends: fixtures.map((f) => f.game.graphics.backend),
+          automaticSceneSimulation: true,
+          destroyListenerCount: fixtures.reduce(
+            (n, f) => n + f.destroyListenerCount,
+            0,
+          ),
+          initialMatrixVariant: contractShared.getMatrixVariant273(),
+          postListenerCount: fixtures.reduce((n, f) => n + f.listenerCount, 0),
+          preListenerCount: fixtures.reduce(
+            (n, f) => n + f.preListenerCount,
+            0,
+          ),
+          activeParticlesPerSide: config.empty ? 0 : config.capacity * 4,
+        };
+      };
+      globalThis.sampleGame273 = async ({ side, frames }) => {
+        const fixture = fixtures[0];
+        if (fixtures.length !== 1) throw Error('Expected one shared Game');
+        contractShared.setMatrixVariant273(
+          controlMode === 'aa' ? 'before' : side,
+        );
+        return fixture.sample(frames);
+      };
+      globalThis.cleanupGame273 = () => {
+        const result = [];
+        for (const f of fixtures) {
+          f.game.destroy();
+          if (f.destroyCalls !== f.destroyListenerCount)
+            throw Error(
+              'Actual destroy callback mismatch ' +
+                f.destroyCalls +
+                '/' +
+                f.destroyListenerCount,
+            );
+          if (f.texture.destroyed)
+            throw Error('Game destroyed borrowed Texture');
+          f.texture.destroy();
+          if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+          result.push({
+            side: f.side,
+            gameDestroyed: f.game.state,
+            bitmapClosed: true,
+            destroyListeners: f.destroyListenerCount,
+            destroyCallbacks: f.destroyCalls,
+          });
+        }
+        fixtures = [];
+        return result;
+      };
+    },
+    { controlMode: process.env.P273_MODE ?? 'ab' },
+  );
+  const matrixStartedAt = Date.now();
+  const mode = process.env.P273_MODE ?? 'ab',
+    cohorts = [
+      {
+        name: 'webgl2-world-isolated-large',
+        space: 'world',
+        capacity: 8192,
+        isolated: true,
+        backend: 'webgl2',
+      },
+      {
+        name: 'webgl2-local-isolated-large',
+        space: 'local',
+        capacity: 8192,
+        isolated: true,
+        backend: 'webgl2',
+      },
+      {
+        name: 'webgl2-world-isolated-nested',
+        space: 'world',
+        capacity: 8192,
+        isolated: true,
+        depth: 4,
+        backend: 'webgl2',
+      },
+      {
+        name: 'webgl2-world-plain-control',
+        space: 'world',
+        capacity: 8192,
+        backend: 'webgl2',
+      },
+      {
+        name: 'webgl2-layer-world-isolated-control',
+        space: 'world',
+        capacity: 8192,
+        isolated: true,
+        target: true,
+        backend: 'webgl2',
+      },
+      {
+        name: 'webgl2-empty-isolated-control',
+        space: 'world',
+        capacity: 8192,
+        isolated: true,
+        empty: true,
+        backend: 'webgl2',
+      },
+      {
+        name: 'webgpu-world-isolated-large',
+        space: 'world',
+        capacity: 8192,
+        isolated: true,
+        backend: 'webgpu',
+      },
+      {
+        name: 'webgpu-local-isolated-large',
+        space: 'local',
+        capacity: 8192,
+        isolated: true,
+        backend: 'webgpu',
+      },
+      {
+        name: 'webgpu-world-isolated-nested',
+        space: 'world',
+        capacity: 8192,
+        isolated: true,
+        depth: 4,
+        backend: 'webgpu',
+      },
+      {
+        name: 'webgpu-world-plain-control',
+        space: 'world',
+        capacity: 8192,
+        backend: 'webgpu',
+      },
+      {
+        name: 'webgpu-layer-world-isolated-control',
+        space: 'world',
+        capacity: 8192,
+        isolated: true,
+        target: true,
+        backend: 'webgpu',
+      },
+      {
+        name: 'webgpu-empty-isolated-control',
+        space: 'world',
+        capacity: 8192,
+        isolated: true,
+        empty: true,
+        backend: 'webgpu',
+      },
+    ],
+    rows = [],
+    cohortProof = [];
+  for (const config of cohorts) {
+    const setup = await page.evaluate(
+      (config) => globalThis.setupGame273(config),
+      config,
+    );
+    const hashes = [],
+      nonuniform = [];
+    for (const side of ['before', 'after']) {
+      const probe = await page.evaluate(
+        (args) => globalThis.sampleGame273(args),
+        { side, frames: 1 },
+      );
+      if (probe.matrixVariant !== (mode === 'aa' ? 'before' : side))
+        throw Error('Wrong actual mapping method');
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: 0, width: 1280, height: 720 },
+        path: directory + '/' + mode + '-' + config.name + '-' + side + '.png',
+      });
+      const pixel = pngPixels(bytes);
+      nonuniform.push(pixel.nonuniform);
+      if (
+        config.empty || config.offscreen ? pixel.nonuniform : !pixel.nonuniform
+      )
+        throw Error('Unexpected probe pixels for ' + config.name);
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1]) throw Error('Shared Game probe pixels differ');
+    for (let round = 0; round < 6; round++) {
+      const order =
+          round % 2 === 0
+            ? ['before', 'after', 'after', 'before']
+            : ['after', 'before', 'before', 'after'],
+        samples = [];
+      for (const side of order) {
+        const sample = await page.evaluate(
+          (args) => globalThis.sampleGame273(args),
+          { side, frames: 48 },
+        );
+        if (sample.matrixVariant !== (mode === 'aa' ? 'before' : side))
+          throw Error('Wrong timed mapping method');
+        samples.push({ side, ...sample });
+      }
+      rows.push({ name: config.name, round, order: order.join(','), samples });
+    }
+    const cleanup = await page.evaluate(() => globalThis.cleanupGame273());
+    if (cleanup.length !== 1) throw Error('Not one shared Game');
+    cohortProof.push({
+      config,
+      setup,
+      oneSharedGame: true,
+      oneSharedCanvas: true,
+      preTimingNativeProbe: true,
+      matchingPngSha256: hashes[0],
+      nonuniform,
+      cleanup,
+    });
+  }
+  const result = {
+    phase,
+    mode,
+    fixedMatrixTrampolineSelection: true,
+    sameCoreGraph: true,
+    matrixStartedAt,
+    matrixCompletedAt: Date.now(),
+    browser: browserIdentity('chromium', browser, launch),
+    cohortProof,
+    rows,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + mode + '-game-results.json',
+    JSON.stringify(result),
+  );
+  console.log(
+    JSON.stringify(
+      {
+        phase,
+        browser: result.browser,
+        cohorts: cohortProof,
+        rows: rows.length,
+        samples: rows.length * 4,
+        errors,
+      },
+      null,
+      2,
+    ),
+  );
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+### 實際執行範圍
+
+```sh
+node /tmp/xyz-p273/prepare-fixture.mjs /tmp/xyz-p273/reconstruction-proof
+cmp /tmp/xyz-p273/shared-webgl2.mjs /tmp/xyz-p273/reconstruction-proof/shared-webgl2.mjs
+cmp /tmp/xyz-p273/shared-webgpu.mjs /tmp/xyz-p273/reconstruction-proof/shared-webgpu.mjs
+cmp /tmp/xyz-p273/controller.mjs /tmp/xyz-p273/reconstruction-proof/controller.mjs
+node /tmp/xyz-p273/counts.mjs
+for backend in webgpu webgl2 canvas2d; do
+  for kind in sprite layer; do
+    P273_BACKEND="$backend" P273_TAG="$kind" node "/tmp/xyz-p273/native-$kind.mjs"
+  done
+done
+P273_MODE=aa node /tmp/xyz-p273/cpu.mjs
+P273_MODE=ab node /tmp/xyz-p273/cpu.mjs
+```
+
+本輪沒有正式source變更，因此沒有重跑unit/typecheck/lint/build，也沒有重跑不走本分支的標準Sprite benchmark、showcase、CJS或audio。不得將P272通過的驗證改記成P273新驗證。文件格式與相對檔案連結另在提交前檢查；歷史ACCEPTANCE 9968482-byte前綴保留。
+
+### 提交前文件檢查補記
+
+六份文件的 Prettier --check 實際通過；409個相對檔案連結目標存在，未檢查anchors。本附錄與補記各自以repo formatter設定格式化後append，保留既有 9968482-byte歷史前綴。僅提交本階段六份文件，未新增正式runtime變更或新unit/typecheck/build認證。

@@ -6452,3 +6452,9 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 十二個數值與 ready flag 只活在目前 query 的 stack locals，不新增物件欄位或跨 query cache。nested query 可覆寫既有 scratch matrix，但不能覆寫 outer query 的 inverse 值；world elements getter 仍在 inverse materialize 之後由 multiply 讀取。普通 local child 的角點計算不變。
 
 初版保留重複 copy 的收益不足，改版省去 cache-hit 的 redundant parent stores。固定 A/A 與完整 controls 留下的 source-slot conditional 收益支持這個局部變更，不支持所有場景／production FPS 的推論。完整數值 oracle 訂正、原生畫面與測量界線見 ACCEPTANCE。
+
+## P273 — 可刪除的 source writes 不等於已證明的 CPU 收益
+
+GPU isolated `objectMatrix` 在讀 root world matrix 前先 identity，之後 copy/invert 覆寫九個元素。候選只把 identity 移入非 root 分支，未引入 inverse cache、欄位、跨 pass state 或新 API；公開 root/child callbacks、bounds offset 與 Float32 arithmetic 的相對順序保留。renderer-owned scratch 不作公開輸出。
+
+語義呼叫計數顯著下降且三 backend 畫面一致，固定十二 cohort 的 A/A＋A/B 卻未形成穩定 CPU 理由。counter instrumentation 不證明 JIT 真正保留多少 stores，source-slot timing 亦受可變 target／tiering／時序限制；未確認任何單一根因。不採用，不因程式看似更省就改正式 renderer，完整 controls／raw／ties 見 ACCEPTANCE。
