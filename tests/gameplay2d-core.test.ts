@@ -165,6 +165,36 @@ describe('2D composed scene ownership', () => {
     root.destroy();
   });
 
+  it('includes a custom child world pose in group coverage', () => {
+    class Shifted extends Sprite {
+      override updateWorldMatrix() {
+        const matrix = super.updateWorldMatrix();
+        matrix.elements[6] += 10;
+        return matrix;
+      }
+    }
+    const asset = texture(4, 4);
+    const root = new Group2D();
+    root.position.set(50, 80);
+    root.scale.set(2, 3);
+    root.add(new Shifted({ texture: asset })).position.set(1, 2);
+    try {
+      const bounds = root.getLocalBounds();
+      expect(bounds.x).toBeCloseTo(4, 5);
+      expect(bounds.y).toBeCloseTo(0, 5);
+      expect(bounds.width).toBeCloseTo(4, 5);
+      expect(bounds.height).toBeCloseTo(4, 5);
+      const world = root.getWorldBounds();
+      expect(world.x).toBeCloseTo(58, 5);
+      expect(world.y).toBeCloseTo(80, 5);
+      expect(world.width).toBeCloseTo(8, 5);
+      expect(world.height).toBeCloseTo(12, 5);
+    } finally {
+      root.destroy();
+      asset.destroy();
+    }
+  });
+
   it('keeps same-scene reparent registration, rejects cycles/cross-owner, detaches and recursively destroys subtrees', () => {
     const scene = new Scene();
     const other = new Scene();

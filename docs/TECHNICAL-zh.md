@@ -7570,3 +7570,11 @@ P262 ownership 分型後更新四組目前 source Game profiles，每組90 warm�
 strict原生Sprite Canvas2D preflight在未修改before側的world-isolated畫面因blank失敗，原訂八cohort／192-sample CPU矩陣尚未開始。獨立diagnostic不把blank改成PASS：11modes共72,072個snapshot數字一致，十個nonblank、world-isolated兩側皆blank。32個child bounds均在視窗內，group world bounds卻從y≈248.84開始，超出192高視窗；Group2D.getLocalBounds直接使用child.transform，並不是world粒子獨立的出生affine。
 
 暫不採用traversal，正式source／dist未改，沒有CPU／三backend／target／production認證。正確性前提另按功能處理，不關閉culling、不放寬pixel gate掩飾錯誤。失敗、兩版完整observer trace、fixture修正及限制見 [ACCEPTANCE](../ACCEPTANCE.md) P266，不 push／升版。
+
+## P267：group coverage 遵循真正的 child affine
+
+`Group2D.getLocalBounds()` 對普通 base composition 保留原 authored-local 矩陣與角點式；world-owned／custom matrix 與 active interpolated-body presentation 則使用 inverse(group world) × child world。公開 matrix callbacks 前先保存 child rectangle，lazy group-owned Matrix3 在 callbacks 完成後才寫入；沒有 particle 型別特判、renderer 修改、停用 culling、跨 pass cache 或新 API。
+
+需要 world→local 換算時，group world matrix 必須可逆，singular 時保留 Matrix3.invert 的 RangeError。普通零 scale group 的 local-only bounds 仍可查詢。新增移動／重新縮放 world-particle isolation 及自訂 child pose 兩項 consumer regression，定向38項、strict／scoped lint通過；實際 CJS 入口另驗 world coverage、同 group bounds 重入與普通 singular local edge。
+
+source-slot、實際 `/src/index.ts`、minified production 各三 backend 合計99個真實 Game cases、648,648個 Object.is 數字對照；九組 world-isolated 由 blank 恢復可見，其餘90組 nonblank PNG相同。矩陣採 rendering 後公開查詢，不是 raw rendered-cache 觀察。隔離 build只帶回五個 Group2D 產物，11個使用者檔案hash不變。這是正確性修正，不是CPU／fps／heap／GPU改善證據；僅限記錄的 desktop Chromium。完整失敗、逐 case PNG hashes、bounds及限制見 [ACCEPTANCE](../ACCEPTANCE.md) P267，不 push／升版。

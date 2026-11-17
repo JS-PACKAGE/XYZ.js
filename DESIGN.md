@@ -6411,3 +6411,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - getter／command-tree／registered、explicit-root與detached對照相同，不能將兩側都錯誤的blank畫面當成成功。strict preflight中止後以獨立diagnostic記錄false，不將diagnostic改成feature gate。
 - world Sprite的出生position與axes是world-owned，Group2D直接套child.transform會再次施加emitter／ancestor transform，group coverage可完全離開真正內容；普通world draw不使用非drawing group bounds，isolation的culling／local target才使問題顯現。
 - 本輪不採用traversal、沒有CPU數字或runtime改動；先以獨立功能修正group coverage，再決定是否重新評估原型。歷史source-slot範圍不擴張為world-isolation／三backend認證。完整證據見 `ACCEPTANCE.md` P266。
+
+## P267：group coverage 必須遵循實際 child affine
+
+- authored local transform 只適用於 base matrix composition；world-owned particle 或公開 world-matrix override 不一定服從它。fallback 以現有 Matrix3 的 inverse／multiply 換回 group local，再聯集角點；不對 particle 型別加例外、不關閉 culling，也不修改 isolation renderer。
+- 普通 local path 保留原角點式與 expression order。active physics presentation 才需要反映非 authored pose；static／sleeping body 不走該分支。沒有新的 presentation cache 或公開 API。
+- 公開 matrix callbacks 前先保存 child rectangle；group-owned lazy matrix 在 callbacks 完成後才寫入。CJS 重入對照覆蓋同一 group 的 bounds scratch 被另一 child 使用，普通零 scale group 的 local-only bounds 不要求 inverse。真正需要 world→local 時，singular matrix 的既有 RangeError 不被吞掉。
+- 99個原生 Game cases的九組 world-isolated 由空白恢復，另90組像素不變；source/dev/production 都覆蓋三 backend，但只認證記錄的 desktop Chromium，不宣稱其他瀏覽器、裝置或速度。細節與失敗紀錄見 `ACCEPTANCE.md` P267。

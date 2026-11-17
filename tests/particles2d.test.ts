@@ -9,6 +9,7 @@ import {
   type ParticleNozzle,
 } from '../packages/core/src/particles2d/index.js';
 import { Scene } from '../packages/core/src/scene.js';
+import { IsolatedGroup2D } from '../packages/core/src/rendering2d/isolated-group.js';
 import { Sprite } from '../packages/core/src/sprite.js';
 import { Vector2 } from '../packages/math/src/index.js';
 import { world2dLimits } from '../src/data/world2d.js';
@@ -229,6 +230,39 @@ describe('pooled CPU particles', () => {
     expect(matrix[4]).toBeCloseTo(birth[4] * (6 / 10), 5);
     expect(particle.position.x).toBeCloseTo(matrix[6], 4);
     expect(particle.worldSpace).toBe('world');
+  });
+
+  it('keeps isolated group coverage around world particles after ancestors move and rescale', () => {
+    const settings = options({ capacity: 1, rate: 0, space: 'world' });
+    const root = new IsolatedGroup2D();
+    root.isolate = true;
+    root.position.set(100, 20);
+    root.scale.set(2, -3);
+    const emitter = root.add(new ParticleEmitter(settings));
+    emitter.position.set(10, 8);
+    emitter.emit(1);
+    const particle = live(emitter)[0];
+    root.position.set(200, 40);
+    root.scale.set(4, -2);
+    emitter.position.set(20, 12);
+    try {
+      const local = root.getLocalBounds();
+      expect(local.x).toBeCloseTo(-22, 5);
+      expect(local.y).toBeCloseTo(19, 5);
+      expect(local.width).toBeCloseTo(4, 5);
+      expect(local.height).toBeCloseTo(6, 5);
+      const bounds = root.getWorldBounds();
+      const visible = particle.getWorldBounds();
+      for (const key of ['x', 'y', 'width', 'height'] as const)
+        expect(bounds[key]).toBeCloseTo(visible[key], 5);
+      expect(bounds.x).toBeCloseTo(112, 5);
+      expect(bounds.y).toBeCloseTo(-10, 5);
+      expect(bounds.width).toBeCloseTo(16, 5);
+      expect(bounds.height).toBeCloseTo(12, 5);
+    } finally {
+      root.destroy();
+      settings.texture?.destroy();
+    }
   });
 
   it('keeps local particles attached to changed ancestors and allows a screen-root emitter', () => {

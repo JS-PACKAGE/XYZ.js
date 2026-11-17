@@ -36251,3 +36251,203 @@ for (let current: GameObject = object; ;) {
 - 正式source／dist、vendor與十一個使用者修改檔未寫入；原型／兩版probe／diagnostic／未執行CPU與builder在保留templates/results後清理，只stage六份證據文件提交。沒有commit runtime或混入無效perf改動。
 - 未跑formaltests／strict／lint／build、任何本輪CPUtiming、三backend66cases完整preflight、targetnativecases、actualsource/minified/CJS驗證、gallery／showcase、audio、heap／GC／GPUtime／fps或實機／Safari認證。source-slot的collector數值／觀察一致不代表其他情境通過。
 - 文件格式、relative-file links、historicalprefix做scoped檢查；不push／升版。接續以獨立功能修正根因，再恢復持續優化，不新增未驗證的相容性宣稱。
+
+## P267：修正 world-owned／custom child 的 group coverage（2026-11-17）
+
+### 根因與採用範圍
+
+承接 P266：Group2D 原先一律套 child.transform.updateMatrix，會把 world 粒子已保存的 world position／出生 axes 再施加目前 emitter／ancestor transform。非 drawing group 的錯誤 bounds 在 isolation 的 culling／target coverage 成為空白畫面。本階段獨立修正 bounds，沒有混入 traversal 候選。
+
+普通 base-composed child 保留原 authored-local matrix／corner expression。world/custom override 或 active、非 static／sleeping body 的 physics presentation 改以 inverse(group world) × child world。child rectangle 在公開 matrix callback 前保存，防止同 group bounds scratch 重入；callback 完成後才寫入 lazy group-owned Matrix3。沒有跨 pass cache、particle class 特判、renderer 修改、停用 culling、依賴或新公開 API。world→local 需要可逆 group world matrix，既有 Matrix3.invert RangeError 不被吞掉；普通 local-only bounds 不要求 group matrix 可逆。
+
+### 定向與建置證據
+
+- 新增兩項 consumer-visible regression：world 粒子出生後移動／重新縮放 isolation ancestor，及自訂 child world pose 的 group coverage。最終 tests/particles2d.test.ts + tests/gameplay2d-core.test.ts：2 files／38 tests passed。不是完整 test suite。
+- tsc -p tsconfig.check.json 及 scoped ESLint（三個變更 source/test 檔）成功。初次38測試成功後，strict 檢查發現 test cleanup 的 settings.texture 可為 undefined；改為 optional cleanup 後 strict／lint成功，最終38測試再通過。
+- 隔離 HEAD build 覆蓋唯一 canonical source，執行 tsc／minify-dist／copy-vendor／build-cjs。全輸出比較只容許以下五檔，才帶回工作樹；Group2D declaration 只增加 private scratch 欄位。11個既有使用者檔案（narrowphase／world2d source及其dist）前後hash不變；未複製其他輸出，未整體重建工作樹 dist。
+
+```json
+{
+  "changed": [
+    "dist/cjs/packages/core/src/gameplay/group2d.cjs",
+    "dist/cjs/packages/core/src/gameplay/group2d.cjs.map",
+    "dist/packages/core/src/gameplay/group2d.d.ts",
+    "dist/packages/core/src/gameplay/group2d.js",
+    "dist/packages/core/src/gameplay/group2d.js.map"
+  ],
+  "protectedFiles": [
+    "dist/cjs/packages/core/src/physics2d/narrowphase.cjs",
+    "dist/cjs/packages/core/src/physics2d/narrowphase.cjs.map",
+    "dist/cjs/src/data/world2d.cjs",
+    "dist/cjs/src/data/world2d.cjs.map",
+    "dist/packages/core/src/physics2d/narrowphase.js",
+    "dist/packages/core/src/physics2d/narrowphase.js.map",
+    "dist/src/data/world2d.d.ts",
+    "dist/src/data/world2d.js",
+    "dist/src/data/world2d.js.map",
+    "packages/core/src/physics2d/narrowphase.ts",
+    "src/data/world2d.ts"
+  ],
+  "protectedHashes": {
+    "dist/cjs/packages/core/src/physics2d/narrowphase.cjs": "eaf39b9a39e60b4cc771bbb34e5d96b87cc5daffd9311a7994303cd0dcebebaa",
+    "dist/cjs/packages/core/src/physics2d/narrowphase.cjs.map": "576b6e15738e38f09cfa8ae8757e95aa874492394e7e47ff69c55b441036b1e0",
+    "dist/cjs/src/data/world2d.cjs": "1149a7df860ba07c61aed754c9ae12999892a3a7379a4b4bd1ff899bcb1f1cdf",
+    "dist/cjs/src/data/world2d.cjs.map": "2d0be17119e669dbf4e46972f558d3d27f1e2671b0e2bf0226e8318d4e5e80cf",
+    "dist/packages/core/src/physics2d/narrowphase.js": "0bca92e140ebbeb791f4847f0c27cb681ab8ada8673ae4b09cfd3e3a91f6343a",
+    "dist/packages/core/src/physics2d/narrowphase.js.map": "c4f0b6fc8dc528d17dd453ca9958360cdd7540f12566c552072bdb8debf25513",
+    "dist/src/data/world2d.d.ts": "3ede5425cd08601149b9241d9a7ee6a2d3df19520c319de64e04cb2b4d8f967d",
+    "dist/src/data/world2d.js": "822958f33f8f6a4a1230a44aef0f3cf9983ecaa86763d95bb4105a02786fa64b",
+    "dist/src/data/world2d.js.map": "0a2265d0c0c88f3d7f3d3af2baaa7e6b35714129f70f676f48fa80d719a98519",
+    "packages/core/src/physics2d/narrowphase.ts": "8a0700e1ab14653c2b56db032280c9f337a70cbd94d76ccd14199c952b0cbb99",
+    "src/data/world2d.ts": "7cc3f19a2df36cd0d6dc1f1f5e6adec274f512bcf186fc26da48d7aa2c2869aa"
+  }
+}
+```
+
+| module      | before bytes | after bytes | delta bytes | before gzip bytes | after gzip bytes |
+| ----------- | ------------ | ----------- | ----------- | ----------------- | ---------------- |
+| group2d.js  | 676          | 1232        | 556         | 427               | 663              |
+| group2d.cjs | 1059         | 1838        | 779         | 544               | 824              |
+
+增加的程式碼是正確性成本，不當作效能改善，也不由檔案大小推論 heap／GC。
+
+### 真實 Game／原生畫面
+
+固定 Chromium 153.0.8010.12，darwin/arm64，desktop-automation，pinned Playwright managed；不代表 Safari、physical device 或其他 browser 認證。三個入口：一致 dist-prefix graph 中只替換 Group2D 的 source-slot、真正 /src/index.ts dev、minified production。各 Canvas2D／WebGL2／WebGPU，11 modes × 9 entry/backend 組合 = 99 cases。每側實際 Game 12個自動 RAF frames，256×192，pixelRatio1；32個真實 Sprite-pool 粒子、彩色16×16原生 ImageBitmap、公開 TextureView rotation／trim／source、動態 parent/camera/tint，另有 custom matrix、screen、Scene transfer、local/nested isolation。不是裸 Sprite draw 或替代 render loop。
+
+每 case 6,552個 Object.is 數字（含 signed zero），合計648,648個；矩陣採 rendering 後的公開 updateWorldMatrix 查詢，並非 raw renderer matrix-cache equality，不與 P266 raw-snapshot certification 混稱。九組 world-isolated 的預期契約明確是 before blank／after nonblank 且 PNG不同；不要求修正前錯誤像素繼續一致，其餘90組必須兩側 nonblank 且 PNG相同。每組 after group bounds 均含32個實際 child world bounds（1e-3 邊界容差），借用 Texture 在 Game.destroy 後仍存活、顯式 destroy 關閉 ImageBitmap、所有 Game 到 destroyed，page/runtime errors 為0。
+
+實際 Canvas2D source 的 after PNG 已開啟觀察，內容恢復可見。world-isolated 的代表 raw world coverage（各入口/backend 相同）：
+
+| side   | x                  | y                 | width             | height            | root in viewport | visible children | contained children |
+| ------ | ------------------ | ----------------- | ----------------- | ----------------- | ---------------- | ---------------- | ------------------ |
+| before | 138.86059378385227 | 248.8360081648534 | 43.1505836120694  | 35.37395512188243 | false            | 32               | 0                  |
+| after  | 90.59316299205025  | 79.98279606852692 | 42.86960768738905 | 41.61062056635167 | true             | 32               | 32                 |
+
+完整逐 case 結果（contained 欄為 group bounds 包含的 child 數，所有 total=32；PNG SHA256是同 backend 的before/after，不以跨 backend 必須相同作門檻）：
+
+| entry      | backend  | mode           | Object.is numbers | contained before | contained after | pixel contract             | before PNG SHA256                                                | after PNG SHA256                                                 |
+| ---------- | -------- | -------------- | ----------------- | ---------------- | --------------- | -------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| dev        | canvas2d | local          | 6552              | 32               | 32              | identical-nonblank         | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| dev        | canvas2d | world          | 6552              | 0                | 32              | identical-nonblank         | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 |
+| dev        | canvas2d | local-custom   | 6552              | 32               | 32              | identical-nonblank         | 1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace | 1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace |
+| dev        | canvas2d | local-screen   | 6552              | 32               | 32              | identical-nonblank         | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f |
+| dev        | canvas2d | local-transfer | 6552              | 32               | 32              | identical-nonblank         | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| dev        | canvas2d | local-rotated  | 6552              | 32               | 32              | identical-nonblank         | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c |
+| dev        | canvas2d | local-trimmed  | 6552              | 32               | 32              | identical-nonblank         | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 |
+| dev        | canvas2d | local-source   | 6552              | 32               | 32              | identical-nonblank         | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d |
+| dev        | canvas2d | local-isolated | 6552              | 32               | 32              | identical-nonblank         | 9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda | 9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda |
+| dev        | canvas2d | world-isolated | 6552              | 0                | 32              | blank-before-visible-after | 186aafd06c90e91316527e982e24553b552e2c56fb1ebbac69fe20b20e8b1b36 | f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb |
+| dev        | canvas2d | local-nested   | 6552              | 32               | 32              | identical-nonblank         | 69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2 | 69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2 |
+| source     | webgl2   | local          | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| source     | webgl2   | world          | 6552              | 0                | 32              | identical-nonblank         | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 |
+| source     | webgl2   | local-custom   | 6552              | 32               | 32              | identical-nonblank         | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 |
+| source     | webgl2   | local-screen   | 6552              | 32               | 32              | identical-nonblank         | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 |
+| source     | webgl2   | local-transfer | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| source     | webgl2   | local-rotated  | 6552              | 32               | 32              | identical-nonblank         | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| source     | webgl2   | local-trimmed  | 6552              | 32               | 32              | identical-nonblank         | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| source     | webgl2   | local-source   | 6552              | 32               | 32              | identical-nonblank         | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| source     | webgl2   | local-isolated | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| source     | webgl2   | world-isolated | 6552              | 0                | 32              | blank-before-visible-after | 186aafd06c90e91316527e982e24553b552e2c56fb1ebbac69fe20b20e8b1b36 | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| source     | webgl2   | local-nested   | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| source     | canvas2d | local          | 6552              | 32               | 32              | identical-nonblank         | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| source     | canvas2d | world          | 6552              | 0                | 32              | identical-nonblank         | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 |
+| source     | canvas2d | local-custom   | 6552              | 32               | 32              | identical-nonblank         | 1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace | 1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace |
+| source     | canvas2d | local-screen   | 6552              | 32               | 32              | identical-nonblank         | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f |
+| source     | canvas2d | local-transfer | 6552              | 32               | 32              | identical-nonblank         | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| source     | canvas2d | local-rotated  | 6552              | 32               | 32              | identical-nonblank         | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c |
+| source     | canvas2d | local-trimmed  | 6552              | 32               | 32              | identical-nonblank         | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 |
+| source     | canvas2d | local-source   | 6552              | 32               | 32              | identical-nonblank         | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d |
+| source     | canvas2d | local-isolated | 6552              | 32               | 32              | identical-nonblank         | 9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda | 9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda |
+| source     | canvas2d | world-isolated | 6552              | 0                | 32              | blank-before-visible-after | 186aafd06c90e91316527e982e24553b552e2c56fb1ebbac69fe20b20e8b1b36 | f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb |
+| source     | canvas2d | local-nested   | 6552              | 32               | 32              | identical-nonblank         | 69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2 | 69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2 |
+| production | webgpu   | local          | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| production | webgpu   | world          | 6552              | 0                | 32              | identical-nonblank         | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 |
+| production | webgpu   | local-custom   | 6552              | 32               | 32              | identical-nonblank         | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 |
+| production | webgpu   | local-screen   | 6552              | 32               | 32              | identical-nonblank         | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 |
+| production | webgpu   | local-transfer | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| production | webgpu   | local-rotated  | 6552              | 32               | 32              | identical-nonblank         | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| production | webgpu   | local-trimmed  | 6552              | 32               | 32              | identical-nonblank         | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| production | webgpu   | local-source   | 6552              | 32               | 32              | identical-nonblank         | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| production | webgpu   | local-isolated | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| production | webgpu   | world-isolated | 6552              | 0                | 32              | blank-before-visible-after | 186aafd06c90e91316527e982e24553b552e2c56fb1ebbac69fe20b20e8b1b36 | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| production | webgpu   | local-nested   | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| dev        | webgpu   | local          | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| dev        | webgpu   | world          | 6552              | 0                | 32              | identical-nonblank         | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 |
+| dev        | webgpu   | local-custom   | 6552              | 32               | 32              | identical-nonblank         | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 |
+| dev        | webgpu   | local-screen   | 6552              | 32               | 32              | identical-nonblank         | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 |
+| dev        | webgpu   | local-transfer | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| dev        | webgpu   | local-rotated  | 6552              | 32               | 32              | identical-nonblank         | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| dev        | webgpu   | local-trimmed  | 6552              | 32               | 32              | identical-nonblank         | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| dev        | webgpu   | local-source   | 6552              | 32               | 32              | identical-nonblank         | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| dev        | webgpu   | local-isolated | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| dev        | webgpu   | world-isolated | 6552              | 0                | 32              | blank-before-visible-after | 186aafd06c90e91316527e982e24553b552e2c56fb1ebbac69fe20b20e8b1b36 | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| dev        | webgpu   | local-nested   | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| production | canvas2d | local          | 6552              | 32               | 32              | identical-nonblank         | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| production | canvas2d | world          | 6552              | 0                | 32              | identical-nonblank         | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 |
+| production | canvas2d | local-custom   | 6552              | 32               | 32              | identical-nonblank         | 1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace | 1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace |
+| production | canvas2d | local-screen   | 6552              | 32               | 32              | identical-nonblank         | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f |
+| production | canvas2d | local-transfer | 6552              | 32               | 32              | identical-nonblank         | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| production | canvas2d | local-rotated  | 6552              | 32               | 32              | identical-nonblank         | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c |
+| production | canvas2d | local-trimmed  | 6552              | 32               | 32              | identical-nonblank         | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 |
+| production | canvas2d | local-source   | 6552              | 32               | 32              | identical-nonblank         | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d |
+| production | canvas2d | local-isolated | 6552              | 32               | 32              | identical-nonblank         | 9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda | 9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda |
+| production | canvas2d | world-isolated | 6552              | 0                | 32              | blank-before-visible-after | 186aafd06c90e91316527e982e24553b552e2c56fb1ebbac69fe20b20e8b1b36 | f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb |
+| production | canvas2d | local-nested   | 6552              | 32               | 32              | identical-nonblank         | 69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2 | 69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2 |
+| source     | webgpu   | local          | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| source     | webgpu   | world          | 6552              | 0                | 32              | identical-nonblank         | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 |
+| source     | webgpu   | local-custom   | 6552              | 32               | 32              | identical-nonblank         | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 |
+| source     | webgpu   | local-screen   | 6552              | 32               | 32              | identical-nonblank         | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 |
+| source     | webgpu   | local-transfer | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| source     | webgpu   | local-rotated  | 6552              | 32               | 32              | identical-nonblank         | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| source     | webgpu   | local-trimmed  | 6552              | 32               | 32              | identical-nonblank         | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| source     | webgpu   | local-source   | 6552              | 32               | 32              | identical-nonblank         | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| source     | webgpu   | local-isolated | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| source     | webgpu   | world-isolated | 6552              | 0                | 32              | blank-before-visible-after | 186aafd06c90e91316527e982e24553b552e2c56fb1ebbac69fe20b20e8b1b36 | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| source     | webgpu   | local-nested   | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| production | webgl2   | local          | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| production | webgl2   | world          | 6552              | 0                | 32              | identical-nonblank         | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 |
+| production | webgl2   | local-custom   | 6552              | 32               | 32              | identical-nonblank         | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 |
+| production | webgl2   | local-screen   | 6552              | 32               | 32              | identical-nonblank         | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 |
+| production | webgl2   | local-transfer | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| production | webgl2   | local-rotated  | 6552              | 32               | 32              | identical-nonblank         | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| production | webgl2   | local-trimmed  | 6552              | 32               | 32              | identical-nonblank         | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| production | webgl2   | local-source   | 6552              | 32               | 32              | identical-nonblank         | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| production | webgl2   | local-isolated | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| production | webgl2   | world-isolated | 6552              | 0                | 32              | blank-before-visible-after | 186aafd06c90e91316527e982e24553b552e2c56fb1ebbac69fe20b20e8b1b36 | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| production | webgl2   | local-nested   | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| dev        | webgl2   | local          | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| dev        | webgl2   | world          | 6552              | 0                | 32              | identical-nonblank         | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 |
+| dev        | webgl2   | local-custom   | 6552              | 32               | 32              | identical-nonblank         | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 |
+| dev        | webgl2   | local-screen   | 6552              | 32               | 32              | identical-nonblank         | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 |
+| dev        | webgl2   | local-transfer | 6552              | 32               | 32              | identical-nonblank         | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| dev        | webgl2   | local-rotated  | 6552              | 32               | 32              | identical-nonblank         | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| dev        | webgl2   | local-trimmed  | 6552              | 32               | 32              | identical-nonblank         | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| dev        | webgl2   | local-source   | 6552              | 32               | 32              | identical-nonblank         | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| dev        | webgl2   | local-isolated | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| dev        | webgl2   | world-isolated | 6552              | 0                | 32              | blank-before-visible-after | 186aafd06c90e91316527e982e24553b552e2c56fb1ebbac69fe20b20e8b1b36 | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| dev        | webgl2   | local-nested   | 6552              | 32               | 32              | identical-nonblank         | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+
+### 正式 CJS 與重入 edge
+
+實際 dist/cjs/src/index.cjs 入口，以 deterministic Node Texture image record（不是原生 ImageBitmap，原生證據如上）查驗16個 scalar、同 group bounds callback 重入一次、4個借用 texture cleanup。第二個 child 的 rectangle 不同，會覆寫 group scratch，可驗第一 child snapshot 未被 callback 破壞；另保留普通零 scale local bounds。
+
+```json
+{
+  "entry": "actual dist/cjs/src/index.cjs",
+  "worldLocal": [-22, 19, 4, 6],
+  "worldCoverage": [112, -10, 16, 12],
+  "reentrantUnion": [4, -4, 102, 8],
+  "ordinarySingularLocal": [-2, -2, 4, 4],
+  "checkedScalarValues": 16,
+  "reentries": 1,
+  "closed": 4,
+  "realNativeImageBitmap": false
+}
+```
+
+首次 CJS throwaway fixture 漏了必填 startColor／endColor，constructor 正確拒絕；只補齊 fixture，未修改引擎 validation，以上為修正後結果。前置腳本另曾把 fs/promises 當 fs 同步 API 使用，在任何 build／runtime proof 前失敗，改用同步 fs namespace；不計成功證據。
+
+### 交付與限制
+
+同步 README 中英日、PLAN、DESIGN、兩份技術文件及本紀錄；歷史前綴原樣保留。只提交本功能三個 source/test、五個 Group2D 產物、六份文件，不含11個使用者變更。沒有 CPU timing、fps、GPU呈現時間、heap／GC、完整suite、gallery、音訊或新增 physics interpolation scenario 認證；不可把修正前剔除掉內容的便宜成本當成速度基線。traversal 性能候選仍需另一期完整評估。無 push／升版。

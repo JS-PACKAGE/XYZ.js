@@ -3,5 +3,6 @@ import type { Rect2D } from './contracts.js';
 /** Non-drawing container whose bounds are composed from its children. */
 export declare class Group2D extends GameObject {
     private readonly childBounds;
+    private relativeChildMatrix;
     getLocalBounds(out?: Rect2D): Rect2D;
 }

@@ -162,6 +162,8 @@ P265 不採用 WebGL2 private UV scalar／重複加法共用：固定補測 worl
 
 P266 暫不採用 parent-link traversal 原型：getter／nested／detached／mutation／例外清理對照通過，但 strict 原生 preflight 找到 baseline 的 world 粒子 isolation 空白問題，CPU 矩陣尚未開始。P266 stops adoption at a pre-existing world-particle isolation-bounds defect; no speedup is claimed. P266 は既存の world 粒子 isolation bounds 不具合を検出し、速度評価を未実施。32個 child 都在視窗內，group bounds 卻落在視窗外；blank 不算PASS，下一獨立功能先修正根因。完整兩版trace與失敗／診斷見 [ACCEPTANCE](./ACCEPTANCE.md) P266，正式source／dist不變，不 push／升版。
 
+P267 修正 world 粒子與自訂 world pose 的 group coverage：只有非普通 local composition 才換算實際 world affine，普通路徑保持原角點運算。P267 fixes group bounds for world-owned/custom poses; isolated world particles are visible again. P267 は world 粒子の isolation bounds を修正。source-slot／實際 dev／minified production 各三 backend 共99個原生 Game cases、648,648個數字對照；九組 world isolation 由 blank 恢復可見，其餘90組像素一致。38項定向測試、strict／lint及隔離產物通過；這是正確性修正，不宣稱CPU／fps改善。見 [ACCEPTANCE](./ACCEPTANCE.md) P267，不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

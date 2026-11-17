@@ -6281,3 +6281,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 獨立診斷保留nonblank=false，不放寬strict gate。11個Canvas2D modes的72,072個snapshot數字兩側一致，10個nonblank，world-isolated兩側皆blank。32個actual child bounds都在256×192內，root bounds y≈248.84卻被剔除。
 - 根因定位Group2D.getLocalBounds只用child.transform.updateMatrix，未反映world粒子的獨立出生affine；一般world未isolate仍畫出，isolation使錯誤group bounds變成可見錯誤。下一功能先獨立修正正確性，不把改bounds混進本traversal commit。
 - 本階段只交付六份調查文件，正式source／dist未改；未執行CPU／formal tests／build／production認證，所有失敗、fixture修正、trace及限制見 `ACCEPTANCE.md` P266，不 push／升版。
+
+## P267：修正 world-owned child 的 group coverage
+
+- `Group2D.getLocalBounds` 保留普通 base/local child 的原矩陣與角點運算；world/custom override 或正在 presentation 的 active interpolated body 改以 inverse(group world) × child world 換算。先保存 child rectangle，再呼叫可重入的公開 matrix callback；fallback scratch 僅首次需要時建立並重用，不新增跨 pass cache。
+- 不關閉 culling、不改 renderer、不特判 particle class。必須換算的 singular group 仍由既有 Matrix3.invert 回報 RangeError；普通 local child 在零 scale group 的 local bounds 仍可查詢。
+- 新增兩項 consumer regression：移動／重新縮放帶 world 粒子的 isolation ancestor，以及 child 自訂 world pose 的 group coverage。兩個定向檔案38項通過，strict／scoped lint通過。
+- source-slot、實際 `/src/index.ts`、minified production 各 Canvas2D／WebGL2／WebGPU 共99個真實 Game cases與648,648個 Object.is 數字對照；九組 world isolation 是 blank-before／visible-after，其餘90組 nonblank PNG相同。矩陣是 rendering 後的公開查詢，不冒稱 raw renderer-cache 觀察。
+- CJS 正式入口另驗 world coverage、bounds callback重入與普通 singular local edge；隔離 build只帶回五個 Group2D 產物，11個使用者檔案hash不變。保留型別與 throwaway fixture 初次失敗，不把這次正確性修正算成速度改善。詳見 `ACCEPTANCE.md` P267，不 push／升版。

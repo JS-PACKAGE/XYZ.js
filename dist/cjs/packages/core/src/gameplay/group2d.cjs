@@ -1,3 +1,4 @@
+const require_index = require("../../../math/src/index.cjs");
 const require_game_object = require("../game-object.cjs");
 //#region dist/packages/core/src/gameplay/group2d.js
 var Group2D = class extends require_game_object.GameObject {
@@ -7,24 +8,34 @@ var Group2D = class extends require_game_object.GameObject {
 		width: 0,
 		height: 0
 	};
-	getLocalBounds(e = {
+	relativeChildMatrix;
+	getLocalBounds(n = {
 		x: 0,
 		y: 0,
 		width: 0,
 		height: 0
 	}) {
-		let t = 1 / 0, n = 1 / 0, r = -1 / 0, i = -1 / 0;
-		for (let e of this.children) {
-			if (!e.visible || e.destroyed) continue;
-			let a = e.getLocalBounds(this.childBounds);
-			if (a.width <= 0 || a.height <= 0) continue;
-			let o = e.transform.updateMatrix().elements;
+		let r = 1 / 0, i = 1 / 0, a = -1 / 0, o = -1 / 0;
+		for (let n of this.children) {
+			if (!n.visible || n.destroyed) continue;
+			let s = n.getLocalBounds(this.childBounds);
+			if (s.width <= 0 || s.height <= 0) continue;
+			let c = n.updateWorldMatrix === require_game_object.GameObject.prototype.updateWorldMatrix, l = c ? n.body : void 0;
+			if (!c || l && l.type !== `static` && !l.isSleeping && n.scene?.presentingPhysics) {
+				let t = s.x + 0, c = s.x + s.width, l = s.y + 0, u = s.y + s.height, d = this.updateWorldMatrix(), f = n.updateWorldMatrix(), p = (this.relativeChildMatrix ??= new require_index.Matrix3()).copy(d).invert().multiply(f).elements;
+				for (let e = 0; e < 4; e++) {
+					let n = e & 1 ? c : t, s = e & 2 ? u : l, d = p[0] * n + p[3] * s + p[6], f = p[1] * n + p[4] * s + p[7];
+					r = Math.min(r, d), i = Math.min(i, f), a = Math.max(a, d), o = Math.max(o, f);
+				}
+				continue;
+			}
+			let u = n.transform.updateMatrix().elements;
 			for (let e = 0; e < 4; e++) {
-				let s = a.x + (e & 1 ? a.width : 0), c = a.y + (e & 2 ? a.height : 0), l = o[0] * s + o[3] * c + o[6], u = o[1] * s + o[4] * c + o[7];
-				t = Math.min(t, l), n = Math.min(n, u), r = Math.max(r, l), i = Math.max(i, u);
+				let t = s.x + (e & 1 ? s.width : 0), n = s.y + (e & 2 ? s.height : 0), c = u[0] * t + u[3] * n + u[6], l = u[1] * t + u[4] * n + u[7];
+				r = Math.min(r, c), i = Math.min(i, l), a = Math.max(a, c), o = Math.max(o, l);
 			}
 		}
-		return e.x = t === 1 / 0 ? 0 : t, e.y = n === 1 / 0 ? 0 : n, e.width = t === 1 / 0 ? 0 : r - t, e.height = n === 1 / 0 ? 0 : i - n, e;
+		return n.x = r === 1 / 0 ? 0 : r, n.y = i === 1 / 0 ? 0 : i, n.width = r === 1 / 0 ? 0 : a - r, n.height = i === 1 / 0 ? 0 : o - i, n;
 	}
 };
 //#endregion
