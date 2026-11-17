@@ -7648,3 +7648,9 @@ WebGL2 particle residency在原四個mutation versions旁存兩個physical pixel
 8208組獨立range model及原生觀察支持：D個dirty slots、R個ranges最多傳2D−R個slots。固定九cohort先A/A再A/B，保留432 samples；大型local/world/isolated submit與sum各六輪改善，但small變動、controls／A/A偏移與非配對standard結果全留。這是以有界額外傳輸換較少native呼叫，不是GPU時間、頻寬或FPS改善承諾。
 
 strict／scoped lint與27項定向tests通過；正式dev/minified dist各九個native ranges／pixel goldens、三backend clean-neighbor RGBA與save/restore/destroy、showcase unlock／真正navigation cleanup通過。隔離full build僅promote九artifact並保護11使用者path。CJS驗證腳本的tmp相對路徑修正後實module load成功，不宣稱native CJS rendering、實體裝置或Safari認證。完整腳本／量測／限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P278 — 不採用 WebGPU particle clean-gap upload
+
+particle使用獨立36-float buffers與直接queue.writeBuffer，不走ordinary quad mapped staging。sandbox候選只加local dirtyEnd，每個相鄰dirty-slot間最多跨一格clean gap，不加instance狀態或backing。忠實委派的native queue觀察、8208組model、24個WebGPU可變source及66個三backend動態Game cases維持ranges／像素／cleanup。
+
+固定九cohort先A/A再A/B的432 samples全留。大型local/world/isolated submit與分項sum每輪較慢，small則改善，未改simulation與controls亦偏移，沒有隔離頻寬／cache／JIT單一原因。因此否決，不把WebGL2結果直接套用，也不加有利size特例。正式source／產物／API／版本不變；本輪沒有新unit/typecheck/build、CJS、standard/showcase、GPU時間或FPS認證。完整原型／結果見 [ACCEPTANCE](../ACCEPTANCE.md)。

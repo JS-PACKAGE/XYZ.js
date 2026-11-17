@@ -200,6 +200,12 @@ P277: WebGL2 coalesces dirty particle uploads across at most one clean slot. Lar
 
 P277：WebGL2粒子のdirty uploadを一つのclean slotまで結合。大規模対象のCPU比較は改善したが、転送量は増加する。対照・小規模の変動・非対の標準計測・正式dev/distと三backendの検証範囲を [検収記録](ACCEPTANCE.md) に保持。全場面のFPSやGPU時間の改善ではなく、Root API／版は変更しない。
 
+P278：不採用 WebGPU particle 的 one-clean-slot upload 合併。原生呼叫／範圍與畫面、8208組model及66個三backend動態cases通過，但固定九cohort的432個A/A→A/B samples中，大型local／world／isolated submit與sum各六輪較慢。small局部改善及simulation／controls偏移亦保留，不推定單一原因、不把WebGL2結論外推。正式source／dist／API／版本不變；完整原型、raw及限制見 [ACCEPTANCE](ACCEPTANCE.md)。
+
+P278: WebGPU dirty-upload coalescing is rejected: fewer native calls and matching pixels do not outweigh slower large paired targets. Small-case gains and all control/simulation shifts remain in [ACCEPTANCE](ACCEPTANCE.md). No runtime, artifact, API or version changes.
+
+P278：WebGPUのdirty upload結合案は不採用。呼出回数減少と画面一致だけでは、大規模対象のCPU増加を正当化しない。小規模改善と対照・simulationの偏移も [検収記録](ACCEPTANCE.md) に保持し、正式source／dist／API／版は変更しない。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

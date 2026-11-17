@@ -6486,3 +6486,9 @@ WebGL2遇clean slot不再立即flush，而是等pending run和目前offset之間
 內部rendering2dLimits.webglParticleUploadGapSlots設為1；WebGPU／Canvas2D不改。若D個dirty slots分成R個傳輸範圍，傳輸slot數最多2D−R，不會變成兩個遠端dirty slots就上傳整個capacity。validation／preflight、source／anchor版本、pool reuse與P276 physical UV key皆保留。
 
 同canonical class／Game及相同constructor／backing layout，只用固定per-layer trampoline切換兩個body，沒有per-slot selector或CPU測量中的native wrappers。432 samples的三組large submit與sum均六輪改善，但A/A與controls的偏移、small例外及額外bytes成本仍限制外推。正式dev/dist另以真正native ranges／像素驗證，不把source-slot CPU冒稱production/CJS CPU或GPU／FPS認證；完整證據見ACCEPTANCE。
+
+## P278 — 相同範圍政策不代表相同backend成本
+
+WebGPU的particle entry使用獨立36-float buffer，uploadParticles直接queue.writeBuffer；ordinary quad mapped staging不覆蓋它。候選以local dirtyEnd保留最後dirty slot，在每個相鄰dirty-slot間最多跨一個clean slot；不新增instance欄位或per-slot backing，不改source／anchor／texture batching。
+
+相同canonical class／Game及layout下，native particle-buffer觀察與像素一致，呼叫減少但payload增加。完整A/A→A/B卻在三組large目標submit與sum每輪較慢；small收益不能反轉此結論。simulation亦呈系統性偏移，因此不把所有差異硬歸因於額外bytes、cache或JIT。拒絕把P277的WebGL2結果直接移植，不加入size特例或threshold調參以追逐有利數據；正式架構保持原樣，證據見ACCEPTANCE。

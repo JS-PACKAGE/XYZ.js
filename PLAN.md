@@ -6362,3 +6362,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 固定九cohort、六輪ABBA／BAAB，先完成216個A/A再做216個A/B，432個32-frame averages全留。大型local／world／isolated submit與sum各六輪改善；small／controls、A/A偏移及非配對standard的完整結果亦保留。
 - 27項定向tests、strict／scoped lint、正式dev/minified-dist各九個native upload／pixel cases、三backend clean-neighbor RGBA與save/restore/destroy、showcase auto／強制backend unlock／真正navigation cleanup通過。隔離full build只promote九個artifact，11個使用者paths保護；CJS修正驗證腳本的tmp相對路徑後load成功，不是native CJS rendering。
 - 完整腳本／raw／限制見ACCEPTANCE；package維持1.23.0，依功能commit，不push。
+
+## P278 — WebGPU clean-gap upload 合併不採用
+
+- 確認particle專用queue.writeBuffer不走ordinary quad mapped staging；36-float records、versions stride5與sourceSizes stride3保留。Game同步提交後才finish frameWork，microtask採樣不以GPU完成時間冒充CPU。
+- sandbox候選僅加local dirtyEnd及一格gap，沒有正式常數／source修改。8208組model、九cohort原生particle-buffer calls／bytes／PNG、24個WebGPU source cases及66個三backend動態cases通過。
+- 固定九cohort先216個A/A再216個A/B；432個32-frame averages全留。large local/world/isolated submit與sum各六輪較慢，small各六輪較快但不足以採用；未變simulation亦偏移，不宣稱已隔離頻寬／cache／JIT單一原因。
+- 僅文件commit；不重跑或冒稱本輪正式unit/typecheck/build、CJS、standard／showcase或FPS認證。原型／raw／native範圍與限制見ACCEPTANCE，source／dist／API／版本不變，不push。
