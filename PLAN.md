@@ -6171,3 +6171,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 保守原型留在 portal 後，保留完整幾何／Proxy 歷史，只略過 norm，並於同 expansion 延遲重用 current distance。完整短／長路徑及高 index 稀疏控制一次固定六輪 ABBA／BAAB，全部結果保留。
 - Node 長路徑改善，但 Chromium 長路徑六輪皆較慢，短路徑沒有穩定收益，拒絕增加分支／狀態。正式 mesh 維持 P250、heap 維持 P252。
 - 原型結果、getter／Proxy、retained snapshots、座標域、revision／cleanup 及逐 primitive 預算對照通過；本階段只更新六份文件，未重跑 canonical／build／unit／public-root。完整矩陣與未驗證範圍見 `ACCEPTANCE.md` P253，不 push／升版。
+
+## P254：惰性重用固定幾何的 edge center distance
+
+- 依更新後的完整路徑 profile 檢查重複 hypot3。center 在 constructor 完成後固定，distance 不依 radius／height／enabled epoch；在四種 directed Edge 建立處預留 undefined 欄位，只於 portal 成功後首次計算，保留零值與原始 norm／加法。
+- 不重做 P253 的提前剪枝或 current-distance local；幾何／Proxy 讀取、parent／offer 次序、primitive／revision／cleanup、query-local workspace 與 retained snapshots 不變。每條 edge 的 metadata 欄位是明列代價，不聲稱 heap／GC 改善。
+- optional-property 與明確 slot 各有一次固定暖／fresh-world 矩陣；正式 minified ESM 另行完整對照。重複長路徑有穩定收益，但 Node 首條路徑／startup 部分配對較慢、控制波動大，不宣稱所有情境加速或由 layout 推定原因。
+- 28 項既有 tests、strict／scoped 品質、隔離 production build、source／ESM／CJS 原始值／getter／Proxy／零成本／浮點 slope 對照，以及實際 browser source／dist 公開入口通過；只提升四份 mesh runtime／map，declarations 與十一個使用者檔案保留。
+- 全部原型、正式產物、cold controls／離群值與未驗證邊界見 `ACCEPTANCE.md` P254；按功能提交，不 push／升版。

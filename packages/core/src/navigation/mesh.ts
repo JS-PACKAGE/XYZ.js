@@ -67,6 +67,8 @@ interface Edge {
   readonly a: Readonly<Vector3>;
   readonly b: Readonly<Vector3>;
   readonly link?: NavigationMeshLink3D;
+  /** Polygon centers are immutable, independent of radius and enabled state. */
+  centerDistance: number | undefined;
   /** Last clipped portal; regions are replaced, never mutated, so identity keys it. */
   portal?: {
     readonly from: Region;
@@ -273,8 +275,18 @@ export class NavigationMesh3D {
           prior.joined = true;
           polygon.walls[i] = false;
           other.walls[prior.edge] = false;
-          polygon.edges.push({ to: prior.polygon, a: v, b: w });
-          other.edges.push({ to: index, a: w, b: v });
+          polygon.edges.push({
+            to: prior.polygon,
+            a: v,
+            b: w,
+            centerDistance: undefined,
+          });
+          other.edges.push({
+            to: index,
+            a: w,
+            b: v,
+            centerDistance: undefined,
+          });
         }
       }
     }
@@ -317,7 +329,13 @@ export class NavigationMesh3D {
           new Vector3(supplied.end.x, supplied.end.y, supplied.end.z),
         ),
       });
-      this.geometry[from]!.edges.push({ to, a: link.start, b: link.end, link });
+      this.geometry[from]!.edges.push({
+        to,
+        a: link.start,
+        b: link.end,
+        link,
+        centerDistance: undefined,
+      });
       if (!supplied.directed) {
         const reverse = Object.freeze({
           ...link,
@@ -331,6 +349,7 @@ export class NavigationMesh3D {
           a: reverse.start,
           b: reverse.end,
           link: reverse,
+          centerDistance: undefined,
         });
       }
     }
@@ -609,11 +628,11 @@ export class NavigationMesh3D {
             if (!portal) continue;
             const distance =
               search.distance.get(current)! +
-              hypot3(
+              (edge.centerDistance ??= hypot3(
                 target.center.x - polygon.center.x,
                 target.center.y - polygon.center.y,
                 target.center.z - polygon.center.z,
-              );
+              ));
             if (distance >= (search.distance.get(edge.to) ?? Infinity))
               continue;
             parentEdges.set(edge.to, edge);

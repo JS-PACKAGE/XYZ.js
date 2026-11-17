@@ -92,11 +92,13 @@ var NavigationMesh3D = class {
 					c.joined = !0, _.walls[e] = !1, n.walls[c.edge] = !1, _.edges.push({
 						to: c.polygon,
 						a: t,
-						b: i
+						b: i,
+						centerDistance: void 0
 					}), n.edges.push({
 						to: g,
 						a: i,
-						b: t
+						b: t,
+						centerDistance: void 0
 					});
 				}
 			}
@@ -116,7 +118,8 @@ var NavigationMesh3D = class {
 				to: a,
 				a: s.start,
 				b: s.end,
-				link: s
+				link: s,
+				centerDistance: void 0
 			}), !r.directed) {
 				let e = Object.freeze({
 					...s,
@@ -129,7 +132,8 @@ var NavigationMesh3D = class {
 					to: n,
 					a: e.start,
 					b: e.end,
-					link: e
+					link: e,
+					centerDistance: void 0
 				});
 			}
 		}
@@ -260,7 +264,7 @@ var NavigationMesh3D = class {
 					if (this.disabled.has(i.surface.id) || i.surface.clearanceHeight < s.agentHeight) continue;
 					let o = region(r.to);
 					if (o.vertices.length === 0 || !this.portal(r, n ??= region(e), o, l)) continue;
-					let c = u.distance.get(e) + require_hypot.hypot3(i.center.x - t.center.x, i.center.y - t.center.y, i.center.z - t.center.z);
+					let c = u.distance.get(e) + (r.centerDistance ??= require_hypot.hypot3(i.center.x - t.center.x, i.center.y - t.center.y, i.center.z - t.center.z));
 					c >= (u.distance.get(r.to) ?? 1 / 0) || (h.set(r.to, r), u.offer(r.to, c, c, e));
 				}
 			} else if (S === `backtrack`) T >= 0 ? (g.push(T), T = u.parent.get(T)) : (w = g.length - 1, S = `corridor`);

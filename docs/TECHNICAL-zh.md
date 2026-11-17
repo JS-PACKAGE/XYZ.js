@@ -7469,3 +7469,10 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 - 保守的 portal 後版本保留全部幾何／Proxy 讀取，再按下界略過 norm；current distance 只於單次 expansion 延遲重用。路徑原始數值、快照、getter、revision、cleanup 及 primitive 預算對照一致。
 - Node 與可見 Chromium 各執行一次固定六輪交替 ABBA／BAAB 矩陣，包含完整短／長路徑、高 index 稀疏查詢及未修改 projection 控制。Node 長路徑改善，但 Chromium 長路徑六輪皆較慢，短路徑小幅且混合，因此拒絕，不把較少 norm 當成 CPU 收益。
 - 只更新六份文件；正式 mesh 維持 P250、heap 維持 P252，未重跑 canonical／build／unit／public-root。完整矩陣、離群值、Proxy probe 及未驗證範圍見 `../ACCEPTANCE.md` P253；不宣稱 heap／GC、GPU／呈現 fps、Safari 或實機，不升版、不 push。
+
+## P254：惰性快取固定 polygon-center distance
+
+- 每條 directed Edge 初始化私有 `number | undefined` 槽。原有幾何與 portal 檢查成功後，才以 `??=` 首次計算原本的三維 compensated norm；保留零值、metric、數值運算順序、score 與 tie。polygon centers 在建構後固定，cached Number 不依 radius／height／enabled epoch。
+- 跨 query 留存的只有幾何衍生 scalar；輸入 points／options、結果、distance／parent Maps、region Maps 與 scratch 維持原所有權。不新增 collection／世界大小 workspace，完整保留幾何與 frozen-array Proxy 讀取；每條 edge 的 metadata 槽是代價，不是已量測的 heap／GC 改善。
+- optional-property 與明確 slot 原型各跑固定 warm／fresh-world 矩陣，正式 minified ESM 另行實測。重複長路徑穩定改善，但首條路徑／setup 波動大且部分 Node 配對退步，不保證 cold／所有查詢加速，也不推測 allocation／JIT 因果；source-slot 另有非整數 3D slope 完整路徑量測及對照。
+- 28 項既有 targeted tests、strict／scoped 品質、隔離 production build、source／ESM／CJS 的 route／Proxy／零成本／slope 原始值及實際 source／dist browser 公開入口通過。只更新四份 mesh runtime／map，declarations、公開 API、使用者改動、依賴與版本不變；全部矩陣、cold 代價、離群值及未驗證邊界見 `../ACCEPTANCE.md` P254。不宣稱 full suite、GPU／呈現 fps、Safari／實機，不 push。

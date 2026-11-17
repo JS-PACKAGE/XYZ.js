@@ -6319,3 +6319,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - portal 後原型保留全部幾何讀取，再以已知 distance 下界略過 norm；算式、首次 current-distance 讀取、零值、parent／offer 順序及工作預算均維持。對照確認完整 Proxy 歷史與路徑一致。
 - 即使 Node 長路徑有方向性收益，Chromium 長路徑六輪皆較慢，故拒絕此分支與局部 cache；不由較少 norm 推定 CPU 或 JIT／GC 效果。正式 source／dist、P250 region 重用與 P252 heap 不變。
 - 本階段只提交實際原型證據及六份同步文件；不冒稱 canonical／build／unit 或公開入口重驗。全部控制、離群值與限制見 `ACCEPTANCE.md` P253。
+
+## P254：把 immutable center norm 留在既有 Edge
+
+- 每條 directed Edge 明確初始化 `centerDistance: number | undefined`，portal 成功後才用 `??=` 計算原本的三維 compensated hypot3；center 只在建構時計算，故 cached Number 可跨 radius／enabled epoch 重用，零值有效，不改 metric、精度、加法、score 或 tie。
+- 不快取使用者 point／options／結果，不加入 collection 或世界大小 workspace；只在幾何 owner 留存一個衍生 scalar，job 的 distance／parent／regions／scratch 隔離保持。幾何／Proxy 讀取完整保留，避免 P253 的可觀察性問題。
+- optional-property 原型與預留 slot 分別量測，不把獨立 run 互除當成 layout 因果。選定明確初始化的表示，正式 ESM 重複長路徑也有收益；cold／setup 的部分退步與波動照錄，不保證首條路徑加速，也不推測 V8 allocation／JIT／GC。
+- 接受每條 edge 的 metadata 槽代價，未量測 retained heap／GC。公開 API／declarations、primitive／revision／cleanup、query-local 所有權與 retained snapshots 不變；source／ESM／CJS 與 browser 公開 root 的數值、Proxy、零成本及 slope 證據見 `ACCEPTANCE.md` P254。
