@@ -6377,3 +6377,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 固定九 cohort 先216個 A/A 再216個 A/B，共432個48-frame averages。四組大型 local／world／isolated submit 與 sum 各六輪改善；small／AllDynamic 混合、controls／A/A 漂移與非配對 standard 全留，不推定未改 simulation／afterUpdate 的變化原因。
 - 33項定向 tests、strict／scoped lint、隔離 full build 僅 promote 四個 WebGPU renderer artifacts 並保護11使用者 paths。正式 dev/minified dist 各24個 mutable-source cases 及 same-draw version 原生 RGBA、三 backend main save/restore/destroy、showcase auto＋強制 backend unlock／navigation cleanup 通過；CJS 僅 module load。
 - 原型、完整 profiles／timings／native evidence、counter 與外推限制見 ACCEPTANCE。維持 package 1.23.0，依功能 commit，不 push。
+
+## P280 — resident WebGPU geometry 的 logical-only resize 整合性
+
+- 確認 WebGPU 已有 source-size key，不重複移植 WebGL2 的 UV 比較優化；另以正式原生像素特定 physical size／resolution 不變時，raw full RenderTexture logical resize 漏更新的問題。
+- 只新增既有 packed naturalWidth／naturalHeight 與 Math.fround(logical dimensions) 的比較。排除 view／explicit crop，維持 sourceSizes／versions／shader／backing／P279 resolver reuse／Root API。
+- finite geometry budget 讓 repaint 間的 consumer cache 保留。新 permanent browser regression 在舊 body 的 width-only edge 失敗，修正後三 backend 各19 assertions（寬／高度個別／shrink）及 save/restore/destroy 通過。
+- 固定13 cohort 的 A/A→A/B 共624 samples，full RenderTexture／image overhead／crop、AllDynamic、Sprite、empty controls 全留。large full submit 約3.1%增加不隱藏，採用為 correctness 修復，不列為加速成果。
+- 執行33定向 tests、strict／2 files scoped lint、保護11 user paths／只 promote 四 artifact 的隔離 full build、正式 dev/dist compatibility／原生 pixels、showcase unlock/navigation cleanup、CJS module load、current-only standard Sprite 量測。API／package 1.23.0不變，完整證據見 ACCEPTANCE，只依功能 commit，不 push。

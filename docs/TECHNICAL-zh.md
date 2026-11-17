@@ -7662,3 +7662,11 @@ particle使用獨立36-float buffers與直接queue.writeBuffer，不走ordinary 
 每個 run 的第一次解析保留 owner／資源檢查與 residency touch。正常同步路徑中重複 frame pin／capture membership 本來冪等，但不承諾內部 LRU clock 數值不變。原生特製 CanvasTexture／getSlot probe 在第一次解析後對同 source 公開 update，證實 version guard 及新 RGBA，不擴張公開的任意 mid-draw 重入契約。
 
 固定九 cohort 的432個 A/A→A/B samples 全留。四組 large local／world／isolated submit 與 sum 每輪改善；small／AllDynamic 混合結果、未改 spans、controls 偏移及非配對 standard Sprite 也保留。semantic counter／CDP profiles 分開執行，不混進 CPU。strict／scoped lint、33項定向 tests、只 promote 四 artifact 的隔離 full build、正式 dev/minified dist 可變 source／version 原生像素、三 backend main lifecycle 與 showcase cleanup 通過。CJS module load 不等於 native CJS rendering；不認證 GPU／FPS、實體裝置或 Safari。完整腳本／raw／限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P280 — logical-only target resize 使 resident particle geometry 失效
+
+raw full RenderTexture 的 particle natural dimensions 依 logical size 而定。logical resize 可以不改 physical width／height／resolution，原 sourceSizes 三值不足以判斷。WebGPU 新增既有 packed natural dimensions 與 Math.fround(目前 logical dimensions) 的比較，只限無 view／explicit crop 的 full render source；Float32 geometry 相同就不強迫 repack。沒有新 backing／field／shader layout／upload policy／API／版本，P279 resolver reuse 保留。
+
+offscreen producer repaint 另走 begin/finish；Infinity geometry budget 會丟棄未使用 consumer entries，因此舊 source-resize fixtures 未涵蓋這個 resident-cache 邊界。新增 finite-budget 原生回歸在舊 body 的 width-only edge 精準失敗，修正後三 backend 各19 assertions 通過，獨立涵蓋寬、高與 shrink；不改寫歷史測試結果。
+
+固定13 cohort 的624個 A/A→A/B samples 全留，包括成本與 controls。large full-target submit 每輪較慢，中位數約增3.1%，採用是 correctness 修復，不是加速。small／image／controls 混合值與 A/A drift 全記。strict／scoped lint、33定向 tests、只 promote 四 artifact 的隔離 full build、正式 dev/dist compatibility／原生 pixels、三 backend main lifecycle、showcase navigation cleanup 與 CJS module load 通過。standard Sprite 僅 current-only，不是配對證據；GPU／FPS、native CJS、實體裝置或 Safari 未認證。完整證據見 [ACCEPTANCE](../ACCEPTANCE.md)。

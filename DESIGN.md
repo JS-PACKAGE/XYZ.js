@@ -6500,3 +6500,11 @@ WebGPU particle 逐 slot 仍完成原 geometry／source validation。第一次 r
 每個 run 的第一個解析仍執行 owner／資源檢查與 residency touch；重複 touch 的內部 clock 數值不承諾相同。正常同步 draw 中，frame pin 與 capture Set 的重複登記本來是冪等；不把這個分析擴張為任意 subclass 重入保證。特製原生 CanvasTexture subclass／getSlot probe 在第一次解析後做同尺寸公開 update，證實 version guard 會再解析並讀回新像素，但不新增中途任意 mutation 的公開時序契約。
 
 同 canonical class、相同 constructor／backing 的固定 per-layer trampoline，測得四個 large targets 六輪一致降低 submit／sum；small、AllDynamic、A/A／controls 與未改 spans 的偏移仍全留。semantic resolver counter 與 CDP profiles 另跑，不混入 CPU。source-slot 可變 call targets 與未 minify 限制、正式 dev/dist 的原生 pixels／cleanup、非配對 standard 差異均見 ACCEPTANCE；不宣稱 GPU／FPS／heap 或跨平台全面改善。
+
+## P280 — 分開 physical key 與 logical geometry 依賴
+
+full raw RenderTexture 的 quad natural size 使用 logicalWidth／logicalHeight，UV 則覆蓋全範圍。physical width／height／resolution 相同時 logical size 仍可改變，因此既有 sourceSizes 三值不足以判定 geometry 失效。新增條件只限 raw full render source，將既有 GPU backing 的 natural dimensions 與目前 logical dimensions 丸為 Float32 後比較。view／explicit crop 的固定 geometry 不誤追隨 logical size；Float32 表示相同的變動不觸發不必要 repack。不建新陣列／field／version shim。
+
+producer offscreen repaint 另走 GPU begin/finish；geometry budget 為 Infinity 時，未使用的 consumer particle entry 會在 finish 被丟棄，因此舊 mutable-source pixel fixtures 沒有驗證 resident cache 的這個邊界。新回歸明確使用 finite budget，個別讀回寬度變化、高度變化及縮小；歷史驗收不改寫，這是新增 coverage。
+
+同 canonical class／Game／backing 的624個配對量測 samples 完整記錄 guard 成本。large full RenderTexture submit 各六輪較慢的事實不刪除，correctness 優先於 performance。controls／A/A drift 與未改 spans 的偏移不作單一原因推論；Sprite 的 current-only standard 不假裝為 before/after 改善。正式驗證／raw 見 ACCEPTANCE。

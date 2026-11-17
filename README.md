@@ -212,6 +212,12 @@ P279: WebGPU particle draws reuse resolution only for consecutive unchanged raw 
 
 P279：WebGPU粒子の同一draw内で連続する同一source／versionの解決を再利用。destroyed判定とGPU handle batchingは維持する。大規模4対象は各6対で改善したが、小規模・AllDynamic・対照・非対標準値と検証限界も [検収記録](ACCEPTANCE.md) に保持。正式dev/distの画素、33テストとlifecycleを確認し、永続cache／backing／API／版は追加しない。
 
+P280：修正 WebGPU resident particle 的 logical-only RenderTexture resize 漏更新；沿用 packed Float32 geometry 判斷，沒有新增 backing。新回歸在舊 body 精準失敗，三 backend 各19項寬／高獨立變動與縮小檢查、正式 dev/dist 原生像素及 lifecycle 通過。624個固定 A/A→A/B samples 保留大型 full-target submit 約3.1%成本與所有 controls／漂移，這是 correctness 修復，不是加速宣稱。API／版本不變，完整證據見 [ACCEPTANCE](ACCEPTANCE.md)。
+
+P280: Fix stale resident WebGPU particle geometry when only a render target's logical size changes. Existing packed Float32 data supplies the guard, without new backing. The regression fails the old body and passes 19 assertions per backend. All 624 paired samples retain the full-target CPU cost and controls: this is a correctness repair, not a speedup. API/version unchanged; see [ACCEPTANCE](ACCEPTANCE.md).
+
+P280：物理サイズ不変のRenderTexture resizeでWebGPU粒子の常駐geometryが古いままになる問題を修正。既存Float32値を比較しbackingは追加しない。旧bodyで失敗する回帰と三backend各19検証を確認。624対サンプルのCPU増加・対照も [検収記録](ACCEPTANCE.md) に保持し、加速とは主張しない。API／版は不変。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

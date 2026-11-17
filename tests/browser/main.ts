@@ -760,6 +760,103 @@ try {
       mutableSource.destroy();
       sourceCanvas.width = sourceCanvas.height = 0;
     }
+    begin('particle-logical-target-resize-retains-resident-geometry');
+    const logicalRuntime = await Game.create({
+      canvas: document.createElement('canvas'),
+      renderer,
+      width: 256,
+      height: 192,
+      pixelRatio: 1,
+      autoResize: false,
+      // Keep the consumer's geometry resident while the source is repainted.
+      resourceBudgets: { nativeGeometryBytes: 1024 * 1024 },
+    });
+    const logicalProducer = new Scene();
+    const logicalConsumer = new Scene();
+    const logicalSource = logicalRuntime.graphics.createRenderTexture({
+      width: 16.1,
+      height: 8.1,
+    });
+    const logicalOutput = logicalRuntime.graphics.createRenderTexture({
+      width: 256,
+      height: 192,
+    });
+    try {
+      const producer = logicalProducer.add(
+        new ParticleLayer2D({
+          capacity: 1,
+          view: white,
+          dynamicAttributes: 0,
+        }),
+      );
+      producer.addParticle({
+        anchor: [0, 0],
+        tint: [1, 0, 0, 1],
+        transform: { a: 40, b: 0, c: 0, d: 40, tx: 0, ty: 0 },
+      });
+      const consumer = logicalConsumer.add(
+        new ParticleLayer2D({ capacity: 1, dynamicAttributes: 0 }),
+      );
+      consumer.addParticle({
+        texture: logicalSource,
+        anchor: [0, 0],
+        transform: { a: 10, b: 0, c: 0, d: 10, tx: 20, ty: 20 },
+      });
+      const logicalPixels = async (
+        right: boolean,
+        bottom: boolean,
+        step: string,
+      ): Promise<void> => {
+        await logicalRuntime.graphics.renderToTexture(
+          logicalSource,
+          logicalProducer,
+        );
+        await logicalRuntime.graphics.renderToTexture(
+          logicalOutput,
+          logicalConsumer,
+        );
+        const bytes =
+          await logicalRuntime.graphics.extractPixels(logicalOutput);
+        const sample = (
+          x: number,
+          y: number,
+          visible: boolean,
+          label: string,
+        ): void => {
+          const offset = (y * 256 + x) * 4;
+          check(
+            bytes[offset] === (visible ? 255 : 0) &&
+              bytes[offset + 1] === 0 &&
+              bytes[offset + 2] === 0 &&
+              bytes[offset + 3] === (visible ? 255 : 0),
+            `${step}: ${label} reflects the current logical coverage`,
+          );
+        };
+        sample(24, 24, true, 'interior');
+        sample(183, 24, right, 'width edge');
+        sample(24, 104, bottom, 'height edge');
+        sample(183, 104, right && bottom, 'corner');
+      };
+      await logicalPixels(false, false, 'initial');
+      for (const [width, height, right, bottom, step] of [
+        [16.6, 8.1, true, false, 'width-only resize'],
+        [16.6, 8.6, true, true, 'height-only resize'],
+        [16.1, 8.1, false, false, 'shrink'],
+      ] as const) {
+        logicalSource.resize({ width, height });
+        check(
+          logicalSource.width === 17 && logicalSource.height === 9,
+          `${step} retains physical dimensions while logical coverage changes`,
+        );
+        await logicalPixels(right, bottom, step);
+      }
+    } finally {
+      logicalProducer.destroy();
+      logicalConsumer.destroy();
+      logicalOutput.destroy();
+      logicalSource.destroy();
+      logicalRuntime.destroy();
+    }
     runtime.resume();
     await frames();
 

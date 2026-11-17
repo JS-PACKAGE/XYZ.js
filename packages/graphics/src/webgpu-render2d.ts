@@ -1296,7 +1296,12 @@ export class WebGPURender2D {
         versions[v + 2] !== slotData.sourceVersion ||
         entry.sourceSizes[size] !== slotData.texture.width ||
         entry.sourceSizes[size + 1] !== slotData.texture.height ||
-        entry.sourceSizes[size + 2] !== sourceResolution;
+        entry.sourceSizes[size + 2] !== sourceResolution ||
+        (slotData.texture.kind === 'render' &&
+          !slotData.view &&
+          !slotData.source &&
+          (data[o + 10] !== Math.fround(slotData.texture.logicalWidth) ||
+            data[o + 11] !== Math.fround(slotData.texture.logicalHeight)));
       const anchor =
         moved ||
         (dynamic & ParticleAttribute2D.Anchor) !== 0 ||
