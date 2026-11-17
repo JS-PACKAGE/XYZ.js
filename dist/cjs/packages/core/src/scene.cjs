@@ -26,17 +26,18 @@ const require_world_streaming = require("./world-streaming.cjs");
 const require_light_selection = require("./light-selection.cjs");
 //#region dist/packages/core/src/scene.js
 var k = 0;
-var A = /* @__PURE__ */ new WeakMap();
+var A = 0;
+var j = /* @__PURE__ */ new WeakMap();
 function overridesAnimation(e) {
 	if (Object.hasOwn(e, `animation`)) return !0;
-	let t = Object.getPrototypeOf(e), n = A.get(t);
+	let t = Object.getPrototypeOf(e), n = j.get(t);
 	if (n === void 0) {
 		n = !1;
 		for (let e = t; e && e !== require_sprite.Sprite.prototype; e = Object.getPrototypeOf(e)) if (Object.hasOwn(e, `animation`)) {
 			n = !0;
 			break;
 		}
-		A.set(t, n);
+		j.set(t, n);
 	}
 	return n;
 }
@@ -151,7 +152,6 @@ var Scene = class {
 	advancingFixed = !1;
 	presenting = !1;
 	presentationId = 0;
-	presentationCount = 0;
 	constructor(e = {}) {
 		if (this.fixedDelta = e.fixedDelta ?? require_simulation.simulationDefaults.fixedDelta, this.maxFixedSteps = e.maxFixedSteps ?? require_simulation.simulationDefaults.maxFixedSteps, !Number.isFinite(this.fixedDelta) || this.fixedDelta <= 0 || !Number.isInteger(this.maxFixedSteps) || this.maxFixedSteps < 1) throw RangeError(`Scene fixed timing requires a positive delta and step limit.`);
 		if (this.interpolatePhysics = e.interpolatePhysics ?? !1, this.navigationWorkBudget = e.navigationWorkBudget ?? require_navigation.navigationLimits.sceneWork, !Number.isInteger(this.navigationWorkBudget) || this.navigationWorkBudget < 1 || this.navigationWorkBudget > require_navigation.navigationLimits.scheduledWork) throw RangeError(`navigationWorkBudget must be an integer in [1, ${require_navigation.navigationLimits.scheduledWork}].`);
@@ -163,7 +163,7 @@ var Scene = class {
 		return this.presenting && this.interpolatePhysics;
 	}
 	beginPresentation() {
-		this.presenting = !0, this.presentationId = ++this.presentationCount;
+		this.presenting = !0, this.presentationId = ++A;
 	}
 	endPresentation() {
 		this.presenting = !1, this.presentationId = 0;
@@ -172,7 +172,7 @@ var Scene = class {
 		return this.presentationId;
 	}
 	beginMatrixPass() {
-		return this.presentationId === 0 && (this.presentationId = ++this.presentationCount, !0);
+		return this.presentationId === 0 && (this.presentationId = ++A, !0);
 	}
 	endMatrixPass() {
 		this.presentationId = 0;

@@ -55,6 +55,8 @@ export interface SceneOptions {
 
 /** Update stamps are global, so a stamp left by another Scene can never be mistaken for ours. */
 let lastObjectUpdate = 0;
+/** Matrix caches survive scene transfers, so their presentation stamps must be global too. */
+let lastPresentation = 0;
 /** Per prototype: whether something between it and `Sprite.prototype` redefines `animation`. */
 const animationOverrides = new WeakMap<object, boolean>();
 /** True when reading `sprite.animation` may run code other than Sprite's own getter. */
@@ -274,7 +276,6 @@ export class Scene {
   private advancingFixed = false;
   private presenting = false;
   private presentationId = 0;
-  private presentationCount = 0;
   constructor(options: SceneOptions = {}) {
     this.fixedDelta = options.fixedDelta ?? simulationDefaults.fixedDelta;
     this.maxFixedSteps =
@@ -310,7 +311,7 @@ export class Scene {
   /** @internal Rendering is bracketed even when a renderer throws. */
   beginPresentation(): void {
     this.presenting = true;
-    this.presentationId = ++this.presentationCount;
+    this.presentationId = ++lastPresentation;
   }
   /** @internal */
   endPresentation(): void {
@@ -331,7 +332,7 @@ export class Scene {
    */
   beginMatrixPass(): boolean {
     if (this.presentationId !== 0) return false;
-    this.presentationId = ++this.presentationCount;
+    this.presentationId = ++lastPresentation;
     return true;
   }
   /** @internal Closes the pass a true `beginMatrixPass` opened. */

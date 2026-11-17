@@ -129,6 +129,46 @@ describe('frame-force impulse and unified fixed gameplay', () => {
     scene.destroy();
   });
 
+  for (const scope of ['presentation', 'matrix'] as const) {
+    it.each([
+      ['2D', GameObject, 6],
+      ['3D', Object3D, 12],
+    ] as const)(
+      `refreshes %s matrices after scene transfer between ${scope} passes`,
+      (_kind, ObjectType, offset) => {
+        const first = new Scene(),
+          second = new Scene();
+        const object = first.add(new ObjectType());
+        const begin = (scene: Scene) =>
+          scope === 'presentation'
+            ? scene.beginPresentation()
+            : scene.beginMatrixPass();
+        const end = (scene: Scene) =>
+          scope === 'presentation'
+            ? scene.endPresentation()
+            : scene.endMatrixPass();
+        try {
+          object.position.x = 3;
+          begin(first);
+          expect(object.updateWorldMatrix().elements[offset]).toBe(3);
+          end(first);
+          first.remove(object);
+          object.position.x = 7;
+          second.add(object);
+          begin(second);
+          expect(object.updateWorldMatrix().elements[offset]).toBe(7);
+          expect(object.updateWorldMatrix().elements[offset]).toBe(7);
+          end(second);
+        } finally {
+          end(first);
+          end(second);
+          first.destroy();
+          second.destroy();
+        }
+      },
+    );
+  }
+
   it('reuses 3D world matrices only within one presentation and never doubles override adjustments', () => {
     class Shaken extends Object3D {
       override updateWorldMatrix() {

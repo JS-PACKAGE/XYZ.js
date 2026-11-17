@@ -103,7 +103,6 @@ export declare class Scene {
     private advancingFixed;
     private presenting;
     private presentationId;
-    private presentationCount;
     constructor(options?: SceneOptions);
     get fixedInterpolationAlpha(): number;
     /** @internal Presentation-only flag, never enabled during physics or input queries. */

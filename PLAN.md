@@ -6227,3 +6227,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 第一案 target world／churn 六輪皆較慢；第二案大型 local／world 約 +31.87%／+31.17%，churn +36.79%，均六輪較慢。保留未修改 Sprite／empty controls、所有離群值及兩案各 192 timings，兩案皆不採用。
 - 每案在原生瀏覽器資源上通過八種 local／world、Sprite／target、burst／rate／expiry 模式的 2,048 組 Object.is 數值／矩陣／version 對照、632 次 lifecycle／source／generation 變動、48 次 invalid-delta 驗證，borrowed texture cleanup 通過。
 - 此階段只提交證據：source／dist／公開 API／使用者檔案維持基線，未重跑 formal tests／strict／lint／build、正式 ESM／CJS CPU 或三 backend／showcase pixels；不冒稱完整 frame、RAF、CPU submit、heap／GC 或 fps 收益。完整 profile／矩陣見 `ACCEPTANCE.md` P260，不 push／升版。
+
+## P261：完整 frame profile 與跨 Scene 快取識別碼修正
+
+- 以真實 ImageBitmap／Texture、四組各 4 × 8,192 粒子的 local／world Sprite／target fixture，量目前 source root 的實際 Game RAF、simulation 與 WebGL2 submit；每組 warm 90、profile 180 frames，非逐粒子替代流程。
+- 確認 Scene membership 已使用時間戳、sort 已有 uniform-key fast path；追查 presentation reuse 時，實際重現 Scene-local ID 撞號：Sprite 從離屏移至另一 Scene 的可見位置，首幀沿用舊 bounds 而消失、下一幀才出現。
+- 將 presentation／matrix pass 都改用同一個 module-global nonce，移除每 Scene 私有 counter；不增加 per-object cache／Map、不改 override 邊界或公開功能。
+- 新增 2D／3D × presentation／matrix 四個跨 Scene regression cases；四份相關測試共 51 tests、strict 與 scoped lint 通過。
+- 隔離 build 僅提升五個 Scene 產物，11 個使用者修改檔 SHA256 保持不變；正式 minified ESM／CJS 共 16 個往返／跨 pass consumer cases 通過。
+- source 與正式 dist 各在 Canvas2D／WebGL2／WebGPU 通過真實 Game 首幀／次幀像素一致及 borrowed-texture cleanup，既有 showcase auto／三 forced backends 4/4 non-blank 通過。保留既有 OPM Vite warning；不將單幀 stats 或 profiler 樣本冒充平均 CPU／GPU／fps 收益，詳細證據見 `ACCEPTANCE.md` P261。

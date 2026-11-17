@@ -7522,3 +7522,11 @@ source-slot 對照及真實 consumer 探針保留深層 freeze、十二個已擁
 兩案皆拒絕。第一案 world target／churn 六輪較慢；第二案大型 local／world target 為 +31.87%／+31.17%、churn +36.79%，均六輪較慢。所有 samples、outliers 與未修改 Sprite／empty controls 保留；不跨不同 scope 比 profile／clock 宣稱收益，也不臆測 JIT／GC 根因。
 
 每案通過八種原生資源 lifecycle 模式的 2,048 組 Object.is state／matrix／version 對照、632 次變動與 48 次 invalid-delta 檢查，borrowed-resource cleanup 通過。source／dist 不變；未重跑 formal tests／build、正式 ESM／CJS CPU、backend／showcase 畫面或完整 frame／RAF／CPU-submit／heap／fps 認證。全部 profile／配對／邊界見 [ACCEPTANCE](../ACCEPTANCE.md) P260，不 push／升版。
+
+## P261：跨 Scene 唯一的 presentation-cache 識別碼
+
+以可見的實際 Game RAF、原生 ImageBitmap／Texture 及四組各 4 × 8,192 粒子的 fixture profile，每組 warm 90、profile 180 frames。Scene membership 已用 update stamp，排序也已有 uniform-key guard；矩陣／bounds 與 collection 仍是重要取樣成本。含儀器負擔的 profile 與最後一幀 frame-work snapshot 不是 paired performance 或 fps 量測。
+
+真實跨 Scene consumer 揭露一個快取正確性前提：物件的矩陣 stamp 隨物件保留，但 Scene 各自的 pass counter 可能給出相同身份。離屏 Sprite 移至新 Scene 的可見位置後，首幀被舊 bounds 錯誤 cull，次幀才正確。presentation 與 explicit matrix pass 現在共用 module-global nonce，刪除過時 per-Scene counter；不增 per-object state／Map、override cache 或公開功能。
+
+新增四個 2D／3D transfer regressions，51 targeted tests、strict／scoped lint、只提升五個產物的 guarded build、正式 minified ESM／CJS 共 16 個 consumer cases 通過。source／正式 dist 在 Canvas2D／WebGL2／WebGPU 的首幀／次幀像素一致與 borrowed-resource cleanup 通過；既有 showcase auto／三 forced backends 4/4 通過。11 個使用者修改檔保持原 bytes。既有 OPM dynamic-import warning 保留；不宣稱 full suite、audio unlock、實機／Safari 或 CPU／GPU／fps 收益。證據見 [ACCEPTANCE](../ACCEPTANCE.md) P261，不 push／升版。

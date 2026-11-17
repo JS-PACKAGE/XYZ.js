@@ -33863,3 +33863,233 @@ Observed state includes active/emitting counts, all Sprite positions/scales/tint
 Owning Group destruction releases emitters/target children but does not destroy borrowed textures; resources are explicitly destroyed after all fixtures. Visible browser documents have no page errors. The existing Vite OPM dynamic-import analysis warning is retained and does not constitute an audio test.
 
 No implementation is adopted, so formal particle tests, strict/scoped checks, build, canonical/production emitter or CJS CPU, actual three-backend/showcase pixels, full-frame/RAF/CPU-submit, allocation/heap/GC-pause, Safari or physical-device certification are not rerun. Reading the existing tests/examples/runners is not recorded as their execution. Documentation finishing checks cover six-file Prettier, relative file links (not anchors), exact original ACCEPTANCE-prefix bytes, cleanup of owned temporary resources and empty-index/exact six-document commit allowlisting. No push or version change.
+
+## P261：完整 Game profile 與跨 Scene presentation cache 身份修正（2026-11-17）
+
+### 範圍、證據與採用結果
+
+- 沿用小語持續優化／依功能自動提交的授權；本輪先 profile 實際 Game frame，再修正擴大 presentation reuse 前發現的身份碰撞。採用的功能只有跨 Scene 唯一的 pass nonce，不將未實作的 ParticleSprite／renderer 改動算成成果。
+- Scene membership 已由 global update stamp 凍結，preupdate／animation／action empty-pass gates 與 command uniform-key sorting 已存在；不重做已有快路徑。實際 local ParticleSprite override 呼叫 super，但不滿足 base-only cache identity guard；world override 也未使用該 cache，僅作後續熱點線索。
+- 查證矩陣快取會隨 GameObject／Object3D 跨 Scene 保留，原 Scene 卻各自從相同 counter 配發 pass ID。真實 Game／Sprite／原生 bitmap 的 WebGL2 repro：Sprite 先在 x=-32 離屏 render 一幀，移至新 Scene 的 x=64 後首幀仍取舊 matrix/bounds，被錯誤 cull；次幀才回到 x=64。這不是合成 getter 計數或 source-text 測試。
+- 將 beginPresentation／beginMatrixPass 都改成使用同一個 module-global lastPresentation，移除每 Scene 的 private presentationCount。非 pass 仍為零、已開 pass 的 beginMatrixPass guard 不變；不新增 per-object 欄位、Map、第二套 cache、protected API 或 override cache，不改數值運算式與公開選項。
+- 這是既有效能快取的 correctness prerequisite，不宣稱本 commit 有 paired CPU、GPU 或 fps 改善；ParticleSprite 及 renderer 本輪保持原實作。沒有新增依賴、push 或 package version 變更。
+
+### 實際 Game RAF profile 方法與原始摘要
+
+- pinned Chromium 153.0.8010.12，darwin/arm64，desktop automation；每組均為 visible page、actual /src/index.ts、強制 WebGL2 且驗證 WebGL2RenderingContext、native ImageBitmap(4×4 RGBA255) 與實際 Texture。不是 Node 假 bitmap，也不是直接反覆呼叫單粒子函式。
+- Game.create 1280×720、pixelRatio=1、autoResize=false、frameWorkBudgetMs=1000/60；以 Scene.update 的 counter 觀察已完成的同步 RAF callback，實際 Game 執行 input／scene／ECS／simulation／presentation／beginFrame-render-endFrame。各組四個 emitter × capacity8192，初始 emit8192、rate0、life1e6、speed[1,3]、angle[-π,π]、acceleration[.25,-.5]、size[8,4]→[16,12]、color[1,.2,.3,1]→[.1,.8,.9,0]、seed17+i；位置[160+320i,360]、rotation.3、scale[1.3,.7]。Sprite／targetLayer 與 local／world 四組逐一執行，無 paired CPU jobs 重疊。
+- 每組先 90 warm frames，再 CDP Profiler.requested interval100µs，觀察180個完整 Game callbacks 後 pause。dt 是實際 Game clock，不是固定 simulation dt；四組 activeCount 均維持4×8192。下表 frameWork 數字只取停止前最後一幀，保留原 floating-point 值，不是平均、percentile 或可歸因 speedup；不以RAF wall time除frame數當CPU時間。
+
+| Mode         | Warm frames | Profiled real Game frames | Final simulation ms | Final navigation ms | Final after-update ms | Final render-submit ms |
+| ------------ | ----------- | ------------------------- | ------------------- | ------------------- | --------------------- | ---------------------- |
+| sprite-local | 90          | 180                       | 0.29999999701976776 | 0                   | 0.30000000447034836   | 4.699999995529652      |
+| sprite-world | 90          | 180                       | 0.19999999552965164 | 0                   | 1.2000000029802322    | 5.5                    |
+| layer-local  | 90          | 180                       | 0                   | 0                   | 0.8999999985098839    | 1.8999999985098839     |
+| layer-world  | 90          | 180                       | 0                   | 0                   | 1.1000000014901161    | 1.7000000029802322     |
+
+#### sprite-local: top 30 sampled self labels
+
+| Function / Vite script label                     | Sampled self µs |
+| ------------------------------------------------ | --------------- |
+| (idle) :0                                        | 1957821         |
+| updateWorldMatrix game-object.ts:341             | 186024          |
+| (program) :0                                     | 132348          |
+| collectBoundary2D render2d-contract.ts:267       | 127955          |
+| collectRenderCommands2D render2d-contract.ts:210 | 88119           |
+| advanceSprites index.ts:272                      | 75209           |
+| spriteMatrix webgl2-render2d.ts:380              | 69456           |
+| getWorldBounds game-object.ts:375                | 57825           |
+| onFrame game.ts:784                              | 53570           |
+| validateCommands webgl2-render2d.ts:183          | 46141           |
+| drawSprites webgl2-render2d.ts:392               | 41339           |
+| packQuad webgl2-render2d.ts:364                  | 40800           |
+| getSpriteQuad2D sprite-instance.ts:88            | 39929           |
+| draw webgl2-render2d.ts:232                      | 35990           |
+| getTextureQuad2D sprite-instance.ts:40           | 28822           |
+| getRelativeAppearance2D sprite-instance.ts:108   | 27016           |
+| advanceObjects scene.ts:677                      | 23742           |
+| validateSpriteQuad2D sprite-instance.ts:83       | 22647           |
+| bufferSubData :0                                 | 12063           |
+| get parent game-object.ts:241                    | 6095            |
+| sort render2d-contract.ts:94                     | 5674            |
+| reset render2d-contract.ts:39                    | 3809            |
+| get existingTint game-object.ts:220              | 1684            |
+| releaseBoundaryMembers render2d-contract.ts:185  | 1531            |
+| (garbage collector) :0                           | 1368            |
+| bindFramebuffer :0                               | 920             |
+| renderFrame webgl2-renderer.ts:1113              | 912             |
+| bindTexture :0                                   | 619             |
+| render webgl2-renderer.ts:1073                   | 614             |
+| flush :0                                         | 463             |
+
+#### sprite-world: top 30 sampled self labels
+
+| Function / Vite script label                     | Sampled self µs |
+| ------------------------------------------------ | --------------- |
+| (idle) :0                                        | 1663005         |
+| advanceSprites index.ts:272                      | 231738          |
+| collectBoundary2D render2d-contract.ts:267       | 186373          |
+| partitionBoundaries2D render2d-contract.ts:229   | 185720          |
+| updateWorldMatrix index.ts:52                    | 122585          |
+| validateCommands webgl2-render2d.ts:183          | 103035          |
+| validateTextureQuad2D sprite-instance.ts:27      | 84276           |
+| spriteMatrix webgl2-render2d.ts:380              | 65936           |
+| bindTarget webgl2-render2d.ts:257                | 61265           |
+| (program) :0                                     | 59488           |
+| getSpriteQuad2D sprite-instance.ts:88            | 48388           |
+| drawSprites webgl2-render2d.ts:392               | 47881           |
+| getLocalBounds sprite.ts:142                     | 40907           |
+| collectRenderCommands2D render2d-contract.ts:210 | 29453           |
+| advanceObjects scene.ts:677                      | 26585           |
+| update index.ts:452                              | 25966           |
+| bufferSubData :0                                 | 11703           |
+| onFrame game.ts:784                              | 9814            |
+| sort render2d-contract.ts:94                     | 9196            |
+| getWorldBounds game-object.ts:375                | 3973            |
+| requestAnimationFrame :0                         | 1085            |
+| renderFrame webgl2-renderer.ts:1113              | 1067            |
+| render webgl2-renderer.ts:1073                   | 915             |
+| bindFramebuffer :0                               | 622             |
+| endFrame index.ts:488                            | 621             |
+| bindTexture :0                                   | 614             |
+| clear :0                                         | 467             |
+| flush :0                                         | 464             |
+| getGamepads :0                                   | 464             |
+| get presentationViewportHeight scene.ts:66       | 461             |
+
+#### layer-local: top 30 sampled self labels
+
+| Function / Vite script label                   | Sampled self µs |
+| ---------------------------------------------- | --------------- |
+| (idle) :0                                      | 2462202         |
+| drawParticles webgl2-render2d.ts:596           | 120242          |
+| advance index.ts:415                           | 99322           |
+| collectBounds particle-layer2d.ts:383          | 91982           |
+| (program) :0                                   | 45881           |
+| writeTargetAppearance index.ts:461             | 41498           |
+| validateParticleSource particle-layer2d.ts:172 | 36692           |
+| validateTextureQuad2D sprite-instance.ts:27    | 29850           |
+| validateCommands webgl2-render2d.ts:183        | 22845           |
+| validateTransform particle-layer2d.ts:161      | 19402           |
+| updateWorldMatrix game-object.ts:341           | 11448           |
+| bufferSubData :0                               | 11319           |
+| updateSimulation index.ts:234                  | 9686            |
+| (garbage collector) :0                         | 1741            |
+| update index.ts:476                            | 471             |
+| onFrame game.ts:784                            | 466             |
+| collectBoundary2D render2d-contract.ts:267     | 458             |
+| renderFrame webgl2-renderer.ts:1113            | 456             |
+| advanceAfterUpdate scene.ts:689                | 339             |
+| getGamepads :0                                 | 313             |
+| uniform2f :0                                   | 309             |
+| requestAnimationFrame :0                       | 309             |
+| bindBuffer :0                                  | 304             |
+| bindVertexArray :0                             | 304             |
+| render webgl2-renderer.ts:1073                 | 304             |
+| (anonymous) :0                                 | 167             |
+| resize camera2d.ts:58                          | 159             |
+| (anonymous) :1                                 | 158             |
+| endFrame webgl2-renderer.ts:1276               | 157             |
+| blendFuncSeparate :0                           | 156             |
+
+#### layer-world: top 30 sampled self labels
+
+| Function / Vite script label                   | Sampled self µs |
+| ---------------------------------------------- | --------------- |
+| (idle) :0                                      | 2473829         |
+| drawParticles webgl2-render2d.ts:596           | 130768          |
+| targetAppearance index.ts:455                  | 76179           |
+| writeTargetAppearance index.ts:461             | 51596           |
+| collectBounds particle-layer2d.ts:383          | 43833           |
+| validateParticleSource particle-layer2d.ts:172 | 38079           |
+| validateTextureQuad2D sprite-instance.ts:27    | 27834           |
+| getSlotWorldMatrix particle-layer2d.ts:345     | 27493           |
+| (program) :0                                   | 20511           |
+| validateCommands webgl2-render2d.ts:183        | 20150           |
+| setLiveAppearance particle-layer2d.ts:327      | 18979           |
+| validateTransform particle-layer2d.ts:161      | 18686           |
+| getSlot particle-layer2d.ts:250                | 14970           |
+| bufferSubData :0                               | 11780           |
+| validateTint particle-layer2d.ts:165           | 9565            |
+| updateSimulation index.ts:234                  | 6603            |
+| (garbage collector) :0                         | 928             |
+| requestAnimationFrame :0                       | 633             |
+| clear :0                                       | 608             |
+| update index.ts:476                            | 470             |
+| onFrame game.ts:784                            | 315             |
+| uniform1i :0                                   | 308             |
+| enableVertexAttribArray :0                     | 307             |
+| uniformMatrix3fv :0                            | 306             |
+| disable :0                                     | 305             |
+| endFrame resilient-renderer.ts:235             | 161             |
+| update index.ts:452                            | 158             |
+| get destroyed scene.ts:427                     | 157             |
+| resize camera2d.ts:58                          | 157             |
+| begin frame-work.ts:18                         | 157             |
+
+以上保留 runner 產出的 top-self 摘要；label 的 basename／line 是 Vite-transformed script 位置，不當作原 TS 行號或完整 call-tree。timeDeltas 加權包含 profiler／observer 負擔，(idle)／(program)／GC samples 不刪除；GC self samples 不是 pause／heap 量測。未做不同 mode 的因果效能比較，未推論 JIT／GC 根因。各 Game destroy 後 borrowed Texture 仍存活，顯式 Texture.destroy 後 native bitmap width=0，pageerrors=0；已目視實際 frame screenshot。
+
+### 跨 Scene 首幀 consumer：source 與正式 dist
+
+fixture 使用 actual public Game／Scene／Sprite 與真實白色 bitmap texture，canvas128×64、pixelRatio1、Sprite scale[6,6]。每個 Scene 只讓真實 Game 完成一幀，再由 Scene.update 排入的 microtask pause；移除 Sprite、position(-32,32)→(64,32)、add 到新 Scene 並 await Game.setScene。讀取既有 worldMatrix.elements[6]，不在轉移後呼叫額外 updateWorldMatrix 來掩蓋 cache collision；再跑同一 Scene 的下一幀。
+
+| Root/tag      | Forced backend | Initial matrix x | Transferred first x | Author x | Next-frame x | First/next PNG equal | Game cleanup | Bitmap closed | Page errors |
+| ------------- | -------------- | ---------------- | ------------------- | -------- | ------------ | -------------------- | ------------ | ------------- | ----------- |
+| source-before | webgl2         | -32              | -32                 | 64       | 64           | false                | destroyed    | true          | 0           |
+| source-after  | canvas2d       | -32              | 64                  | 64       | 64           | true                 | destroyed    | true          | 0           |
+| source-after  | webgl2         | -32              | 64                  | 64       | 64           | true                 | destroyed    | true          | 0           |
+| source-after  | webgpu         | -32              | 64                  | 64       | 64           | true                 | destroyed    | true          | 0           |
+| dist-after    | canvas2d       | -32              | 64                  | 64       | 64           | true                 | destroyed    | true          | 0           |
+| dist-after    | webgl2         | -32              | 64                  | 64       | 64           | true                 | destroyed    | true          | 0           |
+| dist-after    | webgpu         | -32              | 64                  | 64       | 64           | true                 | destroyed    | true          | 0           |
+
+- 修正前 source WebGL2 的 initial／transferred PNG SHA256 同為 1be13b9444a149c9319a573e35bfc34ab106d42e3b2bc836bf7e8ffecc6f8e8a，next 為 b05cb956461450b8b01ed93c3f7bf80e04e778caf16f3a584b09d942a0ed38c8；因此首幀仍為離屏舊畫面。
+- 修正後 source／actual dist 三 backend 都為 initial=1be13b9444a149c9319a573e35bfc34ab106d42e3b2bc836bf7e8ffecc6f8e8a、transferred/next=b05cb956461450b8b01ed93c3f7bf80e04e778caf16f3a584b09d942a0ed38c8，已目視轉移首幀的白色 Sprite。相同 backend 的兩幀 PNG bytes 完全一致，且與離屏基線不同；不是將空白畫面當成功。borrowed Texture 在 Game.destroy 後仍 alive，顯式 destroy 關閉真實 bitmap。
+- 強制 backend 成功才通過，未靜默 fallback。這是 pinned Chromium 桌面環境的實際三 backend fixture，不擴大成 Safari／實機／所有圖形功能認證；修正前只在 source WebGL2 跑 repro，沒有冒稱三 backend 的 before 已量測。
+
+### Regression、正式 consumer 與產物
+
+- 新增 tests/fixed-simulation.test.ts 的 2D／3D × presentation／matrix 四個跨 Scene regression cases，檢查轉移後的實際矩陣位置，而非 stamp 數字或程式文字。與既有 override-adjustment／physics presentation、2D collection、lighting、skinning 契約一起跑：
+
+```text
+./node_modules/.bin/vitest run tests/fixed-simulation.test.ts tests/gameplay2d-core.test.ts tests/light-selection.test.ts tests/native-skinning.test.ts
+4 files / 51 tests passed
+./node_modules/.bin/tsc --noEmit -p tsconfig.json
+./node_modules/.bin/eslint packages/core/src/scene.ts tests/fixed-simulation.test.ts
+exit 0
+```
+
+- 正式 root minified ESM／CJS 各跑八個 consumer：2D／3D × first/second pass mode 的四種組合。每案先 x3、轉移後 x7（同 pass 重讀仍7）、離開 pass 後變成11、移回原 Scene 後13；共16 cases／80個矩陣值 assertions 通過。
+
+| Production entry    | Dimension | First pass   | Second pass  | Transfer x | Outside-pass x | Return x |
+| ------------------- | --------- | ------------ | ------------ | ---------- | -------------- | -------- |
+| actual-minified-esm | 2d        | presentation | presentation | 7          | 11             | 13       |
+| actual-minified-esm | 2d        | presentation | matrix       | 7          | 11             | 13       |
+| actual-minified-esm | 2d        | matrix       | presentation | 7          | 11             | 13       |
+| actual-minified-esm | 2d        | matrix       | matrix       | 7          | 11             | 13       |
+| actual-minified-esm | 3d        | presentation | presentation | 7          | 11             | 13       |
+| actual-minified-esm | 3d        | presentation | matrix       | 7          | 11             | 13       |
+| actual-minified-esm | 3d        | matrix       | presentation | 7          | 11             | 13       |
+| actual-minified-esm | 3d        | matrix       | matrix       | 7          | 11             | 13       |
+| actual-cjs          | 2d        | presentation | presentation | 7          | 11             | 13       |
+| actual-cjs          | 2d        | presentation | matrix       | 7          | 11             | 13       |
+| actual-cjs          | 2d        | matrix       | presentation | 7          | 11             | 13       |
+| actual-cjs          | 2d        | matrix       | matrix       | 7          | 11             | 13       |
+| actual-cjs          | 3d        | presentation | presentation | 7          | 11             | 13       |
+| actual-cjs          | 3d        | presentation | matrix       | 7          | 11             | 13       |
+| actual-cjs          | 3d        | matrix       | presentation | 7          | 11             | 13       |
+| actual-cjs          | 3d        | matrix       | matrix       | 7          | 11             | 13       |
+
+- build 在 HEAD 匯出的隔離 tree 只覆蓋本輪 scene.ts，執行 tsc、minify-dist、copy-vendor、build-cjs；所有輸出相對 HEAD 的 byte guard 僅允許以下五檔，通過後才提升。未用全 repo build 覆蓋小語檔案，11 個既存 physics2d/narrowphase／data/world2d source／dist 修改的前後 SHA256 一致。Scene.d.ts 僅移除 obsolete private counter，公開 signature 不變。
+
+| Promoted artifact                        |
+| ---------------------------------------- |
+| dist/cjs/packages/core/src/scene.cjs     |
+| dist/cjs/packages/core/src/scene.cjs.map |
+| dist/packages/core/src/scene.d.ts        |
+| dist/packages/core/src/scene.js          |
+| dist/packages/core/src/scene.js.map      |
+
+- 既有 smoke-examples --browser chromium --port5271 --example showcase：auto／webgpu／webgl2／canvas2d 4/4 non-blank PASS，errors 空；是既有 dist-alias 的整合 showcase，不用本輪獨立 fixture 假冒正式架構。
+- 正式 dist import 與 showcase 仍有既有 OPM dynamic-import Vite warning，保留並記錄，未 suppressed／改 vendor。未操作 audio unlock 或聽測、未跑 full suite／完整 browser regression、GPU timestamp／呈現 fps、heap／allocation／GC、實機或 Safari；profiler與最後一幀stats不當成性能收益。
+- README三語／PLAN／DESIGN／英中技術文件與本紀錄同步；Markdown formatting／relative-file links 驗證後依功能提交，不 push／升版。之前所有驗收 bytes 保留。

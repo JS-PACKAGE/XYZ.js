@@ -150,6 +150,8 @@ P259 不採用 heap 無位移寫入 guard：兩個變體的完整 mesh／tiled c
 
 P260 以真實 ImageBitmap／Texture profile 2D 粒子，不採用 slot／座標重用與 target 專用迴圈兩案：後者的大型 local／world 更新約慢 31%。P260 rejects both target-particle prototypes after native-browser profiling and exact lifecycle comparison; the specialized loop regresses large layers by about 31%. P260 は実 ImageBitmap による計測で二案とも不採用。専用ループは大規模 layer で約31%悪化。每案 2,048 組精確對照及全部 CPU 配對見 [ACCEPTANCE](./ACCEPTANCE.md) P260；正式 source／dist 不變，不 push／升版。
 
+P261 在完整 Game RAF profile 中發現並修正跨 Scene 的 presentation cache 撞號：移動 Sprite 後首幀不再沿用舊矩陣而消失。P261 fixes cross-Scene presentation-stamp collisions found during full Game-frame profiling; transferred objects render at their current pose immediately. P261 は Scene 間で重複していた presentation ID を共通化し、移動直後の旧行列再利用を修正。51 tests、正式 ESM／CJS consumer、source／dist 三 backend 首幀像素及 showcase 4/4 通過；這是效能快取的正確性修正，不宣稱 fps 提升。證據見 [ACCEPTANCE](./ACCEPTANCE.md) P261，不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

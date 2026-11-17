@@ -6368,3 +6368,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 第二案只在本 tick 局部保存不可變起訖尺寸／顏色差與現有 buffer 參照，完整保留 source-key 尺寸 memo、live-slot／generation、retire swap-remove、驗證順序及原浮點運算式；generic advance／appearance 仍處理 newborn。這不是 P151 的 instance span cache。
 - 與既有 Sprite 專用 loop 同形不代表 target 一定更快：大型 target 配對約慢 31%，churn 約慢 37%，故不增加重複實作。未修改 Sprite controls 的方向變化也不當成 target 因果收益，未臆測 JIT／GC 根因。
 - 真實 ImageBitmap／Texture、精確 signed-zero／矩陣／slot version、外部 source／generation 變更與 owning-group／borrowed-resource cleanup 對照通過；未採用任何 runtime、資料欄位、配置策略或新能力。全部證據與限制見 `ACCEPTANCE.md` P260。
+
+## P261：presentation cache 的識別碼必須跨 Scene 唯一
+
+- GameObject／Object3D 的矩陣 stamp 會隨物件跨 Scene 保留；Scene-local counter 讓兩個 Scene 的第一個 pass 相同，因此不能作為保留快取的身份。原生 Game consumer 已重現離屏舊 bounds 使新 Scene 首幀被錯誤 cull。
+- 重用既有 nonzero-pass 契約，將 `beginPresentation`／`beginMatrixPass` 的 ID 配發集中到 module-global nonce；`beginMatrixPass` 已開 pass 時仍不另開，結束仍回到零。移除每 Scene counter，不增新欄位、另一套快取或公開 API。
+- 只修識別碼作用域：base-only matrix reuse、override 不重複套用調整、physics presentation、lighting 與 skinning 的既有邊界不變；非 pass 讀取仍即時反映變動。
+- 2D／3D regression、正式 ESM／CJS 跨 pass 往返、source／dist 三 backend 首幀像素及 showcase smoke 通過。完整 Game profile 保留為熱點證據而非 paired speedup；ParticleSprite／renderer 實作本輪未改，沒有新增效能或瀏覽器認證宣稱。見 `ACCEPTANCE.md` P261。
