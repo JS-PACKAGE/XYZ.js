@@ -6339,3 +6339,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 候選將引擎擁有的 normalized end tuples 原地轉為 spans，不增加正式陣列／欄位、不改插值加乘除順序或每tick source-size refresh。隔離同class fixture另保留兩個span tuples供before/after切換，這項與正式候選的差異明確記錄。
 - 288組真正core物件確定性案例、265,800個finite Object.is數字與caller-input ownership／signed-zero／出生／退休／重發射通過；三backend另66個動態Game cases一致。
 - 固定八cohort A/A＋A/B共384 samples全保留。world-layer有條件性收益，local/small target與Sprite-world controls有代價，不採用；沒有正式source／dist或本輪unit/typecheck/build認證。完整證據見ACCEPTANCE，不 push／升版。
+
+## P275 — 不採用 rounded-product particle bounds extrema
+
+- 先在正式 dev graph 的 static local／world、changing local Layer 與 Sprite control 擷取四份 CDP CPU profiles；self weights 只用來選研究位置，不作逐幀 CPU／GPU／FPS 結論。
+- 候選只改 private collectBounds：從既有八個 rounded products 選 min/max，再維持原 corner addition 次序，不新增欄位、陣列、跨 query cache 或公開 API。
+- 2,048,576組純代數 cases、288組實際 core cases與240組實際邊界 cases一致，後者保留signed zero、RangeError、callback順序及錯誤時的輸出。另66個三backend Game cases維持數值、nonblank PNG與cleanup。
+- 固定八cohort，先完成全部A/A再做A/B，共384 samples全留。local submit六輪改善，但world大負載的sum五輪較慢且controls漂移，不支持全面採用；不改source／dist，不宣稱本輪unit/typecheck/build、production/CJS或FPS認證。完整腳本、raw及限制見ACCEPTANCE，不push／升版。

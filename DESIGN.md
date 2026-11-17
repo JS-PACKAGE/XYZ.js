@@ -6464,3 +6464,9 @@ GPU isolated `objectMatrix` 在讀 root world matrix 前先 identity，之後 co
 constructor 的 pair/color helpers複製caller arrays，且endpoints沒有公開setter，因此在owned end tuples原地儲存差值可維持資料ownership。候選不建立constant-endpoint特例，不改signed-zero相關加乘順序或source尺寸生命週期，Sprite active batch、newborn appearance與target appearance三條路徑一起切換，不留語義不一致的caller。
 
 數值與原生畫面都一致，但fixed controls不支持採用。實驗的一個canonical emitter class同時保留endpoints及cloned span tuples，正式候選則重用原tuples；額外fixture欄位／tuple shape與mutable targets限制source-slot CPU外推。沒有將僅有部分負載改善寫入runtime，也沒有宣稱JIT／GC根因。完整raw、ties與不利分項見ACCEPTANCE。
+
+## P275 — rounded products 的 extrema 不等於穩定的整體收益
+
+Layer bounds原本已先計算八個浮點乘積，再逐四角做加法、finite check及聯集。候選對同一批乘積取min/max，選出的角仍按原次序相加；不換成center/abs公式、不重排乘法與加法。純代數同時驗證signed zero與非有限分類，實際core另檢查矩陣callback、奇異inverse及RangeError時不改寫輸出。
+
+隔離fixture保留單一canonical Layer／Slot class與原constructor layout，只在module init擷取兩個private method bodies後刪掉實驗method，固定一個query-level trampoline供before/after切換；沒有額外instance欄位或per-slot selector。mutable target／未minify的source-slot仍限制production外推。local submit的六輪收益不足以消除world aggregate與controls的不確定性，因此不採用；不把採樣權重、較少source operations或數學等價當成全面效能證據，見ACCEPTANCE。

@@ -186,6 +186,8 @@ P273：不採用 isolated GPU mapping 的 redundant-identity elision。雖然原
 
 P274：不採用 particle endpoint span 預計算。288組確定性案例、265,800個finite數值與66個三backend Game cases通過，但固定 target-layer／Sprite controls 的 A/A＋A/B 共384 samples未支持穩定整體收益。P274 rejects constructor-time span storage after retaining target and control costs. P274 は端点差分の事前計算案を不採用。正式 source／dist／版本不變；完整原型、ownership／signed-zero檢查及限制見 [ACCEPTANCE](ACCEPTANCE.md)。
 
+P275：不採用 particle-layer bounds 的 rounded-product extrema。正式 static／changing profiles 引導此候選；204萬組代數、528組實際 core／邊界案例及66個三backend動態Game cases通過，但八cohort完整A/A＋A/B仍只有條件性收益。P275 retains all controls and rejects the bounds rewrite rather than extrapolating local submit gains. P275 は局所的な改善だけでは bounds 書き換えを採用しない。正式source／dist／版本不變；完整採樣、signed-zero／非有限值與不利結果見 [ACCEPTANCE](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

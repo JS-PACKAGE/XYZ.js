@@ -78150,3 +78150,15535 @@ cmp /tmp/xyz-p274/shared-particles.mjs /tmp/xyz-p274/reconstruction-proof/shared
 ### 提交前文件檢查補記
 
 六份文件 Prettier --check 實際通過；412個相對檔案連結目標存在，未檢查anchors。新附錄與補記各以repo formatter設定格式化後append，保留 10295258-byte歷史前綴。本階段只提交六份文件，不含未採用候選或其他使用者修改。
+
+## P275 — particle-layer rounded-product extrema：不採用
+
+記錄時間：2026-11-17T18:03:17.814Z。本輪完整結論是文件，不改正式source／dist／API／1.23.0版本，不push。保留P272正式實作與所有既有使用者改動；沒有把局部收益當成全面加速。
+
+### 範圍與判斷
+
+先量正式dev graph，才選private ParticleLayer2D.collectBounds。四個WebGL2 profiles皆32768粒子、1280×720、pixelRatio 1，涵蓋Layer local static／world static／local changing與Sprite local control。每份90+warm、180個實際profile frames；CDP要求100µs sampling interval。self weights是採樣歸屬的微秒權重，不是獨立逐幀CPU分佈、實體指令／store、GPU時間或FPS；包含idle/program與profiler/harness成本。保留的frameWork只是最後一個完整frame，不作分佈或before/after比較。CDP URL位置是Vite服務後的source位置，不是原TS行號。Sprite control出現Layer.getWorldBounds歸屬不據此推論leak或單一JIT原因。
+
+候選保留原八個rounded products，改以各組min/max選角，再用與原corner相同的兩次加法順序做extrema。沒有center/abs重排、欄位、陣列、跨query cache、公開API或放寬finite驗證。單一canonical Layer/Slot class在module init擷取原／候選private bodies，刪除實驗method，再安裝一個固定query-level trampoline。兩邊constructor與instance layout相同，沒有per-slot variant分支／prototype寫入；變動的call target與未minify source-slot仍限制對正式minified／CJS CPU的外推。
+
+完整A/A在A/B開始之前完成；八cohort各六輪ABBA/BAAB，每sample 8 warm＋48目標measurement frames，共384 samples（18,432目標measurement frames）。sim/navigation/afterUpdate/submit及其sum分開，全raw、ties、浮點殘差與outliers保留，不扣除A/A作校正。CPU fixture是同一個Game/canvas/core graph，正式自動Scene pipeline，強制WebGL2；不是標準/benchmarks/sprites/頁面。Sprite/local/world/small/empty controls未刪。量測期間沒有並行formatter、build、test、profile或其他本機工作。
+
+local large submit median paired -2.8065707182735085%（6快0慢），sum -2.7853362005688194%（5快1慢）；world large submit -0.9092855897642396%（4快2慢），sum +0.502455340799066%（1快5慢），其未改動的afterUpdate +3.4809197330297286%（1快5慢）。local/world isolated submit各5快1慢，但world aggregate只有4快2慢；small與empty及Sprite controls仍有漂移。這是條件性證據，不把world的後段變化歸因於此數學body，也不靠反覆重測挑有利結果。因此不採用。下表保留全部五分項與A/A，不宣稱JIT／GC根因。
+
+### 行為、誤差與驗證界線
+
+純代數16個特殊值的五重組合加1,000,000組seeded任意Float64，共2,048,576 cases；成功finite值用Object.is含signed zero，失敗只比finite predicate。此模型不是engine exception proof。實際core另288組／2592steps／265,800個finite數字，涵蓋Sprite/Layer、local/world、三styles、三nozzles、八seed、caller-input ownership、rate births/expiry/clear/reemit；其中Sprite controls不經候選，不能說每個比較都測到新body。
+
+另240個真正Layer邊界cases涵蓋signed-zero anchors／矩陣、巨大Float32值、NaN/Infinity、local/world queries／slots與singular parent。108組產生真正RangeError，before/after type/message、callback traces及960個output值Object.is一致；失敗輸出保留sentinel。使用公開getSlotWorldMatrix override提供特殊矩陣，沒有假造例外或略過引擎bounds程式。
+
+六個native driver runs共66個動態Game cases、562,716個Object.is數字、所有nonblank PNG SHA一致、2178個destroy callbacks及borrowed texture／bitmap cleanup通過。三backend皆實際執行，另已開啟candidate WebGL2 world-isolated Layer畫面查看。實際瀏覽器是pinned Chromium 153.0.8010.12 darwin/arm64 desktop-automation，不是Safari或實體裝置認證。
+
+host摘要初次讀不存在的sample.frames而印出NaN，已更正：raw報告不保存該欄位，driver內p.frames是48幀平均的分母；不把該摘要當測量數字。所有raw五分項均已檢查finite，未因此重跑或更動樣本。這輪沒有正式code修改，故沒有重跑unit/typecheck/build/CJS、showcase/audio或標準Sprite benchmark；先前階段結果不冒充本輪。
+
+### 正式profiles完整摘要
+
+```json
+{
+  "formalDevEntry": "/src/index.js",
+  "noSourceOverrides": true,
+  "samplingIntervalMicroseconds": 100,
+  "browser": {
+    "engine": "chromium",
+    "version": "153.0.8010.12",
+    "platform": "darwin/arm64",
+    "mode": "desktop-automation",
+    "executable": "pinned-playwright-managed",
+    "physicalDeviceCertification": false,
+    "safariCertification": false
+  },
+  "reports": [
+    {
+      "setup": {
+        "mode": "layer-local-static",
+        "requestedBackend": "webgl2",
+        "nativeWebGL2": true,
+        "nativeImageBitmap": true,
+        "visibility": "visible",
+        "emitters": 4,
+        "capacityPerEmitter": 8192
+      },
+      "warmFrames": 90,
+      "profiledFrames": 180,
+      "objectState": {
+        "registered": 8,
+        "activeParticles": 32768,
+        "noObjectUpdateListeners": true
+      },
+      "completedFrames": 270,
+      "lastCompleteFrameWorkMs": {
+        "simulation": 0,
+        "navigation": 0,
+        "afterUpdate": 0.9000000059604645,
+        "renderSubmit": 1.7999999970197678
+      },
+      "activeParticles": [8192, 8192, 8192, 8192],
+      "visibility": "visible",
+      "topSelfMicroseconds": [
+        ["(idle) :0", 2434625],
+        ["(program) :0", 117789],
+        [
+          "advance http://127.0.0.1:5275/packages/core/src/particles2d/index.ts:416",
+          102248
+        ],
+        [
+          "collectBounds http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:383",
+          95898
+        ],
+        [
+          "drawParticles http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:596",
+          94250
+        ],
+        [
+          "writeTargetAppearance http://127.0.0.1:5275/packages/core/src/particles2d/index.ts:462",
+          51684
+        ],
+        [
+          "validateParticleSource http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:172",
+          35126
+        ],
+        [
+          "validateCommands http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:183",
+          23405
+        ],
+        [
+          "getTextureQuad2D http://127.0.0.1:5275/packages/graphics/src/sprite-instance.ts:40",
+          21387
+        ],
+        [
+          "validateTransform http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:161",
+          18692
+        ],
+        ["bufferSubData :0", 9983],
+        [
+          "updateWorldMatrix http://127.0.0.1:5275/packages/core/src/game-object.ts:341",
+          9028
+        ],
+        [
+          "activeSlotAt http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:242",
+          7494
+        ],
+        [
+          "updateSimulation http://127.0.0.1:5275/packages/core/src/particles2d/index.ts:235",
+          7236
+        ],
+        [
+          "hasSlot http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:247",
+          6179
+        ],
+        [
+          "requireSlot http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:425",
+          5384
+        ],
+        ["(garbage collector) :0", 3638],
+        [
+          "get tintR http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:78",
+          3527
+        ],
+        ["onFrame http://127.0.0.1:5275/packages/core/src/game.ts:784", 2364],
+        [
+          "get a http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:60",
+          1699
+        ],
+        [
+          "get anchorX http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:90",
+          1538
+        ],
+        [
+          "get tx http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:72",
+          1394
+        ],
+        [
+          "get source http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:105",
+          1232
+        ],
+        [
+          "get ty http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:75",
+          1217
+        ],
+        [
+          "get tintG http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:81",
+          1073
+        ],
+        [
+          "drawCommands http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:322",
+          1068
+        ],
+        [
+          "get transformVersion http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:108",
+          920
+        ],
+        [
+          "get destroyed http://127.0.0.1:5275/packages/core/src/scene-object.ts:36",
+          918
+        ],
+        [
+          "assertAlive http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:422",
+          915
+        ],
+        [
+          "get b http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:63",
+          889
+        ]
+      ],
+      "cleanup": {
+        "gameDestroyed": "destroyed",
+        "textureDestroyed": true,
+        "nativeBitmapClosed": true
+      }
+    },
+    {
+      "setup": {
+        "mode": "layer-world-static",
+        "requestedBackend": "webgl2",
+        "nativeWebGL2": true,
+        "nativeImageBitmap": true,
+        "visibility": "visible",
+        "emitters": 4,
+        "capacityPerEmitter": 8192
+      },
+      "warmFrames": 90,
+      "profiledFrames": 180,
+      "objectState": {
+        "registered": 8,
+        "activeParticles": 32768,
+        "noObjectUpdateListeners": true
+      },
+      "completedFrames": 270,
+      "lastCompleteFrameWorkMs": {
+        "simulation": 0,
+        "navigation": 0,
+        "afterUpdate": 1.0999999940395355,
+        "renderSubmit": 1.5
+      },
+      "activeParticles": [8192, 8192, 8192, 8192],
+      "visibility": "visible",
+      "topSelfMicroseconds": [
+        ["(idle) :0", 2480607],
+        [
+          "drawParticles http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:596",
+          111111
+        ],
+        [
+          "targetAppearance http://127.0.0.1:5275/packages/core/src/particles2d/index.ts:456",
+          73116
+        ],
+        [
+          "writeTargetAppearance http://127.0.0.1:5275/packages/core/src/particles2d/index.ts:462",
+          52313
+        ],
+        [
+          "collectBounds http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:383",
+          50273
+        ],
+        [
+          "validateParticleSource http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:172",
+          36286
+        ],
+        ["(program) :0", 31222],
+        [
+          "getSlotWorldMatrix http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:345",
+          23339
+        ],
+        [
+          "validateCommands http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:183",
+          21696
+        ],
+        [
+          "validateTextureQuad2D http://127.0.0.1:5275/packages/graphics/src/sprite-instance.ts:27",
+          21471
+        ],
+        [
+          "validateTransform http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:161",
+          20855
+        ],
+        [
+          "setLiveAppearance http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:327",
+          18111
+        ],
+        [
+          "getSlot http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:250",
+          17315
+        ],
+        ["bufferSubData :0", 10120],
+        [
+          "validateTint http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:165",
+          9492
+        ],
+        [
+          "updateSimulation http://127.0.0.1:5275/packages/core/src/particles2d/index.ts:235",
+          5751
+        ],
+        ["(garbage collector) :0", 2235],
+        ["onFrame http://127.0.0.1:5275/packages/core/src/game.ts:784", 1109],
+        ["vertexAttribPointer :0", 772],
+        [
+          "renderFrame http://127.0.0.1:5275/packages/graphics/src/webgl2-renderer.ts:1113",
+          463
+        ],
+        ["uniform1i :0", 462],
+        ["bindTexture :0", 314],
+        [
+          "uniform http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:158",
+          312
+        ],
+        [
+          "tint http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:136",
+          310
+        ],
+        ["vertexAttribDivisor :0", 307],
+        ["uniformMatrix3fv :0", 306],
+        ["update http://127.0.0.1:5275/packages/input/src/gamepad.ts:479", 306],
+        ["flush :0", 306],
+        ["bindFramebuffer :0", 305],
+        [
+          "useQuad http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:282",
+          305
+        ]
+      ],
+      "cleanup": {
+        "gameDestroyed": "destroyed",
+        "textureDestroyed": true,
+        "nativeBitmapClosed": true
+      }
+    },
+    {
+      "setup": {
+        "mode": "layer-local-changing",
+        "requestedBackend": "webgl2",
+        "nativeWebGL2": true,
+        "nativeImageBitmap": true,
+        "visibility": "visible",
+        "emitters": 4,
+        "capacityPerEmitter": 8192
+      },
+      "warmFrames": 90,
+      "profiledFrames": 180,
+      "objectState": {
+        "registered": 8,
+        "activeParticles": 32768,
+        "noObjectUpdateListeners": true
+      },
+      "completedFrames": 270,
+      "lastCompleteFrameWorkMs": {
+        "simulation": 0,
+        "navigation": 0,
+        "afterUpdate": 0.9000000059604645,
+        "renderSubmit": 1.8999999910593033
+      },
+      "activeParticles": [8192, 8192, 8192, 8192],
+      "visibility": "visible",
+      "topSelfMicroseconds": [
+        ["(idle) :0", 2440206],
+        [
+          "drawParticles http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:596",
+          111821
+        ],
+        [
+          "targetAppearance http://127.0.0.1:5275/packages/core/src/particles2d/index.ts:456",
+          72484
+        ],
+        [
+          "getSlotWorldMatrix http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:345",
+          66244
+        ],
+        [
+          "writeTargetAppearance http://127.0.0.1:5275/packages/core/src/particles2d/index.ts:462",
+          47472
+        ],
+        [
+          "validateParticleSource http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:172",
+          34044
+        ],
+        ["(program) :0", 32615],
+        [
+          "collectBounds http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:383",
+          24742
+        ],
+        [
+          "validateTextureQuad2D http://127.0.0.1:5275/packages/graphics/src/sprite-instance.ts:27",
+          22830
+        ],
+        [
+          "validateTransform http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:161",
+          22427
+        ],
+        ["multiply http://127.0.0.1:5275/packages/math/src/index.ts:79", 20637],
+        [
+          "validateCommands http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:183",
+          20458
+        ],
+        [
+          "setLiveAppearance http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:327",
+          15667
+        ],
+        [
+          "getSlot http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:250",
+          13923
+        ],
+        [
+          "updateWorldMatrix http://127.0.0.1:5275/packages/core/src/game-object.ts:341",
+          10701
+        ],
+        [
+          "validateTint http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:165",
+          10043
+        ],
+        ["bufferSubData :0", 9351],
+        [
+          "updateSimulation http://127.0.0.1:5275/packages/core/src/particles2d/index.ts:235",
+          7560
+        ],
+        ["(garbage collector) :0", 1556],
+        ["getGamepads :0", 779],
+        [
+          "render http://127.0.0.1:5275/packages/graphics/src/webgl2-renderer.ts:1073",
+          763
+        ],
+        ["clear :0", 611],
+        ["enableVertexAttribArray :0", 467],
+        ["vertexAttribPointer :0", 465],
+        [
+          "renderFrame http://127.0.0.1:5275/packages/graphics/src/webgl2-renderer.ts:1113",
+          460
+        ],
+        [
+          "partitionBoundaries2D http://127.0.0.1:5275/packages/graphics/src/render2d-contract.ts:229",
+          309
+        ],
+        ["uniform2f :0", 308],
+        ["(anonymous) :0", 306],
+        ["onFrame http://127.0.0.1:5275/packages/core/src/game.ts:784", 305],
+        ["drawArraysInstanced :0", 160]
+      ],
+      "cleanup": {
+        "gameDestroyed": "destroyed",
+        "textureDestroyed": true,
+        "nativeBitmapClosed": true
+      }
+    },
+    {
+      "setup": {
+        "mode": "sprite-local-control",
+        "requestedBackend": "webgl2",
+        "nativeWebGL2": true,
+        "nativeImageBitmap": true,
+        "visibility": "visible",
+        "emitters": 4,
+        "capacityPerEmitter": 8192
+      },
+      "warmFrames": 90,
+      "profiledFrames": 180,
+      "objectState": {
+        "registered": 32772,
+        "activeParticles": 32768,
+        "noObjectUpdateListeners": true
+      },
+      "completedFrames": 270,
+      "lastCompleteFrameWorkMs": {
+        "simulation": 0.29999999701976776,
+        "navigation": 0,
+        "afterUpdate": 0.7000000029802322,
+        "renderSubmit": 5.299999997019768
+      },
+      "activeParticles": [8192, 8192, 8192, 8192],
+      "visibility": "visible",
+      "topSelfMicroseconds": [
+        ["(idle) :0", 1780985],
+        [
+          "partitionBoundaries2D http://127.0.0.1:5275/packages/graphics/src/render2d-contract.ts:229",
+          203175
+        ],
+        [
+          "drawCommands http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:322",
+          161047
+        ],
+        [
+          "getWorldBounds http://127.0.0.1:5275/packages/core/src/game-object.ts:375",
+          116170
+        ],
+        [
+          "advanceSprites http://127.0.0.1:5275/packages/core/src/particles2d/index.ts:273",
+          113332
+        ],
+        [
+          "validateSpriteQuad2D http://127.0.0.1:5275/packages/graphics/src/sprite-instance.ts:83",
+          88698
+        ],
+        [
+          "packQuad http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:364",
+          73865
+        ],
+        [
+          "getWorldBounds http://127.0.0.1:5275/packages/core/src/particles2d/particle-layer2d.ts:374",
+          68307
+        ],
+        [
+          "collectBoundary2D http://127.0.0.1:5275/packages/graphics/src/render2d-contract.ts:267",
+          59799
+        ],
+        [
+          "objectMatrix http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:268",
+          55604
+        ],
+        ["(program) :0", 55123],
+        [
+          "updateMatrix http://127.0.0.1:5275/packages/math/src/index.ts:158",
+          50738
+        ],
+        [
+          "validateCommands http://127.0.0.1:5275/packages/graphics/src/webgl2-render2d.ts:183",
+          35324
+        ],
+        [
+          "advanceObjects http://127.0.0.1:5275/packages/core/src/scene.ts:678",
+          30835
+        ],
+        [
+          "updateWorldMatrix http://127.0.0.1:5275/packages/core/src/game-object.ts:341",
+          26384
+        ],
+        [
+          "update http://127.0.0.1:5275/packages/core/src/accessibility/index.ts:452",
+          25350
+        ],
+        [
+          "validateTextureQuad2D http://127.0.0.1:5275/packages/graphics/src/sprite-instance.ts:27",
+          23330
+        ],
+        ["onFrame http://127.0.0.1:5275/packages/core/src/game.ts:784", 21928],
+        [
+          "sort http://127.0.0.1:5275/packages/graphics/src/render2d-contract.ts:94",
+          8444
+        ],
+        [
+          "reset http://127.0.0.1:5275/packages/graphics/src/render2d-contract.ts:39",
+          7571
+        ],
+        [
+          "validateSpriteLighting2D http://127.0.0.1:5275/packages/core/src/lighting2d.ts:100",
+          7526
+        ],
+        ["bufferSubData :0", 3101],
+        ["requestAnimationFrame :0", 1875],
+        [
+          "releaseBoundaryMembers http://127.0.0.1:5275/packages/graphics/src/render2d-contract.ts:185",
+          1854
+        ],
+        ["getGamepads :0", 921],
+        ["bindFramebuffer :0", 834],
+        [
+          "render http://127.0.0.1:5275/packages/graphics/src/webgl2-renderer.ts:1073",
+          696
+        ],
+        ["flush :0", 633],
+        ["clear :0", 611],
+        [
+          "renderFrame http://127.0.0.1:5275/packages/graphics/src/webgl2-renderer.ts:1113",
+          314
+        ]
+      ],
+      "cleanup": {
+        "gameDestroyed": "destroyed",
+        "textureDestroyed": true,
+        "nativeBitmapClosed": true
+      }
+    }
+  ],
+  "errors": []
+}
+```
+
+### 代數、實際core與native結果
+
+```json
+{
+  "algebra": {
+    "cases": 2048576,
+    "finiteResults": 1266874,
+    "nonfiniteResults": 781702,
+    "numericComparisons": 2533748,
+    "signedZeroCompared": true,
+    "overflowNaNAndInfinityFinitePredicateCompared": true,
+    "modelOnlyNotEngineExceptionProof": true
+  },
+  "numeric": {
+    "browser": {
+      "engine": "chromium",
+      "version": "153.0.8010.12",
+      "platform": "darwin/arm64",
+      "mode": "desktop-automation",
+      "executable": "pinned-playwright-managed",
+      "physicalDeviceCertification": false,
+      "safariCertification": false
+    },
+    "proof": {
+      "cases": 288,
+      "edges": {
+        "edgeCases": 240,
+        "engineRangeErrors": 108,
+        "exactEdgeNumbers": 960,
+        "callbackSequenceIdentical": true,
+        "errorOutputUnmodifiedCompared": true
+      },
+      "steps": 2592,
+      "exactFiniteNumbers": 265800,
+      "signedZeroCompared": true,
+      "callerOwnedInputsUnchanged": true,
+      "changingAndEqualEndpoints": true,
+      "rateBirthsExpiryAndClearReemit": true,
+      "nativeImageBitmap": true,
+      "snapshots": [
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": false,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "local",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 0,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 1,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "point",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "rectangle",
+          "seed": 7,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 0,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 1,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 2,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 3,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 4,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 5,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 6,
+          "steps": 9
+        },
+        {
+          "layer": true,
+          "space": "world",
+          "style": 2,
+          "nozzle": "circle",
+          "seed": 7,
+          "steps": 9
+        }
+      ]
+    },
+    "errors": [],
+    "pureActualCoreObjects": true,
+    "notAGpuRenderingProof": true
+  },
+  "nativeTotals": {
+    "cases": 66,
+    "exactNumbers": 562716,
+    "destroyCallbacks": 2178,
+    "errors": []
+  },
+  "native": [
+    {
+      "phase": "source",
+      "tag": "sprite",
+      "entryAfter": "/dist/src/index.js",
+      "fixedBoundsTrampolineSelection": true,
+      "backend": "canvas2d",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "sprite",
+      "entryAfter": "/dist/src/index.js",
+      "fixedBoundsTrampolineSelection": true,
+      "backend": "webgl2",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "sprite",
+      "entryAfter": "/dist/src/index.js",
+      "fixedBoundsTrampolineSelection": true,
+      "backend": "webgpu",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 6552,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 32,
+              "destroyCallbacks": 32,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "layer",
+      "entryAfter": "/dist/src/index.js",
+      "fixedBoundsTrampolineSelection": true,
+      "backend": "canvas2d",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7bb999f18af59b9c4af1fe168d02502e6fdd61c18f485116bd30c3ed6e5d4b1e",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "canvas2d",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "layer",
+      "entryAfter": "/dist/src/index.js",
+      "fixedBoundsTrampolineSelection": true,
+      "backend": "webgl2",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgl2",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "phase": "source",
+      "tag": "layer",
+      "entryAfter": "/dist/src/index.js",
+      "fixedBoundsTrampolineSelection": true,
+      "backend": "webgpu",
+      "browser": {
+        "engine": "chromium",
+        "version": "153.0.8010.12",
+        "platform": "darwin/arm64",
+        "mode": "desktop-automation",
+        "executable": "pinned-playwright-managed",
+        "physicalDeviceCertification": false,
+        "safariCertification": false
+      },
+      "reports": [
+        {
+          "setup": {
+            "mode": "local",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-custom",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-screen",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-transfer",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-rotated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-trimmed",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-source",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "world-isolated",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        },
+        {
+          "setup": {
+            "mode": "local-nested",
+            "backend": "webgpu",
+            "visible": "visible",
+            "nativeBitmaps": true
+          },
+          "proof": {
+            "snapshots": 12,
+            "exactNumbers": 10500,
+            "signedZeroCompared": true,
+            "automaticGameFrames": true
+          },
+          "matchingPngSha256": "57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913",
+          "cleanup": [
+            {
+              "side": "before",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            },
+            {
+              "side": "after",
+              "gameState": "destroyed",
+              "destroyListeners": 1,
+              "destroyCallbacks": 1,
+              "bitmapClosed": true
+            }
+          ]
+        }
+      ],
+      "errors": []
+    }
+  ]
+}
+```
+
+### A/A 全分項配對摘要
+
+| span          | cohort               | median before µs   | median after µs    | median paired Δ µs    | median paired Δ %         | paired % range                           | faster/slower/equal |
+| ------------- | -------------------- | ------------------ | ------------------ | --------------------- | ------------------------- | ---------------------------------------- | ------------------- |
+| simulationUs  | layer-local-large    | 17.187500217308603 | 14.583333084980646 | -0.5208333798994627   | -1.7361116669583243       | -47.058822395067324 … 199.99999503294626 | 3/3/0               |
+| simulationUs  | layer-world-large    | 13.54166679084301  | 11.458333348855376 | -1.0416664493580656   | -8.33333183757277         | -42.10526365322419 … 5.263157481962303   | 4/2/0               |
+| simulationUs  | layer-local-isolated | 11.458333348855376 | 11.979167116805911 | 1.0416666045784941    | 7.6923069814165075        | -63.15789490195193 … 157.14286292085825  | 3/3/0               |
+| simulationUs  | layer-world-isolated | 13.020833255723119 | 13.020833333333332 | 1.0416666821887093    | 8.012820595482317         | -28.571429939902554 … 87.50001327134721  | 2/4/0               |
+| simulationUs  | layer-local-small    | 46.35416662010054  | 43.22916657353441  | -2.6041666666666714   | -4.531001796615688        | -30.909091712029507 … 15.384612181012756 | 3/3/0               |
+| simulationUs  | sprite-local-control | 305.72916644935805 | 300.0000002017865  | -1.5624999844779666   | -0.5196649272892297       | -5.743243296136101 … 6.666667126772685   | 4/2/0               |
+| simulationUs  | sprite-world-control | 304.16666669771075 | 321.87499998447794 | 4.166666418313923     | 1.263066119360398         | -5.113636153896357 … 8.6505188746744     | 3/3/0               |
+| simulationUs  | layer-empty-control  | 43.749999798213445 | 40.10416644935806  | -2.604166977107532    | -6.191075625471328        | -19.9999993443489 … 0                    | 5/0/1               |
+| navigationUs  | layer-local-large    | 0                  | 0.5208333022892475 | 0.5208333022892475    | n/a: 4 zero-before rounds | n/a                                      | 2/3/1               |
+| navigationUs  | layer-world-large    | 0                  | 0                  | 0                     | n/a: 5 zero-before rounds | n/a                                      | 1/0/5               |
+| navigationUs  | layer-local-isolated | 1.0416667597989242 | 0                  | -1.0416666821887097   | n/a: 1 zero-before rounds | n/a                                      | 4/0/2               |
+| navigationUs  | layer-world-isolated | 0                  | 0                  | 0                     | n/a: 5 zero-before rounds | n/a                                      | 1/2/3               |
+| navigationUs  | layer-local-small    | 1.0416666821887097 | 1.041666604578495  | -7.761021458829731e-8 | n/a: 1 zero-before rounds | n/a                                      | 3/2/1               |
+| navigationUs  | sprite-local-control | 0.5208333798994621 | 0                  | -0.5208332246790329   | n/a: 3 zero-before rounds | n/a                                      | 3/0/3               |
+| navigationUs  | sprite-world-control | 0.5208333798994621 | 1.041666604578495  | 0.5208332246790329    | n/a: 3 zero-before rounds | n/a                                      | 3/3/0               |
+| navigationUs  | layer-empty-control  | 0.5208333022892475 | 1.5625000620881715 | 1.5625000620881715    | n/a: 3 zero-before rounds | n/a                                      | 1/5/0               |
+| afterUpdateUs | layer-local-large    | 1604.687500357007  | 1640.1041665424902 | 27.083333426465515    | 1.6681237832176192        | -1.620947618759974 … 11.277705353930406  | 2/4/0               |
+| afterUpdateUs | layer-world-large    | 1762.4999996429929 | 1728.1249998292576 | -35.41666634070373    | -1.940066712080434        | -7.365439128498432 … 10.398505635026773  | 3/3/0               |
+| afterUpdateUs | layer-local-isolated | 1424.479167054718  | 1429.6875000776104 | 13.02083232440043     | 0.9144110479903703        | -2.8228651465152357 … 4.733283198341031  | 3/3/0               |
+| afterUpdateUs | layer-world-isolated | 1382.8124992238977 | 1356.7708334109436 | -23.958333069458604   | -1.7388640808454476       | -11.020710149080545 … 0.0753580019502677 | 5/1/0               |
+| afterUpdateUs | layer-local-small    | 128.1249997361253  | 141.14583337989944 | 13.541667101283863    | 10.58029544365912         | -8.59374985902833 … 32.40740769229756    | 1/5/0               |
+| afterUpdateUs | sprite-local-control | 805.7291668374091  | 810.9375002483528  | 9.374999906867743     | 1.2723481438389281        | -3.290246766388314 … 8.640226640464867   | 2/4/0               |
+| afterUpdateUs | sprite-world-control | 1513.0208326348413 | 1584.374999937912  | 48.95833383003867     | 3.1680801788241144        | 1.1252813987316967 … 6.872852282772097   | 0/6/0               |
+| afterUpdateUs | layer-empty-control  | 14.062500015522044 | 11.458333504075807 | -2.0833333643774194   | -15.384612959870179       | -81.24999895226213 … -6.666669249534607  | 6/0/0               |
+| submitUs      | layer-local-large    | 3030.7291662320495 | 3066.6666666511446 | -1.5624992083762663   | -0.059050251942433685     | -9.989665861464678 … 6.621086706693953   | 3/3/0               |
+| submitUs      | layer-world-large    | 2824.999999875824  | 2784.895833659296  | -40.1041662165278     | -1.4123780484159376       | -7.47961718850144 … 6.820809187321858    | 4/2/0               |
+| submitUs      | layer-local-isolated | 4106.770832945283  | 4117.70833369034   | 26.04166814126029     | 0.632534198835224         | -2.899975452034336 … 5.068018129938751   | 2/4/0               |
+| submitUs      | layer-world-isolated | 4922.395834156001  | 4847.916666573534  | -63.020834388831645   | -1.2820317900383937       | -8.474576271609227 … 0.9357719813321606  | 4/2/0               |
+| submitUs      | layer-local-small    | 393.2291668218871  | 429.16666654249036 | 39.58333260379732     | 10.033333147329547        | -13.170731784969764 … 21.14803613898578  | 1/5/0               |
+| submitUs      | sprite-local-control | 6676.041666651145  | 6613.020833581686  | -42.187500357006684   | -0.630404280993416        | -1.6545538847815229 … 1.3515687788985054 | 4/2/0               |
+| submitUs      | sprite-world-control | 6146.875000325963  | 6226.562499611949  | 99.47916663562182     | 1.638550975114403         | -1.5282392106921796 … 3.6980491993432505 | 2/4/0               |
+| submitUs      | layer-empty-control  | 110.41666683740914 | 107.81250024835268 | 7.8124996895591465    | 7.546171258266674         | -16.03773581855404 … 19.81132099078025   | 2/4/0               |
+| categorySumUs | layer-local-large    | 4645.312499875823  | 4714.583333659297  | 1.5624999068677425    | 0.022379597684557162      | -2.204228525858767 … 6.613508449910253   | 3/3/0               |
+| categorySumUs | layer-world-large    | 4604.687499658516  | 4524.47916707024   | -80.20833258827588    | -1.7152747348308721       | -7.417881262516778 … 8.066429369248805   | 3/3/0               |
+| categorySumUs | layer-local-isolated | 5543.229166883975  | 5553.645833550642  | 43.2291675824672      | 0.7784541450319277        | -2.8566229989627137 … 4.970414205148588  | 2/4/0               |
+| categorySumUs | layer-world-isolated | 6320.833333224678  | 6220.833333364377  | -93.22916677532112    | -1.4765033003882158       | -9.01692710582517 … 0.7950968920445646   | 4/2/0               |
+| categorySumUs | layer-local-small    | 569.2708337058623  | 617.1874991462876  | 53.12499931703019     | 9.313157432940775         | -13.117546764571244 … 20.517928005686333 | 2/4/0               |
+| categorySumUs | sprite-local-control | 7783.854166201005  | 7718.229166542491  | -31.249999767169356   | -0.4076293217486252       | -1.8750825361603791 … 2.0890979430434573 | 4/2/0               |
+| categorySumUs | sprite-world-control | 7996.354166418314  | 8086.458333147068  | 170.83333362825124    | 2.132580345110627         | -1.0075245493265441 … 3.7916610683577803 | 2/4/0               |
+| categorySumUs | layer-empty-control  | 169.791666790843   | 161.45833387660483 | 2.0833334419876337    | 1.26573716478799          | -14.999999850988393 … 9.352517481219405  | 3/3/0               |
+
+### A/B 全分項配對摘要
+
+| span          | cohort               | median before µs   | median after µs    | median paired Δ µs    | median paired Δ %         | paired % range                             | faster/slower/equal |
+| ------------- | -------------------- | ------------------ | ------------------ | --------------------- | ------------------------- | ------------------------------------------ | ------------------- |
+| simulationUs  | layer-local-large    | 13.020833721384406 | 13.020833488553762 | -0.5208336127301054   | -3.2051298804066057       | -33.33333697583926 … 110.0000068545341     | 3/3/0               |
+| simulationUs  | layer-world-large    | 13.541667178894082 | 12.50000026387473  | -1.041666915019353    | -6.666667202506153        | -47.05882543717289 … 27.27273256818127     | 3/3/0               |
+| simulationUs  | layer-local-isolated | 13.54166694606344  | 12.499999875823658 | -2.6041668218870964   | -16.025642108612193       | -46.15384871085012 … 44.44443984532063     | 4/2/0               |
+| simulationUs  | layer-world-isolated | 15.104166697710752 | 14.0624997826914   | -0.5208337679505357   | -3.5714312166977145       | -54.54545688530625 … 55.55555960278467     | 4/2/0               |
+| simulationUs  | layer-local-small    | 42.18749958090484  | 41.14583282110591  | -3.64583358168602     | -9.103841622543639        | -44.186045141591464 … 25.714283743683207   | 3/3/0               |
+| simulationUs  | sprite-local-control | 310.9375003259629  | 326.56250001552206 | 15.104166775321005    | 4.92227684063646          | 0.6920413754797257 … 18.241042390336577    | 0/6/0               |
+| simulationUs  | sprite-world-control | 310.9374994722506  | 308.33333381451666 | -3.6458332712451806   | -1.1996306992310202       | -9.333333571751918 … 5.172413312049316     | 3/3/0               |
+| simulationUs  | layer-empty-control  | 41.66666689949731  | 41.666666666666664 | 3.1249991928537675    | 7.317072056423345         | -23.52941076785773 … 46.42857296810467     | 3/3/0               |
+| navigationUs  | layer-local-large    | 0                  | 0                  | 0                     | n/a: 6 zero-before rounds | n/a                                        | 0/0/6               |
+| navigationUs  | layer-world-large    | 0                  | 0                  | 0                     | n/a: 5 zero-before rounds | n/a                                        | 1/1/4               |
+| navigationUs  | layer-local-isolated | 0                  | 0                  | 0                     | n/a: 5 zero-before rounds | n/a                                        | 1/0/5               |
+| navigationUs  | layer-world-isolated | 0.5208333022892475 | 1.041666604578495  | 0.5208333022892475    | n/a: 3 zero-before rounds | n/a                                        | 1/3/2               |
+| navigationUs  | layer-local-small    | 1.041666604578495  | 3.1250000465661287 | 2.604166744276881     | n/a: 2 zero-before rounds | n/a                                        | 1/5/0               |
+| navigationUs  | sprite-local-control | 1.041666604578495  | 1.0416667597989242 | 0.5208334575096767    | n/a: 2 zero-before rounds | n/a                                        | 2/4/0               |
+| navigationUs  | sprite-world-control | 1.041666604578495  | 0                  | -7.761021458829731e-8 | n/a: 2 zero-before rounds | n/a                                        | 3/0/3               |
+| navigationUs  | layer-empty-control  | 1.041666604578495  | 1.0416667597989242 | 0.5208334575096767    | n/a: 2 zero-before rounds | n/a                                        | 1/4/1               |
+| afterUpdateUs | layer-local-large    | 1691.6666668839753 | 1650.520833209157  | -30.729167240982292   | -1.811345860371449        | -7.432432433978546 … 0.4987532456221255    | 4/2/0               |
+| afterUpdateUs | layer-world-large    | 1766.66666722546   | 1822.3958341404796 | 60.41666671323276     | 3.4809197330297286        | -0.1151410408988629 … 12.516129116622512   | 1/5/0               |
+| afterUpdateUs | layer-local-isolated | 1495.3125000465661 | 1507.2916668529313 | 12.499999953433985    | 0.8357055544825778        | -3.786342138642302 … 17.299919125435352    | 2/4/0               |
+| afterUpdateUs | layer-world-isolated | 1382.812500698492  | 1402.6041659526527 | 9.895832045003772     | 0.718572198117635         | -3.9789790182848637 … 5.096525163894751    | 3/3/0               |
+| afterUpdateUs | layer-local-small    | 127.60416720993817 | 128.1250004346172  | 2.083332433054835     | 2.150106064550159         | -32.6530603163113 … 26.213594308975054     | 3/3/0               |
+| afterUpdateUs | sprite-local-control | 793.2291666511446  | 809.8958327124517  | 40.10416691501939     | 4.918821923034367         | -15.268065209546716 … 10.848400489109425   | 2/4/0               |
+| afterUpdateUs | sprite-world-control | 1596.8750000465661 | 1559.3750001086541 | -5.208333721384406    | -0.3371830791935807       | -9.975369416465016 … 2.0107238301859063    | 3/3/0               |
+| afterUpdateUs | layer-empty-control  | 10.937499736125272 | 13.020833488553762 | 1.0416668374091396    | 11.111113522366127        | -18.18181855126847 … 70.00001385808056     | 3/3/0               |
+| submitUs      | layer-local-large    | 3121.874999875824  | 3014.5833334730314 | -88.02083383003901    | -2.8065707182735085       | -13.771466336058044 … -0.16818029425864356 | 6/0/0               |
+| submitUs      | layer-world-large    | 2892.1875000620885 | 2873.9583333178116 | -26.562500357006684   | -0.9092855897642396       | -3.274647875608963 … 7.31424139298629      | 4/2/0               |
+| submitUs      | layer-local-isolated | 3988.541667116806  | 3848.958333333333  | -143.22916744276904   | -3.5770548288124346       | -7.163102302983949 … 10.831837246308567    | 5/1/0               |
+| submitUs      | layer-world-isolated | 4994.791666821887  | 4905.208334249133  | -121.35416641831398   | -2.4094252546838546       | -7.177033495878346 … 0.23285350640514715   | 5/1/0               |
+| submitUs      | layer-local-small    | 437.4999995343387  | 368.7500001396984  | -73.43750020178655    | -15.892642368044987       | -24.75961520155401 … 22.126436991768934    | 4/2/0               |
+| submitUs      | sprite-local-control | 6754.687499642992  | 6800.520833504076  | 17.187500527749762    | 0.24930283676864012       | -4.094631476535133 … 4.651903778405239     | 3/3/0               |
+| submitUs      | sprite-world-control | 6246.354166418314  | 6236.979166744277  | -17.708333519598455   | -0.2797732393412479       | -3.0042918436883386 … 1.8326828515587508   | 3/3/0               |
+| submitUs      | layer-empty-control  | 105.72916680636504 | 112.49999981373549 | 6.249999860301621     | 5.887206240328411         | -3.669725780273946 … 33.734939014951465    | 2/4/0               |
+| categorySumUs | layer-local-large    | 4829.687500527749  | 4658.8541669771075 | -134.89583421809039   | -2.7853362005688194       | -9.305317347633482 … 0.15257198264446006   | 5/1/0               |
+| categorySumUs | layer-world-large    | 4680.20833392317   | 4697.3958335195975 | 23.43749992239009     | 0.502455340799066         | -2.2633297008669335 … 9.24004823873644     | 1/5/0               |
+| categorySumUs | layer-local-isolated | 5494.270833830039  | 5370.312499968955  | -137.5000009623668    | -2.4885897895607627       | -6.327935994572707 … 12.440191394770181    | 5/1/0               |
+| categorySumUs | layer-world-isolated | 6390.104167473813  | 6319.27083292976   | -110.41666784634208   | -1.7125475125218266       | -6.3923227150377615 … 1.2595293353689596   | 4/2/0               |
+| categorySumUs | layer-local-small    | 623.9583330073704  | 534.8958335040759  | -95.83333351959783    | -14.779190075745923       | -25.204582822227966 … 21.76870747678695    | 4/2/0               |
+| categorySumUs | sprite-local-control | 7854.687500279397  | 7921.35416646488   | 62.5000002328311      | 0.7805670952079836        | -4.433561011616119 … 5.283381359961601     | 2/4/0               |
+| categorySumUs | sprite-world-control | 8141.666666837409  | 8110.416665983697  | -9.375000605359674    | -0.10785532522268604      | -4.1269443112532755 … 0.9619134228149935   | 3/3/0               |
+| categorySumUs | layer-empty-control  | 159.37500012417632 | 174.47916643383604 | 12.499999565382808    | 7.6704542804653775        | -9.580838260305603 … 32.53968235384041     | 2/4/0               |
+
+### 全部raw timing samples與native probes
+
+```json
+{
+  "aa": {
+    "phase": "source",
+    "mode": "aa",
+    "fixedBoundsTrampolineSelection": true,
+    "sameCoreGraph": true,
+    "matrixStartedAt": 1794937696298,
+    "matrixCompletedAt": 1794937887810,
+    "browser": {
+      "engine": "chromium",
+      "version": "153.0.8010.12",
+      "platform": "darwin/arm64",
+      "mode": "desktop-automation",
+      "executable": "pinned-playwright-managed",
+      "physicalDeviceCertification": false,
+      "safariCertification": false
+    },
+    "cohortProof": [
+      {
+        "config": {
+          "name": "layer-local-large",
+          "space": "local",
+          "capacity": 8192,
+          "target": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "2a9857e9d3b119960c29b911b3d25642a476f9ee1966dc12f6606fb32461e792",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "layer-world-large",
+          "space": "world",
+          "capacity": 8192,
+          "target": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "layer-local-isolated",
+          "space": "local",
+          "capacity": 8192,
+          "target": true,
+          "isolated": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "ad260966840e1254115344c71f82418e6f56f852e97bd9f23f250fcc367ebcae",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "layer-world-isolated",
+          "space": "world",
+          "capacity": 8192,
+          "target": true,
+          "isolated": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "188f942c0bdfad29b1724296abb96d05e7d14f0896bb5035c11ad7b486b6980b",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "layer-local-small",
+          "space": "local",
+          "capacity": 128,
+          "target": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 512
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "319b5bb34c88f7ad952b16f8b8f950ddccf3159c029fa7a0358adf09ce0e17c0",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "sprite-local-control",
+          "space": "local",
+          "capacity": 8192
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "sprite-world-control",
+          "space": "world",
+          "capacity": 8192
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "layer-empty-control",
+          "space": "local",
+          "capacity": 8192,
+          "target": true,
+          "empty": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 0
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+        "nonuniform": [false, false],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "name": "layer-local-large",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 22.916666542490322,
+            "navigationUs": 0,
+            "afterUpdateUs": 1614.5833330228925,
+            "submitUs": 3008.3333334575095,
+            "categorySumUs": 4645.8333330228925,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 20.833333333333332,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1674.9999995032947,
+            "submitUs": 3145.833333954215,
+            "categorySumUs": 4843.75,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 18.750000434617203,
+            "navigationUs": 0,
+            "afterUpdateUs": 1654.1666671012838,
+            "submitUs": 3154.1666655490794,
+            "categorySumUs": 4827.08333308498,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.41666759798924,
+            "navigationUs": 0,
+            "afterUpdateUs": 1647.9166662320495,
+            "submitUs": 3091.666667101284,
+            "categorySumUs": 4750.000000931323,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-large",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 16.666666294137638,
+            "navigationUs": 0,
+            "afterUpdateUs": 1629.1666657974322,
+            "submitUs": 3125.0000006208816,
+            "categorySumUs": 4770.833332712451,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 0,
+            "afterUpdateUs": 1691.6666651765506,
+            "submitUs": 3152.083333581686,
+            "categorySumUs": 4856.249998634061,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 25.000000062088173,
+            "navigationUs": 0,
+            "afterUpdateUs": 1649.9999997516472,
+            "submitUs": 3116.6666662320495,
+            "categorySumUs": 4791.666666045785,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.500000496705374,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1658.3333328987162,
+            "submitUs": 3108.3333333954215,
+            "categorySumUs": 4781.2500003104415,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-large",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 0,
+            "afterUpdateUs": 1591.6666661699612,
+            "submitUs": 3008.333332526187,
+            "categorySumUs": 4612.499998571971,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 14.583333084980646,
+            "navigationUs": 0,
+            "afterUpdateUs": 1641.6666666045785,
+            "submitUs": 3079.1666666045785,
+            "categorySumUs": 4735.416666294138,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 14.58333246409893,
+            "navigationUs": 0,
+            "afterUpdateUs": 1622.9166680326064,
+            "submitUs": 3014.5833330849805,
+            "categorySumUs": 4652.083333581686,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 8.333333147068819,
+            "navigationUs": 0,
+            "afterUpdateUs": 1631.250002110998,
+            "submitUs": 3066.66666486611,
+            "categorySumUs": 4706.250000124177,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-large",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 18.750000434617203,
+            "navigationUs": 0,
+            "afterUpdateUs": 1652.0833329608042,
+            "submitUs": 3127.0833338300386,
+            "categorySumUs": 4797.91666722546,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 27.08333233992259,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1508.3333334575098,
+            "submitUs": 2843.7500009313226,
+            "categorySumUs": 4381.249999937912,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666977107525,
+            "navigationUs": 0,
+            "afterUpdateUs": 1545.8333337058623,
+            "submitUs": 2945.8333334575095,
+            "categorySumUs": 4502.08333414048,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 6.249999937911828,
+            "navigationUs": 0,
+            "afterUpdateUs": 1620.8333345130086,
+            "submitUs": 3045.8333330849805,
+            "categorySumUs": 4672.916667535901,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-large",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 8.333333147068819,
+            "navigationUs": 0,
+            "afterUpdateUs": 1583.3333330228925,
+            "submitUs": 2981.2500001862645,
+            "categorySumUs": 4572.9166663562255,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 22.916665611167748,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1672.9166669150193,
+            "submitUs": 2572.91666790843,
+            "categorySumUs": 4270.833333643774,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 33.333333830038704,
+            "navigationUs": 0,
+            "afterUpdateUs": 1883.3333331470687,
+            "submitUs": 2870.8333329608045,
+            "categorySumUs": 4787.499999937912,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666977107525,
+            "navigationUs": 0,
+            "afterUpdateUs": 1612.5000001241763,
+            "submitUs": 3066.6666673496366,
+            "categorySumUs": 4689.58333445092,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-large",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 8.333333457509676,
+            "navigationUs": 0,
+            "afterUpdateUs": 1627.0833322778344,
+            "submitUs": 3081.250000745058,
+            "categorySumUs": 4716.6666664804025,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 14.58333401630322,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1535.4166667287548,
+            "submitUs": 2887.5000004967055,
+            "categorySumUs": 4439.583334761362,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 20.833332712451618,
+            "navigationUs": 0,
+            "afterUpdateUs": 1587.5000009934108,
+            "submitUs": 2970.833333209157,
+            "categorySumUs": 4579.16666691502,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666977107525,
+            "navigationUs": 0,
+            "afterUpdateUs": 1477.083332836628,
+            "submitUs": 2752.0833338300386,
+            "categorySumUs": 4239.583333643774,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 14.58333432674408,
+            "navigationUs": 0,
+            "afterUpdateUs": 1568.749999627471,
+            "submitUs": 2562.499999689559,
+            "categorySumUs": 4145.833333643774,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 8.33333283662796,
+            "navigationUs": 0,
+            "afterUpdateUs": 1852.0833337679505,
+            "submitUs": 2883.3333315948644,
+            "categorySumUs": 4743.749998199442,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.499999565382799,
+            "navigationUs": 0,
+            "afterUpdateUs": 1841.666666790843,
+            "submitUs": 2891.6666644314923,
+            "categorySumUs": 4745.833330787718,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 14.583333395421505,
+            "navigationUs": 0,
+            "afterUpdateUs": 1777.0833332712452,
+            "submitUs": 2843.749999689559,
+            "categorySumUs": 4635.4166663562255,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 10.416666666666666,
+            "navigationUs": 0,
+            "afterUpdateUs": 1827.083334326744,
+            "submitUs": 2891.666665983697,
+            "categorySumUs": 4729.1666669771075,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 14.583333084980646,
+            "navigationUs": 0,
+            "afterUpdateUs": 1775.0000006829698,
+            "submitUs": 2843.7499990686774,
+            "categorySumUs": 4633.333332836628,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666356225809,
+            "navigationUs": 0,
+            "afterUpdateUs": 1718.7499981373549,
+            "submitUs": 2729.1666672875485,
+            "categorySumUs": 4458.333331781129,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416667287548384,
+            "navigationUs": 0,
+            "afterUpdateUs": 1789.5833331470687,
+            "submitUs": 2864.5833327124515,
+            "categorySumUs": 4664.5833331470685,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 20.833333333333332,
+            "navigationUs": 0,
+            "afterUpdateUs": 1800.0000001241763,
+            "submitUs": 2870.833333892127,
+            "categorySumUs": 4691.666667349637,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 22.916667473812897,
+            "navigationUs": 0,
+            "afterUpdateUs": 1593.7499987582366,
+            "submitUs": 2574.9999998758235,
+            "categorySumUs": 4191.6666661078725,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 18.749999813735485,
+            "navigationUs": 0,
+            "afterUpdateUs": 1766.6666647419333,
+            "submitUs": 2852.0833334575095,
+            "categorySumUs": 4637.499998013178,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 18.75000074505806,
+            "navigationUs": 0,
+            "afterUpdateUs": 1756.249999627471,
+            "submitUs": 2862.4999998137355,
+            "categorySumUs": 4637.5000001862645,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 12.50000080714623,
+            "navigationUs": 0,
+            "afterUpdateUs": 1745.8333326503634,
+            "submitUs": 2787.499999937912,
+            "categorySumUs": 4545.8333333954215,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 0,
+            "afterUpdateUs": 1722.9166657974322,
+            "submitUs": 2789.583332836628,
+            "categorySumUs": 4524.999998509884,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.41666759798924,
+            "navigationUs": 0,
+            "afterUpdateUs": 1729.1666666666667,
+            "submitUs": 2827.0833337058625,
+            "categorySumUs": 4566.666667970519,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666977107525,
+            "navigationUs": 0,
+            "afterUpdateUs": 1750.0000015522044,
+            "submitUs": 2818.749999937912,
+            "categorySumUs": 4579.166668467224,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 14.583333395421505,
+            "navigationUs": 0,
+            "afterUpdateUs": 1827.0833330849807,
+            "submitUs": 2866.666665611168,
+            "categorySumUs": 4708.33333209157,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 14.583333395421505,
+            "navigationUs": 0,
+            "afterUpdateUs": 1654.1666664804022,
+            "submitUs": 2716.6666674117246,
+            "categorySumUs": 4385.416667287548,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 8.333333147068819,
+            "navigationUs": 0,
+            "afterUpdateUs": 1762.4999986340601,
+            "submitUs": 2816.6666673496366,
+            "categorySumUs": 4587.499999130765,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 25.000000062088173,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1774.9999991307657,
+            "submitUs": 2816.6666673496366,
+            "categorySumUs": 4618.7500000620885,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 12.500000496705374,
+            "navigationUs": 0,
+            "afterUpdateUs": 1610.4166659836967,
+            "submitUs": 2618.750000372529,
+            "categorySumUs": 4241.666666852931,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 6.249999937911828,
+            "navigationUs": 0,
+            "afterUpdateUs": 1841.6666674117248,
+            "submitUs": 2925.000000434617,
+            "categorySumUs": 4772.916667784253,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 16.666667225460213,
+            "navigationUs": 0,
+            "afterUpdateUs": 1835.416665300727,
+            "submitUs": 2952.0833355685077,
+            "categorySumUs": 4804.166668094695,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666356225809,
+            "navigationUs": 0,
+            "afterUpdateUs": 1795.8333321536581,
+            "submitUs": 2818.7500002483525,
+            "categorySumUs": 4624.999998758236,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 10.416666666666666,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1306.2499985098839,
+            "submitUs": 3793.7500004967055,
+            "categorySumUs": 5112.499999192854,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 8.333333147068819,
+            "navigationUs": 0,
+            "afterUpdateUs": 1468.7499996895592,
+            "submitUs": 4200.000001117587,
+            "categorySumUs": 5677.083333954215,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 22.916666542490322,
+            "navigationUs": 0,
+            "afterUpdateUs": 1381.2500002483528,
+            "submitUs": 4006.2499986961484,
+            "categorySumUs": 5410.416665486991,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 16.666666294137638,
+            "navigationUs": 0,
+            "afterUpdateUs": 1416.6666669771075,
+            "submitUs": 4016.6666666045785,
+            "categorySumUs": 5449.999999875824,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 16.66666753590107,
+            "navigationUs": 0,
+            "afterUpdateUs": 1435.4166661699612,
+            "submitUs": 4145.8333336437745,
+            "categorySumUs": 5597.916667349637,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 16.666667225460213,
+            "navigationUs": 0,
+            "afterUpdateUs": 1389.5833340163033,
+            "submitUs": 4012.5000001862645,
+            "categorySumUs": 5418.750001428029,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666666666666,
+            "navigationUs": 4.16666641831398,
+            "afterUpdateUs": 1458.333333954215,
+            "submitUs": 4235.416665362815,
+            "categorySumUs": 5708.333332402011,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 8.333333147068819,
+            "navigationUs": 0,
+            "afterUpdateUs": 1464.5833329608042,
+            "submitUs": 4185.416668963929,
+            "categorySumUs": 5658.333335071802,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 22.916666542490322,
+            "navigationUs": 0,
+            "afterUpdateUs": 1452.0833318432171,
+            "submitUs": 4195.833335009714,
+            "categorySumUs": 5670.8333333954215,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 2.08333320915699,
+            "navigationUs": 0,
+            "afterUpdateUs": 1431.2499985098839,
+            "submitUs": 4120.833334513009,
+            "categorySumUs": 5554.1666662320495,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 0,
+            "afterUpdateUs": 1406.2499996895592,
+            "submitUs": 4118.750001303852,
+            "categorySumUs": 5537.500000869235,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 16.666666294137638,
+            "navigationUs": 0,
+            "afterUpdateUs": 1437.5,
+            "submitUs": 4166.666667287548,
+            "categorySumUs": 5620.833333581686,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 27.08333482344945,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1458.33333209157,
+            "submitUs": 4206.250001676381,
+            "categorySumUs": 5693.750002110998,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666977107525,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1387.4999998758237,
+            "submitUs": 3985.4166662941375,
+            "categorySumUs": 5385.416666666666,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 4.166666728754838,
+            "navigationUs": 0,
+            "afterUpdateUs": 1462.500000372529,
+            "submitUs": 4193.7499999379115,
+            "categorySumUs": 5660.416667039195,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666977107525,
+            "navigationUs": 0,
+            "afterUpdateUs": 1391.6666662941377,
+            "submitUs": 3993.750000062088,
+            "categorySumUs": 5395.833333333333,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 10.416666977107525,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1381.2500005587935,
+            "submitUs": 4020.833333954215,
+            "categorySumUs": 5414.583334699273,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 4.166666728754838,
+            "navigationUs": 0,
+            "afterUpdateUs": 1443.7499990065892,
+            "submitUs": 4093.7500006208816,
+            "categorySumUs": 5541.6666663562255,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 0,
+            "afterUpdateUs": 1460.4166665424902,
+            "submitUs": 4164.583334078391,
+            "categorySumUs": 5637.500000496705,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 6.249999937911828,
+            "navigationUs": 0,
+            "afterUpdateUs": 1391.6666662941377,
+            "submitUs": 4031.25,
+            "categorySumUs": 5429.1666662320495,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 12.500000496705374,
+            "navigationUs": 0,
+            "afterUpdateUs": 1429.1666668529313,
+            "submitUs": 4083.3333333333335,
+            "categorySumUs": 5525.0000006829705,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 6.250000248352687,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1477.083332836628,
+            "submitUs": 4252.083333830039,
+            "categorySumUs": 5737.5000004346175,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.500000186264515,
+            "navigationUs": 0,
+            "afterUpdateUs": 1474.9999990065892,
+            "submitUs": 4225.000000869234,
+            "categorySumUs": 5712.500000062088,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416667287548384,
+            "navigationUs": 0,
+            "afterUpdateUs": 1439.5833335195978,
+            "submitUs": 4147.916665611167,
+            "categorySumUs": 5597.916666418314,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 18.749999503294628,
+            "navigationUs": 0,
+            "afterUpdateUs": 1383.3333334575098,
+            "submitUs": 4960.416665921609,
+            "categorySumUs": 6362.499998882413,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 16.666666294137638,
+            "navigationUs": 0,
+            "afterUpdateUs": 1337.5000006829698,
+            "submitUs": 4802.083332712452,
+            "categorySumUs": 6156.249999689559,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.500000186264515,
+            "navigationUs": 0,
+            "afterUpdateUs": 1389.5833330849807,
+            "submitUs": 4943.750000248353,
+            "categorySumUs": 6345.833333519598,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 8.333333147068819,
+            "navigationUs": 0,
+            "afterUpdateUs": 1383.3333312844236,
+            "submitUs": 4952.083335878949,
+            "categorySumUs": 6343.7500003104415,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 14.583333395421505,
+            "navigationUs": 0,
+            "afterUpdateUs": 1385.4166663562257,
+            "submitUs": 4983.3333327745395,
+            "categorySumUs": 6383.3333325261865,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 8.333333767950535,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1414.5833337679505,
+            "submitUs": 4997.916666169961,
+            "categorySumUs": 6422.916666915019,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 16.666666604578495,
+            "navigationUs": 0,
+            "afterUpdateUs": 1402.083333581686,
+            "submitUs": 4958.333333333333,
+            "categorySumUs": 6377.0833335195975,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 0,
+            "afterUpdateUs": 1120.8333317190409,
+            "submitUs": 4129.1666667287545,
+            "categorySumUs": 5262.499998323619,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 8.33333283662796,
+            "navigationUs": 0,
+            "afterUpdateUs": 1375.0000003104408,
+            "submitUs": 4889.583333705862,
+            "categorySumUs": 6272.916666852931,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 16.666666915019352,
+            "navigationUs": 0,
+            "afterUpdateUs": 1345.8333316569526,
+            "submitUs": 4856.2500001862645,
+            "categorySumUs": 6218.749998758236,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 14.58333401630322,
+            "navigationUs": 0,
+            "afterUpdateUs": 1345.8333338300388,
+            "submitUs": 4787.49999931703,
+            "categorySumUs": 6147.916667163372,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 8.333333147068819,
+            "navigationUs": 0,
+            "afterUpdateUs": 1372.9166664804022,
+            "submitUs": 4881.2500005587935,
+            "categorySumUs": 6262.5000001862645,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 10.416666666666666,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1349.9999999379118,
+            "submitUs": 4808.3333332712455,
+            "categorySumUs": 6170.833333084981,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 0,
+            "afterUpdateUs": 1420.8333315327764,
+            "submitUs": 4972.916667970519,
+            "categorySumUs": 6406.249999379119,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 16.666666915019352,
+            "navigationUs": 0,
+            "afterUpdateUs": 1402.0833332712452,
+            "submitUs": 4920.833333705862,
+            "categorySumUs": 6339.583333892127,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666356225809,
+            "navigationUs": 4.166666728754838,
+            "afterUpdateUs": 1389.5833340163033,
+            "submitUs": 4960.416665611167,
+            "categorySumUs": 6364.583332712451,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 14.583333084980646,
+            "navigationUs": 0,
+            "afterUpdateUs": 1370.8333329608042,
+            "submitUs": 4904.166668032606,
+            "categorySumUs": 6289.583334078391,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666666666666,
+            "navigationUs": 0,
+            "afterUpdateUs": 1387.499999254942,
+            "submitUs": 4924.999999503295,
+            "categorySumUs": 6322.916665424904,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.500000186264515,
+            "navigationUs": 0,
+            "afterUpdateUs": 1379.1666676600773,
+            "submitUs": 4962.499999130766,
+            "categorySumUs": 6354.1666669771075,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 2.0833335195978484,
+            "navigationUs": 0,
+            "afterUpdateUs": 1393.7499991928537,
+            "submitUs": 4891.666666915019,
+            "categorySumUs": 6287.499999627471,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 12.500000186264515,
+            "navigationUs": 6.249999937911828,
+            "afterUpdateUs": 1352.0833334575098,
+            "submitUs": 4868.749999751647,
+            "categorySumUs": 6239.583333333333,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.500000186264515,
+            "navigationUs": 0,
+            "afterUpdateUs": 1416.666666045785,
+            "submitUs": 4985.416666915019,
+            "categorySumUs": 6414.5833331470685,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 16.666666604578495,
+            "navigationUs": 0,
+            "afterUpdateUs": 1285.4166661078732,
+            "submitUs": 4624.999999689559,
+            "categorySumUs": 5927.083332402011,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 4.166667039195697,
+            "afterUpdateUs": 1347.916666418314,
+            "submitUs": 4777.083333581686,
+            "categorySumUs": 6141.666666915019,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 47.916666604578495,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 125,
+            "submitUs": 458.3333330228925,
+            "categorySumUs": 633.333332836628,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 39.583333457509674,
+            "navigationUs": 4.16666641831398,
+            "afterUpdateUs": 133.3333340783914,
+            "submitUs": 452.0833333954215,
+            "categorySumUs": 629.1666673496366,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 39.58333314706882,
+            "navigationUs": 4.166667039195697,
+            "afterUpdateUs": 156.2499993791183,
+            "submitUs": 474.9999999379118,
+            "categorySumUs": 674.9999995032946,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 66.66666797051828,
+            "navigationUs": 0,
+            "afterUpdateUs": 152.08333202948174,
+            "submitUs": 458.3333333333333,
+            "categorySumUs": 677.0833333333333,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 43.749999875823654,
+            "navigationUs": 0,
+            "afterUpdateUs": 133.33333376795053,
+            "submitUs": 460.4166665424903,
+            "categorySumUs": 637.5000001862645,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 52.08333240201076,
+            "navigationUs": 0,
+            "afterUpdateUs": 102.08333500971396,
+            "submitUs": 364.5833320915699,
+            "categorySumUs": 518.7499995032946,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 54.1666674738129,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 145.8333327124516,
+            "submitUs": 427.08333395421505,
+            "categorySumUs": 629.1666673496366,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 50.00000105549892,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 141.66666629413763,
+            "submitUs": 450.00000080714625,
+            "categorySumUs": 643.7500013659399,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 31.249999689559143,
+            "navigationUs": 0,
+            "afterUpdateUs": 120.83333327124517,
+            "submitUs": 362.5000001241763,
+            "categorySumUs": 514.5833330849806,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 49.999999503294625,
+            "navigationUs": 0,
+            "afterUpdateUs": 147.91666716337204,
+            "submitUs": 402.08333171904087,
+            "categorySumUs": 599.9999983857075,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 43.750000186264515,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 143.75000012417635,
+            "submitUs": 418.7499986340602,
+            "categorySumUs": 608.333332153658,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 50.00000229726235,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 143.74999795109034,
+            "submitUs": 418.7500011175871,
+            "categorySumUs": 614.5833348855376,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 37.49999993791183,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 139.58333370586237,
+            "submitUs": 418.7499995653828,
+            "categorySumUs": 597.9166667287548,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 54.166666232049465,
+            "navigationUs": 0,
+            "afterUpdateUs": 137.4999995653828,
+            "submitUs": 437.5000009313226,
+            "categorySumUs": 629.1666667287549,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 47.91666598369678,
+            "navigationUs": 0,
+            "afterUpdateUs": 129.16666641831398,
+            "submitUs": 416.6666663562258,
+            "categorySumUs": 593.7499987582365,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 37.500000248352684,
+            "navigationUs": 0,
+            "afterUpdateUs": 104.16666604578495,
+            "submitUs": 322.9166669771075,
+            "categorySumUs": 464.5833332712451,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 39.58333314706882,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 114.58333271245162,
+            "submitUs": 364.5833345750968,
+            "categorySumUs": 520.833333954215,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 45.833333084980644,
+            "navigationUs": 0,
+            "afterUpdateUs": 150.00000099341074,
+            "submitUs": 441.666666418314,
+            "categorySumUs": 637.5000004967053,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 33.33333320915699,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 147.91666623204947,
+            "submitUs": 439.58333289871615,
+            "categorySumUs": 622.9166655490797,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 37.500000869234405,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 110.41666722546022,
+            "submitUs": 375,
+            "categorySumUs": 525.0000013038516,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 45.83333401630322,
+            "navigationUs": 0,
+            "afterUpdateUs": 135.41666511446238,
+            "submitUs": 412.5000011796753,
+            "categorySumUs": 593.7500003104409,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 31.25,
+            "navigationUs": 4.166666728754838,
+            "afterUpdateUs": 120.83333327124517,
+            "submitUs": 302.0833342646559,
+            "categorySumUs": 458.3333342646559,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 52.08333426465591,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 110.41666598369677,
+            "submitUs": 387.4999998758237,
+            "categorySumUs": 552.0833336437743,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 47.91666598369678,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 139.5833349476258,
+            "submitUs": 422.9166656732559,
+            "categorySumUs": 612.4999998137355,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 304.1666668529312,
+            "navigationUs": 0,
+            "afterUpdateUs": 691.6666667287549,
+            "submitUs": 6652.083332960804,
+            "categorySumUs": 7647.91666654249,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 295.8333333954215,
+            "navigationUs": 0,
+            "afterUpdateUs": 679.1666665424904,
+            "submitUs": 6493.750000372529,
+            "categorySumUs": 7468.750000310441,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 297.91666753590107,
+            "navigationUs": 0,
+            "afterUpdateUs": 756.2499999379119,
+            "submitUs": 6641.666666294138,
+            "categorySumUs": 7695.8333337679505,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 293.7500011175871,
+            "navigationUs": 0,
+            "afterUpdateUs": 724.9999986961484,
+            "submitUs": 6564.5833335195975,
+            "categorySumUs": 7583.333333333333,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 337.50000037252903,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 733.333332153658,
+            "submitUs": 6645.8333330228925,
+            "categorySumUs": 7718.749999068677,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 293.7499986340602,
+            "navigationUs": 4.166667039195697,
+            "afterUpdateUs": 816.6666661078731,
+            "submitUs": 6739.583333954215,
+            "categorySumUs": 7854.1666657353435,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 299.99999950329465,
+            "navigationUs": 0,
+            "afterUpdateUs": 718.75,
+            "submitUs": 6577.083333705862,
+            "categorySumUs": 7595.833333209157,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 295.83333370586234,
+            "navigationUs": 0,
+            "afterUpdateUs": 820.8333325261871,
+            "submitUs": 6556.250000372529,
+            "categorySumUs": 7672.9166666045785,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 306.25000037252903,
+            "navigationUs": 0,
+            "afterUpdateUs": 889.5833337058624,
+            "submitUs": 6789.5833331470685,
+            "categorySumUs": 7985.41666722546,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 279.1666680326064,
+            "navigationUs": 0,
+            "afterUpdateUs": 849.9999986961484,
+            "submitUs": 6710.41666654249,
+            "categorySumUs": 7839.583333271245,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 302.08333240201074,
+            "navigationUs": 0,
+            "afterUpdateUs": 864.583333954215,
+            "submitUs": 6745.833332960804,
+            "categorySumUs": 7912.4999993170295,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 310.41666710128385,
+            "navigationUs": 0,
+            "afterUpdateUs": 883.3333322157463,
+            "submitUs": 6754.166667970519,
+            "categorySumUs": 7947.916667287549,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 289.5833331470688,
+            "navigationUs": 0,
+            "afterUpdateUs": 752.0833335195979,
+            "submitUs": 6570.833334078391,
+            "categorySumUs": 7612.500000745058,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 310.4166661699613,
+            "navigationUs": 0,
+            "afterUpdateUs": 866.6666665424904,
+            "submitUs": 6752.083334761362,
+            "categorySumUs": 7929.1666674738135,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 304.1666668529312,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 820.8333346992731,
+            "submitUs": 6720.833332277834,
+            "categorySumUs": 7847.916667349637,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 295.83333246409893,
+            "navigationUs": 0,
+            "afterUpdateUs": 893.7500004346172,
+            "submitUs": 6679.1666668529315,
+            "categorySumUs": 7868.749999751648,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 300.0000001241763,
+            "navigationUs": 0,
+            "afterUpdateUs": 797.9166669150194,
+            "submitUs": 6589.583332650363,
+            "categorySumUs": 7687.499999689559,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 285.4166667287548,
+            "navigationUs": 0,
+            "afterUpdateUs": 856.2499995653828,
+            "submitUs": 6747.916666169961,
+            "categorySumUs": 7889.583332464099,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 320.8333331470688,
+            "navigationUs": 0,
+            "afterUpdateUs": 899.9999991307656,
+            "submitUs": 6770.833334575097,
+            "categorySumUs": 7991.6666668529315,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 308.33333265036345,
+            "navigationUs": 0,
+            "afterUpdateUs": 891.6666672254602,
+            "submitUs": 6797.916666294138,
+            "categorySumUs": 7997.916666169962,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 297.91666753590107,
+            "navigationUs": 0,
+            "afterUpdateUs": 954.1666669150194,
+            "submitUs": 6856.249999875824,
+            "categorySumUs": 8108.333334326744,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 289.5833334575097,
+            "navigationUs": 4.16666641831398,
+            "afterUpdateUs": 760.416668218871,
+            "submitUs": 6579.166666294138,
+            "categorySumUs": 7633.333334388833,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 345.8333347613613,
+            "navigationUs": 0,
+            "afterUpdateUs": 710.4166653007269,
+            "submitUs": 6368.750000993411,
+            "categorySumUs": 7425.0000010554995,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 352.08333283662796,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 643.7500001241764,
+            "submitUs": 6266.6666666045785,
+            "categorySumUs": 7264.583333084981,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 366.6666659216086,
+            "navigationUs": 0,
+            "afterUpdateUs": 1183.3333345130086,
+            "submitUs": 6085.416665611167,
+            "categorySumUs": 7635.416666045785,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 345.83333289871615,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1247.9166674117248,
+            "submitUs": 6370.833332650363,
+            "categorySumUs": 7966.6666664804025,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 350.00000055879354,
+            "navigationUs": 0,
+            "afterUpdateUs": 1343.7500012417634,
+            "submitUs": 6364.583332712452,
+            "categorySumUs": 8058.333334513009,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 366.6666659216086,
+            "navigationUs": 0,
+            "afterUpdateUs": 1241.6666662320495,
+            "submitUs": 6195.833332526187,
+            "categorySumUs": 7804.166664679846,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 335.4166674738129,
+            "navigationUs": 0,
+            "afterUpdateUs": 1293.7499998758237,
+            "submitUs": 6341.6666664804025,
+            "categorySumUs": 7970.833333830039,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 302.08333395421505,
+            "navigationUs": 0,
+            "afterUpdateUs": 1379.1666661078732,
+            "submitUs": 6308.3333332712455,
+            "categorySumUs": 7989.583333333334,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 299.99999950329465,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1397.9166668529313,
+            "submitUs": 6339.5833332712455,
+            "categorySumUs": 8039.583333147069,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 318.74999838570756,
+            "navigationUs": 0,
+            "afterUpdateUs": 1514.5833352580667,
+            "submitUs": 6162.499999006589,
+            "categorySumUs": 7995.833332650363,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 331.24999919285375,
+            "navigationUs": 4.166666728754838,
+            "afterUpdateUs": 1524.9999994412065,
+            "submitUs": 6141.666666915019,
+            "categorySumUs": 8002.083332277834,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 345.83333351959783,
+            "navigationUs": 0,
+            "afterUpdateUs": 1587.5000000620882,
+            "submitUs": 6285.416664866109,
+            "categorySumUs": 8218.749998447794,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 318.7499999379118,
+            "navigationUs": 0,
+            "afterUpdateUs": 1520.8333330228925,
+            "submitUs": 6116.666668094695,
+            "categorySumUs": 7956.250001055499,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 310.4166677221656,
+            "navigationUs": 0,
+            "afterUpdateUs": 1502.0833322778344,
+            "submitUs": 6141.666666915019,
+            "categorySumUs": 7954.166666915019,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 293.74999832361937,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1597.9166679705183,
+            "submitUs": 6237.4999991928535,
+            "categorySumUs": 8131.249999006589,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 310.416666790843,
+            "navigationUs": 0,
+            "afterUpdateUs": 1410.416666418314,
+            "submitUs": 5883.333332836628,
+            "categorySumUs": 7604.166666045785,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 287.5000002483527,
+            "navigationUs": 0,
+            "afterUpdateUs": 1614.5833324020107,
+            "submitUs": 6199.999999875824,
+            "categorySumUs": 8102.083332526187,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 297.9166678463419,
+            "navigationUs": 0,
+            "afterUpdateUs": 1631.2499986961484,
+            "submitUs": 6125.000000931323,
+            "categorySumUs": 8054.166667473813,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 316.666666418314,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1495.833333581686,
+            "submitUs": 6118.749999751647,
+            "categorySumUs": 7933.333333271245,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 293.74999925494194,
+            "navigationUs": 0,
+            "afterUpdateUs": 1675.0000013659399,
+            "submitUs": 6218.749998447795,
+            "categorySumUs": 8187.499999068677,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 291.6666663562258,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1558.3333348234494,
+            "submitUs": 6131.249999627471,
+            "categorySumUs": 7983.333334016303,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 289.58333283662796,
+            "navigationUs": 0,
+            "afterUpdateUs": 1689.5833341404796,
+            "submitUs": 6422.9166659836965,
+            "categorySumUs": 8402.083332960803,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 308.3333345130086,
+            "navigationUs": 0,
+            "afterUpdateUs": 1639.5833337058623,
+            "submitUs": 6352.083334078391,
+            "categorySumUs": 8300.000002297262,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 314.583333209157,
+            "navigationUs": 0,
+            "afterUpdateUs": 1441.6666679705183,
+            "submitUs": 5987.500000124176,
+            "categorySumUs": 7743.750001303852,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 295.8333343267441,
+            "navigationUs": 0,
+            "afterUpdateUs": 1695.8333319053054,
+            "submitUs": 6316.666667349637,
+            "categorySumUs": 8308.333333581686,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 324.9999995653828,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1612.5000001241763,
+            "submitUs": 6277.083333892127,
+            "categorySumUs": 8216.666666790843,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 47.916666915019356,
+            "navigationUs": 0,
+            "afterUpdateUs": 22.91666716337204,
+            "submitUs": 141.6666659836968,
+            "categorySumUs": 212.5000000620882,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 39.583333767950535,
+            "navigationUs": 4.166666728754838,
+            "afterUpdateUs": 18.749999503294628,
+            "submitUs": 114.58333271245162,
+            "categorySumUs": 177.08333271245164,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 43.750000496705375,
+            "navigationUs": 0,
+            "afterUpdateUs": 10.416666356225809,
+            "submitUs": 133.33333376795053,
+            "categorySumUs": 187.50000062088174,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 56.25000006208817,
+            "navigationUs": 0,
+            "afterUpdateUs": 8.33333283662796,
+            "submitUs": 93.75000031044085,
+            "categorySumUs": 158.333333209157,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 39.5833325261871,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 4.166667039195697,
+            "submitUs": 95.83333320915699,
+            "categorySumUs": 141.66666598369676,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 39.583334078391395,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 22.916667473812897,
+            "submitUs": 129.16666579743227,
+            "categorySumUs": 193.75000055879354,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 49.99999888241291,
+            "navigationUs": 0,
+            "afterUpdateUs": 10.416666977107525,
+            "submitUs": 91.66666741172473,
+            "categorySumUs": 152.08333327124518,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 43.75000080714623,
+            "navigationUs": 4.166666728754838,
+            "afterUpdateUs": 2.0833335195978484,
+            "submitUs": 168.75000049670538,
+            "categorySumUs": 218.7500015522043,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 47.916666915019356,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 14.583333084980646,
+            "submitUs": 133.33333314706883,
+            "categorySumUs": 197.91666666666669,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 43.750000496705375,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 10.416667287548384,
+            "submitUs": 108.33333215365808,
+            "categorySumUs": 164.58333314706883,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 41.666666977107525,
+            "navigationUs": 0,
+            "afterUpdateUs": 12.500000186264515,
+            "submitUs": 110.41666815678279,
+            "categorySumUs": 164.58333532015484,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 41.66666635622581,
+            "navigationUs": 0,
+            "afterUpdateUs": 12.499999875823656,
+            "submitUs": 110.41666691501935,
+            "categorySumUs": 164.5833331470688,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 37.499998385707535,
+            "navigationUs": 0,
+            "afterUpdateUs": 8.333333147068819,
+            "submitUs": 102.08333345750968,
+            "categorySumUs": 147.91666499028605,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 45.83333277453979,
+            "navigationUs": 0,
+            "afterUpdateUs": 14.583333395421505,
+            "submitUs": 112.50000105549891,
+            "categorySumUs": 172.9166672254602,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 31.249999689559143,
+            "navigationUs": 0,
+            "afterUpdateUs": 12.499999565382799,
+            "submitUs": 79.16666629413764,
+            "categorySumUs": 122.91666554907958,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 39.583334078391395,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 14.583333395421505,
+            "submitUs": 108.33333246409893,
+            "categorySumUs": 164.5833334575097,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 49.99999919285377,
+            "navigationUs": 0,
+            "afterUpdateUs": 16.666666294137638,
+            "submitUs": 110.41666753590107,
+            "categorySumUs": 177.08333302289248,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 33.333332588275276,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 14.583333705862364,
+            "submitUs": 75.00000080714624,
+            "categorySumUs": 125.00000031044087,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 41.666666666666664,
+            "navigationUs": 0,
+            "afterUpdateUs": 6.250000248352687,
+            "submitUs": 110.4166666045785,
+            "categorySumUs": 158.33333351959783,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 35.416667039195694,
+            "navigationUs": 0,
+            "afterUpdateUs": 10.416666666666666,
+            "submitUs": 110.4166666045785,
+            "categorySumUs": 156.25000031044084,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 35.41666641831398,
+            "navigationUs": 6.250000558793545,
+            "afterUpdateUs": 12.499999875823656,
+            "submitUs": 104.16666697710752,
+            "categorySumUs": 158.3333338300387,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 22.916666542490322,
+            "navigationUs": 0,
+            "afterUpdateUs": 16.666666915019352,
+            "submitUs": 79.16666691501935,
+            "categorySumUs": 118.75000037252903,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 54.1666674738129,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 12.500000186264515,
+            "submitUs": 102.08333345750968,
+            "categorySumUs": 170.83333463718495,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 37.49999931703011,
+            "navigationUs": 0,
+            "afterUpdateUs": 12.500000186264515,
+            "submitUs": 108.33333370586236,
+            "categorySumUs": 158.333333209157,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      }
+    ],
+    "errors": []
+  },
+  "ab": {
+    "phase": "source",
+    "mode": "ab",
+    "fixedBoundsTrampolineSelection": true,
+    "sameCoreGraph": true,
+    "matrixStartedAt": 1794937944221,
+    "matrixCompletedAt": 1794938135737,
+    "browser": {
+      "engine": "chromium",
+      "version": "153.0.8010.12",
+      "platform": "darwin/arm64",
+      "mode": "desktop-automation",
+      "executable": "pinned-playwright-managed",
+      "physicalDeviceCertification": false,
+      "safariCertification": false
+    },
+    "cohortProof": [
+      {
+        "config": {
+          "name": "layer-local-large",
+          "space": "local",
+          "capacity": 8192,
+          "target": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "2a9857e9d3b119960c29b911b3d25642a476f9ee1966dc12f6606fb32461e792",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "layer-world-large",
+          "space": "world",
+          "capacity": 8192,
+          "target": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "layer-local-isolated",
+          "space": "local",
+          "capacity": 8192,
+          "target": true,
+          "isolated": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "ad260966840e1254115344c71f82418e6f56f852e97bd9f23f250fcc367ebcae",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "layer-world-isolated",
+          "space": "world",
+          "capacity": 8192,
+          "target": true,
+          "isolated": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "188f942c0bdfad29b1724296abb96d05e7d14f0896bb5035c11ad7b486b6980b",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "layer-local-small",
+          "space": "local",
+          "capacity": 128,
+          "target": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 512
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "319b5bb34c88f7ad952b16f8b8f950ddccf3159c029fa7a0358adf09ce0e17c0",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "sprite-local-control",
+          "space": "local",
+          "capacity": 8192
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "sprite-world-control",
+          "space": "world",
+          "capacity": 8192
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 32768
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "layer-empty-control",
+          "space": "local",
+          "capacity": 8192,
+          "target": true,
+          "empty": true
+        },
+        "setup": {
+          "visibility": "visible",
+          "nativeBitmaps": true,
+          "automaticSceneSimulation": true,
+          "destroyListenerCount": 0,
+          "initialBoundsVariant": "before",
+          "postListenerCount": 0,
+          "preListenerCount": 0,
+          "activeParticlesPerSide": 0
+        },
+        "oneSharedGame": true,
+        "oneSharedCanvas": true,
+        "preTimingNativeProbe": true,
+        "matchingPngSha256": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+        "nonuniform": [false, false],
+        "cleanup": [
+          {
+            "side": "shared",
+            "gameDestroyed": "destroyed",
+            "bitmapClosed": true,
+            "destroyListeners": 0,
+            "destroyCallbacks": 0
+          }
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "name": "layer-local-large",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 16.66666753590107,
+            "navigationUs": 0,
+            "afterUpdateUs": 1643.7499991928537,
+            "submitUs": 3095.833333519598,
+            "categorySumUs": 4756.250000248353,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 18.749999813735485,
+            "navigationUs": 0,
+            "afterUpdateUs": 1631.2499993170302,
+            "submitUs": 3029.166667101284,
+            "categorySumUs": 4679.1666662320495,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 2.08333320915699,
+            "navigationUs": 0,
+            "afterUpdateUs": 1702.0833327745397,
+            "submitUs": 3131.2500002483525,
+            "categorySumUs": 4835.4166662320495,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 14.583333705862364,
+            "navigationUs": 0,
+            "afterUpdateUs": 1754.1666661078732,
+            "submitUs": 3170.833334326744,
+            "categorySumUs": 4939.58333414048,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-large",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 14.583333395421505,
+            "navigationUs": 0,
+            "afterUpdateUs": 1585.4166680946946,
+            "submitUs": 2964.583333271245,
+            "categorySumUs": 4564.583334761361,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 14.583333395421505,
+            "navigationUs": 0,
+            "afterUpdateUs": 1708.3333342646558,
+            "submitUs": 3139.583332464099,
+            "categorySumUs": 4862.500000124176,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666977107525,
+            "navigationUs": 0,
+            "afterUpdateUs": 1683.3333342025678,
+            "submitUs": 3081.249999192854,
+            "categorySumUs": 4775.000000372529,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 14.583333705862364,
+            "navigationUs": 0,
+            "afterUpdateUs": 1554.1666668529313,
+            "submitUs": 2941.6666670391955,
+            "categorySumUs": 4510.416667597989,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-large",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 10.416666977107525,
+            "navigationUs": 0,
+            "afterUpdateUs": 1708.3333333333333,
+            "submitUs": 3145.833333643774,
+            "categorySumUs": 4864.583333954215,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666666666666,
+            "navigationUs": 0,
+            "afterUpdateUs": 1675.0000010554988,
+            "submitUs": 3079.1666666045785,
+            "categorySumUs": 4764.583334326744,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666666666666,
+            "navigationUs": 0,
+            "afterUpdateUs": 1597.9166657974322,
+            "submitUs": 2949.9999998758235,
+            "categorySumUs": 4558.333332339922,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 16.66666753590107,
+            "navigationUs": 0,
+            "afterUpdateUs": 1670.833332464099,
+            "submitUs": 3129.1666676600776,
+            "categorySumUs": 4816.666667660078,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-large",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 16.666666915019352,
+            "navigationUs": 0,
+            "afterUpdateUs": 1641.6666672254603,
+            "submitUs": 3031.2500009313226,
+            "categorySumUs": 4689.583335071802,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 20.833333643774193,
+            "navigationUs": 0,
+            "afterUpdateUs": 1608.3333318432171,
+            "submitUs": 3008.3333340783915,
+            "categorySumUs": 4637.499999565383,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666356225809,
+            "navigationUs": 0,
+            "afterUpdateUs": 1649.9999997516472,
+            "submitUs": 3031.2500009313226,
+            "categorySumUs": 4691.666667039195,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 6.249999937911828,
+            "navigationUs": 0,
+            "afterUpdateUs": 1618.7499997516472,
+            "submitUs": 2997.916666480402,
+            "categorySumUs": 4622.916666169961,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-large",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 12.500000186264515,
+            "navigationUs": 0,
+            "afterUpdateUs": 1689.5833338300388,
+            "submitUs": 3145.8333348855376,
+            "categorySumUs": 4847.916668901841,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 20.833333333333332,
+            "navigationUs": 0,
+            "afterUpdateUs": 1645.8333336437743,
+            "submitUs": 3087.4999997516475,
+            "categorySumUs": 4754.166666728755,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 22.916668094694614,
+            "navigationUs": 0,
+            "afterUpdateUs": 1683.3333323399227,
+            "submitUs": 2352.0833337679505,
+            "categorySumUs": 4058.333334202568,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 8.333333147068819,
+            "navigationUs": 0,
+            "afterUpdateUs": 1697.91666790843,
+            "submitUs": 3162.5000002483525,
+            "categorySumUs": 4868.750001303852,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-large",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 14.583333705862364,
+            "navigationUs": 0,
+            "afterUpdateUs": 1660.4166679705183,
+            "submitUs": 3062.4999993791184,
+            "categorySumUs": 4737.5000010554995,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666356225809,
+            "navigationUs": 0,
+            "afterUpdateUs": 1641.6666681567829,
+            "submitUs": 3058.333333271245,
+            "categorySumUs": 4710.416667784253,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 0,
+            "afterUpdateUs": 1699.999997081856,
+            "submitUs": 3135.416667597989,
+            "categorySumUs": 4847.916664555669,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 16.666667225460213,
+            "navigationUs": 0,
+            "afterUpdateUs": 1697.9166682188709,
+            "submitUs": 3120.8333345130086,
+            "categorySumUs": 4835.41666995734,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 20.833332712451618,
+            "navigationUs": 0,
+            "afterUpdateUs": 1649.9999997516472,
+            "submitUs": 2747.916666790843,
+            "categorySumUs": 4418.749999254942,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.500000496705374,
+            "navigationUs": 0,
+            "afterUpdateUs": 1785.4166667287548,
+            "submitUs": 2866.666665611168,
+            "categorySumUs": 4664.583332836628,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666666666666,
+            "navigationUs": 0,
+            "afterUpdateUs": 1847.9166682809591,
+            "submitUs": 2910.4166651765504,
+            "categorySumUs": 4768.750000124176,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 2.08333320915699,
+            "navigationUs": 0,
+            "afterUpdateUs": 1579.1666659836967,
+            "submitUs": 2635.4166688397527,
+            "categorySumUs": 4216.666668032606,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 14.583333395421505,
+            "navigationUs": 0,
+            "afterUpdateUs": 1791.6666672875483,
+            "submitUs": 2881.249999627471,
+            "categorySumUs": 4687.500000310441,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 20.833334264655907,
+            "navigationUs": 0,
+            "afterUpdateUs": 1822.9166663562257,
+            "submitUs": 2966.666666480402,
+            "categorySumUs": 4810.416667101284,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416667287548384,
+            "navigationUs": 0,
+            "afterUpdateUs": 1741.6666684051354,
+            "submitUs": 2893.749998882413,
+            "categorySumUs": 4645.833334575096,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.49999925494194,
+            "navigationUs": 0,
+            "afterUpdateUs": 1864.5833342646558,
+            "submitUs": 2920.83333277454,
+            "categorySumUs": 4797.916666294138,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 24.999999441206455,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1862.5000013659399,
+            "submitUs": 3058.333333271245,
+            "categorySumUs": 4947.916667287548,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666356225809,
+            "navigationUs": 0,
+            "afterUpdateUs": 1816.6666670391958,
+            "submitUs": 2889.5833337058625,
+            "categorySumUs": 4716.6666671012845,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 8.33333283662796,
+            "navigationUs": 0,
+            "afterUpdateUs": 1797.9166672254603,
+            "submitUs": 2833.333333954215,
+            "categorySumUs": 4639.5833340163035,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666977107525,
+            "navigationUs": 0,
+            "afterUpdateUs": 1756.2499993170302,
+            "submitUs": 2858.3333337058625,
+            "categorySumUs": 4625,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 14.583333395421505,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1839.5833363756537,
+            "submitUs": 2685.416664617757,
+            "categorySumUs": 4541.666667597989,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.500000496705374,
+            "navigationUs": 0,
+            "afterUpdateUs": 1781.2500006208818,
+            "submitUs": 2933.333333271245,
+            "categorySumUs": 4727.083334388832,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666666666666,
+            "navigationUs": 0,
+            "afterUpdateUs": 1720.8333335195978,
+            "submitUs": 2814.583332898716,
+            "categorySumUs": 4545.83333308498,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416667287548384,
+            "navigationUs": 0,
+            "afterUpdateUs": 1837.5000000620882,
+            "submitUs": 2947.9166672875485,
+            "categorySumUs": 4795.8333346371855,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 12.499999565382799,
+            "navigationUs": 0,
+            "afterUpdateUs": 1820.8333337679505,
+            "submitUs": 2933.333333581686,
+            "categorySumUs": 4766.666666915019,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 16.666666915019352,
+            "navigationUs": 0,
+            "afterUpdateUs": 1793.7499995653827,
+            "submitUs": 2835.4166662320495,
+            "categorySumUs": 4645.833332712451,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.50000080714623,
+            "navigationUs": 0,
+            "afterUpdateUs": 1870.8333332712452,
+            "submitUs": 2937.4999993791184,
+            "categorySumUs": 4820.83333345751,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666977107525,
+            "navigationUs": 0,
+            "afterUpdateUs": 1783.3333338300388,
+            "submitUs": 2887.5000004967055,
+            "categorySumUs": 4681.250001303852,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-large",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 0,
+            "afterUpdateUs": 1812.5,
+            "submitUs": 2895.833333954215,
+            "categorySumUs": 4720.833333830039,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 20.833333022892475,
+            "navigationUs": 0,
+            "afterUpdateUs": 1666.6666654249032,
+            "submitUs": 2750.0000009313226,
+            "categorySumUs": 4437.499999379118,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 20.83333395421505,
+            "navigationUs": 0,
+            "afterUpdateUs": 1750.0000003104408,
+            "submitUs": 2864.583334264656,
+            "categorySumUs": 4635.416668529312,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.500000496705374,
+            "navigationUs": 0,
+            "afterUpdateUs": 1754.1666657974322,
+            "submitUs": 2791.666668218871,
+            "categorySumUs": 4558.333334513009,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 18.749999813735485,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1150.000000372529,
+            "submitUs": 3106.2500001862645,
+            "categorySumUs": 4277.083333892127,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 16.666666294137638,
+            "navigationUs": 0,
+            "afterUpdateUs": 1508.333332836628,
+            "submitUs": 3866.6666680946946,
+            "categorySumUs": 5391.6666672254605,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 14.583333084980646,
+            "navigationUs": 0,
+            "afterUpdateUs": 1514.5833333954215,
+            "submitUs": 3850.0000002483525,
+            "categorySumUs": 5379.1666667287545,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 18.749999503294628,
+            "navigationUs": 0,
+            "afterUpdateUs": 1427.0833333333333,
+            "submitUs": 3856.2499998758235,
+            "categorySumUs": 5302.083332712451,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 14.583333705862364,
+            "navigationUs": 0,
+            "afterUpdateUs": 1510.4166675979893,
+            "submitUs": 3874.999998447796,
+            "categorySumUs": 5399.999999751648,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.500000496705374,
+            "navigationUs": 0,
+            "afterUpdateUs": 1487.4999995032947,
+            "submitUs": 4004.166666418314,
+            "categorySumUs": 5504.166666418314,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 14.583333705862364,
+            "navigationUs": 0,
+            "afterUpdateUs": 1460.4166668529313,
+            "submitUs": 3922.916665983697,
+            "categorySumUs": 5397.916666542491,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 8.333333147068819,
+            "navigationUs": 0,
+            "afterUpdateUs": 1533.3333341404796,
+            "submitUs": 3916.666667597989,
+            "categorySumUs": 5458.333334885538,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 16.666666294137638,
+            "navigationUs": 0,
+            "afterUpdateUs": 1529.166666790843,
+            "submitUs": 4058.3333326503634,
+            "categorySumUs": 5604.166665735344,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 4.166666728754838,
+            "navigationUs": 0,
+            "afterUpdateUs": 1522.9166662320495,
+            "submitUs": 3899.9999994412065,
+            "categorySumUs": 5427.0833324020105,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 27.083334202567737,
+            "navigationUs": 0,
+            "afterUpdateUs": 1477.0833337679505,
+            "submitUs": 3779.1666655490794,
+            "categorySumUs": 5283.3333335195975,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.50000080714623,
+            "navigationUs": 0,
+            "afterUpdateUs": 1487.4999991928537,
+            "submitUs": 3989.583334264656,
+            "categorySumUs": 5489.5833342646565,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 14.583333084980646,
+            "navigationUs": 0,
+            "afterUpdateUs": 1518.7499991928537,
+            "submitUs": 3877.0833325882754,
+            "categorySumUs": 5410.41666486611,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666356225809,
+            "navigationUs": 0,
+            "afterUpdateUs": 1464.5833329608042,
+            "submitUs": 3881.250001179675,
+            "categorySumUs": 5356.250000496705,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 8.333333767950535,
+            "navigationUs": 0,
+            "afterUpdateUs": 1531.2500003104408,
+            "submitUs": 4056.2499997516475,
+            "categorySumUs": 5595.833333830039,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.499999565382799,
+            "navigationUs": 0,
+            "afterUpdateUs": 1506.249999627471,
+            "submitUs": 3856.2500004967055,
+            "categorySumUs": 5374.999999689559,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 14.583333395421505,
+            "navigationUs": 0,
+            "afterUpdateUs": 1562.5000006208818,
+            "submitUs": 4081.2500001241765,
+            "categorySumUs": 5658.33333414048,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 4.16666641831398,
+            "navigationUs": 0,
+            "afterUpdateUs": 1447.9166666666667,
+            "submitUs": 3702.0833330849805,
+            "categorySumUs": 5154.166666169961,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666356225809,
+            "navigationUs": 0,
+            "afterUpdateUs": 1516.6666666045785,
+            "submitUs": 3804.166667163372,
+            "categorySumUs": 5331.250000124176,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.500000186264515,
+            "navigationUs": 0,
+            "afterUpdateUs": 1518.7499998137355,
+            "submitUs": 4004.1666676600776,
+            "categorySumUs": 5535.416667660078,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-isolated",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 6.249999937911828,
+            "navigationUs": 0,
+            "afterUpdateUs": 1479.1666675979893,
+            "submitUs": 3735.416665983697,
+            "categorySumUs": 5220.833333519598,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666666666666,
+            "navigationUs": 0,
+            "afterUpdateUs": 1493.7499994412065,
+            "submitUs": 4027.0833345130086,
+            "categorySumUs": 5531.250000620882,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 0,
+            "afterUpdateUs": 1491.6666674738128,
+            "submitUs": 3989.5833330228925,
+            "categorySumUs": 5493.750000372529,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 10.416666356225809,
+            "navigationUs": 0,
+            "afterUpdateUs": 1527.083333581686,
+            "submitUs": 3864.583333954215,
+            "categorySumUs": 5402.083333892127,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 22.916666852931183,
+            "navigationUs": 0,
+            "afterUpdateUs": 1399.9999994412065,
+            "submitUs": 5043.750000496705,
+            "categorySumUs": 6466.666666790843,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 14.583333395421505,
+            "navigationUs": 0,
+            "afterUpdateUs": 1454.1666653628151,
+            "submitUs": 4981.250000496705,
+            "categorySumUs": 6449.999999254942,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 20.833332402010758,
+            "navigationUs": 0,
+            "afterUpdateUs": 1358.3333330849807,
+            "submitUs": 4758.333332836628,
+            "categorySumUs": 6137.499998323619,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 12.499999875823656,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1416.666666045785,
+            "submitUs": 5079.166666915019,
+            "categorySumUs": 6510.4166663562255,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 14.583333084980646,
+            "navigationUs": 0,
+            "afterUpdateUs": 1408.3333344509203,
+            "submitUs": 4933.333332650363,
+            "categorySumUs": 6356.2500001862645,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416666356225809,
+            "navigationUs": 0,
+            "afterUpdateUs": 1383.3333343888323,
+            "submitUs": 4977.083334078391,
+            "categorySumUs": 6370.833334823449,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 8.33333283662796,
+            "navigationUs": 0,
+            "afterUpdateUs": 1391.6666678463419,
+            "submitUs": 5037.49999931703,
+            "categorySumUs": 6437.5,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 14.583333084980646,
+            "navigationUs": 0,
+            "afterUpdateUs": 1256.2499999379118,
+            "submitUs": 4362.5000004346175,
+            "categorySumUs": 5633.33333345751,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 14.58333401630322,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1274.9999985098839,
+            "submitUs": 4735.4166666045785,
+            "categorySumUs": 6027.083332650363,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 14.583333395421505,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1416.6666672875483,
+            "submitUs": 4924.9999998137355,
+            "categorySumUs": 6358.333334016303,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 12.499999565382799,
+            "navigationUs": 0,
+            "afterUpdateUs": 1418.7499995653827,
+            "submitUs": 4939.583332588275,
+            "categorySumUs": 6370.833331719041,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 14.583333084980646,
+            "navigationUs": 0,
+            "afterUpdateUs": 1422.9166666045785,
+            "submitUs": 5106.249999875824,
+            "categorySumUs": 6543.749999565383,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 12.500000186264515,
+            "navigationUs": 0,
+            "afterUpdateUs": 1399.9999988203247,
+            "submitUs": 4852.083334699273,
+            "categorySumUs": 6264.583333705862,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 20.833333333333332,
+            "navigationUs": 0,
+            "afterUpdateUs": 1343.7500006208818,
+            "submitUs": 4885.4166663562255,
+            "categorySumUs": 6250.000000310441,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 10.416667287548384,
+            "navigationUs": 0,
+            "afterUpdateUs": 1412.4999999379118,
+            "submitUs": 5079.166667535901,
+            "categorySumUs": 6502.083334761361,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 14.58333277453979,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1397.9166665424902,
+            "submitUs": 4927.083333954215,
+            "categorySumUs": 6341.666666480402,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 18.75000074505806,
+            "navigationUs": 0,
+            "afterUpdateUs": 1364.5833342646558,
+            "submitUs": 4933.333332960804,
+            "categorySumUs": 6316.666667970518,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 4.166666728754838,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1406.2500003104408,
+            "submitUs": 4897.91666654249,
+            "categorySumUs": 6310.416666790843,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 6.24999962747097,
+            "navigationUs": 4.166667039195697,
+            "afterUpdateUs": 1425.0000001241763,
+            "submitUs": 4960.416665611167,
+            "categorySumUs": 6395.8333324020105,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 4.16666641831398,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1377.083333209157,
+            "submitUs": 4958.333334575097,
+            "categorySumUs": 6341.666667411725,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-world-isolated",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 20.833333333333332,
+            "navigationUs": 0,
+            "afterUpdateUs": 1404.1666652386386,
+            "submitUs": 4925.000001055499,
+            "categorySumUs": 6349.999999627471,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 14.58333277453979,
+            "navigationUs": 0,
+            "afterUpdateUs": 1402.0833329608042,
+            "submitUs": 5079.166669088106,
+            "categorySumUs": 6495.83333482345,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 16.666666915019352,
+            "navigationUs": 0,
+            "afterUpdateUs": 1391.6666666045785,
+            "submitUs": 5062.499999689559,
+            "categorySumUs": 6470.833333209157,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 14.583333705862364,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1387.4999977027376,
+            "submitUs": 4916.666667287548,
+            "categorySumUs": 6320.833331905305,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 64.58333196739356,
+            "navigationUs": 0,
+            "afterUpdateUs": 129.16666797051826,
+            "submitUs": 502.08333351959783,
+            "categorySumUs": 695.8333334575096,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 31.250000620881718,
+            "navigationUs": 0,
+            "afterUpdateUs": 131.24999962747097,
+            "submitUs": 402.08333420256776,
+            "categorySumUs": 564.5833344509205,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 50.0000004346172,
+            "navigationUs": 6.250000248352687,
+            "afterUpdateUs": 145.83333178112903,
+            "submitUs": 441.666666418314,
+            "categorySumUs": 643.7499988824129,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 56.249999751647316,
+            "navigationUs": 0,
+            "afterUpdateUs": 114.5833336437742,
+            "submitUs": 464.58333389212686,
+            "categorySumUs": 635.4166672875483,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 49.999997951090336,
+            "navigationUs": 4.166666728754838,
+            "afterUpdateUs": 143.7500019868215,
+            "submitUs": 466.66666585952044,
+            "categorySumUs": 664.5833325261872,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 33.33333320915699,
+            "navigationUs": 0,
+            "afterUpdateUs": 170.8333327745398,
+            "submitUs": 452.0833343267441,
+            "categorySumUs": 656.2500003104409,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 43.74999925494194,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 135.41666604578495,
+            "submitUs": 443.7500002483527,
+            "categorySumUs": 624.9999990686774,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 33.333332277834415,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 62.5,
+            "submitUs": 258.3333346992731,
+            "categorySumUs": 356.2500001862645,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 35.41666672875484,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 64.58333289871614,
+            "submitUs": 206.25000105549893,
+            "categorySumUs": 308.3333338921269,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 35.41666610787312,
+            "navigationUs": 0,
+            "afterUpdateUs": 122.91666679084301,
+            "submitUs": 337.4999991307656,
+            "categorySumUs": 495.83333202948177,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 56.25000068296989,
+            "navigationUs": 6.249999937911828,
+            "afterUpdateUs": 147.91666778425375,
+            "submitUs": 412.5000008692344,
+            "categorySumUs": 622.9166692743698,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 37.50000117967526,
+            "navigationUs": 0,
+            "afterUpdateUs": 149.99999788900217,
+            "submitUs": 422.9166681567828,
+            "categorySumUs": 610.4166672254603,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 25.000000682969887,
+            "navigationUs": 4.166667039195697,
+            "afterUpdateUs": 133.33333438883224,
+            "submitUs": 337.5000000620882,
+            "categorySumUs": 500.00000217308605,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 43.75000080714623,
+            "navigationUs": 0,
+            "afterUpdateUs": 127.08333351959784,
+            "submitUs": 420.83333308498067,
+            "categorySumUs": 591.6666674117248,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 45.83333277453979,
+            "navigationUs": 0,
+            "afterUpdateUs": 139.58333370586237,
+            "submitUs": 445.8333322157462,
+            "categorySumUs": 631.2499986961484,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 25.000000682969887,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 108.33333277453978,
+            "submitUs": 314.5833338300387,
+            "categorySumUs": 450.0000004967054,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 39.5833325261871,
+            "navigationUs": 4.16666641831398,
+            "afterUpdateUs": 102.08333376795053,
+            "submitUs": 331.2500001241763,
+            "categorySumUs": 477.08333283662796,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 58.333332339922585,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 147.9166674738129,
+            "submitUs": 452.0833333954215,
+            "categorySumUs": 660.416666418314,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 43.749999875823654,
+            "navigationUs": 0,
+            "afterUpdateUs": 129.16666797051826,
+            "submitUs": 433.333333581686,
+            "categorySumUs": 606.2500014280279,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 52.08333364377419,
+            "navigationUs": 4.16666641831398,
+            "afterUpdateUs": 118.75000161429246,
+            "submitUs": 393.7499988824129,
+            "categorySumUs": 568.7500005587935,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-local-small",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 27.083333892126877,
+            "navigationUs": 4.166666728754838,
+            "afterUpdateUs": 102.08333314706881,
+            "submitUs": 331.24999950329465,
+            "categorySumUs": 464.5833332712452,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 31.249999068677425,
+            "navigationUs": 0,
+            "afterUpdateUs": 156.25000031044087,
+            "submitUs": 437.50000031044084,
+            "categorySumUs": 624.9999996895591,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 47.91666567325592,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 152.08333482344946,
+            "submitUs": 445.8333325261871,
+            "categorySumUs": 647.9166662320495,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 31.24999875823657,
+            "navigationUs": 8.33333283662796,
+            "afterUpdateUs": 106.24999987582366,
+            "submitUs": 341.66666585952044,
+            "categorySumUs": 487.49999733020866,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 322.91666728754836,
+            "navigationUs": 0,
+            "afterUpdateUs": 681.250000372529,
+            "submitUs": 6660.416667039196,
+            "categorySumUs": 7664.583334699273,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 339.583333581686,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 689.5833319673935,
+            "submitUs": 6635.416668218871,
+            "categorySumUs": 7666.6666669771075,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 337.4999991307656,
+            "navigationUs": 0,
+            "afterUpdateUs": 625.0000003104409,
+            "submitUs": 6358.3333340163035,
+            "categorySumUs": 7320.83333345751,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 300.0000004346172,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 754.1666651765505,
+            "submitUs": 6793.75000204891,
+            "categorySumUs": 7850.000001179675,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 285.4166676600774,
+            "navigationUs": 0,
+            "afterUpdateUs": 795.8333327745398,
+            "submitUs": 6852.083332836628,
+            "categorySumUs": 7933.3333332712455,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 297.91666753590107,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 712.4999994412065,
+            "submitUs": 6647.9166662320495,
+            "categorySumUs": 7660.4166667287545,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 304.1666680946946,
+            "navigationUs": 0,
+            "afterUpdateUs": 789.5833331470689,
+            "submitUs": 6881.249999006589,
+            "categorySumUs": 7975.000000248352,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 320.83333376795053,
+            "navigationUs": 0,
+            "afterUpdateUs": 783.3333322778344,
+            "submitUs": 6664.5833337679505,
+            "categorySumUs": 7768.7499998137355,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 306.25000037252903,
+            "navigationUs": 0,
+            "afterUpdateUs": 852.0833331470689,
+            "submitUs": 6733.3333340163035,
+            "categorySumUs": 7891.666667535901,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 314.5833338300387,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 927.0833336437742,
+            "submitUs": 6924.9999991928535,
+            "categorySumUs": 8168.7500001862645,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 337.50000037252903,
+            "navigationUs": 4.16666641831398,
+            "afterUpdateUs": 872.9166664804021,
+            "submitUs": 6843.749999379118,
+            "categorySumUs": 8058.333332650363,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 314.583333209157,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 818.7500008692344,
+            "submitUs": 6756.24999931703,
+            "categorySumUs": 7891.6666666045785,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 318.7499999379118,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 922.9166669150194,
+            "submitUs": 6933.333333581686,
+            "categorySumUs": 8177.083333954215,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 302.0833345750968,
+            "navigationUs": 0,
+            "afterUpdateUs": 924.999998571972,
+            "submitUs": 6874.999999689559,
+            "categorySumUs": 8102.083332836628,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 333.33333271245164,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 845.8333344509205,
+            "submitUs": 6872.916666790843,
+            "categorySumUs": 8054.166667163372,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 335.4166659216086,
+            "navigationUs": 0,
+            "afterUpdateUs": 931.2500013038516,
+            "submitUs": 6895.8333336437745,
+            "categorySumUs": 8162.500000869235,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 299.9999998137355,
+            "navigationUs": 0,
+            "afterUpdateUs": 758.333332836628,
+            "submitUs": 6554.166667473813,
+            "categorySumUs": 7612.500000124176,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 299.99999950329465,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 862.5000001241764,
+            "submitUs": 6835.4166668529315,
+            "categorySumUs": 8000,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 335.4166665424903,
+            "navigationUs": 0,
+            "afterUpdateUs": 797.9166656732559,
+            "submitUs": 6850.0000005587935,
+            "categorySumUs": 7983.3333327745395,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 306.2499997516473,
+            "navigationUs": 0,
+            "afterUpdateUs": 739.583333954215,
+            "submitUs": 6522.9166662320495,
+            "categorySumUs": 7568.7499999379115,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-local-control",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 327.08333153277636,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 902.0833348234495,
+            "submitUs": 6906.25,
+            "categorySumUs": 8137.499999875824,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 306.25000037252903,
+            "navigationUs": 0,
+            "afterUpdateUs": 906.2499993791183,
+            "submitUs": 6895.8333324020105,
+            "categorySumUs": 8108.3333321536575,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 333.33333240201074,
+            "navigationUs": 0,
+            "afterUpdateUs": 881.2500005587935,
+            "submitUs": 6841.666667101284,
+            "categorySumUs": 8056.250000062088,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 429.1666680946946,
+            "navigationUs": 0,
+            "afterUpdateUs": 612.4999995032946,
+            "submitUs": 6268.7500004346175,
+            "categorySumUs": 7310.416668032607,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 345.833333209157,
+            "navigationUs": 0,
+            "afterUpdateUs": 1420.8333346371849,
+            "submitUs": 5989.5833324020105,
+            "categorySumUs": 7756.250000248352,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 304.1666674738129,
+            "navigationUs": 0,
+            "afterUpdateUs": 1495.8333329608042,
+            "submitUs": 6145.8333324020105,
+            "categorySumUs": 7945.833332836628,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 302.08333271245164,
+            "navigationUs": 0,
+            "afterUpdateUs": 1577.0833337058623,
+            "submitUs": 6356.249998944501,
+            "categorySumUs": 8235.416665362816,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 306.2499997516473,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1675.0000010554988,
+            "submitUs": 6287.499998075266,
+            "categorySumUs": 8270.83333209157,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 302.08333395421505,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1597.9166654869914,
+            "submitUs": 6241.666667163372,
+            "categorySumUs": 8143.750000124176,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 295.8333312223355,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1616.6666674738128,
+            "submitUs": 6285.416665797432,
+            "categorySumUs": 8199.999998013178,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 304.1666674738129,
+            "navigationUs": 0,
+            "afterUpdateUs": 1608.3333330849807,
+            "submitUs": 6270.8333330228925,
+            "categorySumUs": 8183.333333581686,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 325.0000011175871,
+            "navigationUs": 0,
+            "afterUpdateUs": 1418.7499986340601,
+            "submitUs": 5983.333333084981,
+            "categorySumUs": 7727.083332836628,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 329.1666653628151,
+            "navigationUs": 0,
+            "afterUpdateUs": 1639.5833346371849,
+            "submitUs": 6287.499999627471,
+            "categorySumUs": 8256.249999627471,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 308.3333345130086,
+            "navigationUs": 0,
+            "afterUpdateUs": 1604.1666657353442,
+            "submitUs": 6220.8333335195975,
+            "categorySumUs": 8133.3333337679505,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 343.74999937911826,
+            "navigationUs": 0,
+            "afterUpdateUs": 1566.6666673496366,
+            "submitUs": 6231.250000496705,
+            "categorySumUs": 8141.66666722546,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 316.66666952272254,
+            "navigationUs": 0,
+            "afterUpdateUs": 1468.7499993791182,
+            "submitUs": 6141.6666672254605,
+            "categorySumUs": 7927.083336127302,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 316.666666418314,
+            "navigationUs": 0,
+            "afterUpdateUs": 1562.5000003104408,
+            "submitUs": 6189.583332898716,
+            "categorySumUs": 8068.749999627471,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 283.33333414047956,
+            "navigationUs": 0,
+            "afterUpdateUs": 1702.0833327745397,
+            "submitUs": 6299.9999998137355,
+            "categorySumUs": 8285.416666728755,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 320.8333346992731,
+            "navigationUs": 0,
+            "afterUpdateUs": 1681.2499997516472,
+            "submitUs": 6320.833332836628,
+            "categorySumUs": 8322.916667287549,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 318.74999962747097,
+            "navigationUs": 0,
+            "afterUpdateUs": 1483.3333337058623,
+            "submitUs": 6052.083333333333,
+            "categorySumUs": 7854.166666666666,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 281.25000031044084,
+            "navigationUs": 0,
+            "afterUpdateUs": 1616.6666665424902,
+            "submitUs": 6218.750000310441,
+            "categorySumUs": 8116.666667163372,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 281.24999937911826,
+            "navigationUs": 0,
+            "afterUpdateUs": 1702.0833346371849,
+            "submitUs": 6293.7499995653825,
+            "categorySumUs": 8277.083333581686,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 285.41666579743224,
+            "navigationUs": 0,
+            "afterUpdateUs": 1608.333334326744,
+            "submitUs": 6214.583332650363,
+            "categorySumUs": 8108.3333327745395,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 343.74999968955916,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1668.7500008071463,
+            "submitUs": 6383.3333331470685,
+            "categorySumUs": 8397.91666685293,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "sprite-world-control",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 279.1666655490796,
+            "navigationUs": 0,
+            "afterUpdateUs": 1637.5000008071463,
+            "submitUs": 6202.083333084981,
+            "categorySumUs": 8118.7499994412065,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 310.41666648040217,
+            "navigationUs": 0,
+            "afterUpdateUs": 1531.2499990686774,
+            "submitUs": 6104.16666790843,
+            "categorySumUs": 7945.83333345751,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 308.33333140860003,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 1631.2500005587935,
+            "submitUs": 6225.000000869234,
+            "categorySumUs": 8166.6666663562255,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 318.7500002483527,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 1527.0833329608042,
+            "submitUs": 6293.749999875824,
+            "categorySumUs": 8141.666666294138,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 0,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 35.416667349636555,
+            "navigationUs": 0,
+            "afterUpdateUs": 18.749999192853767,
+            "submitUs": 114.5833342646559,
+            "categorySumUs": 168.75000080714622,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 54.16666685293118,
+            "navigationUs": 0,
+            "afterUpdateUs": 16.66666753590107,
+            "submitUs": 102.08333314706881,
+            "categorySumUs": 172.91666753590107,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 43.750000496705375,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 18.750000434617203,
+            "submitUs": 116.66666467984517,
+            "categorySumUs": 181.24999913076562,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 50.0000004346172,
+            "navigationUs": 0,
+            "afterUpdateUs": 2.08333320915699,
+            "submitUs": 112.49999919285376,
+            "categorySumUs": 164.58333283662796,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 1,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 41.66666573534409,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 4.166666728754838,
+            "submitUs": 108.33333401630323,
+            "categorySumUs": 156.24999968955916,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 25.000000062088173,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 10.416666356225809,
+            "submitUs": 93.75,
+            "categorySumUs": 131.24999962747097,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 47.916666915019356,
+            "navigationUs": 0,
+            "afterUpdateUs": 12.500000186264515,
+            "submitUs": 106.25000018626451,
+            "categorySumUs": 166.6666672875484,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 43.74999925494194,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 14.583333084980646,
+            "submitUs": 147.91666809469461,
+            "categorySumUs": 208.33333395421505,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 2,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 29.166667722165585,
+            "navigationUs": 0,
+            "afterUpdateUs": 16.666666915019352,
+            "submitUs": 91.66666741172473,
+            "categorySumUs": 137.50000204890966,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 52.083333333333336,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 12.499999875823656,
+            "submitUs": 129.16666672875485,
+            "categorySumUs": 195.8333334575097,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 33.333334140479565,
+            "navigationUs": 0,
+            "afterUpdateUs": 16.666666915019352,
+            "submitUs": 102.08333314706881,
+            "categorySumUs": 152.08333420256773,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 29.16666554907958,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 12.500000186264515,
+            "submitUs": 81.25000012417634,
+            "categorySumUs": 124.99999906867743,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 3,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 41.666666666666664,
+            "navigationUs": 0,
+            "afterUpdateUs": 10.416666666666666,
+            "submitUs": 112.5000004346172,
+            "categorySumUs": 164.58333376795053,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 37.500000248352684,
+            "navigationUs": 0,
+            "afterUpdateUs": 2.0833335195978484,
+            "submitUs": 99.99999993791182,
+            "categorySumUs": 139.58333370586234,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 50.0000004346172,
+            "navigationUs": 0,
+            "afterUpdateUs": 16.666665983696777,
+            "submitUs": 110.41666753590107,
+            "categorySumUs": 177.08333395421505,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 33.33333320915699,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 12.500000496705374,
+            "submitUs": 100.00000024835269,
+            "categorySumUs": 147.9166674738129,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 4,
+        "order": "before,after,after,before",
+        "samples": [
+          {
+            "side": "before",
+            "simulationUs": 50.0000004346172,
+            "navigationUs": 0,
+            "afterUpdateUs": 6.24999962747097,
+            "submitUs": 110.4166666045785,
+            "categorySumUs": 166.66666666666666,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 45.833333395421505,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 6.24999962747097,
+            "submitUs": 106.24999832361937,
+            "categorySumUs": 160.4166648661097,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 35.41666828095913,
+            "navigationUs": 0,
+            "afterUpdateUs": 6.250000248352687,
+            "submitUs": 112.50000105549891,
+            "categorySumUs": 154.16666958481073,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 56.25000037252903,
+            "navigationUs": 2.0833335195978484,
+            "afterUpdateUs": 8.333333147068819,
+            "submitUs": 114.58333395421505,
+            "categorySumUs": 181.25000099341077,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      },
+      {
+        "name": "layer-empty-control",
+        "round": 5,
+        "order": "after,before,before,after",
+        "samples": [
+          {
+            "side": "after",
+            "simulationUs": 41.666665424903236,
+            "navigationUs": 0,
+            "afterUpdateUs": 12.499999875823656,
+            "submitUs": 127.08333351959784,
+            "categorySumUs": 181.24999882032472,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 41.66666635622581,
+            "navigationUs": 2.08333320915699,
+            "afterUpdateUs": 16.666666915019352,
+            "submitUs": 108.3333333954215,
+            "categorySumUs": 168.74999987582368,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "before",
+            "simulationUs": 39.583333457509674,
+            "navigationUs": 0,
+            "afterUpdateUs": 8.333333147068819,
+            "submitUs": 104.1666663562258,
+            "categorySumUs": 152.08333296080428,
+            "boundsVariant": "before",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          },
+          {
+            "side": "after",
+            "simulationUs": 39.58333314706882,
+            "navigationUs": 0,
+            "afterUpdateUs": 20.833333643774193,
+            "submitUs": 108.33333246409893,
+            "categorySumUs": 168.74999925494194,
+            "boundsVariant": "after",
+            "destroyCallbacksDuringSample": 0,
+            "destroyListeners": 0,
+            "postupdateCallbacksIncludingWarm": 0,
+            "postListeners": 0,
+            "preupdateCallbacksIncludingWarm": 0,
+            "preListeners": 0
+          }
+        ]
+      }
+    ],
+    "errors": []
+  }
+}
+```
+
+### 可還原的完整before source與候選
+
+將下列TS存為before.ts，prepare driver以SHA256保護輸入，產出同class module。prepare以獨立子目錄實際執行並cmp，結果byte-identical；不是重新量測。
+
+```json
+{
+  "beforeSha256": "35f2f006d946db85539cf08ef818b02390a6f0de8df1499403e357239ebd48ef",
+  "candidateSha256": "c4700261091c7e0f50311fc5531d0c96c8eff8ba510dc61307688d4e72d15414",
+  "sharedModuleSha256": "4b9a1af4ac2007db57608e33279753b141f858f8d8c1e3ae74bbf048433aa346"
+}
+```
+
+```ts
+import {
+  AssetError,
+  type Texture2DSource,
+  type TextureView2D,
+} from '../../../assets/src/index.js';
+import { Matrix3 } from '../../../math/src/index.js';
+import { rendering2dLimits } from '../../../../src/data/rendering2d.js';
+import { GameObject } from '../game-object.js';
+import {
+  validateSource,
+  type ColorRGBA,
+  type Rect2D,
+} from '../gameplay/contracts.js';
+
+/** Fields submitted every active frame; other fields upload only after a setter. */
+export const ParticleAttribute2D = Object.freeze({
+  Transform: 1,
+  Tint: 2,
+  Source: 4,
+  Anchor: 8,
+  All: 15,
+});
+
+export interface ParticleTransform2D {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  tx: number;
+  ty: number;
+  /** World coordinates retain birth axes instead of following the layer. */
+  space?: 'local' | 'world';
+}
+
+export interface ParticleSource2D {
+  texture?: Texture2DSource;
+  view?: TextureView2D;
+  source?: Readonly<Rect2D>;
+}
+
+export interface ParticleOptions2D extends ParticleSource2D {
+  transform?: ParticleTransform2D;
+  tint?: ColorRGBA;
+  anchor?: readonly [number, number];
+}
+
+export interface ParticleLayer2DOptions extends ParticleSource2D {
+  capacity: number;
+  dynamicAttributes?: number;
+}
+
+/** Stable borrowed read-only record. No mutable arrays are exposed. */
+export interface ParticleSlot2D {
+  /** Activation identity; source setters do not change this value. */
+  readonly generation: number;
+  readonly a: number;
+  readonly b: number;
+  readonly c: number;
+  readonly d: number;
+  readonly tx: number;
+  readonly ty: number;
+  readonly space: 'local' | 'world';
+  readonly tintR: number;
+  readonly tintG: number;
+  readonly tintB: number;
+  readonly tintA: number;
+  readonly anchorX: number;
+  readonly anchorY: number;
+  readonly texture: Texture2DSource;
+  readonly view: TextureView2D | undefined;
+  readonly source: Readonly<Rect2D> | undefined;
+  readonly transformVersion: number;
+  readonly tintVersion: number;
+  readonly sourceVersion: number;
+  readonly anchorVersion: number;
+}
+
+const identity: ParticleTransform2D = Object.freeze({
+  a: 1,
+  b: 0,
+  c: 0,
+  d: 1,
+  tx: 0,
+  ty: 0,
+});
+const white: ColorRGBA = Object.freeze([1, 1, 1, 1]);
+const center: readonly [number, number] = Object.freeze([0.5, 0.5]);
+
+/** Per slot: affine a, b, c, d, tx, ty; tint r, g, b, a; anchor x, y. */
+const slotValueCount = 12;
+const slotDefaults = [1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0.5, 0.5];
+
+class Slot implements ParticleSlot2D {
+  #values: Float64Array;
+  #space: 'local' | 'world' = 'local';
+  #texture!: Texture2DSource;
+  #view: TextureView2D | undefined;
+  #source: Readonly<Rect2D> | undefined;
+  #transformVersion = 0;
+  #generation = 0;
+  #tintVersion = 0;
+  #sourceVersion = 0;
+  #anchorVersion = 0;
+  constructor(values: Float64Array) {
+    values.set(slotDefaults);
+    this.#values = values;
+  }
+  get a(): number {
+    return this.#values[0];
+  }
+  get b(): number {
+    return this.#values[1];
+  }
+  get c(): number {
+    return this.#values[2];
+  }
+  get d(): number {
+    return this.#values[3];
+  }
+  get tx(): number {
+    return this.#values[4];
+  }
+  get ty(): number {
+    return this.#values[5];
+  }
+  get tintR(): number {
+    return this.#values[6];
+  }
+  get tintG(): number {
+    return this.#values[7];
+  }
+  get tintB(): number {
+    return this.#values[8];
+  }
+  get tintA(): number {
+    return this.#values[9];
+  }
+  get anchorX(): number {
+    return this.#values[10];
+  }
+  get anchorY(): number {
+    return this.#values[11];
+  }
+  get space(): 'local' | 'world' {
+    return this.#space;
+  }
+  get texture(): Texture2DSource {
+    return this.#texture;
+  }
+  get view(): TextureView2D | undefined {
+    return this.#view;
+  }
+  get source(): Readonly<Rect2D> | undefined {
+    return this.#source;
+  }
+  get transformVersion(): number {
+    return this.#transformVersion;
+  }
+  get generation(): number {
+    return this.#generation;
+  }
+  get tintVersion(): number {
+    return this.#tintVersion;
+  }
+  get sourceVersion(): number {
+    return this.#sourceVersion;
+  }
+  get anchorVersion(): number {
+    return this.#anchorVersion;
+  }
+  activate(): void {
+    this.#generation++;
+  }
+  transform(value: ParticleTransform2D): void {
+    this.#values[0] = value.a;
+    this.#values[1] = value.b;
+    this.#values[2] = value.c;
+    this.#values[3] = value.d;
+    this.#values[4] = value.tx;
+    this.#values[5] = value.ty;
+    this.#space = value.space ?? 'local';
+    this.#transformVersion++;
+  }
+  tint(value: ColorRGBA): void {
+    for (let i = 0; i < 4; i++) this.#values[6 + i] = value[i];
+    this.#tintVersion++;
+  }
+  anchor(value: readonly [number, number]): void {
+    this.#values[10] = value[0];
+    this.#values[11] = value[1];
+    this.#anchorVersion++;
+  }
+  setSource(
+    texture: Texture2DSource,
+    view: TextureView2D | undefined,
+    source: Readonly<Rect2D> | undefined,
+  ): void {
+    this.#texture = texture;
+    this.#view = view;
+    this.#source = source;
+    this.#sourceVersion++;
+  }
+  release(): void {
+    // Inactive slots must not keep borrowers alive; the pool itself stays fixed.
+    this.#texture = undefined as unknown as Texture2DSource;
+    this.#view = undefined;
+    this.#source = undefined;
+  }
+}
+
+function bounded(value: number): boolean {
+  return (
+    Number.isFinite(value) && Math.abs(value) <= rendering2dLimits.coordinate
+  );
+}
+function validateTransform(value: ParticleTransform2D): void {
+  if (
+    !bounded(value.a) ||
+    !bounded(value.b) ||
+    !bounded(value.c) ||
+    !bounded(value.d) ||
+    !bounded(value.tx) ||
+    !bounded(value.ty)
+  )
+    throw new RangeError(
+      'Particle affine transform exceeds its finite coordinate budget.',
+    );
+  if (
+    value.space !== undefined &&
+    value.space !== 'local' &&
+    value.space !== 'world'
+  )
+    throw new RangeError('Unknown particle transform space.');
+}
+function validateTint(value: ColorRGBA): void {
+  if (value.length !== 4)
+    throw new RangeError(
+      'Particle tint must contain four channels between 0 and 1.',
+    );
+  for (let i = 0; i < 4; i++)
+    if (!Number.isFinite(value[i]) || value[i] < 0 || value[i] > 1)
+      throw new RangeError(
+        'Particle tint must contain four channels between 0 and 1.',
+      );
+}
+function validateAnchor(value: readonly [number, number]): void {
+  if (value.length !== 2 || !bounded(value[0]) || !bounded(value[1]))
+    throw new RangeError(
+      'Particle anchor exceeds its finite coordinate budget.',
+    );
+}
+
+function validateParticleSource(
+  value: ParticleSource2D & { texture: Texture2DSource },
+): void {
+  if (value.texture.destroyed)
+    throw new AssetError('Particle texture is destroyed.');
+  value.view?.validate();
+  if (value.source)
+    validateSource(value.source, value.texture.width, value.texture.height);
+  const width =
+    value.view?.width ??
+    value.source?.width ??
+    (value.texture.kind === 'render'
+      ? value.texture.logicalWidth
+      : value.texture.width);
+  const height =
+    value.view?.height ??
+    value.source?.height ??
+    (value.texture.kind === 'render'
+      ? value.texture.logicalHeight
+      : value.texture.height);
+  if (!bounded(width) || !bounded(height) || width <= 0 || height <= 0)
+    throw new RangeError(
+      'Particle source dimensions exceed their positive finite budget.',
+    );
+}
+function checkedSource(
+  value: ParticleSource2D,
+): ParticleSource2D & { texture: Texture2DSource } {
+  const texture = value.texture ?? value.view?.source;
+  if (!texture || texture.destroyed)
+    throw new AssetError('Particle texture is missing or destroyed.');
+  if (value.view && (value.view.source !== texture || value.source))
+    throw new RangeError(
+      'Particle view conflicts with texture or source rectangle.',
+    );
+  const source =
+    value.texture &&
+    Object.isFrozen(value) &&
+    (!value.source || Object.isFrozen(value.source))
+      ? (value as ParticleSource2D & { texture: Texture2DSource })
+      : {
+          texture,
+          view: value.view,
+          source: value.source ? Object.freeze({ ...value.source }) : undefined,
+        };
+  validateParticleSource(source);
+  return source;
+}
+
+/** A bounded insertion-ordered draw layer; full capacity refuses new particles. */
+export class ParticleLayer2D extends GameObject {
+  readonly capacity: number;
+  readonly dynamicAttributes: number;
+  renderEnabled = true;
+  private readonly slots: Slot[] = [];
+  /** Insertion-ordered slots in `[0, end)`; removed entries are -1 until the next compaction. */
+  private readonly active: Int32Array;
+  /** Each occupied slot's index in `active`. */
+  private readonly positions: Int32Array;
+  private readonly free: Int32Array;
+  private count = 0;
+  private end = 0;
+  private freeCount: number;
+  private readonly occupied: Uint8Array;
+  private readonly defaultSource: ParticleSource2D | undefined;
+  private topologyVersion = 0;
+  private readonly inverse = new Matrix3();
+
+  constructor(options: ParticleLayer2DOptions) {
+    super();
+    if (
+      !Number.isSafeInteger(options.capacity) ||
+      options.capacity < 1 ||
+      options.capacity > rendering2dLimits.particleCapacity
+    )
+      throw new RangeError(
+        `capacity must be an integer between 1 and ${rendering2dLimits.particleCapacity}.`,
+      );
+    const mask =
+      options.dynamicAttributes ??
+      ParticleAttribute2D.Transform | ParticleAttribute2D.Tint;
+    if (
+      !Number.isSafeInteger(mask) ||
+      mask < 0 ||
+      mask > ParticleAttribute2D.All
+    )
+      throw new RangeError('Unknown particle dynamic attribute mask.');
+    this.capacity = options.capacity;
+    this.dynamicAttributes = mask;
+    this.occupied = new Uint8Array(this.capacity);
+    this.active = new Int32Array(this.capacity * 2);
+    this.positions = new Int32Array(this.capacity);
+    this.free = new Int32Array(this.capacity);
+    this.freeCount = this.capacity;
+    if (options.texture || options.view || options.source)
+      this.defaultSource = checkedSource(options);
+    // One backing store for every slot's twelve values keeps a layer's per-particle reads
+    // adjacent, instead of one separate allocation per slot.
+    const values = new Float64Array(this.capacity * slotValueCount);
+    for (let i = 0; i < this.capacity; i++) {
+      const slot = new Slot(
+        values.subarray(i * slotValueCount, (i + 1) * slotValueCount),
+      );
+      Object.freeze(slot);
+      this.slots.push(slot);
+      this.free[i] = this.capacity - i - 1;
+    }
+  }
+  get activeCount(): number {
+    return this.count;
+  }
+  get version(): number {
+    return this.topologyVersion;
+  }
+  get availableCount(): number {
+    return this.freeCount;
+  }
+  activeSlotAt(index: number): number {
+    if (!Number.isSafeInteger(index) || index < 0 || index >= this.count)
+      throw new RangeError('Invalid active particle index.');
+    if (this.end !== this.count) this.compact();
+    return this.active[index];
+  }
+  hasSlot(index: number): boolean {
+    return (
+      Number.isSafeInteger(index) &&
+      index >= 0 &&
+      index < this.capacity &&
+      this.occupied[index] === 1
+    );
+  }
+  getSlot(index: number): ParticleSlot2D {
+    return this.requireSlot(index);
+  }
+  addParticle(options: ParticleOptions2D = {}): number {
+    this.assertAlive();
+    const source =
+      options.texture || options.view || options.source
+        ? checkedSource(options)
+        : (this.defaultSource as
+            (ParticleSource2D & { texture: Texture2DSource }) | undefined);
+    if (!source) throw new AssetError('Particle texture is missing.');
+    validateParticleSource(source);
+    const transform = options.transform ?? identity;
+    const tint = options.tint ?? white;
+    const anchor = options.anchor ?? source.view?.defaultAnchor ?? center;
+    validateTransform(transform);
+    validateTint(tint);
+    validateAnchor(anchor);
+    if (this.freeCount === 0) return -1;
+    const index = this.free[--this.freeCount];
+    const slot = this.slots[index];
+    slot.setSource(source.texture, source.view, source.source);
+    slot.transform(transform);
+    slot.tint(tint);
+    slot.anchor(anchor);
+    slot.activate();
+    this.occupied[index] = 1;
+    // Spare tombstone room amortizes interleaved remove/add churn at full capacity.
+    if (this.end === this.active.length) this.compact();
+    this.positions[index] = this.end;
+    this.active[this.end++] = index;
+    this.count++;
+    this.topologyVersion++;
+    return index;
+  }
+  removeSlot(index: number): void {
+    this.requireSlot(index);
+    // Removing many particles per frame stays linear: holes are squeezed out once, in order.
+    this.active[this.positions[index]] = -1;
+    this.count--;
+    this.occupied[index] = 0;
+    this.slots[index].release();
+    this.free[this.freeCount++] = index;
+    this.topologyVersion++;
+  }
+  clear(): void {
+    this.compact();
+    this.occupied.fill(0);
+    for (let i = 0; i < this.count; i++) this.slots[this.active[i]].release();
+    this.active.fill(0);
+    this.count = this.end = 0;
+    this.freeCount = this.destroyed ? 0 : this.capacity;
+    for (let i = 0; i < this.freeCount; i++)
+      this.free[i] = this.capacity - i - 1;
+    this.topologyVersion++;
+  }
+  private compact(): void {
+    if (this.end === this.count) return;
+    let write = 0;
+    for (let read = 0; read < this.end; read++) {
+      const index = this.active[read];
+      if (index < 0) continue;
+      this.active[write] = index;
+      this.positions[index] = write++;
+    }
+    this.end = write;
+  }
+  setTransform(index: number, value: ParticleTransform2D): void {
+    const slot = this.requireSlot(index);
+    validateTransform(value);
+    slot.transform(value);
+  }
+  setTint(index: number, value: ColorRGBA): void {
+    const slot = this.requireSlot(index);
+    validateTint(value);
+    slot.tint(value);
+  }
+  /** @internal A slot the caller has just confirmed live with `hasSlot` on a live layer. */
+  liveSlot(index: number): ParticleSlot2D {
+    return this.slots[index];
+  }
+  /** @internal `setTransform` then `setTint` without rechecking a confirmed live slot. */
+  setLiveAppearance(
+    index: number,
+    transform: ParticleTransform2D,
+    tint: ColorRGBA,
+  ): void {
+    const slot = this.slots[index];
+    validateTransform(transform);
+    slot.transform(transform);
+    validateTint(tint);
+    slot.tint(tint);
+  }
+  setAnchor(index: number, value: readonly [number, number]): void {
+    const slot = this.requireSlot(index);
+    validateAnchor(value);
+    slot.anchor(value);
+  }
+  setSource(index: number, value: ParticleSource2D): void {
+    const slot = this.requireSlot(index);
+    const source = checkedSource(value);
+    slot.setSource(source.texture, source.view, source.source);
+  }
+  /** Renderer helper: writes final world affine without allocating a matrix. */
+  getSlotWorldMatrix(index: number, out: Matrix3): Matrix3 {
+    const slot = this.requireSlot(index);
+    if (slot.space === 'local')
+      return out
+        .copy(this.updateWorldMatrix())
+        .multiply(this.slotMatrix(index));
+    out.copy(this.slotMatrix(index));
+    return out;
+  }
+  private readonly affine = new Matrix3();
+  private slotMatrix(index: number): Matrix3 {
+    const slot = this.slots[index];
+    const e = this.affine.elements;
+    e[0] = slot.a;
+    e[1] = slot.b;
+    e[2] = 0;
+    e[3] = slot.c;
+    e[4] = slot.d;
+    e[5] = 0;
+    e[6] = slot.tx;
+    e[7] = slot.ty;
+    e[8] = 1;
+    return this.affine;
+  }
+  override getLocalBounds(
+    out: Rect2D = { x: 0, y: 0, width: 0, height: 0 },
+  ): Rect2D {
+    return this.collectBounds(out, true);
+  }
+  override getWorldBounds(
+    out: Rect2D = { x: 0, y: 0, width: 0, height: 0 },
+  ): Rect2D {
+    return this.collectBounds(out, false);
+  }
+  private readonly boundsMatrix = new Matrix3();
+  private collectBounds(out: Rect2D, local: boolean): Rect2D {
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    let inverseReady = false;
+    this.compact();
+    for (let i = 0; i < this.count; i++) {
+      const index = this.active[i];
+      const slot = this.slots[index];
+      validateParticleSource(slot);
+      const width =
+        slot.view?.width ??
+        slot.source?.width ??
+        (slot.texture.kind === 'render'
+          ? slot.texture.logicalWidth
+          : slot.texture.width);
+      const height =
+        slot.view?.height ??
+        slot.source?.height ??
+        (slot.texture.kind === 'render'
+          ? slot.texture.logicalHeight
+          : slot.texture.height);
+      let matrix: Matrix3;
+      if (local && slot.space === 'local')
+        matrix = this.boundsMatrix.copy(this.slotMatrix(index));
+      else if (local) {
+        if (!inverseReady) {
+          this.inverse.copy(this.updateWorldMatrix()).invert();
+          inverseReady = true;
+        }
+        matrix = this.boundsMatrix
+          .copy(this.inverse)
+          .multiply(this.getSlotWorldMatrix(index, this.worldAffine));
+      } else matrix = this.getSlotWorldMatrix(index, this.boundsMatrix);
+      const e = matrix.elements;
+      const x0 = (0 - slot.anchorX) * width,
+        x1 = (1 - slot.anchorX) * width,
+        y0 = (0 - slot.anchorY) * height,
+        y1 = (1 - slot.anchorY) * height;
+      const ax0 = e[0] * x0,
+        ax1 = e[0] * x1,
+        cy0 = e[3] * y0,
+        cy1 = e[3] * y1,
+        bx0 = e[1] * x0,
+        bx1 = e[1] * x1,
+        dy0 = e[4] * y0,
+        dy1 = e[4] * y1;
+      for (let corner = 0; corner < 4; corner++) {
+        const px = (corner & 1 ? ax1 : ax0) + (corner & 2 ? cy1 : cy0) + e[6];
+        const py = (corner & 1 ? bx1 : bx0) + (corner & 2 ? dy1 : dy0) + e[7];
+        minX = Math.min(minX, px);
+        minY = Math.min(minY, py);
+        if (!Number.isFinite(px) || !Number.isFinite(py))
+          throw new RangeError('Particle bounds must remain finite.');
+        maxX = Math.max(maxX, px);
+        maxY = Math.max(maxY, py);
+      }
+    }
+    out.x = minX === Infinity ? 0 : minX;
+    out.y = minY === Infinity ? 0 : minY;
+    out.width = minX === Infinity ? 0 : maxX - minX;
+    out.height = minY === Infinity ? 0 : maxY - minY;
+    return out;
+  }
+  private readonly worldAffine = new Matrix3();
+  private assertAlive(): void {
+    if (this.destroyed)
+      throw new Error('Cannot change a destroyed ParticleLayer2D.');
+  }
+  private requireSlot(index: number): Slot {
+    this.assertAlive();
+    if (!this.hasSlot(index))
+      throw new RangeError('Invalid or inactive particle slot.');
+    return this.slots[index];
+  }
+  override destroy(): void {
+    if (this.destroyed) return;
+    this.clear();
+    try {
+      super.destroy();
+    } finally {
+      this.freeCount = 0;
+      this.slots.length = 0;
+    }
+  }
+}
+```
+
+```ts
+import {
+  AssetError,
+  type Texture2DSource,
+  type TextureView2D,
+} from '../../../assets/src/index.js';
+import { Matrix3 } from '../../../math/src/index.js';
+import { rendering2dLimits } from '../../../../src/data/rendering2d.js';
+import { GameObject } from '../game-object.js';
+import {
+  validateSource,
+  type ColorRGBA,
+  type Rect2D,
+} from '../gameplay/contracts.js';
+
+/** Fields submitted every active frame; other fields upload only after a setter. */
+export const ParticleAttribute2D = Object.freeze({
+  Transform: 1,
+  Tint: 2,
+  Source: 4,
+  Anchor: 8,
+  All: 15,
+});
+
+export interface ParticleTransform2D {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  tx: number;
+  ty: number;
+  /** World coordinates retain birth axes instead of following the layer. */
+  space?: 'local' | 'world';
+}
+
+export interface ParticleSource2D {
+  texture?: Texture2DSource;
+  view?: TextureView2D;
+  source?: Readonly<Rect2D>;
+}
+
+export interface ParticleOptions2D extends ParticleSource2D {
+  transform?: ParticleTransform2D;
+  tint?: ColorRGBA;
+  anchor?: readonly [number, number];
+}
+
+export interface ParticleLayer2DOptions extends ParticleSource2D {
+  capacity: number;
+  dynamicAttributes?: number;
+}
+
+/** Stable borrowed read-only record. No mutable arrays are exposed. */
+export interface ParticleSlot2D {
+  /** Activation identity; source setters do not change this value. */
+  readonly generation: number;
+  readonly a: number;
+  readonly b: number;
+  readonly c: number;
+  readonly d: number;
+  readonly tx: number;
+  readonly ty: number;
+  readonly space: 'local' | 'world';
+  readonly tintR: number;
+  readonly tintG: number;
+  readonly tintB: number;
+  readonly tintA: number;
+  readonly anchorX: number;
+  readonly anchorY: number;
+  readonly texture: Texture2DSource;
+  readonly view: TextureView2D | undefined;
+  readonly source: Readonly<Rect2D> | undefined;
+  readonly transformVersion: number;
+  readonly tintVersion: number;
+  readonly sourceVersion: number;
+  readonly anchorVersion: number;
+}
+
+const identity: ParticleTransform2D = Object.freeze({
+  a: 1,
+  b: 0,
+  c: 0,
+  d: 1,
+  tx: 0,
+  ty: 0,
+});
+const white: ColorRGBA = Object.freeze([1, 1, 1, 1]);
+const center: readonly [number, number] = Object.freeze([0.5, 0.5]);
+
+/** Per slot: affine a, b, c, d, tx, ty; tint r, g, b, a; anchor x, y. */
+const slotValueCount = 12;
+const slotDefaults = [1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0.5, 0.5];
+
+class Slot implements ParticleSlot2D {
+  #values: Float64Array;
+  #space: 'local' | 'world' = 'local';
+  #texture!: Texture2DSource;
+  #view: TextureView2D | undefined;
+  #source: Readonly<Rect2D> | undefined;
+  #transformVersion = 0;
+  #generation = 0;
+  #tintVersion = 0;
+  #sourceVersion = 0;
+  #anchorVersion = 0;
+  constructor(values: Float64Array) {
+    values.set(slotDefaults);
+    this.#values = values;
+  }
+  get a(): number {
+    return this.#values[0];
+  }
+  get b(): number {
+    return this.#values[1];
+  }
+  get c(): number {
+    return this.#values[2];
+  }
+  get d(): number {
+    return this.#values[3];
+  }
+  get tx(): number {
+    return this.#values[4];
+  }
+  get ty(): number {
+    return this.#values[5];
+  }
+  get tintR(): number {
+    return this.#values[6];
+  }
+  get tintG(): number {
+    return this.#values[7];
+  }
+  get tintB(): number {
+    return this.#values[8];
+  }
+  get tintA(): number {
+    return this.#values[9];
+  }
+  get anchorX(): number {
+    return this.#values[10];
+  }
+  get anchorY(): number {
+    return this.#values[11];
+  }
+  get space(): 'local' | 'world' {
+    return this.#space;
+  }
+  get texture(): Texture2DSource {
+    return this.#texture;
+  }
+  get view(): TextureView2D | undefined {
+    return this.#view;
+  }
+  get source(): Readonly<Rect2D> | undefined {
+    return this.#source;
+  }
+  get transformVersion(): number {
+    return this.#transformVersion;
+  }
+  get generation(): number {
+    return this.#generation;
+  }
+  get tintVersion(): number {
+    return this.#tintVersion;
+  }
+  get sourceVersion(): number {
+    return this.#sourceVersion;
+  }
+  get anchorVersion(): number {
+    return this.#anchorVersion;
+  }
+  activate(): void {
+    this.#generation++;
+  }
+  transform(value: ParticleTransform2D): void {
+    this.#values[0] = value.a;
+    this.#values[1] = value.b;
+    this.#values[2] = value.c;
+    this.#values[3] = value.d;
+    this.#values[4] = value.tx;
+    this.#values[5] = value.ty;
+    this.#space = value.space ?? 'local';
+    this.#transformVersion++;
+  }
+  tint(value: ColorRGBA): void {
+    for (let i = 0; i < 4; i++) this.#values[6 + i] = value[i];
+    this.#tintVersion++;
+  }
+  anchor(value: readonly [number, number]): void {
+    this.#values[10] = value[0];
+    this.#values[11] = value[1];
+    this.#anchorVersion++;
+  }
+  setSource(
+    texture: Texture2DSource,
+    view: TextureView2D | undefined,
+    source: Readonly<Rect2D> | undefined,
+  ): void {
+    this.#texture = texture;
+    this.#view = view;
+    this.#source = source;
+    this.#sourceVersion++;
+  }
+  release(): void {
+    // Inactive slots must not keep borrowers alive; the pool itself stays fixed.
+    this.#texture = undefined as unknown as Texture2DSource;
+    this.#view = undefined;
+    this.#source = undefined;
+  }
+}
+
+function bounded(value: number): boolean {
+  return (
+    Number.isFinite(value) && Math.abs(value) <= rendering2dLimits.coordinate
+  );
+}
+function validateTransform(value: ParticleTransform2D): void {
+  if (
+    !bounded(value.a) ||
+    !bounded(value.b) ||
+    !bounded(value.c) ||
+    !bounded(value.d) ||
+    !bounded(value.tx) ||
+    !bounded(value.ty)
+  )
+    throw new RangeError(
+      'Particle affine transform exceeds its finite coordinate budget.',
+    );
+  if (
+    value.space !== undefined &&
+    value.space !== 'local' &&
+    value.space !== 'world'
+  )
+    throw new RangeError('Unknown particle transform space.');
+}
+function validateTint(value: ColorRGBA): void {
+  if (value.length !== 4)
+    throw new RangeError(
+      'Particle tint must contain four channels between 0 and 1.',
+    );
+  for (let i = 0; i < 4; i++)
+    if (!Number.isFinite(value[i]) || value[i] < 0 || value[i] > 1)
+      throw new RangeError(
+        'Particle tint must contain four channels between 0 and 1.',
+      );
+}
+function validateAnchor(value: readonly [number, number]): void {
+  if (value.length !== 2 || !bounded(value[0]) || !bounded(value[1]))
+    throw new RangeError(
+      'Particle anchor exceeds its finite coordinate budget.',
+    );
+}
+
+function validateParticleSource(
+  value: ParticleSource2D & { texture: Texture2DSource },
+): void {
+  if (value.texture.destroyed)
+    throw new AssetError('Particle texture is destroyed.');
+  value.view?.validate();
+  if (value.source)
+    validateSource(value.source, value.texture.width, value.texture.height);
+  const width =
+    value.view?.width ??
+    value.source?.width ??
+    (value.texture.kind === 'render'
+      ? value.texture.logicalWidth
+      : value.texture.width);
+  const height =
+    value.view?.height ??
+    value.source?.height ??
+    (value.texture.kind === 'render'
+      ? value.texture.logicalHeight
+      : value.texture.height);
+  if (!bounded(width) || !bounded(height) || width <= 0 || height <= 0)
+    throw new RangeError(
+      'Particle source dimensions exceed their positive finite budget.',
+    );
+}
+function checkedSource(
+  value: ParticleSource2D,
+): ParticleSource2D & { texture: Texture2DSource } {
+  const texture = value.texture ?? value.view?.source;
+  if (!texture || texture.destroyed)
+    throw new AssetError('Particle texture is missing or destroyed.');
+  if (value.view && (value.view.source !== texture || value.source))
+    throw new RangeError(
+      'Particle view conflicts with texture or source rectangle.',
+    );
+  const source =
+    value.texture &&
+    Object.isFrozen(value) &&
+    (!value.source || Object.isFrozen(value.source))
+      ? (value as ParticleSource2D & { texture: Texture2DSource })
+      : {
+          texture,
+          view: value.view,
+          source: value.source ? Object.freeze({ ...value.source }) : undefined,
+        };
+  validateParticleSource(source);
+  return source;
+}
+
+/** A bounded insertion-ordered draw layer; full capacity refuses new particles. */
+export class ParticleLayer2D extends GameObject {
+  readonly capacity: number;
+  readonly dynamicAttributes: number;
+  renderEnabled = true;
+  private readonly slots: Slot[] = [];
+  /** Insertion-ordered slots in `[0, end)`; removed entries are -1 until the next compaction. */
+  private readonly active: Int32Array;
+  /** Each occupied slot's index in `active`. */
+  private readonly positions: Int32Array;
+  private readonly free: Int32Array;
+  private count = 0;
+  private end = 0;
+  private freeCount: number;
+  private readonly occupied: Uint8Array;
+  private readonly defaultSource: ParticleSource2D | undefined;
+  private topologyVersion = 0;
+  private readonly inverse = new Matrix3();
+
+  constructor(options: ParticleLayer2DOptions) {
+    super();
+    if (
+      !Number.isSafeInteger(options.capacity) ||
+      options.capacity < 1 ||
+      options.capacity > rendering2dLimits.particleCapacity
+    )
+      throw new RangeError(
+        `capacity must be an integer between 1 and ${rendering2dLimits.particleCapacity}.`,
+      );
+    const mask =
+      options.dynamicAttributes ??
+      ParticleAttribute2D.Transform | ParticleAttribute2D.Tint;
+    if (
+      !Number.isSafeInteger(mask) ||
+      mask < 0 ||
+      mask > ParticleAttribute2D.All
+    )
+      throw new RangeError('Unknown particle dynamic attribute mask.');
+    this.capacity = options.capacity;
+    this.dynamicAttributes = mask;
+    this.occupied = new Uint8Array(this.capacity);
+    this.active = new Int32Array(this.capacity * 2);
+    this.positions = new Int32Array(this.capacity);
+    this.free = new Int32Array(this.capacity);
+    this.freeCount = this.capacity;
+    if (options.texture || options.view || options.source)
+      this.defaultSource = checkedSource(options);
+    // One backing store for every slot's twelve values keeps a layer's per-particle reads
+    // adjacent, instead of one separate allocation per slot.
+    const values = new Float64Array(this.capacity * slotValueCount);
+    for (let i = 0; i < this.capacity; i++) {
+      const slot = new Slot(
+        values.subarray(i * slotValueCount, (i + 1) * slotValueCount),
+      );
+      Object.freeze(slot);
+      this.slots.push(slot);
+      this.free[i] = this.capacity - i - 1;
+    }
+  }
+  get activeCount(): number {
+    return this.count;
+  }
+  get version(): number {
+    return this.topologyVersion;
+  }
+  get availableCount(): number {
+    return this.freeCount;
+  }
+  activeSlotAt(index: number): number {
+    if (!Number.isSafeInteger(index) || index < 0 || index >= this.count)
+      throw new RangeError('Invalid active particle index.');
+    if (this.end !== this.count) this.compact();
+    return this.active[index];
+  }
+  hasSlot(index: number): boolean {
+    return (
+      Number.isSafeInteger(index) &&
+      index >= 0 &&
+      index < this.capacity &&
+      this.occupied[index] === 1
+    );
+  }
+  getSlot(index: number): ParticleSlot2D {
+    return this.requireSlot(index);
+  }
+  addParticle(options: ParticleOptions2D = {}): number {
+    this.assertAlive();
+    const source =
+      options.texture || options.view || options.source
+        ? checkedSource(options)
+        : (this.defaultSource as
+            (ParticleSource2D & { texture: Texture2DSource }) | undefined);
+    if (!source) throw new AssetError('Particle texture is missing.');
+    validateParticleSource(source);
+    const transform = options.transform ?? identity;
+    const tint = options.tint ?? white;
+    const anchor = options.anchor ?? source.view?.defaultAnchor ?? center;
+    validateTransform(transform);
+    validateTint(tint);
+    validateAnchor(anchor);
+    if (this.freeCount === 0) return -1;
+    const index = this.free[--this.freeCount];
+    const slot = this.slots[index];
+    slot.setSource(source.texture, source.view, source.source);
+    slot.transform(transform);
+    slot.tint(tint);
+    slot.anchor(anchor);
+    slot.activate();
+    this.occupied[index] = 1;
+    // Spare tombstone room amortizes interleaved remove/add churn at full capacity.
+    if (this.end === this.active.length) this.compact();
+    this.positions[index] = this.end;
+    this.active[this.end++] = index;
+    this.count++;
+    this.topologyVersion++;
+    return index;
+  }
+  removeSlot(index: number): void {
+    this.requireSlot(index);
+    // Removing many particles per frame stays linear: holes are squeezed out once, in order.
+    this.active[this.positions[index]] = -1;
+    this.count--;
+    this.occupied[index] = 0;
+    this.slots[index].release();
+    this.free[this.freeCount++] = index;
+    this.topologyVersion++;
+  }
+  clear(): void {
+    this.compact();
+    this.occupied.fill(0);
+    for (let i = 0; i < this.count; i++) this.slots[this.active[i]].release();
+    this.active.fill(0);
+    this.count = this.end = 0;
+    this.freeCount = this.destroyed ? 0 : this.capacity;
+    for (let i = 0; i < this.freeCount; i++)
+      this.free[i] = this.capacity - i - 1;
+    this.topologyVersion++;
+  }
+  private compact(): void {
+    if (this.end === this.count) return;
+    let write = 0;
+    for (let read = 0; read < this.end; read++) {
+      const index = this.active[read];
+      if (index < 0) continue;
+      this.active[write] = index;
+      this.positions[index] = write++;
+    }
+    this.end = write;
+  }
+  setTransform(index: number, value: ParticleTransform2D): void {
+    const slot = this.requireSlot(index);
+    validateTransform(value);
+    slot.transform(value);
+  }
+  setTint(index: number, value: ColorRGBA): void {
+    const slot = this.requireSlot(index);
+    validateTint(value);
+    slot.tint(value);
+  }
+  /** @internal A slot the caller has just confirmed live with `hasSlot` on a live layer. */
+  liveSlot(index: number): ParticleSlot2D {
+    return this.slots[index];
+  }
+  /** @internal `setTransform` then `setTint` without rechecking a confirmed live slot. */
+  setLiveAppearance(
+    index: number,
+    transform: ParticleTransform2D,
+    tint: ColorRGBA,
+  ): void {
+    const slot = this.slots[index];
+    validateTransform(transform);
+    slot.transform(transform);
+    validateTint(tint);
+    slot.tint(tint);
+  }
+  setAnchor(index: number, value: readonly [number, number]): void {
+    const slot = this.requireSlot(index);
+    validateAnchor(value);
+    slot.anchor(value);
+  }
+  setSource(index: number, value: ParticleSource2D): void {
+    const slot = this.requireSlot(index);
+    const source = checkedSource(value);
+    slot.setSource(source.texture, source.view, source.source);
+  }
+  /** Renderer helper: writes final world affine without allocating a matrix. */
+  getSlotWorldMatrix(index: number, out: Matrix3): Matrix3 {
+    const slot = this.requireSlot(index);
+    if (slot.space === 'local')
+      return out
+        .copy(this.updateWorldMatrix())
+        .multiply(this.slotMatrix(index));
+    out.copy(this.slotMatrix(index));
+    return out;
+  }
+  private readonly affine = new Matrix3();
+  private slotMatrix(index: number): Matrix3 {
+    const slot = this.slots[index];
+    const e = this.affine.elements;
+    e[0] = slot.a;
+    e[1] = slot.b;
+    e[2] = 0;
+    e[3] = slot.c;
+    e[4] = slot.d;
+    e[5] = 0;
+    e[6] = slot.tx;
+    e[7] = slot.ty;
+    e[8] = 1;
+    return this.affine;
+  }
+  override getLocalBounds(
+    out: Rect2D = { x: 0, y: 0, width: 0, height: 0 },
+  ): Rect2D {
+    return this.collectBounds(out, true);
+  }
+  override getWorldBounds(
+    out: Rect2D = { x: 0, y: 0, width: 0, height: 0 },
+  ): Rect2D {
+    return this.collectBounds(out, false);
+  }
+  private readonly boundsMatrix = new Matrix3();
+  private collectBounds(out: Rect2D, local: boolean): Rect2D {
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    let inverseReady = false;
+    this.compact();
+    for (let i = 0; i < this.count; i++) {
+      const index = this.active[i];
+      const slot = this.slots[index];
+      validateParticleSource(slot);
+      const width =
+        slot.view?.width ??
+        slot.source?.width ??
+        (slot.texture.kind === 'render'
+          ? slot.texture.logicalWidth
+          : slot.texture.width);
+      const height =
+        slot.view?.height ??
+        slot.source?.height ??
+        (slot.texture.kind === 'render'
+          ? slot.texture.logicalHeight
+          : slot.texture.height);
+      let matrix: Matrix3;
+      if (local && slot.space === 'local')
+        matrix = this.boundsMatrix.copy(this.slotMatrix(index));
+      else if (local) {
+        if (!inverseReady) {
+          this.inverse.copy(this.updateWorldMatrix()).invert();
+          inverseReady = true;
+        }
+        matrix = this.boundsMatrix
+          .copy(this.inverse)
+          .multiply(this.getSlotWorldMatrix(index, this.worldAffine));
+      } else matrix = this.getSlotWorldMatrix(index, this.boundsMatrix);
+      const e = matrix.elements;
+      const x0 = (0 - slot.anchorX) * width,
+        x1 = (1 - slot.anchorX) * width,
+        y0 = (0 - slot.anchorY) * height,
+        y1 = (1 - slot.anchorY) * height;
+      const ax0 = e[0] * x0,
+        ax1 = e[0] * x1,
+        cy0 = e[3] * y0,
+        cy1 = e[3] * y1,
+        bx0 = e[1] * x0,
+        bx1 = e[1] * x1,
+        dy0 = e[4] * y0,
+        dy1 = e[4] * y1;
+      // Select existing rounded products without changing the corner addition order.
+      const left = Math.min(ax0, ax1) + Math.min(cy0, cy1) + e[6],
+        right = Math.max(ax0, ax1) + Math.max(cy0, cy1) + e[6],
+        top = Math.min(bx0, bx1) + Math.min(dy0, dy1) + e[7],
+        bottom = Math.max(bx0, bx1) + Math.max(dy0, dy1) + e[7];
+      if (
+        !Number.isFinite(left) ||
+        !Number.isFinite(right) ||
+        !Number.isFinite(top) ||
+        !Number.isFinite(bottom)
+      )
+        throw new RangeError('Particle bounds must remain finite.');
+      minX = Math.min(minX, left);
+      minY = Math.min(minY, top);
+      maxX = Math.max(maxX, right);
+      maxY = Math.max(maxY, bottom);
+    }
+    out.x = minX === Infinity ? 0 : minX;
+    out.y = minY === Infinity ? 0 : minY;
+    out.width = minX === Infinity ? 0 : maxX - minX;
+    out.height = minY === Infinity ? 0 : maxY - minY;
+    return out;
+  }
+  private readonly worldAffine = new Matrix3();
+  private assertAlive(): void {
+    if (this.destroyed)
+      throw new Error('Cannot change a destroyed ParticleLayer2D.');
+  }
+  private requireSlot(index: number): Slot {
+    this.assertAlive();
+    if (!this.hasSlot(index))
+      throw new RangeError('Invalid or inactive particle slot.');
+    return this.slots[index];
+  }
+  override destroy(): void {
+    if (this.destroyed) return;
+    this.clear();
+    try {
+      super.destroy();
+    } finally {
+      this.freeCount = 0;
+      this.slots.length = 0;
+    }
+  }
+}
+```
+
+### 完整reproduction drivers
+
+所有callback中的dynamic import是classic page.evaluate的module邊界，不是正式lazy import設計。native tag取sprite/layer，backend分別canvas2d/webgl2/webgpu；CPU P275_MODE=aa後才ab。
+
+```js
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = process.argv[2] ?? '/tmp/xyz-p275';
+const require = createRequire(root + '/package.json'),
+  ts = require('typescript'),
+  prettier = require('prettier');
+const before = fs.readFileSync(directory + '/before.ts', 'utf8');
+if (
+  crypto.createHash('sha256').update(before).digest('hex') !==
+  '35f2f006d946db85539cf08ef818b02390a6f0de8df1499403e357239ebd48ef'
+)
+  throw Error('Before snapshot hash differs');
+const old =
+    "      for (let corner = 0; corner < 4; corner++) {\n        const px = (corner & 1 ? ax1 : ax0) + (corner & 2 ? cy1 : cy0) + e[6];\n        const py = (corner & 1 ? bx1 : bx0) + (corner & 2 ? dy1 : dy0) + e[7];\n        minX = Math.min(minX, px);\n        minY = Math.min(minY, py);\n        if (!Number.isFinite(px) || !Number.isFinite(py))\n          throw new RangeError('Particle bounds must remain finite.');\n        maxX = Math.max(maxX, px);\n        maxY = Math.max(maxY, py);\n      }",
+  next =
+    "      // Select existing rounded products without changing the corner addition order.\n      const left = Math.min(ax0, ax1) + Math.min(cy0, cy1) + e[6],\n        right = Math.max(ax0, ax1) + Math.max(cy0, cy1) + e[6],\n        top = Math.min(bx0, bx1) + Math.min(dy0, dy1) + e[7],\n        bottom = Math.max(bx0, bx1) + Math.max(dy0, dy1) + e[7];\n      if (!Number.isFinite(left) || !Number.isFinite(right) || !Number.isFinite(top) || !Number.isFinite(bottom))\n        throw new RangeError('Particle bounds must remain finite.');\n      minX = Math.min(minX, left);\n      minY = Math.min(minY, top);\n      maxX = Math.max(maxX, right);\n      maxY = Math.max(maxY, bottom);";
+if (before.split(old).length !== 2) throw Error('Expected one corner loop');
+const candidate = before.replace(old, next),
+  start = candidate.indexOf('  private collectBounds('),
+  end = candidate.indexOf('\n  private ', start + 1);
+if (start < 0 || end < 0) throw Error('Bounds method boundary missing');
+const method = candidate
+    .slice(start, end)
+    .replace('private collectBounds(', 'private collectBoundsAfter275('),
+  closer = before.lastIndexOf('\n}');
+const source =
+  before.slice(0, closer) +
+  '\n' +
+  method +
+  before.slice(closer) +
+  "\ntype Bounds275 = (out: Rect2D, local: boolean) => Rect2D;\nconst prototype275 = ParticleLayer2D.prototype as unknown as {collectBounds: Bounds275;collectBoundsAfter275?: Bounds275};\nconst before275=prototype275.collectBounds,after275=prototype275.collectBoundsAfter275!;\ndelete prototype275.collectBoundsAfter275;\nlet selected275=before275;\nprototype275.collectBounds=function(this: ParticleLayer2D,out: Rect2D,local: boolean):Rect2D{return selected275.call(this,out,local);};\nexport function setBoundsVariant275(side:'before'|'after'):void{selected275=side==='after'?after275:before275;}\nexport function getBoundsVariant275():string{return selected275===before275?'before':selected275===after275?'after':'other';}\n";
+const module = ts.transpileModule(source, {
+  compilerOptions: {
+    target: ts.ScriptTarget.ES2022,
+    module: ts.ModuleKind.ES2022,
+  },
+}).outputText;
+fs.writeFileSync(
+  directory + '/shared-layer.mjs',
+  await prettier.format(module, {
+    singleQuote: true,
+    trailingComma: 'all',
+    parser: 'babel',
+  }),
+);
+```
+
+```js
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+function oldRow(a0, a1, b0, b1, t) {
+  let min = Infinity,
+    max = -Infinity;
+  for (let corner = 0; corner < 4; corner++) {
+    const x = (corner & 1 ? a1 : a0) + (corner & 2 ? b1 : b0) + t;
+    min = Math.min(min, x);
+    if (!Number.isFinite(x)) return null;
+    max = Math.max(max, x);
+  }
+  return [min, max];
+}
+function newRow(a0, a1, b0, b1, t) {
+  const min = Math.min(a0, a1) + Math.min(b0, b1) + t,
+    max = Math.max(a0, a1) + Math.max(b0, b1) + t;
+  return Number.isFinite(min) && Number.isFinite(max) ? [min, max] : null;
+}
+let cases = 0,
+  finiteResults = 0,
+  nonfiniteResults = 0,
+  numericComparisons = 0;
+function check(a0, a1, b0, b1, t) {
+  const before = oldRow(a0, a1, b0, b1, t),
+    after = newRow(a0, a1, b0, b1, t);
+  cases++;
+  assert.equal(before === null, after === null);
+  if (before) {
+    finiteResults++;
+    for (let i = 0; i < 2; i++) {
+      assert.ok(Object.is(before[i], after[i]), 'Rounded extrema mismatch');
+      numericComparisons++;
+    }
+  } else nonfiniteResults++;
+}
+const special = [
+  -Infinity,
+  -Number.MAX_VALUE,
+  -1e308,
+  -1,
+  -Number.MIN_VALUE,
+  -0,
+  0,
+  Number.MIN_VALUE,
+  1,
+  1e308,
+  Number.MAX_VALUE,
+  Infinity,
+  NaN,
+  -1e-200,
+  1e-200,
+  -2,
+];
+for (const a0 of special)
+  for (const a1 of special)
+    for (const b0 of special)
+      for (const b1 of special)
+        for (const t of special) check(a0, a1, b0, b1, t);
+let state = 17;
+const buffer = new ArrayBuffer(8),
+  view = new DataView(buffer);
+const random = () => {
+  state ^= state << 13;
+  state ^= state >>> 17;
+  state ^= state << 5;
+  return state >>> 0;
+};
+const value = () => {
+  view.setUint32(0, random());
+  view.setUint32(4, random());
+  return view.getFloat64(0);
+};
+for (let i = 0; i < 1000000; i++)
+  check(value(), value(), value(), value(), value());
+const result = {
+  cases,
+  finiteResults,
+  nonfiniteResults,
+  numericComparisons,
+  signedZeroCompared: true,
+  overflowNaNAndInfinityFinitePredicateCompared: true,
+  modelOnlyNotEngineExceptionProof: true,
+};
+fs.writeFileSync('/tmp/xyz-p275/algebra.json', JSON.stringify(result));
+console.log(JSON.stringify(result));
+```
+
+```js
+import fs from 'node:fs';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p275';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5275, strictPort: true },
+  plugins: [
+    {
+      name: 'p275-shared-layer-bounds',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (
+            url.pathname ===
+            '/dist/packages/core/src/particles2d/particle-layer2d.js'
+          ) {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-layer.mjs'));
+            return;
+          }
+          if (url.pathname === '/p275-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Rounded product bounds validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+try {
+  await server.listen();
+  const launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+    }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5275/p275-game');
+  const proof = await page.evaluate(async () => {
+    // Classic browser callbacks require dynamic module loading.
+    const api = await import('/dist/src/index.js'),
+      control =
+        await import('/dist/packages/core/src/particles2d/particle-layer2d.js');
+    const bitmap = await createImageBitmap(
+        new ImageData(new Uint8ClampedArray(16 * 16 * 4).fill(255), 16, 16),
+      ),
+      texture = new api.Texture(bitmap);
+    let numbers = 0,
+      cases = 0,
+      steps = 0;
+    const snapshots = [];
+
+    function edgeRun(side, space, local, anchor, singular, matrixValues) {
+      control.setBoundsVariant275(side);
+      const layer = new api.ParticleLayer2D({ capacity: 2 });
+      layer.position.set(5, -3);
+      layer.scale.set(singular ? 0 : 1.25, singular ? 0 : -0.75);
+      layer.addParticle({
+        texture,
+        transform: { a: 1, b: -0, c: 0, d: 1, tx: 0, ty: -0, space },
+        anchor: [anchor, anchor],
+      });
+      const trace = [];
+      layer.getSlotWorldMatrix = (index, out) => {
+        trace.push(index);
+        out.elements.set(matrixValues);
+        return out;
+      };
+      const out = { x: 11, y: 22, width: 33, height: 44 };
+      try {
+        const actual = local
+          ? layer.getLocalBounds(out)
+          : layer.getWorldBounds(out);
+        const values = [actual.x, actual.y, actual.width, actual.height];
+        if (values.some((n) => !Number.isFinite(n)))
+          throw Error('Nonfinite successful edge bounds');
+        return { values, trace };
+      } catch (error) {
+        return {
+          error: error.name + ': ' + error.message,
+          values: [out.x, out.y, out.width, out.height],
+          trace,
+        };
+      } finally {
+        layer.destroy();
+        if (texture.destroyed) throw Error('Layer destroyed borrowed texture');
+      }
+    }
+    function edgeProof() {
+      const matrices = [
+        [1, -0, 0, 0, 1, 0, -0, -0, 1],
+        [-1, 0, 0, 0.25, -2, 0, 2, -3, 1],
+        [0, 0, 0, -0, 0, 0, -0, 0, 1],
+        [3.4028234663852886e38, 0, 0, 0, 3.4028234663852886e38, 0, 1, -1, 1],
+        [Infinity, 0, 0, 0, 1, 0, 0, 0, 1],
+        [NaN, 0, 0, 0, 1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1, 0, Infinity, 0, 1],
+        [1, 0, 0, 0, 1, 0, 0, -Infinity, 1],
+        [1, 0, 0, 0, 1, 0, NaN, -0, 1],
+        [
+          Number.MIN_VALUE,
+          -Number.MIN_VALUE,
+          0,
+          -0,
+          Number.MIN_VALUE,
+          0,
+          -0,
+          0,
+          1,
+        ],
+      ];
+      let edgeCases = 0,
+        engineRangeErrors = 0,
+        exactEdgeNumbers = 0;
+      for (const space of ['local', 'world'])
+        for (const local of [false, true])
+          for (const anchor of [-0, 0, 0.5])
+            for (const singular of [false, true])
+              for (const matrix of matrices) {
+                const before = edgeRun(
+                    'before',
+                    space,
+                    local,
+                    anchor,
+                    singular,
+                    matrix,
+                  ),
+                  after = edgeRun(
+                    'after',
+                    space,
+                    local,
+                    anchor,
+                    singular,
+                    matrix,
+                  );
+                if (
+                  before.error !== after.error ||
+                  JSON.stringify(before.trace) !== JSON.stringify(after.trace)
+                )
+                  throw Error('Engine edge error/callback mismatch');
+                if (before.error) {
+                  if (!before.error.startsWith('RangeError: '))
+                    throw Error('Unexpected edge exception ' + before.error);
+                  engineRangeErrors++;
+                }
+                before.values.forEach((n, i) => {
+                  if (!Object.is(n, after.values[i]))
+                    throw Error('Engine edge numeric mismatch');
+                  exactEdgeNumbers++;
+                });
+                edgeCases++;
+              }
+      return {
+        edgeCases,
+        engineRangeErrors,
+        exactEdgeNumbers,
+        callbackSequenceIdentical: true,
+        errorOutputUnmodifiedCompared: true,
+      };
+    }
+
+    function snapshot(emitter, target) {
+      const values = [emitter.activeCount, emitter.emitting ? 1 : 0];
+      const bounds = emitter.getLocalBounds();
+      values.push(bounds.x, bounds.y, bounds.width, bounds.height);
+      if (target) {
+        values.push(target.version);
+        for (let i = 0; i < target.activeCount; i++) {
+          const index = target.activeSlotAt(i),
+            p = target.getSlot(index);
+          values.push(
+            index,
+            p.generation,
+            p.a,
+            p.b,
+            p.c,
+            p.d,
+            p.tx,
+            p.ty,
+            p.tintR,
+            p.tintG,
+            p.tintB,
+            p.tintA,
+            p.anchorX,
+            p.anchorY,
+            p.transformVersion,
+            p.tintVersion,
+            p.sourceVersion,
+            p.anchorVersion,
+            ...target.getSlotWorldMatrix(index, new api.Matrix3()).elements,
+          );
+        }
+      } else
+        for (const p of emitter.children)
+          if (p instanceof api.Sprite && p.renderEnabled)
+            values.push(
+              p.position.x,
+              p.position.y,
+              p.scale.x,
+              p.scale.y,
+              ...p.tint,
+              ...p.updateWorldMatrix().elements,
+            );
+      if (values.some((n) => !Number.isFinite(n)))
+        throw Error('Nonfinite successful particle snapshot');
+      return values;
+    }
+    function run(side, layer, space, style, nozzle, seed) {
+      control.setBoundsVariant275(side);
+      const target = layer
+        ? new api.ParticleLayer2D({ capacity: 8 })
+        : undefined;
+      const startSize = style === 0 ? [8, 4] : style === 1 ? [2, 11] : [-0, 0],
+        endSize = style === 0 ? [8, 4] : style === 1 ? [13, 3] : [0, -0];
+      const startColor =
+          style === 0
+            ? [0.7, 0.2, 0.4, 0.8]
+            : style === 1
+              ? [0, 1, 0.2, 0.8]
+              : [-0, 0, -0, 0],
+        endColor =
+          style === 0
+            ? [0.7, 0.2, 0.4, 0.8]
+            : style === 1
+              ? [1, 0, 0.8, 0.2]
+              : [0, -0, 0, -0];
+      const supplied = [...startSize, ...endSize, ...startColor, ...endColor];
+      const emitter = new api.ParticleEmitter({
+        texture,
+        target,
+        capacity: 8,
+        rate: 2.5,
+        lifetime: [0.3, 2],
+        speed: [2, 18],
+        angle: [-2, 2],
+        acceleration: [4, -2],
+        startSize,
+        endSize,
+        startColor,
+        endColor,
+        seed,
+        nozzle,
+        space,
+        source: seed % 2 ? { x: -0, y: -0, width: 7, height: 5 } : undefined,
+      });
+      const after = [...startSize, ...endSize, ...startColor, ...endColor];
+      if (after.some((v, i) => !Object.is(v, supplied[i])))
+        throw Error('Constructor mutated caller-owned endpoints');
+      // Inputs are caller-owned copies, not a live reconfiguration channel.
+      startSize.fill(99);
+      endSize.fill(98);
+      startColor.fill(0.3);
+      endColor.fill(0.4);
+      const root = new api.Group2D();
+      root.position.set(40, -30);
+      root.rotation = 0.2;
+      root.scale.set(-1.25, 0.8);
+      root.add(emitter);
+      emitter.position.set(3, 4);
+      emitter.rotation = -0.1;
+      const result = [];
+      try {
+        emitter.emit(5);
+        emitter.start();
+        result.push(snapshot(emitter, target));
+        for (const dt of [0, 0.125, 0.2, 0.375, 0.05, 0.6, 0.8]) {
+          emitter.updateSimulation(dt);
+          root.position.x += 1;
+          result.push(snapshot(emitter, target));
+        }
+        emitter.stop();
+        emitter.clear();
+        emitter.emit(3);
+        emitter.updateSimulation(0.125);
+        result.push(snapshot(emitter, target));
+        if (control.getBoundsVariant275() !== side)
+          throw Error('Wrong selected bounds method');
+        return result;
+      } finally {
+        root.destroy();
+        if (texture.destroyed)
+          throw Error('Emitter destroyed borrowed texture');
+      }
+    }
+    try {
+      for (const layer of [false, true])
+        for (const space of ['local', 'world'])
+          for (const style of [0, 1, 2])
+            for (const nozzle of [
+              { kind: 'point' },
+              { kind: 'rectangle', width: 12, height: 8 },
+              { kind: 'circle', radius: 6 },
+            ])
+              for (let seed = 0; seed < 8; seed++) {
+                const before = run('before', layer, space, style, nozzle, seed),
+                  after = run('after', layer, space, style, nozzle, seed);
+                if (before.length !== after.length)
+                  throw Error('Step count mismatch');
+                for (let step = 0; step < before.length; step++) {
+                  steps++;
+                  if (before[step].length !== after[step].length)
+                    throw Error('Snapshot length mismatch');
+                  before[step].forEach((n, i) => {
+                    numbers++;
+                    if (!Object.is(n, after[step][i]))
+                      throw Error(
+                        'Particle numeric mismatch ' +
+                          [
+                            layer,
+                            space,
+                            style,
+                            nozzle.kind,
+                            seed,
+                            step,
+                            i,
+                          ].join('/') +
+                          ': ' +
+                          n +
+                          ' / ' +
+                          after[step][i],
+                      );
+                  });
+                }
+                snapshots.push({
+                  layer,
+                  space,
+                  style,
+                  nozzle: nozzle.kind,
+                  seed,
+                  steps: before.length,
+                });
+                cases++;
+              }
+      const edges = edgeProof();
+      return {
+        cases,
+        edges,
+        steps,
+        exactFiniteNumbers: numbers,
+        signedZeroCompared: true,
+        callerOwnedInputsUnchanged: true,
+        changingAndEqualEndpoints: true,
+        rateBirthsExpiryAndClearReemit: true,
+        nativeImageBitmap: bitmap instanceof ImageBitmap,
+        snapshots,
+      };
+    } finally {
+      texture.destroy();
+      if (bitmap.width !== 0) throw Error('Native bitmap not closed');
+    }
+  });
+  const result = {
+    browser: browserIdentity('chromium', browser, launch),
+    proof,
+    errors,
+    pureActualCoreObjects: true,
+    notAGpuRenderingProof: true,
+  };
+  fs.writeFileSync(directory + '/numeric.json', JSON.stringify(result));
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+```js
+import fs from 'node:fs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  port = 5275;
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port, strictPort: true },
+  plugins: [
+    {
+      name: 'p275-real-frame-profile',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url === '/p275') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Native Game frame profile</title></head><body style="margin:0"><canvas id="game"></canvas></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+try {
+  await server.listen();
+  const launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+    }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:' + port + '/p275');
+  await page.evaluate(async () => {
+    // page.evaluate is a classic callback; browser modules must load within it.
+    const api = await import('/src/index.js');
+    globalThis.setup275 = async (mode) => {
+      if (document.visibilityState !== 'visible')
+        throw Error('Hidden profile page');
+      const bitmap = await createImageBitmap(
+          new ImageData(new Uint8ClampedArray(4 * 4 * 4).fill(255), 4, 4),
+        ),
+        texture = new api.Texture(bitmap),
+        emitters = [];
+      class CountedScene extends api.Scene {
+        frames = 0;
+        update() {
+          ++this.frames;
+        }
+      }
+      const scene = new CountedScene(),
+        canvas = document.createElement('canvas'),
+        game = await api.Game.create({
+          canvas,
+          renderer: 'webgl2',
+          width: 1280,
+          height: 720,
+          pixelRatio: 1,
+          autoResize: false,
+          frameWorkBudgetMs: 1000 / 60,
+        });
+      document.body.replaceChildren(canvas);
+      if (game.graphics.backend !== 'webgl2')
+        throw Error('Wrong forced profile backend');
+      game.addEventListener('error', (e) => {
+        globalThis.runtimeError275 = e.detail?.stack ?? String(e.detail);
+      });
+      for (let i = 0; i < 4; i++) {
+        const target = mode.startsWith('layer')
+          ? new api.ParticleLayer2D({ capacity: 8192 })
+          : undefined;
+        const emitter = new api.ParticleEmitter({
+          texture,
+          target,
+          capacity: 8192,
+          rate: 0,
+          lifetime: mode.includes('changing') ? [1000, 1000] : [1e6, 1e6],
+          speed: [0, 0],
+          angle: [-Math.PI, Math.PI],
+          acceleration: [0, 0],
+          startSize: [8, 4],
+          endSize: mode.includes('changing') ? [1, 9] : [8, 4],
+          startColor: [0.7, 0.2, 0.4, 0.8],
+          endColor: mode.includes('changing')
+            ? [0.1, 0.8, 0.2, 0.3]
+            : [0.7, 0.2, 0.4, 0.8],
+          seed: 17 + i,
+          space: mode.includes('world') ? 'world' : 'local',
+          nozzle: { kind: 'rectangle', width: 512, height: 256 },
+        });
+        emitter.position.set(160 + 320 * i, 360);
+        emitter.rotation = 0.3;
+        emitter.scale.set(1.3, 0.7);
+        emitter.emit(8192);
+        scene.add(emitter);
+        emitters.push(emitter);
+      }
+      await game.setScene(scene);
+      globalThis.fixture275 = {
+        game,
+        scene,
+        emitters,
+        texture,
+        bitmap,
+      };
+      game.start();
+      return {
+        mode,
+        requestedBackend: 'webgl2',
+        nativeWebGL2:
+          canvas.getContext('webgl2') instanceof WebGL2RenderingContext,
+        nativeImageBitmap: bitmap instanceof ImageBitmap,
+        visibility: document.visibilityState,
+        emitters: 4,
+        capacityPerEmitter: 8192,
+      };
+    };
+  });
+  const cdp = await page.context().newCDPSession(page),
+    reports = [];
+  await cdp.send('Profiler.enable');
+  await cdp.send('Profiler.setSamplingInterval', { interval: 100 });
+  for (const mode of [
+    'layer-local-static',
+    'layer-world-static',
+    'layer-local-changing',
+    'sprite-local-control',
+  ]) {
+    const setup = await page.evaluate(
+      (mode) => globalThis.setup275(mode),
+      mode,
+    );
+    await page.waitForFunction(
+      () =>
+        globalThis.runtimeError275 || globalThis.fixture275.scene.frames >= 90,
+      {},
+      { timeout: 60000 },
+    );
+    const before = await page.evaluate(() => {
+      if (globalThis.runtimeError275) throw Error(globalThis.runtimeError275);
+      const f = globalThis.fixture275;
+      if (f.emitters.some((e) => e.activeCount !== 8192))
+        throw Error('Unexpected profile active count');
+      globalThis.state275 = {
+        registered: f.scene.objects.size,
+        activeParticles: f.emitters.reduce((n, e) => n + e.activeCount, 0),
+        noObjectUpdateListeners: true,
+      };
+      return f.scene.frames;
+    });
+    await cdp.send('Profiler.start');
+    await page.waitForFunction(
+      (target) =>
+        globalThis.runtimeError275 ||
+        globalThis.fixture275.scene.frames >= target,
+      before + 180,
+      { timeout: 60000 },
+    );
+    const measurement = await page.evaluate(() => {
+      if (globalThis.runtimeError275) throw Error(globalThis.runtimeError275);
+      const f = globalThis.fixture275;
+      f.game.pause();
+      return {
+        completedFrames: f.scene.frames,
+        lastCompleteFrameWorkMs: {
+          simulation: f.game.frameWork.simulationMs,
+          navigation: f.game.frameWork.navigationMs,
+          afterUpdate: f.game.frameWork.afterUpdateMs,
+          renderSubmit: f.game.frameWork.renderSubmitMs,
+        },
+        activeParticles: f.emitters.map((e) => e.activeCount),
+        visibility: document.visibilityState,
+      };
+    });
+    const { profile } = await cdp.send('Profiler.stop');
+    fs.writeFileSync(
+      '/tmp/xyz-p275/' + mode + '.cpuprofile',
+      JSON.stringify(profile),
+    );
+    const nodes = new Map(profile.nodes.map((n) => [n.id, n])),
+      self = new Map();
+    for (let i = 0; i < profile.samples.length; i++) {
+      const frame = nodes.get(profile.samples[i]).callFrame,
+        key =
+          (frame.functionName || '(anonymous)') +
+          ' ' +
+          frame.url +
+          ':' +
+          (frame.lineNumber + 1);
+      self.set(key, (self.get(key) ?? 0) + profile.timeDeltas[i]);
+    }
+    const png = await page.screenshot({
+      path: '/tmp/xyz-p275/' + mode + '.png',
+    });
+    if (!pngPixels(png).nonuniform) throw Error('Blank formal profile surface');
+    const cleanup = await page.evaluate(() => {
+      const f = globalThis.fixture275;
+      f.game.destroy();
+      if (f.texture.destroyed) throw Error('Game destroyed borrowed texture');
+      f.texture.destroy();
+      return {
+        gameDestroyed: f.game.state,
+        textureDestroyed: f.texture.destroyed,
+        nativeBitmapClosed: f.bitmap.width === 0,
+      };
+    });
+    if (!cleanup.nativeBitmapClosed)
+      throw Error('Native bitmap cleanup failed');
+    reports.push({
+      setup,
+      warmFrames: before,
+      profiledFrames: measurement.completedFrames - before,
+      objectState: await page.evaluate(() => globalThis.state275),
+      ...measurement,
+      topSelfMicroseconds: [...self].sort((a, b) => b[1] - a[1]).slice(0, 30),
+      cleanup,
+    });
+  }
+  const report = {
+    formalDevEntry: '/src/index.js',
+    noSourceOverrides: true,
+    samplingIntervalMicroseconds: 100,
+    browser: browserIdentity('chromium', browser, launch),
+    reports,
+    errors,
+  };
+  fs.writeFileSync('/tmp/xyz-p275/profiles.json', JSON.stringify(report));
+  console.log(JSON.stringify(report, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+```js
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p275',
+  phase = process.env.P275_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5275, strictPort: true },
+  plugins: [
+    {
+      name: 'p275-shared-layer-bounds',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (
+            url.pathname ===
+            '/dist/packages/core/src/particles2d/particle-layer2d.js'
+          ) {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-layer.mjs'));
+            return;
+          }
+          if (url.pathname === '/p275-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Rounded product bounds validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+const tag = process.env.P275_TAG ?? phase;
+try {
+  await server.listen();
+  const backend = process.env.P275_BACKEND ?? 'webgl2',
+    launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({ viewport: { width: 256, height: 384 } }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5275/p275-game');
+  await page.evaluate(async () => {
+    // Classic page callbacks require dynamic module loading.
+    const apiShared = await import('/dist/src/index.js'),
+      controller =
+        await import('/dist/packages/core/src/particles2d/particle-layer2d.js'),
+      apis = { before: apiShared, after: apiShared };
+    let fixtures = [];
+    globalThis.setupDynamic275 = async ({ backend, mode }) => {
+      document.body.replaceChildren();
+      fixtures = [];
+      for (const side of ['before', 'after']) {
+        controller.setBoundsVariant275(side);
+        const api = apis[side],
+          canvas = document.createElement('canvas');
+        canvas.style.display = 'block';
+        document.body.append(canvas);
+        const pixels = new Uint8ClampedArray(16 * 16 * 4);
+        for (let y = 0; y < 16; y++)
+          for (let x = 0; x < 16; x++) {
+            const o = (y * 16 + x) * 4;
+            pixels[o] = x * 17;
+            pixels[o + 1] = y * 17;
+            pixels[o + 2] = (x ^ y) * 17;
+            pixels[o + 3] = 255;
+          }
+        const bitmap = await createImageBitmap(new ImageData(pixels, 16, 16)),
+          texture = new api.Texture(bitmap);
+        const view = mode.endsWith('rotated')
+            ? new api.TextureView2D(texture, {
+                frame: { x: 4, y: 2, width: 6, height: 4 },
+                rotation: 90,
+              })
+            : mode.endsWith('trimmed')
+              ? new api.TextureView2D(texture, {
+                  frame: { x: 2, y: 4, width: 6, height: 4 },
+                  originalSize: [12, 10],
+                  trim: { x: 3, y: 2, width: 6, height: 4 },
+                  resolution: 2,
+                })
+              : undefined,
+          source = mode.endsWith('source')
+            ? { x: -0, y: -0, width: 7, height: 5 }
+            : undefined;
+        let game,
+          complete,
+          runtimeError,
+          tick = 0;
+        const isolated = mode.endsWith('isolated') || mode.endsWith('nested');
+        class Shaken extends (isolated ? api.IsolatedGroup2D : api.Group2D) {
+          updateWorldMatrix() {
+            const matrix = super.updateWorldMatrix();
+            matrix.elements[6] += 2;
+            return matrix;
+          }
+        }
+        const rootGroup = new Shaken();
+        if (isolated) rootGroup.isolate = true;
+        const holder = mode.endsWith('nested')
+          ? rootGroup.add(new api.IsolatedGroup2D())
+          : rootGroup;
+        if (holder !== rootGroup) holder.isolate = true;
+        rootGroup.position.set(30, 20);
+        if (mode === 'local-screen') rootGroup.space = 'screen';
+        const emitter = holder.add(
+          new api.ParticleEmitter({
+            texture,
+            view,
+            source,
+            capacity: 32,
+            rate: 0,
+            lifetime: [1e6, 1e6],
+            speed: [0, 0],
+            angle: [0, 0],
+            acceleration: [0, 0],
+            startSize: [8, 6],
+            endSize: [8, 6],
+            startColor: [0.7, 0.2, 0.4, 0.8],
+            endColor: [0.7, 0.2, 0.4, 0.8],
+            seed: 17,
+            space: mode.startsWith('world') ? 'world' : 'local',
+            nozzle: { kind: 'rectangle', width: 24, height: 12 },
+          }),
+        );
+        emitter.position.set(80, 80);
+        emitter.emit(32);
+        let destroyCalls = 0;
+        let destroyListeners = 0;
+        const onDestroyed = (event) => {
+          if (
+            event.type !== 'destroy' ||
+            !(event.target instanceof api.GameObject)
+          )
+            throw Error('Invalid native destroy callback');
+          destroyCalls++;
+        };
+        for (const actor of emitter.children) {
+          actor.addEventListener('destroy', onDestroyed);
+          destroyListeners++;
+        }
+        const particles = [...emitter.children].filter(
+          (child) => child instanceof api.Sprite && child.renderEnabled,
+        );
+        if (particles.length !== 32)
+          throw Error('Missing ordinary Sprite pool');
+        if (mode === 'local-custom') {
+          const particle = particles[0],
+            original = particle.updateWorldMatrix;
+          particle.updateWorldMatrix = function () {
+            const matrix = original.call(this);
+            matrix.elements[6] += 3;
+            return matrix;
+          };
+        }
+        const finish = () => {
+          game.pause();
+          const callback = complete;
+          complete = undefined;
+          runtimeError
+            ? callback.reject(Error(runtimeError))
+            : callback.resolve();
+        };
+        class PosedScene extends api.Scene {
+          update() {
+            ++tick;
+            rootGroup.position.set(30 + tick, 20 - tick * 0.5);
+            rootGroup.rotation = tick * 0.02;
+            rootGroup.scale.set(1 + tick * 0.01, 0.8 + tick * 0.02);
+            rootGroup.opacity = 0.6 + tick * 0.01;
+            rootGroup.tint = [1, 1 - tick * 0.005, 0.8 + tick * 0.005, 1];
+            emitter.position.set(80 + tick * 0.4, 80 - tick * 0.3);
+            emitter.rotation = tick * 0.03;
+            this.camera2D.position.set(tick * 0.1, -tick * 0.15);
+            this.camera2D.zoom = 1 + tick * 0.01;
+            queueMicrotask(finish);
+          }
+        }
+        let scene = new PosedScene();
+        scene.add(rootGroup);
+        game = await api.Game.create({
+          canvas,
+          renderer: backend,
+          width: 256,
+          height: 192,
+          pixelRatio: 1,
+          autoResize: false,
+        });
+        game.addEventListener('error', (event) => {
+          runtimeError = event.detail?.stack ?? String(event.detail);
+        });
+        await game.setScene(scene);
+        const frame = () =>
+          new Promise((resolve, reject) => {
+            controller.setBoundsVariant275(side);
+            complete = { resolve, reject };
+            game.start();
+          });
+        const snapshot = () => ({
+          tick,
+          active: emitter.activeCount,
+          particles: particles.map((p) => ({
+            place: [p.position.x, p.position.y],
+            scale: [p.scale.x, p.scale.y],
+            tint: Array.from(p.tint),
+            worldSpace: p.worldSpace,
+            matrix: Array.from(p.worldMatrix.elements),
+          })),
+        });
+        fixtures.push({
+          side,
+          game,
+          get scene() {
+            return scene;
+          },
+          rootGroup,
+          emitter,
+          destroyListeners,
+          get destroyCalls() {
+            return destroyCalls;
+          },
+          texture,
+          bitmap,
+          frame,
+          snapshot,
+          transfer: async () => {
+            scene.remove(rootGroup);
+            const next = new PosedScene();
+            next.add(rootGroup);
+            await game.setScene(next);
+            scene = next;
+          },
+        });
+      }
+      return {
+        mode,
+        backend,
+        visible: document.visibilityState,
+        nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+      };
+    };
+    globalThis.runDynamic275 = async (mode) => {
+      const snapshots = { before: [], after: [] };
+      for (const f of fixtures)
+        for (let frame = 0; frame < 12; frame++) {
+          if (mode === 'local-transfer' && frame === 6) await f.transfer();
+          await f.frame();
+          snapshots[f.side].push(f.snapshot());
+        }
+      let numbers = 0;
+      function equal(a, b, where) {
+        if (typeof a === 'number' && typeof b === 'number') {
+          numbers++;
+          if (!Object.is(a, b))
+            throw Error('Numeric mismatch at ' + where + ': ' + a + ' / ' + b);
+          return;
+        }
+        if (Array.isArray(a) && Array.isArray(b)) {
+          if (a.length !== b.length) throw Error('Array mismatch at ' + where);
+          a.forEach((value, index) =>
+            equal(value, b[index], where + '/' + index),
+          );
+          return;
+        }
+        if (a && b && typeof a === 'object' && typeof b === 'object') {
+          const keys = Object.keys(a);
+          if (keys.join(',') !== Object.keys(b).join(','))
+            throw Error('Key mismatch at ' + where);
+          for (const key of keys) equal(a[key], b[key], where + '/' + key);
+          return;
+        }
+        if (a !== b) throw Error('Value mismatch at ' + where);
+      }
+      equal(snapshots.before, snapshots.after, mode);
+      return {
+        snapshots: 12,
+        exactNumbers: numbers,
+        signedZeroCompared: true,
+        automaticGameFrames: true,
+      };
+    };
+    globalThis.cleanupDynamic275 = () => {
+      const rows = [];
+      for (const f of fixtures) {
+        f.game.destroy();
+        if (f.destroyCalls !== f.destroyListeners)
+          throw Error(
+            'Native destroy callback mismatch ' +
+              f.destroyCalls +
+              '/' +
+              f.destroyListeners,
+          );
+        if (f.texture.destroyed) throw Error('Borrowed Texture destroyed');
+        f.texture.destroy();
+        if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+        rows.push({
+          side: f.side,
+          gameState: f.game.state,
+          destroyListeners: f.destroyListeners,
+          destroyCallbacks: f.destroyCalls,
+          bitmapClosed: true,
+        });
+      }
+      fixtures = [];
+      return rows;
+    };
+  });
+  const reports = [];
+  for (const mode of [
+    'local',
+    'world',
+    'local-custom',
+    'local-screen',
+    'local-transfer',
+    'local-rotated',
+    'local-trimmed',
+    'local-source',
+    'local-isolated',
+    'world-isolated',
+    'local-nested',
+  ]) {
+    const setup = await page.evaluate(
+        (args) => globalThis.setupDynamic275(args),
+        { backend, mode },
+      ),
+      proof = await page.evaluate(
+        (mode) => globalThis.runDynamic275(mode),
+        mode,
+      ),
+      hashes = [];
+    for (let i = 0; i < 2; i++) {
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: i * 192, width: 256, height: 192 },
+        path:
+          directory +
+          '/' +
+          tag +
+          '-' +
+          backend +
+          '-' +
+          mode +
+          '-' +
+          (i === 0 ? 'before' : 'after') +
+          '.png',
+      });
+      if (!pngPixels(bytes).nonuniform)
+        throw Error('Blank native dynamic canvas');
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1])
+      throw Error('Dynamic Game pixels differ for ' + mode);
+    const cleanup = await page.evaluate(() => globalThis.cleanupDynamic275());
+    reports.push({ setup, proof, matchingPngSha256: hashes[0], cleanup });
+  }
+  const result = {
+    phase,
+    tag,
+    entryAfter: '/dist/src/index.js',
+    fixedBoundsTrampolineSelection: true,
+    backend,
+    browser: browserIdentity('chromium', browser, launch),
+    reports,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + tag + '-' + backend + '-dynamic.json',
+    JSON.stringify(result),
+  );
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+```js
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p275',
+  phase = process.env.P275_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5275, strictPort: true },
+  plugins: [
+    {
+      name: 'p275-shared-layer-bounds',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (
+            url.pathname ===
+            '/dist/packages/core/src/particles2d/particle-layer2d.js'
+          ) {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-layer.mjs'));
+            return;
+          }
+          if (url.pathname === '/p275-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Rounded product bounds validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+const tag = process.env.P275_TAG ?? phase;
+try {
+  await server.listen();
+  const backend = process.env.P275_BACKEND ?? 'webgl2',
+    launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({ viewport: { width: 256, height: 384 } }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5275/p275-game');
+  await page.evaluate(async () => {
+    // Classic page callbacks require dynamic module loading.
+    const apiShared = await import('/dist/src/index.js'),
+      controller =
+        await import('/dist/packages/core/src/particles2d/particle-layer2d.js'),
+      apis = { before: apiShared, after: apiShared };
+    let fixtures = [];
+    globalThis.setupDynamic275 = async ({ backend, mode }) => {
+      document.body.replaceChildren();
+      fixtures = [];
+      for (const side of ['before', 'after']) {
+        controller.setBoundsVariant275(side);
+        const api = apis[side],
+          canvas = document.createElement('canvas');
+        canvas.style.display = 'block';
+        document.body.append(canvas);
+        const pixels = new Uint8ClampedArray(16 * 16 * 4);
+        for (let y = 0; y < 16; y++)
+          for (let x = 0; x < 16; x++) {
+            const o = (y * 16 + x) * 4;
+            pixels[o] = x * 17;
+            pixels[o + 1] = y * 17;
+            pixels[o + 2] = (x ^ y) * 17;
+            pixels[o + 3] = 255;
+          }
+        const bitmap = await createImageBitmap(new ImageData(pixels, 16, 16)),
+          texture = new api.Texture(bitmap);
+        const view = mode.endsWith('rotated')
+            ? new api.TextureView2D(texture, {
+                frame: { x: 4, y: 2, width: 6, height: 4 },
+                rotation: 90,
+              })
+            : mode.endsWith('trimmed')
+              ? new api.TextureView2D(texture, {
+                  frame: { x: 2, y: 4, width: 6, height: 4 },
+                  originalSize: [12, 10],
+                  trim: { x: 3, y: 2, width: 6, height: 4 },
+                  resolution: 2,
+                })
+              : undefined,
+          source = mode.endsWith('source')
+            ? { x: -0, y: -0, width: 7, height: 5 }
+            : undefined;
+        let game,
+          complete,
+          runtimeError,
+          tick = 0;
+        const isolated = mode.endsWith('isolated') || mode.endsWith('nested');
+        class Shaken extends (isolated ? api.IsolatedGroup2D : api.Group2D) {
+          updateWorldMatrix() {
+            const matrix = super.updateWorldMatrix();
+            matrix.elements[6] += 2;
+            return matrix;
+          }
+        }
+        const rootGroup = new Shaken();
+        if (isolated) rootGroup.isolate = true;
+        const holder = mode.endsWith('nested')
+          ? rootGroup.add(new api.IsolatedGroup2D())
+          : rootGroup;
+        if (holder !== rootGroup) holder.isolate = true;
+        rootGroup.position.set(30, 20);
+        if (mode === 'local-screen') rootGroup.space = 'screen';
+        const target = new api.ParticleLayer2D({ capacity: 32 });
+        const emitter = holder.add(
+          new api.ParticleEmitter({
+            texture,
+            view,
+            source,
+            target,
+            capacity: 32,
+            rate: 0,
+            lifetime: [1e6, 1e6],
+            speed: [0, 0],
+            angle: [0, 0],
+            acceleration: [0, 0],
+            startSize: [8, 6],
+            endSize: [8, 6],
+            startColor: [0.7, 0.2, 0.4, 0.8],
+            endColor: [0.7, 0.2, 0.4, 0.8],
+            seed: 17,
+            space: mode.startsWith('world') ? 'world' : 'local',
+            nozzle: { kind: 'rectangle', width: 24, height: 12 },
+          }),
+        );
+        emitter.position.set(80, 80);
+        emitter.emit(32);
+        let destroyCalls = 0;
+        let destroyListeners = 0;
+        const onDestroyed = (event) => {
+          if (
+            event.type !== 'destroy' ||
+            !(event.target instanceof api.GameObject)
+          )
+            throw Error('Invalid native destroy callback');
+          destroyCalls++;
+        };
+        for (const actor of emitter.children) {
+          actor.addEventListener('destroy', onDestroyed);
+          destroyListeners++;
+        }
+        if (target.activeCount !== 32) throw Error('Missing target particles');
+        if (mode === 'local-custom') {
+          const original = target.updateWorldMatrix;
+          target.updateWorldMatrix = function () {
+            const matrix = original.call(this);
+            matrix.elements[6] += 3;
+            return matrix;
+          };
+        }
+        const finish = () => {
+          game.pause();
+          const callback = complete;
+          complete = undefined;
+          runtimeError
+            ? callback.reject(Error(runtimeError))
+            : callback.resolve();
+        };
+        class PosedScene extends api.Scene {
+          update() {
+            ++tick;
+            rootGroup.position.set(30 + tick, 20 - tick * 0.5);
+            rootGroup.rotation = tick * 0.02;
+            rootGroup.scale.set(1 + tick * 0.01, 0.8 + tick * 0.02);
+            rootGroup.opacity = 0.6 + tick * 0.01;
+            rootGroup.tint = [1, 1 - tick * 0.005, 0.8 + tick * 0.005, 1];
+            emitter.position.set(80 + tick * 0.4, 80 - tick * 0.3);
+            emitter.rotation = tick * 0.03;
+            this.camera2D.position.set(tick * 0.1, -tick * 0.15);
+            this.camera2D.zoom = 1 + tick * 0.01;
+            queueMicrotask(finish);
+          }
+        }
+        let scene = new PosedScene();
+        scene.add(rootGroup);
+        game = await api.Game.create({
+          canvas,
+          renderer: backend,
+          width: 256,
+          height: 192,
+          pixelRatio: 1,
+          autoResize: false,
+        });
+        game.addEventListener('error', (event) => {
+          runtimeError = event.detail?.stack ?? String(event.detail);
+        });
+        await game.setScene(scene);
+        const frame = () =>
+          new Promise((resolve, reject) => {
+            controller.setBoundsVariant275(side);
+            complete = { resolve, reject };
+            game.start();
+          });
+        const snapshot = () => ({
+          tick,
+          active: emitter.activeCount,
+          version: target.version,
+          localBounds: { ...target.getLocalBounds() },
+          worldBounds: { ...target.getWorldBounds() },
+          particles: Array.from({ length: target.activeCount }, (_, i) => {
+            const index = target.activeSlotAt(i),
+              p = target.getSlot(index);
+            return {
+              index,
+              generation: p.generation,
+              affine: [p.a, p.b, p.c, p.d, p.tx, p.ty],
+              tint: [p.tintR, p.tintG, p.tintB, p.tintA],
+              anchor: [p.anchorX, p.anchorY],
+              space: p.space,
+              versions: [
+                p.transformVersion,
+                p.tintVersion,
+                p.sourceVersion,
+                p.anchorVersion,
+              ],
+              matrix: Array.from(
+                target.getSlotWorldMatrix(index, new api.Matrix3()).elements,
+              ),
+            };
+          }),
+        });
+        fixtures.push({
+          side,
+          game,
+          get scene() {
+            return scene;
+          },
+          rootGroup,
+          emitter,
+          destroyListeners,
+          get destroyCalls() {
+            return destroyCalls;
+          },
+          texture,
+          bitmap,
+          frame,
+          snapshot,
+          transfer: async () => {
+            scene.remove(rootGroup);
+            const next = new PosedScene();
+            next.add(rootGroup);
+            await game.setScene(next);
+            scene = next;
+          },
+        });
+      }
+      return {
+        mode,
+        backend,
+        visible: document.visibilityState,
+        nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+      };
+    };
+    globalThis.runDynamic275 = async (mode) => {
+      const snapshots = { before: [], after: [] };
+      for (const f of fixtures)
+        for (let frame = 0; frame < 12; frame++) {
+          if (mode === 'local-transfer' && frame === 6) await f.transfer();
+          await f.frame();
+          snapshots[f.side].push(f.snapshot());
+        }
+      let numbers = 0;
+      function equal(a, b, where) {
+        if (typeof a === 'number' && typeof b === 'number') {
+          numbers++;
+          if (!Object.is(a, b))
+            throw Error('Numeric mismatch at ' + where + ': ' + a + ' / ' + b);
+          return;
+        }
+        if (Array.isArray(a) && Array.isArray(b)) {
+          if (a.length !== b.length) throw Error('Array mismatch at ' + where);
+          a.forEach((value, index) =>
+            equal(value, b[index], where + '/' + index),
+          );
+          return;
+        }
+        if (a && b && typeof a === 'object' && typeof b === 'object') {
+          const keys = Object.keys(a);
+          if (keys.join(',') !== Object.keys(b).join(','))
+            throw Error('Key mismatch at ' + where);
+          for (const key of keys) equal(a[key], b[key], where + '/' + key);
+          return;
+        }
+        if (a !== b) throw Error('Value mismatch at ' + where);
+      }
+      equal(snapshots.before, snapshots.after, mode);
+      return {
+        snapshots: 12,
+        exactNumbers: numbers,
+        signedZeroCompared: true,
+        automaticGameFrames: true,
+      };
+    };
+    globalThis.cleanupDynamic275 = () => {
+      const rows = [];
+      for (const f of fixtures) {
+        f.game.destroy();
+        if (f.destroyCalls !== f.destroyListeners)
+          throw Error(
+            'Native destroy callback mismatch ' +
+              f.destroyCalls +
+              '/' +
+              f.destroyListeners,
+          );
+        if (f.texture.destroyed) throw Error('Borrowed Texture destroyed');
+        f.texture.destroy();
+        if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+        rows.push({
+          side: f.side,
+          gameState: f.game.state,
+          destroyListeners: f.destroyListeners,
+          destroyCallbacks: f.destroyCalls,
+          bitmapClosed: true,
+        });
+      }
+      fixtures = [];
+      return rows;
+    };
+  });
+  const reports = [];
+  for (const mode of [
+    'local',
+    'world',
+    'local-custom',
+    'local-screen',
+    'local-transfer',
+    'local-rotated',
+    'local-trimmed',
+    'local-source',
+    'local-isolated',
+    'world-isolated',
+    'local-nested',
+  ]) {
+    const setup = await page.evaluate(
+        (args) => globalThis.setupDynamic275(args),
+        { backend, mode },
+      ),
+      proof = await page.evaluate(
+        (mode) => globalThis.runDynamic275(mode),
+        mode,
+      ),
+      hashes = [];
+    for (let i = 0; i < 2; i++) {
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: i * 192, width: 256, height: 192 },
+        path:
+          directory +
+          '/' +
+          tag +
+          '-' +
+          backend +
+          '-' +
+          mode +
+          '-' +
+          (i === 0 ? 'before' : 'after') +
+          '.png',
+      });
+      if (!pngPixels(bytes).nonuniform)
+        throw Error('Blank native dynamic canvas');
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1])
+      throw Error('Dynamic Game pixels differ for ' + mode);
+    const cleanup = await page.evaluate(() => globalThis.cleanupDynamic275());
+    reports.push({ setup, proof, matchingPngSha256: hashes[0], cleanup });
+  }
+  const result = {
+    phase,
+    tag,
+    entryAfter: '/dist/src/index.js',
+    fixedBoundsTrampolineSelection: true,
+    backend,
+    browser: browserIdentity('chromium', browser, launch),
+    reports,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + tag + '-' + backend + '-dynamic.json',
+    JSON.stringify(result),
+  );
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+```js
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p275',
+  phase = process.env.P275_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5275, strictPort: true },
+  plugins: [
+    {
+      name: 'p275-shared-layer-bounds',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (
+            url.pathname ===
+            '/dist/packages/core/src/particles2d/particle-layer2d.js'
+          ) {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-layer.mjs'));
+            return;
+          }
+          if (url.pathname === '/p275-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Rounded product bounds validation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+try {
+  await server.listen();
+  const launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+    }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5275/p275-game');
+  await page.evaluate(
+    async ({ controlMode }) => {
+      // Classic page callbacks require dynamic module loading.
+      const apiShared = await import('/dist/src/index.js'),
+        contractShared =
+          await import('/dist/packages/core/src/particles2d/particle-layer2d.js');
+      let fixtures = [];
+      globalThis.setupGame275 = async (config) => {
+        contractShared.setBoundsVariant275('before');
+        if (document.visibilityState !== 'visible')
+          throw Error('Hidden paired Game page');
+        document.body.replaceChildren();
+        fixtures = [];
+        for (const side of ['shared']) {
+          const api = apiShared,
+            canvas = document.createElement('canvas');
+          canvas.style.display = 'block';
+          document.body.append(canvas);
+          const bitmap = await createImageBitmap(
+              new ImageData(new Uint8ClampedArray(4 * 4 * 4).fill(255), 4, 4),
+            ),
+            texture = new api.Texture(bitmap);
+          let game,
+            pending,
+            runtimeError,
+            postCalls = 0,
+            listenerCount = 0,
+            preCalls = 0,
+            preListenerCount = 0,
+            destroyCalls = 0,
+            destroyListenerCount = 0;
+          const onDestroyed = (event) => {
+            if (
+              event.type !== 'destroy' ||
+              !(event.target instanceof api.GameObject)
+            )
+              throw Error('Invalid actual destroy event');
+            destroyCalls++;
+          };
+          const record = () => {
+            if (!pending) return;
+            if (runtimeError) {
+              const p = pending;
+              pending = undefined;
+              game.pause();
+              p.reject(Error(runtimeError));
+              return;
+            }
+            if (pending.warm > 0) {
+              --pending.warm;
+              return;
+            }
+            if (destroyCalls !== 0) {
+              const p = pending;
+              pending = undefined;
+              game.pause();
+              p.reject(Error('Destroy callbacks during live sample'));
+              return;
+            }
+            const stats = game.frameWork;
+            pending.simulation += stats.simulationMs;
+            pending.navigation += stats.navigationMs;
+            pending.afterUpdate += stats.afterUpdateMs;
+            pending.submit += stats.renderSubmitMs;
+            if (--pending.remaining === 0) {
+              const p = pending;
+              pending = undefined;
+              game.pause();
+              const result = {};
+              for (const key of [
+                'simulation',
+                'navigation',
+                'afterUpdate',
+                'submit',
+              ])
+                result[key + 'Us'] = (p[key] * 1000) / p.frames;
+              result.categorySumUs =
+                result.simulationUs +
+                result.navigationUs +
+                result.afterUpdateUs +
+                result.submitUs;
+              const deliveredPre = preCalls - p.preAtStart;
+              if (deliveredPre !== p.expectedPostFrames * preListenerCount) {
+                p.reject(
+                  Error('Lost/duplicated preupdate callbacks: ' + deliveredPre),
+                );
+                return;
+              }
+              const delivered = postCalls - p.postAtStart;
+              if (delivered !== p.expectedPostFrames * listenerCount) {
+                p.reject(
+                  Error('Lost/duplicated postupdate callbacks: ' + delivered),
+                );
+                return;
+              }
+              p.resolve({
+                ...result,
+                boundsVariant: contractShared.getBoundsVariant275(),
+                destroyCallbacksDuringSample: destroyCalls,
+                destroyListeners: destroyListenerCount,
+                postupdateCallbacksIncludingWarm: delivered,
+                postListeners: listenerCount,
+                preupdateCallbacksIncludingWarm: deliveredPre,
+                preListeners: preListenerCount,
+              });
+            }
+          };
+          class MeasuredScene extends api.Scene {
+            update() {
+              queueMicrotask(record);
+            }
+          }
+          if (config.bothTypesSeen) {
+            const history = new api.GameObject();
+            let historyCalls = 0;
+            const priorListener = () => {
+              historyCalls++;
+            };
+            history.addEventListener('preupdate', priorListener);
+            history.addEventListener('postupdate', priorListener);
+            history.removeEventListener('preupdate', priorListener);
+            history.removeEventListener('postupdate', priorListener);
+            history.destroy();
+            if (historyCalls !== 0)
+              throw Error('Detached history object unexpectedly updated');
+          }
+          const scene = new MeasuredScene();
+          game = await api.Game.create({
+            canvas,
+            renderer: 'webgl2',
+            width: 1280,
+            height: 720,
+            pixelRatio: 1,
+            autoResize: false,
+            frameWorkBudgetMs: 1000 / 60,
+          });
+          game.addEventListener('error', (event) => {
+            runtimeError = event.detail?.stack ?? String(event.detail);
+          });
+          let holder = scene;
+          for (let depth = 0; depth < (config.depth ?? 0); depth++)
+            holder = holder.add(new api.Group2D());
+          const emitters = [];
+          for (let i = 0; i < 4; i++) {
+            const target = config.target
+              ? new api.ParticleLayer2D({ capacity: config.capacity })
+              : undefined;
+            const emitter = new api.ParticleEmitter({
+              texture,
+              target,
+              capacity: config.capacity,
+              rate: 0,
+              lifetime: [1e6, 1e6],
+              speed: [0, 0],
+              angle: [-Math.PI, Math.PI],
+              acceleration: [0, 0],
+              startSize: [8, 4],
+              endSize: [8, 4],
+              startColor: [0.7, 0.2, 0.4, 0.8],
+              endColor: [0.7, 0.2, 0.4, 0.8],
+              seed: 17 + i,
+              space:
+                config.space === 'mixed'
+                  ? i < 2
+                    ? 'local'
+                    : 'world'
+                  : config.space,
+              nozzle: { kind: 'rectangle', width: 512, height: 256 },
+            });
+            emitter.position.set(
+              config.offscreen ? -10000 + 320 * i : 160 + 320 * i,
+              360,
+            );
+            emitter.rotation = 0.3;
+            emitter.scale.set(1.3, 0.7);
+            if (!config.empty) emitter.emit(config.capacity);
+            if (config.destroyListeners)
+              for (const actor of emitter.children) {
+                actor.addEventListener('destroy', onDestroyed);
+                destroyListenerCount++;
+              }
+            if (config.isolated) {
+              const isolated = holder.add(new api.IsolatedGroup2D());
+              isolated.isolate = true;
+              isolated.opacity = 0.8;
+              isolated.add(emitter);
+            } else holder.add(emitter);
+            emitters.push(emitter);
+          }
+          if (config.diversity) {
+            scene.add(new api.GameObject());
+            scene.add(new api.Sprite({ texture, position: [40, 40] }));
+            scene.add(new api.ParticleLayer2D({ capacity: 1 }));
+          }
+          const sentinel = scene.add(
+            new api.ParticleEmitter({
+              texture,
+              capacity: 1,
+              rate: 0,
+              lifetime: [0.001, 0.001],
+              speed: [0, 0],
+              angle: [0, 0],
+              acceleration: [0, 0],
+              startSize: [1, 1],
+              endSize: [1, 1],
+              startColor: [1, 1, 1, 1],
+              endColor: [1, 1, 1, 1],
+              seed: 1,
+            }),
+          );
+          sentinel.emit(1);
+          if (config.listenersPerEmitter) {
+            for (const emitter of emitters)
+              for (const actor of [...emitter.children].slice(
+                0,
+                config.listenersPerEmitter,
+              )) {
+                actor.addEventListener('postupdate', (event) => {
+                  if (!Number.isFinite(event.detail.dt) || event.detail.dt < 0)
+                    runtimeError = 'Invalid actual postupdate delta';
+                  postCalls++;
+                });
+                listenerCount++;
+              }
+          }
+          if (config.preListenersPerEmitter) {
+            for (const emitter of emitters)
+              for (const actor of [...emitter.children].slice(
+                0,
+                config.preListenersPerEmitter,
+              )) {
+                actor.addEventListener('preupdate', (event) => {
+                  if (!Number.isFinite(event.detail.dt) || event.detail.dt < 0)
+                    runtimeError = 'Invalid actual preupdate delta';
+                  preCalls++;
+                });
+                preListenerCount++;
+              }
+          }
+          await game.setScene(scene);
+          const sample = (frames, warm = 8) =>
+            new Promise((resolve, reject) => {
+              pending = {
+                frames,
+                remaining: frames,
+                warm,
+                expectedPostFrames: frames + warm,
+                postAtStart: postCalls,
+                preAtStart: preCalls,
+                simulation: 0,
+                navigation: 0,
+                afterUpdate: 0,
+                submit: 0,
+                resolve,
+                reject,
+              };
+              game.start();
+            });
+          fixtures.push({
+            side,
+            game,
+            scene,
+            emitters,
+            sentinel,
+            texture,
+            bitmap,
+            sample,
+            listenerCount,
+            preListenerCount,
+            destroyListenerCount,
+            get destroyCalls() {
+              return destroyCalls;
+            },
+          });
+        }
+        for (const fixture of fixtures) {
+          await fixture.sample(1, 64);
+          if (fixture.sentinel.activeCount !== 0)
+            throw Error(
+              'Foreign emitter class: actual Scene did not advance sentinel',
+            );
+          for (const emitter of fixture.emitters)
+            if (emitter.activeCount !== (config.empty ? 0 : config.capacity))
+              throw Error('Main fixture active count changed');
+        }
+        return {
+          visibility: document.visibilityState,
+          nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+          automaticSceneSimulation: true,
+          destroyListenerCount: fixtures.reduce(
+            (n, f) => n + f.destroyListenerCount,
+            0,
+          ),
+          initialBoundsVariant: contractShared.getBoundsVariant275(),
+          postListenerCount: fixtures.reduce((n, f) => n + f.listenerCount, 0),
+          preListenerCount: fixtures.reduce(
+            (n, f) => n + f.preListenerCount,
+            0,
+          ),
+          activeParticlesPerSide: config.empty ? 0 : config.capacity * 4,
+        };
+      };
+      globalThis.sampleGame275 = async ({ side, frames }) => {
+        const fixture = fixtures[0];
+        if (fixtures.length !== 1) throw Error('Expected one shared Game');
+        contractShared.setBoundsVariant275(
+          controlMode === 'aa' ? 'before' : side,
+        );
+        return fixture.sample(frames);
+      };
+      globalThis.cleanupGame275 = () => {
+        const result = [];
+        for (const f of fixtures) {
+          f.game.destroy();
+          if (f.destroyCalls !== f.destroyListenerCount)
+            throw Error(
+              'Actual destroy callback mismatch ' +
+                f.destroyCalls +
+                '/' +
+                f.destroyListenerCount,
+            );
+          if (f.texture.destroyed)
+            throw Error('Game destroyed borrowed Texture');
+          f.texture.destroy();
+          if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+          result.push({
+            side: f.side,
+            gameDestroyed: f.game.state,
+            bitmapClosed: true,
+            destroyListeners: f.destroyListenerCount,
+            destroyCallbacks: f.destroyCalls,
+          });
+        }
+        fixtures = [];
+        return result;
+      };
+    },
+    { controlMode: process.env.P275_MODE ?? 'ab' },
+  );
+  const matrixStartedAt = Date.now();
+  const mode = process.env.P275_MODE ?? 'ab',
+    cohorts = [
+      {
+        name: 'layer-local-large',
+        space: 'local',
+        capacity: 8192,
+        target: true,
+      },
+      {
+        name: 'layer-world-large',
+        space: 'world',
+        capacity: 8192,
+        target: true,
+      },
+      {
+        name: 'layer-local-isolated',
+        space: 'local',
+        capacity: 8192,
+        target: true,
+        isolated: true,
+      },
+      {
+        name: 'layer-world-isolated',
+        space: 'world',
+        capacity: 8192,
+        target: true,
+        isolated: true,
+      },
+      {
+        name: 'layer-local-small',
+        space: 'local',
+        capacity: 128,
+        target: true,
+      },
+      { name: 'sprite-local-control', space: 'local', capacity: 8192 },
+      { name: 'sprite-world-control', space: 'world', capacity: 8192 },
+      {
+        name: 'layer-empty-control',
+        space: 'local',
+        capacity: 8192,
+        target: true,
+        empty: true,
+      },
+    ],
+    rows = [],
+    cohortProof = [];
+  for (const config of cohorts) {
+    const setup = await page.evaluate(
+      (config) => globalThis.setupGame275(config),
+      config,
+    );
+    const hashes = [],
+      nonuniform = [];
+    for (const side of ['before', 'after']) {
+      const probe = await page.evaluate(
+        (args) => globalThis.sampleGame275(args),
+        { side, frames: 1 },
+      );
+      if (probe.boundsVariant !== (mode === 'aa' ? 'before' : side))
+        throw Error('Wrong actual bounds method');
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: 0, width: 1280, height: 720 },
+        path: directory + '/' + mode + '-' + config.name + '-' + side + '.png',
+      });
+      const pixel = pngPixels(bytes);
+      nonuniform.push(pixel.nonuniform);
+      if (
+        config.empty || config.offscreen ? pixel.nonuniform : !pixel.nonuniform
+      )
+        throw Error('Unexpected probe pixels for ' + config.name);
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1]) throw Error('Shared Game probe pixels differ');
+    for (let round = 0; round < 6; round++) {
+      const order =
+          round % 2 === 0
+            ? ['before', 'after', 'after', 'before']
+            : ['after', 'before', 'before', 'after'],
+        samples = [];
+      for (const side of order) {
+        const sample = await page.evaluate(
+          (args) => globalThis.sampleGame275(args),
+          { side, frames: 48 },
+        );
+        if (sample.boundsVariant !== (mode === 'aa' ? 'before' : side))
+          throw Error('Wrong timed bounds method');
+        samples.push({ side, ...sample });
+      }
+      rows.push({ name: config.name, round, order: order.join(','), samples });
+    }
+    const cleanup = await page.evaluate(() => globalThis.cleanupGame275());
+    if (cleanup.length !== 1) throw Error('Not one shared Game');
+    cohortProof.push({
+      config,
+      setup,
+      oneSharedGame: true,
+      oneSharedCanvas: true,
+      preTimingNativeProbe: true,
+      matchingPngSha256: hashes[0],
+      nonuniform,
+      cleanup,
+    });
+  }
+  const result = {
+    phase,
+    mode,
+    fixedBoundsTrampolineSelection: true,
+    sameCoreGraph: true,
+    matrixStartedAt,
+    matrixCompletedAt: Date.now(),
+    browser: browserIdentity('chromium', browser, launch),
+    cohortProof,
+    rows,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + mode + '-game-results.json',
+    JSON.stringify(result),
+  );
+  console.log(
+    JSON.stringify(
+      {
+        phase,
+        browser: result.browser,
+        cohorts: cohortProof,
+        rows: rows.length,
+        samples: rows.length * 4,
+        errors,
+      },
+      null,
+      2,
+    ),
+  );
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+### 原始CDP profiles（lossless gzip+base64）
+
+每個data以Buffer.from(data, "base64")後zlib.gunzipSync還原UTF-8 JSON，逐份SHA256對原始JSON驗證。保留全部nodes/samples/timeDeltas；壓縮不是截斷或採樣摘要。
+
+```json
+[
+  {
+    "mode": "layer-local-static",
+    "encoding": "gzip+base64",
+    "uncompressedBytes": 160934,
+    "sha256": "51880bb41b3141e87376c1d46162f3b9c7634977b214c81b9635a0b3e836149a",
+    "data": "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"
+  },
+  {
+    "mode": "layer-world-static",
+    "encoding": "gzip+base64",
+    "uncompressedBytes": 154552,
+    "sha256": "17e663f5917beae635c5e9f43a3dc89c088c42a4b56a2569dee8c63b3c481546",
+    "data": "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"
+  },
+  {
+    "mode": "layer-local-changing",
+    "encoding": "gzip+base64",
+    "uncompressedBytes": 151517,
+    "sha256": "ed8031893ccd220e5c4b35d0bbf6ff0b1d2d3edbb8138dd07660973bc616a9c4",
+    "data": "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"
+  },
+  {
+    "mode": "sprite-local-control",
+    "encoding": "gzip+base64",
+    "uncompressedBytes": 158929,
+    "sha256": "b4232a7055062961972e4f8f377b19f9ea02d9d622d145867934d8bbabb415ed",
+    "data": "H4sIAAAAAAAAE+2dW5PcSJKd/wufVmboncQlgcx+293RytZMq9uMpIe1eagma7pLw5uK1XPR2vx3WQBxAl8cBJAgmyxWFsea2WRlZQIRfjl+3MMj8O8v3r57dfvhxff/9u8v7l69+L6uXry8ef36n+9v3ty++P7fX/z+57cvH+7evf0v488v/u7+3buH//CievHh5f3d+4d/efXi+xeHF9WLn+9fv/j+xYvqxeu7t7f/5ec3P9zev/j+u3Cxd69/fvN2fuev1Yuf7h7+6d3Pbx9efH+oXrz86e71q/vbty++/7emaqt6qJquag9VO1RdU3V91Z2q46HqD9VQV6ehOrfV+VzVh7qqD0NVH86/+2s1jby5MPL39+9+vL9589kGf+5053b7zu/eTr/J7tue041/enh4//2vflU3w98f/v7w9/X3x2Y4/ur9zcs/3Px4++FXL9/d3/7qw/3LX/148+b27x8+2DiHU+sDrfOB1l0u5646Vueqbauuq45NdTxWx3PVN1XfV6euOnfV+VjVh+531Yv37z7chYn89u7lHyYTCXd+8f2pHqoXD9ObdZBCfLs9pLdbvF2386fb/q9JY9223G5e/fHm7cvb//rD/7l9OU4b4uuajxbfh5e3bwvy64dhIb9jLr9zvS6KfjjPkzvX8+SOuyb3D79/uL3/n+9f3TzcfrEJns6LCZ433LBPU+h3TeG/3dw/3L18ffsf39w9PNzefzFFDV3v82i6bB5NNo+hardseOhmG25mtQ3bc/55VNVv7t78/PomvJ1P9lh/9GTfR+l9aF796u7tq9s/LyfetN1CgUNuodnETxuzbroOnptmfdql6d+8v797uP3wKHMemgteOQSprE5zmCFnaLt5oqMor2ym9b55Qp3n7Une3759dXtv8agf9s7ux/ub9z/dvfwwzvD+9sPd67vbtw/fTVe9vS8Z8CKWDhsAVB+qYQ7r9eETJlO3nzSZP93+8OPrZmMm9WGprXwqXT6Vujq1VX04brhkfTgdkxJhqvUFKjaNskQtvtjs63ppq80GEtVN1Ryq5li156o7V/25Gg7VcKxOh6o+hFeQTb8lm6Yp4tU4jg3ZvHz3+vXty4f/MU7ln969eXPz9tWH5tcmp7b/RJMPV21efffy3duH+5uXDwWLPyxibrsVc+u2qruqPVXHU9UP8zQvMMsRXsLP//ju57evbu7vbh91ks1pMclDbg1tM2yAV4CFxAubAertdqk3zvovjznnfklC+mzO7dlUe6zqU1Wfqy6kK82GsbeHmT7Xp5k/N/3MVE4D3j/N8mtOR4jvAvf88fbhf7+7f/1qlJ/ztcMn5SXfvRtZ+lJg7dBdCuTNMRdYX3XtlpiGGS6HhtPu93C3f715uL/7cz7p/YD55ubhp3HSK9G8Pi6ziTYnqUHLq3h3PM0qPRyQKrV75jZqtTTBz67VMaXMp3nKtdpvaBDUe0A+WJ8+3W6bpvtF7Ez//u71zV8CBpQsub1gyV23NenT7N1dx1lfYGsf3t0/PBq+nRdzzKd4PG4RmVmtR/hl0PbT98tun1eSoB2aK3PKep9Pgmi1F1zy/vbD7eNZ5ziabIJ57O1O6xPE/LoTyjSna4qVgRDuiYt1O88wsIdtFb6+vflwKzL1r7fhzh8eTaf1aTHpJvfMQPZXXRO5U40yTnMha3x/f/v713c//uS225x/eepUCh51v0iBa+PKeS28rrq6OtZbudEAuoiZX0gb/3jz+i7AkrKixxLAaZk65plzE6rHFEFTNVs8kKpvWnClptknganI899/vnm1SCAOh0+Swofxit/dvf3wEKpISykshdDmCHbsN4w9VPoVX3sae/sxE/7Pwezv3v7ok673+3iCs9e6VkHj50UK3OUW3275NXKhFlPt6quc6nnfTM+IS/X1GvFplwkjCI8Z4MZkX93f/OmRcKpQqzxuLDI0W9WrJlj4comh6S/P9pHRuR2jxhY9Pvc28aFqzlVbV+2xGoatdL2bhdA3KF+0R7h4i3wh1Iw211NH+lRi1F/OKkYStSWfNnBPymdzFQaLhi3Z6FhRu6aMInCQXWk+4/OFhDcMMgDaY9l+v8h581JtF4j16iT7uUDdDbDiEUcueHlxmenLTTSsY29W7/NCXNtU/bHqT9Wprk6n6nyoznV1DlXMLdvugnqXvQFdiNyFtwNRL7wdKsCFt9u+mKReIHw//Pz739/e/+bnH35983Dzudo/AiKsyiD4jTAPde3+UlPAy4e7P97+9vbPDz/f336ugW4k/V1TlGd/OSf+GrRjAcHt7omeTsVV70suejeN5Z/vbl8/GhodllXGvMshz5JOzTydS+Wot3e/f3f/5rESvmXFbXcxqj4SQ+YJXrDLD+9+vn/5WIuhw5iubqGpKWpe0h4bcraWt25e/lRGgS82m+bYL7uErAyzwWeO5VrEuBR2IQb+w/39zV8+/Et0+1ePgXpgpBzsBTT44e7tq9/cvHn/2rsNvhA0F13gfIEbTyj6qNy4HS5ZTu4I59M8m9MVMv3Ndpyi0urD6Zkjc3t5xTni2aNShnbZhbEF0e3c+hiI5p7yy9eY1Vg/yGdl7YChyW/VRkGFOqxmjW2wF+Dvtzf3Py6We76YJx77C43NufaGGVeG0+W5jL+bMoPPBecb9cwm1P+XpaDRQC+XgsarPlqXV9sfPoqCdoeq76rzTETHqsE2r7754fVjJDh1G2hNIcPpvoqBbI+0mIudL+W2d29f/a/b+4fbP49E6lFGOhRH2p2/ikw3VkTrpqHXpTJC3bRlqzg/Gbsdu4KXIww0ezNzeH1789kku9UR0YQi7bIlIlTKrq60bWFkJgHBzq8sJNb7QhCT6sNTSnvqscGyRKEvDPOPd7d/er/olPpSzlnsug/tzFfULLOVfBZ7gerDpYWr2/cPP/3rzYc/PIoSwqJhwZzbK2z8WJ1kWJooKeJ47e3vWzgVNj4UQt/5OrdDrOq25rZIpAS7On3zKfYfv+538/Ll7YcPdz/cvb57+Mta12Q3diFs7HapT5soUl7bCT2kqc2dPc4XSPn97f/9+fbDw3+6eXNbUHPdf3xPx5/vv3v97t37gmo/qm7QHec5HHfN4R/e3r0Z9w8WJvLpcLnVd1FquzheyC1uI2F/zJ1ii2bArW0zx3aeS/tJc/li2NCMVHj/TLp5Jhfc4Pevf/7w0yOYTN2gY51Wc8HEf7j98e7tY9vNcivSZq3oOJP8kVJ/ynS+3B7DwsrS5mTmDWNjZffSZJwGdL+ABnz34eHm4UNh0/nhk8lnmfOEuvPWzN6++9MjsM4TOrpYONi1EcDi1W7Ceff2/c8PW5sbxgaV/ftr+7Y6zRFr7H7ZLt2HiPv+xjP2X9A6scEZwiK2OifA6o+fIODh8PES/vH2Q6jn77LoLRmfZoA5XQCYLzrqZfFjf9NEU7b1/qr2Y28x8EM5jx83JFw0tn+8/enmj3fvFuddfDwLfXnz5vb+pli7Wvh1vRtGy61S5+6jA0R9/vgp/T5c/rs/vbv/Q0Fni9XH3XMKje6FOR0/hfp9TvxdtiZtcb3zjA3n/isPvR03ymwMfcvCyhWY+rDLf/5ptPpf374Pzv32y53vMyxXu31/0cYhMdj5xylexY7GemvzPfc01tx7Hw5cuNaNB8d9e2dQbDlcYwNKu7MDBZsA2wsW+3d3r17ffraj0er62B1TSaS5ph2WAQ/37LBsWLjqr3JT0mnfpiSk/t21bU8IEWrP9gQeIxG2pVzT9oRh3+YEtqEfnkO3Vl/PE6qvuFvrtKtXC144XJjt29s/++rWMNd4fHjL3deL08e4Ot5Uw9am3HLX6pikfa2q+EYbQ8ivCk0Ml5cQX929XNQbtoR84Zwk60CYa8FjuNpdO2hP9doIFkB52N25VupbGxOej6zHNIfd3PdW4BgiSYH6jitFn5j0hxWaQg55een+7v/dfsFUf8nmd0+pnKOM4f9q1hE3KoLHlSyzvp4DVreq3WHbQWl6eyr509G4BbT8jJNb7odeHj66XsovlhDrsT1gN6z9gjzkr7+rXnx4uLl/+O1duPD51Jy7oelGe7x9+2p+dxiObRu2I3wYW53CJJqqi/811Sn9F07qu/jnOP7pxv/34Uzr8Gd686R/d+FMuHDGRa3/t+P/u6rp9ecU9liHfwzh/+1BP57HX42faZtwknPbVk01DTgMsu12j3Ya0vL/A348jgNLI2z0J43zHEcY/j/uCw8Dm97HIJtwqPe3+UeKmf5rtxUzGQf/9NDHCabDPzWUcR6lf4JiYEZNX3WHL6qP/bNN05smRr+Z5pmsrwnn4UTrS3YnW5ttcJBnTDb4TRvdRd1saWbSw6SESTmjBYYz+aW3DLzqhVqSciZrhE664yNMs/2oaYZJJedKNjgE26SXdYS8CYWT3XHKzxnyQpi5EA+7djztNEkzufZkRgqAWTCRX0dbyYNJQq5w4Ej79WXw2YxvsrxkcMS9s/xqEk67CLaTX02GqDcjHfjaEnhkIZfFO1nd4P4c/bwXhCX8SpGFIZOmOEn4mXg13XjVSFMUSPF5oiKj8GYPnqhhsxDbZJgE/2tw30t2N8ttzbNjiOzl09M/wOhmuyOTTqFkZDHdKaPRz9Wz5/Rq1QqHnIUksSq4zHKswzHzTR+eGDRTwSTZ89WI8jK4Jc9MUWP6t2LHETJJDtkiks7++Y0Fji/l9uQ5k59P/05Rnjkb6TL+tIn/TGo6Xnus2SW2BIyJDaVAk3jQgidmwYW54Ci5Y/cYWcZX/3ORiYc/U7A+5TiqCB6DOJmm5DnXEJjmJFN9ojzossUl3EyIOQlD70xn7zrtTrPPCyqTux67JygPSuI4bKYhKXB04QkkkSQLvmJgze0jIlVyuSkZSWnwaB9fXQKPalMkygSyyax6UeRl9XQiKsm1hm89Iu9h2LNgj4Eo1504t+RPTpjFDBKhVE1/jgLfleAlILRkWTFjDgys8SVbTe5/mus2z0yM4c8eEsNFnsRptPhTrtQnSbJ6mJKUJxdPPk/ikvvu/KcPteWsqrBAysnEIi1JmbJSuuY6TYcpnIQRsCzF4G6sOicnXC+uzFWWZ+aB+2W4NCstYmTllpXsK4vB1+qBC+FdyhBEfuMSyJR6sRydlqlt9S1f1/kmqMvMp887Kqas/yV3LlUBekbW87jQj4D6bEzx6/1hD8cqhGDFOQOSSY3LFfcifiRK+bmReGLFw0VHHplwzD6mGRECl46clpPszxWTkMf4s4fnoOknZSchWdEaVKaNVGiYGn1Qro7aECJcI7heykSUI2cr8SkfGetWMwNadoCkNGR4Ttb7EYsAqU8jdS+My+9ZpOHyZqphcXX9GZGe7T975JqKpp1cNjU0cOV4EQmyohjh9dlINpjlrrrzSpwNDj5Votn2AHlv8fSp4Jq32vjq8teUcx+Ma5LQjgDB7GWafVpeT7wjhYnlerGmHlY7z8FMO7JG0fN6bPb7IiFjd6mOSVkq1YmgZGGQKIXo1x60pis+fHUx8Ov+mTqZd3YlJZdkHbu4GgcPDUnMlLtYR7Ac8xG9kt53capcR5fPsfE0sjNY5myKUyEqLZFdJzv7ElLfsrBUZbZlcqkjk7n1meflLzaZ9+Ma3POV7eWYa90gp3EtLzWOD/mGA/ZbpvU7SnQ08P74tIS6K6ymtDc8SR4CSTHH5LDM5VMdPjWTP2Lv8uP92dNCOdUG2Z+f+MrSorgJYbFUNDW0Pe0cYy+hSR19ybdY4FuuPaYVHnYP4P9PysmueBF+uf4Gg82I5nIphWtxUNZVcM1doXe00hATluslfd5vbhs6mHJNGdjw9F358rKRbU6wBnHWfK1gisLJnI5ebXFuv2VdoNBYNEppQ9jPuN6HMVtTkuTTtqmv96fZYdDcSoJGpLSc3NkGTupjSmDAsOfNJbF69dVsDIuU8/o4k1K2+6ylDKwU/83MvqStJlX2/aXUO+UniT2py/9Cz681PGCd9Mtx9L0FFDbiY/ktAiOr8sttXcZEuKZ+5bnHWBm9lMGyCFOKLGWrYKmQa5nPc0FjVwqcrC81o6YC+yjIXj1pobdouRaMLCU2OB+uhgr/ombItMkoHd6QGOK0CrmzAYA7gZ+bAT6JPSNTaScpKoWQ6Z1Sv1c/Lo7M9emR8JC+9+fPh7AX+036RatQCoTj+IODLssqiShbovptl553FW2SQ5/GRtNpIaqZmWVmMGjG8J5xrKxdvcAvRhJW6vuxCphc77jY01BngmJpPlsLunahfZokLXVJ+UyCr7y/bJhgirlYSpWRo037jp6wWD5m0yS36XPvUTHklrakPb+NR5/XCCPuHccaYMLD1HiwqF3XdbbSFlKXZafVMyE4F1h1os45sY7ym6qnPCeG+ansdN7c+0x3HGV/9m/iSulekqdKAWtFgInHZSfF8Jy0Jy7SHfnbtKUt6wxSdXpqnsnEQno4NiTMktGP7fPx1MdjjZNhDqM2UldW6lAd1huqsS3OVgyuXwN9ezGVnlrQJ2+2Ws4Y2meYXKwJZKwxD+rD0xbcjvpCYtPcGzJtYR2D87wRn+tvozjS2vmyI+Fpi+WpbDic6gJpcQ/ZoJGemXljM3vSw7RT53rj9kfsz8xPypr/bRJLkTnVDJOFqq0onZEwdF9fAl9YvDt6tKZNINzjwATb1geWXfvL9qQnbpB7ksBUjrFD8Eb5rC7uTaGBLPvZlGY+o8mlogN9GXuTylzSdjPYMYxXuxCw98+efprJedlYmBr3u2yRxfstsUkwO8LxkbeJ7GrtsFValKiz9pi6GvIqaWonzQ60+htjSbLf3cwh6wpVG4bmdCx3sUHJOIySkecDjMl4y/45ySg/VjUcSpu6vLil0JoBl93m31JQ2bXvMOUvdujJiBVF4PNjVS2iNI+d4O2app2riPa2bppju0LUeHgxTejKuzgeWS9l17ZmdGtoHeNubGtYNINlhyrwdNVv4GDaWMZiRRH9DYF852dTDKdFb2CK7M+n/D8Lbbh4pkcvQeUmF0s3a/lw4nn5ssnp8NRLWr/Q3uagIOnNR8yk9b2l3PJdXanlfPLc07cQgnfUEudlZLZN4pTuUzsfARzKrMteJS7lPVty/nGnnNumiM7rXf4IEh7bmKd1X4st7iI1RmeMwe056CadwvZcjxx7crWdbr2emJomuHsl/SnuYVlwoazK88kwsPfEkpSDTeUTHHVnNQXfMXK+1gPdH/vPnurCJPxJEakfKa1zdisH1tphb3m763NVRLOvdz1tuk6lQBQHy6iaHpGkZadsd93ji/Nj40eKkXozKyWnR4Isc/+/dUh/VrWgly62afJMqI11JctLFmfBPaYB7trFutwakra6LU9YXJyVwx2H7JR5dsx33ZT2SDiZEPoUpq7BIOS1RzJYb7rtg7ie2LC3NJgYTFpZw97ENbzP1kMs2f2W7PCz/Nl9zg/WUbJnm472XT5eC2cucvv743RvnvqP8tTJ7mxDu52kvagC+Fl135ABfsRzaaYjE7gTjAezlSLN/OCUZR/b9YDgU1ljGkp0elmnYOCh8PNVmK9o3RebJuMaZWqC4XNq2GE+PW3Pmp+JS3Lrp7475ItK+eImT/anTnY1dWJBzqGCOqLmdMKiFfieZ/FrJzAunxWeyJA9uHT5WMhSpnG1Yecjal5s+MXOw5lO85RBe5rS4gypqxXYF9DAjmIXH83HJ0mKF877ba1OulwveT7t/Huj8ISNthmeZ8pbtSfF38VTbZ6+zC6KhCdS8AkPWBPeWkBJZdPFwfvPJ4bs2g1hmz75uIL8iIqmGQMxvfCEoJw/Beg5CXFduDseiKPHaU7tCvPKO49SsRjNRxxadf/KQk5XnYbLIuL2JNvduVJGbA96VouVt8b/n85XZX77iEusZyX85zH4fD7csqa8CJixlnLFD7Xde8xietIqd7impwDxdJK1R7HYYZTfDLZ9CrfDs2yzcMwdXiQpecPvvODGTFpvnqfT84dn1A+z9xwz1RcnBJifScfzf/l0gpX9OYVTb0Gfn75wJ4HtWlFn8E0VWR7APW1n6lRYWDz5p7gCl9456/kWT09EH3HcPuNtCsLT0vEokvnJ9cU6AXaWXBsrecqKIXry6EKUJ+bHUCZ9oANsdm0Uup9aR39bWALKHji1LF+lGFE8Hw9J7VB/fX0/nhiTjeTPCs+2JhVjgvWA5G9+C768/6SA1NSQ2M1pRy+RNdzozfOT5I/ny+IgJiXqwWN4QKe7Hs3OlsIuHPYJiuMa0SBuqqNSmPuQfi8bIU7ZYV7zdpyvYqx7cC8VDOxEqFRL4OOazTmH0jLd35aFP1YLYI/Z4134BKFxJWVm2XlZYnpSla2nPLHoc95D3SiAVJrhabXFDl57MOFiLfPcf/3pP5bH79vCZIdSMApZaWHs4j2LFmcNNnyE6xMytMfYbWJPYEodHXzqyGSqxY3YXE56VvL75B70VaZkK/NoRwzPflgu1i3LM5ZuP0nW+HnElQ7E5InfeC5ltiq8ON+Wm2Kth/N8fhLm+QngNomBZ2hb62CquzB8yILqw+FJTPyZ8eu05pyfLjP/Oaw8MjfZ5unr92LvDRXopJ5hbHlAd/G0Rbrms1tR/5Q/FwlknrrFShjWRFcbGcz9Wfh7WrF5VzErtbgUj/voN8/ZKT6T9MmJ4Qvb2b4GLOuZyfPoDMIs1C5knHaaPPsyTvbYnK0nl9iyilW0m5XFpmU6eA207yP39DNicqNxPT6dbvmsQ5b8n0mX6tc4gcsYJv0+PZEzJX6Juthi0nKv91eyy66qD/WutivFkaw2I3+cAa64LmKPsvr2Oj8+oqSQ1p9S/4edeLDn+FRJ+JmcyrWz7TImvqmjd8z4wpv24KTi2W3s6H0OXdAfKeFL9nloFg1zbKTb0/81Hjk/y/maD27cuz2CO+v61Y1eYWmFBsn9mflW2muU1UcIjZ1uKYlDKldudpuIczrgPFWkn78X73p4OHPfyV/Zx1U6Fyl7BMnyKKir9dql0C5sQU5HD+E4hrmZprgUyse2PouK82fOlnlWLS1zNM6sML18Llb+2BfWZq76yMHPdtzbqcQe07bu7UcPczXqSZ6/f/kg0OIDYtMK3XQkAmv/eQDxbt78JJ+vPv0v+2dPHGFTCB+bMdUS1wRb3CH77LpD9h68QFKTKtOTSM9oEV5y57TNhM1eVyHAi6TPDvnkYdQpdWtz00onVE7ywULQXD/96hP/0nKz3YXLPmdr2KpL3UKwq2t/CNAXc+o+qOCwxmkIjt1CH2MYjg8EW2y6mx2bjzwevtIhF7O5HdaO5UwdgXpg30znpvyMVc/lvjkuLT3RhbUnYG6XNjBZGBnyh+/aMwqS06eUOD2QTrWGb2ANYJdoU5WGeylQ4c8K3MWzp/nniVe39kTl4gOdux3L6DxAOjUHpg0lz/1paR9V74rPLLYmQixzlr150aQ0PTj2Kp8Shrhziemwky0ldlNTF7YexmcdLvZlWjn12F034iXJ1YfjpuDsYcSpEsijTvIzevwM7evcsL23SJ+I27TFHX3Q8bAOO7R7OhL0EGsmmayuSj6Xo+XFYtOcwaLIEhfB154hZD0v3/ThTx9xyFO+4G71BCZ6E/zNZknCd52O/IuFvIPs8DG6pIFTHr1x8tFp5TkZT9qWd4nEHiDC4l/aPy27qw+IHQaJ39g5rPVhf8dCxv3ynTgX6vXLfvUneDLmnhOd0hMgF5s8tts27MDpr7c//0r/NHuYd9pAooe5s9qzXD7uVo4SnR+Z+vWwcf8pCovzpllq3eod7xel+ideBbiGP/2MIv2uZmELVYmSnlcrYyxYzPuXH/2p0HsbE+x4CjbNyCNjxXmxRzirxX5bYfnj9HD5+eMs/adahA5Ji3lRalEvdqljyb3tx+WXr/iEnM9eo56O/dYDmeJywfSoyXbRQbPY35WZaA6k12moe3bszIcS8kzlVgSJjUdjh3l8lClXkfD4l7RF7iqsaRvUswdDTk6WnrW53NHJlCw/IuUqC6Rf1OQadMmk7etMg9cWlIqFwrzx8tkIeS/s5edFzfuwpzp/Ovy3eCz6IlW2kmJz1QRuH/nOt/fPsKdOtiCzFDZSNDU2w4dlPOFSzM4zV7mLNRE/Vae6Njcp9l7l7Wztc7Oqjzi5lqWsdAQZDjoKZ0hsHCkzJQc8RXoUan04PR+A+1Tp72gb1Ind85PsTpfqO3ZqB9fvRm+uD+dwe9lu/Pt31YuHuze3v759/XDz4cX3/9bV9RCanA5VPYRGskNVH4PjBJzp4t/hvRPeC+MNnwmvgN5D/EyDF38fvzP+u40vXWvAZ+r4M99v8PkgqhM+q9/VuFcb/93Gn+v43WCKfTW+HfAitFaHIR+quq8xvPDvunCLDpfUzxJPeO9sv9OUDvg5PPZD1+R3JRKK4QRR69pShcaiqVPsh6qOjjdKMDATaTPeoqekw6X7eDufGm+jKfTxOy2G6J/hq8Zn+/gZWQanfI6Wp3HypfcCYeB0KQLNCe+N6tX3dU9aoq6hccaxjN+T/M6YY5Alxy8LDXMLjTF9vI7u2+x4uSyO8XqSV2umos9QVwNkLBORXKmDaex9E44Xmz51xB0ppVAioQY069JdKUW/I7V0nmd2quP1dR3izYBZBKnSIYkbdBr+XlLqYNW0PuKR5qz56fuycOJJvH7wR4eZYLwnGIym4CLk0CV63YYGSnGE6wZxEY6lMl5H39HQOVUXi8QlsbgIiDs0PkJ4yIAM29Jc+xWHk2FrzB4WHAvj/RNguaNobu5w3QaIeNigfDTXGCP03cH1GcKkgJPfmeYYcKwmjDfAFOKqD1VikQlFUY23Ii6XcERRk2Yis9K1GGn5XYqcP9ODOhvDaUXE9MaSeKkKii/+e2KRs3ZIBhSmNARpJbBUesCxAE4EGX2Ww4KnZVOVFfM7urdHd46BnuWe4ICq9+uV79G69H2qRfOVt/I7HBt/1jypMmc6CoX0UCIBVUtWI+SI+gn5RiBbEoFigyzTgYCf8VvL6k6FmFECOqqN8Y3xQUMfCmRK7zu44vchlvYCtVKsFP90Qim1HPEZgVxfYFElj6L65N10H8w/JHDkjgCbRKqGDUKnWzgBk0dKTFKtxwtdj9RAVkJgcUBxsDqBSug+GhM9xbGeZuNx2cHQyStRhF7CGO7XleipfqpGn/N7hJ8VW5wAKtYtxznGHKkHuJpSG13GszSKlVOiFa+9CNIMm/Q492RZLONTbV5GEdML+Z7uSRThd3k9mlf8DKlN+rdTA42dMuW/HU2cAmnMkgdk39VVHVIUWQe98YDhewwSaAXGySl5CJelM0Vj3CSoEoB4X4Iz4yXjEMdfindkabxmVOEgb46mO7Lo84oHUsQ0a3oPvYxmSE8lDXLU4f1isKlPVcspkpboReBzdZBJMdOGNY2HqGsYlmeN5kDw9WlzKvoup0wToTnRunU/Ev5A8INKSh5vicuoRs1RVi4Qo+o8RhMgvVJAGYfPyi0Y04lqfSFONlXdjOsrObgFYFTO4OIg6MQcJ1OBKEiJnTm51jA4bHoHS1kl+hHFlVCit+Re3uK5DYHJqYe/6FUct8yUAM8ihIO0PjON9VSHVdfJn6MhZQZGQyTHD5oJSTadgIqOsxyvt0Yg3VgpGWKDpEfHcBgv4OpoDcCs8e9QUWSxgeNRRI+fy+5BvGJY5Jw7YwRrTGVNXsI8ByZnIbq/nNiI7kIWehFoND/mA/oMddFVp64aaTPrJtIK/QwwsygDKWLJN/Q5SnHN5um/uk7pWowQDP4ap0c4+aqsDZpJ2RQwYIROWgO14hot+TAJnUgLSZOsR2MSlpEMlu43Q/ZwqE7OcqlzsXHaqgr1/A4lP2xwFtdOiXd44JVGnO/wvuQj5Dp8eQTQXO3nVM7x6hmrVMIJ+olHCI6TFJdzdEzxeci3ShgYZZgWTYgHk6WGlYKWw2XAIi/xwFZSiRzntKJGTx5LsMXyjcYSusX9dw6DDCPiEZ5vE/boJIRfFyFFiZ8TgXBZeODPQWdoqlNwDs5GklIVQSMmy2GQiyPu9TlnlLxjdPFsTaMU2Pgdpqxc9VMFBPW6cQykMTDmZHTU1NraCGFP96JGrMCUre3QUemMc6ANVIThSS4s0Cenl80KvigNhyJPkUhpXKocqYKdtMdMVnZbIqXMB5jdO9SVtMrU7lzV52AVuh9pWCklJOTz94Q2v3+gSg77nho6LQGM1vXUGORpDMWO249JPCMI04QShHFNlVOU6ljq88IARUuHYDZL/lCCE9ailPVr3FuqJIt0eGVML8EXnYumw8jAe3OunIu7Qin/YZRxHbizR9k3TdVqOFwmIsFwfPBoQkLCwH8J65xKUlwsvpSmq6UwkgInICVvZLGDtNPJO8lXKPzINOW1mgOxlXMjtfNKOe9DHOW8Nb7SPKKcD+dwhu4sAnJDJxMkCrRqDZVch+shLCjQyt2iJBoWbBj6nOGTXTsBck8l2MX7dF5f0lh5X6EDzcPDl65Pj1Y+5jzaS5KOBkJEJy6UzXTvkGrXiieIMWlRgDUaT5K8pkUA6Fa8RMNiREe9phhjCegUv1NqLQVyxZNpwlp6zbFQFe71bmL6vFTkn2Xa6zKhemnu8+dCiny2ZRKyYqagVCqdgwmIvq/39H0vkpT8XN8rVd/WMDYYoZyBy0TCLzEw4rfPRRojt3SnZUhz7GRpwbVM6xmquh4PAZ8+zrVUdjqQ4Ms4DgURkYoShj2X1BB5X1YD+XkaMkMTnYMO4yoMyw7CItaTdE3PyeMYTgxJ/Dfl4SHEncw/42zKWYiHdt7THWv0krFCIacowYa7bCkw0y1JBBiYS99xR/HKxQoJGJ2DEckpMiXMKOcW4UkPeZZkwhRGY/QxySEJV7QwpElp0axf0WBXduzDMBEFBivPDohhFClTAL+tO4v7OU2B/ExTYmepzIfjkdM4ipf4kKuTUcRFpJKdzMUjrJYf9H3OmxjfbUQsV33JcR0AqM44jnT/c+gDr9t4+6yqSR5HvOJKhTxVn3dKKu+gF9JLpB4PV0wX+DvVBZuCd0mUJBXEOIlFAZ4qhOlk3iQzUJkGVdZDyetcNQyzXrKhOemzuofm6JkvVa25exexuwvNRqjD78jsXGaSl1exXTYM37HgcWhTc3Z6RW45To9cyb2LzIEWTQ4rM3SxgzWktqV4vQRyHrZEAfi33u8LC2L+nfg6Be+WqUxzCd1vLUlNnHYq4GmoFt/C2VZJ+6V1CQIGvZAgyu8ym6GFEITp6cxuXBxUi8bAmDxPfykmp+zK0jg/F7OrKVrc2FnIuKp7x5Rn4LywmpeKjbR0T1/0mRLFJ7rQoygvZzokv/SqrjqdqtBMF8JVao4mvnKNlSHOR2WSSsXEPAlZSrbEmHRv4r9Xoig1WhOtlDhFywr7YigFxJLktGt4o/do0bJATymEccy5qUGOVd9vqvivMJIxhY5aSCVm2ZNYt1+N1QZJidKJdpnsEN/TCnsmASaHnB2rIYxymjGtSISH4yGn5Yo6SuhpjIoQziuJJx59tjKApgC3zFw4L1Z4JtkdT+HB5nmGwPVCR0j6SWHVdrFSrJi6FtM1eyIQC/IbdDIFP/IBj9XGnXT9ZIFoUB0thhZI6kzO5QsTQNKEuNIAuQD5CX+mH3Yr1s+6FS20tKWlroQ4sgX6GKWiq8fRJ4mGQwTiv8etdox9mn30hz5KImyVa+J9h/CgBNKSqNFx2SMcScprTdo7jdcJmpH0uAylfiP9TlghpGf2rsW3qJ3hUHVxo1fbeM7GYjrRj8UWrwIgLmZMPl47jSe+Fh0505z7cauRdOO8hveWluNcx7mcq+FYDbHkPe4CKSEI41zJjyQF9zOW/kX45FulhWN+jzFC19CsxdDQ2ZHxcxFRjysaD5kFkU7aV7GW0UA+5SsuvgTgtSj6JiPGdN/YxZX0JGZByioG4h7OTYLOQV26kDJj5liN06yIliUuxshOHtkXrIMFT36WiFdaH9Nn58y1DdstOTzBjBQoiJIbEKS9sCiSRqPQdRlMGIRo/E6HqRK4bpZE0oAoTopAlMBhKaelS6NCSuBwke7jNQeqrFSr4ZhF2Gi0SH1C7bxxekTwkOmWaLq/XJbSk+ueJJOAFT4jEKDDxmuFTTL9CvqSNfJlTa8Z82oKJhLrywmLKFJPUjHVceOOROtTI9d3huiZGz3XObnjHZksXcA5Pcy3Ho9ZmQEHG7JDuWpB2Zw2iQ46yNDxGUboCSLix40VFXbDcMmOGwkZshyoGIJseaIIjPoc0CTbhcjx67sEvVD6D9+hF3oJiBTZvYvqlZrcHEgqSLVpvhofKSGJSkyK+2qIiWFqBZHRi3pwAbhUnSFRlgY0yjVy4VSqvUA6QuLOZJkYwRhB54kayfqpShRK1/DUkdIWyGi+wiWRl5JcSCdJKemQsixPYEhzHRiwnOAYG1p/xAaQ0wTGO3K004oaonhSuKGYGeZKuRanyNBb+k6cWnIoObhCT/gdp0R27c4mdbgTl6pD7ny8Jl9yfgDM6B7iuaIe0/cD0RrDTyxgpLqnliSdldDiVOyQRTnLcVbgDMJDgCccniaS5joraAp4LhPwbkSGHJoAkxqGNV+qpJeQJHpo5Hf0vpegnAzTFNfUP8W6/liFTj7yisxp3IBkED7yUvmUkY6lYra5HXZEK12v1OAdr5eS/sE2ZZB0SPtMpjwqkFcK911yXoSUdcXrJHwm7ssap+vFK4ddlyPUKEEnbJBps+ThTJ+6zpPn2RY5Uk/cbSEgY6DOX9w/PAEnRHJpTlhAH1cRgH5divWUdEk2ns7z+4p6LAlFuQnia0ZTWguTTMKi3lPR3jHhsOF34pUoeC7SdcqsCcdi1SFJXCC1T31NPKzcC85KK59sCmTOq3u6wdOxPeKVqvTRvMfoy2QJFYlFA7v+ZuhwUGJFwumrmwSpar9BR9n6Px5wN6mAUybzdiSGVsdyHbcm6fO+uFEaBsVKVkvLdMwUTg4XzCTOIUVqmYdHamKoRxYWwKgm8lHivccSYGYa21TAPXdVKtdRqqxc0IBotJQgKRGRmL8DEx6lIXbqKa23Zjlt8ugQDZnF4mycnutou6PjHaOeNEEjtnR7wUtoKeRI/r5bIR3Msb+Md6GNyuskzL40co2Y0YXaqC+4MpeOGHGOG99zm6MmrJaSIkepLlSv5Et+T0qZvktWxsjKcVOja8zXZSQOxPf3FKNd7sIB3p88TuPTeBgZvcc+LwaPFnKszi1qHmyXZsDy2akTVL7gXNr8OOPOtBJyIfoIuYdrhn7hHIdWV/IL1oqIPc6UZwYcFhrJ7o6FZSfOmrZloTbFAkef0ohVgbIC4oJKRM2MmiNlgCQ4zsURXyXpAwEX6K75MAH2a2lsjM28h8/VK06aIxuLZDlr4xWDJTVzS2K9JFybG7/dohzjiPAcJ3FTWKj5mL5O8hpiDGP2PLeQwDcoZ2fb49jE5AwKl0tpD+GBrxI0xyEP4Z4SpyCGtOLSqZVkbPwcwxCh2E8y4uc9HORJWLhNeHBvuq08FBaYRQ7exhscqHnPoPmeV/poDZ5rQDxZ01f8XuaRrIGWPFHsjTyM1hnyJ2XxeC/DP782rddrNSVL9dURVmI742UylXj2cEixaYF00K4Asp5HlIiEkw86nZNkqZgk3YmDAIJeUwotBESnuyXR0sQYHlmWcrrpqTSJP2WmsXquprGL8LvZxDmMW2lpRtSD5lZXx6E6h6vwPCOGFSl7jQhEspA2vPJObuwk2HTeUoiiJZGaldaZnBBwpp7xMhTwMyyTyQpKpJwWSGrdWH8Nly2DNrxEVirK+DLtJOfQwp2OW2Qk9TrUmhHpssZIaKBpQZ/fp+GQ4ZKtsD5FNiTxEghOG2O+xLY0X4qQ5qPPsdZDQ9frBHXQof3eLKCU8t4OlQeaEEOdshPOx0HDWRRlrmswgyfwHTbaxDX/Luy5Gc9DJkeltEoW5aNggxu5J6JdaADKSIychXnOqTALdXRzbPPoZ8uhRTNqy7I9snMu3bR2rx+FdzRkTpsEwF9rmKBCqxyuZHgyeC96SjTCxVjGCWIZDzVT2kmDIAYqEtCI3VD8s0e7FskIN4ASNx139T19xtXkzkAnYWSj+jz6SY2cH4HNnWUmY+chBLcllfNopd95KYq0U7Ngx7G7Gt2RZXlZm2bbF2CBsV6JTJx5VjzU5ylpWZR3q+n+4iLkUxo7nDq9BKEcp4cWJrHkXBoftewRHzTz0FdpsyPYexJBu553ZYyVt/JKG3/PqEWxr61/syLpCRbvyXvp/meryVIEJFGWvGW7aBh1LuXdThOB3emepNXEWo+qpQhM8jNj7KmdOjoEBU6iCUWQTjpqrjQbOqMkhFjJNbzFkUkuBR+9pO5toRwr+QytBK0DixVLfUfAovfJRQiHLk3WzQmvjPuzLMi6+BtKivup3YYIvtSQx2+HRY5GQQLpTjoQ0KrzGRxxHOF9BjaCuf7t7IfQo7ZvgT7XZJoVHyO2SKu4/sgTJFPiA63Y2RjnSKyib0oX/A6tnzJfpqTjUbSavj7CRVVFABo5HcIJIpHbiS5JuzsHndY5hJsJORKjBaMpY7xETqrIXMmjFyOxw5zzFPEFDw28P2GZTsz7OUn38NOMehoPReJJM1p3IpmgNeky8TtZT4vEx4otqWdT6Ggm7ulVWqHg9KRWbtXyAojTXx7AdFq5Lk0gio7trX0povraA5GEBIPIwfuVcJ5mIqyW2fPaOTKMu6jNAtN5s1SHvkorpcqPF6wJKkvq59Bp7WsilhpIVOhV8ni1wlCEpSVOF3Fnp0bKBKgy93JeQzJ0M5XpO89FJVgqIJ760DjFkiVSzMcC/W82XozMDoilz3McnD7VsfVys+jMy7xH3S1f3/F46FUDeNb4ZLGozsWuaha0HA207sIx6PNCQo+H1Am/e1hZQZ+OHRt3awk8vHThYb9dWTaiSJn/e1zwoTJsywRJCEtqPG7QkJLnlb6vc+QJgoxRHJvUQncoeTXN0t2F16H6L5nsJKvQTNXE4Y6skGy1dBm3Ci/FlLxKfzNzJBr4tR3QeG1nzw5mFGk0lVTO1WedZhCR+PfanFwNXJ/3wFFSx/TZvp5X/ukcnB1DEX2V/6ZhezbUoqRBQ3Pc8qKZY5TPiCTUSdgarnLMpbFSmwyJlLqPlRVkdyT+TC5fW/jyMXLsbq2lWLFmfT4GvOrziI9pd7suz6lJxBRtiSi6YQrzdD0O20Wpc4w9ym+FSjcfx0qZEJN13HcEGW6i4dymhwvkLITjImD433TeEoBwPASl0ue7UCcJj9TL6muMIiQizEj4Oycu7tgFaaZn0nm7MotJNFZPMboCf/PPlACA46UlyjIIk15n7FBA0/18dW6No5bGzpCiOdISvJzjY3Erx31Dhf5k2VBpUTESkewpIscVYuKBm8PRq2QSPv2SQdJ8SHx4r35DDE4M3FF4b3JmdyyP0OcNldKh29C3uoAXGgrhymkeY6tYrsfxknPRaUuzIZTQqd1w3Nk8UtHZvUOLUuP7+iyh0iPjmgZoPVsUj9bhEdCtNfztCSyTzZKVTp8NECnpy0+45ELALdXTOBsGO+cEJQl4zdItgDZNS6FGHOrWEgvnQqXared11Ci/RwsvwaD7fVNoiPBSgKC51FdIfXjRr1AE7E4VQT6Cetoy7SjHLN/vyO5DSn+Nwqydvc46l3BDXb1e8ZWdOyp7F66uScl6cG+wwqTuztIi2rEK2V7N4fIEOYpHC1QSS19YaGew0O80FWdampJEHN5ja4h+DwPNdqo73Dl0cU21K5D3EhvjHEvO4rBGKPO0TmPhzkoGHuc1JaeQ+ryZodTC5+VHyp2BmPcHKB1O4/poIvXsTXZiryE6t9BwiIu0YN1+WMEF9ehL1F504c+HjTxlWDG3Ei4ysjnXYZNafMhUiuJuelwn0ve8TMmFAbqPV75LXAnmEA428GYo/ds2+C/ok6zRS5L87FZ6KPOgB3l4cvAT5SJAeeFConPy4KqkN8d7pK2iTpLce0l4CJoMDEQMUgGZHFGOJs/PukychNAMZRLTKX6+hVJGSP8n5DN3k3TWaBxxkTkZpaDPsPP7WDXhlNLx0SBc6OVaA6xs0UNC7KdVlgiVd27KAnQNgs5MwMIjdNCBkn4DJM2CM6kYox71TzulHfkJePqOFuAYzSRdNivE0Y+ncxKpXRtuS5Qo6R57qkgCuo1TmQmB/DzhUJ9h3xPfY9dR7NUPFjL2vbUbWTTnrPsIY7jdiRFKYy/52alQmXAdx+t35/FcxtIJxVzo99jIOgb5TqkGIk2yfQNazE4Tc/SUddHOnU66hmhVRH+3dqDNKSwPHzbWx4hyRDCOxX/nL1qTChPUnlsev9dV7bmqaxpbNOysk4eLMGugryGuLOCkrQS6jwdLOqUcea0e7E6icco5S+P1l1QSDjclAMXfpWdrhfOhStBJeC1xHZcNwU6gtuak/uqroR+LjOOauoyOM/bimWtJs42vbu1uhC7CMTVTqifIQUmVHKLXaEOUUPZ8Eqc8Ou5FliILcvpVchqNzXsPZjowO4/ndk4EdB3vMwuQN/VvSUtxNIvDwS3rHe1MtkC7cm0S5ty2SCiV/c6UYv6e+DL9htDi3NgPNXbYWav+cGdq6V5Ra+PcuQ/S6zmOEYRbyZiQXIJPfpZ+pvdJcj0FnN4Li57jEQbKWBmXnUNoeFxuGlb6ueiUnMJKNMnuU+q74kvP6Q3L/zIBxnxfGSCfI0Pl+Hh/mSSrFFSzriF5kFU3UD8dVNdkHqRDSDRfyU+mw0hN07RxHLoqZbEkIfJIpiHCn6GQURMfGXmY4hHrHCs1LK4o+FgoNqgzQwhSP5oLP+tERmYXcW9cy5dpeSGjUIU4tFVguIFXJc31hQyTyTid0AJs0dLJJAl4Xhr0F38n9fI+tLA13sUj+hgG3ErXiBBzRHomCxFUU6nQQlOiLKz0n7Z1MbNwMuHhFp6enY0uc9EY5SZOvvRvfbckezd7miM/120vfHenSp+Io8waJ13C8U7Kv7KHpzGjICYoD9WImKXQ2Sg5Jy8M3VEDKevQ70s5Eq8xA084tkX2162QZYcaXp2ZIoNgvFZaL5ZvkdK53a29nNy7NpyGsVBHaqeXRwpmloQ4RS+vMjlMQrKpe4DRmpqgvQoTSCII1y6HEszSt8kEaF20DOqY/oDvhgc7SqQK3jRGqhRMNItMnI5DCaOHHEXlIorGyYLMTd/185hKEU+B3CMkr1+CDh+fc0/CNE0Bos7KZIJjVy3nSNXpfa4irbkJTWl+/xROYo8/8YwkjZiFRWmFhuFG5gZEWHPHcU6j9+Mem+wEbDovd1L1GzM1Rl8Eej8viVmMX49W1lexHy0e6Z9CewaThEC9fIXdMzuXdAlGBF+e/Tol8HKLYNKzZ/qhs8IAz14u0/iGDUlRayw+EurW7qnfif06tEZZBNmns5ECaxR1YmjyAKl7s53crcILiaXCowdhpzn8XDeuR5NsxhCfMnDYXRYcJEH2jzAlcysooSItD7NPNQ0Q0QUaUaMs9rtvydr83h7sJQfft+famYOw+kuHwvZS0oVS8shHNHnSp8/Rvrgc4vTVaYR8Q3hNexHNF0KR/usz7s/0f9kbr+Oo2i8X1LITaIIlleKuvuv98SScoCrZfJ0Wx+sduLzvsck1zzE21fk091UR/eidfhV6p6FltkDO75k2lWSM+0h5b6InfdVjHsdVWsASAjmTcUuizfv13UIcqfi3o9Rx4/McN0llW4X1gPHYH/JdBzW6PlXCgBXfS0deULSEQVKO0iZGTs3zD1eLT1ufoyq8dCCD7AsFScEU5bBGe0o1hWhmWT67Rs54nRgWUoOBHU+5CA+UU4FgpuuSJHqQ4hyYw2k+lL2uI6DjnJvqfKhSibmkLdIXZniEMAUZOpA05FTAqy+DwYwqEiK5fIB5KVCyEKdA5OAg4sj3uJLN2iqhevq8HuQ4Zk/YUZVWtaQEYpCvQJHFE0toGFwpK3FufdfXDHQfYrBzZ8cfj/H+2RK7Y5xfKxJBTWl9yfkJsdJfdFZGM+cb7Oih45SciWZi92vbKp22R7+V+nQ5rjH7dBlMFdw1dU1bXuGLEPHn4l5Orr/yvkwomXyumYp+ZrhhyKa4+L34uzC2RBhksqSu8VpdyXxKfS2StcZfaiD18Xjt1YsIHtNYk3KT13eEiX0V2ig7isnP5dAlnXFE0Y8nJJdC2VapmaDEUEaw5epkePAD2wRg8Wk1E/lklhnQFBgSCHbtEuDTVhQ/HZAgO31vOE0nSDFM8EQo1iXoKPG9bPWOhk3JskK1hlklLOJ6CL+/hnUw3qz8222EGL5oiPocq0+leyNbGmWh73BFkZbiVTUndyRnvpDA6ylseuGc2Tgcpu2qMWkHRxuNvwTxVIkXWIitzgb4O4lTBkvHcLMiradzEc/jeIuPg6bYiftSJbHZTeFUYCGuCnJQ4r/Lbg0LdT1dx5kQ5ZubeBjWQR/B0LIzc/W70lB5W7dcRmGn46WhxmskZAjLgPQuV7vjF2vFnKb+Jhbqs6UqiF9Lc6AJ+wFwDI1rbIph3MdXRp1w0jSNzak4jYJXo3RKPIovjsYNrLVaLkmQa9H/5rXja3zuELFW15EjUdp8zyVIzknc8yTGq38e9CPZGBthZe0RUIpnqOiejOa8H+9Lh/O44vPi9Up6mn4f0owDw19ry/quEnccTpPDpOHSnIQrMrsSLyxhegk7SZT0bzd4IytJBWG8keAEKpFAwQu/IjdcVihw6oVDS03e9sDinQOO/x3HVKhoeISj9jw59J/7DVJQehoM6ZpGJkdjJGDkpZFTi6SBGgczGjd6tyBaBzMMWSbn5vk2rcOjm2sQ5KawQKE1YY3gWHhIH6Uqu/KKh95vNl7ewqMxrH1ej1fw/gynhq55aU3f4f4mrUnrvqepPziRdU+7udvCfV/vMTjSQmlt+r1/l5yqW85NG1/gRtl6gIyOzuGtB3lRZommdMDS51pbX/NtaYQ7hxL/nUyOY+NmFqmrvmA6A74TeJBMT3BMbiVxsshGJ2P0InchhS3NcXmGTtnh3UkjdwlHL+nWrN5yYyXJgA/dL80U1DuDvODmAZrD9mUhp6L8Tmk5RPfTvbS0Q6wjmREGE7tclCoEOiXmq+Rl7NopEbjg3fX4mM0skDu/knixNplN0TcrysLpkV5VoHo1RPIzD5H6XmFrzSJnpnjj98bHcXqYKDXbEPBddKHa497A+1AuRBKGSg9NuRpPx2pkm6RTpEZOCugEJaOQ38vI6Ez8/tqLtShqhMbpDkmpOJkoGaETi25F08IbXZetgrQez7N4bf/ZyQM15tY6U7zToQqPO0mjU5Cmz/AuXmOhyzq9o8v7z/qOLELQ4pL1PQr+5CFFyJjdjqcisFBNmOJ1Spqjb0hLLPSSHhYiSFjxH/2SGvaciBgg7UgeXNNgzc39kBZJaJaHlKyZVj1Z46mbuqioOZ2+6ZVHB3SdTFySIO3Rf5bUhAt+Fh5Bn4Ew7iFIy5LuS/Qj+iqtUVInZ3GtOHXj/FlNVHbv2qHmSnUZUVMvvZWCm3cFcMmA2uc9prF5jOHyZNidFVifpDl3KzVNU9UDkDHgQljQyJY3lawKqfB+MQHQLOmnjin8HGmEFwAYG7024z6m8Th6u9U6wyMb9T0MjKf8LGmNcIynvtnYtN7GXa8leKGC3d3pJCXXd3rA0O10oGT4VMVacDvN7ShjuYwBliHCgw+dm+OjWbDere+RqvjY1zJsK9oGiz4UuAStqcQbvPRdir9YSksPdS9FNH7Xq2VNYTeLW6hEYwjPh6SltbA1TuRVTYq4VGLrVspMkpuXkUrYFPJdmnzE/7HdhOZBVTqvoUo1Hr0oZ3qxZKGxlUzF2Ew4TiSEQhL+SI4S+SCtIsHQJTlNinONqnrQF9DqWrpXGIN7gXuIr5iTshZCeXEJgJ/xUObXIBGb5zpKMjIFPfJFdfH0CBie4OQFF162ZMH+HX5uzfL7lUyg9FlFeN2PpuCAtXY/XccPlih5oEyAgE9PKmVJzkMVg4gS8XOLo0aiB2VFq4kb0sCHlSIBI3xXYPIsJeo6bFvDmv5iNWOtfiVjZFT3rEVPu9D9WeyQg3Ibi1sO8d4di+NjGA69vZoTSqLZM3BLLR5kPhqbz5V452DgOEucIy5P1x2O1dg9YaXk8O/0oB8+JVUzZVHZI5pXHAkDjChEZEIdEZvRgcHecyFaAC2M1yOEeRSVdZdwh9w5YJUvxrOkxqiun2dGEf5KC84ySEFIv2EMEn9p6yqROE4jqW4Lwpxzia7yvjJgGhINmk7M77jq9R2KlImSi45jMAfyyJltI4AKs32mXDHyZdcSmaFplMZGHTip0bg9wmt8nLPArrSmFk7fPVXjoe26NKsjpYgllXJaXpBtTQx8YoZx2hG/qCqZoEQqbCdekVMRt1x1nK6THo8lup/PoRTJKe645yA8PDiGluzcJC9scegCKILZmkcx6fPlGk9CCQ66DynzcWUbhHuFAI4r4ATKHt5BoPXw7JxUc6V50btLZ585PVeAEHqwPFPy8jUP4u88xJZMh2GZ4U7XiONAckENwIjHDVl8v4QPtBi+xzOPONJAQpyOcrZyrLVyCH8urdXyVdp7z1eJJJRCMTGSwEHco0YnUDn104PNiN7xW6mHnUSBhJ4khKmdPivbY7mMxASaShGA0UezC9ogKdDvfdbSpKipS8qJS2sRlhI+rqz380HY51iw1lyJMbRtj2B8leahcZRScycsGiPfl/VPcj4ewyMi5/I0aF1CLcZOSlizsv6VbO88R8NAxk1uHreJMI7ORHmiSGlTtTRD3yKysrYW+caJ9Jh9QqUsnxZHq/ea2xrn4LzpHSwYe+ANpdv4fDZWJJ1eDSsZNg98cLX7dzl1Gg+DCheN6YSEQg+2FBHvuRaU3QT4PZoAr8/xxrFlx4A4y29NHmuL3fp8bSbH+zeFfc0AlXFl1uGW41b4qKtzU6XDYwgTTvadBsXRC4o2m4FJQVz7kvihQHC5kkQtNhecgxDMJMK16oHR6+1eFeTvdC+vRNi+5hRgmeiUgqjXaZrsrHZKUFdnuuQhne5OIsa6jKpKXCfyICRpE0pI6BxC6fcedGVZmtnasTZ+PZCxNC8P/h4+HE7zeZ2aaZ8FezNYO/CeVtmKN6K7Z9FGPAtxvZeCke/K1rXU/Fa6BrM70npKiIs7Lg1Zk69VUfu0W0+wGdDlA0KYEiJzjHyuLPxp3DHDoO/0fS0TdAviPJnKeYAsEW1SLtKbUJNux46tDGLUO+lnGHvtIt4ibVGUI5B7SORUGadYMgPmAigqJjGSRbK2URJZidE5c3UoJkOUmwjWZidlCUCf9N1tzkFpwDTyEnuTEZI50hGZuZlS02yoLc/3dR2Xjr4nyTlE8t50Eo7Z6FU6hp7Ui+NWDkAnplEz9y1Zj5eKu5V8g/9mCdqdrFstzvZNdZZNsMBE4ufuyrs4TJJfl6Cg9MrtcCkZjd5DtCTPR9iElT2z0tQfTT9nLbTegCWffwmWKF3X4PQaH1wchsYDICnqw8pU54rzLCIaqzsjFU6oo/OWkNm5t1+L3OSSKBg51gzSv0dHGVY4A6M6WSHZoV9b4xTQEM6ZRjIfEPzqb78256T7TPoMllfLm4BrqVYZLTRFBFq/btcVutm5rOXDXfOqKP60Wclqkrs8k/hWMiGNkymO1K5IKtFHMaUW8NI96vUaUBab3LRA7NJcndQwqtPcKRubf1tPzTwSdbSalEn6hgA/Jr4tT2MUGTbSZ5vjXYzOwNlty7ykUIrKPE/h/Rx3WZMAkB+XQJ2g797sIc6pApGNqonfH0t3jgD99LxpOqfXfjh8VsJkbaTrxPsSkDW2EV7XZ3pLtbhY5M1M9tya3TO9kso44qZAgNNc2g3WVfJsjYlsi8mZs7zoueNDd1gMoXmxHEAzp1kymPk1GOx4XTaC1qHhUc/QSLVVSVuQDi7HBuLFUVvUqpd4WCVsV5yrUGVMK7S6hk7YYZXRWRNnTytyTC8xsLVwVNKKfm7mHUq+/k/DIWOIt0/wTuxxhRGSvTYlsTiboOidKDLKK1x4+KHT+xjiPcb9IlSv35/hRPjty4kEGI6LLKQ3+ZUqfJQH8Zuy12eYrPk8PUWZ7nGup0OOmGYyTXWXJ0mh8brxydlYgSDE0LVLjkHYpLbXCAfr0ZSGw7XzSHdmOl+bR7+0tbbEX/Vieq8xuQYAkymEeOR1WU3fCZFtbAcQr4sRRM3Y2bNxPLgyurlT+FT6lVzZOaACPqk+cVPf4ZYC8knHVjmQxuccq1B1SSLkkgIj1MzfmkNgB1yd1Rw8B3asdfyk2RDrSxGb4yDQ0FnnMet8ameiaibT6PuVWTrDpyN4Z4KPlhqlM1IjjPfOP8iTnBeRU5E3xHGP62cKHbyHHIdg4VZGbbB+Rc1oftxI6mBQglv9fKy+k/8S2YmVuoWzeQ6tXjkqStdzcTqVo+ooIqrNgzymkWUM/P1KIsPfjw+4yKNHjm1UUclp/LuuXqlFL7oBTZUZyxzRQv52OBcWpixxWHAk4lP0lGKrfI4l+XWoFv586btaLWfZo0RoGvMOX5n2JIuLFKyqsYbgaEFT8OO3ug22bia2YPKlumhjm1N5zek65z6clzv+lGlDo5c0mS/xLqyi0r/dWTnCSOHS/ejsGiElwyNhSpGXzulOx+dLMCJ7xqLxsxOMVkTpck71RrXYndYr6R5d9buZDZyHiqsjHqk8F8qiCJvl+8KGMbq4txjoHtJ4nEGoVWWnPpBTaHykbRyf3iMN41x4P10zarzhdUUPmcTUhe/HMaYcU1pwaunhg/7lEdAbsGWpbTmxWBzuM70f/joIjrjQxGlpGUO38Z2TilTaNcrA65+jgbkRO73z4g2N2Qr3WZSl+cDsUutXCWqZz1GVDtGEUeZ0VFMpyhEYPEfWzzRFyoMmU5p7HF8kkefjmN9lTaBxhNkJhHJQklr2s9BYBHdO5Ml5nBI2K/BYclDkRpmhSkJcXXaH0e81T31HMOvrIs5XWLLj55wTkYr2lQIBe090R0rpWBghW/9YLyixPLcf2rn81BtC6SfsqnKJ0u4QpDLtkcIwaPG7ui8/T015cKbP6fd+bgXH6r7v99D1S6yWNIMhhE+jC0sxxyo0jKfhHI0buGjpBGB22XfdkMiE6OZ0DpoQI4GmyO/L/MAhsle7fv9FjscVE92bfRECDPCmYiuLOyZzWs6LZifiT3heW5pAJG/OY+k/fdzrNyL5RNuwULMWhRxRKV5ZI4fsJJhTdfyiB9DC8bOfZjFu7pSH1IUlAt+/QbH5KhGjkv6W+ujNyN3SMrneY0F7GHcG6mC6iCUprWGhQqPRnUl26ZtGH9MohY+e/jAbX+MT+gwbZejkXOXl7EkFvZhBCwnlJVqIcwtKnFjojonvtErFzCITVpUcYq06MH3/fK7S8gyPGyRcCc7ILDx55d0ZJ6HVdFd3X8VvlYkIsyXpeuQrWQslSR/jz4QMjrd0D0swMp7CSC5uhXtn1szmIkZgpnNrcqIsuqLfLSM8x4uCRqbHeTxDNz7vOCEmK9REMbBGLw5mybLs362C7I8+RnYXLFInyKwVGo+FzZCWEiUM4j1osbo+OuHTRh+mU1sFwliJZw1CPYLM53XrUqO8FwlLvECfZ+dZqdZBI2dMb61jLpB+hx1eEyleZgZuhCzqkd8g6BVPRPA5MgkpGXvYsxDCCiFdaaWciwmKg1O9wmMIGN7vSJOn+XrFwrnVsWpCQaBdNvFklkXWbJv7kid51PLYTDq4hl/sMkFEyk4fpujIZY4b2azfiyKSmbJ72eOE7hlMhNGcpTDJkFHMswD/vWFwmjddj3GMfGvlVR+qcbeexMLyP8VPNTuk02tJDmIRJVUPS7VhIQenwN4EqpEWy3EiKRzBOh5CnZmTz6c3MTm5KGUSDI2l1RpXJUNqpAHDKO4zK/giJvRNGZq+DSqo0DE+k4PFDhqyfmfkI2mDo9PfdBrPl1gh9CBOrGEpiVVESUifpwSF37IS3YdFD1QPsy0/xEZ+t6QBjUEWW3IkadQdlAUTFpA0NpYOQ3nxOC7ULOoyTK2lLoYlLgWIqbcFJu/GGdWeWnudq3rzDkXvKtV3/Hw8iY1mE44d9qoFU2xnSFSFp/tsQfOQT0bG0ERQcJnMvxva6ewPGHdCTWf0npQ7c3U2TmNxklMiA+RyXlMusWNGOs+26XBeg1XkZd4oR2NWrR4mJ0yUFR3RQYNgQkAgM9DvaZ10whCFpmfZZUgbOJC6HTQUDqNEZxnQOR1OgyqlwVM1PlWOK5KO1LWMAsYCU/jdOObk3FI1TYAO4C+WKem4JC2cr+9joXnoPa7zBdxqq/EtthhGbEmbOhSCWJ92ahqnkx3t71P0gErRlRbEOB7HIuBRxj1L2U2hWpsq06L0rLrQPDwk6H0Gfse7kodwziX0oBm6KU2fjxs5xiijtiA+FIGOIcMkUyz1BzJS0dg0o1L08dHrujJwORW14kkFDVL3HgqYR42TjHDsrJF5JlFi9xoD9wb7QjjvUdKIqh3EVdJDViP4vTWtk5rG3x/qad9eFHlyLHb6khVLFeRC5HJMmMjJ1sIXTYNkgE7NF3HKC1RUh0+VLy6HslZP/HN8jaaRuo5psiRbmiudjGOkahgynfeVAFA9D+4eBA/9biQnJ85SV/NWVe7iouF5pq+r606MAtS2HITRS5LxhmSCAGmtGzC/Q8fSvpOShN16+BlGOEZFZTUe2RixuXRBwJktNojzwAgkDPXmQ+IXGSsP+NA6gOPVGvp7SssWUF3XCz/EZDoaoySd2MkLjY8r4awDbuGk8LwurPTILJiMlUCBjuqVE6pcamaFxbGS1xD+jtvj00l/3MfPuGwwlp5USrgsbYQl1LjRSmKKwl7q4wwo3RjF07kjcIDsSYACB0qQ1iRr4VwIcbofw4AswCGbFkAnDKvGp4mpK1mi4RKDyDaJnsK1rcowgygwJMMtRo+1lVlfnSb5KJEA7wcskQiKh47JKEtspdnRgX0cTsy8SlJyEqla0WRYMQOalptQKXp7tGYEZfQjMXK66iXI47hXsHXyUGLLtDj1nGh6JTXy9iXv5Oq4vsfwoPEwnJTCBs2Yn+02xEZx87pOIGgSDI26DszmMIyhK+MZLhYWSSySZ3krNUiw8hoXr4nidlZvJN/hdAis5EkOjqWwyPtyHDIHLwDxWlz2djB2sbu4nRbE+aaFBXqOTIP8kvc0z23cXLYYlJsM9JbOA/V6go+NplayiXnefVeFB3mkZXOREbZp0HmpUeJyadRe7XCM9DJoDEmZxF1bJDQl0uOFq1Lo9O+Uvl/Cupl3s8OV8OCScSLgOqZ+XbpeOnM98meuwKwhfImahUKI/o7fGxevKClqihGdc+XvESnTc9ZLvsdFMS+Ku/ZFX3kdagn/zo73pixI2NoLTUS8tjS/Nhdf3DxWp/P0KCidyUpEctQm2EsqtBTXOj/v/kkLOK58duta4iD8vbbHUEPuRyXNyAqsmy6zKlhKJkHP1IklJd4CrYVuuUANWeFrbHrszfCCgovF1UXgLzFth7lS4KFJOA9gL5Z+XxI9/+1puldeoaqUkvPeXs9zkuCq5e+smLwIcgUHDX+H2hZV43hIUXEYbhE+vBKil+Ie1e4ZifMj4pTXrTh+V01JXDbeVN0pRayS9+vnS+cjdOuL/rLePaHGRcOkhkOihXri4VDNIa6p3n/mI11b7FmmClzca6qnR9Eywz1IoeM1xv5UXZPdV6SkUrtTRREp3ovFNo1FS158YgX7XDxsslA4N0KEwwxqieiUfzT1VnDTi4bMsgf2Xmc9GhanlIWknbtg2+oWS010BF92P2h/d2kRQ/k9i1VRVOk7ve2rlilEEWedYipUUawUqZlbqnOwi8oXJBz8WQTTWT8OsFzZbCCTELu6sdMqe1qHRCCL41PhjIyFp9sFC85OtudaEcHCwTSqfySBGlIpgeK1OlOJE1CYjyegaTXxWDjZk0meyhvwgLFCRlDWdxiTB/sM67sl1XHM+j5/lvpzitQGrUUOOQ5Li6YUC+MDte4rACoIxqEmK3cRRLNIDwgsFSC1Xk0PiNNJjDT8m0ClvwlwrOB785vm5HGYyCKEQBUw6/IqeH8qgDIgkSZNuXk4TSDyy8zgfTlXI6eEmOuyUOSGf1w5oYAGR0zgzKGB1D3LNh/iNB3SNxhE7ac5MoSUHFnWx7EYrqbP0LBpCQzDBZzKfhe/m535Q6zXuILFhifE4PwcTfFYWNDkbbtCUs0uA0VzYQqxiXgnMyD8ditYwOT2vAL9DuXEFT5pnI7vCSTHcDQ+f+k7pXyDvBxsaLGMSDajlyfCBVUvnqml8TkBz1+hyKRP+Yp7lHY//O6v/x8rgbWt0WwCAA=="
+  }
+]
+```
+
+### 本輪文件檢查
+
+六份文件Prettier檢查通過，415個相對檔案連結target存在（未認證anchors）；既有10602327 bytes歷史prefix完整保留，四份CDP gzip還原長度／SHA256／JSON解析通過。獨立子目錄prepare＋cmp byte-identical。未把文件檢查算成runtime重新驗證；只提交本輪六文件，不含使用者改動，不push／升版。

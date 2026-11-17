@@ -7624,3 +7624,11 @@ world/custom child fallback 仍在公開 matrix callbacks 前保存 rectangle，
 候選把差值存入已由引擎擁有的normalized end tuples，不增加正式陣列／欄位、不改插值運算或source-size refresh。隔離原型的一個canonical class同時保留endpoints及cloned spans，三個固定trampoline一起切Sprite batch、newborn與target appearance；額外fixture tuples與mutable targets限制對正式layout的CPU外推。
 
 288組確定性core cases通過265,800個finite Object.is比較，包含signed zero、caller input ownership、變動端點、出生／退休／clear/reemit；另66個三backend動態Game cases畫面與數字一致。固定八cohort A/A＋A/B全部384 samples顯示world-layer條件性收益不足以抵銷local/small targets及Sprite-world controls的成本，因此不改runtime／產物／API／版本。未宣稱本輪新unit/typecheck/build或production／CJS／GPU／FPS認證；完整證據見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P275 — 不採用 rounded-product particle bounds extrema
+
+正式dev graph的四份CDP profiles涵蓋static local／world Layer、changing local粒子與Sprite control。self weights僅用來定位工作，不是逐幀CPU、實體operations、GPU時間或FPS。候選僅改private bounds聯集：從既有八個rounded products取extrema，再維持原corner加法順序；不改center/abs公式、不增加instance狀態、cache或API。
+
+純代數通過2,048,576組，實際core通過288組動態及240組邊界cases，包含signed zero、非有限矩陣、奇異inverse、callback trace與錯誤時輸出不變。另66個三backend原生Game cases保留一致nonblank PNG、數值與cleanup。單一canonical Layer／Slot class、固定query-level trampoline不加fixture欄位或per-slot selector，但mutable targets與source-slot編譯仍限制外推。
+
+固定八cohort先完成全部A/A才做A/B，384 samples全保留。local Layer submit六輪改善，但world aggregate成本與control漂移不足以支持全面切換；正式source／產物／API／版本不變，不宣稱本輪新unit/typecheck/build、production/CJS、GPU或FPS認證。完整profile、腳本、raw與限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
