@@ -7490,3 +7490,11 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 - 真正 projection miss 沒有 frontier，visited=0；進入搜尋後不可達仍取實際 distance count。cancel／invalidation 保留原 status 與未發布 result，輸入 snapshot、邏輯 job 註冊／release 與 slot 限額未延後。
 - 量測前加入完整 create-cancel lifecycle cohort，source／實際 minified ESM 固定矩陣有 miss／搜尋前取消收益，同時明列 Node 長／稀疏路徑代價；未修改 project 控制不作因果收益，不由延後 construction 宣稱 allocation／heap／GC 或 fps。
 - 28 項既有 tests、strict／scoped 品質、隔離 build、source／ESM／CJS 的 slot／budget／status／result 原始值與實際 source／dist browser 公開 root 通過。八個零步／部分步進 jobs 仍佔滿八 slots，拒絕第九個，取消／revision 後正常釋放；只改四份 mesh runtime／map，declarations／公開 API／vendor／使用者改動／依賴／版本保留。完整 profiles／矩陣／未驗證邊界見 `../ACCEPTANCE.md` P256，不冒稱 full suite／Safari／實機，不 push。
+
+## P257：不採用 ownership-before-freeze path 發布
+
+隔離候選在組好完整 path 後，先把同一物件登記到 mesh 私有 WeakSet，再於返回前 freeze；不減少 freeze、不削弱 ownership、不新增 API。這與 P242 的 projection winner record 延遲 materialization 不同。正式實作維持 P256 的先 freeze、後登記。
+
+十三固定 cohorts、Node／可見 pinned Chromium 各六輪 ABBA／BAAB 保留所有 samples。目標 miss／長路徑在 Node 為 +2.15%／+1.56%（各五輪較慢），Chromium 為 -1.74%／-1.18%（各僅四輪較快），不足以採用。未修改的 project／搜尋前取消控制不算因果收益，也不捏造 WeakSet／JIT／GC 根因。
+
+source-slot 對照及真實 consumer 探針保留深層 freeze、十二個已擁有結果、二十四個偽造拒絕、十二個 retained snapshots 與兩個 lifecycle histories，涵蓋同步／incremental found、projection miss 及真正 search-unreachable。source／dist 不變；本證據階段未重跑 formal tests／build、正式 ESM／CJS CPU 或公開 root browser 認證。全部原始配對及限制見 [ACCEPTANCE](../ACCEPTANCE.md) P257；不 push／升版。

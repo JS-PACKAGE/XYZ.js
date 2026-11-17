@@ -142,6 +142,8 @@ P255 略過空 tile 的 candidate 迭代，保留 const Map、post-yield lookup 
 
 P256 讓 frontier／parent-edge workspace 等到兩端 projection 成功才建立，保留原本 job slot 註冊與預算；正式 miss／搜尋前取消改善，Node 長路徑代價照錄。P256 defers search workspace until both endpoints project, retaining slot accounting; misses/pre-search cancellation improve, with Node long-route costs disclosed. P256 は両端の投影成功後に探索 workspace を構築し、slot／budget を維持。失敗投影・探索前キャンセルを改善し、Node 長経路の代償も記録。28 tests、source／ESM／CJS／browser root 與全部控制見 [ACCEPTANCE](./ACCEPTANCE.md) P256。不 push／升版。
 
+P257 不採用 path ownership 登記早於 freeze 的候選：Chrome 的 miss／長路徑只在四輪較快，Node 多數輪變慢；不靠未修改控制組的變化宣稱收益。P257 rejects ownership-before-freeze publication: target gains are inconsistent and Node usually regresses. P257 は ownership 登録を freeze より先に移す案を不採用。対象の改善は安定せず、Node は多くの回で悪化。不可變性／偽造拒絕／生命週期與全部 source-slot 配對見 [ACCEPTANCE](./ACCEPTANCE.md) P257；source／dist 保留 P256，不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

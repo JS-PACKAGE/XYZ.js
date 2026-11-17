@@ -6195,3 +6195,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 量測前新增完整 create-cancel lifecycle cohort；source／正式 ESM 各十三 cohorts 六輪 ABBA／BAAB，miss／取消收益與 Node 長／稀疏路徑代價全部保留，不宣稱 Node 所有路徑或未修改 project controls 加速。
 - 28 項既有 tests、strict／scoped 品質、隔離 build、source／ESM／CJS 的八 pending slots／ninth rejection／budget 0／1／取消／替補／失效，以及完整數值／getter／Proxy／budget 與實際 browser 公開 root 對照通過。
 - 只提升四份 mesh runtime／map；declarations、vendor、十一個使用者檔案與公開契約保留。全部矩陣、profile、取捨及未驗證邊界見 `ACCEPTANCE.md` P256，不 push／升版。
+
+## P257：不採用 path ownership-before-freeze 發布順序
+
+- P256 miss profile 的 publish self sample 僅作調查線索；隔離候選只把同一個完整 path 的 private WeakSet.add 移到最外層 Object.freeze 之前，仍在公開返回前 freeze，不減少 freeze 次數或更改欄位。
+- P242 拒絕的是 projection winner record 延遲 materialization，與本次完整 path 的 ownership／freeze 排序不同，未重跑 P242 方案。
+- 固定十三 cohorts、Node／可見 pinned Chromium 各六輪 ABBA／BAAB，保留全部 312 samples/runtime。Node miss／長路徑各五輪變慢，Chrome 各只有四輪改善，不採用；未走 publish 的取消與 project 控制變化不算因果收益。
+- source-slot 數值／getter／Proxy／budget／retained 對照與新增公開 consumer 探針通過：十二個已擁有 path、二十四個偽造拒絕、十二個 retained snapshots、兩個 lifecycle histories，涵蓋 found、projection miss 與真正 search-unreachable 的同步／incremental 結果。
+- 此階段只保存證據文件；正式 source／dist 保留 P256，未重跑 formal tests／build／正式 ESM 或 CJS CPU／browser root 認證。全部矩陣及限制見 `ACCEPTANCE.md` P257，不 push／升版。

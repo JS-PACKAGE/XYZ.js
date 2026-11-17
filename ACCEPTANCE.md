@@ -32400,3 +32400,225 @@ Node inspector interval=100 µs，各 cohort 暖身 16,384，profile 262,144 次
 - 只改 private createSearch workspace 生命周期及四份 mesh runtime／map，jobs Set 註冊／release、公開 API／declarations、package 版本、依賴、輸入／結果所有權、P255／P254／P252 能力及使用者改動保留。README 中／英／日、PLAN、DESIGN、英文／繁中技術文件同步；按功能提交，不 push／升版。
 - 未執行 full suite；未量測 JS allocation 數／retained heap／GC pause、純 constructor／首條冷路徑、CJS CPU、GPU／RAF／CPU submit／呈現 fps、其他 browser／backend、Safari／physical devices 或 OPM unlock／cleanup。profile 的 GC frame 不等於 GC 量測，延後 native state construction 不冒充已證實記憶體／fps 改善，Node 長／稀疏路徑代價不隱藏。
 - 文件格式與相對檔案連結於提交前檢查，歷史 ACCEPTANCE bytes 保留；所有 throwaway modules／profiles／benchmarks 與隔離 build tree 於提交前刪除。
+
+## P257 — Reject ownership-before-freeze path publication (2026-11-17)
+
+### Candidate, contract and decision
+
+The P256 full-miss profile ranked publish as a large self-sample frame (36,534 µs at 100 µs sampling); this ranks investigation, not a WeakSet root cause or unprofiled cost. The isolated candidate changes only publication ordering: construct the identical complete path, add that identity to the private paths WeakSet, then Object.freeze it before returning. All field evaluation, nested freezing, job phases, geometry and numeric operations remain unchanged. No freeze is removed and no brand, wrapper, public API or weakened ownership is introduced. P242 instead deferred winning projection-record materialization, so that already-rejected candidate was not repeated.
+
+Reject this candidate. Node full projection-miss paths regress 2.150914% and long paths regress 1.556566%, each worse in five of six pairs. Chromium improves these targets by only 1.736629% and 1.177068%, each faster in four of six pairs, not a stable target benefit. Short and sparse route results are also mixed. Pre-search cancellation never executes publish yet moves -5.417632% in Node and +4.370580% in Chromium (all six pairs); project controls are unchanged too. These controls do not establish a causal WeakSet/freezing gain, and no JIT/GC explanation is invented. The Chromium triangle control's -50.685921% pair is preserved, not trimmed or selectively rerun.
+
+Canonical source, tests and dist remain at P256 / 56aff69e9. This is evidence-only documentation, not an adopted optimization. Dependencies, public types, vendor, package version 1.23.0 and user-owned work are untouched; no push.
+
+### Reproducible CPU boundary and every paired sample
+
+Current canonical P256 mesh source was independently snapshotted, TypeScript 6.0.3 ES2022-transpiled, with the same freshly snapshotted current PartitionSearch helper and production dependencies on both sides. Candidate files live only in the temporary tree. Node v26.7.0 and pinned Playwright Chromium 153.0.8010.12 darwin/arm64 desktop automation run sequentially, no concurrent build/benchmark. Chromium's document is visible with zero page errors. These are source-slot public-method consumers, not production minified-ESM or CJS CPU measurements.
+
+The fixed thirteen cohorts are single-square inside, empty tile projection, 48×48 quads at radius 0/0.2, outside points, sloped quads, two stacked 24×24 floors, 24×24 split triangles, complete 12×12/32×32 routes, a 32,768-polygon sparse route, full empty-tile projection-miss paths and complete create/cancel lifecycle. Construction/destruction stay outside timing. Warm calls per side are 4,096 projections or empty/sparse/cancel paths and 128 ordinary complete paths. Each of six alternating ABBA/BAAB rounds has two samples/side: 65,536 calls for single/empty/sparse/miss/cancel, 4,096 for other projections, 1,024 short complete paths or 512 long complete paths. Each runtime has 78 cohort-round rows and 312 samples. No selected rerun.
+
+Times below are CPU wall µs/query or complete lifecycle operation, not RAF, GPU, CPU-submit or presentation time. Before/after summaries are medians of six two-sample pair means; changes are medians of six paired percentages (not percentages recomputed from independent medians). Negative is faster. All four raw normalized sample values and outliers follow.
+
+| Runtime  | Cohort            | Before µs  | After µs   | 配對變化 % | 六輪範圍 %         | 較快輪次 |
+| -------- | ----------------- | ---------- | ---------- | ---------- | ------------------ | -------- |
+| Node     | single-inside     | 0.201468   | 0.206318   | 0.3918     | -2.7147 … 4.0857   | 2/6      |
+| Node     | empty48           | 0.108801   | 0.110323   | 1.9351     | -6.2533 … 3.6726   | 2/6      |
+| Node     | quad48-r0         | 5.347310   | 5.316340   | -1.7642    | -3.1233 … 3.0079   | 5/6      |
+| Node     | quad48-r02        | 5.352295   | 5.398313   | 0.6856     | -4.5158 … 4.2522   | 2/6      |
+| Node     | outside48         | 3.737650   | 3.789210   | 1.1869     | -0.8409 … 3.9178   | 3/6      |
+| Node     | slope48           | 5.495074   | 5.533656   | -0.1532    | -1.1163 … 2.3597   | 4/6      |
+| Node     | stacked24         | 10.597346  | 10.473038  | -0.4684    | -3.4780 … 2.8271   | 4/6      |
+| Node     | tri24             | 9.087914   | 9.051661   | -0.0229    | -1.3515 … 0.5718   | 3/6      |
+| Node     | paths12           | 20.618571  | 20.666382  | 0.2355     | -1.2816 … 0.8357   | 2/6      |
+| Node     | paths32           | 276.642049 | 278.730896 | 1.5566     | -0.2774 … 2.0664   | 1/6      |
+| Node     | paths-sparse32768 | 1.781325   | 1.792506   | 0.8031     | -1.2023 … 3.7656   | 2/6      |
+| Node     | paths-empty48     | 0.602078   | 0.610472   | 2.1509     | -0.5981 … 5.6547   | 1/6      |
+| Node     | paths-cancel48    | 0.189614   | 0.179266   | -5.4176    | -21.4125 … -2.8985 | 6/6      |
+| Chromium | single-inside     | 0.186157   | 0.185394   | -1.6313    | -2.0243 … 1.2448   | 4/6      |
+| Chromium | empty48           | 0.093460   | 0.094223   | 0.4167     | -2.4194 … 3.3333   | 3/6      |
+| Chromium | quad48-r0         | 4.870605   | 4.815674   | -1.8369    | -2.4510 … -0.2545  | 6/6      |
+| Chromium | quad48-r02        | 4.901123   | 4.937744   | 1.1142     | -2.4450 … 3.5897   | 2/6      |
+| Chromium | outside48         | 3.424072   | 3.479004   | 1.0658     | -1.0676 … 2.1429   | 1/6      |
+| Chromium | slope48           | 4.949951   | 5.035400   | 0.9854     | -0.7371 … 2.7363   | 2/6      |
+| Chromium | stacked24         | 9.606934   | 9.521484   | -1.0064    | -1.7588 … 0.8986   | 4/6      |
+| Chromium | tri24             | 8.404541   | 8.355713   | -0.9378    | -50.6859 … 1.0219  | 4/6      |
+| Chromium | paths12           | 18.310547  | 18.164062  | -0.5340    | -1.3333 … 1.7370   | 4/6      |
+| Chromium | paths32           | 234.326172 | 232.080078 | -1.1771    | -2.1087 … 1.2777   | 4/6      |
+| Chromium | paths-sparse32768 | 1.621628   | 1.622391   | -0.1423    | -0.5152 … 0.7096   | 3/6      |
+| Chromium | paths-empty48     | 0.539017   | 0.533676   | -1.7366    | -2.2222 … 0.7143   | 4/6      |
+| Chromium | paths-cancel48    | 0.157166   | 0.162506   | 4.3706     | 1.9324 … 6.9652    | 0/6      |
+
+#### Node: all raw samples
+
+| Cohort            | Round | Before 1 µs | Before 2 µs | After 1 µs | After 2 µs | 配對變化 % |
+| ----------------- | ----- | ----------- | ----------- | ---------- | ---------- | ---------- |
+| empty48           | 1     | 0.107830    | 0.107810    | 0.111146   | 0.111382   | 3.1940     |
+| empty48           | 2     | 0.117657    | 0.115699    | 0.108683   | 0.110080   | -6.2533    |
+| empty48           | 3     | 0.104049    | 0.104523    | 0.101778   | 0.104195   | -1.2461    |
+| empty48           | 4     | 0.108739    | 0.110823    | 0.112976   | 0.114650   | 3.6726     |
+| empty48           | 5     | 0.109704    | 0.110670    | 0.114831   | 0.111193   | 2.5636     |
+| empty48           | 6     | 0.105545    | 0.103500    | 0.105408   | 0.106368   | 1.3066     |
+| outside48         | 1     | 3.760050    | 3.726878    | 3.729828   | 3.740153   | -0.2264    |
+| outside48         | 2     | 3.753123    | 3.655741    | 3.642487   | 3.727427   | -0.5257    |
+| outside48         | 3     | 3.702891    | 3.676046    | 3.795695   | 3.779714   | 2.6626     |
+| outside48         | 4     | 4.063782    | 3.808461    | 4.038889   | 4.141775   | 3.9178     |
+| outside48         | 5     | 3.773814    | 3.871908    | 3.853556   | 3.727875   | -0.8409    |
+| outside48         | 6     | 3.628652    | 3.835022    | 3.907288   | 3.750448   | 2.6001     |
+| paths-cancel48    | 1     | 0.188688    | 0.189760    | 0.179478   | 0.183783   | -4.0131    |
+| paths-cancel48    | 2     | 0.180770    | 0.180960    | 0.174816   | 0.174664   | -3.3866    |
+| paths-cancel48    | 3     | 0.195005    | 0.192942    | 0.180864   | 0.180618   | -6.8221    |
+| paths-cancel48    | 4     | 0.184023    | 0.182175    | 0.180624   | 0.174959   | -2.8985    |
+| paths-cancel48    | 5     | 0.186233    | 0.193776    | 0.174304   | 0.172383   | -8.7689    |
+| paths-cancel48    | 6     | 0.254031    | 0.270835    | 0.219895   | 0.192584   | -21.4125   |
+| paths-empty48     | 1     | 0.626966    | 0.588085    | 0.620977   | 0.606763   | 1.0443     |
+| paths-empty48     | 2     | 0.562852    | 0.598230    | 0.584860   | 0.597932   | 1.8698     |
+| paths-empty48     | 3     | 0.622611    | 0.623043    | 0.647750   | 0.668343   | 5.6547     |
+| paths-empty48     | 4     | 0.573484    | 0.590623    | 0.608440   | 0.598778   | 3.7034     |
+| paths-empty48     | 5     | 0.598255    | 0.595008    | 0.612548   | 0.609735   | 2.4321     |
+| paths-empty48     | 6     | 0.617654    | 0.609290    | 0.606865   | 0.612740   | -0.5981    |
+| paths-sparse32768 | 1     | 1.851889    | 1.685318    | 1.774752   | 1.779416   | 0.4795     |
+| paths-sparse32768 | 2     | 1.745813    | 1.725370    | 1.704180   | 1.725271   | -1.2023    |
+| paths-sparse32768 | 3     | 1.715489    | 1.903067    | 1.776885   | 1.806811   | -0.9634    |
+| paths-sparse32768 | 4     | 1.762936    | 1.825156    | 1.913923   | 1.809281   | 3.7656     |
+| paths-sparse32768 | 5     | 1.769714    | 1.731391    | 1.806350   | 1.779977   | 2.4342     |
+| paths-sparse32768 | 6     | 1.816735    | 1.800709    | 1.836133   | 1.822072   | 1.1268     |
+| paths12           | 1     | 21.883586   | 21.124186   | 22.007039  | 21.207031  | 0.4797     |
+| paths12           | 2     | 20.233684   | 20.153238   | 19.963298  | 19.906006  | -1.2816    |
+| paths12           | 3     | 20.192912   | 20.097453   | 20.246379  | 20.100057  | 0.1392     |
+| paths12           | 4     | 20.664429   | 20.846029   | 20.935344  | 20.712850  | 0.3318     |
+| paths12           | 5     | 20.708496   | 20.808838   | 20.717163  | 20.642212  | -0.3805    |
+| paths12           | 6     | 20.412476   | 20.551351   | 20.510295  | 20.795857  | 0.8357     |
+| paths32           | 1     | 281.582764  | 268.355551  | 279.065430 | 269.347248 | -0.2774    |
+| paths32           | 2     | 267.957928  | 267.562580  | 273.236572 | 273.349934 | 2.0664     |
+| paths32           | 3     | 267.730551  | 266.693441  | 272.080811 | 272.799479 | 1.9566     |
+| paths32           | 4     | 282.219482  | 274.410400  | 286.442707 | 280.643229 | 1.8785     |
+| paths32           | 5     | 278.139242  | 286.319580  | 283.228678 | 283.844238 | 0.4631     |
+| paths32           | 6     | 277.569256  | 282.032391  | 281.777426 | 284.733480 | 1.2347     |
+| quad48-r0         | 1     | 5.437917    | 5.438110    | 5.405904   | 5.312042   | -1.4535    |
+| quad48-r0         | 2     | 5.319977    | 5.149892    | 5.563121   | 5.221669   | 3.0079     |
+| quad48-r0         | 3     | 5.208191    | 5.158335    | 5.136912   | 5.014516   | -2.0749    |
+| quad48-r0         | 4     | 6.502431    | 5.863841    | 6.269114   | 5.746694   | -2.8340    |
+| quad48-r0         | 5     | 5.442586    | 5.233398    | 5.355896   | 5.191518   | -1.2043    |
+| quad48-r0         | 6     | 5.384949    | 5.328308    | 5.215637   | 5.163015   | -3.1233    |
+| quad48-r02        | 1     | 5.423930    | 5.250875    | 5.395844   | 5.293945   | 0.1404     |
+| quad48-r02        | 2     | 5.357137    | 5.175181    | 5.303314   | 5.423431   | 1.8460     |
+| quad48-r02        | 3     | 5.367696    | 5.226095    | 5.301799   | 5.223877   | -0.6430    |
+| quad48-r02        | 4     | 7.117157    | 6.076833    | 6.513723   | 6.084452   | -4.5158    |
+| quad48-r02        | 5     | 5.419891    | 5.314484    | 5.523783   | 5.342723   | 1.2309     |
+| quad48-r02        | 6     | 5.299896    | 5.442485    | 5.591410   | 5.607758   | 4.2522     |
+| single-inside     | 1     | 0.219859    | 0.208616    | 0.219144   | 0.204156   | -1.2078    |
+| single-inside     | 2     | 0.198451    | 0.198870    | 0.200462   | 0.197521   | 0.1666     |
+| single-inside     | 3     | 0.195918    | 0.194963    | 0.197628   | 0.195665   | 0.6171     |
+| single-inside     | 4     | 0.226734    | 0.221288    | 0.222539   | 0.213320   | -2.7147    |
+| single-inside     | 5     | 0.199148    | 0.204261    | 0.216459   | 0.203432   | 4.0857     |
+| single-inside     | 6     | 0.201951    | 0.200510    | 0.200688   | 0.204694   | 0.7257     |
+| slope48           | 1     | 5.524882    | 5.509115    | 5.471934   | 5.458811   | -0.9358    |
+| slope48           | 2     | 5.487875    | 5.305135    | 5.442261   | 5.230265   | -1.1163    |
+| slope48           | 3     | 5.364970    | 5.392344    | 5.493296   | 5.263133   | -0.0082    |
+| slope48           | 4     | 5.759176    | 5.612834    | 5.808868   | 5.817770   | 2.2391     |
+| slope48           | 5     | 5.658671    | 5.578715    | 5.692973   | 5.510905   | -0.2982    |
+| slope48           | 6     | 5.569346    | 5.376953    | 5.655762   | 5.548838   | 2.3597     |
+| stacked24         | 1     | 10.311717   | 10.767334   | 10.356710  | 10.039988  | -3.2371    |
+| stacked24         | 2     | 10.473470   | 10.530009   | 10.066925  | 10.206055  | -3.4780    |
+| stacked24         | 3     | 10.330892   | 10.198659   | 10.302155  | 10.305878  | 0.3823     |
+| stacked24         | 4     | 11.018270   | 10.965892   | 11.084279  | 11.521393  | 2.8271     |
+| stacked24         | 5     | 10.645172   | 10.835927   | 10.557637  | 10.726481  | -0.9170    |
+| stacked24         | 6     | 10.663300   | 10.647034   | 10.696310  | 10.609792  | -0.0199    |
+| tri24             | 1     | 9.252726    | 8.939911    | 9.001984   | 8.944783   | -1.3515    |
+| tri24             | 2     | 8.763875    | 8.657054    | 8.709717   | 8.629618   | -0.4684    |
+| tri24             | 3     | 8.864777    | 8.693583    | 8.790578   | 8.856964   | 0.5079     |
+| tri24             | 4     | 9.237111    | 9.173737    | 9.309021   | 9.056773   | -0.2447    |
+| tri24             | 5     | 9.122030    | 9.036987    | 9.148875   | 9.113983   | 0.5718     |
+| tri24             | 6     | 9.201711    | 9.021901    | 9.304393   | 8.955485   | 0.1990     |
+
+#### Chromium: all raw samples
+
+| Cohort            | Round | Before 1 µs | Before 2 µs | After 1 µs | After 2 µs | 配對變化 % |
+| ----------------- | ----- | ----------- | ----------- | ---------- | ---------- | ---------- |
+| empty48           | 1     | 0.099182    | 0.100708    | 0.100708   | 0.099182   | -0.0000    |
+| empty48           | 2     | 0.091553    | 0.091553    | 0.093079   | 0.096130   | 3.3333     |
+| empty48           | 3     | 0.097656    | 0.091553    | 0.090027   | 0.094604   | -2.4194    |
+| empty48           | 4     | 0.093079    | 0.093079    | 0.096130   | 0.094604   | 2.4590     |
+| empty48           | 5     | 0.091553    | 0.096130    | 0.096130   | 0.091553   | -0.0000    |
+| empty48           | 6     | 0.091553    | 0.091553    | 0.093079   | 0.091553   | 0.8333     |
+| outside48         | 1     | 3.442383    | 3.491211    | 3.491211   | 3.515625   | 1.0563     |
+| outside48         | 2     | 3.466797    | 3.369141    | 3.515625   | 3.417969   | 1.4286     |
+| outside48         | 3     | 3.417969    | 3.393555    | 3.540039   | 3.344727   | 1.0753     |
+| outside48         | 4     | 3.393555    | 3.442383    | 3.466797   | 3.515625   | 2.1429     |
+| outside48         | 5     | 3.442383    | 3.515625    | 3.466797   | 3.540039   | 0.7018     |
+| outside48         | 6     | 3.466797    | 3.393555    | 3.466797   | 3.320313   | -1.0676    |
+| paths-cancel48    | 1     | 0.158691    | 0.154114    | 0.160217   | 0.160217   | 2.4390     |
+| paths-cancel48    | 2     | 0.161743    | 0.158691    | 0.166321   | 0.167847   | 4.2857     |
+| paths-cancel48    | 3     | 0.163269    | 0.157166    | 0.169373   | 0.167847   | 5.2381     |
+| paths-cancel48    | 4     | 0.158691    | 0.157166    | 0.163269   | 0.158691   | 1.9324     |
+| paths-cancel48    | 5     | 0.154114    | 0.154114    | 0.163269   | 0.158691   | 4.4554     |
+| paths-cancel48    | 6     | 0.154114    | 0.152588    | 0.164795   | 0.163269   | 6.9652     |
+| paths-empty48     | 1     | 0.549316    | 0.529480    | 0.540161   | 0.517273   | -1.9802    |
+| paths-empty48     | 2     | 0.553894    | 0.544739    | 0.531006   | 0.543213   | -2.2222    |
+| paths-empty48     | 3     | 0.543213    | 0.534058    | 0.531006   | 0.529480   | -1.5581    |
+| paths-empty48     | 4     | 0.540161    | 0.527954    | 0.532532   | 0.543213   | 0.7143     |
+| paths-empty48     | 5     | 0.546265    | 0.569153    | 0.540161   | 0.553894   | -1.9152    |
+| paths-empty48     | 6     | 0.531006    | 0.521851    | 0.534058   | 0.518799   | 0.0000     |
+| paths-sparse32768 | 1     | 1.640320    | 1.586914    | 1.623535   | 1.593018   | -0.3310    |
+| paths-sparse32768 | 2     | 1.640320    | 1.617432    | 1.629639   | 1.611328   | -0.5152    |
+| paths-sparse32768 | 3     | 1.612854    | 1.612854    | 1.617432   | 1.631165   | 0.7096     |
+| paths-sparse32768 | 4     | 1.628113    | 1.632690    | 1.646423   | 1.625061   | 0.3276     |
+| paths-sparse32768 | 5     | 1.617432    | 1.673889    | 1.644897   | 1.647949   | 0.0464     |
+| paths-sparse32768 | 6     | 1.612854    | 1.615906    | 1.614380   | 1.600647   | -0.4253    |
+| paths12           | 1     | 20.019531   | 18.457031   | 19.726562  | 18.261719  | -1.2690    |
+| paths12           | 2     | 18.066406   | 17.968750   | 17.871094  | 18.457031  | 0.8130     |
+| paths12           | 3     | 18.359375   | 18.261719   | 18.066406  | 18.261719  | -0.8000    |
+| paths12           | 4     | 20.996094   | 18.359375   | 21.386719  | 18.652344  | 1.7370     |
+| paths12           | 5     | 17.871094   | 18.554688   | 18.261719  | 18.066406  | -0.2681    |
+| paths12           | 6     | 18.261719   | 18.359375   | 18.066406  | 18.066406  | -1.3333    |
+| paths32           | 1     | 238.671875  | 235.156250  | 232.226562 | 231.640625 | -2.1022    |
+| paths32           | 2     | 241.015625  | 244.531250  | 240.234375 | 240.429688 | -1.0056    |
+| paths32           | 3     | 242.382813  | 239.257813  | 236.523438 | 234.960937 | -2.1087    |
+| paths32           | 4     | 231.054688  | 227.539063  | 231.054687 | 233.398438 | 1.2777     |
+| paths32           | 5     | 232.617188  | 230.859375  | 230.078125 | 227.148437 | -1.3485    |
+| paths32           | 6     | 232.226562  | 226.757813  | 228.906250 | 230.078125 | 0.0000     |
+| quad48-r0         | 1     | 5.126953    | 5.175781    | 5.078125   | 5.053711   | -1.6588    |
+| quad48-r0         | 2     | 4.760742    | 4.833984    | 4.785156   | 4.785156   | -0.2545    |
+| quad48-r0         | 3     | 4.956055    | 4.833984    | 4.882813   | 4.809570   | -0.9975    |
+| quad48-r0         | 4     | 4.907227    | 4.785156    | 4.785156   | 4.711914   | -2.0151    |
+| quad48-r0         | 5     | 4.956055    | 5.004883    | 4.833984   | 4.882813   | -2.4510    |
+| quad48-r0         | 6     | 4.833984    | 4.858398    | 4.687500   | 4.809570   | -2.0151    |
+| quad48-r02        | 1     | 5.175781    | 4.931641    | 5.029297   | 5.151367   | 0.7246     |
+| quad48-r02        | 2     | 4.907227    | 4.833984    | 4.980469   | 4.931641   | 1.7544     |
+| quad48-r02        | 3     | 4.833984    | 5.029297    | 4.931641   | 4.760742   | -1.7327    |
+| quad48-r02        | 4     | 4.736328    | 4.785156    | 4.931641   | 4.931641   | 3.5897     |
+| quad48-r02        | 5     | 5.078125    | 4.907227    | 4.907227   | 4.833984   | -2.4450    |
+| quad48-r02        | 6     | 4.931641    | 4.809570    | 4.907227   | 4.980469   | 1.5038     |
+| single-inside     | 1     | 0.196838    | 0.190735    | 0.190735   | 0.190735   | -1.5748    |
+| single-inside     | 2     | 0.181580    | 0.180054    | 0.178528   | 0.177002   | -1.6878    |
+| single-inside     | 3     | 0.186157    | 0.193787    | 0.186157   | 0.186157   | -2.0080    |
+| single-inside     | 4     | 0.187683    | 0.189209    | 0.184631   | 0.184631   | -2.0243    |
+| single-inside     | 5     | 0.180054    | 0.184631    | 0.181580   | 0.184631   | 0.4184     |
+| single-inside     | 6     | 0.178528    | 0.189209    | 0.186157   | 0.186157   | 1.2448     |
+| slope48           | 1     | 5.151367    | 4.980469    | 5.102539   | 5.078125   | 0.4819     |
+| slope48           | 2     | 5.004883    | 4.858398    | 5.078125   | 4.980469   | 1.9802     |
+| slope48           | 3     | 5.004883    | 5.175781    | 5.126953   | 5.004883   | -0.4796    |
+| slope48           | 4     | 4.882813    | 4.956055    | 5.004883   | 4.980469   | 1.4888     |
+| slope48           | 5     | 4.956055    | 4.858398    | 5.053711   | 5.029297   | 2.7363     |
+| slope48           | 6     | 5.004883    | 4.931641    | 4.931641   | 4.931641   | -0.7371    |
+| stacked24         | 1     | 9.912109    | 9.716797    | 9.765625   | 9.667969   | -0.9950    |
+| stacked24         | 2     | 9.692383    | 9.497070    | 9.448242   | 9.545898   | -1.0178    |
+| stacked24         | 3     | 9.765625    | 9.667969    | 9.521484   | 9.570312   | -1.7588    |
+| stacked24         | 4     | 9.667969    | 9.570313    | 9.350586   | 9.594727   | -1.5228    |
+| stacked24         | 5     | 9.570313    | 9.448242    | 9.594727   | 9.594727   | 0.8986     |
+| stacked24         | 6     | 9.399414    | 9.521484    | 9.570312   | 9.423828   | 0.3871     |
+| tri24             | 1     | 8.496094    | 8.447266    | 8.471680   | 8.300781   | -1.0086    |
+| tri24             | 2     | 8.496094    | 8.398438    | 8.374023   | 8.374023   | -0.8671    |
+| tri24             | 3     | 8.349609    | 8.349609    | 8.251953   | 8.178711   | -1.6082    |
+| tri24             | 4     | 25.537109   | 8.276367    | 8.325195   | 8.349609   | -50.6859   |
+| tri24             | 5     | 8.325195    | 8.398437    | 8.520508   | 8.374023   | 1.0219     |
+| tri24             | 6     | 8.325195    | 8.203125    | 8.422852   | 8.203125   | 0.5908     |
+
+### Executed consumer verification
+
+- Existing temporary source-slot comparison probes passed against the candidate: 3,341 seeded projections, 325 complete paths and twelve getter histories; 300 coordinate-domain projections including tile coordinate 4,294,967,296, three lifecycle histories and 192 interleaved budget calls; bit-31/63 membership with fifteen/nine unique candidates; seventy-five reentrant comparisons with 310 retained snapshots and identical property-read counts; owned/frozen endpoint values.
+- Frozen-array species Proxy histories match exactly at radii 0/0.2/0 (4,385 / 6,724 / 4,385 reads each side). Twenty-four explicit-link paths cover zero and positive center costs, directed reverse unreachability, radius and epoch changes. Another 128 sloped paths cover four radii, fifteen revision changes and sixteen retained snapshots.
+- Pre-search proof preserves two empty/valid histories, eight simultaneous pending jobs, ninth-job rejection, zero/one budgets, unchanged cancellation expansion counts, replacement and invalidation cleanup. Logical slot ownership remains independent of deferred search workspace.
+- A new throwaway real consumer probe compares synchronous and incrementally stepped found, projection-miss and actual search-unreachable results. Across both variants it checks twelve owned paths, twenty-four rejected forged objects, twelve retained snapshots and two lifecycle histories. Every published object in those path trees is frozen; Reflect mutation/deletion attempts fail without altering values; foreign-mesh ownership fails; both kinds of unreachable paths are legitimately owned; the search-phase unreachable path retains visited > 0, while projection misses retain zero. Revision changes and destroy invalidate current-path checks, and snapshots remain unchanged. Own fields, descriptors, complete values and incremental expansion counts match baseline. No mocked result or private-field interception is used.
+- Formal tests/typecheck/lint/build and production source/dist public-root browser probes were not rerun because no implementation is adopted. Prior P256 results retain their historical scope, not re-certified here. No CJS CPU, heap/allocation count, GC pause, frame-rate, Safari, physical-device, three-backend or audio certification is claimed.
+- Documentation-only finishing checks: Prettier for six documents, relative file links (not anchor certification), exact historical ACCEPTANCE prefix preservation, temporary-tree cleanup and an empty-index/exact six-document commit allowlist.

@@ -6340,3 +6340,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 未建立 frontier 的真正 projection miss 可發布 visited=0；進入搜尋後不可達仍取實際 distance.size，不把 invalidation／cancel 包成假 unreachable。輸入 snapshot、兩端 projection、原始結果與 retained ownership 不變。
 - slot 仍由 jobs Set 在 createSearch 完成時註冊、終止時刪除，與 workspace 是否已配置無關；八個零步／一步 pending jobs、ninth rejection、取消／替補／revision cleanup 的 module 對照一致。
 - 正式 ESM 的 miss／建立後取消有收益，但 Node 長／稀疏路徑仍有代價，未修改 project 控制不作因果收益；不由 native construction 延後推定 JS allocation／heap／GC 或 fps。全部 source／ESM／CJS、browser root 與固定矩陣見 `ACCEPTANCE.md` P256。
+
+## P257：維持先 freeze、再記錄 path ownership
+
+- 正式 publish 仍先凍結完整 path，再加入私有 WeakSet；isPathCurrent 仍要求 mesh 未 destroy、revision 相同且物件由該 mesh 發出，不能以 shape 或 frozen 狀態取代真實 ownership。
+- 隔離候選不移除任何 freeze，不提早向公開 caller 發布可變物件，也不增加 brand／wrapper／別名；只改最外層 freeze 與 ownership 登記的 native operation 順序，但不足以提供穩定 CPU 收益，因此不進正式架構。
+- source-slot 探針核對 found／兩種 unreachable、同步／incremental、深層不可變性、外來／複製物件拒絕、revision／destroy 失效與保留快照；數值、getter／Array-species Proxy 讀取及 primitive budget 對照亦通過。
+- 未走 publish 的 project／取消控制仍有時序差異，不能歸因於 WeakSet 或推定 JIT／GC 根因；不宣稱 allocation、heap、fps 或其他 runtime 改善。全部配對與未驗證邊界見 `ACCEPTANCE.md` P257。
