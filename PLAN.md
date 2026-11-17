@@ -6150,3 +6150,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 完整短／長路徑的 Node／Chromium 六輪配對皆較快；較長稀疏控制 Node 混合、Chromium 改善，不宣稱所有路徑或未修改的 projection 皆加速。
 - 28 項既有 targeted tests、scoped 品質檢查、隔離 production build、canonical／ESM／CJS 數值與工作預算及正式 browser source／dist root 驗證通過。只提升四個 runtime／map outputs，declarations 與使用者檔案不變。
 - 全部矩陣、較長稀疏樣本、既有 Vite 動態 import warning 與未驗證範圍見 `ACCEPTANCE.md` P250；按功能提交，不 push／升版。
+
+## P251：拒絕 lazy current-distance 快取
+
+- 原型依非負 edge 成本的不變量，在單次 expansion 首次需要時計入 current distance，之後重用；不改首次讀取順序、算式、預算或零值語意。
+- Node 有小幅方向性改善，Chromium 短／長路徑只有半數配對較快，未超出控制組波動形成穩定收益，故不採用。高 index 稀疏控制事先拉長，不挑選 round 或隱藏離群值。
+- 原型數值、getter、retained snapshot、座標域、交錯預算與 lifecycle 對照通過；正式 source／tests／dist 維持 P250，本次未重跑 build／unit 或 public-root。只提交六份文件，完整矩陣及限制見 `ACCEPTANCE.md` P251。

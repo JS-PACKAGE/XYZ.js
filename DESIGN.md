@@ -6299,3 +6299,9 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - target Region 在 disabled／height 過濾後才讀取，供空區域判定與 portal 使用；current Region 在首個需要 portal 的 edge 延遲取得。current 參照在下一次 expansion 重新初始化，不能沿用前一個 polygon 的 region。
 - 保留跨節點的 job-local Map、跨工作隔離、首次計算順序、portal／hypot3 與 distance／score 算式、逐 primitive 邊界及 P247 retained winner 所有權；無公開 API 或 declarations 變更。
 - Node／Chromium 完整路徑量測支持採用，稀疏及 projection 控制不作普遍收益宣稱；正式 source、ESM、CJS 與 browser 公開 root 的結果／預算對照見 `ACCEPTANCE.md` P250。
+
+## P251：保留直接 current-distance 讀取
+
+- 非負 hypot3 成本讓 current 的 distance 在一次 neighbor relaxation 期間不會被改善，lazy local 加上 `??=` 也能保留第一次讀取時機與零值語意；原型數值與工作預算對照一致。
+- 但完整路徑 browser 時間只有小幅、混合方向差異，不能由不變量推定 CPU 收益。因此不增加該 scalar-cache local，仍保留 P250 的 region 參照重用及既有距離讀取。
+- 不對未量測的 boxing、heap／GC 或 JIT 成因下結論；只記錄全部控制與拒絕決策，不改正式 source／產物。數據見 `ACCEPTANCE.md` P251。

@@ -30214,3 +30214,37 @@ Node 稀疏結果混合、不宣稱改善；Chromium 六輪較快。這是單獨
 - 從 HEAD 建立隔離 production build，只覆入本階段 mesh.ts，執行 tsc／minify／vendor copy／CJS build；與隔離 HEAD dist 完整比對後，只有 mesh.js／map 與 mesh.cjs／map 四個 outputs 改變並提升回工作樹。declarations 逐位元組不變，十一個使用者自有 source／dist 檔的雜湊在前後一致，沒有覆寫或暫存使用者改動。
 - 六份文件同步，歷史 ACCEPTANCE 位元組前綴保留；只提交此 source、四個 outputs 與六份文件，不 push／升版。自有暫存腳本、isolated build、profiles 與原型在提交前刪除。
 - 沒有執行 full suite／完整 browser backend 矩陣、Safari 或實機，也未量測 heap／GC、GPU 完成時間、呈現 fps／全幀。採用理由限於完整路徑 CPU 量測與不增加容器的局部 lookup 重用。
+
+## P251：拒絕單次 expansion 的 lazy current-distance 快取（2026-11-17）
+
+- 基準為 P250（`7f9705b5e`）。原型在每次 expansion 宣告 `number | undefined` local，第一次通過 filters／portal 後以 `??= search.distance.get(current)!` 保存距離，之後重用。hypot3 成本非負，neighbor relaxation 不會降低 current 的距離；首次讀取與算式順序不變，零值不被誤當成未初始化，也沒有為空鄰居或全部跳過的情況預先查表。
+- **不採用**：Node 短／長路徑各只有小幅方向性改善，Chromium 只有三輪較快、收益接近未修改控制組的波動；少查表不等於已證實的 CPU 收益。正式 source／tests／dist 保留 P250，不新增 scalar-cache 狀態或 runtime 依賴，不推定退步／雜訊成因。
+
+### 完整配對 CPU 矩陣
+
+保留十一種 fixture，Node 與 pinned Chromium 153.0.8010.12（darwin/arm64）各六輪 ABBA／BAAB、每 variant 每輪兩次：各 66 paired rows／264 timed samples。都是完整 NavigationMesh3D 方法模組搭配正式依賴，不是 Map microbenchmark；建構與暖身不計時，量測時無其他助理 build／test／profile。browser visible、pageerror 為空，server／browser 在 finally 關閉。
+
+依 P250 的 clock-granularity 觀察，**量測前固定**將混合矩陣中的高 index 稀疏控制 sample 拉長至 65,536 queries、暖身 4,096；其他 sample 不變（single／empty 65,536、其餘 projections 4,096、paths12 1,024、paths32 512）。未重跑或挑選特定 round，保留全部離群值。
+
+| Case              | Node µs/query 前→後 | 配對 Δ 中位數 | 六輪 Δ 範圍   | Chromium µs/query 前→後 | 配對 Δ 中位數 | 六輪 Δ 範圍    |
+| ----------------- | ------------------- | ------------- | ------------- | ----------------------- | ------------- | -------------- |
+| single-inside     | 0.181 → 0.181       | -0.18%        | -1.38%…94.83% | 0.166 → 0.172           | -0.70%        | -4.84%…174.54% |
+| empty48           | 0.117 → 0.117       | -0.59%        | -1.24%…1.31%  | 0.105 → 0.105           | 1.45%         | -1.45%…2.94%   |
+| quad48-r0         | 4.787 → 4.752       | -0.86%        | -2.50%…63.45% | 4.547 → 4.401           | -2.55%        | -4.21%…-1.12%  |
+| quad48-r02        | 4.792 → 4.765       | -0.68%        | -1.98%…0.33%  | 4.468 → 4.492           | 0.28%         | -4.33%…2.22%   |
+| outside48         | 3.415 → 3.388       | -0.87%        | -7.76%…0.67%  | 3.082 → 3.076           | -0.79%        | -2.28%…0.80%   |
+| slope48           | 4.940 → 4.922       | -0.79%        | -1.40%…1.77%  | 4.437 → 4.468           | 1.11%         | -0.55%…14.25%  |
+| stacked24         | 9.432 → 9.381       | -0.91%        | -7.17%…53.09% | 8.624 → 8.728           | 1.50%         | 0.85%…6.90%    |
+| tri24             | 8.153 → 8.127       | -0.57%        | -4.88%…1.26%  | 7.507 → 7.465           | 0.75%         | -1.60%…40.97%  |
+| paths12           | 19.834 → 19.516     | -1.23%        | -5.30%…2.12%  | 17.090 → 17.236         | -0.14%        | -2.27%…7.23%   |
+| paths32           | 295.153 → 291.726   | -1.01%        | -15.53%…2.52% | 248.975 → 246.582       | -0.66%        | -3.17%…1.53%   |
+| paths-sparse32768 | 1.637 → 1.616       | 0.13%         | -13.83%…1.69% | 1.471 → 1.448           | -1.58%        | -39.65%…2.33%  |
+
+前後欄是六個 pair-mean 各自的中位數；百分比為每輪先將兩次平均後計算 Δ，再取六輪中位數，不由前後欄相除重建。Node 短／長路徑各五輪較快，Chromium 各三輪；長稀疏控制也各三輪較快，未見穩定普遍收益。未修改的 projection 控制同樣有正負變化與大幅離群值，不能歸因於 distance-cache 行為；不以較少 getter／lookup 次數或較快單輪作採用理由。
+
+### 原型行為與驗證範圍
+
+- before／after 對照通過：2,816 seeded projections、192 完整 paths、10 getter histories；300 座標域 projections、3 active-query lifecycle histories、192 次交錯 steps，保留 0／1／2／7 primitive 預算、結果、revision 與 slot cleanup。
+- bit 31／63 的 15／9 unique-candidate 控制、75 次 getter reentry 與 310 retained snapshots，以及獨立 frozen 起終點 consumer 均一致；原始 Number／own values 比對，不使用容差。
+- 這是未進入正式程式的私有原型：沒有本次 canonical／發佈產物提升、public-root 重新驗證、build／typecheck／unit／source lint，亦未量測 heap／GC、GPU／呈現 fps、Safari、三 backend 或實機。P250 的既有通過記錄不算成本次結果。
+- 只更新六份文件，README 中／英／日同步，格式與相對檔案連結檢查，歷史驗收位元組前綴保留；刪除自有暫存原型／腳本後按階段提交，不 push／升版，不含使用者既有改動。

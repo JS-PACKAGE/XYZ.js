@@ -7451,3 +7451,7 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 - disabled／height 過濾與首次計算順序不變；portal、distance／score 算式、primitive 預算、revision invalidation 與 P247 clone-on-retention 契約維持。
 - Node／Chromium 的完整短／長路徑六輪配對皆較快；較長高 index 稀疏控制在 Node 混合、Chromium 改善，不宣稱所有路徑或未修改 projection 加速。初始完整矩陣與獨立較長控制均保留於 `../ACCEPTANCE.md` P250。
 - 既有 28 項 targeted tests、typecheck／scoped lint／format、隔離 production build、canonical／ESM／CJS 對照與實際 source／dist browser 公開入口驗證通過。只改四個 mesh runtime／map 產物，declarations、使用者檔案、依賴與版本不變；不宣稱 full suite、heap／GC、GPU／呈現 fps、Safari 或實機認證。
+
+## P251：不採用 lazy current-distance 快取
+
+私有原型依非負 edge 成本，在單次 expansion 重用 current distance，保留首次讀取時機與零值；數值、快照、getter、lifecycle 及 primitive 預算對照一致。但 Node 的小幅方向性改善與 Chromium 混合配對不足以支持穩定收益，因此正式程式維持 P250。高 index 稀疏樣本事先拉長，全部 rounds／離群值保留於 `../ACCEPTANCE.md` P251。本階段只更新六份文件，未重跑 canonical／build／unit／public-root，也未量測 heap／GC、GPU／呈現 fps、Safari 或實機，不升版、不 push。

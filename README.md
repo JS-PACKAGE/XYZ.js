@@ -130,6 +130,8 @@ P248 不採用贏家暫存的所有權轉移：雖可省略 clone 並保持快�
 
 P250 在單次 navmesh expansion 內重用固定的 current／target regions，省去重複 lookup，但保留每個 job 的獨立 Map。完整短／長路徑的 Node／Chromium 配對皆有收益，稀疏控制與完整限制見 [ACCEPTANCE](./ACCEPTANCE.md) P250。P250 reuses stable regions within each expansion, retaining query-local Maps; complete short/long paths improve in paired Node/Chromium runs, with sparse controls documented. P250 は expansion 内の固定 region を再利用し、job ごとの Map を維持。短・長経路の改善と疎な検索の対照を実測。28 項既有測試與 source／ESM／CJS／browser root 對照通過；版本不變、不 push。
 
+P251 不採用 lazy current-distance 快取：完整路徑的 browser 改善太小且配對混合，保留 P250，不以少一次 lookup 當成收益。P251 rejects lazy current-distance caching: small, mixed full-path browser results do not justify added state; P250 remains unchanged. P251 は current-distance の遅延キャッシュを不採用：経路全体の browser 改善が小さく不安定なため P250 を維持。較長稀疏控制、全部數據與未重驗範圍見 [ACCEPTANCE](./ACCEPTANCE.md) P251。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
