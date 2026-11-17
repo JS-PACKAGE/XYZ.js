@@ -7792,3 +7792,10 @@ The private helper writes a borrowed candidate into a required caller-owned outp
 ## P248: Rejected retained scratch ownership transfer
 
 A prototype adopts each winning output directly and clears scratch before reuse, avoiding clone while preserving values, reentry, endpoint ownership and snapshots. Ordinary positive-radius Node projection regresses 3.65%, while Chromium changes only -0.14%; small controls do not justify added lifetime logic. Source/tests/dist retain P247's explicit clone-on-retention rule. No fresh build/public-root or allocation/heap/FPS claim. See [ACCEPTANCE.md](../ACCEPTANCE.md) for all 54 pairs and exact scope.
+
+## P249: Full-path profiling; rejected query-local region array
+
+- Profiling complete short and long `findPath` calls ranked the per-search region wrapper among the main self-time frames. Sample attribution is not an isolated measurement of Map overhead.
+- A private prototype replaced the nonzero-radius query-local Map with a lazily populated numeric array, preserving cache lifetime, formulas, zero-radius behavior, and bounded primitive scheduling. It did not preallocate storage for every polygon.
+- Paired Node/Chromium runs retained all projection controls and added long paths and a large mesh that visits only its final two polygon indices. Small short-path gains did not offset unstable long-path results and slower sparse high-index queries; the prototype was rejected without density special cases.
+- Exact numerical, getter, retained-snapshot, coordinate-domain, interleaved-budget, and lifecycle comparisons passed for the prototype. Production source, tests, distribution, and version remain unchanged; this documentation-only phase did not rerun build/typecheck/unit/source-lint checks or certify heap/GC, GPU/frame rate, Safari, or physical devices. Full evidence is in `../ACCEPTANCE.md`, P249.

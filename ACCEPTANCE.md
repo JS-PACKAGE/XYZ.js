@@ -30114,3 +30114,52 @@ Browser visible with empty page errors, no concurrent assistant build/test/profi
 The isolated prototype matches the unchanged baseline for 2,304 projections, 64 paths and eight getter traces; 300 coordinate-domain projections, three active-query lifecycle histories and 192 interleaved steps; signed-bit/word boundary counts 15 /9; 75 reentrant getter comparisons with 310 retained snapshots; and frozen start [1.2,0,1.2] /goal [9.2,0,7.2] endpoint consumers. Getter counts 21/17/25/9/3, coordinates, distance/revision/candidate metadata, owned snapshots, enabled/destroy/reentry behavior, primitive budgets and slot cleanup agree. Correctness alone does not establish a CPU gain.
 
 No canonical code/test edit, permanent test, artifact promotion, fresh full build/full suite or public source/dist rerun is needed or claimed for the rejected ownership-transfer prototype. Six docs record it, README zh/en/ja synchronized; format/relative-file links and historical ACCEPTANCE prefix checked. All temporary modules/workloads/profiles and browser/server resources removed before a six-doc-only commit, excluding user changes. No push/version bump.
+
+## P249：完整 findPath profile；拒絕 query-local region 索引陣列（2026-11-17）
+
+### 範圍與判定
+
+- 正式基準為 P248（`72f54e8a6`；引擎實作仍是 P247）。本階段**不採用原型，只更新六份文件**；source、tests、dist 與套件版本不變，未推送。
+- 原型只把 createSearch 內非零半徑的 query-local `Map<number, Region>` 改為延遲填入的 `(Region | undefined)[]`，保留零半徑分支、cache lifetime、逐 primitive 控制流程與所有算式；沒有預先配置整張 mesh、共享 cache 或密度特判。
+- 不因短路徑略快就接受：長路徑不穩定，高 index／少量訪問控制組退步。正式程式保留 query-local Map；未把 profile 排名或較少 Map 呼叫當成已證實的收益。
+
+### 完整路徑 sampling profile
+
+先以目前正式實作量測完整 findPath，不以 projection-only 取代路徑。Node inspector 以 100 µs sampling interval，短路徑暖身 2,048 次、量測 16,384 次；長路徑暖身 128 次、量測 1,024 次。暖身與量測累計 cost／waypoint sink 均有限。
+
+| Case    | 完整查詢數 | region wrapper self time（ms） | 占整份 profile sampled time |
+| ------- | ---------- | ------------------------------ | --------------------------- |
+| paths12 | 16,384     | 38.552                         | 11.37%                      |
+| paths32 | 1,024      | 53.846                         | 16.64%                      |
+
+region wrapper 在兩個 cohort 都是主要 self-time frame，因此選這個最小資料結構原型；sampling 歸屬不等於 Map 的獨立成本，也不作為前後效能數據。長路徑的 heap take／offer 也在主要 frame 中；沒有先假設 hypot3 或 smoothing 是最大熱點。
+
+### 配對 CPU 結果
+
+Node 與 pinned Chromium 153.0.8010.12（darwin/arm64）各六輪 ABBA／BAAB，每格每輪兩次。每個 runtime 66 個配對列、264 個 timed samples；計時時沒有其他助理 build／test／profile 工作。fixture 建立與暖身均不在計時內，瀏覽器頁面 visibility 為 visible、pageerror 為空。
+
+既有八種 projection 控制組保留原輸入；paths12 是 12×12 quads、終點約 (9.2, 7.2)，paths32 是 32×32 quads、終點約 (61.2, 59.2)，皆八組起終點。另建 32,768 polygons 的控制組，前 32,766 個彼此分離，只有最後兩個相連，查詢只訪問 index 32,766／32,767；不是以訪問節點數等於總 mesh 大小的場景代替稀疏行為。每次 sample 分別是：single／empty 65,536 projections，其餘 projection 4,096；短路徑 1,024、長路徑 512、稀疏路徑 2,048 次。
+
+| Case              | Node µs/query 前→後 | 配對 Δ 中位數 | 六輪 Δ 範圍   | Chromium µs/query 前→後 | 配對 Δ 中位數 | 六輪 Δ 範圍   |
+| ----------------- | ------------------- | ------------- | ------------- | ----------------------- | ------------- | ------------- |
+| single-inside     | 0.178 → 0.178       | 0.46%         | -2.90%…22.18% | 0.164 → 0.163           | -1.39%        | -2.33%…1.41%  |
+| empty48           | 0.117 → 0.117       | -0.95%        | -4.68%…4.06%  | 0.104 → 0.103           | -0.37%        | -2.21%…0.00%  |
+| quad48-r0         | 4.765 → 4.732       | -0.70%        | -8.30%…64.04% | 4.205 → 4.309           | 2.18%         | 0.27%…29.94%  |
+| quad48-r02        | 4.760 → 4.759       | 0.10%         | -0.92%…18.00% | 4.303 → 4.443           | 3.15%         | 2.54%…18.08%  |
+| outside48         | 3.365 → 3.380       | 0.50%         | -22.89%…3.26% | 3.003 → 3.101           | 2.78%         | 0.40%…4.10%   |
+| slope48           | 4.898 → 4.878       | -0.18%        | -0.46%…3.82%  | 4.401 → 4.480           | 1.80%         | 0.26%…2.52%   |
+| stacked24         | 9.364 → 9.445       | 1.29%         | -0.21%…8.06%  | 8.484 → 8.649           | 2.31%         | 1.72%…4.10%   |
+| tri24             | 8.131 → 8.160       | 2.07%         | -1.51%…71.82% | 7.300 → 7.501           | 2.76%         | 2.01%…3.87%   |
+| paths12           | 20.517 → 19.606     | -4.30%        | -7.89%…1.34%  | 17.676 → 17.114         | -2.76%        | -5.15%…1.10%  |
+| paths32           | 321.821 → 327.586   | 0.01%         | -21.31%…5.95% | 266.016 → 266.504       | 0.24%         | -14.13%…6.09% |
+| paths-sparse32768 | 1.780 → 2.017       | 13.50%        | 6.57%…134.03% | 1.453 → 1.562           | 6.72%         | -0.00%…10.17% |
+
+前後欄是各六個 pair-mean 的中位數；Δ 是每輪兩次平均後先算百分比，再取六輪中位數，不能用前後欄相除重建。範圍保留大幅離群值，不推定其成因、不宣稱統計確定性。短路徑兩個 runtime 各五輪較快，但長路徑 Node 只有三輪、Chromium 只有一輪較快；高 index 控制組 Node 六輪皆慢、Chromium 五輪較慢（一輪近乎持平）。projection 控制組沒有可宣稱的收益，完整數據列在表中，不挑選有利項目。
+
+### 原型正確性與限制
+
+- before／after 各對照 2,816 個 seeded projections、192 個完整 paths（三種路徑 cohort 各 64）、10 個 getter histories；比對原始 Number 值、frozen／retained snapshots，無容差掩飾差異。
+- 另通過 300 個座標域 projections（含 tile coordinate 2^32）、3 個 getter-driven lifecycle histories、192 次交錯工作步進；0／1／2／7 primitive 預算、狀態、結果與釋放行為逐次比對一致。
+- bit 31／63 的 duplicate 控制仍得到 15／9 unique candidates；75 次 getter reentry 對照與 310 份保留 snapshots 不變；起終點仍是獨立 frozen retained winners。
+- 本階段沒有正式程式改動，因此沒有重跑 build／typecheck／unit／source lint，也沒有建立新的產物或把先前通過紀錄冒稱為本次結果。只檢查本次文件格式、相對檔案連結與歷史驗收位元組前綴。
+- 只量測 CPU 查詢時間；未量測 heap／GC、GPU／呈現 fps、Safari、WebGPU／WebGL2／Canvas2D 或實機，不推定陣列的儲存配置或退步原因。完成後刪除自有暫存原型與腳本，瀏覽器與 server 已關閉。

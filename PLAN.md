@@ -6135,3 +6135,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 ## P248：拒絕保留暫存的所有權轉移
 
 原型在兩個 caller 保留贏家後清除 scratch reference，直接接收該 Vector3 而不 clone；Vector3 原始碼與完整快照／重入／交錯工作對拍確認數值與所有權相同。但一般帶 radius 查詢 Node 約慢 3.65%、Chromium 幾乎不變，僅小型控制組改善不足以採用。保留 P247 的較直觀 clone 契約，不增加手動 lifetime 管理；只提交六份文件，不改 source／tests／dist。54 組 CPU 配對見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P249：完整 findPath profile；拒絕 query-local region 索引陣列
+
+- 狀態：只記錄已實測的拒絕結果，不把原型列為正式優化。完整短／長路徑 sampling profile 顯示 per-search region wrapper 是主要 self-time frame，因此對照 Map 與延遲填入的索引陣列。
+- 保留既有 projection 控制組，增加較長路徑及只訪問最後兩個 polygons 的高 index 稀疏控制組。短路徑略快，但長路徑收益不穩定、稀疏查詢退步，故保留 query-local Map，沒有以密度特判掩蓋退步。
+- 原型的數值、getter、retained snapshot、座標域、交錯工作預算與 lifecycle 對照通過。沒有正式 source／test／dist 或版本變更；本階段只檢查文件，不重述歷史測試為本次通過。
+- 完整 profile、全部配對數據與限制見 `ACCEPTANCE.md` P249；下一個候選仍須以實際完整路徑熱點及控制組選擇。

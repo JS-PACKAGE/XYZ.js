@@ -6285,3 +6285,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 ## P248：保留明確 clone-on-retention
 
 直接接收贏家 out 並將 scratch 設回 undefined，語意上可保證不再覆寫該 snapshot；兩個 caller 的原型皆正確處理。實測卻讓多數 Node 主查詢退步，Chromium 無實質收益，因此不把「少一次 clone」當成採用理由，也不放寬 P247 helper 的保留規則。較複雜的 ownership transfer 不進入正式架構；完整對拍與量測見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P249：拒絕以索引陣列取代 query-local region Map
+
+- 完整 findPath profile 中，per-search region wrapper 在短／長路徑都是主要 self-time frame；不能直接將該 frame 的 sampling 歸屬視為 Map 的獨立成本。
+- 原型只改私有 query-local cache 的 lookup／store 表示，不預先配置全 mesh，不改 radius、epoch、primitive 預算、region 計算或 retained winner 所有權。仍須量測高 index 但訪問很少節點的場景，而不是只看密集訪問。
+- 短路徑略有改善不抵銷長路徑的不穩定與稀疏查詢退步，因此不採用。正式非零半徑 cache 保留 `Map<number, Region>`，零半徑仍直接使用不可變 surface；沒有新增共享狀態、備援或密度門檻。
+- 本次只保存驗證紀錄，未修改正式實作或產物，也不推定陣列儲存策略、heap／GC、GPU 或呈現效能。

@@ -7437,3 +7437,10 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 ## P248：不採用保留暫存的所有權轉移
 
 原型直接接收贏家 output，清除 scratch 後才處理下一候選，省去 clone 且保持數值、重入、endpoint 所有權與快照。一般帶 radius 投影 Node 卻退步 3.65%，Chromium 僅 -0.14%；小型控制組收益不足以增加 lifetime 邏輯。source／tests／dist 保留 P247 明確 clone-on-retention，不宣稱重新 build／公開 root 或配置／heap／FPS 改善。54 組配對及範圍見 [ACCEPTANCE.md](../ACCEPTANCE.md)。
+
+## P249：完整路徑 profile；拒絕 query-local region 索引陣列
+
+- 完整短／長 `findPath` 的 sampling profile 將 per-search region wrapper 列為主要 self-time frame，但這不是 Map 成本的獨立量測。
+- 私有原型將非零半徑的 query-local Map 改為延遲填入的數值索引陣列，不預先配置全 mesh；cache lifetime、算式、零半徑行為與 primitive 預算均保留。
+- Node／Chromium 配對量測保留所有 projection 控制，並涵蓋長路徑及只訪問末端兩個 index 的大型 mesh。短路徑略快，但長路徑沒有穩定收益、稀疏高 index 查詢退步，因此拒絕原型，不加密度特判。
+- 原型的數值、getter、retained snapshot、座標域、交錯預算及 lifecycle 對照通過。正式 source、tests、dist 與版本未改，本文件階段未重跑 build／typecheck／unit／source lint，亦未認證 heap／GC、GPU／呈現 fps、Safari 或實機；完整數據見 `../ACCEPTANCE.md` P249。

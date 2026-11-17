@@ -126,6 +126,8 @@ P247 狀態：nearest 改借用 query／job 各自的 lazy 暫存，只複製需
 
 P248 不採用贏家暫存的所有權轉移：雖可省略 clone 並保持快照／重入等價，但一般帶 radius 投影在 Node 慢約 3.7%，Chromium 幾乎不變。P248 rejects retained-scratch ownership transfer: exact behavior agrees, but populated Node projection regresses and browser gains are negligible. P248 は作業ベクトルの所有権移転を不採用：動作は同じでも Node の通常投影が約 3.7% 悪化し、browser の改善はほぼなし。保留 P247 的明確 clone 契約；見 [ACCEPTANCE](./ACCEPTANCE.md) P248。
 
+**P249 — 完整路徑 profile／Full-path profiling／経路全体のプロファイル：** 完整 `findPath` profile 將 query-local region cache 列為主要熱點；索引陣列原型雖略改善短路徑，卻沒有穩定改善長路徑，且高 index 稀疏查詢退步，因此保留 Map，只提交[拒絕紀錄](ACCEPTANCE.md)。Full-path profiling identified the query-local region cache as a major frame, but an indexed-array prototype did not deliver stable long-path gains and regressed sparse high-index queries; the Map remains unchanged. 経路全体の profile で query-local region cache が主要フレームと分かったが、配列案は長経路で安定した改善がなく、高 index の疎な検索も悪化したため、Map を維持。版本與正式 source／dist 不變；no version or production-code changes／バージョンと正式実装は変更なし。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
