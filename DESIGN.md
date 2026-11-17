@@ -6404,3 +6404,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 65,536個finite／IEEE-edge inputs在全部64個Float32 lanes精確一致，且彩色rotation／trim／source真實consumer通過；這不能代替效能門檻，也不是WebGPU／Canvas被改動的宣稱。
 - 首批CPU有工具干擾風險，留下完整數據與限制，僅以同一工作矩陣補一次；補測world有益但mixed／local退步，不接受通用scalar改動。兩批都保留，不挑有利run、不臆測register spill／JIT／GC或FPS。
 - 正式source／dist保持原packQuad，沒有新cache／state／API；只保存數值、三backend48cases及兩批288個timing證據，完整scope見 `ACCEPTANCE.md` P265。
+
+## P266：正確的 baseline 是 traversal 優化的前提
+
+- parent-link候選只把「先看own visibility，再檢查下一parent boundary」寫成直接循環；引擎既有acyclic parent ownership不變，不跨call快取public getters或type，例外仍走相同clear／release。
+- getter／command-tree／registered、explicit-root與detached對照相同，不能將兩側都錯誤的blank畫面當成成功。strict preflight中止後以獨立diagnostic記錄false，不將diagnostic改成feature gate。
+- world Sprite的出生position與axes是world-owned，Group2D直接套child.transform會再次施加emitter／ancestor transform，group coverage可完全離開真正內容；普通world draw不使用非drawing group bounds，isolation的culling／local target才使問題顯現。
+- 本輪不採用traversal、沒有CPU數字或runtime改動；先以獨立功能修正group coverage，再決定是否重新評估原型。歷史source-slot範圍不擴張為world-isolation／三backend認證。完整證據見 `ACCEPTANCE.md` P266。

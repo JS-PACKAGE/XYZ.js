@@ -160,6 +160,8 @@ P264 不採用 world 粒子的額外 presentation-pass 快取：mixed 計測合�
 
 P265 不採用 WebGL2 private UV scalar／重複加法共用：固定補測 world 計測合計改善4.60%，但 mixed／大型 local 慢1.10%／2.61%，各五輪退步。P265 rejects private UV scalar reuse after the fixed Game matrix shows mixed/local costs despite a world gain. P265 は WebGL2 UV scalar 共用案を不採用。48個彩色 atlas／rotation／trim／source 三 backend Game cases、409,248個數字及419萬個Float32對照通過；兩批288個CPU samples與首批工具干擾限制全保留，正式 source／dist不變。見 [ACCEPTANCE](./ACCEPTANCE.md) P265，不 push／升版。
 
+P266 暫不採用 parent-link traversal 原型：getter／nested／detached／mutation／例外清理對照通過，但 strict 原生 preflight 找到 baseline 的 world 粒子 isolation 空白問題，CPU 矩陣尚未開始。P266 stops adoption at a pre-existing world-particle isolation-bounds defect; no speedup is claimed. P266 は既存の world 粒子 isolation bounds 不具合を検出し、速度評価を未実施。32個 child 都在視窗內，group bounds 卻落在視窗外；blank 不算PASS，下一獨立功能先修正根因。完整兩版trace與失敗／診斷見 [ACCEPTANCE](./ACCEPTANCE.md) P266，正式source／dist不變，不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

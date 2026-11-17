@@ -7562,3 +7562,11 @@ P262 ownership 分型後更新四組目前 source Game profiles，每組90 warm�
 首批144個Game samples有明示工具干擾風險：另一次Bun原型格式化在CPU job期間完成，未追蹤個別sample重疊，全部保留。相同固定矩陣僅補一次，期間不跑其他benchmark／formatter／build／test／profiler。world submit -2.51%五輪快、區段合計 -4.60%六輪快，但mixed／local合計 +1.10%／+2.61%各五輪慢，small 3快3慢；拒絕通用改動，不拿未走packing的empty方向當收益。
 
 65,536組數值／4,194,304個Object.is Float32對照包含signed zero／NaN／Infinity與未寫lanes。三backend共48個native Game cases涵蓋Sprite／target彩色atlas、90°、trim／resolution、source、override／screen／Scene transfer；409,248個精確數字、nonblank matching PNG與cleanup通過。正式source／dist不變，兩批288 samples／outliers／干擾時間界線全部保留。未新增formal tests／build、production／CJS CPU、gallery、heap／GPU／fps、audio、實機／Safari認證。證據見 [ACCEPTANCE](../ACCEPTANCE.md) P265，不 push／升版。
+
+## P266：既有 isolation bounds 缺陷中止 traversal 採用
+
+隔離parent-link候選只移除每層起始物件比較，保留getter次序、visibility短路、nearest boundary與release。六組各12-frame collector histories涵蓋flat／nested、explicit／detached root、visibility reparent與例外。初版642個數字／9,923條getter entries相同；另以獨立校正fixture把thrower放在isolation外，讓bounds例外確實執行，624數字／10,028條entries及六個失敗cleanup一致，兩版全保留。
+
+strict原生Sprite Canvas2D preflight在未修改before側的world-isolated畫面因blank失敗，原訂八cohort／192-sample CPU矩陣尚未開始。獨立diagnostic不把blank改成PASS：11modes共72,072個snapshot數字一致，十個nonblank、world-isolated兩側皆blank。32個child bounds均在視窗內，group world bounds卻從y≈248.84開始，超出192高視窗；Group2D.getLocalBounds直接使用child.transform，並不是world粒子獨立的出生affine。
+
+暫不採用traversal，正式source／dist未改，沒有CPU／三backend／target／production認證。正確性前提另按功能處理，不關閉culling、不放寬pixel gate掩飾錯誤。失敗、兩版完整observer trace、fixture修正及限制見 [ACCEPTANCE](../ACCEPTANCE.md) P266，不 push／升版。

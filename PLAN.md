@@ -6272,3 +6272,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 補測world submit -2.51%（5快1慢）、區段合計 -4.60%六輪快，但mixed／大型local合計 +1.10%／+2.61%，各1快5慢；small方向3快3慢，未走packing的empty控制方向不算收益，拒絕通用改動。
 - 65,536組純數值case／4,194,304個Object.is Float32 comparisons保留signed zero／NaN／Infinity與未寫lanes；48個真實native Game cases涵蓋Sprite／target、彩色16×16 atlas、90°／trim／resolution／source、override／screen／Scene transfer，409,248個數字與nonblank matching PNG及cleanup通過。
 - 兩批全部288 samples／所有分項／ties／outliers及干擾時間界線保留。只交付六份證據文件，不跑或宣稱formal tests／build／production／CJS CPU、gallery／heap／GPU／fps／其他平台認證；見 `ACCEPTANCE.md` P265，不 push／升版。
+
+## P266：traversal 原型揭露 world-affine group bounds 前提缺陷
+
+- 隔離將 boundary test 移到 parent link，保留 own visibility／tint短路、parent getter次序、nearest root／isolation、Scene註冊順序及member release；只刪每層current!==object判斷，不加cache／state／API。
+- 原生collector的flat／nested／explicit-root／detached／reparent-callback／exception六組histories各12個frames，初版642個數字／9,923條getter trace相同；另修正thrower fixture位置，使真正bounds例外也被觸發，校正版624數字／10,028條trace及六個parent／bounds失敗的clear／finally一致，兩版全保留。
+- strict Sprite Canvas2D preflight於world-isolated的before PNG即因blank失敗，尚未開始八cohort／192samples CPU矩陣；不能稱候選變快／變慢或已驗三backend／target全部分支。
+- 獨立診斷保留nonblank=false，不放寬strict gate。11個Canvas2D modes的72,072個snapshot數字兩側一致，10個nonblank，world-isolated兩側皆blank。32個actual child bounds都在256×192內，root bounds y≈248.84卻被剔除。
+- 根因定位Group2D.getLocalBounds只用child.transform.updateMatrix，未反映world粒子的獨立出生affine；一般world未isolate仍畫出，isolation使錯誤group bounds變成可見錯誤。下一功能先獨立修正正確性，不把改bounds混進本traversal commit。
+- 本階段只交付六份調查文件，正式source／dist未改；未執行CPU／formal tests／build／production認證，所有失敗、fixture修正、trace及限制見 `ACCEPTANCE.md` P266，不 push／升版。
