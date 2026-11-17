@@ -6142,3 +6142,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 保留既有 projection 控制組，增加較長路徑及只訪問最後兩個 polygons 的高 index 稀疏控制組。短路徑略快，但長路徑收益不穩定、稀疏查詢退步，故保留 query-local Map，沒有以密度特判掩蓋退步。
 - 原型的數值、getter、retained snapshot、座標域、交錯工作預算與 lifecycle 對照通過。沒有正式 source／test／dist 或版本變更；本階段只檢查文件，不重述歷史測試為本次通過。
 - 完整 profile、全部配對數據與限制見 `ACCEPTANCE.md` P249；下一個候選仍須以實際完整路徑熱點及控制組選擇。
+
+## P250：單次 expansion 重用固定的 region 參照
+
+- 採用最小局部 lookup 重用，不延續 P249 的容器替換，也不重做 P167 已否決的 Floyd sift。query-local Map、heap、radius／epoch 與 primitive 排程不變。
+- 每個 edge 的 target Region 只取得一次；current Region 在本次 expansion 首次需要時才取得並重用。保留 disabled／height 過濾與首次 region 計算順序，不新增配置或共享狀態。
+- 完整短／長路徑的 Node／Chromium 六輪配對皆較快；較長稀疏控制 Node 混合、Chromium 改善，不宣稱所有路徑或未修改的 projection 皆加速。
+- 28 項既有 targeted tests、scoped 品質檢查、隔離 production build、canonical／ESM／CJS 數值與工作預算及正式 browser source／dist root 驗證通過。只提升四個 runtime／map outputs，declarations 與使用者檔案不變。
+- 全部矩陣、較長稀疏樣本、既有 Vite 動態 import warning 與未驗證範圍見 `ACCEPTANCE.md` P250；按功能提交，不 push／升版。

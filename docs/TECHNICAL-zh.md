@@ -7444,3 +7444,10 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 - 私有原型將非零半徑的 query-local Map 改為延遲填入的數值索引陣列，不預先配置全 mesh；cache lifetime、算式、零半徑行為與 primitive 預算均保留。
 - Node／Chromium 配對量測保留所有 projection 控制，並涵蓋長路徑及只訪問末端兩個 index 的大型 mesh。短路徑略快，但長路徑沒有穩定收益、稀疏高 index 查詢退步，因此拒絕原型，不加密度特判。
 - 原型的數值、getter、retained snapshot、座標域、交錯預算及 lifecycle 對照通過。正式 source、tests、dist 與版本未改，本文件階段未重跑 build／typecheck／unit／source lint，亦未認證 heap／GC、GPU／呈現 fps、Safari 或實機；完整數據見 `../ACCEPTANCE.md` P249。
+
+## P250：在單次 navmesh expansion 內重用固定 regions
+
+- 每個 job 仍保留自己的非零半徑 region Map。單次 expansion 延遲保存 current Region，每個有效 edge 只讀取一次 target Region，供空區域檢查及 portal 使用；下一個 polygon 重新初始化參照，不新增容器或共享狀態。
+- disabled／height 過濾與首次計算順序不變；portal、distance／score 算式、primitive 預算、revision invalidation 與 P247 clone-on-retention 契約維持。
+- Node／Chromium 的完整短／長路徑六輪配對皆較快；較長高 index 稀疏控制在 Node 混合、Chromium 改善，不宣稱所有路徑或未修改 projection 加速。初始完整矩陣與獨立較長控制均保留於 `../ACCEPTANCE.md` P250。
+- 既有 28 項 targeted tests、typecheck／scoped lint／format、隔離 production build、canonical／ESM／CJS 對照與實際 source／dist browser 公開入口驗證通過。只改四個 mesh runtime／map 產物，declarations、使用者檔案、依賴與版本不變；不宣稱 full suite、heap／GC、GPU／呈現 fps、Safari 或實機認證。

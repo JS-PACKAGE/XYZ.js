@@ -589,18 +589,21 @@ export class NavigationMesh3D {
             return undefined;
           }
           const polygon = this.geometry[current]!;
+          // Query-local clipped regions stay fixed during one expansion.
+          let currentRegion: Region | undefined;
           for (const edge of polygon.edges) {
             const target = this.geometry[edge.to]!;
             if (
               this.disabled.has(target.surface.id) ||
-              target.surface.clearanceHeight < options.agentHeight ||
-              region(edge.to).vertices.length === 0
+              target.surface.clearanceHeight < options.agentHeight
             )
               continue;
+            const targetRegion = region(edge.to);
+            if (targetRegion.vertices.length === 0) continue;
             const portal = this.portal(
               edge,
-              region(current),
-              region(edge.to),
+              (currentRegion ??= region(current)),
+              targetRegion,
               radius,
             );
             if (!portal) continue;

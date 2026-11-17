@@ -254,12 +254,14 @@ var NavigationMesh3D = class {
 					T = e, S = `backtrack`;
 					return;
 				}
-				let t = this.geometry[e];
-				for (let n of t.edges) {
-					let r = this.geometry[n.to];
-					if (this.disabled.has(r.surface.id) || r.surface.clearanceHeight < s.agentHeight || region(n.to).vertices.length === 0 || !this.portal(n, region(e), region(n.to), l)) continue;
-					let i = u.distance.get(e) + require_hypot.hypot3(r.center.x - t.center.x, r.center.y - t.center.y, r.center.z - t.center.z);
-					i >= (u.distance.get(n.to) ?? 1 / 0) || (h.set(n.to, n), u.offer(n.to, i, i, e));
+				let t = this.geometry[e], n;
+				for (let r of t.edges) {
+					let i = this.geometry[r.to];
+					if (this.disabled.has(i.surface.id) || i.surface.clearanceHeight < s.agentHeight) continue;
+					let o = region(r.to);
+					if (o.vertices.length === 0 || !this.portal(r, n ??= region(e), o, l)) continue;
+					let c = u.distance.get(e) + require_hypot.hypot3(i.center.x - t.center.x, i.center.y - t.center.y, i.center.z - t.center.z);
+					c >= (u.distance.get(r.to) ?? 1 / 0) || (h.set(r.to, r), u.offer(r.to, c, c, e));
 				}
 			} else if (S === `backtrack`) T >= 0 ? (g.push(T), T = u.parent.get(T)) : (w = g.length - 1, S = `corridor`);
 			else if (S === `corridor`) {

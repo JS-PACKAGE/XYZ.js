@@ -30163,3 +30163,54 @@ Node 與 pinned Chromium 153.0.8010.12（darwin/arm64）各六輪 ABBA／BAAB，
 - bit 31／63 的 duplicate 控制仍得到 15／9 unique candidates；75 次 getter reentry 對照與 310 份保留 snapshots 不變；起終點仍是獨立 frozen retained winners。
 - 本階段沒有正式程式改動，因此沒有重跑 build／typecheck／unit／source lint，也沒有建立新的產物或把先前通過紀錄冒稱為本次結果。只檢查本次文件格式、相對檔案連結與歷史驗收位元組前綴。
 - 只量測 CPU 查詢時間；未量測 heap／GC、GPU／呈現 fps、Safari、WebGPU／WebGL2／Canvas2D 或實機，不推定陣列的儲存配置或退步原因。完成後刪除自有暫存原型與腳本，瀏覽器與 server 已關閉。
+
+## P250：單次 navmesh expansion 重用固定的 regions（2026-11-17）
+
+### 正式變更與採用依據
+
+- 基準為 P249（`729346f0a`；引擎實作仍是 P247）。依 P249 完整路徑 profile 選擇 region wrapper 的重複讀取，而不是繼續替換容器。檢查既有 indexed heap 與 P167 Floyd sift 拒絕紀錄後，heap 表示保持不變。
+- 在每次 polygon expansion 內延遲保存 current Region；每個 edge 的 target Region 只讀取一次，供空 region 檢查及 portal 使用。disabled／height filter 仍先執行，第一次 target／current region 的計算順序不變，沒有為被跳過的 edge 預先做工作。
+- 該 job 的固定 radius／query-local Map 在 primitive 期間回傳固定的 Region 物件，因此只重用參照，不重算、拷貝或快取數值。每次 expansion 都重設 current 參照，保留跨節點／跨工作的獨立 Map；不新增容器、共享 cache、全 mesh workspace 或密度門檻。
+- portal、hypot3、distance、score、parent 更新順序與算式不變；nearest 的 borrowed output 與 clone-on-retention 契約仍是 P247。公開 API、declarations、套件版本與 runtime 依賴不變。
+
+### 完整查詢 CPU 配對矩陣
+
+使用與 P249 相同的十一種 fixture：八個 projection 控制、短／長完整路徑，以及 32,768-polygons mesh 中只走末端兩個 index 的稀疏路徑。fixture 建立／暖身在計時外；Node 與 pinned Chromium 153.0.8010.12（darwin/arm64）各六輪 ABBA／BAAB、每 variant 每輪兩次，每 runtime 66 paired rows／264 timed samples。計時時無其他助理 build／test／profile。browser visibility 是 visible、pageerror 為空。
+
+量測是完整 before／candidate NavigationMesh3D 方法模組，使用正式 production dependencies，不是單獨 Map microbenchmark，也不是 whole-frame／GPU 時間。single／empty 每 sample 65,536 projections，其他 projections 4,096；paths12 為 1,024、paths32 為 512、稀疏路徑為 2,048 次完整查詢。
+
+| Case              | Node µs/query 前→後 | 配對 Δ 中位數 | 六輪 Δ 範圍   | Chromium µs/query 前→後 | 配對 Δ 中位數 | 六輪 Δ 範圍    |
+| ----------------- | ------------------- | ------------- | ------------- | ----------------------- | ------------- | -------------- |
+| single-inside     | 0.178 → 0.178       | -0.61%        | -3.23%…1.21%  | 0.162 → 0.163           | -0.24%        | -0.93%…1.91%   |
+| empty48           | 0.117 → 0.115       | -1.50%        | -2.66%…0.38%  | 0.103 → 0.104           | 0.74%         | 0.00%…2.26%    |
+| quad48-r0         | 4.809 → 4.772       | -0.78%        | -0.92%…0.35%  | 4.260 → 4.254           | -0.71%        | -3.57%…0.57%   |
+| quad48-r02        | 4.792 → 4.809       | 0.25%         | -0.14%…1.97%  | 4.346 → 4.376           | 1.13%         | 0.00%…3.25%    |
+| outside48         | 3.416 → 3.392       | -0.33%        | -1.14%…1.00%  | 3.033 → 3.052           | 0.40%         | -0.80%…1.63%   |
+| slope48           | 4.921 → 4.928       | 0.05%         | -0.60%…0.40%  | 4.395 → 4.395           | -0.28%        | -2.21%…1.40%   |
+| stacked24         | 9.394 → 9.422       | 0.33%         | -0.09%…0.93%  | 8.502 → 8.502           | -0.36%        | -0.86%…0.72%   |
+| tri24             | 8.104 → 8.098       | -0.08%        | -0.39%…2.24%  | 7.275 → 7.385           | 1.51%         | -1.62%…2.36%   |
+| paths12           | 20.261 → 19.616     | -3.13%        | -3.49%…-2.90% | 17.432 → 16.919         | -3.36%        | -5.95%…-0.28%  |
+| paths32           | 319.223 → 291.033   | -8.26%        | -8.96%…-5.61% | 260.303 → 242.041       | -6.42%        | -12.75%…-3.67% |
+| paths-sparse32768 | 1.689 → 1.698       | 0.38%         | -9.18%…5.97%  | 1.453 → 1.465           | 1.68%         | -1.64%…5.17%   |
+
+前後欄各取六個 pair-mean 的中位數；Δ 每輪先將兩次平均後計算百分比，再取六輪中位數，不可由前後欄相除重建。短／長完整路徑在兩個 runtime 各六輪皆快；未修改的 projection 控制有小幅正負差異，不將其寫成收益。初始稀疏樣本只有數毫秒，小差異接近 browser clock 的相對刻度，另以固定較長 sample 判斷，不隱藏這張原始表。
+
+### 較長稀疏控制組
+
+在新的獨立程序／頁面只建立相同的 32,768-polygons fixture，暖身 4,096 次，每 sample 65,536 次完整查詢；仍是六輪 ABBA／BAAB，各 runtime 6 paired rows／24 timed samples。兩個 variant 均以真實 high-index connected pair 找到完整路徑；沒有更換 mesh、增加連線或引入 engine special case。
+
+| Runtime  | µs/query 前→後      | 配對 Δ 中位數 | 六輪 Δ 範圍   | 較快輪數 |
+| -------- | ------------------- | ------------- | ------------- | -------- |
+| Node     | 1.283636 → 1.286601 | 0.11%         | -1.26%…2.93%  | 3/6      |
+| Chromium | 1.204681 → 1.171112 | -3.00%        | -3.62%…-0.82% | 6/6      |
+
+Node 稀疏結果混合、不宣稱改善；Chromium 六輪較快。這是單獨 fixture 與更長暖身的控制，不與混合矩陣的絕對時間直接比較，也不聲稱所有路徑皆加速。兩個 browser consumer 均 visible、pageerror 為空；瀏覽器與 server 在 finally 關閉。
+
+### 正式 source／產物／公開入口驗證
+
+- prettier、`tsc -p tsconfig.check.json --noEmit`、scoped eslint 通過；navigation-mesh／navigation-jobs／navigation-scheduler 三檔現有 28 tests 通過。沿用既有數值／狀態／工作預算回歸，不新增 source-text 或 wiring-only tests。
+- canonical source、正式 minified ESM、正式 CJS **每個版本**各通過 2,816 個 seeded projections、192 個完整 paths、10 個 getter histories；300 個座標域 projections、3 個 active-query lifecycle histories、192 次交錯 steps；bit 31／63 的 15／9 unique-candidate 控制；75 次 reentry、310 retained snapshots 及 frozen endpoint consumer。比較原始 Number 與 own values，不用容差，CJS 保留 clone／freeze 契約。
+- public `/src/index.ts` 與 `/dist/src/index.js` 在實際 browser 各通過 1,408 projections、48 完整 paths 與 624 個 step comparisons，含 0／1／2／7 primitive 預算、revision invalidation、結果及八個 slots 釋放；兩 entry visible 且 pageerror 為空。Vite 對既有 OPM adapter 動態 import 發出分析 warning；未壓掉 warning，未將它稱為 audio runtime 驗證。
+- 從 HEAD 建立隔離 production build，只覆入本階段 mesh.ts，執行 tsc／minify／vendor copy／CJS build；與隔離 HEAD dist 完整比對後，只有 mesh.js／map 與 mesh.cjs／map 四個 outputs 改變並提升回工作樹。declarations 逐位元組不變，十一個使用者自有 source／dist 檔的雜湊在前後一致，沒有覆寫或暫存使用者改動。
+- 六份文件同步，歷史 ACCEPTANCE 位元組前綴保留；只提交此 source、四個 outputs 與六份文件，不 push／升版。自有暫存腳本、isolated build、profiles 與原型在提交前刪除。
+- 沒有執行 full suite／完整 browser backend 矩陣、Safari 或實機，也未量測 heap／GC、GPU 完成時間、呈現 fps／全幀。採用理由限於完整路徑 CPU 量測與不增加容器的局部 lookup 重用。

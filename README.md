@@ -128,6 +128,8 @@ P248 不採用贏家暫存的所有權轉移：雖可省略 clone 並保持快�
 
 **P249 — 完整路徑 profile／Full-path profiling／経路全体のプロファイル：** 完整 `findPath` profile 將 query-local region cache 列為主要熱點；索引陣列原型雖略改善短路徑，卻沒有穩定改善長路徑，且高 index 稀疏查詢退步，因此保留 Map，只提交[拒絕紀錄](ACCEPTANCE.md)。Full-path profiling identified the query-local region cache as a major frame, but an indexed-array prototype did not deliver stable long-path gains and regressed sparse high-index queries; the Map remains unchanged. 経路全体の profile で query-local region cache が主要フレームと分かったが、配列案は長経路で安定した改善がなく、高 index の疎な検索も悪化したため、Map を維持。版本與正式 source／dist 不變；no version or production-code changes／バージョンと正式実装は変更なし。
 
+P250 在單次 navmesh expansion 內重用固定的 current／target regions，省去重複 lookup，但保留每個 job 的獨立 Map。完整短／長路徑的 Node／Chromium 配對皆有收益，稀疏控制與完整限制見 [ACCEPTANCE](./ACCEPTANCE.md) P250。P250 reuses stable regions within each expansion, retaining query-local Maps; complete short/long paths improve in paired Node/Chromium runs, with sparse controls documented. P250 は expansion 内の固定 region を再利用し、job ごとの Map を維持。短・長経路の改善と疎な検索の対照を実測。28 項既有測試與 source／ESM／CJS／browser root 對照通過；版本不變、不 push。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

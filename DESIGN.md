@@ -6292,3 +6292,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 原型只改私有 query-local cache 的 lookup／store 表示，不預先配置全 mesh，不改 radius、epoch、primitive 預算、region 計算或 retained winner 所有權。仍須量測高 index 但訪問很少節點的場景，而不是只看密集訪問。
 - 短路徑略有改善不抵銷長路徑的不穩定與稀疏查詢退步，因此不採用。正式非零半徑 cache 保留 `Map<number, Region>`，零半徑仍直接使用不可變 surface；沒有新增共享狀態、備援或密度門檻。
 - 本次只保存驗證紀錄，未修改正式實作或產物，也不推定陣列儲存策略、heap／GC、GPU 或呈現效能。
+
+## P250：在一個 bounded expansion 內重用 Region
+
+- 固定 radius 的 query-local cache 在一次 neighbor relaxation 期間回傳同一個 Region，因此以區域參照避開重複 lookup，而不是另建陣列、共享 cache 或密度特判。
+- target Region 在 disabled／height 過濾後才讀取，供空區域判定與 portal 使用；current Region 在首個需要 portal 的 edge 延遲取得。current 參照在下一次 expansion 重新初始化，不能沿用前一個 polygon 的 region。
+- 保留跨節點的 job-local Map、跨工作隔離、首次計算順序、portal／hypot3 與 distance／score 算式、逐 primitive 邊界及 P247 retained winner 所有權；無公開 API 或 declarations 變更。
+- Node／Chromium 完整路徑量測支持採用，稀疏及 projection 控制不作普遍收益宣稱；正式 source、ESM、CJS 與 browser 公開 root 的結果／預算對照見 `ACCEPTANCE.md` P250。
