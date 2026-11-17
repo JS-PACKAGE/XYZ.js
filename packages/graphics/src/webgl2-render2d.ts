@@ -996,7 +996,8 @@ export class WebGLRender2D {
     this.prepareParticles(layer);
     const gl = this.gl,
       stride = 28,
-      entry = this.particles.get(layer)!;
+      entry = this.particles.get(layer)!,
+      uploadGap = rendering2dLimits.webglParticleUploadGapSlots * stride;
     gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
     let dirtyFirst = -1,
       dirtyEnd = 0;
@@ -1076,7 +1077,7 @@ export class WebGLRender2D {
       if (transformDirty || tintDirty || sourceDirty) {
         if (dirtyFirst < 0) dirtyFirst = offset;
         dirtyEnd = offset + stride;
-      } else if (dirtyFirst >= 0) {
+      } else if (dirtyFirst >= 0 && offset - dirtyEnd >= uploadGap) {
         gl.bufferSubData(
           gl.ARRAY_BUFFER,
           dirtyFirst * 4,

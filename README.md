@@ -194,6 +194,12 @@ P276: WebGL2 particle layers retain validation and logical-size checks while cac
 
 P276：WebGL2粒子のUV比較に物理サイズkeyを採用。検証と論理サイズ判定は維持し、元のstrideで大規模対象を比較した。対照・不利な結果・metadata増加と実機認証ではない検証範囲は [検収記録](ACCEPTANCE.md) に保持。全場面のFPS改善やAPI／版変更ではない。
 
+P277：採用 WebGL2 particle dirty-upload 的 bounded one-clean-slot 合併，減少交錯更新時的零碎 native 呼叫，但會增加傳輸 bytes，不是 GPU 流量或 FPS 改善承諾。固定九 cohort 的 A/A→A/B 共432 samples支持大型local／world／isolated目標；small波動、controls、A/A偏移與非配對標準量測全留。27項定向測試、正式dev/dist原生呼叫／畫面、三backend clean-neighbor RGBA、showcase cleanup及隔離build通過；內部常數集中於src/data，沒有新per-slot backing或Root API，版本不變。完整證據見 [ACCEPTANCE](ACCEPTANCE.md)。
+
+P277: WebGL2 coalesces dirty particle uploads across at most one clean slot. Large paired target workloads support lower CPU submission cost, at the explicit cost of more transferred bytes; controls, small-case variability, nonpaired standard measurements and verification limits remain in [ACCEPTANCE](ACCEPTANCE.md). No new per-slot backing, Root API or version change.
+
+P277：WebGL2粒子のdirty uploadを一つのclean slotまで結合。大規模対象のCPU比較は改善したが、転送量は増加する。対照・小規模の変動・非対の標準計測・正式dev/distと三backendの検証範囲を [検収記録](ACCEPTANCE.md) に保持。全場面のFPSやGPU時間の改善ではなく、Root API／版は変更しない。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

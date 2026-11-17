@@ -11,6 +11,8 @@ export declare const rendering2dLimits: Readonly<{
     meshVertices: 1000000;
     meshIndices: 3000000;
     particleCapacity: 65536;
+    /** Bridge at most this many clean particle slots between WebGL2 dirty uploads. */
+    webglParticleUploadGapSlots: 1;
     atlasPages: 64;
     atlasFrames: 16384;
     fontGlyphs: 4096;

@@ -6478,3 +6478,11 @@ Particle source rectangle 由 checkedSource freeze，TextureView2D 的 frame／r
 physical 尺寸改變時仍使用原六個 Float32 比較，packed 值相同就不強迫新 quad upload，只更新 key。不增加 object／cache field／公開 API，僅 backing payload 每 capacity 多16 bytes；不宣稱 GPU 時間、heap/RSS 或配置數下降。
 
 初版同 class／Game fixture 的 before stride6 改了原正式熱 layout，因此恢復原 stride4 再驗證。共同 backing 仍配置6×capacity值，但 before 以 stride4 只走前4×capacity的連續 prefix；selector 的 invalidation 在兩個 label 都置於 warm 前。mutable call target、共用 allocation 與未 minify source-slot 的限制仍保留。對照不利值及非配對 standard 的增加全部記錄，僅採用於有證據支持的局部優化，不作全面加速承諾。完整證據見 ACCEPTANCE。
+
+## P277 — 以有界傳輸換取較少 native upload 呼叫
+
+WebGL2遇clean slot不再立即flush，而是等pending run和目前offset之間超過一格clean gap。dirtyEnd仍指向最後dirty slot之後，因此沒有leading／trailing clean upload。被跨過的資料已在同一CPU backing中有效，照原stride完整傳送，不需要split buffer、新typed array或延後到下一幀。統計仍以實際bufferSubData長度計uploadBytes，不把呼叫數下降冒充頻寬下降。
+
+內部rendering2dLimits.webglParticleUploadGapSlots設為1；WebGPU／Canvas2D不改。若D個dirty slots分成R個傳輸範圍，傳輸slot數最多2D−R，不會變成兩個遠端dirty slots就上傳整個capacity。validation／preflight、source／anchor版本、pool reuse與P276 physical UV key皆保留。
+
+同canonical class／Game及相同constructor／backing layout，只用固定per-layer trampoline切換兩個body，沒有per-slot selector或CPU測量中的native wrappers。432 samples的三組large submit與sum均六輪改善，但A/A與controls的偏移、small例外及額外bytes成本仍限制外推。正式dev/dist另以真正native ranges／像素驗證，不把source-slot CPU冒稱production/CJS CPU或GPU／FPS認證；完整證據見ACCEPTANCE。

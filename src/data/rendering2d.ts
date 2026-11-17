@@ -13,6 +13,8 @@ export const rendering2dLimits = Object.freeze({
   meshVertices: 1_000_000,
   meshIndices: 3_000_000,
   particleCapacity: 65536,
+  /** Bridge at most this many clean particle slots between WebGL2 dirty uploads. */
+  webglParticleUploadGapSlots: 1,
   atlasPages: 64,
   atlasFrames: 16384,
   fontGlyphs: 4096,

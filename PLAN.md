@@ -6354,3 +6354,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 初版 fixture 的 before 同用 stride6，不作採用基準；恢復原 before 熱 stride4／after6 後完整執行 A/A→A/B。兩組共864 samples全留。large local/world submit 各六輪改善，但 small／controls、A/A drift 與非配對 standard 三 backend CPU 增加亦保留。
 - 實際執行27項定向 tests、strict／scoped lint、只 promote 四 artifact 並保護11使用者 path 的隔離 full build。正式 main 頁三 backend 新RGBA回歸與 save/restore/destroy、dev/dist 可變 source／logical-only resize／fatal 輸入、showcase auto＋強制三 backend unlock／Scene 切換／真正 pagehide cleanup 通過。CJS 僅實 module load，不作 native rendering 認證。
 - 完整 fixture 修正、raw／reproduction 與限制見 ACCEPTANCE。維持 package 1.23.0，僅按功能 commit，不 push。
+
+## P277 — WebGL2 particle upload 的 bounded clean-gap 合併
+
+- 確認原 dirty run 遇第一個 clean slot 即 flush；新增 src/data 內部常數，只跨最多一個 clean slot，保留最後 dirtyEnd，不傳 leading／trailing clean data。原 stride28、versions stride6、validation、shader及per-slot backing不變。
+- 8208個range model案例及實際原生GPU calls／bytes／nonblank像素驗證界限。減少呼叫以額外傳輸換取CPU收益，不能宣稱減少GPU bytes／時間／FPS。
+- 固定九cohort、六輪ABBA／BAAB，先完成216個A/A再做216個A/B，432個32-frame averages全留。大型local／world／isolated submit與sum各六輪改善；small／controls、A/A偏移及非配對standard的完整結果亦保留。
+- 27項定向tests、strict／scoped lint、正式dev/minified-dist各九個native upload／pixel cases、三backend clean-neighbor RGBA與save/restore/destroy、showcase auto／強制backend unlock／真正navigation cleanup通過。隔離full build只promote九個artifact，11個使用者paths保護；CJS修正驗證腳本的tmp相對路徑後load成功，不是native CJS rendering。
+- 完整腳本／raw／限制見ACCEPTANCE；package維持1.23.0，依功能commit，不push。

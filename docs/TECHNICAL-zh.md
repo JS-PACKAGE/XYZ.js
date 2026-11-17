@@ -7640,3 +7640,11 @@ WebGL2 particle residency在原四個mutation versions旁存兩個physical pixel
 初版共同stride6 fixture保留但不作採用基準；修正版在單一class／shared Game恢復before熱stride4、after6。共用backing、warm前invalidation、mutable targets仍限制production外推。兩組完整A/A→A/B共864 samples全留：大型local/world submit各六輪改善，但small/control代價、A/A drift與非配對standard Sprite三backend CPU上升亦保留，不宣稱全面CPU／GPU／FPS改善。
 
 實際通過27項定向tests、strict、scoped lint及只promote四artifact／保護11使用者path的隔離full build；正式dev/minified dist可變source畫面、三backend新RGBA／save／restore／destroy回歸，以及showcase auto／強制backend unlock／Scene切換／真正navigation cleanup。CJS實module load不等於native CJS渲染，未認證實體裝置或Safari。完整方法、fixture修正與結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P277 — WebGL2 particle-upload 的 bounded 合併
+
+內部`rendering2dLimits.webglParticleUploadGapSlots`為1，WebGL2可跨一個clean slot合併dirty spans。end仍是最後dirty slot之後，不傳leading／trailing clean資料；被跨過的cached fields原樣傳送。stride、per-slot backing、shader、validation與Root API不變，Canvas2D／WebGPU政策不改。uploadBytes按實際較大span計，不把呼叫數減少當成頻寬下降。
+
+8208組獨立range model及原生觀察支持：D個dirty slots、R個ranges最多傳2D−R個slots。固定九cohort先A/A再A/B，保留432 samples；大型local/world/isolated submit與sum各六輪改善，但small變動、controls／A/A偏移與非配對standard結果全留。這是以有界額外傳輸換較少native呼叫，不是GPU時間、頻寬或FPS改善承諾。
+
+strict／scoped lint與27項定向tests通過；正式dev/minified dist各九個native ranges／pixel goldens、三backend clean-neighbor RGBA與save/restore/destroy、showcase unlock／真正navigation cleanup通過。隔離full build僅promote九artifact並保護11使用者path。CJS驗證腳本的tmp相對路徑修正後實module load成功，不宣稱native CJS rendering、實體裝置或Safari認證。完整腳本／量測／限制見 [ACCEPTANCE](../ACCEPTANCE.md)。

@@ -391,6 +391,20 @@ try {
       );
     }
 
+    begin('sparse-particle-updates-preserve-clean-neighbor');
+    layer.setTint(1, [0, 1, 1, 1]);
+    layer.setTint(5, [0, 0, 1, 1]);
+    image = await proof();
+    pixel(image, 24, 8, [0, 255, 255], 'first sparse dirty particle updates');
+    pixel(
+      image,
+      56,
+      8,
+      [255, 0, 0],
+      'clean particle between dirty slots keeps its uploaded tint',
+    );
+    pixel(image, 88, 8, [0, 0, 255], 'second sparse dirty particle updates');
+
     begin('interleaved-texture-stable-order-opacity');
     const blueSource = document.createElement('canvas');
     blueSource.width = blueSource.height = 8;

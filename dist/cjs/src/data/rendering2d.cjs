@@ -11,6 +11,7 @@ var rendering2dLimits = Object.freeze({
 	meshVertices: 1e6,
 	meshIndices: 3e6,
 	particleCapacity: 65536,
+	webglParticleUploadGapSlots: 1,
 	atlasPages: 64,
 	atlasFrames: 16384,
 	fontGlyphs: 4096,
