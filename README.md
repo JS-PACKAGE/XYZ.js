@@ -154,6 +154,8 @@ P261 在完整 Game RAF profile 中發現並修正跨 Scene 的 presentation cac
 
 P262 拆分 local／world 粒子 affine ownership，讓 local 直接重用既有 base presentation composition。正式 minified WebGL2 Game 的大型 local／world 計測區段合計分別短 7.63%／21.46%，均六輪較快；mixed／small 未確立收益，分項退步完整保留。P262 reuses base composition for local particles; high-density production Game work-category sums improve, not a universal FPS claim. P262 は local 粒子の既存行列キャッシュを再利用し、大規模 local／world で計測区間合計を改善。mixed／small の改善は未確立。36 tests、實際 source／dist 三 backend 動態 pixels／override／Scene transfer 通過；證據與全部配對見 [ACCEPTANCE](./ACCEPTANCE.md) P262，不 push／升版。
 
+P263 不採用 ParticleLayer2D 的 slot affine-copy helper 原型：source-slot 真正 Game 的 mixed 計測區段合計慢2.00%且六輪皆退步，大型 local／world 收益不穩定。P263 rejects a consolidated slot-copy prototype after real Game pairs fail the performance gate. P263 は実際の Game 配対で安定した改善を確認できない slot-copy 案を不採用。三 backend 動態像素、157,500個精確數字與 callback mutation／reuse／destroy 對照通過，但正確不代表更快；正式 source／dist 不變，全部144 samples 見 [ACCEPTANCE](./ACCEPTANCE.md) P263，不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

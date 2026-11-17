@@ -7538,3 +7538,11 @@ local pool 粒子改為普通 Sprite 的 composition，不再以 forwarding over
 正式 minified WebGL2 Game 配對的大型 local／world 計測區段合計為 -7.63%／-21.46%，同步 submit 為 -7.51%／-10.97%，均六輪較快。mixed／small 合計方向各3快3慢，不宣稱穩定收益。mixed after-update +19.23%、world simulation +19.00% 為六輪退步，empty submit +18.74% 五輪較慢，完整保留。這些具名 wall-clock 區段不是 GPU 時間、完整 RAF／fps 或通用加速，也不臆測 class／layout 方向的 JIT／GC 根因。
 
 原生 lifecycle 對照、source-slot／實際 source／正式 production root 在三 backend 共45個真實 Game cases、294,840個精確數字、nonblank matching PNG 與 borrowed-resource cleanup 通過。36 targeted tests、strict／scoped lint、僅提升四檔的 guarded build，以及 particles2d／showcase 各4/4 backend smoke 通過；11個使用者檔維持原 bytes。該 emitter 檔 minified 少11 B、gzip 少2 B，不是整包大小或 heap 宣稱。192個 simulation-only 與288個 Game timing samples、全部 outliers、fixture 修正與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P262。未認證 full suite、audio unlock、CJS graphics timing、GPU／heap／GC／fps、實機／Safari，不 push／升版。
+
+## P263：不採用集中式 slot affine-copy helper
+
+隔離原型只將 layer 的六個 affine getter 呼叫集中為 private Slot.copyMatrix，以同一既有 private subarray 寫出原矩陣；保留各個 store／local-world expression，數值仍在 parent composition callback 後讀取。不公開 mutable backing、不新增 retained buffer 或 lifetime state。共同 culling bounds／Canvas2D 使用該路徑，GPU upload getter loops 未改。
+
+固定可見 source-slot WebGL2 Game 六 cohorts、六輪 ABBA／BAAB、全部144 samples。mixed 計測區段合計 +2.00% 六輪慢；大型 local -0.22% 3快3慢、大型 world -0.76% 4快2慢、小型 +4.87% 2快4慢。未改動 Sprite control 合計 -6.09%，after-update 卻 +40.10%，兩者都六輪同方向；均不歸因為 helper 收益。不採用此原型，不臆測 JIT／GC 或宣稱 fps。
+
+Canvas2D／WebGL2／WebGPU 共15個真實 Game cases，157,500個 Object.is 精確數字及 nonblank matching PNG 通過。四個 parent-callback transform／reuse／remove／destroy histories 通過68個數字、invalid-slot 拒絕、frozen-record 與 borrowed-resource cleanup。正式 source／dist 從未修改，本輪只提交證據文件；tests／build、production／CJS timing、gallery、audio unlock、實機／Safari 未新增認證。全部 raw pairs／outliers／限制見 [ACCEPTANCE](../ACCEPTANCE.md) P263，不 push／升版。

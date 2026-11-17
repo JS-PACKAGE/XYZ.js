@@ -6383,3 +6383,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 不新增另一套 cache、flag、Map、matrix、protected hook 或 renderer API，也不放寬 custom override guard；local 使用 P261 的跨 Scene unique pass，world 仍保留原 affine ownership。private mode copy／local unused axes 移除，但不把 source 欄位數當 heap／allocation／GC 量測。
 - 採用依據是完整實際 Game 的正式 minified paired clocks：大型 local／world 合計六輪皆改善。mixed／small 未確立收益，mixed after-update／world simulation／empty submit 等退步照錄；class layout 與 ownership 同時改變，不把 world／empty 或未修改 target control 的方向臆測成單一 cache／JIT 因果。
 - 原生數值／pixel／instance override／screen-root／Scene transfer／cleanup、既有測試及四產物 byte guard 通過；公開 declaration、資源 ownership、source validation 與數值運算式不變。完整 scope／raw pairs 見 `ACCEPTANCE.md` P262。
+
+## P263：slot 內集中讀取不等於完整 Game 收益
+
+- 試作在 private Slot 類別中以單一 copyMatrix 寫出原 affine，供 layer 的 private slotMatrix 使用；仍保留 frozen borrowed record 的既有 getters，不公開 mutable backing、不新增 whole-buffer retention 或 destroy 分支。
+- 所有 numeric loads 仍在 parent updateWorldMatrix callback 之後；remove／reuse 會看到相同既有 slot／新 generation，destroy 仍在相同階段失敗。矩陣寫入順序、Float32 落點、local/world composition 與 bounds 角點運算不改。
+- Source-slot native Game 的 mixed 四段合計六輪皆慢，local／world 微小方向未確立穩定收益；正確性與未修改 control 的加速不能代替採用門檻。拒絕此原型，正式 implementation 保留既有 Slot getters 與 slotMatrix。
+- 本輪僅保存三 backend 動態像素／157,500數字、callback 邊界68數字及全部144個真實 Game timing samples，不新增公開 API 或認證未跑的 production／CJS／其他平台。見 `ACCEPTANCE.md` P263。

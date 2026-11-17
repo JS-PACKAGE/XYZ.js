@@ -6245,3 +6245,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 正式大型 local／world 計測四區段合計為 -7.63%／-21.46%，submit -7.51%／-10.97%，均六輪較快；mixed／small 合計方向各3快3慢，未宣稱穩定收益。mixed after-update +19.23%、world simulation +19.00% 均六輪慢，empty submit +18.74% 五輪慢，成本完整保留。
 - 原生 lifecycle 2,048 組精確對照、三 scope 各三 backend 共45個動態 Game cases／294,840個數字及 non-blank matching PNG、borrowed-resource cleanup 通過；36 targeted tests、strict／scoped lint、僅四檔提升的 isolated build 通過，11個使用者檔保持原 bytes。
 - 既有 particles2d／showcase 各 auto／三 forced backends 4/4 PASS；正式 emitter minified -11 B、其 gzip -2 B。這是 desktop Chromium WebGL2 的計測區段收益，不是 GPU／呈現 fps、heap／GC 或所有 workload／瀏覽器認證；全部原始 timing、離群值與限制見 `ACCEPTANCE.md` P262。
+
+## P263：不採用 ParticleLayer2D slot affine-copy helper
+
+- 沿 P261 的 matrix／bounds 熱點，僅在隔離原型將 slotMatrix 六個 getter 改為一次 Slot.copyMatrix，仍使用同一既有 private subarray；不新增 retained backing、raw-array 公開出口、數值／pass 快取或生命週期狀態。
+- 保留 requireSlot、local／world 分支、parent callback 後讀 slot、原九個 matrix stores 與所有 source／generation／resource 驗證。共同 culling bounds／Canvas2D 會使用該 helper，GPU upload body 仍直接讀既有 getters，未改寫 renderer。
+- 固定六 cohort、六輪 ABBA／BAAB、144個真實 WebGL2 Game samples；mixed 合計 +2.00% 六輪慢，local-large -0.22% 3快3慢、world-large -0.76% 4快2慢，small +4.87% 2快4慢，不達採用門檻。
+- 未走該 helper 的 Sprite control 合計 -6.09% 六輪快，但 after-update +40.10% 六輪慢；不把 control 方向當成改動收益，也不猜測 JIT／GC 根因。所有分項／離群值／ties 保留。
+- Source-slot 三 forced backends 共15個動態 Game cases、157,500個 Object.is 數字、nonblank matching PNG，及4個 callback transform／reuse／remove／destroy histories、68個數字、invalid-slot／frozen-record／borrowed-resource cleanup 通過。
+- 原型從未套用正式 source／dist，只提交六份證據文件；未跑正式 tests／build、production／CJS CPU 或新的 gallery 認證，歷史驗證不改寫。全部證據與限制見 `ACCEPTANCE.md` P263，不 push／升版。
