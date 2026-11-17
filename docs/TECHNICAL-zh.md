@@ -7654,3 +7654,11 @@ strict／scoped lint與27項定向tests通過；正式dev/minified dist各九個
 particle使用獨立36-float buffers與直接queue.writeBuffer，不走ordinary quad mapped staging。sandbox候選只加local dirtyEnd，每個相鄰dirty-slot間最多跨一格clean gap，不加instance狀態或backing。忠實委派的native queue觀察、8208組model、24個WebGPU可變source及66個三backend動態Game cases維持ranges／像素／cleanup。
 
 固定九cohort先A/A再A/B的432 samples全留。大型local/world/isolated submit與分項sum每輪較慢，small則改善，未改simulation與controls亦偏移，沒有隔離頻寬／cache／JIT單一原因。因此否決，不把WebGL2結果直接套用，也不加有利size特例。正式source／產物／API／版本不變；本輪沒有新unit/typecheck/build、CJS、standard/showcase、GPU時間或FPS認證。完整原型／結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P279 — WebGPU particle 的 draw-local texture 解析
+
+同一 particle draw 內，連續相同 raw source 且 version 未變時可重用已解析 GPU texture。identity／version 改變或 source 已 destroyed 時仍走原 resolver；最終 batching 仍比較 GPU handle。geometry validation、upload ranges、shader、backing 不變，只增加兩個 local scalars，沒有持久 cache、instance field、公開 API 或版本變更。
+
+每個 run 的第一次解析保留 owner／資源檢查與 residency touch。正常同步路徑中重複 frame pin／capture membership 本來冪等，但不承諾內部 LRU clock 數值不變。原生特製 CanvasTexture／getSlot probe 在第一次解析後對同 source 公開 update，證實 version guard 及新 RGBA，不擴張公開的任意 mid-draw 重入契約。
+
+固定九 cohort 的432個 A/A→A/B samples 全留。四組 large local／world／isolated submit 與 sum 每輪改善；small／AllDynamic 混合結果、未改 spans、controls 偏移及非配對 standard Sprite 也保留。semantic counter／CDP profiles 分開執行，不混進 CPU。strict／scoped lint、33項定向 tests、只 promote 四 artifact 的隔離 full build、正式 dev/minified dist 可變 source／version 原生像素、三 backend main lifecycle 與 showcase cleanup 通過。CJS module load 不等於 native CJS rendering；不認證 GPU／FPS、實體裝置或 Safari。完整腳本／raw／限制見 [ACCEPTANCE](../ACCEPTANCE.md)。

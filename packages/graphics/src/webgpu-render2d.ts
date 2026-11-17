@@ -1266,6 +1266,8 @@ export class WebGPURender2D {
     pass.setBindGroup(2, this.effects.defaultUniforms);
     pass.setVertexBuffer(0, entry.buffer);
     let previous: GPUTexture | undefined;
+    let previousSource: Texture2DSource | undefined;
+    let previousVersion = -1;
     let runStart = 0;
     let dirtyStart = -1;
     for (let i = 0; i < layer.activeCount; i++) {
@@ -1358,15 +1360,24 @@ export class WebGPURender2D {
         this.uploadParticles(entry, dirtyStart, i - dirtyStart);
         dirtyStart = -1;
       }
-      const texture = this.textureOf(slotData.texture);
-      if (texture !== previous) {
-        if (previous) {
-          pass.draw(6, i - runStart, 0, runStart);
-          this.hooks.stats.draw2D(i - runStart);
+      const textureSource = slotData.texture;
+      if (
+        textureSource !== previousSource ||
+        textureSource.version !== previousVersion ||
+        textureSource.destroyed
+      ) {
+        const texture = this.textureOf(textureSource);
+        previousSource = textureSource;
+        previousVersion = textureSource.version;
+        if (texture !== previous) {
+          if (previous) {
+            pass.draw(6, i - runStart, 0, runStart);
+            this.hooks.stats.draw2D(i - runStart);
+          }
+          pass.setBindGroup(1, this.textureGroup(texture));
+          previous = texture;
+          runStart = i;
         }
-        pass.setBindGroup(1, this.textureGroup(texture));
-        previous = texture;
-        runStart = i;
       }
     }
     if (dirtyStart >= 0)

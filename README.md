@@ -206,6 +206,12 @@ P278: WebGPU dirty-upload coalescing is rejected: fewer native calls and matchin
 
 P278：WebGPUのdirty upload結合案は不採用。呼出回数減少と画面一致だけでは、大規模対象のCPU増加を正当化しない。小規模改善と対照・simulationの偏移も [検収記録](ACCEPTANCE.md) に保持し、正式source／dist／API／版は変更しない。
 
+P279：採用 WebGPU particle 同一 draw 內、連續相同 raw texture／version 的解析重用，仍檢查 destroyed，保留 GPU handle batching，不做跨幀 cache。432 個固定 A/A→A/B samples 中，四組大型目標 submit 各六輪改善；small／AllDynamic 混合結果、controls／A/A 漂移與非配對標準量測全留。33 項定向測試、正式 dev/dist 版本更新像素與三 backend lifecycle／showcase cleanup 通過。無新增 backing、公開 API 或版本變更，完整證據及限制見 [ACCEPTANCE](ACCEPTANCE.md)。
+
+P279: WebGPU particle draws reuse resolution only for consecutive unchanged raw sources, retaining version/destroyed guards and GPU-handle batching. Four large paired targets improve in all six rounds; mixed small/AllDynamic results, controls, drift and nonpaired standard measurements remain explicit. Formal dev/dist native pixels, 33 targeted tests and lifecycle checks pass. No persistent cache, backing, API or version change; see [ACCEPTANCE](ACCEPTANCE.md).
+
+P279：WebGPU粒子の同一draw内で連続する同一source／versionの解決を再利用。destroyed判定とGPU handle batchingは維持する。大規模4対象は各6対で改善したが、小規模・AllDynamic・対照・非対標準値と検証限界も [検収記録](ACCEPTANCE.md) に保持。正式dev/distの画素、33テストとlifecycleを確認し、永続cache／backing／API／版は追加しない。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

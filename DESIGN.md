@@ -6492,3 +6492,11 @@ WebGL2遇clean slot不再立即flush，而是等pending run和目前offset之間
 WebGPU的particle entry使用獨立36-float buffer，uploadParticles直接queue.writeBuffer；ordinary quad mapped staging不覆蓋它。候選以local dirtyEnd保留最後dirty slot，在每個相鄰dirty-slot間最多跨一個clean slot；不新增instance欄位或per-slot backing，不改source／anchor／texture batching。
 
 相同canonical class／Game及layout下，native particle-buffer觀察與像素一致，呼叫減少但payload增加。完整A/A→A/B卻在三組large目標submit與sum每輪較慢；small收益不能反轉此結論。simulation亦呈系統性偏移，因此不把所有差異硬歸因於額外bytes、cache或JIT。拒絕把P277的WebGL2結果直接移植，不加入size特例或threshold調參以追逐有利數據；正式架構保持原樣，證據見ACCEPTANCE。
+
+## P279 — draw-local 連續 texture 解析，不是持久 cache
+
+WebGPU particle 逐 slot 仍完成原 geometry／source validation。第一次 raw source、source identity 或 version 改變、或 source 已 destroyed 時，才重新呼叫既有 textureOf；同一連續 run 的其餘 slots 重用已解析 GPUTexture。GPU handle 仍作最終 batch key，所以不同 raw sources 若解析到同一 handle，不會新增 batch。狀態限於 drawParticles 的兩個 local scalars，不能跨 layer／draw／frame 延用；upload 政策、shader、backing 與 API 不變。
+
+每個 run 的第一個解析仍執行 owner／資源檢查與 residency touch；重複 touch 的內部 clock 數值不承諾相同。正常同步 draw 中，frame pin 與 capture Set 的重複登記本來是冪等；不把這個分析擴張為任意 subclass 重入保證。特製原生 CanvasTexture subclass／getSlot probe 在第一次解析後做同尺寸公開 update，證實 version guard 會再解析並讀回新像素，但不新增中途任意 mutation 的公開時序契約。
+
+同 canonical class、相同 constructor／backing 的固定 per-layer trampoline，測得四個 large targets 六輪一致降低 submit／sum；small、AllDynamic、A/A／controls 與未改 spans 的偏移仍全留。semantic resolver counter 與 CDP profiles 另跑，不混入 CPU。source-slot 可變 call targets 與未 minify 限制、正式 dev/dist 的原生 pixels／cleanup、非配對 standard 差異均見 ACCEPTANCE；不宣稱 GPU／FPS／heap 或跨平台全面改善。

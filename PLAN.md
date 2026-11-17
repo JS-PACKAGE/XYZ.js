@@ -6369,3 +6369,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - sandbox候選僅加local dirtyEnd及一格gap，沒有正式常數／source修改。8208組model、九cohort原生particle-buffer calls／bytes／PNG、24個WebGPU source cases及66個三backend動態cases通過。
 - 固定九cohort先216個A/A再216個A/B；432個32-frame averages全留。large local/world/isolated submit與sum各六輪較慢，small各六輪較快但不足以採用；未變simulation亦偏移，不宣稱已隔離頻寬／cache／JIT單一原因。
 - 僅文件commit；不重跑或冒稱本輪正式unit/typecheck/build、CJS、standard／showcase或FPS認證。原型／raw／native範圍與限制見ACCEPTANCE，source／dist／API／版本不變，不push。
+
+## P279 — WebGPU particle 連續 source 解析重用
+
+- 正式 dev profiles 定位 cacheTexture 鏈，不把 sampled self weights 當逐幀 CPU 或實體指令。追查可變 Canvas／RenderTexture version、destroyed、owner 與 residency touch 契約後，只在同一 draw 的連續相同 raw source／version 重用。
+- 保留 destroyed guard、GPU handle batching、validation 與所有 upload／backing layout；只有兩個 local scalars，沒有跨幀 cache、instance field、data 常數或新 API。
+- 固定九 cohort 先216個 A/A 再216個 A/B，共432個48-frame averages。四組大型 local／world／isolated submit 與 sum 各六輪改善；small／AllDynamic 混合、controls／A/A 漂移與非配對 standard 全留，不推定未改 simulation／afterUpdate 的變化原因。
+- 33項定向 tests、strict／scoped lint、隔離 full build 僅 promote 四個 WebGPU renderer artifacts 並保護11使用者 paths。正式 dev/minified dist 各24個 mutable-source cases 及 same-draw version 原生 RGBA、三 backend main save/restore/destroy、showcase auto＋強制 backend unlock／navigation cleanup 通過；CJS 僅 module load。
+- 原型、完整 profiles／timings／native evidence、counter 與外推限制見 ACCEPTANCE。維持 package 1.23.0，依功能 commit，不 push。
