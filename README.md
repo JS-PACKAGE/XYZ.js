@@ -176,6 +176,12 @@ P270：正式 Game profile では以前の空 pool の simulation 遅延原因�
 
 P271：兩版保留 receiver 的 boolean observer guard 都通過原生 lifecycle／三 backend gates，但 active 場景的條件性收益不足以抵銷 empty／事件歷史控制組的回退，故不採用。P271 rejects both boolean guards after retaining conditional gains and regressions across all controls. P271 は全対照を保持し、条件付きの改善だけでは boolean guard を採用しない。完整1,728個樣本、兩版原型及限制見 [ACCEPTANCE](ACCEPTANCE.md)；正式 runtime／dist／版本不變。
 
+P272：採用 `Group2D` 同次 bounds 查詢內的 parent inverse 重用，不新增跨查詢狀態或公開 API。移除重複 copy 的版本在固定同 Game A/A＋A/B 中改善 isolated-world 大場景 CPU 分段總和，保留普通 local／plain-world 等 controls 與全部不利樣本；不是 FPS 或所有場景加速承諾。正式 dev／dist 三 backend、CJS、40項定向測試與 strict／lint／隔離 build 通過，完整方法及 oracle 修正見 [ACCEPTANCE](ACCEPTANCE.md)。
+
+P272: Group bounds reuse an affine parent inverse only within the current query, preserving reentrant matrix callbacks and Float32 results. The copy-eliding candidate improves the measured isolated-world workload; all controls, timing limits and a corrected numerical oracle are retained in [ACCEPTANCE](ACCEPTANCE.md). No general FPS claim, push or version change.
+
+P272：Group bounds の同一問い合わせ内だけで parent inverse を再利用する。再入可能な callback と Float32 結果を維持し、isolated-world の計測対象で改善を確認した。全対照・不利な標本・数値 oracle の訂正と検証範囲は [検収記録](ACCEPTANCE.md) に記載。全場面の FPS 改善を意味しない。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

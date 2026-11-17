@@ -6318,3 +6318,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 正式 Game／WebGL2 profile 驗證 Sprite 有 destroy listener、沒有 update listener 的路徑與真正 teardown callbacks；未把採樣結果當逐幀分布或空 pool 根因證明。
 - 比較 global-first 與 receiver-first 兩個 boolean 原型，保留 receiver Set、虛擬方法與保守事件歷史。每版 native lifecycle／三 backend gates 通過，再各自執行同一固定十八 cohort 的 A/A＋A/B；兩版共1,728 samples，全部保留。
 - active 場景有條件性收益，但第一版的常見控制組及第二版的 empty listener 場景仍有回退，因此兩版均不採用；不再擴大 observer guard 狀態或以重跑挑方向。只同步六份文件，沒有正式 source／dist／API／版本變更，詳見 ACCEPTANCE。
+
+## P272 — 同次 Group bounds 查詢的 affine inverse 重用
+
+- 先由正式 Game operation counts 確認普通 world 場景沒有走 Group fallback，僅以 world-isolation 作效能目標，不用未觸發分支的場景冒充證據。
+- 第一版只省 inverse、仍重複 copy，收益不足；第二版保留 parent Float32 元素讀取與公開 matrix callback／multiply 時序，只在同一查詢內重用六個 inverse 數值並省去重複 copy。兩版固定八 cohort，各自完成 A/A＋A/B；共768 samples，全量保留。
+- 採用第二版，新增 parent mutation／singular／reentrant consumer tests，40項定向測試、strict typecheck、scoped lint 通過；隔離完整 build 只帶回四個 Group2D 產物，11個使用者檔案受 hash guard 保護。
+- 實際 dev／minified ESM dist 三 backend 共24個大型 Game cases、正式 CJS 15項 assertions，以及未修改的標準 Sprite benchmark 均實際執行；RAF 與 CPU submit 分別記錄。source-slot 配對收益不是 production／CJS CPU、GPU／FPS 或實體裝置認證，oracle 初次參數錯誤與修正亦保留，見 ACCEPTANCE。不 push／升版。

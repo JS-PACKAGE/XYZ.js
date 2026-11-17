@@ -6,7 +6,7 @@ import { Sprite } from '../packages/core/src/sprite.js';
 import { Group2D } from '../packages/core/src/gameplay/group2d.js';
 import { ScreenElement } from '../packages/core/src/gameplay/screen-element.js';
 import { FrameAnimation } from '../packages/core/src/gameplay/frame-animation.js';
-import { Vector2 } from '../packages/math/src/index.js';
+import { Matrix3, Vector2 } from '../packages/math/src/index.js';
 import { IsolatedGroup2D } from '../packages/core/src/rendering2d/isolated-group.js';
 import {
   collectRenderCommands2D,
@@ -192,6 +192,135 @@ describe('2D composed scene ownership', () => {
     } finally {
       root.destroy();
       asset.destroy();
+    }
+  });
+
+  it('rechecks parent affine values after each custom world callback', () => {
+    const parent = new Matrix3().compose(
+      new Vector2(10, 20),
+      0,
+      new Vector2(2, 4),
+    );
+    const root = new Group2D();
+    root.updateWorldMatrix = () => parent;
+    let scale = 4;
+    class WorldRect extends GameObject {
+      constructor(
+        private readonly matrix: Matrix3,
+        private readonly mutateParent = false,
+      ) {
+        super();
+      }
+      override getLocalBounds(out = { x: 0, y: 0, width: 0, height: 0 }) {
+        return Object.assign(out, { x: 0, y: 0, width: 4, height: 8 });
+      }
+      override updateWorldMatrix() {
+        if (this.mutateParent)
+          parent.compose(new Vector2(10, 20), 0, new Vector2(scale, scale * 2));
+        return this.matrix;
+      }
+    }
+    root.add(
+      new WorldRect(
+        new Matrix3().compose(new Vector2(14, 28), 0, new Vector2(1, 1)),
+      ),
+    );
+    root.add(
+      new WorldRect(
+        new Matrix3().compose(new Vector2(22, 36), 0, new Vector2(1, 1)),
+        true,
+      ),
+    );
+    try {
+      expect(root.getLocalBounds()).toEqual({
+        x: 2,
+        y: 2,
+        width: 2,
+        height: 2,
+      });
+      scale = 0;
+      expect(() => root.getLocalBounds()).toThrow(
+        'Cannot invert a singular Matrix3',
+      );
+      scale = Infinity;
+      parent.compose(new Vector2(10, 20), 0, new Vector2(2, 4));
+      expect(() => root.getLocalBounds()).toThrow(
+        'Cannot invert a singular Matrix3',
+      );
+    } finally {
+      root.destroy();
+    }
+  });
+
+  it('preserves outer group coverage when a world callback queries the same group', () => {
+    const parent = new Matrix3().compose(
+      new Vector2(10, 20),
+      0,
+      new Vector2(2, 4),
+    );
+    const root = new Group2D();
+    root.updateWorldMatrix = () => parent;
+    let reentered = false;
+    let nestedWidth = 0;
+    class WorldRect extends GameObject {
+      constructor(
+        private readonly matrix: Matrix3,
+        private readonly width: number,
+        private readonly height: number,
+        private readonly reenter = false,
+      ) {
+        super();
+      }
+      override getLocalBounds(out = { x: 0, y: 0, width: 0, height: 0 }) {
+        return Object.assign(out, {
+          x: 0,
+          y: 0,
+          width: this.width,
+          height: this.height,
+        });
+      }
+      override updateWorldMatrix() {
+        if (this.reenter && !reentered) {
+          reentered = true;
+          parent.compose(new Vector2(100, 200), 0, new Vector2(10, 20));
+          nestedWidth = root.getLocalBounds().width;
+          parent.compose(new Vector2(10, 20), 0, new Vector2(2, 4));
+        }
+        return this.matrix;
+      }
+    }
+    root.add(
+      new WorldRect(
+        new Matrix3().compose(new Vector2(14, 28), 0, new Vector2(1, 1)),
+        2,
+        2,
+      ),
+    );
+    root.add(
+      new WorldRect(
+        new Matrix3().compose(new Vector2(22, 36), 0, new Vector2(1, 1)),
+        4,
+        8,
+        true,
+      ),
+    );
+    root.add(
+      new WorldRect(
+        new Matrix3().compose(new Vector2(14, 28), 0, new Vector2(1, 1)),
+        1,
+        1,
+      ),
+    );
+    try {
+      expect(root.getLocalBounds()).toEqual({
+        x: 2,
+        y: 2,
+        width: 6,
+        height: 4,
+      });
+      expect(nestedWidth).toBeCloseTo(1.2, 5);
+    } finally {
+      root.destroy();
     }
   });
 

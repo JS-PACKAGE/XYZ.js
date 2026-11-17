@@ -7606,3 +7606,9 @@ shared-graph三backend Sprite／target共66cases、562,716個數字與nonblank P
 正式 Game profile 實際註冊非 update 的 destroy listeners，並驗證 Game teardown 完整回呼。兩版隔離原型由既有 writer 維護單調 pre/post boolean，保留 receiver Set 與虛擬呼叫；第二版先檢查 receiver 是否有 Set，讓 untouched 物件不必查全域狀態。
 
 兩版 native lifecycle／三 backend gates 均通過，再各自跑同一固定十八 cohort 的 A/A＋A/B，完整保留共1,728個樣本、收益、回退、flags與callback資料。active 條件性收益不足以抵銷 empty／事件歷史控制組的回退，因此兩版都不加入 runtime，也不改產物、API或版本。完整證據與 mutable prototype／warm-up／A/A漂移限制見 [ACCEPTANCE](../ACCEPTANCE.md)，不是 production／CJS、GPU time、呈現FPS、音訊或實體裝置認證。
+
+## P272 — Group bounds 的 query-local affine inverse 重用
+
+world/custom child fallback 仍在公開 matrix callbacks 前保存 rectangle，callbacks 後重新讀取 parent Float32 元素；六個 affine 分量以 `Object.is` 比較，不用 matrix identity／revision 代替。parent 改變時照舊 `invert()` 並保留 singular／nonfinite RangeError；相同時直接 materialize 已存 Float32 inverse，再呼叫既有 `multiply(world)`。inverse 僅存於目前 query 的數值 locals，nested bounds query 不會取代 outer 的 inverse，不新增 instance state／API，也不改普通 local 角點運算。
+
+初版仍重複 copy，未採用；省去 redundant parent stores 的第二版在固定 shared-Game isolated-world 負載改善。兩版各自固定八 cohort A/A＋A/B，共768 samples、全部 controls／不利值保留。source-slot wall-clock spans 不等於正式 production／CJS CPU、GPU time 或 FPS 認證。正式 dev／minified ESM dist 三 backend 24個 Game cases、實際 CJS assertions、40項定向測試、strict／scoped lint／隔離完整 build 通過；未修改的標準 Sprite benchmark 分開記錄 RAF／CPU submit，但它不走本次 fallback。finite oracle 修正、fixture 初次失敗與完整限制見 [ACCEPTANCE](../ACCEPTANCE.md)，不 push／升版。

@@ -6444,3 +6444,11 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 兩個單調 boolean 索引都由既有 event-type writer 維護，且只能作負向 guard；receiver 自身 Set 與虛擬呼叫仍不可繞過。global-first 版在原本沒有 Set 的物件也加入判定，receiver-first 版改成先保留原有 absent-Set 返回路徑。後者是根據第一版完整資料修正計算順序，不是重跑相同實作或捨棄不利樣本。
 
 兩版皆通過實際事件與畫面驗證，卻有不同負載／lifetime-history tradeoff；尤其曾觀察 update 後全域狀態不縮減，不能只用冷啟動 active listener 場景決定共用 runtime。完整 fixed controls 不支持採用，因此不加入 boolean 索引或其他 observer 新狀態。mutable prototype selector、warm-up 與 A/A 漂移仍限制 source-slot timing 的歸因，不能擴張成 production／CJS／GPU／FPS 證明；見 ACCEPTANCE。
+
+## P272 — query-local inverse 值，不是跨查詢 matrix cache
+
+`Group2D` 的 world/custom fallback 仍先保存 child rectangle，再依原順序呼叫 parent／child 的公開 matrix callbacks。每個 child 重新讀 parent 的 Float32 元素；以 `Object.is` 比較六個 affine 分量，不能以 matrix identity 或 transform revision 取代，因 callback 可直接改寫同一個矩陣。不同值仍呼叫既有 `invert()`，保留 singular／nonfinite 的 RangeError；相同值直接 materialize 已儲存的 Float32 inverse，再呼叫原 `multiply(world)`。
+
+十二個數值與 ready flag 只活在目前 query 的 stack locals，不新增物件欄位或跨 query cache。nested query 可覆寫既有 scratch matrix，但不能覆寫 outer query 的 inverse 值；world elements getter 仍在 inverse materialize 之後由 multiply 讀取。普通 local child 的角點計算不變。
+
+初版保留重複 copy 的收益不足，改版省去 cache-hit 的 redundant parent stores。固定 A/A 與完整 controls 留下的 source-slot conditional 收益支持這個局部變更，不支持所有場景／production FPS 的推論。完整數值 oracle 訂正、原生畫面與測量界線見 ACCEPTANCE。
