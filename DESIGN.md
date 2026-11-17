@@ -6347,3 +6347,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 隔離候選不移除任何 freeze，不提早向公開 caller 發布可變物件，也不增加 brand／wrapper／別名；只改最外層 freeze 與 ownership 登記的 native operation 順序，但不足以提供穩定 CPU 收益，因此不進正式架構。
 - source-slot 探針核對 found／兩種 unreachable、同步／incremental、深層不可變性、外來／複製物件拒絕、revision／destroy 失效與保留快照；數值、getter／Array-species Proxy 讀取及 primitive budget 對照亦通過。
 - 未走 publish 的 project／取消控制仍有時序差異，不能歸因於 WeakSet 或推定 JIT／GC 根因；不宣稱 allocation、heap、fps 或其他 runtime 改善。全部配對與未驗證邊界見 `ACCEPTANCE.md` P257。
+
+## P258：smoothing 的固定 region 僅在本 primitive 重用
+
+- query-local reader 一旦取得正半徑 Region，該 Map value 不會在此 query 中替換；零半徑則返回固定 geometry surface。保留原首次讀取位置，在 clipSegment 與兩側 portal 間重用同一參照。
+- 不新增跨步 cache、region array、wrapper、mutable scratch 或 mesh metadata；不更動 clipping／portal／crossing／高度計算及驗證順序。仍保留每次必要的 vertices／Proxy 讀取、link barrier 與原 primitive budget。
+- 正式 ESM 短路徑配對有收益，但 Node 長路徑／miss 有代價，Chrome 長路徑亦非六輪一致；未修改的 project／取消 controls 不作因果收益，所有 outliers 保留。
+- 28 tests、canonical source／ESM／CJS 的完整數值／getter／Proxy／lifecycle／ownership 對照與 source／dist browser root 通過；API／declarations、slot accounting、取消／revision 失效與 frozen retained results 不變。完整 profile／矩陣見 `ACCEPTANCE.md` P258，不推定 heap／GC 或 fps 改善。

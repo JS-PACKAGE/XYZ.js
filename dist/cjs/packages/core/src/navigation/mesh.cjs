@@ -299,29 +299,29 @@ var NavigationMesh3D = class {
 				}
 				let e = v[E].position, t = v[D].position, n = y[E], r = y[D], i = _[O], a = this.geometry[i], s = !v[D].link;
 				O > n && h.get(i)?.link && (s = !1);
-				let c = clipSegment(region(i).vertices, e, t);
-				if (!c) s = !1;
+				let c = region(i), u = clipSegment(c.vertices, e, t);
+				if (!u) s = !1;
 				else {
-					for (let n of c) {
+					for (let n of u) {
 						let r = e.x + (t.x - e.x) * n, i = e.z + (t.z - e.z) * n;
 						Math.abs(e.y + (t.y - e.y) * n - (a.base + a.dx * r + a.dz * i)) > o && (s = !1);
 					}
-					O === n && c[0] > o && (s = !1), O === r && c[1] < .9999999 && (s = !1);
-					let u = c[0];
+					O === n && u[0] > o && (s = !1), O === r && u[1] < .9999999 && (s = !1);
+					let d = u[0];
 					if (O > n) {
 						let n = h.get(i);
 						if (n.link) s = !1;
 						else {
-							let r = this.portal(n, region(_[O - 1]), region(i), l), a = segmentCrossing(e, t, r[0], r[1]);
-							a === void 0 || a < c[0] - o || a > c[1] + o ? s = !1 : u = a;
+							let r = this.portal(n, region(_[O - 1]), c, l), i = segmentCrossing(e, t, r[0], r[1]);
+							i === void 0 || i < u[0] - o || i > u[1] + o ? s = !1 : d = i;
 						}
 					}
 					if (O < r) {
 						let n = h.get(_[O + 1]);
 						if (n.link) s = !1;
 						else {
-							let r = this.portal(n, region(i), region(n.to), l), a = segmentCrossing(e, t, r[0], r[1]);
-							(a === void 0 || a < u - o || a > c[1] + o) && (s = !1);
+							let r = this.portal(n, c, region(n.to), l), i = segmentCrossing(e, t, r[0], r[1]);
+							(i === void 0 || i < d - o || i > u[1] + o) && (s = !1);
 						}
 					}
 				}

@@ -730,7 +730,9 @@ export class NavigationMesh3D {
           let valid = !raw[candidate]!.link;
           if (check > firstPolygon && parentEdges!.get(polygonIndex)?.link)
             valid = false;
-          const interval = clipSegment(region(polygonIndex).vertices, from, to);
+          // Both portal checks use the same immutable query-local region.
+          const currentRegion = region(polygonIndex);
+          const interval = clipSegment(currentRegion.vertices, from, to);
           if (!interval) valid = false;
           else {
             for (const t of interval) {
@@ -756,7 +758,7 @@ export class NavigationMesh3D {
                 const portal = this.portal(
                   entry,
                   region(corridor[check - 1]!),
-                  region(polygonIndex),
+                  currentRegion,
                   radius,
                 )!;
                 const crossing = segmentCrossing(
@@ -780,7 +782,7 @@ export class NavigationMesh3D {
               else {
                 const portal = this.portal(
                   edge,
-                  region(polygonIndex),
+                  currentRegion,
                   region(edge.to),
                   radius,
                 )!;

@@ -144,6 +144,8 @@ P256 讓 frontier／parent-edge workspace 等到兩端 projection 成功才建�
 
 P257 不採用 path ownership 登記早於 freeze 的候選：Chrome 的 miss／長路徑只在四輪較快，Node 多數輪變慢；不靠未修改控制組的變化宣稱收益。P257 rejects ownership-before-freeze publication: target gains are inconsistent and Node usually regresses. P257 は ownership 登録を freeze より先に移す案を不採用。対象の改善は安定せず、Node は多くの回で悪化。不可變性／偽造拒絕／生命週期與全部 source-slot 配對見 [ACCEPTANCE](./ACCEPTANCE.md) P257；source／dist 保留 P256，不 push／升版。
 
+P258 在同一個 smoothing primitive 重用固定 region，省去兩側 portal 的重複查詢，保留 geometry／Proxy 讀取與 budget。P258 reuses the current smoothing region without cross-step caching; short-route ESM pairs improve, with Node long-route/miss costs disclosed. P258 は smoothing primitive 内の固定 region を再利用し、正式 ESM の短経路で改善。Node の長経路・miss の代償も記録。28 tests、source／ESM／CJS／browser root 與全部矩陣見 [ACCEPTANCE](./ACCEPTANCE.md) P258；不保證全面 CPU／fps 改善，不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

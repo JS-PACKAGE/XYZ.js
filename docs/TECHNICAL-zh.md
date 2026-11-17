@@ -7498,3 +7498,11 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 十三固定 cohorts、Node／可見 pinned Chromium 各六輪 ABBA／BAAB 保留所有 samples。目標 miss／長路徑在 Node 為 +2.15%／+1.56%（各五輪較慢），Chromium 為 -1.74%／-1.18%（各僅四輪較快），不足以採用。未修改的 project／搜尋前取消控制不算因果收益，也不捏造 WeakSet／JIT／GC 根因。
 
 source-slot 對照及真實 consumer 探針保留深層 freeze、十二個已擁有結果、二十四個偽造拒絕、十二個 retained snapshots 與兩個 lifecycle histories，涵蓋同步／incremental found、projection miss 及真正 search-unreachable。source／dist 不變；本證據階段未重跑 formal tests／build、正式 ESM／CJS CPU 或公開 root browser 認證。全部原始配對及限制見 [ACCEPTANCE](../ACCEPTANCE.md) P257；不 push／升版。
+
+## P258：同一個 smoothing primitive 重用當前 region
+
+首次 `region(polygonIndex)` 仍緊接 `clipSegment` 之前；incoming／outgoing portal 重用同一個固定 query-local region，最多省兩次 reader／Map lookup。正半徑 query-cache value 不會被替換，零半徑 surface 也固定。不新增跨步 cache、scratch 配置或 mesh metadata，不略過 geometry／Proxy 讀取，不改數值運算、link barrier 或 primitive budget。
+
+新基線 profile 將 region reader 列為長路徑熱點之一。source-slot 短路徑 Node／Chromium 各六輪改善；正式 minified ESM 短路徑為 -0.46%（Node，五輪較快）／-3.24%（Chromium，六輪）。Node 長路徑 +0.52%、miss +2.02% 均六輪較慢，Chrome 長路徑收益混合；保留所有未修改控制及 outliers，不作因果收益或全面 CPU／fps 宣稱。
+
+28 項既有 tests、strict／scoped checks、受保護隔離 build、canonical source／ESM／CJS 十組 consumer probes 與實際 source／dist browser root 通過；frozen ownership／偽造拒絕／revision、Proxy／getter histories、slot、取消、budget 及保留值不變。只改四份 mesh runtime／map，其他產物、declarations、vendor 與十一個使用者檔案保留。臨時 build guard 的 digest 錯字已修正，沿已準備的隔離樹續跑完成。全部 profile／配對／限制見 [ACCEPTANCE](../ACCEPTANCE.md) P258，不 push／升版。

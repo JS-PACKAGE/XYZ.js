@@ -6203,3 +6203,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 固定十三 cohorts、Node／可見 pinned Chromium 各六輪 ABBA／BAAB，保留全部 312 samples/runtime。Node miss／長路徑各五輪變慢，Chrome 各只有四輪改善，不採用；未走 publish 的取消與 project 控制變化不算因果收益。
 - source-slot 數值／getter／Proxy／budget／retained 對照與新增公開 consumer 探針通過：十二個已擁有 path、二十四個偽造拒絕、十二個 retained snapshots、兩個 lifecycle histories，涵蓋 found、projection miss 與真正 search-unreachable 的同步／incremental 結果。
 - 此階段只保存證據文件；正式 source／dist 保留 P256，未重跑 formal tests／build／正式 ESM 或 CJS CPU／browser root 認證。全部矩陣及限制見 `ACCEPTANCE.md` P257，不 push／升版。
+
+## P258：smoothing primitive 重用當前 region
+
+- 重新 profile P257 文件提交後的正式基線；query-local region reader 是長路徑熱點之一。保留既有零半徑 surface 重用、正半徑 query Map 與 mesh-level radius／epoch cache，不重做 P170／P249。
+- 首次 region(polygonIndex) 仍在 clipSegment 前取得；同一 primitive 的 incoming／outgoing portal 改用該參照，最多省兩次重複 reader／Map lookup，不跨 primitive 保留新 state，不加配置或共享 workspace。
+- source-slot 短路徑 Node／Chromium 各六輪改善；正式 ESM 短路徑為 -0.46%（Node，5/6）／-3.24%（Chromium，6/6）。正式 Node 長路徑 +0.52%、miss +2.02% 均六輪較慢，Chrome 長路徑只有四輪較快；完整控制與離群值全部記錄，不宣稱全面加速。
+- 28 項既有 tests、strict／scoped lint、隔離 production build、canonical source／ESM／CJS 十組 consumer probes 與實際 source／dist browser root 通過；原始數值、Array-species Proxy／getter 順序、budget、slot、ownership 與 retained snapshots 保留。
+- 只提升四份 mesh runtime／map，十一個使用者檔案 SHA256、其餘 build 產物、declarations、vendor、公開型別與版本不變。臨時 build guard 的 digest 名稱錯字已修正後續跑完成；全部 profile／矩陣／限制見 `ACCEPTANCE.md` P258，不 push／升版。
