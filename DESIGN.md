@@ -6438,3 +6438,9 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 `SceneObject` 的事件觀察狀態屬於 receiver；既有 WeakMap 索引以原物件為 key，不能直接替代 receiver 的 Set。將原生 EventTarget 方法綁定 target 的合法 Proxy façade，仍可能由 Scene 以 proxy identity 呼叫 `observesUpdate`。直接查 WeakMap 的候選會失去事件，因此保留既有實作及新的消費端 regression test。
 
 全域「曾觀察」類型只能作保守的負向判定；remove／once／abort 後不應縮減狀態，且不能繞過虛擬方法。保留 receiver Set 的候選雖維持語義，正式 Game 固定 A/A＋A/B 的常見負載 simulation 成本仍增加，故不加入 guard、不新增公開 API 或快取。CDP profile 與配對計時各有不同執行歷史，不能據此宣稱已確定空 pool 根因、JIT 機制或呈現效能改善；詳見 ACCEPTANCE。
+
+## P271 — 不以 conditional observer 收益擴張共用狀態
+
+兩個單調 boolean 索引都由既有 event-type writer 維護，且只能作負向 guard；receiver 自身 Set 與虛擬呼叫仍不可繞過。global-first 版在原本沒有 Set 的物件也加入判定，receiver-first 版改成先保留原有 absent-Set 返回路徑。後者是根據第一版完整資料修正計算順序，不是重跑相同實作或捨棄不利樣本。
+
+兩版皆通過實際事件與畫面驗證，卻有不同負載／lifetime-history tradeoff；尤其曾觀察 update 後全域狀態不縮減，不能只用冷啟動 active listener 場景決定共用 runtime。完整 fixed controls 不支持採用，因此不加入 boolean 索引或其他 observer 新狀態。mutable prototype selector、warm-up 與 A/A 漂移仍限制 source-slot timing 的歸因，不能擴張成 production／CJS／GPU／FPS 證明；見 ACCEPTANCE。

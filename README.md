@@ -174,6 +174,8 @@ P270: Formal Game profiles did not establish the earlier empty-pool simulation c
 
 P270：正式 Game profile では以前の空 pool の simulation 遅延原因を確定できなかった。WeakMap observer 索引の直接再利用は正当な Proxy façade のイベントを失い、receiver Set を維持する全域負判定 guard も固定 A/A・A/B で一般的な負荷の simulation コストが増えたため、runtime には採用しない。Proxy の late-postupdate 回帰テストと全測定値、制約、P269 warm-up の訂正を [検収記録](ACCEPTANCE.md) に残した。
 
+P271：兩版保留 receiver 的 boolean observer guard 都通過原生 lifecycle／三 backend gates，但 active 場景的條件性收益不足以抵銷 empty／事件歷史控制組的回退，故不採用。P271 rejects both boolean guards after retaining conditional gains and regressions across all controls. P271 は全対照を保持し、条件付きの改善だけでは boolean guard を採用しない。完整1,728個樣本、兩版原型及限制見 [ACCEPTANCE](ACCEPTANCE.md)；正式 runtime／dist／版本不變。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

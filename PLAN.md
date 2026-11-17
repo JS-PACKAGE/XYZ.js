@@ -6312,3 +6312,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 首個 WeakMap receiver 索引候選在合法 Proxy façade 遺漏 postupdate，直接否決；修正版只以全域曾觀察類型作負向 guard，仍讀 receiver 原有 Set。
 - 修正版三 backend 動態畫面與 lifecycle gate 通過，但固定十二 cohort 的 A/A＋A/B 全量矩陣不支持採用；常見 active 與真實 listener simulation 成本增加。兩個候選都不寫入正式 runtime。
 - 永久補上 late listener 與 remove/re-add 的 Proxy regression test。完整樣本、負向結果、P269 初始 warm-up selector 更正及驗證界線見 ACCEPTANCE；版本與產物維持原狀。
+
+## P271 — 非 update listener 的 boolean guard tradeoff
+
+- 正式 Game／WebGL2 profile 驗證 Sprite 有 destroy listener、沒有 update listener 的路徑與真正 teardown callbacks；未把採樣結果當逐幀分布或空 pool 根因證明。
+- 比較 global-first 與 receiver-first 兩個 boolean 原型，保留 receiver Set、虛擬方法與保守事件歷史。每版 native lifecycle／三 backend gates 通過，再各自執行同一固定十八 cohort 的 A/A＋A/B；兩版共1,728 samples，全部保留。
+- active 場景有條件性收益，但第一版的常見控制組及第二版的 empty listener 場景仍有回退，因此兩版均不採用；不再擴大 observer guard 狀態或以重跑挑方向。只同步六份文件，沒有正式 source／dist／API／版本變更，詳見 ACCEPTANCE。

@@ -7600,3 +7600,9 @@ shared-graph三backend Sprite／target共66cases、562,716個數字與nonblank P
 目前仍以 receiver 自身的 observer Set 為準。合法 GameObject Proxy 可將原生 EventTarget 方法綁定 target，但 Scene 以 proxy identity 推進物件，因此 target-keyed WeakMap 不能直接取代 receiver 狀態；首個候選漏送 postupdate，已否決，並新增 late listener／remove-and-readd 的永久消費端 regression test。
 
 第二個候選保留 receiver Set，只在全域類型從未被觀察時提早否決。它通過原生 lifecycle 與三 backend 動態比較，固定十二 cohort 的 A/A＋A/B 卻顯示常見 active／真實 listener simulation 成本增加，故兩個候選皆不加入 runtime，也不變更產物、公開入口或版本。完整原始樣本及 P269 初始 warm-up selector 的訂正見 [ACCEPTANCE](../ACCEPTANCE.md)；採樣 profile 不足以確定先前空 pool 根因、JIT 機制、呈現 FPS 或 GPU 效能。
+
+## P271 — boolean observer guard 的條件性收益不足以採用
+
+正式 Game profile 實際註冊非 update 的 destroy listeners，並驗證 Game teardown 完整回呼。兩版隔離原型由既有 writer 維護單調 pre/post boolean，保留 receiver Set 與虛擬呼叫；第二版先檢查 receiver 是否有 Set，讓 untouched 物件不必查全域狀態。
+
+兩版 native lifecycle／三 backend gates 均通過，再各自跑同一固定十八 cohort 的 A/A＋A/B，完整保留共1,728個樣本、收益、回退、flags與callback資料。active 條件性收益不足以抵銷 empty／事件歷史控制組的回退，因此兩版都不加入 runtime，也不改產物、API或版本。完整證據與 mutable prototype／warm-up／A/A漂移限制見 [ACCEPTANCE](../ACCEPTANCE.md)，不是 production／CJS、GPU time、呈現FPS、音訊或實體裝置認證。
