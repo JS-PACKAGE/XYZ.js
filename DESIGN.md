@@ -6333,3 +6333,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 有候選時仍走原 list、word／mask、duplicate primitive 與排序；P254 fixed-center scalar、P252 heap、workspace／revision／cleanup 與輸入／結果所有權不變。沒有 runtime／密度特判或新 collection。
 - source 與實際正式 ESM 分開對照。採用目標是空 projection／完整 miss，不是所有導航；Node 正式長路徑的小幅代價、single-inside／tri24 控制及所有離群值明列，不以少了語法上的 fallback 陣列推定實際 allocation／GC。
 - exact source／ESM／CJS、frozen-array Proxy、reentry／retained snapshots、signed words、empty／duplicate budgets 與 browser 公開 root 證據見 `ACCEPTANCE.md` P255；公開 API／declarations 與既有功能認證邊界不變。
+
+## P256：把未用搜尋 state 留到 projection gate 之後
+
+- PartitionSearch／parentEdges 是 optional query-local state，只在兩個 endpoint projections 成功後於原 seed-offer primitive 各初始化一次。search phase 使用既定非空局部參照，其後 backtrack／corridor／smooth 保留原 state／metric／順序，不加 wrapper 或熱迴圈 lazy checks。
+- 未建立 frontier 的真正 projection miss 可發布 visited=0；進入搜尋後不可達仍取實際 distance.size，不把 invalidation／cancel 包成假 unreachable。輸入 snapshot、兩端 projection、原始結果與 retained ownership 不變。
+- slot 仍由 jobs Set 在 createSearch 完成時註冊、終止時刪除，與 workspace 是否已配置無關；八個零步／一步 pending jobs、ninth rejection、取消／替補／revision cleanup 的 module 對照一致。
+- 正式 ESM 的 miss／建立後取消有收益，但 Node 長／稀疏路徑仍有代價，未修改 project 控制不作因果收益；不由 native construction 延後推定 JS allocation／heap／GC 或 fps。全部 source／ESM／CJS、browser root 與固定矩陣見 `ACCEPTANCE.md` P256。

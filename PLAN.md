@@ -6187,3 +6187,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 量測前新增完整 paths-empty48 miss cohort。兩原型及正式 minified ESM 各固定十二 cohorts／六輪 ABBA／BAAB；正式空 projection／miss 改善，但 Node 長路徑有穩定小幅代價，其他控制與離群值照錄，不聲稱導航全面加速。
 - 28 項既有 tests、strict／scoped 品質、隔離 build、source／ESM／CJS 原始值／getter／Proxy／budget 及實際 browser source／dist 公開 root 對照通過；四份 mesh runtime／map 以外 declarations／vendor／使用者檔案保留。
 - 詳細取捨、完整矩陣與未驗證邊界見 `ACCEPTANCE.md` P255；按功能提交，不 push／升版。
+
+## P256：projection 成功後才建立 frontier／parentEdges
+
+- 依完整 miss／create-cancel profile 與首次 offer 的資料流，將未用的 query-local PartitionSearch／parentEdges 延後到兩個 endpoints 成功的原 primitive；不提早跳過第二端，不另加 primitive，也不在 tile／relaxation loop 加 lazy checks。
+- projection miss 的 visited 真實維持零；search 已開始的不可達結果保留 distance.size。cancel／invalidation 不偽造 result，jobs Set 仍照常註冊／release，未延後邏輯 slot 佔用。
+- 量測前新增完整 create-cancel lifecycle cohort；source／正式 ESM 各十三 cohorts 六輪 ABBA／BAAB，miss／取消收益與 Node 長／稀疏路徑代價全部保留，不宣稱 Node 所有路徑或未修改 project controls 加速。
+- 28 項既有 tests、strict／scoped 品質、隔離 build、source／ESM／CJS 的八 pending slots／ninth rejection／budget 0／1／取消／替補／失效，以及完整數值／getter／Proxy／budget 與實際 browser 公開 root 對照通過。
+- 只提升四份 mesh runtime／map；declarations、vendor、十一個使用者檔案與公開契約保留。全部矩陣、profile、取捨及未驗證邊界見 `ACCEPTANCE.md` P256，不 push／升版。

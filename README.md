@@ -140,6 +140,8 @@ P254 惰性快取固定 polygon-center edge distance，保留 portal／Proxy 讀
 
 P255 略過空 tile 的 candidate 迭代，保留 const Map、post-yield lookup 與 primitive budget。正式空 projection／完整 miss 查詢改善，但 Node 長路徑有小幅代價，不宣稱導航全面加速。P255 skips absent-tile iteration while preserving Map lifetime and budgets; empty projections/misses improve, with a disclosed Node long-route tradeoff. P255 は空 tile の候補走査を省略し、Map／budget を維持。空検索は改善するが Node 長経路には代償あり。lazy Map 原型不採用；28 tests、source／ESM／CJS／browser root 驗證與完整控制見 [ACCEPTANCE](./ACCEPTANCE.md) P255。不 push／升版。
 
+P256 讓 frontier／parent-edge workspace 等到兩端 projection 成功才建立，保留原本 job slot 註冊與預算；正式 miss／搜尋前取消改善，Node 長路徑代價照錄。P256 defers search workspace until both endpoints project, retaining slot accounting; misses/pre-search cancellation improve, with Node long-route costs disclosed. P256 は両端の投影成功後に探索 workspace を構築し、slot／budget を維持。失敗投影・探索前キャンセルを改善し、Node 長経路の代償も記録。28 tests、source／ESM／CJS／browser root 與全部控制見 [ACCEPTANCE](./ACCEPTANCE.md) P256。不 push／升版。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

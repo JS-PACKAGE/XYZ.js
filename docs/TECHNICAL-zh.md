@@ -7483,3 +7483,10 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 - lazy Map 複合原型因有候選查詢退步而拒絕。正式 guard 不加 collection／runtime 或密度特判／公開 API；P254 center-distance metadata、P252 heap、job 所有權、revision 與 cleanup 保留。少了 fallback 語法不等於已量測 allocation／GC 改善。
 - 兩個 source 原型與實際 minified ESM 各跑固定十二 cohorts，量測前加入完整 empty-endpoint miss。正式空 projection／miss 六輪皆改善，但 Node 長路徑有一致小幅代價，其他控制混合；這是針對空查詢的優化，不是導航全面加速。
 - 28 項既有 tests、strict／scoped 品質、隔離 build、source／ESM／CJS 精確對照與實際 source／dist browser 公開 root 通過。只改四份 mesh runtime／map，declarations／vendor／使用者改動／依賴／版本保留；全部原始樣本、取捨及未驗證範圍見 `../ACCEPTANCE.md` P255。不宣稱 full suite、heap／GC、GPU／呈現 fps、Safari／實機，不升版、不 push。
+
+## P256：endpoint projection 成功後才建立搜尋 workspace
+
+- PartitionSearch／parent-edge Map 仍屬 query-local，只在兩端 projection 成功後於原 seed-offer primitive 各初始化一次；仍處理兩端，不增加 primitive 或熱迴圈 lazy check。search／backtrack／corridor／smooth 保留相同 state、數值運算與順序。
+- 真正 projection miss 沒有 frontier，visited=0；進入搜尋後不可達仍取實際 distance count。cancel／invalidation 保留原 status 與未發布 result，輸入 snapshot、邏輯 job 註冊／release 與 slot 限額未延後。
+- 量測前加入完整 create-cancel lifecycle cohort，source／實際 minified ESM 固定矩陣有 miss／搜尋前取消收益，同時明列 Node 長／稀疏路徑代價；未修改 project 控制不作因果收益，不由延後 construction 宣稱 allocation／heap／GC 或 fps。
+- 28 項既有 tests、strict／scoped 品質、隔離 build、source／ESM／CJS 的 slot／budget／status／result 原始值與實際 source／dist browser 公開 root 通過。八個零步／部分步進 jobs 仍佔滿八 slots，拒絕第九個，取消／revision 後正常釋放；只改四份 mesh runtime／map，declarations／公開 API／vendor／使用者改動／依賴／版本保留。完整 profiles／矩陣／未驗證邊界見 `../ACCEPTANCE.md` P256，不冒稱 full suite／Safari／實機，不 push。

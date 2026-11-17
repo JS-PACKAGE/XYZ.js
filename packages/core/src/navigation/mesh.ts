@@ -489,7 +489,8 @@ export class NavigationMesh3D {
     options = { ...options };
     const revision = this.epoch,
       radius = options.agentRadius ?? 0;
-    const search = new PartitionSearch();
+    // Failed endpoint projections need no frontier or parent-edge workspace.
+    let search: PartitionSearch | undefined;
     // Zero-radius regions are immutable surfaces and need no per-search cache.
     const regions = radius === 0 ? undefined : new Map<number, Region>();
     const region = (index: number): Region => {
@@ -509,7 +510,7 @@ export class NavigationMesh3D {
     const ends: (
       { index: number; point: Vector3; distance: number } | undefined
     )[] = [];
-    const parentEdges = new Map<number, Edge>();
+    let parentEdges: Map<number, Edge> | undefined;
     const backwards: number[] = [],
       corridor: number[] = [],
       raw: NavigationMeshWaypoint3D[] = [];
@@ -544,9 +545,9 @@ export class NavigationMesh3D {
         status: successful ? 'found' : 'unreachable',
         polygons: Object.freeze(surfaces),
         waypoints: Object.freeze(output),
-        cost: successful ? search.distance.get(ends[1]!.index)! : Infinity,
+        cost: successful ? search!.distance.get(ends[1]!.index)! : Infinity,
         revision,
-        visited: search.distance.size,
+        visited: search?.distance.size ?? 0,
       });
       this.paths.add(path);
       return path;
@@ -593,11 +594,15 @@ export class NavigationMesh3D {
               phase = 'publish';
               return undefined;
             }
+            search ??= new PartitionSearch();
+            parentEdges ??= new Map<number, Edge>();
             search.offer(ends[0].index, 0, 0, -1);
             phase = 'search';
           }
         } else if (phase === 'search') {
-          const current = search.take();
+          const frontier = search!;
+          const edges = parentEdges!;
+          const current = frontier.take();
           if (current === undefined) {
             phase = 'publish';
             return undefined;
@@ -627,22 +632,22 @@ export class NavigationMesh3D {
             );
             if (!portal) continue;
             const distance =
-              search.distance.get(current)! +
+              frontier.distance.get(current)! +
               (edge.centerDistance ??= hypot3(
                 target.center.x - polygon.center.x,
                 target.center.y - polygon.center.y,
                 target.center.z - polygon.center.z,
               ));
-            if (distance >= (search.distance.get(edge.to) ?? Infinity))
+            if (distance >= (frontier.distance.get(edge.to) ?? Infinity))
               continue;
-            parentEdges.set(edge.to, edge);
+            edges.set(edge.to, edge);
             // Dijkstra is deliberate: explicit links may undercut a spatial heuristic.
-            search.offer(edge.to, distance, distance, current);
+            frontier.offer(edge.to, distance, distance, current);
           }
         } else if (phase === 'backtrack') {
           if (back >= 0) {
             backwards.push(back);
-            back = search.parent.get(back)!;
+            back = search!.parent.get(back)!;
           } else {
             cursor = backwards.length - 1;
             phase = 'corridor';
@@ -658,7 +663,7 @@ export class NavigationMesh3D {
               );
               waypointPolygons.push(0);
             } else {
-              const edge = parentEdges.get(index)!;
+              const edge = parentEdges!.get(index)!;
               const prior = corridor[corridor.length - 2]!;
               if (edge.link) {
                 raw.push(Object.freeze({ position: edge.a }));
@@ -723,7 +728,7 @@ export class NavigationMesh3D {
           const polygonIndex = corridor[check]!,
             polygon = this.geometry[polygonIndex]!;
           let valid = !raw[candidate]!.link;
-          if (check > firstPolygon && parentEdges.get(polygonIndex)?.link)
+          if (check > firstPolygon && parentEdges!.get(polygonIndex)?.link)
             valid = false;
           const interval = clipSegment(region(polygonIndex).vertices, from, to);
           if (!interval) valid = false;
@@ -745,7 +750,7 @@ export class NavigationMesh3D {
               valid = false;
             let incoming = interval[0];
             if (check > firstPolygon) {
-              const entry = parentEdges.get(polygonIndex)!;
+              const entry = parentEdges!.get(polygonIndex)!;
               if (entry.link) valid = false;
               else {
                 const portal = this.portal(
@@ -770,7 +775,7 @@ export class NavigationMesh3D {
               }
             }
             if (check < lastPolygon) {
-              const edge = parentEdges.get(corridor[check + 1]!)!;
+              const edge = parentEdges!.get(corridor[check + 1]!)!;
               if (edge.link) valid = false;
               else {
                 const portal = this.portal(

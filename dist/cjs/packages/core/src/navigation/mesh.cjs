@@ -205,11 +205,11 @@ var NavigationMesh3D = class {
 	createSearch(t, i, s) {
 		if (this.assertLive(), this.validateQuery(t, s), this.validateQuery(i, s), this.availableSearchSlots === 0) throw RangeError(`Navigation concurrent search budget exhausted.`);
 		t = new require_math3d.Vector3(t.x, t.y, t.z), i = new require_math3d.Vector3(i.x, i.y, i.z), s = { ...s };
-		let c = this.epoch, l = s.agentRadius ?? 0, u = new require_partition_search.PartitionSearch(), d = l === 0 ? void 0 : /* @__PURE__ */ new Map(), region = (e) => {
+		let c = this.epoch, l = s.agentRadius ?? 0, u, d = l === 0 ? void 0 : /* @__PURE__ */ new Map(), region = (e) => {
 			if (!d) return this.geometry[e].surface;
 			let t = d.get(e);
 			return t || (t = this.region(e, l), d.set(e, t)), t;
-		}, f = [this.candidates(t, s.maxDistance), this.candidates(i, s.maxDistance)], p, m = [], h = /* @__PURE__ */ new Map(), g = [], _ = [], v = [], y = [], b = [], x = [], S = `projection`, C = 0, w = 0, T = -1, E = 0, D = 0, O = 0, k = !1, A = 0, resetCandidate = () => {
+		}, f = [this.candidates(t, s.maxDistance), this.candidates(i, s.maxDistance)], p, m = [], h, g = [], _ = [], v = [], y = [], b = [], x = [], S = `projection`, C = 0, w = 0, T = -1, E = 0, D = 0, O = 0, k = !1, A = 0, resetCandidate = () => {
 			if (A <= E) for (A = E + 1; A < v.length && !v[A].link;) A++;
 			D = A - 1;
 		}, publish = () => {
@@ -219,7 +219,7 @@ var NavigationMesh3D = class {
 				waypoints: Object.freeze(x),
 				cost: k ? u.distance.get(m[1].index) : 1 / 0,
 				revision: c,
-				visited: u.distance.size
+				visited: u?.distance.size ?? 0
 			});
 			return this.paths.add(e), e;
 		}, j = new require_partition_search.PartitionNavigationJob(() => {
@@ -246,26 +246,26 @@ var NavigationMesh3D = class {
 						S = `publish`;
 						return;
 					}
-					u.offer(m[0].index, 0, 0, -1), S = `search`;
+					u ??= new require_partition_search.PartitionSearch(), h ??= /* @__PURE__ */ new Map(), u.offer(m[0].index, 0, 0, -1), S = `search`;
 				}
 			} else if (S === `search`) {
-				let e = u.take();
-				if (e === void 0) {
+				let e = u, t = h, n = e.take();
+				if (n === void 0) {
 					S = `publish`;
 					return;
 				}
-				if (e === m[1].index) {
-					T = e, S = `backtrack`;
+				if (n === m[1].index) {
+					T = n, S = `backtrack`;
 					return;
 				}
-				let t = this.geometry[e], n;
-				for (let r of t.edges) {
-					let i = this.geometry[r.to];
-					if (this.disabled.has(i.surface.id) || i.surface.clearanceHeight < s.agentHeight) continue;
-					let o = region(r.to);
-					if (o.vertices.length === 0 || !this.portal(r, n ??= region(e), o, l)) continue;
-					let c = u.distance.get(e) + (r.centerDistance ??= require_hypot.hypot3(i.center.x - t.center.x, i.center.y - t.center.y, i.center.z - t.center.z));
-					c >= (u.distance.get(r.to) ?? 1 / 0) || (h.set(r.to, r), u.offer(r.to, c, c, e));
+				let r = this.geometry[n], i;
+				for (let o of r.edges) {
+					let c = this.geometry[o.to];
+					if (this.disabled.has(c.surface.id) || c.surface.clearanceHeight < s.agentHeight) continue;
+					let u = region(o.to);
+					if (u.vertices.length === 0 || !this.portal(o, i ??= region(n), u, l)) continue;
+					let d = e.distance.get(n) + (o.centerDistance ??= require_hypot.hypot3(c.center.x - r.center.x, c.center.y - r.center.y, c.center.z - r.center.z));
+					d >= (e.distance.get(o.to) ?? 1 / 0) || (t.set(o.to, o), e.offer(o.to, d, d, n));
 				}
 			} else if (S === `backtrack`) T >= 0 ? (g.push(T), T = u.parent.get(T)) : (w = g.length - 1, S = `corridor`);
 			else if (S === `corridor`) {
