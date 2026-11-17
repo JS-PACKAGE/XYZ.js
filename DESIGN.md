@@ -6470,3 +6470,11 @@ constructor 的 pair/color helpers複製caller arrays，且endpoints沒有公開
 Layer bounds原本已先計算八個浮點乘積，再逐四角做加法、finite check及聯集。候選對同一批乘積取min/max，選出的角仍按原次序相加；不換成center/abs公式、不重排乘法與加法。純代數同時驗證signed zero與非有限分類，實際core另檢查矩陣callback、奇異inverse及RangeError時不改寫輸出。
 
 隔離fixture保留單一canonical Layer／Slot class與原constructor layout，只在module init擷取兩個private method bodies後刪掉實驗method，固定一個query-level trampoline供before/after切換；沒有額外instance欄位或per-slot selector。mutable target／未minify的source-slot仍限制production外推。local submit的六輪收益不足以消除world aggregate與controls的不確定性，因此不採用；不把採樣權重、較少source operations或數學等價當成全面效能證據，見ACCEPTANCE。
+
+## P276 — 不省略 logical geometry 的 physical UV key
+
+Particle source rectangle 由 checkedSource freeze，TextureView2D 的 frame／rotation／trim／resolution 亦 immutable。保留 sourceVersion／anchorVersion、dynamic flags 與 pool move，把 UV 分母所依賴的 physical width/height 存入既有 Float64 versions backing 的末兩值。RenderTexture 僅改 logical size／resolution 時，四個 geometry 比較仍照常執行。getTextureQuad2D 與 validation 不省略。
+
+physical 尺寸改變時仍使用原六個 Float32 比較，packed 值相同就不強迫新 quad upload，只更新 key。不增加 object／cache field／公開 API，僅 backing payload 每 capacity 多16 bytes；不宣稱 GPU 時間、heap/RSS 或配置數下降。
+
+初版同 class／Game fixture 的 before stride6 改了原正式熱 layout，因此恢復原 stride4 再驗證。共同 backing 仍配置6×capacity值，但 before 以 stride4 只走前4×capacity的連續 prefix；selector 的 invalidation 在兩個 label 都置於 warm 前。mutable call target、共用 allocation 與未 minify source-slot 的限制仍保留。對照不利值及非配對 standard 的增加全部記錄，僅採用於有證據支持的局部優化，不作全面加速承諾。完整證據見 ACCEPTANCE。

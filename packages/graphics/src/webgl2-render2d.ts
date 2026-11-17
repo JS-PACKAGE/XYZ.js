@@ -979,7 +979,8 @@ export class WebGLRender2D {
         vao,
         buffer,
         data: new Float32Array(layer.capacity * stride),
-        versions: new Float64Array(layer.capacity * 4).fill(-1),
+        // Four mutation versions and two physical pixel dimensions, not logical size.
+        versions: new Float64Array(layer.capacity * 6).fill(-1),
         slots: new Uint32Array(layer.capacity).fill(0xffffffff),
         generations: new Float64Array(layer.capacity).fill(-1),
       };
@@ -1003,11 +1004,16 @@ export class WebGLRender2D {
       const index = layer.activeSlotAt(i),
         slot = layer.getSlot(index),
         offset = i * stride,
-        versions = i * 4,
+        versions = i * 6,
         data = entry.data,
         moved =
           entry.slots[i] !== index || entry.generations[i] !== slot.generation,
-        q = getTextureQuad2D(slot.texture, slot.view, slot.source, this.quad);
+        q = getTextureQuad2D(slot.texture, slot.view, slot.source, this.quad),
+        sourceWidth = slot.texture.width,
+        sourceHeight = slot.texture.height,
+        sourceSizeChanged =
+          entry.versions[versions + 4] !== sourceWidth ||
+          entry.versions[versions + 5] !== sourceHeight;
       const transformDirty =
         moved ||
         !!(layer.dynamicAttributes & ParticleAttribute2D.Transform) ||
@@ -1030,12 +1036,13 @@ export class WebGLRender2D {
           Math.fround(q.y - slot.anchorY * q.naturalHeight) ||
         data[offset + 14] !== Math.fround(q.width) ||
         data[offset + 15] !== Math.fround(q.height) ||
-        data[offset + 16] !== Math.fround(q.u0) ||
-        data[offset + 17] !== Math.fround(q.v0) ||
-        data[offset + 20] !== Math.fround(q.ux) ||
-        data[offset + 21] !== Math.fround(q.vx) ||
-        data[offset + 22] !== Math.fround(q.uy) ||
-        data[offset + 23] !== Math.fround(q.vy);
+        (sourceSizeChanged &&
+          (data[offset + 16] !== Math.fround(q.u0) ||
+            data[offset + 17] !== Math.fround(q.v0) ||
+            data[offset + 20] !== Math.fround(q.ux) ||
+            data[offset + 21] !== Math.fround(q.vx) ||
+            data[offset + 22] !== Math.fround(q.uy) ||
+            data[offset + 23] !== Math.fround(q.vy)));
       if (transformDirty) {
         data[offset] = slot.a;
         data[offset + 1] = slot.b;
@@ -1059,6 +1066,10 @@ export class WebGLRender2D {
         data[offset + 13] = q.y - slot.anchorY * q.naturalHeight;
         entry.versions[versions + 2] = slot.sourceVersion;
         entry.versions[versions + 3] = slot.anchorVersion;
+      }
+      if (sourceSizeChanged) {
+        entry.versions[versions + 4] = sourceWidth;
+        entry.versions[versions + 5] = sourceHeight;
       }
       entry.slots[i] = index;
       entry.generations[i] = slot.generation;

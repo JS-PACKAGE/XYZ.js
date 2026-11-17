@@ -1,5 +1,6 @@
 import {
   AlphaFilter2D,
+  CanvasTexture2D,
   Game,
   GraphicsError,
   IsolatedGroup2D,
@@ -682,6 +683,68 @@ try {
     } finally {
       target.destroy();
       captureScene.destroy();
+    }
+
+    begin('particle-crop-uv-after-source-resize');
+    const sourceCanvas = document.createElement('canvas');
+    const sourceContext = sourceCanvas.getContext('2d');
+    if (!sourceContext)
+      throw new Error('A native 2D source context is required');
+    const paintSource = (width: number, color: string): void => {
+      sourceCanvas.width = width;
+      sourceCanvas.height = 16;
+      sourceContext.fillStyle = '#00ff00';
+      sourceContext.fillRect(0, 0, width, 16);
+      sourceContext.fillStyle = color;
+      sourceContext.fillRect(0, 0, 8, 16);
+    };
+    paintSource(16, '#ff0000');
+    const mutableSource = new CanvasTexture2D(sourceCanvas);
+    const uvScene = new Scene();
+    const uvParticles = new ParticleLayer2D({
+      capacity: 1,
+      dynamicAttributes: 0,
+    });
+    uvParticles.addParticle({
+      texture: mutableSource,
+      source: { x: 0, y: 0, width: 8, height: 8 },
+      anchor: [0, 0],
+      transform: { a: 4, b: 0, c: 0, d: 4, tx: 0, ty: 0 },
+    });
+    uvScene.add(uvParticles);
+    const uvTarget = runtime.graphics.createRenderTexture({
+      width: 32,
+      height: 32,
+    });
+    const sampleCrop = async (): Promise<number[]> => {
+      await runtime.graphics.renderToTexture(uvTarget, uvScene);
+      const bytes = await runtime.graphics.extractPixels(uvTarget);
+      // Output (24, 8) samples source (6, 2); stale half-width UVs sample green x=12.
+      const offset = (8 * 32 + 24) * 4;
+      return Array.from(bytes.subarray(offset, offset + 4));
+    };
+    try {
+      check(
+        (await sampleCrop()).join(',') === '255,0,0,255',
+        'cropped particle samples the red source region before resize',
+      );
+      paintSource(32, '#ff0000');
+      mutableSource.update(sourceCanvas);
+      check(
+        (await sampleCrop()).join(',') === '255,0,0,255',
+        'physical source resize refreshes UVs without changing the particle source',
+      );
+      paintSource(32, '#0000ff');
+      mutableSource.update(sourceCanvas);
+      check(
+        (await sampleCrop()).join(',') === '0,0,255,255',
+        'same-size source updates refresh pixels without stale UV or texture data',
+      );
+    } finally {
+      uvScene.destroy();
+      uvTarget.destroy();
+      mutableSource.destroy();
+      sourceCanvas.width = sourceCanvas.height = 0;
     }
     runtime.resume();
     await frames();

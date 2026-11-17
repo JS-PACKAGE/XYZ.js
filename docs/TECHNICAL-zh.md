@@ -7632,3 +7632,11 @@ world/custom child fallback 仍在公開 matrix callbacks 前保存 rectangle，
 純代數通過2,048,576組，實際core通過288組動態及240組邊界cases，包含signed zero、非有限矩陣、奇異inverse、callback trace與錯誤時輸出不變。另66個三backend原生Game cases保留一致nonblank PNG、數值與cleanup。單一canonical Layer／Slot class、固定query-level trampoline不加fixture欄位或per-slot selector，但mutable targets與source-slot編譯仍限制外推。
 
 固定八cohort先完成全部A/A才做A/B，384 samples全保留。local Layer submit六輪改善，但world aggregate成本與control漂移不足以支持全面切換；正式source／產物／API／版本不變，不宣稱本輪新unit/typecheck/build、production/CJS、GPU或FPS認證。完整profile、腳本、raw與限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P276 — WebGL2 particle UV比較的physical-size key
+
+WebGL2 particle residency在原四個mutation versions旁存兩個physical pixel dimensions。immutable view／frozen source rectangle配合原source/anchor版本、dynamic flags與pool move，讓這兩個值作六個packed-UV比較的key；quad計算／validation仍逐slot進行，四個logical geometry比較保留原短路順序，不受physical key省略。key改變時仍用原Float32比較，packed結果相同不強迫額外quad upload。既有backing payload每capacity增加16 bytes，不增typed-array物件、shader layout或公開API。
+
+初版共同stride6 fixture保留但不作採用基準；修正版在單一class／shared Game恢復before熱stride4、after6。共用backing、warm前invalidation、mutable targets仍限制production外推。兩組完整A/A→A/B共864 samples全留：大型local/world submit各六輪改善，但small/control代價、A/A drift與非配對standard Sprite三backend CPU上升亦保留，不宣稱全面CPU／GPU／FPS改善。
+
+實際通過27項定向tests、strict、scoped lint及只promote四artifact／保護11使用者path的隔離full build；正式dev/minified dist可變source畫面、三backend新RGBA／save／restore／destroy回歸，以及showcase auto／強制backend unlock／Scene切換／真正navigation cleanup。CJS實module load不等於native CJS渲染，未認證實體裝置或Safari。完整方法、fixture修正與結果見 [ACCEPTANCE](../ACCEPTANCE.md)。

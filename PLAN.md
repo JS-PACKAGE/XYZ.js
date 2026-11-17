@@ -6346,3 +6346,11 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 候選只改 private collectBounds：從既有八個 rounded products 選 min/max，再維持原 corner addition 次序，不新增欄位、陣列、跨 query cache 或公開 API。
 - 2,048,576組純代數 cases、288組實際 core cases與240組實際邊界 cases一致，後者保留signed zero、RangeError、callback順序及錯誤時的輸出。另66個三backend Game cases維持數值、nonblank PNG與cleanup。
 - 固定八cohort，先完成全部A/A再做A/B，共384 samples全留。local submit六輪改善，但world大負載的sum五輪較慢且controls漂移，不支持全面採用；不改source／dist，不宣稱本輪unit/typecheck/build、production/CJS或FPS認證。完整腳本、raw及限制見ACCEPTANCE，不push／升版。
+
+## P276 — WebGL2 particle UV 比較的 physical-size key
+
+- compact 已在 clean 時 O(1) 返回，不假定重掃問題而修改。沿 P275 正式 profile 追查 drawParticles，確認 immutable view／frozen source rectangle 與可變 source pixels／logical dimensions 的邊界。
+- versions backing 擴充為四個 mutation counters 加兩個 physical 尺寸，僅在尺寸相同時省去六個 packed-UV 比較。quad 計算／validation 仍逐 slot 進行，四個 geometry 比較保留原短路順序。payload 增加 16×capacity bytes，typed-array 物件數／API／shader layout 不變。
+- 初版 fixture 的 before 同用 stride6，不作採用基準；恢復原 before 熱 stride4／after6 後完整執行 A/A→A/B。兩組共864 samples全留。large local/world submit 各六輪改善，但 small／controls、A/A drift 與非配對 standard 三 backend CPU 增加亦保留。
+- 實際執行27項定向 tests、strict／scoped lint、只 promote 四 artifact 並保護11使用者 path 的隔離 full build。正式 main 頁三 backend 新RGBA回歸與 save/restore/destroy、dev/dist 可變 source／logical-only resize／fatal 輸入、showcase auto＋強制三 backend unlock／Scene 切換／真正 pagehide cleanup 通過。CJS 僅實 module load，不作 native rendering 認證。
+- 完整 fixture 修正、raw／reproduction 與限制見 ACCEPTANCE。維持 package 1.23.0，僅按功能 commit，不 push。

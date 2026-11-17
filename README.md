@@ -188,6 +188,12 @@ P274：不採用 particle endpoint span 預計算。288組確定性案例、265,
 
 P275：不採用 particle-layer bounds 的 rounded-product extrema。正式 static／changing profiles 引導此候選；204萬組代數、528組實際 core／邊界案例及66個三backend動態Game cases通過，但八cohort完整A/A＋A/B仍只有條件性收益。P275 retains all controls and rejects the bounds rewrite rather than extrapolating local submit gains. P275 は局所的な改善だけでは bounds 書き換えを採用しない。正式source／dist／版本不變；完整採樣、signed-zero／非有限值與不利結果見 [ACCEPTANCE](ACCEPTANCE.md)。
 
+P276：採用 WebGL2 particle-layer 的 physical-size UV comparison key。保留逐slot quad計算／驗證與四個logical geometry比較，只在source pixels未變時省掉六個packed-UV比較。修正原before熱stride後，大型local／world的CPU submit六輪均改善；small/control代價與標準Sprite非配對量測的上升全保留，不承諾全面加速或FPS。既有versions payload每capacity多16 bytes，沒有新增陣列物件／公開API。27項定向測試、strict／lint／隔離build、正式dev/dist與三backend原生RGBA回歸、showcase unlock／實際navigation cleanup通過；完整方法及限制見 [ACCEPTANCE](ACCEPTANCE.md)。
+
+P276: WebGL2 particle layers retain validation and logical-size checks while caching the physical-size key for packed-UV comparisons. Corrected-layout paired measurements support the large target workloads, not universal FPS gains; all controls, memory cost, standard-benchmark increases and native verification limits remain in [ACCEPTANCE](ACCEPTANCE.md). API/version unchanged.
+
+P276：WebGL2粒子のUV比較に物理サイズkeyを採用。検証と論理サイズ判定は維持し、元のstrideで大規模対象を比較した。対照・不利な結果・metadata増加と実機認証ではない検証範囲は [検収記録](ACCEPTANCE.md) に保持。全場面のFPS改善やAPI／版変更ではない。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
