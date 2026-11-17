@@ -29739,3 +29739,102 @@ Ordinary positive-radius queries improve 2.44% Node /8.92% Chromium, all six pai
 - Public source/dist Chromium roots each compare 1,024 projections, 16 complete paths and 60 budgeted-job steps to the unchanged baseline, with enabled invalidation and slot release. Both consumers are visible and have empty page errors. Vite emits its existing OPM dynamic-import analysis warning; no audio, graphics, Safari, physical-device or backend-parity certification is claimed.
 - Full isolated production build from HEAD plus only mesh.ts changes exactly four mesh JavaScript/map outputs (ESM/CJS); declarations stay byte-identical. Only those guarded artifacts are promoted, all eleven user-owned physics2d/world2d source/dist file hashes preserved. No global rebuild overwrites user files.
 - README zh/en/ja, PLAN, DESIGN and both technical references synchronized, six-doc format and relative-file links checked, historical ACCEPTANCE prefix preserved byte-for-byte. Temporary workloads/proofs/modules/build tree and browser/server resources removed before the exact twelve-file source/test/four-output/six-doc commit. No push/version bump.
+
+## P245 — Query-local sparse candidate membership words (2026-11-17)
+
+### Adopted state and isolation
+
+Each private candidates generator now uses its own Map<number, number> instead of a Set entry per polygon index. index >>> 5 selects the membership word and 1 << (index & 31) the bit. Nonzero (bits & mask) detects duplicates, including negative sign-bit results; a first visit updates only that word and yields the index. Duplicate visits still yield the same -1 primitive-budget sentinel. Tile iteration, lookup position after yield, list order, metadata, exact projection arithmetic, radius regions and public APIs remain unchanged.
+
+Only bounded internal polygon indices are grouped; spatial/world coordinates retain P244's full numeric x/z maps and are not packed/truncated. The current 262,144-polygon limit is within the bitwise index range. Sparse per-query words avoid a mesh-sized buffer and shared epoch/stamp state, so interleaved jobs and reentrant direct projections remain independent. Fewer membership entries is an implementation fact, not a measured net allocation, heap or GC reduction. No new class fields, pooling, API or dependency.
+
+A fresh unchanged-P244 baseline profile (10,000 warm +50,000 queries, 100 µs sampling) measured 5.53 µs/query including profiling overhead. Self samples ranked nearest 86,883 µs, project 69,174 µs, candidates 40,746 µs, hypot3 32,772 µs and inside 23,120 µs. It motivated investigation, not a speedup claim; no profiler overlaps paired timing.
+
+### Public-query CPU boundary and tradeoff
+
+Node v26.7.0 /TypeScript 6.0.3 ES2022 and pinned Playwright Chromium 153.0.8010.12 darwin/arm64 desktop automation. Both runtimes import the same throwaway real NavigationMesh3D workload. Original P241 cases remain (single interior, zero-/positive-radius 48×48 quads, outside border, slope, two stacked 24×24 floors, split triangles and 12×12 full paths); an empty-space 48×48 case adds zero-candidate coverage. Single/empty controls time 65,536 public calls per sample to reduce timer quantization; other projections retain 4,096 and full paths 128. Each variant/case warms 4,096 project or128 path calls once.
+
+Construction/destruction outside timing, two-unit cells and tileSize 8, 128 deterministic points /eight path pairs; positive-radius cases use radius 0.2, height 1.4, maxDistance 1, maxVerticalDistance 0.5. Empty queries are at [-32,0.1,-32], outside all indexed buckets. Six ABBA/BAAB pairs per case, each pair averaging two samples per variant; summary medians over six pairs, CPU wall ms/query. Browser document visible and page errors empty; no concurrent assistant build/test/profile.
+
+| Case          | Node before ms/query | Candidate | Change % | Pair range %  | Chromium before ms/query | Candidate | Change % | Pair range %  |
+| ------------- | -------------------- | --------- | -------- | ------------- | ------------------------ | --------- | -------- | ------------- |
+| single-inside | 0.000181             | 0.000185  | 2.28     | 1.06..4.18    | 0.000161                 | 0.000156  | -2.84    | -10.39..-0.46 |
+| empty48       | 0.000124             | 0.000126  | 1.01     | -0.40..2.46   | 0.000102                 | 0.000101  | -0.37    | -1.49..1.53   |
+| quad48-r0     | 0.005373             | 0.004842  | -9.88    | -10.50..-9.51 | 0.004742                 | 0.004297  | -9.40    | -10.28..-7.69 |
+| quad48-r02    | 0.005400             | 0.004975  | -7.87    | -8.66..-7.41  | 0.004773                 | 0.004578  | -4.09    | -6.94..0.73   |
+| outside48     | 0.003787             | 0.003534  | -6.67    | -7.14..-6.16  | 0.003320                 | 0.003125  | -5.88    | -9.06..-5.15  |
+| slope48       | 0.005463             | 0.005055  | -7.46    | -8.17..-5.35  | 0.004840                 | 0.004462  | -7.82    | -8.27..-6.28  |
+| stacked24     | 0.010604             | 0.009744  | -8.11    | -8.79..-5.11  | 0.009332                 | 0.008746  | -6.28    | -11.35..-6.07 |
+| tri24         | 0.009122             | 0.008464  | -7.22    | -8.05..-6.79  | 0.008124                 | 0.007477  | -7.96    | -8.78..-7.56  |
+| paths12       | 0.020630             | 0.020698  | 0.33     | -0.78..2.33   | 0.018359                 | 0.017969  | -2.13    | -4.26..3.70   |
+
+Main projection medians improve roughly 7–10% Node /4–9% Chromium; Node's six main projection cases have all six pairs lower, and Chromium zero-radius/outside/slope/stacked/triangle pairs all improve. Chromium ordinary positive-radius projection improves 4.09% at the median but one pair is +0.73%; it is not claimed that every pair improves.
+
+The longer single-polygon Node control regresses 2.28%, about four nanoseconds per public query (all six pairs worse), while Chromium improves in that control. Empty-space control differences are small/mixed; full-path timing does not establish a general improvement. The tiny Node tradeoff is explicitly accepted for substantially larger populated-query gains, not hidden as universal speedup. No renderer/RAF/GPU/FPS, startup, allocation/heap/GC benefit is inferred.
+
+| Round | Case          | Node before ms/query | Candidate | Chromium before ms/query | Candidate |
+| ----- | ------------- | -------------------- | --------- | ------------------------ | --------- |
+| 1     | single-inside | 0.000182             | 0.000184  | 0.000166                 | 0.000160  |
+| 1     | empty48       | 0.000124             | 0.000124  | 0.000105                 | 0.000104  |
+| 1     | quad48-r0     | 0.005415             | 0.004846  | 0.005005                 | 0.004504  |
+| 1     | quad48-r02    | 0.005450             | 0.004978  | 0.005115                 | 0.004822  |
+| 1     | outside48     | 0.003777             | 0.003538  | 0.003503                 | 0.003186  |
+| 1     | slope48       | 0.005480             | 0.005092  | 0.005054                 | 0.004675  |
+| 1     | stacked24     | 0.010718             | 0.010169  | 0.009521                 | 0.008936  |
+| 1     | tri24         | 0.009112             | 0.008461  | 0.008105                 | 0.007471  |
+| 1     | paths12       | 0.024200             | 0.024762  | 0.021094                 | 0.021875  |
+| 2     | single-inside | 0.000180             | 0.000187  | 0.000176                 | 0.000158  |
+| 2     | empty48       | 0.000124             | 0.000125  | 0.000102                 | 0.000101  |
+| 2     | quad48-r0     | 0.005365             | 0.004843  | 0.004724                 | 0.004321  |
+| 2     | quad48-r02    | 0.005402             | 0.004961  | 0.004749                 | 0.004419  |
+| 2     | outside48     | 0.003775             | 0.003530  | 0.003308                 | 0.003076  |
+| 2     | slope48       | 0.005447             | 0.005049  | 0.004810                 | 0.004456  |
+| 2     | stacked24     | 0.010570             | 0.009739  | 0.009290                 | 0.008667  |
+| 2     | tri24         | 0.009120             | 0.008461  | 0.008203                 | 0.007483  |
+| 2     | paths12       | 0.020697             | 0.020714  | 0.018359                 | 0.017969  |
+| 3     | single-inside | 0.000181             | 0.000184  | 0.000156                 | 0.000155  |
+| 3     | empty48       | 0.000125             | 0.000128  | 0.000101                 | 0.000101  |
+| 3     | quad48-r0     | 0.005397             | 0.004834  | 0.004749                 | 0.004260  |
+| 3     | quad48-r02    | 0.005394             | 0.004968  | 0.004761                 | 0.004456  |
+| 3     | outside48     | 0.003788             | 0.003518  | 0.003320                 | 0.003149  |
+| 3     | slope48       | 0.005479             | 0.005054  | 0.004871                 | 0.004468  |
+| 3     | stacked24     | 0.010597             | 0.009736  | 0.010217                 | 0.009058  |
+| 3     | tri24         | 0.009171             | 0.008433  | 0.008362                 | 0.007654  |
+| 3     | paths12       | 0.020845             | 0.020683  | 0.019141                 | 0.019531  |
+| 4     | single-inside | 0.000182             | 0.000185  | 0.000167                 | 0.000166  |
+| 4     | empty48       | 0.000124             | 0.000126  | 0.000105                 | 0.000107  |
+| 4     | quad48-r0     | 0.005369             | 0.004842  | 0.004761                 | 0.004395  |
+| 4     | quad48-r02    | 0.005382             | 0.004984  | 0.005005                 | 0.005042  |
+| 4     | outside48     | 0.003786             | 0.003521  | 0.003748                 | 0.003430  |
+| 4     | slope48       | 0.005467             | 0.005056  | 0.005054                 | 0.004736  |
+| 4     | stacked24     | 0.010640             | 0.009704  | 0.009375                 | 0.008801  |
+| 4     | tri24         | 0.009112             | 0.008471  | 0.008142                 | 0.007507  |
+| 4     | paths12       | 0.020191             | 0.020652  | 0.017578                 | 0.017969  |
+| 5     | single-inside | 0.000180             | 0.000186  | 0.000156                 | 0.000155  |
+| 5     | empty48       | 0.000124             | 0.000126  | 0.000100                 | 0.000100  |
+| 5     | quad48-r0     | 0.005378             | 0.004840  | 0.004736                 | 0.004272  |
+| 5     | quad48-r02    | 0.005397             | 0.004972  | 0.004785                 | 0.004565  |
+| 5     | outside48     | 0.003793             | 0.003543  | 0.003320                 | 0.003088  |
+| 5     | slope48       | 0.005458             | 0.005012  | 0.004761                 | 0.004443  |
+| 5     | stacked24     | 0.010611             | 0.009748  | 0.009253                 | 0.008691  |
+| 5     | tri24         | 0.009167             | 0.008467  | 0.008093                 | 0.007458  |
+| 5     | paths12       | 0.020465             | 0.020825  | 0.018359                 | 0.017578  |
+| 6     | single-inside | 0.000181             | 0.000185  | 0.000156                 | 0.000153  |
+| 6     | empty48       | 0.000125             | 0.000124  | 0.000100                 | 0.000101  |
+| 6     | quad48-r0     | 0.005360             | 0.004850  | 0.004712                 | 0.004248  |
+| 6     | quad48-r02    | 0.005421             | 0.004986  | 0.004736                 | 0.004590  |
+| 6     | outside48     | 0.003814             | 0.003579  | 0.003320                 | 0.003101  |
+| 6     | slope48       | 0.005428             | 0.005138  | 0.004785                 | 0.004407  |
+| 6     | stacked24     | 0.010540             | 0.009872  | 0.009216                 | 0.008569  |
+| 6     | tri24         | 0.009125             | 0.008505  | 0.008069                 | 0.007458  |
+| 6     | paths12       | 0.020563             | 0.020652  | 0.017578                 | 0.017969  |
+
+### Exact behavior, bit edges and artifacts
+
+- Canonical source, production ESM and CJS each exactly match the unchanged baseline for 2,304 projections, 64 full paths and eight point-getter traces. Cases include new empty space plus radius/enabled-state/position histories and retained snapshots; candidate counts, distance/position/revision, path cost/visited/waypoints and getter order match. CJS compares own values without conflating its Vector3 prototype with the ESM class; exact Number values, frozen output and clone values remain checked.
+- Each variant additionally passes 300 coordinate-domain projections (including signed zero, negative/swapped axes and tile coordinate 4,294,967,296), three active-query lifecycle histories (disable/destroy/reentrant project in an options getter) and 192 interleaved-job steps with three simultaneous searches, zero/small budgets, exact status/expansions/results, invalidation/destruction and slot release. No extent/limit relaxation or shared scratch state.
+- One permanent consumer regression projects near overlapping tile boundaries around internal indices 31 and63, expecting their actual polygons/positions and exactly 15 /9 distinct candidates. A >0 sign-bit check and a wrong >>>6 word-selection mutant both fail the corresponding public candidate-count assertion; canonical/ESM/CJS consumer probes pass.
+- Prettier source/test, strict typecheck, targeted eslint and three navigation test files /27 tests pass. No full-suite claim.
+- Public source/dist Chromium roots each match 1,152 projections, 16 full paths and 60 incremental steps, including invalidation/slot cleanup; both visible and page-error lists empty. The existing OPM dynamic-import analysis warning remains, not changed/suppressed. This is CPU/navigation evidence, not graphics/audio/Safari/physical-device certification.
+- An isolated full production build from HEAD plus only mesh.ts changes exactly four mesh JavaScript/map artifacts (ESM/CJS), declarations byte-identical. Only these guarded artifacts are promoted, preserving hashes for all eleven user-owned physics2d/world2d source/dist files.
+- README zh/en/ja, PLAN, DESIGN and both technical references synchronized. Six-document format/relative-file links checked and historical ACCEPTANCE prefix preserved byte-for-byte. All temporary benchmarks/profiles/proofs/build tree and browser/server resources removed before an exact twelve-file source/test/four-output/six-doc commit. No push or version bump.

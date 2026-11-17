@@ -135,6 +135,32 @@ describe('polygon navigation surfaces', () => {
     }
   });
 
+  it('counts overlapping tile candidates once across signed bit and word boundaries', () => {
+    const mesh = new NavigationMesh3D({
+      tileSize: 4,
+      polygons: Array.from({ length: 64 }, (_, i) =>
+        square(String(i), (i % 8) * 2, Math.floor(i / 8) * 2),
+      ),
+    });
+    try {
+      for (const [z, id, candidates] of [
+        [7.9, '31', 15],
+        [15.9, '63', 9],
+      ] as const) {
+        const projection = mesh.project(new Vector3(15.9, 0.1, z), {
+          ...query,
+          maxDistance: 0.25,
+          agentRadius: 0,
+        })!;
+        expect(projection.polygon.id).toBe(id);
+        expect(projection.position).toEqual(new Vector3(15.9, 0, z));
+        expect(projection.candidates).toBe(candidates);
+      }
+    } finally {
+      mesh.destroy();
+    }
+  });
+
   it('re-clears agent radius from an edge whose neighbor is disabled and re-enabled', () => {
     const mesh = new NavigationMesh3D({
       polygons: [square('left', 0, 0), square('right', 2, 0)],

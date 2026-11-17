@@ -6269,3 +6269,7 @@ NavigationMesh3D 的私有 nearest helper 仍按原順序計算 clamped 邊點�
 ## P244：x／z 分層數值 tile 索引
 
 私有 tile buckets 改為 `Map<number, Map<number, number[]>>`，constructor 依 x 建立 column，再以 z 保存原序 polygon index list；query 仍在原 budget yield 之後逐格取 `tiles.get(x)?.get(z)`。不把數值座標 pack 到有限 bit width，不快取跨 yield 的 column，保留負數／signed-zero 的 key 語意、候選順序與 destroy 後後續 lookup 的可見性。新增 column Maps 是儲存結構取捨，不宣稱 retained heap 減少。公開介面與各 region／job 的狀態隔離不變；量測與生命週期證據見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P245：稀疏且獨立的候選 membership words
+
+每個 candidates generator 建立自己的 `Map<number, number>`：內部 index 的 `index >>> 5` 選 word，`1 << (index & 31)` 選 bit。以 `(bits & mask) !== 0` 辨識重複，包含負值的 bit 31；僅首次訪問更新該 word 並 yield index，重複仍 yield 原 budget sentinel。只 pack 有界內部 indices 的 membership，不 pack 世界座標，也不改 tile 索引／順序。Sparse words 避免按整個 mesh 容量配置 buffer，各 query／job／重入仍隔離；不以 entry 數推導未量測的 heap／GC 收益。證據與小型 Node 查詢取捨見 [ACCEPTANCE.md](ACCEPTANCE.md)。

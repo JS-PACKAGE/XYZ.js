@@ -6119,3 +6119,7 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 ## P244：navmesh 數值座標空間索引
 
 採用兩層 `Map<x, Map<z, polygonIndices>>` 取代 `${x}:${z}` 複合 key，不壓位元或限制新增座標範圍。候選座標迴圈、列表順序、去重、budget sentinel 與每次 yield 後的即時 lookup 保持；destroy 清除 outer Map。帶 radius 一般投影 Node／Chromium CPU 約降 2.4%／8.9%，六輪 browser 投影各主要情境皆下降；不宣稱所有路徑加速、配置／heap 或 FPS 收益。負座標、交換軸與合法遠距 tile 回歸及驗證邊界見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P245：query-local 稀疏 membership words
+
+候選去重由每個 index 的 Set 改為每 32 個內部 polygon indices 一個 bit-word Map entry，仍隸屬各 generator，不用共享 stamp 或配置整個 mesh 大小的 buffer。主要投影 CPU 約降 Node 7–10%／Chromium 4–9%；單 polygon Node 控制約多 4 ns、完整 path 無一致收益，明記取捨而不宣稱全面加速。首次與重複候選的 yield／budget 語意不變；index 31／63 的 sign-bit／跨 word 重複候選回歸與完整證據見 [ACCEPTANCE.md](ACCEPTANCE.md)。

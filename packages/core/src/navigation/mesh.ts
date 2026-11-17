@@ -830,7 +830,7 @@ export class NavigationMesh3D {
     position: Readonly<Vector3>,
     distance: number,
   ): Generator<number> {
-    const seen = new Set<number>();
+    const seen = new Map<number, number>();
     for (
       let x = Math.floor((position.x - distance) / this.tileSize);
       x <= Math.floor((position.x + distance) / this.tileSize);
@@ -843,9 +843,12 @@ export class NavigationMesh3D {
       ) {
         yield -1;
         for (const index of this.tiles.get(x)?.get(z) ?? []) {
-          if (seen.has(index)) yield -1;
+          const word = index >>> 5,
+            mask = 1 << (index & 31),
+            bits = seen.get(word) ?? 0;
+          if ((bits & mask) !== 0) yield -1;
           else {
-            seen.add(index);
+            seen.set(word, bits | mask);
             yield index;
           }
         }

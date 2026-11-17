@@ -7776,3 +7776,7 @@ Replacing modulo with an exact closing-edge conditional in nearest/inside was me
 ## P244: Numeric navmesh tile lookup
 
 The private spatial index now maps numeric x to a numeric z bucket map, retaining polygon-list order and per-query deduplication. Queries retrieve the bucket after each existing budget yield, without retaining a column across yields; destroy clears the outer map. No packed coordinates, new extent restriction, public API or region/job state change. Ordinary radius-bearing projection CPU time improves about 2.4% Node /8.9% Chromium in six paired rounds; column maps are a storage tradeoff, not a measured allocation/heap or FPS reduction. See [ACCEPTANCE.md](../ACCEPTANCE.md) for complete workload, coordinate-domain and lifecycle evidence.
+
+## P245: Query-local sparse candidate membership
+
+Candidate generators group 32 bounded internal polygon indices per numeric membership word, keeping their maps local to each iterator. Nonzero signed-bit checks preserve bit 31, first-visit order and duplicate budget sentinels; no shared epoch, mesh-sized scratch buffer or world-coordinate packing. Main projection workloads improve about 7–10% Node /4–9% Chromium; the longer single-polygon Node control costs about 4 ns more and complete-path gains are not established. No heap/GC/FPS claim follows from fewer membership entries. See [ACCEPTANCE.md](../ACCEPTANCE.md) for signed-word regressions, temporal isolation and complete paired CPU evidence.

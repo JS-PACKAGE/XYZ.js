@@ -118,6 +118,8 @@ P243 不採用閉合邊的條件式 wrapping：combined／inside-only／nearest-
 
 P244 狀態：navmesh 空間索引改以兩層數值 Map 查詢 x／z，省去每次 tile lookup 的複合字串 key；一般帶 radius 投影 CPU 約降 Node 2.4%／Chromium 8.9%。P244 uses nested numeric x/z tile maps; ordinary radius-bearing projection CPU time falls about 2.4% Node /8.9% Chromium. P244 は navmesh の x/z tile 索引を二段の数値 Map に変更し、通常の radius 付き投影 CPU 時間が Node 約 2.4%／Chromium 約 8.9% 減少。不是 FPS 或 heap 改善保證；量測與驗證範圍見 [ACCEPTANCE](./ACCEPTANCE.md) P244。
 
+P245 狀態：navmesh 候選去重以 query-local bit-word Map 合併每 32 個內部 polygon indices，主要投影 CPU 約降 Node 7–10%／Chromium 4–9%；單 polygon Node 控制組約多 4 ns。P245 uses isolated sparse membership words: main projection CPU improves about 7–10% Node /4–9% Chromium, with a roughly 4 ns Node single-polygon tradeoff. P245 は query-local の疎な bit-word Map を採用し、主な投影 CPU が Node 約 7–10%／Chromium 約 4–9% 減少。Node の単一 polygon は約 4 ns 増加。完整範圍與取捨見 [ACCEPTANCE](./ACCEPTANCE.md) P245。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

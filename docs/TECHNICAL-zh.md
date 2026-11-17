@@ -7421,3 +7421,7 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 ## P244：navmesh 數值 tile lookup
 
 私有空間索引以數值 x 對應數值 z bucket Map，維持 polygon list 順序與每個 query 獨立去重。每次原有 budget yield 之後才取得 bucket，不跨 yield 保存 column；destroy 清除 outer Map。不 pack 座標、不新增 extent 限制、不改 API 或 region／job 狀態。一般帶 radius 投影 CPU 約降 Node 2.4%／Chromium 8.9%；column Maps 是儲存取捨，不是實測配置／heap 或 FPS 減少。完整工作負載、座標域與生命週期證據見 [ACCEPTANCE.md](../ACCEPTANCE.md)。
+
+## P245：query-local 稀疏候選 membership
+
+每個候選 generator 以數值 Map word 記錄每 32 個有界內部 polygon indices，保留獨立狀態、首次訪問順序及重複候選的 budget sentinel。非零 bit 判斷涵蓋負值 bit 31，不使用共享 epoch、mesh-sized scratch buffer 或世界座標 packing。主要投影 CPU 約降 Node 7–10%／Chromium 4–9%；較長單 polygon Node 控制約多 4 ns，完整 path 無一致收益。不以 entry 數宣稱 heap／GC／FPS 改善。signed-word 回歸、時間隔離及完整 CPU 配對見 [ACCEPTANCE.md](../ACCEPTANCE.md)。

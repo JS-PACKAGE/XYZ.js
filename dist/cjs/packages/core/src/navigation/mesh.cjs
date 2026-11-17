@@ -351,10 +351,13 @@ var NavigationMesh3D = class {
 		].every(Number.isSafeInteger)) throw RangeError(`Mesh projection tile coordinates must be safe integers.`);
 	}
 	*candidates(e, t) {
-		let n = /* @__PURE__ */ new Set();
+		let n = /* @__PURE__ */ new Map();
 		for (let r = Math.floor((e.x - t) / this.tileSize); r <= Math.floor((e.x + t) / this.tileSize); r++) for (let i = Math.floor((e.z - t) / this.tileSize); i <= Math.floor((e.z + t) / this.tileSize); i++) {
 			yield -1;
-			for (let e of this.tiles.get(r)?.get(i) ?? []) n.has(e) ? yield -1 : (n.add(e), yield e);
+			for (let e of this.tiles.get(r)?.get(i) ?? []) {
+				let t = e >>> 5, r = 1 << (e & 31), i = n.get(t) ?? 0;
+				(i & r) === 0 ? (n.set(t, i | r), yield e) : yield -1;
+			}
 		}
 	}
 	region(e, t) {
