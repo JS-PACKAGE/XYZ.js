@@ -6111,3 +6111,7 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 ## P242：拒絕延後建立投影贏家結果
 
 原型以四個 local fields 取代每次最近候選更新時的中間 projection record，最後才建立／freeze 公開結果，保持贏家 revision 與輸出。Node 部分查詢約省 1–3%，但 Chromium 一般帶 radius／零 radius／外側／斜面／多層投影六對全部退步，約 4.8–10.4%，因此不採用。2,048 投影／64 路徑／七組 getter trace 差分相同；只提交六份證據文件，source／tests／dist 保持 P241，不重新宣稱 build／runtime／FPS。詳見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P243：拒絕條件式閉合邊 wrapping
+
+最近邊與 containment helper 的 `% vertices.length` 改為最後一邊明確 wrap 到零，combined 原型在帶 radius 查詢略快，但零 radius 六對全部退步。再拆 inside-only／nearest-only 量測，仍分別有 Node 明確退步／Chromium 收益不足，三組皆不採用、不加形狀或 runtime 特例。每組 2,048 投影／64 路徑／七組 getter traces 相同；source／tests／dist 保持 P241，僅提交六份文件。144 組配對與範圍見 [ACCEPTANCE.md](ACCEPTANCE.md)。

@@ -7413,3 +7413,7 @@ scalar integration 原型略過下次 substep／sweep 必定覆寫的 private fo
 ## P242：不採用延後建立投影結果
 
 原型用四個 local fields 保留贏家，在原時點捕捉 revision，最後才建立／freeze 公開 projection。2,048 投影、64 路徑與七組 getter trace 對拍相同，但 Chromium 各一般投影工作負載約退步 5–10%，Node 小幅改善不足以採用。source／tests／dist 保留 P241，不宣稱重新 build／runtime 或配置／heap／FPS 收益；六輪逐對數據與驗證限制見 [ACCEPTANCE.md](../ACCEPTANCE.md)。
+
+## P243：不採用條件式閉合邊 wrapping
+
+nearest／inside 的取餘改為最後一邊明確回到零，分 combined、inside-only、nearest-only 三組量測。combined 零 radius 約退步 Node 2.5%／Chromium 3.3%；inside-only 有 Node 明確退步，nearest-only 的 Node 收益未在 browser 成立。每組 2,048 投影／64 路徑／七組 getter traces 相同仍不採用；source／tests／dist 維持 P241，不加 runtime／形狀特例，不宣稱重新 build／heap／FPS。144 組 CPU 配對與限制見 [ACCEPTANCE.md](../ACCEPTANCE.md)。

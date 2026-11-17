@@ -29436,3 +29436,217 @@ Tiny single-square control samples are noisy; complete-path code is unchanged an
 The throwaway candidate exactly matches the unchanged baseline for 2,048 projections, 64 complete paths and seven point-getter traces, with radius cycling, enabled-polygon revisions, quad/triangle/slope/stacked-floor histories and retained output snapshots. Arithmetic, metadata, candidate counts and getter order agree in these cases; numeric equivalence does not rescue the CPU regression.
 
 No canonical code/test changes, permanent tests, generated-artifact promotion, full suite, fresh production build or public source/dist runtime proof were needed or claimed for this rejected prototype. README zh/en/ja, PLAN, DESIGN and both technical references are synchronized; six-doc formatting/relative-file links and append-only ACCEPTANCE prefix are checked. Throwaway modules/profile/workloads and browser/server resources are removed before an exact six-doc-only commit. User-owned physics2d/world2d files remain excluded; no push or version bump.
+
+## P243 — Reject conditional cyclic-edge wrapping after ablations (2026-11-17)
+
+### Scope and decision
+
+P242's unchanged-baseline profile still places nearest and inside among projection hot paths. The two private query helpers access the next boundary vertex with (i + 1) % vertices.length. A prototype uses the equivalent i + 1 === vertices.length ? 0 : i + 1. Both helpers reject fewer than three vertices before these loops, which visit integer indices from zero through length minus one; the final edge still wraps to vertex zero. No arithmetic, epsilon, edge order, getter read, candidate metadata, region, state/cache, public API or allocation policy changes. Cold construction/clipping code is not rewritten.
+
+The combined candidate improves ordinary positive-radius projection by 1.23% Node /2.62% Chromium, but zero-radius quads regress 2.46% /3.30%, with all six paired values worse in both runtimes. To isolate the interaction rather than guess a JIT cause, each helper was separately benchmarked against the unchanged baseline using the same complete public workload.
+
+Inside-only improves several Chromium cases but regresses Node zero-radius quads 3.09%, triangles 1.65% and stacked floors 0.66%, all six paired values worse in those cases. Nearest-only improves Node about 4–8% on many workloads, but ordinary positive-radius Chromium queries change only -0.25%, while zero-radius/slope/stacked medians regress. These are not an acceptable cross-case/cross-runtime improvement. All three candidates are rejected; no special casing by radius, shape or runtime is introduced, and canonical code/tests/dist stay at P241. Fewer source-level remainder operations do not prove a CPU gain.
+
+### Measurement boundary
+
+Node v26.7.0, TypeScript 6.0.3 ES2022, pinned Chromium 153.0.8010.12 darwin/arm64 desktop automation. Baseline freshly transpiled from canonical P241 code; both/inside-only/nearest-only differ only in the stated private successor expressions and share production dependencies. Each independent cohort uses the P241 real NavigationMesh3D workload module: one-square interior, 48×48 zero-/positive-radius quads, exterior points, sloped quads, stacked 24×24 floors, split triangles and 12×12 complete paths. Geometry setup/destruction outside timing; 4,096 project /128 findPath warm calls, then six ABBA/BAAB pairs per case with 4,096 projections /128 full paths per sample. Cells average two samples per variant per pair; summary medians take six pairs, CPU wall ms/query.
+
+All three visible browser cohorts have empty page-error lists, with no concurrent assistant build/test/profiler. Tiny single-square controls and path outliers are shown rather than treated as general gains. Separate cohorts are not additive; no unverified JIT/GC explanation, allocation/heap or GPU/FPS claim.
+
+### Both hot helpers
+
+| Case          | Node before ms/query | Candidate | Change % | Pair range % | Chromium before ms/query | Candidate | Change % | Pair range %  |
+| ------------- | -------------------- | --------- | -------- | ------------ | ------------------------ | --------- | -------- | ------------- |
+| single-inside | 0.000201             | 0.000204  | 1.68     | -7.04..8.14  | 0.000177                 | 0.000177  | -0.00    | -12.50..25.00 |
+| quad48-r0     | 0.005156             | 0.005283  | 2.46     | 1.94..4.25   | 0.004626                 | 0.004779  | 3.30     | 0.25..3.69    |
+| quad48-r02    | 0.005374             | 0.005308  | -1.23    | -2.90..-0.91 | 0.004901                 | 0.004773  | -2.62    | -2.99..-2.00  |
+| outside48     | 0.003761             | 0.003718  | -1.12    | -7.20..0.05  | 0.003333                 | 0.003302  | -0.92    | -2.54..-0.00  |
+| slope48       | 0.005609             | 0.005524  | -1.52    | -6.96..1.07  | 0.004816                 | 0.004822  | 0.13     | -2.23..1.02   |
+| stacked24     | 0.010406             | 0.010391  | -0.15    | -0.96..2.36  | 0.009326                 | 0.009338  | 0.13     | -0.13..1.05   |
+| tri24         | 0.008988             | 0.008767  | -2.46    | -4.08..0.49  | 0.008124                 | 0.008081  | -0.53    | -1.05..-0.30  |
+| paths12       | 0.020785             | 0.020684  | -0.48    | -1.71..2.91  | 0.018359                 | 0.017578  | -4.26    | -6.38..4.55   |
+
+| Round | Case          | Node before ms/query | Candidate | Chromium before ms/query | Candidate |
+| ----- | ------------- | -------------------- | --------- | ------------------------ | --------- |
+| 1     | single-inside | 0.000264             | 0.000264  | 0.000183                 | 0.000183  |
+| 1     | quad48-r0     | 0.005095             | 0.005205  | 0.004919                 | 0.004932  |
+| 1     | quad48-r02    | 0.005309             | 0.005232  | 0.005151                 | 0.005017  |
+| 1     | outside48     | 0.003662             | 0.003649  | 0.003491                 | 0.003467  |
+| 1     | slope48       | 0.005372             | 0.005285  | 0.004932                 | 0.004822  |
+| 1     | stacked24     | 0.010040             | 0.010074  | 0.009351                 | 0.009338  |
+| 1     | tri24         | 0.008769             | 0.008621  | 0.008154                 | 0.008069  |
+| 1     | paths12       | 0.024497             | 0.024717  | 0.020703                 | 0.021484  |
+| 2     | single-inside | 0.000211             | 0.000196  | 0.000195                 | 0.000171  |
+| 2     | quad48-r0     | 0.005026             | 0.005240  | 0.004651                 | 0.004773  |
+| 2     | quad48-r02    | 0.005280             | 0.005195  | 0.004895                 | 0.004773  |
+| 2     | outside48     | 0.003673             | 0.003675  | 0.003308                 | 0.003296  |
+| 2     | slope48       | 0.005372             | 0.005283  | 0.004810                 | 0.004810  |
+| 2     | stacked24     | 0.010058             | 0.010155  | 0.009326                 | 0.009338  |
+| 2     | tri24         | 0.008779             | 0.008693  | 0.008118                 | 0.008069  |
+| 2     | paths12       | 0.020454             | 0.020508  | 0.018359                 | 0.018750  |
+| 3     | single-inside | 0.000191             | 0.000205  | 0.000146                 | 0.000183  |
+| 3     | quad48-r0     | 0.005074             | 0.005248  | 0.004626                 | 0.004797  |
+| 3     | quad48-r02    | 0.005329             | 0.005246  | 0.004895                 | 0.004761  |
+| 3     | outside48     | 0.003719             | 0.003688  | 0.003369                 | 0.003284  |
+| 3     | slope48       | 0.005622             | 0.005682  | 0.004834                 | 0.004822  |
+| 3     | stacked24     | 0.010429             | 0.010329  | 0.009326                 | 0.009326  |
+| 3     | tri24         | 0.009093             | 0.008957  | 0.008105                 | 0.008057  |
+| 3     | paths12       | 0.021003             | 0.020644  | 0.017188                 | 0.017969  |
+| 4     | single-inside | 0.000195             | 0.000210  | 0.000171                 | 0.000159  |
+| 4     | quad48-r0     | 0.005370             | 0.005531  | 0.004626                 | 0.004785  |
+| 4     | quad48-r02    | 0.005600             | 0.005450  | 0.004919                 | 0.004773  |
+| 4     | outside48     | 0.003931             | 0.003907  | 0.003320                 | 0.003320  |
+| 4     | slope48       | 0.005742             | 0.005623  | 0.004797                 | 0.004846  |
+| 4     | stacked24     | 0.011221             | 0.011294  | 0.009387                 | 0.009448  |
+| 4     | tri24         | 0.009765             | 0.009813  | 0.008130                 | 0.008105  |
+| 4     | paths12       | 0.020840             | 0.021446  | 0.018359                 | 0.017188  |
+| 5     | single-inside | 0.000207             | 0.000203  | 0.000183                 | 0.000171  |
+| 5     | quad48-r0     | 0.005423             | 0.005625  | 0.004626                 | 0.004749  |
+| 5     | quad48-r02    | 0.006613             | 0.006421  | 0.004907                 | 0.004761  |
+| 5     | outside48     | 0.005105             | 0.004737  | 0.003320                 | 0.003308  |
+| 5     | slope48       | 0.006363             | 0.005920  | 0.004797                 | 0.004822  |
+| 5     | stacked24     | 0.010828             | 0.011084  | 0.009314                 | 0.009338  |
+| 5     | tri24         | 0.009157             | 0.008784  | 0.008130                 | 0.008105  |
+| 5     | paths12       | 0.020221             | 0.020320  | 0.018359                 | 0.017188  |
+| 6     | single-inside | 0.000191             | 0.000193  | 0.000171                 | 0.000183  |
+| 6     | quad48-r0     | 0.005216             | 0.005317  | 0.004602                 | 0.004761  |
+| 6     | quad48-r02    | 0.005420             | 0.005371  | 0.004883                 | 0.004785  |
+| 6     | outside48     | 0.003803             | 0.003749  | 0.003345                 | 0.003284  |
+| 6     | slope48       | 0.005595             | 0.005424  | 0.004822                 | 0.004834  |
+| 6     | stacked24     | 0.010383             | 0.010452  | 0.009302                 | 0.009399  |
+| 6     | tri24         | 0.008884             | 0.008750  | 0.008118                 | 0.008093  |
+| 6     | paths12       | 0.020729             | 0.020724  | 0.018359                 | 0.017188  |
+
+### inside only
+
+| Case          | Node before ms/query | Candidate | Change % | Pair range % | Chromium before ms/query | Candidate | Change % | Pair range % |
+| ------------- | -------------------- | --------- | -------- | ------------ | ------------------------ | --------- | -------- | ------------ |
+| single-inside | 0.000198             | 0.000195  | -1.45    | -9.20..0.28  | 0.000183                 | 0.000177  | -3.33    | -6.67..7.14  |
+| quad48-r0     | 0.005085             | 0.005242  | 3.09     | 1.91..3.76   | 0.004730                 | 0.004694  | -0.77    | -1.80..0.00  |
+| quad48-r02    | 0.005411             | 0.005283  | -2.36    | -3.97..-0.24 | 0.004858                 | 0.004706  | -3.14    | -3.77..4.68  |
+| outside48     | 0.003709             | 0.003691  | -0.48    | -1.40..2.20  | 0.003339                 | 0.003284  | -1.65    | -2.54..0.71  |
+| slope48       | 0.005362             | 0.005330  | -0.59    | -0.84..0.73  | 0.004846                 | 0.004749  | -2.02    | -4.49..-1.52 |
+| stacked24     | 0.010136             | 0.010202  | 0.66     | 0.05..1.43   | 0.009381                 | 0.009241  | -1.50    | -1.96..-0.92 |
+| tri24         | 0.008649             | 0.008792  | 1.65     | 0.82..1.71   | 0.008179                 | 0.008008  | -2.09    | -8.68..-1.49 |
+| paths12       | 0.020847             | 0.020520  | -1.57    | -34.86..1.32 | 0.018359                 | 0.017969  | -2.13    | -4.26..2.17  |
+
+| Round | Case          | Node before ms/query | Candidate | Chromium before ms/query | Candidate |
+| ----- | ------------- | -------------------- | --------- | ------------------------ | --------- |
+| 1     | single-inside | 0.000295             | 0.000268  | 0.000256                 | 0.000244  |
+| 1     | quad48-r0     | 0.005051             | 0.005188  | 0.004907                 | 0.004834  |
+| 1     | quad48-r02    | 0.005370             | 0.005189  | 0.004956                 | 0.005188  |
+| 1     | outside48     | 0.003633             | 0.003653  | 0.003418                 | 0.003442  |
+| 1     | slope48       | 0.005260             | 0.005280  | 0.005164                 | 0.004932  |
+| 1     | stacked24     | 0.009994             | 0.010137  | 0.009668                 | 0.009497  |
+| 1     | tri24         | 0.008599             | 0.008670  | 0.008191                 | 0.008069  |
+| 1     | paths12       | 0.037396             | 0.024359  | 0.021484                 | 0.021484  |
+| 2     | single-inside | 0.000201             | 0.000194  | 0.000183                 | 0.000183  |
+| 2     | quad48-r0     | 0.005074             | 0.005230  | 0.004724                 | 0.004724  |
+| 2     | quad48-r02    | 0.005420             | 0.005287  | 0.004834                 | 0.004724  |
+| 2     | outside48     | 0.003711             | 0.003658  | 0.003345                 | 0.003284  |
+| 2     | slope48       | 0.005365             | 0.005343  | 0.004834                 | 0.004749  |
+| 2     | stacked24     | 0.010146             | 0.010218  | 0.009375                 | 0.009229  |
+| 2     | tri24         | 0.008657             | 0.008794  | 0.008167                 | 0.007983  |
+| 2     | paths12       | 0.023546             | 0.021320  | 0.018359                 | 0.018359  |
+| 3     | single-inside | 0.000205             | 0.000197  | 0.000183                 | 0.000171  |
+| 3     | quad48-r0     | 0.005094             | 0.005252  | 0.004749                 | 0.004663  |
+| 3     | quad48-r02    | 0.005451             | 0.005235  | 0.004858                 | 0.004687  |
+| 3     | outside48     | 0.003689             | 0.003661  | 0.003320                 | 0.003284  |
+| 3     | slope48       | 0.005278             | 0.005316  | 0.004871                 | 0.004749  |
+| 3     | stacked24     | 0.010126             | 0.010131  | 0.009412                 | 0.009253  |
+| 3     | tri24         | 0.008634             | 0.008730  | 0.008228                 | 0.008020  |
+| 3     | paths12       | 0.020934             | 0.020477  | 0.018359                 | 0.017578  |
+| 4     | single-inside | 0.000190             | 0.000190  | 0.000171                 | 0.000171  |
+| 4     | quad48-r0     | 0.005076             | 0.005233  | 0.004712                 | 0.004700  |
+| 4     | quad48-r02    | 0.005374             | 0.005279  | 0.004858                 | 0.004675  |
+| 4     | outside48     | 0.003729             | 0.003727  | 0.003333                 | 0.003284  |
+| 4     | slope48       | 0.005364             | 0.005343  | 0.004834                 | 0.004761  |
+| 4     | stacked24     | 0.010110             | 0.010194  | 0.009387                 | 0.009229  |
+| 4     | tri24         | 0.008642             | 0.008790  | 0.008862                 | 0.008093  |
+| 4     | paths12       | 0.020583             | 0.020296  | 0.017969                 | 0.018359  |
+| 5     | single-inside | 0.000193             | 0.000189  | 0.000183                 | 0.000171  |
+| 5     | quad48-r0     | 0.005165             | 0.005264  | 0.004724                 | 0.004687  |
+| 5     | quad48-r02    | 0.005432             | 0.005335  | 0.004858                 | 0.004700  |
+| 5     | outside48     | 0.003730             | 0.003722  | 0.003369                 | 0.003284  |
+| 5     | slope48       | 0.005360             | 0.005315  | 0.004846                 | 0.004736  |
+| 5     | stacked24     | 0.010157             | 0.010286  | 0.009363                 | 0.009180  |
+| 5     | tri24         | 0.008739             | 0.008867  | 0.008118                 | 0.007996  |
+| 5     | paths12       | 0.020087             | 0.020352  | 0.018359                 | 0.017578  |
+| 6     | single-inside | 0.000194             | 0.000195  | 0.000171                 | 0.000183  |
+| 6     | quad48-r0     | 0.005129             | 0.005322  | 0.004736                 | 0.004651  |
+| 6     | quad48-r02    | 0.005402             | 0.005389  | 0.004822                 | 0.004712  |
+| 6     | outside48     | 0.003708             | 0.003790  | 0.003333                 | 0.003284  |
+| 6     | slope48       | 0.005384             | 0.005345  | 0.004846                 | 0.004724  |
+| 6     | stacked24     | 0.010166             | 0.010211  | 0.009338                 | 0.009253  |
+| 6     | tri24         | 0.008731             | 0.008877  | 0.008167                 | 0.007983  |
+| 6     | paths12       | 0.020759             | 0.020563  | 0.017578                 | 0.017578  |
+
+### nearest only
+
+| Case          | Node before ms/query | Candidate | Change % | Pair range % | Chromium before ms/query | Candidate | Change % | Pair range % |
+| ------------- | -------------------- | --------- | -------- | ------------ | ------------------------ | --------- | -------- | ------------ |
+| single-inside | 0.000207             | 0.000194  | -6.04    | -9.69..0.72  | 0.000177                 | 0.000177  | -0.00    | -6.67..23.08 |
+| quad48-r0     | 0.005325             | 0.005125  | -3.76    | -4.47..-2.12 | 0.004681                 | 0.004755  | 1.56     | -0.98..2.63  |
+| quad48-r02    | 0.005645             | 0.005181  | -8.22    | -9.04..-7.39 | 0.004822                 | 0.004810  | -0.25    | -0.76..1.02  |
+| outside48     | 0.003966             | 0.003686  | -7.07    | -7.61..-4.22 | 0.003333                 | 0.003351  | 0.55     | -2.74..1.47  |
+| slope48       | 0.005574             | 0.005261  | -5.63    | -6.30..-4.21 | 0.004810                 | 0.004877  | 1.40     | -0.93..2.82  |
+| stacked24     | 0.010700             | 0.010035  | -6.22    | -6.77..-5.19 | 0.009308                 | 0.009363  | 0.59     | 0.13..1.18   |
+| tri24         | 0.009223             | 0.008774  | -4.87    | -5.36..-3.59 | 0.008173                 | 0.008130  | -0.52    | -0.75..0.30  |
+| paths12       | 0.020797             | 0.020367  | -2.07    | -3.20..2.71  | 0.017969                 | 0.017969  | 0.00     | -4.35..5.56  |
+
+| Round | Case          | Node before ms/query | Candidate | Chromium before ms/query | Candidate |
+| ----- | ------------- | -------------------- | --------- | ------------------------ | --------- |
+| 1     | single-inside | 0.000289             | 0.000261  | 0.000195                 | 0.000183  |
+| 1     | quad48-r0     | 0.005275             | 0.005123  | 0.004968                 | 0.004919  |
+| 1     | quad48-r02    | 0.005649             | 0.005188  | 0.005017                 | 0.005042  |
+| 1     | outside48     | 0.003976             | 0.003673  | 0.003564                 | 0.003467  |
+| 1     | slope48       | 0.005582             | 0.005239  | 0.005237                 | 0.005188  |
+| 1     | stacked24     | 0.010704             | 0.009979  | 0.009338                 | 0.009363  |
+| 1     | tri24         | 0.009315             | 0.008980  | 0.008118                 | 0.008118  |
+| 1     | paths12       | 0.024713             | 0.025382  | 0.021094                 | 0.022266  |
+| 2     | single-inside | 0.000211             | 0.000197  | 0.000171                 | 0.000183  |
+| 2     | quad48-r0     | 0.005272             | 0.005160  | 0.004651                 | 0.004749  |
+| 2     | quad48-r02    | 0.005607             | 0.005193  | 0.004822                 | 0.004785  |
+| 2     | outside48     | 0.003872             | 0.003708  | 0.003320                 | 0.003296  |
+| 2     | slope48       | 0.005529             | 0.005266  | 0.004761                 | 0.004895  |
+| 2     | stacked24     | 0.010597             | 0.010047  | 0.009290                 | 0.009363  |
+| 2     | tri24         | 0.009189             | 0.008735  | 0.008179                 | 0.008118  |
+| 2     | paths12       | 0.021336             | 0.020849  | 0.017969                 | 0.018750  |
+| 3     | single-inside | 0.000205             | 0.000192  | 0.000183                 | 0.000171  |
+| 3     | quad48-r0     | 0.005341             | 0.005102  | 0.004639                 | 0.004761  |
+| 3     | quad48-r02    | 0.005633             | 0.005157  | 0.004834                 | 0.004797  |
+| 3     | outside48     | 0.003960             | 0.003663  | 0.003406                 | 0.003369  |
+| 3     | slope48       | 0.005613             | 0.005377  | 0.004810                 | 0.004871  |
+| 3     | stacked24     | 0.010690             | 0.010065  | 0.009314                 | 0.009351  |
+| 3     | tri24         | 0.009216             | 0.008732  | 0.008191                 | 0.008130  |
+| 3     | paths12       | 0.020829             | 0.020168  | 0.017578                 | 0.018359  |
+| 4     | single-inside | 0.000209             | 0.000191  | 0.000159                 | 0.000195  |
+| 4     | quad48-r0     | 0.005332             | 0.005123  | 0.004675                 | 0.004749  |
+| 4     | quad48-r02    | 0.005641             | 0.005150  | 0.004822                 | 0.004797  |
+| 4     | outside48     | 0.003972             | 0.003671  | 0.003333                 | 0.003381  |
+| 4     | slope48       | 0.005547             | 0.005255  | 0.004810                 | 0.004883  |
+| 4     | stacked24     | 0.010697             | 0.010006  | 0.009277                 | 0.009363  |
+| 4     | tri24         | 0.009192             | 0.008817  | 0.008167                 | 0.008191  |
+| 4     | paths12       | 0.020764             | 0.020466  | 0.017969                 | 0.017187  |
+| 5     | single-inside | 0.000200             | 0.000202  | 0.000171                 | 0.000171  |
+| 5     | quad48-r0     | 0.005319             | 0.005127  | 0.004687                 | 0.004773  |
+| 5     | quad48-r02    | 0.005693             | 0.005179  | 0.004797                 | 0.004822  |
+| 5     | outside48     | 0.003990             | 0.003698  | 0.003333                 | 0.003333  |
+| 5     | slope48       | 0.005596             | 0.005243  | 0.004846                 | 0.004858  |
+| 5     | stacked24     | 0.010762             | 0.010037  | 0.009326                 | 0.009338  |
+| 5     | tri24         | 0.009274             | 0.008776  | 0.008179                 | 0.008130  |
+| 5     | paths12       | 0.020754             | 0.020090  | 0.017578                 | 0.017578  |
+| 6     | single-inside | 0.000203             | 0.000190  | 0.000183                 | 0.000171  |
+| 6     | quad48-r0     | 0.005341             | 0.005152  | 0.004712                 | 0.004736  |
+| 6     | quad48-r02    | 0.005663             | 0.005184  | 0.004797                 | 0.004846  |
+| 6     | outside48     | 0.003959             | 0.003698  | 0.003333                 | 0.003320  |
+| 6     | slope48       | 0.005567             | 0.005267  | 0.004810                 | 0.004871  |
+| 6     | stacked24     | 0.010718             | 0.010032  | 0.009302                 | 0.009412  |
+| 6     | tri24         | 0.009231             | 0.008772  | 0.008130                 | 0.008154  |
+| 6     | paths12       | 0.020550             | 0.020267  | 0.018359                 | 0.017578  |
+
+### Correctness and delivery
+
+Each of all three candidates independently passes 2,048 exact public projections, 64 complete paths and seven point-getter trace comparisons against the unchanged baseline. Histories include varying radius/positions, enabled-state revisions, quads, triangles, slopes, stacked floors and retained output snapshots. This numerical agreement does not rescue the CPU regressions.
+
+No canonical source/test edit, permanent test, artifact promotion, fresh full build/full suite or new public-root runtime proof is needed or claimed for rejected prototypes. Six documentation files record the decision, README zh/en/ja synchronized; formatting, relative-file links and historical ACCEPTANCE byte-prefix preservation are checked. All temporary benchmark/proof modules, profiles and browser/server resources are removed before a six-doc-only phase commit. User-owned files remain excluded, no push or version bump.

@@ -7768,3 +7768,7 @@ The shared private nearest-boundary helper eagerly computes all three closest-ed
 ## P242: Rejected deferred projection materialization
 
 A prototype stores four local winner fields, captures the winning revision at the original point and freezes/materializes only the final public projection. Its 2,048 projections, 64 paths and seven getter traces match the baseline, but Chromium projection workloads regress about 5–10% despite modest Node gains. The candidate is rejected; source/tests/dist remain at P241, without a fresh build/runtime or allocation/heap/FPS claim. See [ACCEPTANCE.md](../ACCEPTANCE.md) for all six CPU pairs per case and exact verification limits.
+
+## P243: Rejected conditional cyclic-edge wrapping
+
+Replacing modulo with an exact closing-edge conditional in nearest/inside was measured together and separately. Combined wrapping regresses zero-radius quads about 2.5% Node /3.3% Chromium; inside-only has clear Node regressions, while nearest-only's Node gains do not yield meaningful browser gains. All three pass 2,048 projections, 64 paths and seven getter traces, but are rejected. Source/tests/dist remain at P241, without runtime/shape special cases or fresh build/heap/FPS claims. See [ACCEPTANCE.md](../ACCEPTANCE.md) for all 144 paired CPU rows and limits.

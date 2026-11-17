@@ -6261,3 +6261,7 @@ NavigationMesh3D 的私有 nearest helper 仍按原順序計算 clamped 邊點�
 ## P242：投影結果延後建立未採用
 
 延後 freeze／materialize 可在原型中省略中間贏家 record；revision 仍在贏家更新時捕捉，避免錯改為查詢結束時的 epoch。輸出與 getter trace 對拍相同，但 Chromium 一般投影穩定退步約 5–10%，所以保留 P241 的現有結果建立路徑。不把可見的程式碼物件減少等同於實測 CPU／heap 改善，也不憑時序差異推測 JIT／GC 原因；證據見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P243：保留既有閉合邊取餘
+
+在合法整數邊索引下，`(i + 1) % length` 與 `i + 1 === length ? 0 : i + 1` 等價，但不是效能上可互換。combined 與兩個獨立 helper ablations 顯示不同 case／runtime 的得失，不以 Node-only、少一個 remainder 或推測的 JIT 原因選擇新實作。保留 P241 的 nearest／inside，冷路徑 clipping／construction 也不無關改寫；完整對照見 [ACCEPTANCE.md](ACCEPTANCE.md)。
