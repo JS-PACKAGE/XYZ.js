@@ -6516,3 +6516,11 @@ full raw render quad 使用 logical dimensions，view／crop 使用自身 immuta
 同canonical class／Game的配對fixture保留before原熱stride3、after2，constructor/backing共同配置max3；每次selector在warm前cold-invalidates來源metadata。registry僅constructor／destroy登記，量測中無per-slot selector或native wrapper。共用allocation、cold填寫與mutable targets仍限制外推，不能把fixture說成已量到實際metadata heap減少。
 
 原生queue忠實委派觀察證明部分static resize少傳而畫面一致；完整624 samples卻有不利large／small、mixed full targets與controls漂移。拒絕以局部native節省、單一local目標或結構payload下降取代CPU收益，不裁切outlier、不加有利場景特例。正式source／dist維持P280，詳見ACCEPTANCE。
+
+## P282 — pool-owned callback，job-owned release lifecycle
+
+`NavigationSearchPool` 的 release closure 只捕捉 pool，並不捕捉某個 job／plan。將它移至 readonly instance field，所有 jobs 傳入同一個函式；callback 的參數仍指定完成的 job 與 workspace，依原順序移出 active Set，再於 pool 尚未 destroyed 時回收 workspace。`NavigationSearchJob.finish()` 仍清除 plan／workspace／release，terminal handles 不因重用而保留 pool。
+
+這增加每個 pool 的一個欄位及預先建立的 callback，交換重複搜尋時不再逐 job 建立 callback。沒有跨 pool 共用狀態、綁定 API、額外 collection 或公開介面變動。八個 concurrent jobs 的原版／新版 callback identity 為八／一；不是 heap、GC 或 FPS 量測。
+
+分離 module graphs 的首輪 CPU 差異在同 canonical class 比較大幅縮小，不能歸因於 callback 重用。Node／Chromium 固定 A/A→A/B 的 mixed CPU 與 controls 漂移皆記錄；不以此聲稱普遍加速。詳見 ACCEPTANCE。

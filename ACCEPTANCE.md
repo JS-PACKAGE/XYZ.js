@@ -95411,3 +95411,45 @@ fs.writeFileSync(process.argv[3], bytes);
 依功能僅提交本輪六份文件、不push；歷史測試數／日期保持，後續持續調查。
 
 P281 最終文件檢查：六份文件 scoped Prettier check 通過；445個相對檔案連結存在（不認證外部URL／heading anchors），兩份archives byte length／SHA256／JSON decode通過。歷史prefix以byte equality保護，僅新增suffix格式化；本輪沒有冒稱正式runtime重新驗收。
+
+## P282 — Navigation release callback 重用（2026-11-18）
+
+每個 pool 一個 readonly callback 取代每個 job 的 closure；不改 plan／workspace／active Set 或 slot ownership。callback 只捕捉 pool，不捕捉特定 job。`finish()` 仍清除 release，pool destroyed 時仍不回收 workspace。代價是每個 pool 多一個欄位及建構時 callback，未使用的 pool 也付此成本。
+
+### 功能與工具證據
+
+- 既有 navigation／jobs／dynamic／scheduler **4檔／25測試**通過；strict typecheck、jobs scoped ESLint／Prettier 通過。沒有新增永久測試或借用歷史測試數。
+- 八個 concurrent jobs：原版有八個 release identities，current source／正式 minified ESM public root／CJS public root 各只有一個。三種 current consumer 均實跑第九個 job 拒絕、取消後 slot 重用、found 成本19、revision invalidation、destroy cancellation、立即 unreachable；terminal release 皆為 undefined。
+- 隔離完整 tsc／minify／vendor copy／CJS build 成功（377 JS／720 CJS files）；只帶回 jobs 的 ESM／map／private declaration 與 CJS／map 五個 artifacts。11個既有 physics2d／world2d 使用者檔案的 SHA256 guard 全數相同。
+- 原版／候選的 Node 640組確定性加權／障礙／clearance／diagonal／corner cases，完整路徑、成本、逐步 status／expansions 一致；managed headless Chromium 153.0.8010.12 另640組及 cleanup／slots 一致、page errors為空。這不是 renderer／三backend或實機認證。
+
+### CPU 比較與採用界線
+
+macOS arm64、Node 26.7.0。原始分離 module graphs 的 callback 原型出現約27%長路徑差異；不能隔離 class／module graph／tiering，所以不作採用證據。改用同 canonical Grid／Pool／Search class，pool 共用相同 constructor layout與callback欄位，只在 sample warmup 前切換 pool create body。A/A 的兩個 labels 均選原 body，A/B 才切換。這個 fixture 的 before 也有額外 pool 欄位，因此不量測正式 baseline 的 constructor 成本。
+
+Node／headless Chromium 各十固定 cohorts ×八輪 ×四次 ABBA／BAAB，先全部 A/A 再 A/B，各640 samples。large samples每次40條完整路徑，small／same-cell／blocked每次1,500條；每次先warm10條，初次各80條，另對兩個body預熱。CPU包含搜尋與結果發布，不包含grid建構，不是GPU／frame時間。
+
+下表為每輪兩次 B average 相對兩次 A average 的百分比，再取八輪中間兩值平均；負值較快。不剔除outliers、不扣A/A。早期 throwaway summary 取上中位數，本文已僅依原raw更正計算，未重跑挑數據。
+
+| cohort               | Node A/B % | faster/slower | Chromium A/B % | faster/slower/tie |
+| -------------------- | ---------: | ------------- | -------------: | ----------------- |
+| open-cardinal-large  |     +0.221 | 3/5           |         -0.710 | 6/2/0             |
+| open-diagonal-large  |     -0.040 | 4/4           |     -0.0000005 | 4/2/2             |
+| walls-cardinal-large |     -0.875 | 6/2           |         +0.453 | 2/6/0             |
+| walls-diagonal-large |     +0.137 | 2/6           |         +0.150 | 2/5/1             |
+| weighted-cardinal    |     -0.584 | 5/3           |         +0.966 | 2/6/0             |
+| weighted-diagonal    |     -1.202 | 8/0           |         +1.255 | 2/6/0             |
+| small-cardinal       |     -0.719 | 5/3           |         +1.031 | 2/5/1             |
+| small-diagonal       |     -1.280 | 4/4           |     +0.0000002 | 3/4/1             |
+| same-cell            |     -5.148 | 6/2           |         +7.143 | 2/6/0             |
+| blocked              |     -1.377 | 6/2           |        +16.667 | 2/6/0             |
+
+Chromium A/A walls-cardinal為+22.689%且八輪較慢，Node A/A weighted-cardinal為−2.831%且八輪較快，顯示fixture仍有非變更因素。短samples與非isolated performance.now解析度、mutable call target、共用layout、headless／time-series均限制外推；不把identity下降換算成CPU、實際配置bytes、heap、RSS、GC或FPS。
+
+採用理由僅為可直接驗證的callback重用與較簡單的create生命週期；不是CPU加速。未做production ESM／CJS CPU配對、完整suite、renderer／audio／showcase、Safari或實機驗收。
+
+### 未採用的 Grid-loop 原型
+
+三個獨立原型各執行640組Node確定性cases、十cohort固定A/A→A/B各640 samples。V1只迭代四／八方向、V2保留中心skip且縮小dx範圍，雖使open／walls cardinal paired median約下降5–10%，walls-diagonal卻分別+2.825%與+1.164%、八輪皆慢；V3 hoist row bounds／row start亦無穩定收益，open-diagonal+26.832%、七輪較慢。全部不採用，正式grid保持原樣；沒有把它們當成browser或production驗證。
+
+完整raw暫存於執行環境 `/tmp/xyz-p282-results.json`、`/tmp/xyz-p282-*-results.json` 及跨graph callback原型的 `/tmp/xyz-p283-results.json`；不是發佈檔案或永久可用連結。throwaway drivers 驗證後移除，沒有新增產品測試掛鉤或巨大base64附件。只依功能提交本輪變更，不push、升版或更動既有歷史。

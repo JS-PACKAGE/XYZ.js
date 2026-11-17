@@ -55,6 +55,9 @@ var NavigationSearchPool = class {
 	free = [];
 	active = /* @__PURE__ */ new Set();
 	disposed = !1;
+	release = (e, t) => {
+		this.active.delete(e), this.disposed || this.free.push(t);
+	};
 	constructor(e) {
 		this.capacity = e;
 	}
@@ -64,9 +67,7 @@ var NavigationSearchPool = class {
 	create(n) {
 		if (this.disposed) throw Error(`Navigation owner is destroyed.`);
 		if (this.active.size >= require_navigation.navigationLimits.concurrentSearches) throw RangeError(`Navigation concurrent search budget exhausted.`);
-		let i = new NavigationSearchJob(this.free.pop() ?? new require_search.NavigationSearch(this.capacity), n, (e, t) => {
-			this.active.delete(e), this.disposed || this.free.push(t);
-		});
+		let i = new NavigationSearchJob(this.free.pop() ?? new require_search.NavigationSearch(this.capacity), n, this.release);
 		return i.status === `pending` && this.active.add(i), i;
 	}
 	invalidate() {

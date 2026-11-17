@@ -101,6 +101,13 @@ export class NavigationSearchPool<Path> {
   private readonly free: NavigationSearch[] = [];
   private readonly active = new Set<NavigationSearchJob<Path>>();
   private disposed = false;
+  private readonly release = (
+    completed: NavigationSearchJob<Path>,
+    released: NavigationSearch,
+  ): void => {
+    this.active.delete(completed);
+    if (!this.disposed) this.free.push(released);
+  };
   constructor(private readonly capacity: number) {}
 
   get availableSlots(): number {
@@ -114,14 +121,7 @@ export class NavigationSearchPool<Path> {
     if (this.active.size >= navigationLimits.concurrentSearches)
       throw new RangeError('Navigation concurrent search budget exhausted.');
     const workspace = this.free.pop() ?? new NavigationSearch(this.capacity);
-    const job = new NavigationSearchJob(
-      workspace,
-      plan,
-      (completed, released) => {
-        this.active.delete(completed);
-        if (!this.disposed) this.free.push(released);
-      },
-    );
+    const job = new NavigationSearchJob(workspace, plan, this.release);
     if (job.status === 'pending') this.active.add(job);
     return job;
   }

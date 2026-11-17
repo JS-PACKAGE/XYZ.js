@@ -7678,3 +7678,9 @@ sandbox候選刪除獨立resolution getter／key／write，sourceSizes三個doub
 24個finite-budget native cases的paired state／像素／cleanup一致。physical／logical不變的resolution-only步驟，static full／crop／rotated／trimmed各省一次288-byte upload；真正logical變動仍更新。CPU fixture維持before原熱stride3、after2，共用max3 backing，cold invalidation在warm前，不在measured frames。
 
 固定13 cohort共624個A/A→A/B samples全留，包含不利large／small、mixed full targets、controls／drift／outliers。證據不足以採用，正式source／artifacts／API／版本不變；本輪沒有新正式unit／typecheck／build、CJS、standard／showcase、GPU／FPS或實機認證。完整原型／方法／raw見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P282 — 重用 navigation pool 的 release callback
+
+每個搜尋 pool 改為擁有一個 readonly release callback，不再逐 job 建立 closure。active 移除、workspace 回收、立即 unreachable、取消／失效／銷毀維持原順序，terminal jobs 仍清除 callback 引用。交換成本是每個 pool 多一個欄位及建構時 callback，即使該 pool 從未搜尋；沒有公開 API 或跨 pool 共用狀態。
+
+八個 concurrent jobs 在原版保留八個 callback identities，新 source／正式 ESM／CJS root 均為一個。25項既有 tests、strict／scoped checks、隔離 full build 通過，只帶回五個 jobs artifacts，保護11個使用者檔案。同 canonical class 的 Node／headless Chromium 固定 A/A→A/B CPU 結果混合且 controls 漂移；成果限於 callback 重用，不宣稱 CPU、heap／GC 或 FPS 加速。完整界線與未採用 grid-loop 原型見 [ACCEPTANCE](../ACCEPTANCE.md)。

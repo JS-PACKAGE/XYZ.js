@@ -224,6 +224,12 @@ P281: Reject particle resolution-key deletion. Native retained-cache cases prese
 
 P281：粒子resolution key削減案は不採用。常駐cacheの原生画素と一部upload減少だけでは、624サンプルの不利・混在CPU結果を上回らない。対照・偏移・payloadとheapの区別も [検収記録](ACCEPTANCE.md) に保持。正式source／dist／API／版は変更しない。
 
+P282：Navigation 每個 pool 重用同一個 release callback；八個 concurrent jobs 的 callback identity 由八個降至一個，terminal 清理與 slot 回收不變。25項既有測試、source／正式 ESM／CJS lifecycle 通過。CPU 對照結果混合，不宣稱 FPS／GC 或普遍加速；代價與證據見 [ACCEPTANCE](ACCEPTANCE.md)。
+
+P282: Navigation jobs reuse one release callback per pool, reducing eight concurrent callback identities to one while retaining terminal cleanup and slot recycling. Existing tests and source/ESM/CJS lifecycle probes pass. CPU results are mixed; no universal speedup, FPS or GC claim. See [ACCEPTANCE](ACCEPTANCE.md).
+
+P282：Navigation poolごとにrelease callbackを再利用し、同時8 jobsのcallback identityを8個から1個へ削減。終了時の参照解除・slot回収は維持。既存テストとsource／ESM／CJS lifecycleを確認。CPU結果は混在し、FPS／GCや普遍的な高速化は主張しない。[検収記録](ACCEPTANCE.md) を参照。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

@@ -8033,3 +8033,9 @@ A sandbox candidate removes the independent resolution getter/key/write and chan
 Twenty-four finite-budget native cases retain paired state, pixels and cleanup. A same-physical/logical resolution-only step avoids one 288-byte upload for each static full/crop/rotated/trimmed source; actual logical changes still update geometry. The CPU fixture preserves the original before hot stride of 3 and candidate stride 2, with common max-3 backing and cold invalidation before warmup, not inside measured frames.
 
 All 624 fixed 13-cohort A/A→A/B samples remain, including unfavorable large/small cases, mixed full targets, controls, drift and outliers. Evidence does not support adopting the candidate; source/artifacts/API/version stay unchanged. No new formal unit/typecheck/build, CJS, standard/showcase, GPU-time/FPS or physical-device certification is claimed. Full source, methods and raw results: [ACCEPTANCE](../ACCEPTANCE.md).
+
+## P282 — reuse the navigation pool's release callback
+
+Each search pool now owns one readonly release callback instead of creating a closure for every job. Active removal, workspace recycling, immediate unreachable results and cancellation/invalidation/destruction retain their existing order. Terminal jobs still clear their callback reference. This adds one field and a callback at pool construction, even for an unused pool; it introduces no public API or cross-pool state.
+
+Eight concurrent jobs retain eight distinct callbacks before versus one in current source and the formal ESM/CJS public roots. Twenty-five existing tests, strict/scoped checks and an isolated full build pass; only five jobs artifacts are promoted, preserving eleven user-owned files. Fixed same-class Node/headless Chromium A/A→A/B comparisons have mixed CPU results and drifting controls. This is callback reuse, not a measured CPU, heap/GC or FPS gain. Full limits and rejected grid-loop experiments: [ACCEPTANCE](../ACCEPTANCE.md).

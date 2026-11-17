@@ -6392,3 +6392,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 24個 finite-budget native cases，含 physical／logical皆不變的 resolution-only 步驟，before／after state／PNG／cleanup一致。四種 static render source 各少一次288-byte particle upload；真正 logical resize 仍更新，validation fatal契約保留。
 - 固定13 cohort 先312個A/A再312個A/B，共624 samples。before熱stride3、after2，共用max3 allocation與cold invalidation置於warm前，不修改原before熱layout。所有controls／ties／outliers／drift全留，mixed與不利large／small不足以採用。
 - 本輪僅證據文件commit，不改正式source／artifacts，不重跑或冒稱unit／strict／build／CJS／standard／showcase驗收。完整原型與raw見ACCEPTANCE，package不變、不push，轉查其他瓶頸。
+
+## P282 — 重用 Navigation pool 的 release callback
+
+- 搜尋 pool 原先每個 job 建立只捕捉同一個 pool 的 release closure；改成每個 pool 一個 readonly callback，既有完成／取消／失效流程及 terminal job 清除引用不變。增加一個 pool 欄位及建構時 callback，不宣稱未使用 pool 的初始化成本下降。
+- source／正式 minified ESM root／CJS root 的八個 concurrent jobs 分別只保留一個 callback identity，原版為八個；25 項既有 tests、strict／scoped lint／format、保護 11 個使用者檔案的隔離 full build 通過，只帶回五個 jobs artifacts。
+- Node／managed headless Chromium 各固定十 cohort、八輪 A/A→A/B，共 1,280 samples。CPU 結果混合且有控制組漂移，採用理由限定為重用 JS callback，不宣稱 CPU／GC／heap／FPS 加速。另保留三個未採用 grid-loop 原型及跨 graph 計時誤導的界線，詳見 ACCEPTANCE。
+- API／package 1.23.0 不變，按功能提交、不 push，繼續調查其他瓶頸。

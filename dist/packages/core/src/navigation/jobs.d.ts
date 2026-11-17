@@ -33,6 +33,7 @@ export declare class NavigationSearchPool<Path> {
     private readonly free;
     private readonly active;
     private disposed;
+    private readonly release;
     constructor(capacity: number);
     get availableSlots(): number;
     create(plan: SearchPlan<Path>): NavigationSearchJob<Path>;
