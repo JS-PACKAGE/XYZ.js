@@ -6127,3 +6127,7 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 ## P246：拒絕固定投影分母 cache
 
 原型將 readonly dx／dz 的 `1 + dx * dx + dz * dz` 在 constructor 預算，保留原除法與浮點運算順序。一般帶 radius 查詢 Node／Chromium 幾乎不變，斜面／多層／三角形略慢，單 polygon Node 約多 10 ns；零 radius 的約 1.6–2.4% 收益不足以增加每 polygon 欄位，因此不採用。精確值與生命週期對拍相同，只提交六份文件，source／tests／dist 維持 P245。完整 54 組配對見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P247：caller-owned nearest 暫存
+
+私有 nearest 改寫入 caller 的 lazy Vector3；project 與 createSearch 各自保留獨立暫存，僅贏家位置／endpoint 才 clone，移除舊 module-global scratch，不留舊簽名或 fallback。主要投影 CPU 約降 Node 3–6%／Chromium 2–3.5%；單 polygon Chromium 控制約多 5 ns，完整 path 不宣稱普遍加速。75 個 coordinate／bounds getter 重入對拍保持輸出與 retained snapshots；公開結果維持 immutable ownership。完整數據及驗證範圍見 [ACCEPTANCE.md](ACCEPTANCE.md)。

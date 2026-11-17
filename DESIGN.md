@@ -6277,3 +6277,7 @@ NavigationMesh3D 的私有 nearest helper 仍按原順序計算 clamped 邊點�
 ## P246：保留原投影分母計算
 
 平面 dx／dz 雖然固定，將平方長度分母移到 Polygon record 仍須用實測判斷。原型沒有用 reciprocal，也沒有改除法順序或數值，但主查詢 CPU 幾乎不變、其他案例混合，單 polygon Node 明確退步；不為此加一個常駐數值欄位。保留 P245 的原式，不以預算運算次數推導速度、heap 或 JIT 原因；證據見 [ACCEPTANCE.md](ACCEPTANCE.md)。
+
+## P247：借用候選與保留贏家的生命週期
+
+nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下次重用之前有效；保留結果必須 clone。project 與每個 createSearch job 使用各自 lazy 暫存，public projection 贏家與兩個搜尋 endpoint 都 clone 後才保留／freeze，避免後續候選覆寫。不能改成共享 global out，因 point／bounds getter 可在 nearest 回傳後重入；舊 global 計算暫存已移除。保留原 arithmetic／getter 順序、候選／budget／revision 語意；CPU 證據與小型 Chromium 取捨見 [ACCEPTANCE.md](ACCEPTANCE.md)，不推導未量測的 heap／GC 收益。

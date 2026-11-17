@@ -164,28 +164,28 @@ var NavigationMesh3D = class {
 			for (let e of this.jobs) e.invalidate();
 		}
 	}
-	project(e, t) {
-		this.assertLive(), this.validateQuery(e, t);
-		let n, r = 0;
-		for (let i of this.candidates(e, t.maxDistance)) {
-			if (i < 0) continue;
-			r++;
-			let o = this.geometry[i];
-			if (this.disabled.has(o.surface.id) || o.surface.clearanceHeight < t.agentHeight) continue;
-			let s = nearest(o, this.region(i, t.agentRadius ?? 0).vertices, e);
-			if (!s || Math.abs(s.y - e.y) > t.maxVerticalDistance) continue;
-			let c = require_hypot.hypot3(s.x - e.x, s.y - e.y, s.z - e.z);
-			c <= t.maxDistance && (!n || c < n.distance) && (n = {
-				polygon: o.surface,
-				position: Object.freeze(s),
-				distance: c,
+	project(t, n) {
+		this.assertLive(), this.validateQuery(t, n);
+		let r, i = 0, o;
+		for (let s of this.candidates(t, n.maxDistance)) {
+			if (s < 0) continue;
+			i++;
+			let c = this.geometry[s];
+			if (this.disabled.has(c.surface.id) || c.surface.clearanceHeight < n.agentHeight) continue;
+			let l = nearest(c, this.region(s, n.agentRadius ?? 0).vertices, t, o ??= new require_math3d.Vector3());
+			if (!l || Math.abs(l.y - t.y) > n.maxVerticalDistance) continue;
+			let u = require_hypot.hypot3(l.x - t.x, l.y - t.y, l.z - t.z);
+			u <= n.maxDistance && (!r || u < r.distance) && (r = {
+				polygon: c.surface,
+				position: Object.freeze(l.clone()),
+				distance: u,
 				revision: this.epoch,
-				candidates: r
+				candidates: i
 			});
 		}
-		return n && Object.freeze({
-			...n,
-			candidates: r
+		return r && Object.freeze({
+			...r,
+			candidates: i
 		});
 	}
 	scheduleSearch(t, n, r, i) {
@@ -205,53 +205,53 @@ var NavigationMesh3D = class {
 			if (!d) return this.geometry[e].surface;
 			let t = d.get(e);
 			return t || (t = this.region(e, l), d.set(e, t)), t;
-		}, f = [this.candidates(t, s.maxDistance), this.candidates(i, s.maxDistance)], p = [], m = /* @__PURE__ */ new Map(), h = [], g = [], _ = [], v = [], y = [], b = [], x = `projection`, S = 0, C = 0, w = -1, T = 0, E = 0, D = 0, O = !1, k = 0, resetCandidate = () => {
-			if (k <= T) for (k = T + 1; k < _.length && !_[k].link;) k++;
-			E = k - 1;
+		}, f = [this.candidates(t, s.maxDistance), this.candidates(i, s.maxDistance)], p, m = [], h = /* @__PURE__ */ new Map(), g = [], _ = [], v = [], y = [], b = [], x = [], S = `projection`, C = 0, w = 0, T = -1, E = 0, D = 0, O = 0, k = !1, A = 0, resetCandidate = () => {
+			if (A <= E) for (A = E + 1; A < v.length && !v[A].link;) A++;
+			D = A - 1;
 		}, publish = () => {
 			let e = Object.freeze({
-				status: O ? `found` : `unreachable`,
-				polygons: Object.freeze(y),
-				waypoints: Object.freeze(b),
-				cost: O ? u.distance.get(p[1].index) : 1 / 0,
+				status: k ? `found` : `unreachable`,
+				polygons: Object.freeze(b),
+				waypoints: Object.freeze(x),
+				cost: k ? u.distance.get(m[1].index) : 1 / 0,
 				revision: c,
 				visited: u.distance.size
 			});
 			return this.paths.add(e), e;
-		}, A = new require_partition_search.PartitionNavigationJob(() => {
-			if (x === `projection`) {
-				let e = f[S].next();
-				if (!e.done) {
-					if (e.value < 0) return;
-					let n = e.value, r = this.geometry[n];
-					if (!this.disabled.has(r.surface.id) && r.surface.clearanceHeight >= s.agentHeight) {
-						let e = S === 0 ? t : i, o = nearest(r, region(n).vertices, e);
-						if (o && Math.abs(o.y - e.y) <= s.maxVerticalDistance) {
-							let t = require_hypot.hypot3(o.x - e.x, o.y - e.y, o.z - e.z);
-							t <= s.maxDistance && (!p[S] || t < p[S].distance) && (p[S] = {
-								index: n,
-								point: o,
-								distance: t
+		}, j = new require_partition_search.PartitionNavigationJob(() => {
+			if (S === `projection`) {
+				let n = f[C].next();
+				if (!n.done) {
+					if (n.value < 0) return;
+					let r = n.value, o = this.geometry[r];
+					if (!this.disabled.has(o.surface.id) && o.surface.clearanceHeight >= s.agentHeight) {
+						let n = C === 0 ? t : i, c = nearest(o, region(r).vertices, n, p ??= new require_math3d.Vector3());
+						if (c && Math.abs(c.y - n.y) <= s.maxVerticalDistance) {
+							let e = require_hypot.hypot3(c.x - n.x, c.y - n.y, c.z - n.z);
+							e <= s.maxDistance && (!m[C] || e < m[C].distance) && (m[C] = {
+								index: r,
+								point: c.clone(),
+								distance: e
 							});
 						}
 					}
 					return;
 				}
-				if (++S === 2) {
-					if (!p[0] || !p[1]) {
-						x = `publish`;
+				if (++C === 2) {
+					if (!m[0] || !m[1]) {
+						S = `publish`;
 						return;
 					}
-					u.offer(p[0].index, 0, 0, -1), x = `search`;
+					u.offer(m[0].index, 0, 0, -1), S = `search`;
 				}
-			} else if (x === `search`) {
+			} else if (S === `search`) {
 				let e = u.take();
 				if (e === void 0) {
-					x = `publish`;
+					S = `publish`;
 					return;
 				}
-				if (e === p[1].index) {
-					w = e, x = `backtrack`;
+				if (e === m[1].index) {
+					T = e, S = `backtrack`;
 					return;
 				}
 				let t = this.geometry[e];
@@ -259,40 +259,40 @@ var NavigationMesh3D = class {
 					let r = this.geometry[n.to];
 					if (this.disabled.has(r.surface.id) || r.surface.clearanceHeight < s.agentHeight || region(n.to).vertices.length === 0 || !this.portal(n, region(e), region(n.to), l)) continue;
 					let i = u.distance.get(e) + require_hypot.hypot3(r.center.x - t.center.x, r.center.y - t.center.y, r.center.z - t.center.z);
-					i >= (u.distance.get(n.to) ?? 1 / 0) || (m.set(n.to, n), u.offer(n.to, i, i, e));
+					i >= (u.distance.get(n.to) ?? 1 / 0) || (h.set(n.to, n), u.offer(n.to, i, i, e));
 				}
-			} else if (x === `backtrack`) w >= 0 ? (h.push(w), w = u.parent.get(w)) : (C = h.length - 1, x = `corridor`);
-			else if (x === `corridor`) {
-				if (C >= 0) {
-					let t = h[C--];
-					if (g.push(t), y.push(this.geometry[t].surface), g.length === 1) _.push(Object.freeze({ position: Object.freeze(p[0].point) })), v.push(0);
+			} else if (S === `backtrack`) T >= 0 ? (g.push(T), T = u.parent.get(T)) : (w = g.length - 1, S = `corridor`);
+			else if (S === `corridor`) {
+				if (w >= 0) {
+					let t = g[w--];
+					if (_.push(t), b.push(this.geometry[t].surface), _.length === 1) v.push(Object.freeze({ position: Object.freeze(m[0].point) })), y.push(0);
 					else {
-						let n = m.get(t), r = g[g.length - 2];
-						if (n.link) _.push(Object.freeze({ position: n.a })), v.push(g.length - 2), _.push(Object.freeze({
+						let n = h.get(t), r = _[_.length - 2];
+						if (n.link) v.push(Object.freeze({ position: n.a })), y.push(_.length - 2), v.push(Object.freeze({
 							position: n.b,
 							link: n.link
-						})), v.push(g.length - 1);
+						})), y.push(_.length - 1);
 						else {
 							let i = this.portal(n, region(r), region(t), l);
-							_.push(Object.freeze({ position: Object.freeze(new require_math3d.Vector3((i[0].x + i[1].x) / 2, (i[0].y + i[1].y) / 2, (i[0].z + i[1].z) / 2)) })), v.push(g.length - 1);
+							v.push(Object.freeze({ position: Object.freeze(new require_math3d.Vector3((i[0].x + i[1].x) / 2, (i[0].y + i[1].y) / 2, (i[0].z + i[1].z) / 2)) })), y.push(_.length - 1);
 						}
 					}
-				} else _.push(Object.freeze({ position: Object.freeze(p[1].point) })), v.push(g.length - 1), b.push(_[0]), T = 0, resetCandidate(), D = v[0], x = `smooth`;
-			} else if (x === `smooth`) {
-				if (T === _.length - 1) {
-					O = !0, x = `publish`;
+				} else v.push(Object.freeze({ position: Object.freeze(m[1].point) })), y.push(_.length - 1), x.push(v[0]), E = 0, resetCandidate(), O = y[0], S = `smooth`;
+			} else if (S === `smooth`) {
+				if (E === v.length - 1) {
+					k = !0, S = `publish`;
 					return;
 				}
-				if (_[T + 1].link) {
-					b.push(_[++T]), resetCandidate(), D = v[T];
+				if (v[E + 1].link) {
+					x.push(v[++E]), resetCandidate(), O = y[E];
 					return;
 				}
-				if (E <= T + 1) {
-					b.push(_[++T]), resetCandidate(), D = v[T];
+				if (D <= E + 1) {
+					x.push(v[++E]), resetCandidate(), O = y[E];
 					return;
 				}
-				let e = _[T].position, t = _[E].position, n = v[T], r = v[E], i = g[D], a = this.geometry[i], s = !_[E].link;
-				D > n && m.get(i)?.link && (s = !1);
+				let e = v[E].position, t = v[D].position, n = y[E], r = y[D], i = _[O], a = this.geometry[i], s = !v[D].link;
+				O > n && h.get(i)?.link && (s = !1);
 				let c = clipSegment(region(i).vertices, e, t);
 				if (!c) s = !1;
 				else {
@@ -300,18 +300,18 @@ var NavigationMesh3D = class {
 						let r = e.x + (t.x - e.x) * n, i = e.z + (t.z - e.z) * n;
 						Math.abs(e.y + (t.y - e.y) * n - (a.base + a.dx * r + a.dz * i)) > o && (s = !1);
 					}
-					D === n && c[0] > o && (s = !1), D === r && c[1] < .9999999 && (s = !1);
+					O === n && c[0] > o && (s = !1), O === r && c[1] < .9999999 && (s = !1);
 					let u = c[0];
-					if (D > n) {
-						let n = m.get(i);
+					if (O > n) {
+						let n = h.get(i);
 						if (n.link) s = !1;
 						else {
-							let r = this.portal(n, region(g[D - 1]), region(i), l), a = segmentCrossing(e, t, r[0], r[1]);
+							let r = this.portal(n, region(_[O - 1]), region(i), l), a = segmentCrossing(e, t, r[0], r[1]);
 							a === void 0 || a < c[0] - o || a > c[1] + o ? s = !1 : u = a;
 						}
 					}
-					if (D < r) {
-						let n = m.get(g[D + 1]);
+					if (O < r) {
+						let n = h.get(_[O + 1]);
 						if (n.link) s = !1;
 						else {
 							let r = this.portal(n, region(i), region(n.to), l), a = segmentCrossing(e, t, r[0], r[1]);
@@ -319,10 +319,10 @@ var NavigationMesh3D = class {
 						}
 					}
 				}
-				s ? ++D > r && (b.push(_[E]), T = E, resetCandidate(), D = v[T]) : (E--, D = n);
+				s ? ++O > r && (x.push(v[D]), E = D, resetCandidate(), O = y[E]) : (D--, O = n);
 			} else return publish();
-		}, () => !this.disposed && c === this.epoch, () => this.jobs.delete(A), (e) => e.status === `found`);
-		return this.jobs.add(A), A;
+		}, () => !this.disposed && c === this.epoch, () => this.jobs.delete(j), (e) => e.status === `found`);
+		return this.jobs.add(j), j;
 	}
 	destroy() {
 		if (!this.disposed) {
@@ -455,19 +455,18 @@ function clipSegment(e, t, n) {
 	}
 	return r <= i + o ? [r, i] : void 0;
 }
-var s = new require_math3d.Vector3();
-function nearest(t, n, r) {
-	if (n.length < 3) return;
-	let i = (r.y - height(t, r)) / (1 + t.dx * t.dx + t.dz * t.dz), o = s.set(r.x + t.dx * i, r.y - i, r.z + t.dz * i);
-	if (inside(n, o)) return o.clone();
-	let c = !1, l = 0, u = 0, d = 0, f = 1 / 0;
-	for (let e = 0; e < n.length; e++) {
-		let t = n[e], i = n[(e + 1) % n.length], o = i.x - t.x, s = i.y - t.y, p = i.z - t.z, m = Math.max(0, Math.min(1, ((r.x - t.x) * o + (r.y - t.y) * s + (r.z - t.z) * p) / (o * o + s * s + p * p))), h = t.x + o * m, g = t.y + s * m, _ = t.z + p * m, v = h - r.x, y = g - r.y, b = _ - r.z;
-		if (Math.abs(v) > f || Math.abs(y) > f || Math.abs(b) > f) continue;
+function nearest(e, t, n, r) {
+	if (t.length < 3) return;
+	let i = (n.y - height(e, n)) / (1 + e.dx * e.dx + e.dz * e.dz), o = r.set(n.x + e.dx * i, n.y - i, n.z + e.dz * i);
+	if (inside(t, o)) return o;
+	let s = !1, c = 0, l = 0, u = 0, d = 1 / 0;
+	for (let e = 0; e < t.length; e++) {
+		let r = t[e], i = t[(e + 1) % t.length], o = i.x - r.x, f = i.y - r.y, p = i.z - r.z, m = Math.max(0, Math.min(1, ((n.x - r.x) * o + (n.y - r.y) * f + (n.z - r.z) * p) / (o * o + f * f + p * p))), h = r.x + o * m, g = r.y + f * m, _ = r.z + p * m, v = h - n.x, y = g - n.y, b = _ - n.z;
+		if (Math.abs(v) > d || Math.abs(y) > d || Math.abs(b) > d) continue;
 		let x = require_hypot.hypot3(v, y, b);
-		x < f && (f = x, c = !0, l = h, u = g, d = _);
+		x < d && (d = x, s = !0, c = h, l = g, u = _);
 	}
-	return c ? new require_math3d.Vector3(l, u, d) : void 0;
+	return s ? r.set(c, l, u) : void 0;
 }
 function segmentCrossing(e, t, n, r) {
 	let i = t.x - e.x, a = t.z - e.z, s = r.x - n.x, c = r.z - n.z, l = i * c - a * s;

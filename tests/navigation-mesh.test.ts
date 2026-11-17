@@ -161,6 +161,73 @@ describe('polygon navigation surfaces', () => {
     }
   });
 
+  it('keeps projection snapshots stable when coordinate and bounds getters reenter', () => {
+    const mesh = new NavigationMesh3D({
+      tileSize: 8,
+      polygons: [square('left', 0, 0), square('right', 2, 0)],
+    });
+    const options = {
+      ...query,
+      maxDistance: 1,
+      maxVerticalDistance: 0.5,
+      agentRadius: 0,
+    };
+    const retained: { position: Readonly<Vector3>; expected: Vector3 }[] = [];
+    const sample = (
+      target: 'position' | 'options',
+      key: string,
+      value: number,
+      at: number,
+    ): number => {
+      const point = new Vector3(0.5, 0.1, 0.5);
+      const bounds = { ...options };
+      let reads = 0,
+        reentered = false;
+      Object.defineProperty(target === 'position' ? point : bounds, key, {
+        get(): number {
+          if (++reads === at) {
+            reentered = true;
+            const nested = mesh.project(new Vector3(2.5, 0.1, 1.5), options)!;
+            expect(nested.polygon.id).toBe('right');
+            expect(nested.position).toEqual(new Vector3(2.5, 0, 1.5));
+            retained.push({
+              position: nested.position,
+              expected: new Vector3(2.5, 0, 1.5),
+            });
+          }
+          return value;
+        },
+      });
+      const projection = mesh.project(point, bounds)!;
+      expect(projection.polygon.id).toBe('left');
+      expect(projection.position).toEqual(new Vector3(0.5, 0, 0.5));
+      expect(projection.distance).toBe(0.1);
+      if (at !== Infinity) expect(reentered).toBe(true);
+      retained.push({
+        position: projection.position,
+        expected: new Vector3(0.5, 0, 0.5),
+      });
+      return reads;
+    };
+    try {
+      for (const [target, key, value] of [
+        ['position', 'x', 0.5],
+        ['position', 'y', 0.1],
+        ['position', 'z', 0.5],
+        ['options', 'maxDistance', 1],
+        ['options', 'maxVerticalDistance', 0.5],
+      ] as const) {
+        const reads = sample(target, key, value, Infinity);
+        expect(reads).toBeGreaterThan(0);
+        for (let at = 1; at <= reads; at++) sample(target, key, value, at);
+      }
+      for (const { position, expected } of retained)
+        expect(position).toEqual(expected);
+    } finally {
+      mesh.destroy();
+    }
+  });
+
   it('re-clears agent radius from an edge whose neighbor is disabled and re-enabled', () => {
     const mesh = new NavigationMesh3D({
       polygons: [square('left', 0, 0), square('right', 2, 0)],

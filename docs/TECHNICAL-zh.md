@@ -7429,3 +7429,7 @@ nearest／inside 的取餘改為最後一邊明確回到零，分 combined、ins
 ## P246：不採用固定投影分母 cache
 
 原型為每 polygon 預算 readonly 平面分母，保留原除法／順序，精確值與生命週期對拍相同。但一般帶 radius 查詢幾乎不變、部分案例略慢，Node 單 polygon 約多 10 ns；零 radius 的小幅收益不足以增加常駐欄位。source／tests／dist 保留 P245，不宣稱重新 build／公開 root 或 heap／GC／FPS 改善。54 組 CPU 配對與驗證限制見 [ACCEPTANCE.md](../ACCEPTANCE.md)。
+
+## P247：caller-owned nearest 投影暫存
+
+私有 helper 將候選寫入 caller 必傳的 output，回傳的是借用值，保留贏家必須 clone。直接 project 與每個增量 job 都使用獨立 lazy 暫存，維持 public projection／endpoint 的 immutable ownership 及 getter 重入隔離。兩個 caller 完整遷移、移除舊 global scratch，arithmetic／budget／順序不變。主要投影 CPU 約降 Node 3–6%／Chromium 2–3.5%；單 polygon Chromium 約多 5 ns，不宣稱一般 path／heap／GC／FPS 改善。精確快照、重入及完整 CPU 證據見 [ACCEPTANCE.md](../ACCEPTANCE.md)。

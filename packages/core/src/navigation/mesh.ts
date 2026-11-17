@@ -388,6 +388,7 @@ export class NavigationMesh3D {
     this.validateQuery(position, options);
     let best: NavigationMeshProjection3D | undefined;
     let count = 0;
+    let scratch: Vector3 | undefined;
     for (const index of this.candidates(position, options.maxDistance)) {
       if (index < 0) continue;
       count++;
@@ -398,7 +399,12 @@ export class NavigationMesh3D {
       )
         continue;
       const region = this.region(index, options.agentRadius ?? 0);
-      const projected = nearest(polygon, region.vertices, position);
+      const projected = nearest(
+        polygon,
+        region.vertices,
+        position,
+        (scratch ??= new Vector3()),
+      );
       if (
         !projected ||
         Math.abs(projected.y - position.y) > options.maxVerticalDistance
@@ -415,7 +421,7 @@ export class NavigationMesh3D {
       )
         best = {
           polygon: polygon.surface,
-          position: Object.freeze(projected),
+          position: Object.freeze(projected.clone()),
           distance,
           revision: this.epoch,
           candidates: count,
@@ -480,6 +486,7 @@ export class NavigationMesh3D {
       this.candidates(start, options.maxDistance),
       this.candidates(goal, options.maxDistance),
     ];
+    let scratch: Vector3 | undefined;
     const ends: (
       { index: number; point: Vector3; distance: number } | undefined
     )[] = [];
@@ -538,7 +545,12 @@ export class NavigationMesh3D {
               polygon.surface.clearanceHeight >= options.agentHeight
             ) {
               const source = endpoint === 0 ? start : goal;
-              const point = nearest(polygon, region(index).vertices, source);
+              const point = nearest(
+                polygon,
+                region(index).vertices,
+                source,
+                (scratch ??= new Vector3()),
+              );
               if (
                 point &&
                 Math.abs(point.y - source.y) <= options.maxVerticalDistance
@@ -552,7 +564,7 @@ export class NavigationMesh3D {
                   distance <= options.maxDistance &&
                   (!ends[endpoint] || distance < ends[endpoint]!.distance)
                 )
-                  ends[endpoint] = { index, point, distance };
+                  ends[endpoint] = { index, point: point.clone(), distance };
               }
             }
             return undefined;
@@ -1065,23 +1077,24 @@ function clipSegment(
   }
   return lo <= hi + epsilon ? [lo, hi] : undefined;
 }
-const projectedScratch = new Vector3();
+/** The returned candidate borrows `out`; retained winners must be cloned. */
 function nearest(
   polygon: Polygon,
   vertices: readonly Readonly<Vector3>[],
   point: Readonly<Vector3>,
+  out: Vector3,
 ): Vector3 | undefined {
   if (vertices.length < 3) return undefined;
   // Orthogonal 3D plane projection, then exact nearest boundary if outside the convex surface.
   const signed =
     (point.y - height(polygon, point)) /
     (1 + polygon.dx * polygon.dx + polygon.dz * polygon.dz);
-  const projected = projectedScratch.set(
+  const projected = out.set(
     point.x + polygon.dx * signed,
     point.y - signed,
     point.z + polygon.dz * signed,
   );
-  if (inside(vertices, projected)) return projected.clone();
+  if (inside(vertices, projected)) return projected;
   let found = false,
     bestX = 0,
     bestY = 0,
@@ -1123,7 +1136,7 @@ function nearest(
       bestZ = z;
     }
   }
-  return found ? new Vector3(bestX, bestY, bestZ) : undefined;
+  return found ? out.set(bestX, bestY, bestZ) : undefined;
 }
 function segmentCrossing(
   a: Readonly<Vector3>,

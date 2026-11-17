@@ -7784,3 +7784,7 @@ Candidate generators group 32 bounded internal polygon indices per numeric membe
 ## P246: Rejected fixed projection-denominator cache
 
 A prototype precomputes the readonly plane denominator per polygon while retaining exact division/order. Numerical and lifecycle comparisons agree, but ordinary radius-bearing queries are unchanged, several workloads regress slightly and the Node single-polygon control costs about ten nanoseconds more. The small zero-radius gain does not justify an extra stored field. Source/tests/dist remain at P245; no fresh build/public-root, heap/GC or FPS claim. All 54 paired CPU rows and verification limits are in [ACCEPTANCE.md](../ACCEPTANCE.md).
+
+## P247: Caller-owned nearest projection scratch
+
+The private helper writes a borrowed candidate into a required caller-owned output; retained winners must be cloned. Direct project calls and incremental jobs each allocate their own scratch lazily, preserving immutable public projection/endpoint ownership and reentrant getter isolation. Both callers migrate, the old global scratch is removed, and arithmetic/budget/order contracts stay unchanged. Main projection CPU improves about 3–6% Node /2–3.5% Chromium; the single-polygon Chromium control costs roughly 5 ns more, without a general path/heap/GC/FPS claim. See [ACCEPTANCE.md](../ACCEPTANCE.md) for exact snapshots, reentry and complete CPU evidence.
