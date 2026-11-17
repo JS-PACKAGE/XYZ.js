@@ -6254,3 +6254,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 未走該 helper 的 Sprite control 合計 -6.09% 六輪快，但 after-update +40.10% 六輪慢；不把 control 方向當成改動收益，也不猜測 JIT／GC 根因。所有分項／離群值／ties 保留。
 - Source-slot 三 forced backends 共15個動態 Game cases、157,500個 Object.is 數字、nonblank matching PNG，及4個 callback transform／reuse／remove／destroy histories、68個數字、invalid-slot／frozen-record／borrowed-resource cleanup 通過。
 - 原型從未套用正式 source／dist，只提交六份證據文件；未跑正式 tests／build、production／CJS CPU 或新的 gallery 認證，歷史驗證不改寫。全部證據與限制見 `ACCEPTANCE.md` P263，不 push／升版。
+
+## P264：不採用額外 world-particle presentation-pass cache
+
+- 先更新 P262 後的真實 source Game 四組 frame profiles，每組90 warm／180 sampled frames；Sprite bounds 已共用 affine products、local 直接繼承 base cache，排序已有 uniform-key guard，沒有重做既有優化。
+- 僅隔離試作 WorldParticleSprite 的一個 numeric pass stamp，採既有 global Scene pass；exact-method guard 排除 custom override，非 reusable 呼叫清 stamp，retainAxes 於新出生失效。local／target／renderer、原九個 matrix stores 與 simulation 公式不變。
+- 固定六 cohorts／六輪 ABBA／BAAB／144個 source-slot 真實 WebGL2 Game samples。mixed submit -2.80%、四段合計 -3.20%，六輪快；目標 world submit +2.54%、合計 +2.27%，各2快4慢，未達採用門檻。
+- local-large 未走 world cache，submit +11.73%、合計 +13.92% 六輪慢；small 合計 +6.53% 五輪慢，empty 合計 -31.39% 六輪快、target +1.83% 五輪慢，全部保留但不冒稱 control 因果或 JIT／GC 機制。
+- 三 forced backends × local/world 的 normal／custom／screen／Scene-transfer 共24 cases，157,248個 Object.is 數字與 nonblank matching PNG 通過；另以unscoped／presentation／matrix pass驗證重複讀取、override還原、同pass pool重生、pass外移動與跨Scene，共300個數字及native cleanup通過。
+- 拒絕新增快取狀態，正式 source／dist 從未套用原型；只交付六份證據文件，未跑 formal tests／build／production／CJS CPU或新gallery認證。全部profiles／timings／取捨／限制見 `ACCEPTANCE.md` P264，不 push／升版。

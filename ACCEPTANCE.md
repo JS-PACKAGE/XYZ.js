@@ -34966,3 +34966,494 @@ remove後本次已borrowed slot的數值仍可完成，reuse反映同index的新
 - 僅同步README中／英／日、PLAN、DESIGN、兩份技術文件與本節；append前6752762bytes歷史紀錄保留，不改P262的production／test結果。隔離candidate／fixture／builder在證據保留後移除；正式Slot與所有runtime產物沒有被替換。
 - 本輪未跑formal tests／strict／lint／build、actual direct-source root、production-minified／Node／CJS CPU、simulation-only microbenchmark、gallery／showcase、audio unlock／cleanup、fullbrowserregression、heap／GC／allocation、GPUtimestamps／presentedfps或實機／Safari認證。既有測試覆蓋已閱讀，但不冒稱本輪重跑通過。
 - 文件格式與relative-file links作scoped檢查，保留historical prefix，僅stage六份文件依功能提交；不touch／stage十一個使用者原有source／dist修改，不push／升版。
+
+## P264：拒絕額外的 world-particle presentation-pass cache（2026-11-17）
+
+### 決策與本輪調查
+
+- 延續小語持續優化／依功能自動提交授權。先讀目前Sprite source／size／anchor bounds、GameObject composition與共用affine products、partition／culling／sort／release、native quad／appearance與相關歷史；未重做已完成的local base cache／uniform-key sort，也未將只佔極少self samples的member-release loop當成主要熱點。
+- 更新P262後的實際source root Game profile：四組Sprite／target × local／world，各4×8192 live particles、90warm／180profiledframes、pinned Chromium153.0.8010.12 darwin/arm64 desktop automation、visible、forcedWebGL2、nativebitmap與Texture。沿用P261的public pipeline fixture（speed[1,3]、acceleration[.25,-.5]、life1e6、point births、變化size／tint），CDP100µs interval。與下方static CPU paired fixture不同，不混稱同一負載。
+- 這些instrumented sampling與last-frame stats只定位成本，不與P261絕對樣本相減當speedup、不是paired CPU／GPU／fps／heap證據。world private updateWorldMatrix仍有46518µs sampledself/180frames；collection／partition、simulation與native submit也有成本，完整top30各組全部保留。
+- 唯一候選只在 [WorldParticleSprite](./packages/core/src/particles2d/index.ts) 加一個numeric worldPass。nonzero Scene.presentationPass且method identity仍是該privateworld implementation才可命中；nonreusable呼叫清stamp以免custom改過matrix後恢復原method沿用錯值，retainAxes在新出生時清stamp。globalSceneID沿用P261，不動base-only guard或新增protected hook。
+- local／target／renderer未改，原九個矩陣stores、出生axesownership、simulation公式、source／generation／resource validation不改；不是把world附到新parent的localTransform。這是候選新增的per-world state，未量heap／allocation，不能按一個source欄位推算實際RAM／GC。
+- **拒絕採用**：mixed submit -2.7990916698264035%、四段categorySum -3.196508226899625%，各六輪快；但targetworld submit +2.538431940584507%、sum +2.2685746893060244%，各只有2快4慢。不能為mixed單一方向接受額外cache與guard。
+- 沒走worldmethod的local-large submit +11.731626909977866%、sum +13.918733331983768%，六輪皆慢；small sum +6.5252321214475%五輪慢，target control +1.8287537580500834%五輪慢，empty sum -31.392675611699026%六輪快。全部保留，未修改control方向不認定是helper收益／根因，不臆測JIT／GC；不靠重跑、改sample順序／閾值或減負載追逐正面結果。
+- 正式source／dist從未套用候選，沒有revert任何使用者檔案；只提交六份證據文件，不push／升版。
+
+### 目前真正 Game profiles（instrumented，非paired benchmark）
+
+### Current native source profile: sprite-local
+
+| Self-sample frame                                | Instrumented self µs |
+| ------------------------------------------------ | -------------------- |
+| (idle) :0                                        | 2078776              |
+| (program) :0                                     | 138475               |
+| collectBoundary2D render2d-contract.ts:267       | 127286               |
+| updateWorldMatrix game-object.ts:341             | 106140               |
+| collectRenderCommands2D render2d-contract.ts:210 | 95948                |
+| advanceSprites index.ts:273                      | 60535                |
+| spriteMatrix webgl2-render2d.ts:380              | 59503                |
+| packQuad webgl2-render2d.ts:364                  | 58057                |
+| onFrame game.ts:784                              | 52487                |
+| getWorldBounds game-object.ts:375                | 51584                |
+| validateCommands webgl2-render2d.ts:183          | 40307                |
+| drawSprites webgl2-render2d.ts:392               | 38741                |
+| getSpriteQuad2D sprite-instance.ts:88            | 36181                |
+| draw webgl2-render2d.ts:232                      | 36170                |
+| validateSpriteQuad2D sprite-instance.ts:83       | 23880                |
+| getRelativeAppearance2D sprite-instance.ts:108   | 23614                |
+| getTextureQuad2D sprite-instance.ts:40           | 22178                |
+| advanceObjects scene.ts:678                      | 17101                |
+| bufferSubData :0                                 | 14611                |
+| sort render2d-contract.ts:94                     | 3206                 |
+| get parent game-object.ts:241                    | 3056                 |
+| releaseBoundaryMembers render2d-contract.ts:185  | 1683                 |
+| (garbage collector) :0                           | 1421                 |
+| get existingTint game-object.ts:220              | 917                  |
+| renderFrame webgl2-renderer.ts:1113              | 606                  |
+| flush :0                                         | 468                  |
+| update gamepad.ts:236                            | 464                  |
+| update index.ts:476                              | 461                  |
+| drawCommands webgl2-render2d.ts:322              | 458                  |
+| bindFramebuffer :0                               | 457                  |
+
+Warm 90; profiled 180; active 8192/8192/8192/8192; visibility visible; cleanup {"gameDestroyed":"destroyed","textureDestroyed":true,"nativeBitmapClosed":true}. Last complete frame-work snapshot (ms; not an average): {"simulation":0.09999999403953552,"navigation":0,"afterUpdate":0.4000000059604645,"renderSubmit":4.299999997019768}.
+
+### Current native source profile: sprite-world
+
+| Self-sample frame                                | Instrumented self µs |
+| ------------------------------------------------ | -------------------- |
+| (idle) :0                                        | 1794364              |
+| partitionBoundaries2D render2d-contract.ts:229   | 243306               |
+| collectBoundary2D render2d-contract.ts:267       | 155872               |
+| advanceSprites index.ts:273                      | 130128               |
+| bindTarget webgl2-render2d.ts:257                | 86007                |
+| validateTextureQuad2D sprite-instance.ts:27      | 75899                |
+| spriteMatrix webgl2-render2d.ts:380              | 75156                |
+| objectMatrix webgl2-render2d.ts:268              | 64202                |
+| (program) :0                                     | 57626                |
+| getSpriteQuad2D sprite-instance.ts:88            | 49538                |
+| updateWorldMatrix index.ts:53                    | 46518                |
+| drawSprites webgl2-render2d.ts:392               | 43443                |
+| validateCommands webgl2-render2d.ts:183          | 41753                |
+| getWorldBounds game-object.ts:375                | 32004                |
+| update index.ts:452                              | 26753                |
+| advanceObjects scene.ts:678                      | 23770                |
+| getLocalBounds sprite.ts:142                     | 23090                |
+| bufferSubData :0                                 | 9864                 |
+| onFrame game.ts:784                              | 9619                 |
+| reset render2d-contract.ts:39                    | 7379                 |
+| sort render2d-contract.ts:94                     | 6902                 |
+| collectRenderCommands2D render2d-contract.ts:210 | 2145                 |
+| render webgl2-renderer.ts:1073                   | 1546                 |
+| renderFrame webgl2-renderer.ts:1113              | 1388                 |
+| clear :0                                         | 1235                 |
+| flush :0                                         | 927                  |
+| requestAnimationFrame :0                         | 787                  |
+| useProgram :0                                    | 614                  |
+| update index.ts:476                              | 466                  |
+| bindFramebuffer :0                               | 460                  |
+
+Warm 90; profiled 180; active 8192/8192/8192/8192; visibility visible; cleanup {"gameDestroyed":"destroyed","textureDestroyed":true,"nativeBitmapClosed":true}. Last complete frame-work snapshot (ms; not an average): {"simulation":0.29999999701976776,"navigation":0,"afterUpdate":0.5999999940395355,"renderSubmit":5.4000000059604645}.
+
+### Current native source profile: layer-local
+
+| Self-sample frame                           | Instrumented self µs |
+| ------------------------------------------- | -------------------- |
+| (idle) :0                                   | 2466608              |
+| drawParticles webgl2-render2d.ts:596        | 130786               |
+| advance index.ts:416                        | 105758               |
+| collectBounds particle-layer2d.ts:383       | 69055                |
+| getSlotWorldMatrix particle-layer2d.ts:345  | 66566                |
+| writeTargetAppearance index.ts:462          | 45001                |
+| validateTextureQuad2D sprite-instance.ts:27 | 26565                |
+| validateCommands webgl2-render2d.ts:183     | 22575                |
+| (program) :0                                | 18154                |
+| validateTransform particle-layer2d.ts:161   | 17256                |
+| updateWorldMatrix game-object.ts:341        | 9726                 |
+| bufferSubData :0                            | 8546                 |
+| updateSimulation index.ts:235               | 5544                 |
+| onFrame game.ts:784                         | 982                  |
+| (garbage collector) :0                      | 931                  |
+| uniform2f :0                                | 462                  |
+| vertexAttribDivisor :0                      | 456                  |
+| get samples index.ts:99                     | 321                  |
+| update index.ts:476                         | 312                  |
+| getGamepads :0                              | 311                  |
+| flush :0                                    | 309                  |
+| vertexAttribPointer :0                      | 308                  |
+| renderFrame webgl2-renderer.ts:1113         | 306                  |
+| bindTexture :0                              | 303                  |
+| bindVertexArray :0                          | 190                  |
+| requestAnimationFrame :0                    | 158                  |
+| evaluate :305                               | 157                  |
+| (anonymous) :0                              | 156                  |
+| enable :0                                   | 156                  |
+| requestGameFrame xr-loop.ts:2               | 156                  |
+
+Warm 90; profiled 180; active 8192/8192/8192/8192; visibility visible; cleanup {"gameDestroyed":"destroyed","textureDestroyed":true,"nativeBitmapClosed":true}. Last complete frame-work snapshot (ms; not an average): {"simulation":0,"navigation":0,"afterUpdate":0.9000000059604645,"renderSubmit":1.7999999970197678}.
+
+### Current native source profile: layer-world
+
+| Self-sample frame                           | Instrumented self µs |
+| ------------------------------------------- | -------------------- |
+| (idle) :0                                   | 2480897              |
+| drawParticles webgl2-render2d.ts:596        | 112086               |
+| collectBounds particle-layer2d.ts:383       | 76334                |
+| targetAppearance index.ts:456               | 69612                |
+| writeTargetAppearance index.ts:462          | 55165                |
+| requireSlot particle-layer2d.ts:425         | 34925                |
+| (program) :0                                | 23721                |
+| validateTransform particle-layer2d.ts:161   | 23259                |
+| validateTextureQuad2D sprite-instance.ts:27 | 22171                |
+| validateCommands webgl2-render2d.ts:183     | 20129                |
+| setLiveAppearance particle-layer2d.ts:327   | 16067                |
+| getSlot particle-layer2d.ts:250             | 15721                |
+| validateTint particle-layer2d.ts:165        | 11839                |
+| bufferSubData :0                            | 10680                |
+| assertAlive particle-layer2d.ts:422         | 6552                 |
+| updateSimulation index.ts:235               | 6179                 |
+| (garbage collector) :0                      | 1260                 |
+| onFrame game.ts:784                         | 620                  |
+| useQuad webgl2-render2d.ts:282              | 613                  |
+| clearColor :0                               | 311                  |
+| update index.ts:476                         | 311                  |
+| renderFrame webgl2-renderer.ts:1113         | 310                  |
+| uniform4f :0                                | 308                  |
+| render webgl2-renderer.ts:1073              | 305                  |
+| uniformMatrix3fv :0                         | 305                  |
+| bindFramebuffer :0                          | 305                  |
+| bindSampler :0                              | 304                  |
+| routePointers scene.ts:385                  | 158                  |
+| begin frame-work.ts:18                      | 157                  |
+| now :0                                      | 157                  |
+
+Warm 90; profiled 180; active 8192/8192/8192/8192; visibility visible; cleanup {"gameDestroyed":"destroyed","textureDestroyed":true,"nativeBitmapClosed":true}. Last complete frame-work snapshot (ms; not an average): {"simulation":0,"navigation":0,"afterUpdate":1,"renderSubmit":1.6000000089406967}.
+
+每組Game.destroy後borrowed Texture仍由fixture顯式destroy，nativebitmap關閉，pageerrors0。GC self sample保留只為完整性，不換算heap／GC改善。
+
+### 隔離候選的精確邊界
+
+只在privateWorld類別加`private worldPass = 0`，retainAxes入口加`this.worldPass = 0`；原worldmethod改如下，正式source仍保留未加cache版本：
+
+```ts
+override updateWorldMatrix(): Matrix3 {
+    const pass = this.scene?.presentationPass ?? 0;
+    const reusable =
+      pass !== 0 &&
+      this.updateWorldMatrix === WorldParticleSprite.prototype.updateWorldMatrix;
+    if (reusable && this.worldPass === pass) return this.worldMatrix;
+    const e = this.worldMatrix.elements,
+      scale = this.extent,
+      position = this.place;
+    e[0] = this.axisXX * scale.x;
+    e[1] = this.axisXY * scale.x;
+    e[2] = 0;
+    e[3] = this.axisYX * scale.y;
+    e[4] = this.axisYY * scale.y;
+    e[5] = 0;
+    e[6] = position.x;
+    e[7] = position.y;
+    e[8] = 1;
+    this.worldPass = reusable ? pass : 0;
+    return this.worldMatrix;
+  }
+```
+
+### 固定 source-slot 真實 Game CPU 矩陣
+
+- 沿用P262已通過constructor與automatic-simulation guards的完整Game fixture，僅phaseID改P264、before／candidate emitter slot取目前source；兩側都用同一TypeScript ES2022／ESM轉譯，其餘actualminified dist bytes相同。相對imports保留各側整個prefix graph，Game／Scene／Emitter／Sprite identity一致；不是以foreign emitter或directupdate替代正式Scene。
+- pinnedChrome與平台同上、visiblepage，兩個canvas1280×720／viewport1280×1440、pixelRatio1、autoResizefalse、frameWorkBudgetMs1000/60，forcedWebGL2；兩側Game從不一起start，另一側pause。此次CPU矩陣沒有同時跑其他CPU benchmark／profile、build／test／formatter；上述profile與三backend動態probe先完成，edgeprobe在CPU矩陣結束後執行。
+- cohorts固定mixed-large、local-large、world-large、local-small、layer-local-control、empty-Sprite-control；mixed先warm兩種Spriteclass。每側四emitter，capacity8192（small128），各emit滿（empty0）；target control使用正式ParticleLayer2D。每側32768主粒子（small512），empty保留32768pool但不emit；另有capacity1/life.001 sentinel自然過期。
+- static主粒子rate0／life1e6／speed[0,0]／angle[-π,π]／acceleration[0,0]／start=end size[8,4]／color[.7,.2,.4,.8]、seed17+i、rectangle512×256、position[160+320i,360]／rotation.3／scale[1.3,.7]，native4×4RGBA255 ImageBitmap與Texture。靜態主粒子防不同realclock delta造成pose／overflow差，但全部正式simulation與submit仍執行。
+- 每fixture側64warm+1probeframes，assert main active與sentinel0，證明Scene自動模擬。每sample8warm+48measuredrealRAFframes；Scene.update僅queue同一microtask observer，在同步Game framework finish後讀simulationMs／navigationMs／afterUpdateMs／renderSubmitMs、平均µs/frame再pause。
+- 六輪ABBA／BAAB交替，每輪兩before／兩after，六cohorts共36rows／144samples／6912sampledframes；warm與probe不計timings。before／after欄各為六roundmean之median，paired Δ則是六個roundmean比值減1的median，不是獨立median之比。lower=faster，所有samples／orders／ties／outliers保留。
+- renderSubmit是同步native-driver wall span，不等待GPUcompletion；categorySum只加simulation／navigation／afterUpdate／submit四段，不含未計測tail／observer，不是wholeRAF、processCPU usage、GPUtimestamps或presentedfps。instrumentation負擔存在；不將微小control的timer粒度差當效能機制。
+
+### Source-slot submitUs
+
+| Cohort               | Median before µs   | Median after µs    | Median paired Δ %   | Paired range %                           | Faster/slower/equal |
+| -------------------- | ------------------ | ------------------ | ------------------- | ---------------------------------------- | ------------------- |
+| sprite-mixed-large   | 5454.16666722546   | 5300.000000512227  | -2.7990916698264035 | -5.9767042349118 … -0.09611688671400387  | 6/0/0               |
+| sprite-local-large   | 5168.750000108654  | 5751.562500139698  | 11.731626909977866  | 10.943250054256936 … 17.739628055666955  | 0/6/0               |
+| sprite-world-large   | 4308.333333736907  | 4365.624999937912  | 2.538431940584507   | -4.820095066017416 … 5.952380929883372   | 2/4/0               |
+| sprite-local-small   | 111.97916620100538 | 107.81250110206504 | -0.9054396437632395 | -6.542054447859957 … 10.810810012599115  | 4/2/0               |
+| layer-local-control  | 2124.4791672409824 | 2168.229166495924  | 2.4157566649470885  | -0.09765623689762526 … 4.255319107677846 | 1/5/0               |
+| sprite-empty-control | 1107.8124997826912 | 899.9999990531553  | -24.899344382925932 | -53.26086955218944 … 15.182357965771764  | 4/2/0               |
+
+### Source-slot categorySumUs
+
+| Cohort               | Median before µs   | Median after µs    | Median paired Δ %   | Paired range %                            | Faster/slower/equal |
+| -------------------- | ------------------ | ------------------ | ------------------- | ----------------------------------------- | ------------------- |
+| sprite-mixed-large   | 6443.749999782691  | 6252.083333907649  | -3.196508226899625  | -5.786326169251943 … -0.6668835625203928  | 6/0/0               |
+| sprite-local-large   | 5997.916666946063  | 6788.541667008152  | 13.918733331983768  | 12.052980136296366 … 19.93355482494419    | 0/6/0               |
+| sprite-world-large   | 5333.333333876605  | 5425.520833271245  | 2.2685746893060244  | -5.413724436155376 … 6.005830898808218    | 2/4/0               |
+| sprite-local-small   | 151.56249965851507 | 161.45833387660483 | 6.5252321214475     | -8.130081554927592 … 15.432098415671547   | 1/5/0               |
+| layer-local-control  | 3214.062500357007  | 3259.895833131547  | 1.8287537580500834  | -0.5183025426768295 … 2.399481175582907   | 1/5/0               |
+| sprite-empty-control | 2986.4583328987164 | 2045.3124998603014 | -31.392675611699026 | -51.822371187516644 … -11.921123383994892 | 6/0/0               |
+
+### Source-slot simulationUs
+
+| Cohort               | Median before µs   | Median after µs    | Median paired Δ %   | Paired range %                           | Faster/slower/equal |
+| -------------------- | ------------------ | ------------------ | ------------------- | ---------------------------------------- | ------------------- |
+| sprite-mixed-large   | 222.91666665114462 | 220.3125002173086  | -2.5833816440506197 | -5.263158159600511 … 3.7383187272963303  | 5/1/0               |
+| sprite-local-large   | 209.37500017074245 | 244.79166705471775 | 16.91709772035751   | 2.553191463998017 … 51.49700657041365    | 0/6/0               |
+| sprite-world-large   | 426.5624998758236  | 397.91666669771075 | -4.254292403887333  | -11.64835163417206 … 3.6496353646516377  | 3/3/0               |
+| sprite-local-small   | 20.312500341484945 | 23.95833322467903  | 2.3809494016016677  | -35.7142866266017 … 53.333331147829675   | 3/3/0               |
+| layer-local-control  | 22.916666154439252 | 22.916666542490322 | -2.173912339264578  | -33.333333333333336 … 38.888888934880114 | 4/2/0               |
+| sprite-empty-control | 1866.1458333954215 | 1129.1666672720264 | -35.94708330622423  | -55.01051148847402 … -26.71614101180577  | 6/0/0               |
+
+### Source-slot afterUpdateUs
+
+| Cohort               | Median before µs   | Median after µs    | Median paired Δ %    | Paired range %                           | Faster/slower/equal |
+| -------------------- | ------------------ | ------------------ | -------------------- | ---------------------------------------- | ------------------- |
+| sprite-mixed-large   | 769.7916661078731  | 721.3541665114462  | -6.184281666467589   | -7.702702666456618 … -3.3426184322675967 | 6/0/0               |
+| sprite-local-large   | 618.2291659060866  | 788.020833240201   | 30.323365347837637   | 25.03912361665932 … 46.073298563091235   | 0/6/0               |
+| sprite-world-large   | 622.3958324796209  | 639.5833332402011  | 3.1760023463640707   | -4.938271566044438 … 8.103727593602429   | 1/5/0               |
+| sprite-local-small   | 20.3124995653828   | 25.520833131546777 | 36.68730595030118    | -34.78261078012466 … 75.00000242143874   | 1/5/0               |
+| layer-local-control  | 1076.5624997826912 | 1071.875000062088  | 0.051403820879891704 | -1.859099838430811 … 0.8670520578487606  | 3/3/0               |
+| sprite-empty-control | 9.374999906867743  | 9.375000139698386  | 14.285716042767355   | -54.54545368340389 … 220.00002324581223  | 3/3/0               |
+
+### CPU cohort 原生像素與 lifecycle guards
+
+| Scope  | Cohort               | Active main particles/side | Automatic simulation | Before/after nonuniform | Matching native PNG SHA256                                       | Cleanup |
+| ------ | -------------------- | -------------------------- | -------------------- | ----------------------- | ---------------------------------------------------------------- | ------- |
+| source | sprite-mixed-large   | 32768                      | true                 | true/true               | 1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c | true    |
+| source | sprite-local-large   | 32768                      | true                 | true/true               | 1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c | true    |
+| source | sprite-world-large   | 32768                      | true                 | true/true               | 1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c | true    |
+| source | sprite-local-small   | 512                        | true                 | true/true               | 319b5bb34c88f7ad952b16f8b8f950ddccf3159c029fa7a0358adf09ce0e17c0 | true    |
+| source | layer-local-control  | 32768                      | true                 | true/true               | 2a9857e9d3b119960c29b911b3d25642a476f9ee1966dc12f6606fb32461e792 | true    |
+| source | sprite-empty-control | 0                          | true                 | false/false             | fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc | true    |
+
+所有active before／after PNG bytes一致且nonuniform；empty兩側必須uniform，不把blank當active成功。Game destroy不destroy borrowed Texture，顯式Texture.destroy關閉nativebitmap，pageerrors0。
+
+### 全部144個 sample（µs／frame）
+
+| Cohort               | Round | Order                     | Sample side | Simulation µs      | Navigation µs      | After-update µs    | Submit µs          | Category sum µs    |
+| -------------------- | ----- | ------------------------- | ----------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
+| sprite-mixed-large   | 0     | before,after,after,before | before      | 212.50000099341074 | 0                  | 783.3333338300387  | 5477.0833337679505 | 6472.9166685914    |
+| sprite-mixed-large   | 0     | before,after,after,before | after       | 237.49999919285378 | 0                  | 710.416667163372   | 5452.083333084981  | 6399.9999994412065 |
+| sprite-mixed-large   | 0     | before,after,after,before | after       | 212.50000037252903 | 0                  | 735.4166662941376  | 5374.999999689559  | 6322.916666356226  |
+| sprite-mixed-large   | 0     | before,after,after,before | before      | 262.4999998758237  | 0                  | 712.500000372529   | 5360.4166666045785 | 6335.4166668529315 |
+| sprite-mixed-large   | 1     | after,before,before,after | after       | 243.75000037252903 | 0                  | 752.083333209157   | 5293.750001428028  | 6289.583335009714  |
+| sprite-mixed-large   | 1     | after,before,before,after | before      | 239.58333426465592 | 0                  | 802.0833320915699  | 5616.66666654249   | 6658.3333328987155 |
+| sprite-mixed-large   | 1     | after,before,before,after | before      | 227.0833346992731  | 0                  | 760.4166644935807  | 5447.9166675979895 | 6435.416666790843  |
+| sprite-mixed-large   | 1     | after,before,before,after | after       | 220.83333196739355 | 2.08333320915699   | 716.6666677221656  | 5308.333332650363  | 6247.91666554908   |
+| sprite-mixed-large   | 2     | before,after,after,before | before      | 224.99999993791184 | 0                  | 772.916667163372   | 5539.58333345751   | 6537.5000005587935 |
+| sprite-mixed-large   | 2     | before,after,after,before | after       | 222.9166670391957  | 2.08333320915699   | 720.8333335195979  | 5439.5833335195975 | 6385.416667287548  |
+| sprite-mixed-large   | 2     | before,after,after,before | after       | 208.33333240201077 | 4.166666728754838  | 702.0833337058624  | 5370.8333332712455 | 6285.416666107873  |
+| sprite-mixed-large   | 2     | before,after,after,before | before      | 220.83333445092043 | 2.0833335195978484 | 768.7499995032946  | 5535.4166667287545 | 6527.083334202567  |
+| sprite-mixed-large   | 3     | after,before,before,after | after       | 229.1666685293118  | 0                  | 716.6666664804021  | 5227.083332836628  | 6172.916667846342  |
+| sprite-mixed-large   | 3     | after,before,before,after | before      | 222.9166661078731  | 0                  | 766.6666662941376  | 5472.9166667287545 | 6462.499999130765  |
+| sprite-mixed-large   | 3     | after,before,before,after | before      | 222.9166661078731  | 2.08333320915699   | 764.5833337058624  | 5433.333332650363  | 6422.916665673256  |
+| sprite-mixed-large   | 3     | after,before,before,after | after       | 233.33333463718495 | 2.08333320915699   | 712.4999985098839  | 5329.166667846342  | 6277.083334202567  |
+| sprite-mixed-large   | 4     | before,after,after,before | before      | 225.00000117967525 | 0                  | 783.3333328987161  | 5275.000000993411  | 6283.333335071802  |
+| sprite-mixed-large   | 4     | before,after,after,before | after       | 212.50000037252903 | 0                  | 704.1666659836968  | 5245.833334513009  | 6162.500000869234  |
+| sprite-mixed-large   | 4     | before,after,after,before | after       | 218.75000093132257 | 2.08333320915699   | 735.4166666045785  | 5352.08333345751   | 6308.333334202568  |
+| sprite-mixed-large   | 4     | before,after,after,before | before      | 214.58333482344946 | 0                  | 754.1666648661097  | 5427.083332712452  | 6395.833332402011  |
+| sprite-mixed-large   | 5     | after,before,before,after | after       | 204.1666672254602  | 2.08333320915699   | 725.0000005587935  | 5218.75            | 6150.000000993411  |
+| sprite-mixed-large   | 5     | after,before,before,after | before      | 214.58333327124515 | 0                  | 777.0833323399225  | 5422.916668467224  | 6414.583334078391  |
+| sprite-mixed-large   | 5     | after,before,before,after | before      | 218.74999968955913 | 0                  | 768.7499995032946  | 5487.500001055499  | 6475.000000248352  |
+| sprite-mixed-large   | 5     | after,before,before,after | after       | 212.49999975164732 | 0                  | 741.6666656111678  | 5039.583334388833  | 5993.749999751648  |
+| sprite-local-large   | 0     | before,after,after,before | before      | 210.41666685293117 | 0                  | 677.0833324020108  | 5337.5000000620885 | 6224.99999931703   |
+| sprite-local-large   | 0     | before,after,after,before | after       | 235.41666753590107 | 0                  | 889.5833315327764  | 5972.916667970519  | 7097.916667039196  |
+| sprite-local-large   | 0     | before,after,after,before | after       | 233.33333246409893 | 2.0833335195978484 | 858.3333340163032  | 6054.166665921609  | 7147.916665921609  |
+| sprite-local-large   | 0     | before,after,after,before | before      | 212.49999975164732 | 0                  | 654.1666671012839  | 5406.249999689559  | 6272.916666542491  |
+| sprite-local-large   | 1     | after,before,before,after | after       | 239.58333302289248 | 4.16666641831398   | 854.1666663562258  | 5954.166666915019  | 7052.083332712451  |
+| sprite-local-large   | 1     | after,before,before,after | before      | 206.25000136593977 | 2.0833335195978484 | 664.5833325261871  | 5425.000000745058  | 6297.916668156783  |
+| sprite-local-large   | 1     | after,before,before,after | before      | 208.3333327124516  | 0                  | 658.3333328987161  | 5318.7500005587935 | 6185.416666169961  |
+| sprite-local-large   | 1     | after,before,before,after | after       | 245.8333338921269  | 2.08333320915699   | 885.416666045785   | 6027.083332650363  | 7160.416665797432  |
+| sprite-local-large   | 2     | before,after,after,before | before      | 231.25000049670538 | 6.249999937911828  | 679.1666668529311  | 5291.666667287548  | 6208.333334575096  |
+| sprite-local-large   | 2     | before,after,after,before | after       | 272.91666561116773 | 0                  | 764.5833340163032  | 5937.500001552205  | 6975.000001179676  |
+| sprite-local-large   | 2     | before,after,after,before | after       | 229.16666759798923 | 0                  | 900.0000000620881  | 5995.833332339923  | 7125               |
+| sprite-local-large   | 2     | before,after,after,before | before      | 258.33333283662796 | 0                  | 652.0833338921269  | 5464.583332650363  | 6374.999999379118  |
+| sprite-local-large   | 3     | after,before,before,after | after       | 227.08333345750967 | 0                  | 879.166666418314   | 5872.91666585952   | 6979.166665735344  |
+| sprite-local-large   | 3     | after,before,before,after | before      | 227.0833346992731  | 0                  | 674.9999988824129  | 5431.249999751647  | 6333.333333333333  |
+| sprite-local-large   | 3     | after,before,before,after | before      | 195.83333314706883 | 4.166666728754838  | 474.99999931703013 | 4500.000000931323  | 5175.000000124176  |
+| sprite-local-large   | 3     | after,before,before,after | after       | 266.6666678463419  | 0                  | 608.3333324640989  | 5200.0000008071465 | 6075.000001117587  |
+| sprite-local-large   | 4     | before,after,after,before | before      | 170.83333246409893 | 2.08333320915699   | 462.50000068296987 | 4406.249999068677  | 5041.666665424903  |
+| sprite-local-large   | 4     | before,after,after,before | after       | 272.91666623204947 | 0                  | 602.0833331470689  | 5191.666666107873  | 6066.666665486991  |
+| sprite-local-large   | 4     | before,after,after,before | after       | 254.16666828095913 | 2.08333320915699   | 614.5833330228925  | 5095.833333209157  | 5966.666667722166  |
+| sprite-local-large   | 4     | before,after,after,before | before      | 177.08333364377418 | 2.0833335195978484 | 481.25000080714625 | 4331.2499991928535 | 4991.666667163372  |
+| sprite-local-large   | 5     | after,before,before,after | after       | 220.8333338300387  | 0                  | 564.5833335195979  | 4616.6666662320495 | 5402.083333581686  |
+| sprite-local-large   | 5     | after,before,before,after | before      | 162.50000149011612 | 2.0833335195978484 | 381.24999900658923 | 4083.3333333333335 | 4629.166667349637  |
+| sprite-local-large   | 5     | after,before,before,after | before      | 154.166666790843   | 0                  | 414.58333376795053 | 4160.416666418314  | 4729.1666669771075 |
+| sprite-local-large   | 5     | after,before,before,after | after       | 229.1666672875484  | 2.08333320915699   | 597.9166667287549  | 4756.2500005587935 | 5585.416667784254  |
+| sprite-world-large   | 0     | before,after,after,before | before      | 375.0000015522043  | 4.16666641831398   | 581.2499995032946  | 4268.749999503295  | 5229.1666669771075 |
+| sprite-world-large   | 0     | before,after,after,before | after       | 397.91666716337204 | 0                  | 608.3333337058624  | 4308.333332339923  | 5314.583333209157  |
+| sprite-world-large   | 0     | before,after,after,before | after       | 379.166666418314   | 0                  | 631.250001800557   | 4389.583332464099  | 5400.00000068297   |
+| sprite-world-large   | 0     | before,after,after,before | before      | 387.4999995653828  | 0                  | 612.5000001241764  | 4400.000000993411  | 5400.0000006829705 |
+| sprite-world-large   | 1     | after,before,before,after | after       | 437.5000009313226  | 0                  | 668.749998944501   | 4452.0833340163035 | 5558.3333338921275 |
+| sprite-world-large   | 1     | after,before,before,after | before      | 495.83333265036345 | 0                  | 693.7500005587935  | 4710.416667473813  | 5900.00000068297   |
+| sprite-world-large   | 1     | after,before,before,after | before      | 452.0833346371849  | 2.08333320915699   | 656.2499987582365  | 4495.833334513009  | 5606.250001117587  |
+| sprite-world-large   | 1     | after,before,before,after | after       | 399.9999997516473  | 0                  | 614.583334264656   | 4310.41666585952   | 5324.999999875824  |
+| sprite-world-large   | 2     | before,after,after,before | before      | 397.91666623204947 | 2.08333320915699   | 583.3333336437742  | 4339.583333581686  | 5322.916666666667  |
+| sprite-world-large   | 2     | before,after,after,before | after       | 391.6666666045785  | 0                  | 622.916666790843   | 4345.8333335195975 | 5360.416666915019  |
+| sprite-world-large   | 2     | before,after,after,before | after       | 374.9999984477957  | 0                  | 600.0000014901161  | 4241.666665300727  | 5216.666665238638  |
+| sprite-world-large   | 2     | before,after,after,before | before      | 452.08333370586234 | 0                  | 610.4166672254602  | 4318.750000248353  | 5381.250001179676  |
+| sprite-world-large   | 3     | after,before,before,after | after       | 370.8333332712452  | 6.250000558793545  | 614.5833327124516  | 4256.2499999379115 | 5247.916666480402  |
+| sprite-world-large   | 3     | after,before,before,after | before      | 402.08333171904087 | 2.0833335195978484 | 597.916666418314   | 4064.583333209157  | 5066.666664866109  |
+| sprite-world-large   | 3     | after,before,before,after | before      | 402.083333581686   | 0                  | 647.9166653007269  | 4241.6666662320495 | 5291.666665114462  |
+| sprite-world-large   | 3     | after,before,before,after | after       | 443.7499999379118  | 0                  | 683.3333329608043  | 4443.7499999379115 | 5570.833332836628  |
+| sprite-world-large   | 4     | before,after,after,before | before      | 429.1666674738129  | 2.08333320915699   | 645.8333327124516  | 4235.416668156783  | 5312.500001552205  |
+| sprite-world-large   | 4     | before,after,after,before | after       | 456.25000074505806 | 0                  | 691.6666654869914  | 4547.916666294138  | 5695.833332526187  |
+| sprite-world-large   | 4     | before,after,after,before | after       | 431.25000161429244 | 0                  | 697.9166663562258  | 4537.499999627471  | 5666.6666675979895 |
+| sprite-world-large   | 4     | before,after,after,before | before      | 427.0833320915699  | 0                  | 639.5833340163032  | 4339.583332960804  | 5406.249999068677  |
+| sprite-world-large   | 5     | after,before,before,after | after       | 408.33333414047956 | 2.08333320915699   | 666.666666045785   | 4575.000000496705  | 5652.083333892127  |
+| sprite-world-large   | 5     | after,before,before,after | before      | 435.416666790843   | 0                  | 618.7499985098839  | 4247.916666790843  | 5302.08333209157   |
+| sprite-world-large   | 5     | after,before,before,after | before      | 431.2500000620882  | 0                  | 624.9999996895591  | 4243.749999751647  | 5299.999999503294  |
+| sprite-world-large   | 5     | after,before,before,after | after       | 360.4166666045785  | 0                  | 608.3333337058624  | 4377.083332588275  | 5345.8333328987155 |
+| sprite-local-small   | 0     | before,after,after,before | before      | 16.666666604578495 | 0                  | 12.499999875823656 | 108.33333308498065 | 137.4999995653828  |
+| sprite-local-small   | 0     | before,after,after,before | after       | 29.166665859520435 | 0                  | 20.833333022892475 | 108.33333370586236 | 158.33333258827525 |
+| sprite-local-small   | 0     | before,after,after,before | after       | 25.00000037252903  | 2.0833335195978484 | 16.666666294137638 | 114.5833342646559  | 158.3333344509204  |
+| sprite-local-small   | 0     | before,after,after,before | before      | 20.833333643774193 | 0                  | 22.916666852931183 | 116.66666561116774 | 160.4166661078731  |
+| sprite-local-small   | 1     | after,before,before,after | after       | 20.83333395421505  | 0                  | 27.083332650363445 | 120.8333345130086  | 168.7500011175871  |
+| sprite-local-small   | 1     | after,before,before,after | before      | 12.500000186264515 | 0                  | 18.750000124176342 | 122.91666710128386 | 154.16666741172472 |
+| sprite-local-small   | 1     | after,before,before,after | before      | 35.416667349636555 | 0                  | 16.666666915019352 | 112.49999888241291 | 164.5833331470688  |
+| sprite-local-small   | 1     | after,before,before,after | after       | 27.083332960804302 | 2.08333320915699   | 25.00000037252903  | 112.50000105549891 | 166.66666759798923 |
+| sprite-local-small   | 2     | before,after,after,before | before      | 22.916666232049465 | 0                  | 22.916665921608608 | 120.83333544433117 | 166.66666759798926 |
+| sprite-local-small   | 2     | before,after,after,before | after       | 27.083332650363445 | 0                  | 35.416667349636555 | 127.08333258827527 | 189.58333258827525 |
+| sprite-local-small   | 2     | before,after,after,before | after       | 22.916667473812897 | 0                  | 47.916664741933346 | 129.1666692122817  | 200.00000142802793 |
+| sprite-local-small   | 2     | before,after,after,before | before      | 31.249999379118282 | 0                  | 29.16666679084301  | 110.41666784634192 | 170.8333340163032  |
+| sprite-local-small   | 3     | after,before,before,after | after       | 33.33333320915699  | 2.0833335195978484 | 35.41666641831398  | 116.66666840513547 | 187.5000015522043  |
+| sprite-local-small   | 3     | after,before,before,after | before      | 29.166667411724728 | 0                  | 22.916666232049465 | 120.83333327124517 | 172.91666691501936 |
+| sprite-local-small   | 3     | after,before,before,after | before      | 14.583333705862364 | 0                  | 18.749999503294628 | 102.08333283662796 | 135.41666604578495 |
+| sprite-local-small   | 3     | after,before,before,after | after       | 12.49999925494194  | 0                  | 37.49999962747097  | 91.66666803260644  | 141.66666691501933 |
+| sprite-local-small   | 4     | before,after,after,before | before      | 20.833333333333332 | 0                  | 29.16666679084301  | 97.91666672875483  | 147.91666685293117 |
+| sprite-local-small   | 4     | before,after,after,before | after       | 12.499999565382799 | 0                  | 16.66666567325592  | 91.66666803260644  | 120.83333327124515 |
+| sprite-local-small   | 4     | before,after,after,before | after       | 6.250000248352687  | 0                  | 14.583333084980646 | 93.74999906867743  | 114.58333240201075 |
+| sprite-local-small   | 4     | before,after,after,before | before      | 8.333333457509676  | 0                  | 18.749999503294628 | 81.24999981373549  | 108.3333327745398  |
+| sprite-local-small   | 5     | after,before,before,after | after       | 24.999999751647312 | 0                  | 18.749999813735485 | 102.08333407839139 | 145.83333364377418 |
+| sprite-local-small   | 5     | after,before,before,after | before      | 12.500000496705374 | 0                  | 24.999999751647312 | 112.50000012417634 | 150.00000037252903 |
+| sprite-local-small   | 5     | after,before,before,after | before      | 18.749999503294628 | 0                  | 14.58333277453979  | 100.00000055879354 | 133.33333283662796 |
+| sprite-local-small   | 5     | after,before,before,after | after       | 22.916666232049465 | 0                  | 31.249999689559143 | 104.16666759798925 | 158.33333351959786 |
+| layer-local-control  | 0     | before,after,after,before | before      | 14.583333084980646 | 0                  | 1087.4999991307657 | 2135.4166672875485 | 3237.499999503295  |
+| layer-local-control  | 0     | before,after,after,before | after       | 22.916666542490322 | 0                  | 1072.9166654249032 | 2212.500001924733  | 3308.3333338921266 |
+| layer-local-control  | 0     | before,after,after,before | after       | 29.166665859520435 | 0                  | 1108.3333346371849 | 2177.0833333333335 | 3314.583333830039  |
+| layer-local-control  | 0     | before,after,after,before | before      | 22.916666232049465 | 0                  | 1075.0000001862645 | 2135.41666790843   | 3233.333334326744  |
+| layer-local-control  | 1     | after,before,before,after | after       | 16.666666915019352 | 2.0833335195978484 | 1089.5833329608042 | 2204.166667846342  | 3312.5000012417636 |
+| layer-local-control  | 1     | after,before,before,after | before      | 20.833333643774193 | 2.08333320915699   | 1091.6666661699612 | 2122.9166674117246 | 3237.500000434617  |
+| layer-local-control  | 1     | after,before,before,after | before      | 29.166666169961292 | 4.166666728754838  | 1066.6666667287548 | 2087.50000068297   | 3187.500000310441  |
+| layer-local-control  | 1     | after,before,before,after | after       | 16.666666294137638 | 0                  | 1064.5833335195978 | 2185.416665238639  | 3266.6666650523744 |
+| layer-local-control  | 2     | before,after,after,before | before      | 27.083333271245163 | 0                  | 1079.166665673256  | 2133.333334699273  | 3239.5833336437745 |
+| layer-local-control  | 2     | before,after,after,before | after       | 31.249999379118282 | 0                  | 1093.7500003104408 | 2197.9166669771075 | 3322.9166666666665 |
+| layer-local-control  | 2     | before,after,after,before | after       | 12.500000186264515 | 0                  | 1039.5833334575098 | 2085.4166659216085 | 3137.4999995653825 |
+| layer-local-control  | 2     | before,after,after,before | before      | 16.666666294137638 | 2.08333320915699   | 1068.7500005587935 | 2097.9166673496366 | 3185.416667411725  |
+| layer-local-control  | 3     | after,before,before,after | after       | 18.750000124176342 | 0                  | 1022.9166665424904 | 2054.1666677842536 | 3095.83333445092   |
+| layer-local-control  | 3     | after,before,before,after | before      | 8.333333147068819  | 0                  | 1039.583334699273  | 2058.3333329608045 | 3106.2500008071465 |
+| layer-local-control  | 3     | after,before,before,after | before      | 27.083332650363445 | 0                  | 1089.5833329608042 | 2208.333333954215  | 3324.9999995653825 |
+| layer-local-control  | 3     | after,before,before,after | after       | 27.08333358168602  | 0                  | 1066.6666670391958 | 2208.3333330228925 | 3302.0833336437745 |
+| layer-local-control  | 4     | before,after,after,before | before      | 27.083332960804302 | 0                  | 1070.833335320155  | 2139.583332464099  | 3237.500000745058  |
+| layer-local-control  | 4     | before,after,after,before | after       | 27.083333271245163 | 2.08333320915699   | 1070.833332836628  | 2189.5833325882754 | 3289.5833319053054 |
+| layer-local-control  | 4     | before,after,after,before | after       | 20.833333643774193 | 2.08333320915699   | 1152.0833332712452 | 2277.0833329608045 | 3452.083333084981  |
+| layer-local-control  | 4     | before,after,after,before | before      | 27.083332650363445 | 0                  | 1135.4166669771075 | 2189.5833341404796 | 3352.0833337679505 |
+| layer-local-control  | 5     | after,before,before,after | after       | 20.833332712451618 | 0                  | 1066.6666651765506 | 2137.499999565383  | 3224.9999974543853 |
+| layer-local-control  | 5     | after,before,before,after | before      | 31.24999875823657  | 2.08333320915699   | 1058.3333348234494 | 2083.3333327124515 | 3174.9999995032945 |
+| layer-local-control  | 5     | after,before,before,after | before      | 16.666666294137638 | 2.08333320915699   | 1054.1666668529313 | 2081.250000434617  | 3154.166666790843  |
+| layer-local-control  | 5     | after,before,before,after | after       | 24.999999751647312 | 0                  | 1052.0833330228925 | 2112.500000745058  | 3189.5833335195975 |
+| sprite-empty-control | 0     | before,after,after,before | before      | 629.1666670391957  | 4.166666728754838  | 12.500000186264515 | 518.7499995032946  | 1164.5833334575095 |
+| sprite-empty-control | 0     | before,after,after,before | after       | 366.6666668529312  | 0                  | 12.500000496705374 | 304.1666668529312  | 683.3333342025678  |
+| sprite-empty-control | 0     | before,after,after,before | after       | 345.8333347613613  | 2.0833335195978484 | 6.24999962747097   | 283.3333322778344  | 637.5000001862645  |
+| sprite-empty-control | 0     | before,after,after,before | before      | 591.6666664804021  | 0                  | 6.250000248352687  | 483.3333333954215  | 1081.2500001241763 |
+| sprite-empty-control | 1     | after,before,before,after | after       | 279.16666710128385 | 2.08333320915699   | 2.08333320915699   | 229.16666573534408 | 512.4999992549419  |
+| sprite-empty-control | 1     | after,before,before,after | before      | 481.2500001862645  | 4.166666728754838  | 10.41666604578495  | 468.75             | 964.5833329608042  |
+| sprite-empty-control | 1     | after,before,before,after | before      | 495.833333581686   | 0                  | 12.500000186264515 | 489.58333240201074 | 997.9166661699612  |
+| sprite-empty-control | 1     | after,before,before,after | after       | 258.3333331470688  | 2.08333320915699   | 8.333333457509676  | 218.7500006208817  | 487.50000043461716 |
+| sprite-empty-control | 2     | before,after,after,before | before      | 458.33333395421505 | 0                  | 8.33333283662796   | 449.9999995653828  | 916.6666663562257  |
+| sprite-empty-control | 2     | before,after,after,before | after       | 260.4166679084301  | 0                  | 6.24999962747097   | 181.249998199443   | 447.91666573534405 |
+| sprite-empty-control | 2     | before,after,after,before | after       | 1077.083334326744  | 0                  | 10.416666977107525 | 860.416665362815   | 1947.9166666666665 |
+| sprite-empty-control | 2     | before,after,after,before | before      | 2514.58333277454   | 6.249999937911828  | 10.416666356225809 | 1525.000000372529  | 4056.249999441207  |
+| sprite-empty-control | 3     | after,before,before,after | after       | 1693.7500002483528 | 2.0833335195978484 | 29.166667101283867 | 1360.4166662941377 | 3085.416667163372  |
+| sprite-empty-control | 3     | after,before,before,after | before      | 1874.9999990686774 | 0                  | 12.500000496705374 | 1181.2499991307657 | 3068.7499986961484 |
+| sprite-empty-control | 3     | after,before,before,after | before      | 2683.333333271245  | 4.16666641831398   | 10.416666356225809 | 1612.4999995032947 | 4310.41666554908   |
+| sprite-empty-control | 3     | after,before,before,after | after       | 1485.4166666045785 | 4.16666641831398   | 12.500000496705374 | 1197.9166663562257 | 2699.9999998758235 |
+| sprite-empty-control | 4     | before,after,after,before | before      | 2716.6666674117246 | 2.08333320915699   | 6.249999937911828  | 1643.7500004346173 | 4368.750000993411  |
+| sprite-empty-control | 4     | before,after,after,before | after       | 1879.1666667287548 | 6.24999962747097   | 16.66666753590107  | 1460.4166659216087 | 3362.4999998137355 |
+| sprite-empty-control | 4     | before,after,after,before | after       | 1887.4999980131786 | 2.0833335195978484 | 16.666667225460213 | 1487.5000001241763 | 3393.749998882413  |
+| sprite-empty-control | 4     | before,after,after,before | before      | 2468.749999689559  | 2.08333320915699   | 4.16666641831398   | 1279.1666664804022 | 3754.166665797432  |
+| sprite-empty-control | 5     | after,before,before,after | after       | 1729.1666666666667 | 2.08333320915699   | 6.250000558793545  | 1427.0833336437743 | 3164.5833340783915 |
+| sprite-empty-control | 5     | after,before,before,after | before      | 2385.4166672875485 | 8.333333147068819  | 6.249999937911828  | 1177.0833324020107 | 3577.0833327745404 |
+| sprite-empty-control | 5     | after,before,before,after | before      | 2106.249999565383  | 2.0833335195978484 | 8.333333147068819  | 1279.166666790843  | 3395.833333022893  |
+| sprite-empty-control | 5     | after,before,before,after | after       | 1562.4999996895592 | 0                  | 12.499999875823656 | 1402.0833329608042 | 2977.0833325261874 |
+
+### 三 forced backend 的動態 consumer proof
+
+- 依序以P264_BACKEND=canvas2d／webgl2／webgpu執行dynamic.mjs，然後才跑game-bench.mjs；均source-slot graph，非actualdirect-source或newproduction slot認證。nativebitmap／Texture／renderer／RAF均真實，未替換Game／Scene引擎；PosedScene只以publicupdatehook驅動pose。
+- local／world各normal、custom、screen、transfer，共每backend8modes／24cases；每側32liveSprites／12realGameframes。moving／rotating／nonuniformscaled Shakenparent override加2，變動rootopacity／tint與camera position／zoom；custom在一個liveSprite的originalmatrix呼叫後加3；transfer於第7frame前把root移至新Scene。
+- zero velocity／acceleration、constantstart=endappearance、life1e6避免跨clock非決定性。render後只讀既有Sprite.worldMatrix.elements、place／scale／tint／space，不額外updateWorldMatrix來掩飾stalecache。遞迴Object.is在JSONserialize前比對signedzero等全部數字，每case6552，共157248；rawsnapshot12組/case一致。
+- 每case同backend before／after final nativePNGbytes一致且nonblank，不跨backend宣稱parity；borrowedTexture與nativebitmap cleanup成功，pageerrors0。已實際開啟source-webgl2-world-after.png觀察粉紅world粒子surface。
+
+| Scope  | Backend  | Mode           | Matched snapshots | Object.is exact numbers | Matching nonblank native PNG SHA256                              | Cleanup |
+| ------ | -------- | -------------- | ----------------- | ----------------------- | ---------------------------------------------------------------- | ------- |
+| source | canvas2d | local          | 12                | 6552                    | 024b771e41eed18c66271c73e76344799988ba1439fcc6308b9bc86f2e306562 | true    |
+| source | canvas2d | world          | 12                | 6552                    | 8995edf002b03469c23bd981999ee3b38a5383ce8ea11ad940cb251756be7187 | true    |
+| source | canvas2d | local-custom   | 12                | 6552                    | d696e34a04d811247d423ed06993815e8e046f12249127743756129557bd6a5f | true    |
+| source | canvas2d | world-custom   | 12                | 6552                    | 634ead82a7d21f4ed889ce8436fc17b256f806c7cbd15782ee5435c1fd68c8d1 | true    |
+| source | canvas2d | local-screen   | 12                | 6552                    | aa2e4dba24963567716f23a183c912700800919187997077ea6d34386f45f1ac | true    |
+| source | canvas2d | world-screen   | 12                | 6552                    | 8f10fef2ba1ef2d9fd7e2f063f66a1e8ee1e2892660e944eaf63f50350f602e2 | true    |
+| source | canvas2d | local-transfer | 12                | 6552                    | 024b771e41eed18c66271c73e76344799988ba1439fcc6308b9bc86f2e306562 | true    |
+| source | canvas2d | world-transfer | 12                | 6552                    | 8995edf002b03469c23bd981999ee3b38a5383ce8ea11ad940cb251756be7187 | true    |
+| source | webgl2   | local          | 12                | 6552                    | 1f6f2490fe90a51760b2fbfb86af12b2ed2b12d027fd6b504d392195fd82eac7 | true    |
+| source | webgl2   | world          | 12                | 6552                    | a5d71e469d269f376dec01d7d0d7b25eb57cd95b6d26c5d09a9e5c609ddcff18 | true    |
+| source | webgl2   | local-custom   | 12                | 6552                    | 1a02d9bff9a1ff555b4e385042d622d34d5fff3810e7990e0e05c88c9dafd120 | true    |
+| source | webgl2   | world-custom   | 12                | 6552                    | d1a7c1f0059dadbcbab3da8e5ba2444b1e22f767ad533fb241ae7ab126d6b15d | true    |
+| source | webgl2   | local-screen   | 12                | 6552                    | b2aec58bfa738b986dcc866619f70f6de7a79e863087ae91d169fac1d80ebdb6 | true    |
+| source | webgl2   | world-screen   | 12                | 6552                    | 3905ba954e4295d0bbc523966718b9847520b3104633476df036d427053771e3 | true    |
+| source | webgl2   | local-transfer | 12                | 6552                    | 1f6f2490fe90a51760b2fbfb86af12b2ed2b12d027fd6b504d392195fd82eac7 | true    |
+| source | webgl2   | world-transfer | 12                | 6552                    | a5d71e469d269f376dec01d7d0d7b25eb57cd95b6d26c5d09a9e5c609ddcff18 | true    |
+| source | webgpu   | local          | 12                | 6552                    | 1f6f2490fe90a51760b2fbfb86af12b2ed2b12d027fd6b504d392195fd82eac7 | true    |
+| source | webgpu   | world          | 12                | 6552                    | a5d71e469d269f376dec01d7d0d7b25eb57cd95b6d26c5d09a9e5c609ddcff18 | true    |
+| source | webgpu   | local-custom   | 12                | 6552                    | 1a02d9bff9a1ff555b4e385042d622d34d5fff3810e7990e0e05c88c9dafd120 | true    |
+| source | webgpu   | world-custom   | 12                | 6552                    | d1a7c1f0059dadbcbab3da8e5ba2444b1e22f767ad533fb241ae7ab126d6b15d | true    |
+| source | webgpu   | local-screen   | 12                | 6552                    | b2aec58bfa738b986dcc866619f70f6de7a79e863087ae91d169fac1d80ebdb6 | true    |
+| source | webgpu   | world-screen   | 12                | 6552                    | 3905ba954e4295d0bbc523966718b9847520b3104633476df036d427053771e3 | true    |
+| source | webgpu   | local-transfer | 12                | 6552                    | 1f6f2490fe90a51760b2fbfb86af12b2ed2b12d027fd6b504d392195fd82eac7 | true    |
+| source | webgpu   | world-transfer | 12                | 6552                    | a5d71e469d269f376dec01d7d0d7b25eb57cd95b6d26c5d09a9e5c609ddcff18 | true    |
+
+### 同 pass 重生／override 還原／外部讀取／跨 Scene
+
+在同一nativebrowser與一致prefix graph，使用一個worldSpritepool、nativeTexture、rotatedmirrorednonuniform Group2D，依unscoped／beginPresentation／beginMatrixPass三histories逐一對照。每個history先base／repeat，安裝original+5的instanceoverride連呼兩次不重複累加，再restoreoriginal應回base；clear／emit同pass的新seededrectangle birth必須在新位置，不復用舊matrix；pass外連續移動兩次即時反映，轉Scene首讀與重讀也一致。
+
+每次確認回傳identity仍為同一worldMatrix，expectedcustom x透過同樣matrixstorage的publiccopy與+5建立，不假設Float64的加法直接等於儲存後值。三histories共300個Object.is精確數字；同pass重生的點確實不同，未以相同birthpose假通過。三個trace與所有matrix如下，borrowedTexture ownership與nativebitmap.close通過，pageerrors0。
+
+| Pass kind    | Probe                    | Matrix elements                                                                                                                    |
+| ------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| unscoped     | base                     | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| unscoped     | base-repeat              | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| unscoped     | custom-0                 | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 18.98847198486328, -11.733160972595215, 1  |
+| unscoped     | custom-1                 | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 18.98847198486328, -11.733160972595215, 1  |
+| unscoped     | restored                 | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| unscoped     | old-birth                | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| unscoped     | same-pass-rebirth        | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 12.177762031555176, -11.768856048583984, 1 |
+| unscoped     | outside-pass-move        | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 19.17776107788086, -11.768856048583984, 1  |
+| unscoped     | outside-pass-second-move | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 19.17776107788086, -14.768856048583984, 1  |
+| unscoped     | cross-scene-first        | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 30.17776107788086, -14.768856048583984, 1  |
+| unscoped     | cross-scene-repeat       | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 30.17776107788086, -14.768856048583984, 1  |
+| presentation | base                     | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| presentation | base-repeat              | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| presentation | custom-0                 | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 18.98847198486328, -11.733160972595215, 1  |
+| presentation | custom-1                 | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 18.98847198486328, -11.733160972595215, 1  |
+| presentation | restored                 | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| presentation | old-birth                | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| presentation | same-pass-rebirth        | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 12.177762031555176, -11.768856048583984, 1 |
+| presentation | outside-pass-move        | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 19.17776107788086, -11.768856048583984, 1  |
+| presentation | outside-pass-second-move | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 19.17776107788086, -14.768856048583984, 1  |
+| presentation | cross-scene-first        | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 30.17776107788086, -14.768856048583984, 1  |
+| presentation | cross-scene-repeat       | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 30.17776107788086, -14.768856048583984, 1  |
+| matrix       | base                     | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| matrix       | base-repeat              | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| matrix       | custom-0                 | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 18.98847198486328, -11.733160972595215, 1  |
+| matrix       | custom-1                 | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 18.98847198486328, -11.733160972595215, 1  |
+| matrix       | restored                 | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| matrix       | old-birth                | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 13.988472938537598, -11.733160972595215, 1 |
+| matrix       | same-pass-rebirth        | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 12.177762031555176, -11.768856048583984, 1 |
+| matrix       | outside-pass-move        | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 19.17776107788086, -11.768856048583984, 1  |
+| matrix       | outside-pass-second-move | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 19.17776107788086, -14.768856048583984, 1  |
+| matrix       | cross-scene-first        | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 30.17776107788086, -14.768856048583984, 1  |
+| matrix       | cross-scene-repeat       | -2.483874797821045, -0.7683525085449219, 0, -0.2068641483783722, 0.6687355637550354, 0, 30.17776107788086, -14.768856048583984, 1  |
+
+### 交付、未跑驗證與限制
+
+- 僅同步README中英日、PLAN、DESIGN、英中技術文件與本節；append前6798696bytes的歷史保留，P262／P263的測試與production紀錄不改寫。所有source／dist與十一個使用者修改檔未被寫入，原型／fixture／未執行builder在保留證據後清理。
+- 未跑formaltests／strict／lint／build、newactualminified／directsource root proof、Node／CJS CPU、simulation-onlymicrobenchmark、gallery／showcase、audio unlock／cleanup、fullbrowserregression、heap／GC／allocation／GPU／fps或實機／Safari認證。24cases與300數字只認證本source-slot原型的實際執行情境，不泛稱所有render-time mutation／public getter／瀏覽器行為相容。
+- 文件格式、relative-file links與historicalprefix作scoped檢查，僅stage六份證據文件依功能提交，不push／升版。

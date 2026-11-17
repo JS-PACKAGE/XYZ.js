@@ -7546,3 +7546,11 @@ local pool 粒子改為普通 Sprite 的 composition，不再以 forwarding over
 固定可見 source-slot WebGL2 Game 六 cohorts、六輪 ABBA／BAAB、全部144 samples。mixed 計測區段合計 +2.00% 六輪慢；大型 local -0.22% 3快3慢、大型 world -0.76% 4快2慢、小型 +4.87% 2快4慢。未改動 Sprite control 合計 -6.09%，after-update 卻 +40.10%，兩者都六輪同方向；均不歸因為 helper 收益。不採用此原型，不臆測 JIT／GC 或宣稱 fps。
 
 Canvas2D／WebGL2／WebGPU 共15個真實 Game cases，157,500個 Object.is 精確數字及 nonblank matching PNG 通過。四個 parent-callback transform／reuse／remove／destroy histories 通過68個數字、invalid-slot 拒絕、frozen-record 與 borrowed-resource cleanup。正式 source／dist 從未修改，本輪只提交證據文件；tests／build、production／CJS timing、gallery、audio unlock、實機／Safari 未新增認證。全部 raw pairs／outliers／限制見 [ACCEPTANCE](../ACCEPTANCE.md) P263，不 push／升版。
+
+## P264：不採用 world 粒子的額外 presentation cache
+
+P262 ownership 分型後更新四組目前 source Game profiles，每組90 warm／180個 native WebGL2 profiled frames；保留既有 bounds 乘積共用、local base cache與uniform-key sort。隔離 WorldParticleSprite 原型加一個numeric pass stamp，僅exact method在既有nonzero Scene pass重用；custom呼叫清stamp、retainAxes於重生失效、pass0仍fresh。local／target、renderer及原矩陣stores不變。
+
+固定 source-slot 真實 Game 全144 samples保留。mixed submit／區段合計改善2.80%／3.20%，六輪快；目標world卻退步2.54%／2.27%，只有2快4慢。未走world helper的local submit／合計 +11.73%／+13.92%六輪慢，small合計 +6.53%五輪慢；controls／outliers不臆測成JIT／GC因果，也不為mixed單一收益接受新狀態。
+
+三forced backends的local／world normal、custom、screen與Scene-transfer共24個native Game cases，157,248個精確數字及nonblank matching PNG通過；另300個數字涵蓋unscoped／presentation／matrix pass、重複讀取、method還原、同pass pool重生、pass外位移、跨Scene與native cleanup。拒絕原型，正式source／dist不變。本輪未新增tests／build、production／CJS timing、gallery、heap／GPU／fps、audio、實機／Safari認證。完整profiles／pairs／限制見 [ACCEPTANCE](../ACCEPTANCE.md) P264，不 push／升版。

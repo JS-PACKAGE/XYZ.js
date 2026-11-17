@@ -6390,3 +6390,10 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 所有 numeric loads 仍在 parent updateWorldMatrix callback 之後；remove／reuse 會看到相同既有 slot／新 generation，destroy 仍在相同階段失敗。矩陣寫入順序、Float32 落點、local/world composition 與 bounds 角點運算不改。
 - Source-slot native Game 的 mixed 四段合計六輪皆慢，local／world 微小方向未確立穩定收益；正確性與未修改 control 的加速不能代替採用門檻。拒絕此原型，正式 implementation 保留既有 Slot getters 與 slotMatrix。
 - 本輪僅保存三 backend 動態像素／157,500數字、callback 邊界68數字及全部144個真實 Game timing samples，不新增公開 API 或認證未跑的 production／CJS／其他平台。見 `ACCEPTANCE.md` P263。
+
+## P264：world composition reuse 也必須通過完整 consumer 門檻
+
+- 目前 local 沿 base GameObject cache，world 保持獨立出生 affine；不能因為某個 override 自己計算矩陣，就放寬 base-only identity guard或加入共用 hook。
+- 隔離原型只讓 private WorldParticleSprite 持一個 global Scene pass stamp；僅 exact method 在 nonzero pass可重用，custom呼叫後清stamp以免恢復原method時沿用調整過的matrix，新出生retainAxes失效，pass0仍重算。未改 parent／source／resource ownership 或數值body。
+- 原生動態與300個pass／pool／override邊界數字一致，不代表應接受新狀態。mixed改善但target world合計四輪慢，local／small controls也有成本，拒絕此案；未測heap，不能把一個欄位的source分析包裝成量測。
+- 正式world仍每次計算原矩陣，不新增state／API／production認證。保留四組current Game profiles、144個原始timings與三backend24個cases，詳見 `ACCEPTANCE.md` P264。
