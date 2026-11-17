@@ -168,6 +168,12 @@ P268 在 P267 修正後重新評估 parent-link traversal，仍不採用：world
 
 P269 改用同 Game／Scene／renderer／command buffer，只切換 private traversal entry；固定 A/A＋A/B 共384 samples仍未證明候選收益，維持不採用。P269 finds no stable traversal gain with shared-state A/A and A/B calibration. P269 は同一状態で対照を改善したが traversal を不採用。66個三 backend Game cases、562,716個數字、完整getter／例外trace及全部timing保留；不把舊收益消失臆測成單一已確認原因，也不以A/A中位數校正A/B。正式source／dist不變，方法與metadata限制見 [ACCEPTANCE](./ACCEPTANCE.md) P269，不 push／升版。
 
+P270：正式 Game profiles 未證實先前空 pool 的多毫秒 simulation 根因。直接重用 WeakMap observer 索引會漏掉合法 Proxy façade 的事件；改成保留 receiver Set 的全域負向 guard 雖通過三 backend 與 lifecycle 檢查，固定 A/A＋A/B 仍顯示常見負載 simulation 成本增加，因此不加入 runtime。新增 Proxy late-postupdate regression test；全部樣本、歷史限制與 P269 warm-up 更正在 [驗收紀錄](ACCEPTANCE.md)。
+
+P270: Formal Game profiles did not establish the earlier empty-pool simulation cause. Reusing the WeakMap observer index loses legitimate proxied events. A receiver-preserving global negative guard passed native backend and lifecycle checks but increased simulation cost in common workloads in the fixed A/A and A/B matrix, so neither candidate ships. A late-postupdate proxy regression test and all samples, limitations, and the P269 warm-up clarification are recorded in [ACCEPTANCE](ACCEPTANCE.md).
+
+P270：正式 Game profile では以前の空 pool の simulation 遅延原因を確定できなかった。WeakMap observer 索引の直接再利用は正当な Proxy façade のイベントを失い、receiver Set を維持する全域負判定 guard も固定 A/A・A/B で一般的な負荷の simulation コストが増えたため、runtime には採用しない。Proxy の late-postupdate 回帰テストと全測定値、制約、P269 warm-up の訂正を [検収記録](ACCEPTANCE.md) に残した。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

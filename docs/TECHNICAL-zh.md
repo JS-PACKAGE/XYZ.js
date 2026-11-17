@@ -7594,3 +7594,9 @@ throwaway module含原partition與候選partition，其他collector／buffer只�
 固定A/A的192 samples全部選原函式；固定A/B另192 samples各選原／候選96次。全部384 samples與五項分項／sum統計保留；大型場景方向不穩定，先前world／nested明顯收益未重現。不扣A/A median、不臆測舊差異唯一由graph造成，因canvas／實例數、callsite、warmup也有不同。可變target仍有inlining／tiering／時間序列限制，不當成production／CJS CPU認證。
 
 shared-graph三backend Sprite／target共66cases、562,716個數字與nonblank PNG相同，collector完整report與 P266 corrected相同。native entryAfter metadata保留了未使用舊prefix，實際import與更正說明均記錄，不悄悄改寫原報告。沒有正式source／dist或validation／vendor修改，仍不採用。完整timing、Vite原警告、準備失敗與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P269，不 push／升版。
+
+## P270 — 保留 lifecycle observer 的 receiver 語義
+
+目前仍以 receiver 自身的 observer Set 為準。合法 GameObject Proxy 可將原生 EventTarget 方法綁定 target，但 Scene 以 proxy identity 推進物件，因此 target-keyed WeakMap 不能直接取代 receiver 狀態；首個候選漏送 postupdate，已否決，並新增 late listener／remove-and-readd 的永久消費端 regression test。
+
+第二個候選保留 receiver Set，只在全域類型從未被觀察時提早否決。它通過原生 lifecycle 與三 backend 動態比較，固定十二 cohort 的 A/A＋A/B 卻顯示常見 active／真實 listener simulation 成本增加，故兩個候選皆不加入 runtime，也不變更產物、公開入口或版本。完整原始樣本及 P269 初始 warm-up selector 的訂正見 [ACCEPTANCE](../ACCEPTANCE.md)；採樣 profile 不足以確定先前空 pool 根因、JIT 機制、呈現 FPS 或 GPU 效能。

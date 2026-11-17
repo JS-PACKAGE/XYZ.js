@@ -6432,3 +6432,9 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 這消除兩套core graph與不同Game實例的直接對照差異，卻不消除時間序列、tiering／inlining或warmup不對稱。可變call target也不是正式產物的直接binding；只屬source-slot校準，不能擴張成production速度證明。
 - A/A共192samples、A/B共192samples，包含實際selected partition；不以A/A median去修正A/B。大型world／nested舊收益未重現，不證明舊差異唯一由graph造成，因canvas數與callsite等也同時不同。
 - 三backend66cases及完整getter／exception契約通過，但沒有穩定效能理由採用，正式source／dist不變，後續轉查其他熱路徑。完整值與限制見 `ACCEPTANCE.md` P269。
+
+## P270 — observer receiver identity 與負向 guard 邊界
+
+`SceneObject` 的事件觀察狀態屬於 receiver；既有 WeakMap 索引以原物件為 key，不能直接替代 receiver 的 Set。將原生 EventTarget 方法綁定 target 的合法 Proxy façade，仍可能由 Scene 以 proxy identity 呼叫 `observesUpdate`。直接查 WeakMap 的候選會失去事件，因此保留既有實作及新的消費端 regression test。
+
+全域「曾觀察」類型只能作保守的負向判定；remove／once／abort 後不應縮減狀態，且不能繞過虛擬方法。保留 receiver Set 的候選雖維持語義，正式 Game 固定 A/A＋A/B 的常見負載 simulation 成本仍增加，故不加入 guard、不新增公開 API 或快取。CDP profile 與配對計時各有不同執行歷史，不能據此宣稱已確定空 pool 根因、JIT 機制或呈現效能改善；詳見 ACCEPTANCE。

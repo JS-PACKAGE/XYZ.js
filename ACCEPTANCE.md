@@ -37453,3 +37453,4474 @@ Collector六組各12-frame histories的完整report與 P268／P266 corrected逐b
 ```
 
 只交付六份文件，README同步中英日；歷史前綴原樣保留，刪除此期暫存scripts，不push／不升版。
+
+## P270 — observer guard 否決與 Proxy lifecycle regression（2026-11-17）
+
+### 結論與正式交付
+
+- 不採用兩個 observer 原型；正式 SceneObject／event-observers／Scene、dist、公開入口、vendor、package 版本 1.23.0 均不變。此輪只新增消費端 Proxy late-postupdate regression test 並同步六份文件；沒有 push。
+- 原型一直接用既有 target-keyed WeakMap 查 update observer：普通事件與三 backend 畫面 gate 曾通過，但合法 EventTarget-bound Proxy façade 的 postupdate 在原版為 11 次、候選為 0 次，立即否決，沒有為它量測 CPU。不能把普通 fixture 通過當完整語義證明。
+- 原型二保留 receiver 私有 Set，只加全域「該類型從未被觀察」的負向 guard，沿用既有單調 Set，沒有新增 object 欄位、per-frame 配置、依賴或公開 API。它通過 revised lifecycle／三 backend gate，固定 A/A＋A/B 卻顯示常見負載 simulation 代價，因此仍不加入 runtime。
+- 新測試位於 [scene-lazy.test.ts](tests/scene-lazy.test.ts)：先推進無 listener 的 façade，再由 façade 綁定的 addEventListener 加入 listener，推進、remove/re-add 後驗證真實 postupdate dt 及原生 event target/currentTarget。正式原版單檔 7 tests 通過，該檔 ESLint 與格式通過。額外獨立 Vitest process 用真實原型一 delegate 替換觀察方法，只有新測試失敗（空陣列對預期兩次 dt），其餘 6 tests 通過；throwaway probe 已刪除，不隨 commit 交付。不是文字／wiring 測試。
+
+### 正式 Game qualitative profile：沒有確定先前空 pool 根因
+
+未 override source 的 canonical /dist/src/index.js、實際 Game／Scene／WebGL2、原生 4×4 ImageBitmap、visible 分頁；四個 cohort 各 90 warm＋180 CDP profiled frames，100µs requested sampling interval。Sprite pool 為四組各8192，empty pool 仍已註冊／初始化32772物件且無 post observer；layer control 只有8個已初始化物件。完整 setup、top-30 sampled self-time、最後單幀 counter、資源 cleanup 與 raw-profile SHA256 保留如下。最後 frameWork 只是最後一幀，不能當分布；CDP self time 是整段採樣，不是每幀 latency。
+
+empty 的 advanceObjects sampled self time 僅18179µs／180幀；這次 profile 沒有重現先前多毫秒 simulation，不能宣稱找到根因、已修復或直接把其他 fixture 的 timing 代入。active local/world 的 collector、matrix、draw 等仍有採樣成本。
+
+[INFERENCE] receiver／callsite／JIT 與 instrumentation 執行歷史可能影響差異，但此輪沒有證明任何單一機制，更沒有證實 megamorphic cause。後續原型只以消費端行為與當輪配對結果判斷，不靠這項假說宣稱收益。
+
+```json
+{
+  "rawProfileSha256": {
+    "sprite-empty": "8dcfe0ec760be27c243805397a8ea7dc0cabc6197a9a8b4b4e42795ea90d6fcc",
+    "sprite-local": "62bd880981c20427972fd3a1f20cc4c85408568b79b74b4586a95fee293e9f22",
+    "sprite-world": "74d60dc1439d81fbc23df4cd566b7496fc04b73b3b5eebd5d121bc78b864d42e",
+    "layer-local": "6a00220bb1d995aa8a7a92d6558b7f9eb3e3a52996b3562c951d2ed2525e82b3"
+  },
+  "browser": {
+    "engine": "chromium",
+    "version": "153.0.8010.12",
+    "platform": "darwin/arm64",
+    "mode": "desktop-automation",
+    "executable": "pinned-playwright-managed",
+    "physicalDeviceCertification": false,
+    "safariCertification": false
+  },
+  "reports": [
+    {
+      "setup": {
+        "mode": "sprite-empty",
+        "requestedBackend": "webgl2",
+        "nativeWebGL2": true,
+        "nativeImageBitmap": true,
+        "visibility": "visible",
+        "emitters": 4,
+        "capacityPerEmitter": 8192
+      },
+      "warmFrames": 90,
+      "profiledFrames": 180,
+      "objectState": {
+        "registered": 32772,
+        "initialized": 32772,
+        "uninitialized": 0,
+        "postObservers": 0
+      },
+      "completedFrames": 270,
+      "lastCompleteFrameWorkMs": {
+        "simulation": 0.10000000894069672,
+        "navigation": 0,
+        "afterUpdate": 0,
+        "renderSubmit": 0.20000000298023224
+      },
+      "activeParticles": [0, 0, 0, 0],
+      "visibility": "visible",
+      "topSelfMicroseconds": [
+        ["(idle) :0", 2831855],
+        ["(program) :0", 138519],
+        [
+          "onFrame http://127.0.0.1:5270/dist/packages/core/src/game.js:1",
+          56762
+        ],
+        [
+          "collectRenderCommands2D http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          32216
+        ],
+        [
+          "advanceObjects http://127.0.0.1:5270/dist/packages/core/src/scene.js:1",
+          18179
+        ],
+        ["(garbage collector) :0", 3504],
+        ["getGamepads :0", 467],
+        [
+          "update http://127.0.0.1:5270/dist/packages/input/src/gestures.js:1",
+          341
+        ],
+        [
+          "renderFrame http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-renderer.js:13",
+          310
+        ],
+        ["flush :0", 308],
+        ["(anonymous) :1", 166],
+        [
+          "reset http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          157
+        ],
+        [
+          "update http://127.0.0.1:5270/dist/packages/input/src/index.js:1",
+          156
+        ],
+        [
+          "endFrame http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-renderer.js:13",
+          156
+        ],
+        [
+          "endPresentation http://127.0.0.1:5270/dist/packages/core/src/scene.js:1",
+          156
+        ],
+        [
+          "beginObjectFrame http://127.0.0.1:5270/dist/packages/core/src/scene.js:1",
+          156
+        ],
+        [
+          "update http://127.0.0.1:5270/dist/packages/input/src/gamepad.js:1",
+          156
+        ],
+        [
+          "collectBoundary2D http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          155
+        ],
+        ["bindSampler :0", 154],
+        ["clearDepth :0", 154],
+        [
+          "preflight http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          154
+        ],
+        [
+          "beginFrame http://127.0.0.1:5270/dist/packages/graphics/src/residency.js:1",
+          154
+        ],
+        [
+          "releaseUnused http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-renderer.js:13",
+          154
+        ],
+        ["clearColor :0", 153],
+        ["bindTexture :0", 153],
+        [
+          "drawComposite http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-renderer.js:13",
+          153
+        ],
+        [
+          "begin http://127.0.0.1:5270/dist/packages/graphics/src/render-stats.js:1",
+          153
+        ],
+        ["clear :0", 153],
+        ["next :25", 47],
+        ["requestAnimationFrame :0", 30]
+      ],
+      "cleanup": {
+        "gameDestroyed": "destroyed",
+        "textureDestroyed": true,
+        "nativeBitmapClosed": true
+      }
+    },
+    {
+      "setup": {
+        "mode": "sprite-local",
+        "requestedBackend": "webgl2",
+        "nativeWebGL2": true,
+        "nativeImageBitmap": true,
+        "visibility": "visible",
+        "emitters": 4,
+        "capacityPerEmitter": 8192
+      },
+      "warmFrames": 90,
+      "profiledFrames": 180,
+      "objectState": {
+        "registered": 32772,
+        "initialized": 32772,
+        "uninitialized": 0,
+        "postObservers": 0
+      },
+      "completedFrames": 270,
+      "lastCompleteFrameWorkMs": {
+        "simulation": 0.20000000298023224,
+        "navigation": 0,
+        "afterUpdate": 0.29999999701976776,
+        "renderSubmit": 3.7999999970197678
+      },
+      "activeParticles": [8192, 8192, 8192, 8192],
+      "visibility": "visible",
+      "topSelfMicroseconds": [
+        ["(idle) :0", 2176674],
+        [
+          "collectBoundary2D http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          119952
+        ],
+        [
+          "updateWorldMatrix http://127.0.0.1:5270/dist/packages/core/src/game-object.js:1",
+          110821
+        ],
+        [
+          "drawSprites http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          95865
+        ],
+        [
+          "partitionBoundaries2D http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          78396
+        ],
+        [
+          "advanceSprites http://127.0.0.1:5270/dist/packages/core/src/particles2d/index.js:1",
+          63552
+        ],
+        [
+          "getWorldBounds http://127.0.0.1:5270/dist/packages/core/src/game-object.js:1",
+          49171
+        ],
+        [
+          "spriteMatrix http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          48948
+        ],
+        ["(program) :0", 43276],
+        [
+          "getSpriteQuad2D http://127.0.0.1:5270/dist/packages/graphics/src/sprite-instance.js:1",
+          32263
+        ],
+        [
+          "validateCommands http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          30747
+        ],
+        [
+          "drawCommands http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          26741
+        ],
+        [
+          "validateSpriteQuad2D http://127.0.0.1:5270/dist/packages/graphics/src/sprite-instance.js:1",
+          21416
+        ],
+        [
+          "advanceObjects http://127.0.0.1:5270/dist/packages/core/src/scene.js:1",
+          18503
+        ],
+        [
+          "getTextureQuad2D http://127.0.0.1:5270/dist/packages/graphics/src/sprite-instance.js:1",
+          18079
+        ],
+        [
+          "update http://127.0.0.1:5270/dist/packages/core/src/accessibility/index.js:1",
+          15906
+        ],
+        ["bufferSubData :0", 14516],
+        [
+          "onFrame http://127.0.0.1:5270/dist/packages/core/src/game.js:1",
+          10273
+        ],
+        [
+          "reset http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          4422
+        ],
+        [
+          "sort http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          2910
+        ],
+        [
+          "releaseBoundaryMembers http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          1071
+        ],
+        ["flush :0", 924],
+        ["requestAnimationFrame :0", 783],
+        ["bindFramebuffer :0", 761],
+        [
+          "(anonymous) http://127.0.0.1:5270/dist/packages/input/src/gestures.js:1",
+          473
+        ],
+        [
+          "renderFrame http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-renderer.js:13",
+          468
+        ],
+        [
+          "sampler http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          460
+        ],
+        [
+          "update http://127.0.0.1:5270/dist/packages/input/src/gestures.js:1",
+          325
+        ],
+        [
+          "update http://127.0.0.1:5270/dist/packages/input/src/index.js:1",
+          318
+        ],
+        [
+          "update http://127.0.0.1:5270/dist/packages/input/src/gamepad.js:1",
+          312
+        ]
+      ],
+      "cleanup": {
+        "gameDestroyed": "destroyed",
+        "textureDestroyed": true,
+        "nativeBitmapClosed": true
+      }
+    },
+    {
+      "setup": {
+        "mode": "sprite-world",
+        "requestedBackend": "webgl2",
+        "nativeWebGL2": true,
+        "nativeImageBitmap": true,
+        "visibility": "visible",
+        "emitters": 4,
+        "capacityPerEmitter": 8192
+      },
+      "warmFrames": 90,
+      "profiledFrames": 180,
+      "objectState": {
+        "registered": 32772,
+        "initialized": 32772,
+        "uninitialized": 0,
+        "postObservers": 0
+      },
+      "completedFrames": 270,
+      "lastCompleteFrameWorkMs": {
+        "simulation": 0.30000001192092896,
+        "navigation": 0,
+        "afterUpdate": 0.29999999701976776,
+        "renderSubmit": 3.5999999940395355
+      },
+      "activeParticles": [8192, 8192, 8192, 8192],
+      "visibility": "visible",
+      "topSelfMicroseconds": [
+        ["(idle) :0", 2154282],
+        [
+          "collectBoundary2D http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          138607
+        ],
+        [
+          "drawSprites http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          102096
+        ],
+        [
+          "partitionBoundaries2D http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          94227
+        ],
+        [
+          "advanceSprites http://127.0.0.1:5270/dist/packages/core/src/particles2d/index.js:1",
+          70301
+        ],
+        [
+          "objectMatrix http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          50121
+        ],
+        ["(program) :0", 44561],
+        [
+          "getSpriteQuad2D http://127.0.0.1:5270/dist/packages/graphics/src/sprite-instance.js:1",
+          40357
+        ],
+        [
+          "validateTextureQuad2D http://127.0.0.1:5270/dist/packages/graphics/src/sprite-instance.js:1",
+          39713
+        ],
+        [
+          "drawCommands http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          36156
+        ],
+        [
+          "updateWorldMatrix http://127.0.0.1:5270/dist/packages/core/src/particles2d/index.js:1",
+          34245
+        ],
+        [
+          "getWorldBounds http://127.0.0.1:5270/dist/packages/core/src/game-object.js:1",
+          26305
+        ],
+        [
+          "validateCommands http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          24741
+        ],
+        [
+          "getTextureQuad2D http://127.0.0.1:5270/dist/packages/graphics/src/sprite-instance.js:1",
+          24294
+        ],
+        [
+          "getLocalBounds http://127.0.0.1:5270/dist/packages/core/src/sprite.js:1",
+          22030
+        ],
+        [
+          "advanceObjects http://127.0.0.1:5270/dist/packages/core/src/scene.js:1",
+          21129
+        ],
+        [
+          "onFrame http://127.0.0.1:5270/dist/packages/core/src/game.js:1",
+          19295
+        ],
+        [
+          "update http://127.0.0.1:5270/dist/packages/core/src/accessibility/index.js:1",
+          16317
+        ],
+        ["bufferSubData :0", 11473],
+        [
+          "reset http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          8399
+        ],
+        [
+          "sort http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          3820
+        ],
+        ["flush :0", 1547],
+        ["requestAnimationFrame :0", 1254],
+        [
+          "releaseBoundaryMembers http://127.0.0.1:5270/dist/packages/graphics/src/render2d-contract.js:1",
+          1223
+        ],
+        [
+          "renderFrame http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-renderer.js:13",
+          773
+        ],
+        [
+          "advanceParticleEmitters http://127.0.0.1:5270/dist/packages/core/src/scene.js:1",
+          611
+        ],
+        ["getGamepads :0", 471],
+        [
+          "update http://127.0.0.1:5270/dist/packages/input/src/index.js:1",
+          467
+        ],
+        ["activeTexture :0", 461],
+        ["(anonymous) :1", 315]
+      ],
+      "cleanup": {
+        "gameDestroyed": "destroyed",
+        "textureDestroyed": true,
+        "nativeBitmapClosed": true
+      }
+    },
+    {
+      "setup": {
+        "mode": "layer-local",
+        "requestedBackend": "webgl2",
+        "nativeWebGL2": true,
+        "nativeImageBitmap": true,
+        "visibility": "visible",
+        "emitters": 4,
+        "capacityPerEmitter": 8192
+      },
+      "warmFrames": 90,
+      "profiledFrames": 180,
+      "objectState": {
+        "registered": 8,
+        "initialized": 8,
+        "uninitialized": 0,
+        "postObservers": 0
+      },
+      "completedFrames": 270,
+      "lastCompleteFrameWorkMs": {
+        "simulation": 0.10000000894069672,
+        "navigation": 0,
+        "afterUpdate": 1.199999988079071,
+        "renderSubmit": 2
+      },
+      "activeParticles": [8192, 8192, 8192, 8192],
+      "visibility": "visible",
+      "topSelfMicroseconds": [
+        ["(idle) :0", 2460871],
+        [
+          "drawParticles http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          129983
+        ],
+        [
+          "advance http://127.0.0.1:5270/dist/packages/core/src/particles2d/index.js:1",
+          104220
+        ],
+        [
+          "collectBounds http://127.0.0.1:5270/dist/packages/core/src/particles2d/particle-layer2d.js:1",
+          93457
+        ],
+        [
+          "writeTargetAppearance http://127.0.0.1:5270/dist/packages/core/src/particles2d/index.js:1",
+          45691
+        ],
+        [
+          "validateParticleSource http://127.0.0.1:5270/dist/packages/core/src/particles2d/particle-layer2d.js:1",
+          35808
+        ],
+        [
+          "validateCommands http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          25298
+        ],
+        [
+          "getTextureQuad2D http://127.0.0.1:5270/dist/packages/graphics/src/sprite-instance.js:1",
+          22653
+        ],
+        ["(program) :0", 19422],
+        [
+          "validateTransform http://127.0.0.1:5270/dist/packages/core/src/particles2d/particle-layer2d.js:1",
+          18702
+        ],
+        [
+          "updateWorldMatrix http://127.0.0.1:5270/dist/packages/core/src/game-object.js:1",
+          11794
+        ],
+        ["bufferSubData :0", 11162],
+        [
+          "updateSimulation http://127.0.0.1:5270/dist/packages/core/src/particles2d/index.js:1",
+          7292
+        ],
+        [
+          "validateTextureQuad2D http://127.0.0.1:5270/dist/packages/graphics/src/sprite-instance.js:1",
+          6102
+        ],
+        ["(garbage collector) :0", 1451],
+        ["vertexAttribPointer :0", 605],
+        ["clear :0", 466],
+        ["onFrame http://127.0.0.1:5270/dist/packages/core/src/game.js:1", 465],
+        ["bindSampler :0", 463],
+        [
+          "useQuad http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-render2d.js:1",
+          460
+        ],
+        ["vertexAttribDivisor :0", 457],
+        [
+          "begin http://127.0.0.1:5270/dist/packages/core/src/frame-work.js:1",
+          318
+        ],
+        ["flush :0", 314],
+        ["activeTexture :0", 309],
+        [
+          "requestGameFrame http://127.0.0.1:5270/dist/packages/core/src/xr-loop.js:1",
+          307
+        ],
+        [
+          "renderFrame http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-renderer.js:13",
+          307
+        ],
+        [
+          "render http://127.0.0.1:5270/dist/packages/graphics/src/webgl2-renderer.js:13",
+          305
+        ],
+        ["getGamepads :0", 158],
+        ["requestAnimationFrame :0", 157],
+        [
+          "submit http://127.0.0.1:5270/dist/packages/graphics/src/render-stats.js:1",
+          157
+        ]
+      ],
+      "cleanup": {
+        "gameDestroyed": "destroyed",
+        "textureDestroyed": true,
+        "nativeBitmapClosed": true
+      }
+    }
+  ],
+  "errors": []
+}
+```
+
+### 第一候選的實際失敗
+
+只把 observesUpdate 改為 hasObjectEventObservers(this,type)，WeakMap 的 key 是 listener 註冊時的實際 target，而 Scene 可以用 proxy identity 呼叫觀察方法。Proxy 只綁定 addEventListener/removeEventListener/dispatchEvent，其餘屬性 Reflect.get 轉送；原版已有的 postupdate 不可在優化後消失。失敗時 browser/server 的 finally cleanup 執行，但 assertion 後面的 Game/Texture 明示 cleanup 未走到，不能冒稱該失敗路徑已逐資源驗證。
+
+```text
+8:45:12 PM [vite] (client) warning:
+/Users/yueyuhoshizora/Code/Tooles/XYZ.js/dist/packages/audio/src/opm-adapter.js
+1  |  ...(e){let r=await import(e??new URL("/dist/vendor/opm/dist/api/index.js", '' + import.meta.url).href);if(r.VERSION!=...
+   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2  |
+3  |
+The above dynamic import cannot be analyzed by Vite.
+See https://vite.dev/guide/features#dynamic-import for supported dynamic import formats. If this is intended to be left as-is, you can use the /* @vite-ignore */ comment inside the import() call to suppress this warning.
+
+  Plugin: vite:import-analysis
+  File: /Users/yueyuhoshizora/Code/Tooles/XYZ.js/dist/packages/audio/src/opm-adapter.js
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+page.evaluate: Error: Unexpected consumer callbacks after: {"pre":12,"ordinary":11,"once":1,"aborted":0,"abortAfter":4,"removed":2,"late":8,"initialized":11,"override":0,"hook":6,"victim":4,"proxied":0}
+    at globalThis.proveEvents270 (eval at evaluate (:311:30), <anonymous>:215:17)
+    at async <anonymous>:337:30
+    at /private/tmp/xyz-p270/events-proxy.mjs:304:28 {
+  log: []
+}
+
+Node.js v26.7.0
+```
+
+永久 regression efficacy probe 及其預期失敗（只在隔離測試 process 替換方法，沒有改正式檔案）：
+
+```typescript
+import { afterAll, vi } from 'vitest';
+import { SceneObject } from '../packages/core/src/scene-object.js';
+import { hasObjectEventObservers } from '../packages/core/src/event-observers.js';
+import './scene-lazy.test.js';
+
+const observer = vi
+  .spyOn(SceneObject.prototype, 'observesUpdate')
+  .mockImplementation(function (this: SceneObject, type) {
+    return hasObjectEventObservers(this, type);
+  });
+afterAll(() => observer.mockRestore());
+```
+
+```text
+
+ RUN  v5.0.2 /Users/yueyuhoshizora/Code/Tooles/XYZ.js
+
+ ❯ tests/p270-observer-repro.test.ts (7 tests | 1 failed) 8ms
+   ❯ scene lazy service lifetime (7)
+     × delivers late postupdate events through object proxies 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/p270-observer-repro.test.ts > scene lazy service lifetime > delivers late postupdate events through object proxies
+AssertionError: expected [] to deeply equal [ 0.2, 0.3 ]
+
+- Expected
++ Received
+
+- [
+-   0.2,
+-   0.3,
+- ]
++ []
+
+ ❯ tests/scene-lazy.test.ts:112:22
+    110|       scene.add(proxy);
+    111|       advance(0.3);
+    112|       expect(deltas).toEqual([0.2, 0.3]);
+       |                      ^
+    113|     } finally {
+    114|       scene.destroy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  21:21:51
+   Duration  360ms (transform 82%, import 15%, tests 3%)
+```
+
+### 修正版原型與 native gates
+
+新增的 helper 僅回傳既有 observedEventTypes.has(type)；原 reader 的同一條件也委派它。SceneObject.observesUpdate 保留原 receiver 私有 Set 的 .has 與虛擬呼叫，不改 Scene 迭代／初始化順序；remove／once／abort 後的曾觀察狀態仍保守、不縮減。下列是未採用的原型正式檔文字，不是目前 runtime：
+
+```typescript
+const objectEventObservers = new WeakMap<object, Set<string>>();
+/** Every type any object has observed; a superset of each per-object Set, never shrinking. */
+const observedEventTypes = new Set<string>();
+
+/** @internal Share the existing listener Set without expanding scene facade declarations. */
+export function observeObjectEventTypes(
+  object: object,
+  types: Set<string>,
+): void {
+  objectEventObservers.set(object, types);
+}
+
+/** @internal Record each type added to a shared Set; unobserved types skip the object lookup. */
+export function observeEventType(type: string): void {
+  observedEventTypes.add(type);
+}
+
+/** @internal Negative guard only; receiver-owned Sets also support proxied facades. */
+export function hasObservedEventType(type: string): boolean {
+  return observedEventTypes.has(type);
+}
+
+/** @internal Observation stays conservative after remove, once, and signal abort. */
+export function hasObjectEventObservers(object: object, type: string): boolean {
+  return (
+    hasObservedEventType(type) &&
+    (objectEventObservers.get(object)?.has(type) ?? false)
+  );
+}
+```
+
+```typescript
+import type { Scene } from './scene.js';
+import {
+  hasObservedEventType,
+  observeEventType,
+  observeObjectEventTypes,
+} from './event-observers.js';
+
+/** Base facade for scene-owned objects, independent of 2D or 3D transforms. */
+export abstract class SceneObject extends EventTarget {
+  private owningScene: Scene | undefined;
+  private disposed = false;
+  private observedEventTypes: Set<string> | undefined;
+  private ownershipGeneration = 0;
+  /** @internal Invalidates callback continuations on remove/re-add within the same Scene. */
+  get registrationGeneration(): number {
+    return this.ownershipGeneration;
+  }
+
+  override addEventListener(
+    type: string,
+    callback: EventListenerOrEventListenerObject | null,
+    options?: boolean | AddEventListenerOptions,
+  ): void {
+    super.addEventListener(type, callback, options);
+    if (callback && !(typeof options === 'object' && options.signal?.aborted)) {
+      if (!this.observedEventTypes)
+        observeObjectEventTypes(this, (this.observedEventTypes = new Set()));
+      this.observedEventTypes.add(type);
+      observeEventType(type);
+      if (type === 'preupdate') this.owningScene?.trackObjectPasses(this);
+    }
+  }
+
+  /** @internal Untouched pooled sprites need no lifecycle Event allocations. */
+  dispatchObjectEvent(type: string, detail?: unknown): void {
+    if (this.observedEventTypes?.has(type))
+      this.dispatchEvent(new CustomEvent(type, { detail }));
+  }
+  /** @internal Whether `emitUpdate(type)` would dispatch. */
+  observesUpdate(type: 'preupdate' | 'postupdate'): boolean {
+    return (
+      hasObservedEventType(type) && this.observedEventTypes?.has(type) === true
+    );
+  }
+  /** @internal Update payloads are allocated only for objects observing lifecycle events. */
+  emitUpdate(type: 'preupdate' | 'postupdate', dt: number): void {
+    if (this.observedEventTypes?.has(type))
+      this.dispatchEvent(new CustomEvent(type, { detail: { dt } }));
+  }
+
+  get scene(): Scene | undefined {
+    return this.owningScene;
+  }
+
+  get destroyed(): boolean {
+    return this.disposed;
+  }
+
+  /** @internal Called only by Scene during registration. */
+  attach(scene: Scene): void {
+    if (this.disposed) throw new Error('Cannot add a destroyed scene object.');
+    if (this.owningScene)
+      throw new Error('Scene object already belongs to a scene.');
+    this.owningScene = scene;
+    this.ownershipGeneration++;
+  }
+
+  /** @internal Called only by Scene during removal. */
+  detach(scene: Scene): void {
+    if (this.owningScene === scene) {
+      this.owningScene = undefined;
+      this.ownershipGeneration++;
+    }
+  }
+
+  destroy(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.owningScene?.remove(this);
+    try {
+      this.onDestroy();
+    } finally {
+      this.dispatchObjectEvent('destroy');
+    }
+  }
+
+  protected onDestroy(): void {}
+}
+```
+
+初始 WeakMap 與 revised guard 的兩批 native proof 分開保留，不能互相冒充。每批皆為 Sprite／ParticleLayer、WebGPU／WebGL2／Canvas2D、十一模式，共66 cases、562716個 Object.is 數字與完全相同的非空白 PNG。模式包括 local/world/custom/screen/Scene transfer/rotated/trimmed/source/local-isolated/world-isolated/local-nested；每側每case12個 automatic Game snapshots，Sprite 矩陣在 render 後收集，layer 經公開 slot 查詢。ImageBitmap 由 Game 借用，Game.destroy 不應銷毀外借 Texture，顯式 Texture.destroy 關閉 bitmap；成功路徑逐一驗證、errors為空。這只覆蓋該 pinned Chromium automation，不是三種瀏覽器或實體裝置認證。
+
+| prototype                                                                                                                                                                                                                                                                                                                                                                                                  | fixture tag    | backend  | mode           | exact numeric comparisons | matching PNG SHA256                                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | -------- | -------------- | ------------------------- | ---------------------------------------------------------------- |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | canvas2d | local          | 6552                      | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | canvas2d | world          | 6552                      | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | canvas2d | local-custom   | 6552                      | 1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | canvas2d | local-screen   | 6552                      | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | canvas2d | local-transfer | 6552                      | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | canvas2d | local-rotated  | 6552                      | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | canvas2d | local-trimmed  | 6552                      | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | canvas2d | local-source   | 6552                      | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | canvas2d | local-isolated | 6552                      | 9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | canvas2d | world-isolated | 6552                      | f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | canvas2d | local-nested   | 6552                      | 69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgl2   | local          | 6552                      | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgl2   | world          | 6552                      | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgl2   | local-custom   | 6552                      | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgl2   | local-screen   | 6552                      | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgl2   | local-transfer | 6552                      | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgl2   | local-rotated  | 6552                      | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgl2   | local-trimmed  | 6552                      | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgl2   | local-source   | 6552                      | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgl2   | local-isolated | 6552                      | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgl2   | world-isolated | 6552                      | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgl2   | local-nested   | 6552                      | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgpu   | local          | 10500                     | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgpu   | world          | 10500                     | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgpu   | local-custom   | 10500                     | 89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgpu   | local-screen   | 10500                     | ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgpu   | local-transfer | 10500                     | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgpu   | local-rotated  | 10500                     | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgpu   | local-trimmed  | 10500                     | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgpu   | local-source   | 10500                     | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgpu   | local-isolated | 10500                     | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgpu   | world-isolated | 10500                     | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgpu   | local-nested   | 10500                     | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgl2   | local          | 10500                     | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgl2   | world          | 10500                     | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgl2   | local-custom   | 10500                     | 89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgl2   | local-screen   | 10500                     | ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgl2   | local-transfer | 10500                     | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgl2   | local-rotated  | 10500                     | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgl2   | local-trimmed  | 10500                     | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgl2   | local-source   | 10500                     | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgl2   | local-isolated | 10500                     | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgl2   | world-isolated | 10500                     | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | webgl2   | local-nested   | 10500                     | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgpu   | local          | 6552                      | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgpu   | world          | 6552                      | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgpu   | local-custom   | 6552                      | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgpu   | local-screen   | 6552                      | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgpu   | local-transfer | 6552                      | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgpu   | local-rotated  | 6552                      | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgpu   | local-trimmed  | 6552                      | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgpu   | local-source   | 6552                      | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgpu   | local-isolated | 6552                      | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgpu   | world-isolated | 6552                      | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | sprite         | webgpu   | local-nested   | 6552                      | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | canvas2d | local          | 10500                     | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | canvas2d | world          | 10500                     | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | canvas2d | local-custom   | 10500                     | 7bb999f18af59b9c4af1fe168d02502e6fdd61c18f485116bd30c3ed6e5d4b1e |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | canvas2d | local-screen   | 10500                     | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | canvas2d | local-transfer | 10500                     | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | canvas2d | local-rotated  | 10500                     | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | canvas2d | local-trimmed  | 10500                     | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | canvas2d | local-source   | 10500                     | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | canvas2d | local-isolated | 10500                     | 9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | canvas2d | world-isolated | 10500                     | f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb |
+| initial WeakMap                                                                                                                                                                                                                                                                                                                                                                                            | layer          | canvas2d | local-nested   | 10500                     | 69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgl2   | local          | 10500                     | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgl2   | world          | 10500                     | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgl2   | local-custom   | 10500                     | 89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgl2   | local-screen   | 10500                     | ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgl2   | local-transfer | 10500                     | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgl2   | local-rotated  | 10500                     | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgl2   | local-trimmed  | 10500                     | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgl2   | local-source   | 10500                     | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgl2   | local-isolated | 10500                     | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgl2   | world-isolated | 10500                     | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgl2   | local-nested   | 10500                     | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | canvas2d | local          | 6552                      | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | canvas2d | world          | 6552                      | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | canvas2d | local-custom   | 6552                      | 1e81721c7f2670ce7aba200206f4550a64cb81c652e3822f40e4fe7420b55ace |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | canvas2d | local-screen   | 6552                      | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | canvas2d | local-transfer | 6552                      | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | canvas2d | local-rotated  | 6552                      | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | canvas2d | local-trimmed  | 6552                      | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | canvas2d | local-source   | 6552                      | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | canvas2d | local-isolated | 6552                      | 9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | canvas2d | world-isolated | 6552                      | f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | canvas2d | local-nested   | 6552                      | 69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgl2   | local          | 6552                      | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgl2   | world          | 6552                      | 69ffa1efa2cc46140d52fe91132370262d2194b4f4373954008bfac64bda2ae6 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgl2   | local-custom   | 6552                      | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgl2   | local-screen   | 6552                      | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgl2   | local-transfer | 6552                      | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgl2   | local-rotated  | 6552                      | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgl2   | local-trimmed  | 6552                      | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgl2   | local-source   | 6552                      | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgl2   | local-isolated | 6552                      | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgl2   | world-isolated | 6552                      | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgl2   | local-nested   | 6552                      | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | canvas2d | local          | 10500                     | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | canvas2d | world          | 10500                     | 12fe60a09c1b2269414f7ed7b4e908c4b6ee797ce99aa3be099eed6a239ad4e9 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | canvas2d | local-custom   | 10500                     | 7bb999f18af59b9c4af1fe168d02502e6fdd61c18f485116bd30c3ed6e5d4b1e |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | canvas2d | local-screen   | 10500                     | 7082fcea5e175301de7218df8bee6f8511ff5acfc61177f6ad6e037ac5634e8f |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | canvas2d | local-transfer | 10500                     | 136972aaa80d26fac49994bcf1e22229a473794de948d1b3bfe8ffab1277e6d0 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | canvas2d | local-rotated  | 10500                     | 9b7ce0f9d9ecb87ce4d641e3a42152e3e11f7d855e509f3e8a4caa33c7fc632c |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | canvas2d | local-trimmed  | 10500                     | 315832b27b0dc9862e4ddae8517d8d5859ebbe5c943e0f917148136fb4d2c470 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | canvas2d | local-source   | 10500                     | 7f9a91d2132b7868eb70cbb7e5892a1b2011bc4d3642166dc3f33a2c9345d79d |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | canvas2d | local-isolated | 10500                     | 9251fb11c62ffec8fe461ff43e580ff5c547baa57779c6041e84c6900519adda |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | canvas2d | world-isolated | 10500                     | f7ca6fb673cce09e29c80bffc6d4c70fe167fa540bba6230e3af917e6edb9bcb |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | canvas2d | local-nested   | 10500                     | 69976eed3652a90590379c9ef4668bc0a431d6d3773f9158a599ff7537667de2 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgpu   | local          | 10500                     | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgpu   | world          | 10500                     | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgpu   | local-custom   | 10500                     | 89b234964cdfda0d4d0ede4576a9e71e07d37913369716266f4a286e362dc842 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgpu   | local-screen   | 10500                     | ab00092e93d20238b5a08162b8a7a192f5ebce46eedc814eaf609730d74cab52 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgpu   | local-transfer | 10500                     | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgpu   | local-rotated  | 10500                     | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgpu   | local-trimmed  | 10500                     | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgpu   | local-source   | 10500                     | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgpu   | local-isolated | 10500                     | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgpu   | world-isolated | 10500                     | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-layer  | webgpu   | local-nested   | 10500                     | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgpu   | local          | 6552                      | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgpu   | world          | 6552                      | ea3c6e1791ff44b512ac8f60e35b2f67e470ab0870eb50efd8bcd39ad11e5983 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgpu   | local-custom   | 6552                      | 092759280e09345a6339e14d036ec40439f66ae7b79f58861c3cb4618a05dcf7 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgpu   | local-screen   | 6552                      | 2a0f1a8d95f557bf47bcf7b030f58de2866440ed83a91ff6c588f4cc58762a31 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgpu   | local-transfer | 6552                      | 33a21d31dcdcb27f9b65c08475267527436d7f139bf721f03d3667050e7ec2cd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgpu   | local-rotated  | 6552                      | 63d6d1a6e52ac63d453eefc76ee0390fc55709dad01c8b24e7c3de77499a828f |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgpu   | local-trimmed  | 6552                      | e77ce76231eb96b3e6c5fb42fd63da5e5578b230fd37ae8a893cb40a5e588e96 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgpu   | local-source   | 6552                      | 3fc663d937aeca35ff6cdbdde31e0d8667a2f6bb801e87e6caedff30d2a18acd |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgpu   | local-isolated | 6552                      | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgpu   | world-isolated | 6552                      | 7ae38748fbc05414bdd59c8dfd6b40840f6c0ccae21405d25c840b07cef003d2 |
+| revised global-negative                                                                                                                                                                                                                                                                                                                                                                                    | revised-sprite | webgpu   | local-nested   | 6552                      | 57e6d90fa53ee016f1457b65d34976b732e8da10bc94fad3f2182a1d99b59913 |
+| 修正版獨立原生 WebGL2 lifecycle proof：兩側各12自動幀、96筆相同 log；驗證真正 clock dt payload、target/currentTarget、pre/post、late add、remove、once、pre-aborted、後續 abort、initialize once、destroy、同 Scene remove/re-add、動態 update hook 與 observesUpdate override。Proxy postupdate 恢復11次；不是繞過 override 或強迫發送 callback。兩側 PNG 相同、borrowed Texture cleanup 通過，errors空。 |
+
+```json
+{
+  "entry": "/dist/src/index.js",
+  "browser": {
+    "engine": "chromium",
+    "version": "153.0.8010.12",
+    "platform": "darwin/arm64",
+    "mode": "desktop-automation",
+    "executable": "pinned-playwright-managed",
+    "physicalDeviceCertification": false,
+    "safariCertification": false
+  },
+  "proof": {
+    "snapshots": {
+      "before": [
+        {
+          "tick": 1,
+          "counts": {
+            "pre": 1,
+            "ordinary": 1,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 1,
+            "removed": 1,
+            "late": 0,
+            "initialized": 1,
+            "override": 0,
+            "hook": 1,
+            "victim": 1,
+            "proxied": 1
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": false,
+          "victimDestroyed": false
+        },
+        {
+          "tick": 2,
+          "counts": {
+            "pre": 2,
+            "ordinary": 2,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 2,
+            "removed": 2,
+            "late": 0,
+            "initialized": 2,
+            "override": 0,
+            "hook": 2,
+            "victim": 2,
+            "proxied": 2
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": false,
+          "victimDestroyed": false
+        },
+        {
+          "tick": 3,
+          "counts": {
+            "pre": 3,
+            "ordinary": 3,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 3,
+            "removed": 2,
+            "late": 0,
+            "initialized": 3,
+            "override": 0,
+            "hook": 3,
+            "victim": 3,
+            "proxied": 3
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": false,
+          "victimDestroyed": false
+        },
+        {
+          "tick": 4,
+          "counts": {
+            "pre": 4,
+            "ordinary": 4,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 1,
+            "initialized": 4,
+            "override": 0,
+            "hook": 4,
+            "victim": 4,
+            "proxied": 4
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": false
+        },
+        {
+          "tick": 5,
+          "counts": {
+            "pre": 5,
+            "ordinary": 5,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 2,
+            "initialized": 5,
+            "override": 0,
+            "hook": 5,
+            "victim": 4,
+            "proxied": 5
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 6,
+          "counts": {
+            "pre": 6,
+            "ordinary": 6,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 3,
+            "initialized": 6,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 6
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 7,
+          "counts": {
+            "pre": 7,
+            "ordinary": 6,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 3,
+            "initialized": 6,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 6
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 8,
+          "counts": {
+            "pre": 8,
+            "ordinary": 7,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 4,
+            "initialized": 7,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 7
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 9,
+          "counts": {
+            "pre": 9,
+            "ordinary": 8,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 5,
+            "initialized": 8,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 8
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 10,
+          "counts": {
+            "pre": 10,
+            "ordinary": 9,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 6,
+            "initialized": 9,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 9
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 11,
+          "counts": {
+            "pre": 11,
+            "ordinary": 10,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 7,
+            "initialized": 10,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 10
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 12,
+          "counts": {
+            "pre": 12,
+            "ordinary": 11,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 8,
+            "initialized": 11,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 11
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        }
+      ],
+      "after": [
+        {
+          "tick": 1,
+          "counts": {
+            "pre": 1,
+            "ordinary": 1,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 1,
+            "removed": 1,
+            "late": 0,
+            "initialized": 1,
+            "override": 0,
+            "hook": 1,
+            "victim": 1,
+            "proxied": 1
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": false,
+          "victimDestroyed": false
+        },
+        {
+          "tick": 2,
+          "counts": {
+            "pre": 2,
+            "ordinary": 2,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 2,
+            "removed": 2,
+            "late": 0,
+            "initialized": 2,
+            "override": 0,
+            "hook": 2,
+            "victim": 2,
+            "proxied": 2
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": false,
+          "victimDestroyed": false
+        },
+        {
+          "tick": 3,
+          "counts": {
+            "pre": 3,
+            "ordinary": 3,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 3,
+            "removed": 2,
+            "late": 0,
+            "initialized": 3,
+            "override": 0,
+            "hook": 3,
+            "victim": 3,
+            "proxied": 3
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": false,
+          "victimDestroyed": false
+        },
+        {
+          "tick": 4,
+          "counts": {
+            "pre": 4,
+            "ordinary": 4,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 1,
+            "initialized": 4,
+            "override": 0,
+            "hook": 4,
+            "victim": 4,
+            "proxied": 4
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": false
+        },
+        {
+          "tick": 5,
+          "counts": {
+            "pre": 5,
+            "ordinary": 5,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 2,
+            "initialized": 5,
+            "override": 0,
+            "hook": 5,
+            "victim": 4,
+            "proxied": 5
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 6,
+          "counts": {
+            "pre": 6,
+            "ordinary": 6,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 3,
+            "initialized": 6,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 6
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 7,
+          "counts": {
+            "pre": 7,
+            "ordinary": 6,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 3,
+            "initialized": 6,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 6
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 8,
+          "counts": {
+            "pre": 8,
+            "ordinary": 7,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 4,
+            "initialized": 7,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 7
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 9,
+          "counts": {
+            "pre": 9,
+            "ordinary": 8,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 5,
+            "initialized": 8,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 8
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 10,
+          "counts": {
+            "pre": 10,
+            "ordinary": 9,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 6,
+            "initialized": 9,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 9
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 11,
+          "counts": {
+            "pre": 11,
+            "ordinary": 10,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 7,
+            "initialized": 10,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 10
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        },
+        {
+          "tick": 12,
+          "counts": {
+            "pre": 12,
+            "ordinary": 11,
+            "once": 1,
+            "aborted": 0,
+            "abortAfter": 4,
+            "removed": 2,
+            "late": 8,
+            "initialized": 11,
+            "override": 0,
+            "hook": 6,
+            "victim": 4,
+            "proxied": 11
+          },
+          "onceObserved": true,
+          "abortedObserved": false,
+          "lateObserved": true,
+          "victimDestroyed": true
+        }
+      ]
+    },
+    "matchingLogs": [
+      ["pre", 0],
+      ["initialize", 0],
+      ["observer-override", "preupdate", 0],
+      ["post", "ordinary", 1],
+      ["post", "once", 1],
+      ["post", "abortAfter", 1],
+      ["post", "removed", 1],
+      ["post", "initialized", 1],
+      ["observer-override", "postupdate", 1],
+      ["hook", 1],
+      ["post", "victim", 1],
+      ["post", "proxied", 1],
+      ["pre", 1],
+      ["observer-override", "preupdate", 1],
+      ["post", "ordinary", 2],
+      ["post", "abortAfter", 2],
+      ["post", "removed", 2],
+      ["post", "initialized", 2],
+      ["observer-override", "postupdate", 2],
+      ["hook", 2],
+      ["post", "victim", 2],
+      ["post", "proxied", 2],
+      ["pre", 2],
+      ["observer-override", "preupdate", 2],
+      ["post", "ordinary", 3],
+      ["post", "abortAfter", 3],
+      ["post", "initialized", 3],
+      ["observer-override", "postupdate", 3],
+      ["hook", 3],
+      ["post", "victim", 3],
+      ["post", "proxied", 3],
+      ["pre", 3],
+      ["observer-override", "preupdate", 3],
+      ["post", "ordinary", 4],
+      ["post", "abortAfter", 4],
+      ["post", "initialized", 4],
+      ["observer-override", "postupdate", 4],
+      ["hook", 4],
+      ["post", "late", 4],
+      ["post", "victim", 4],
+      ["post", "proxied", 4],
+      ["pre", 4],
+      ["observer-override", "preupdate", 4],
+      ["post", "ordinary", 5],
+      ["post", "initialized", 5],
+      ["observer-override", "postupdate", 5],
+      ["hook", 5],
+      ["destroy-victim", 5],
+      ["post", "late", 5],
+      ["post", "proxied", 5],
+      ["pre", 5],
+      ["observer-override", "preupdate", 5],
+      ["post", "ordinary", 6],
+      ["post", "initialized", 6],
+      ["observer-override", "postupdate", 6],
+      ["hook", 6],
+      ["post", "late", 6],
+      ["post", "proxied", 6],
+      ["pre", 6],
+      ["observer-override", "preupdate", 6],
+      ["observer-override", "preupdate", 7],
+      ["pre", 7],
+      ["observer-override", "preupdate", 7],
+      ["post", "ordinary", 8],
+      ["post", "initialized", 8],
+      ["observer-override", "postupdate", 8],
+      ["post", "late", 8],
+      ["post", "proxied", 8],
+      ["pre", 8],
+      ["observer-override", "preupdate", 8],
+      ["post", "ordinary", 9],
+      ["post", "initialized", 9],
+      ["observer-override", "postupdate", 9],
+      ["post", "late", 9],
+      ["post", "proxied", 9],
+      ["pre", 9],
+      ["observer-override", "preupdate", 9],
+      ["post", "ordinary", 10],
+      ["post", "initialized", 10],
+      ["observer-override", "postupdate", 10],
+      ["post", "late", 10],
+      ["post", "proxied", 10],
+      ["pre", 10],
+      ["observer-override", "preupdate", 10],
+      ["post", "ordinary", 11],
+      ["post", "initialized", 11],
+      ["observer-override", "postupdate", 11],
+      ["post", "late", 11],
+      ["post", "proxied", 11],
+      ["pre", 11],
+      ["observer-override", "preupdate", 11],
+      ["post", "ordinary", 12],
+      ["post", "initialized", 12],
+      ["observer-override", "postupdate", 12],
+      ["post", "late", 12],
+      ["post", "proxied", 12]
+    ],
+    "realNativeGame": true,
+    "actualClockPayloadsVerified": true
+  },
+  "matchingPngSha256": "94314ada15bb787cc5c17fe4c00609f239c9a2b16adf74e0f2b3bded997e21d5",
+  "cleanup": [
+    {
+      "side": "before",
+      "gameDestroyed": "destroyed",
+      "bitmapClosed": true
+    },
+    {
+      "side": "after",
+      "gameDestroyed": "destroyed",
+      "bitmapClosed": true
+    }
+  ],
+  "errors": []
+}
+```
+
+### 固定 A/A＋A/B CPU 方法與控制
+
+修正版 native gates 完成後才開始 CPU。A/A 288 samples 完成後，獨立新 browser 的 A/B 288 samples；每模式十二個預先固定 cohort，各六輪 alternating ABBA/BAAB、每 sample 8 warm＋48 measured frames，共576 averaged samples／27648 measured frames。所有值、ties、outliers及原始 selector 均保留，沒有重跑挑方向、剔值或用 A/A median 扣除 A/B。兩模式 elapsed 分別287812ms、287724ms；期間沒有啟動 formatter、build、test 或其他 profiler。
+
+一個 canonical core graph，只 override SceneObject 與 event-observers 的原型模組，沒有公開控制 API。每 cohort 同一個真實 Game／Scene／renderer／canvas／command buffer／particle pool；只在 sample warm 前切換 prototype method，且記錄實際 function identity。A/A 的兩個 label 都是 before（288次），A/B before/after 各144次。65幀初始 setup 明示選回 before；兩種選擇各自先跑8 warm＋1 probe 再真正 render/截圖。不是在最後狀態截兩次。
+
+1280×720、pixelRatio1、autoResize false、visible、原生白4×4 ImageBitmap、WebGL2、四 emitter各8192（small各128；empty保持容量但0活粒子）、rate0、life1000000、speed/acceleration0、固定非均勻縮放與旋轉；sentinel 粒子依真實 Game dt 自然到期，確認不是只手動呼叫 renderer。沿用既有 frameWork 四個 span；Scene.update 只以 microtask 在 onFrame 結束後讀當幀 counter，沒有改寫 clock/counter。category sum 是四個 JS span 相加，不是完整 frame time、CPU-only instruction time、GPU elapsed 或 presented FPS。
+
+十二個 cohort 在量測前固定：mixed/local/world large、local nested(depth4)、small、layer、empty、offscreen、512個真實 post listener、post type曾觀察後的 empty、混合／巢狀／多 actor shape且512 pre＋512 post listener 的 lifecycle-history、兩種類型都曾觀察後的 empty。global observed Set 在單一 mode 內不清空，所以最後兩個 empty 不享有「從未觀察」前提。history control 先為獨立 actor 註冊、移除 pre/post 後 destroy，再放入真實多種 actor；沒有假 callback。listeners 驗證 dt 有效，每 sample 精確檢查 (warm+measured)×listenerCount，既不吞事件也不把 callback allocations 從 timing 移走。每模式 sample 的 warm＋measured callback 合計 post1376256、pre688128（不包含 setup/probe）。
+
+所有 cohort 的兩種選擇 PNG相同；empty與offscreen預期為空白，其他非空白；每 cohort Game destroyed、外借 Texture 顯式destroy並關閉bitmap。逐 sample zero errors。模式／初始selector／listener數／image proof：
+
+```json
+[
+  {
+    "mode": "aa",
+    "rows": 72,
+    "samples": 288,
+    "measuredFrames": 13824,
+    "elapsedMs": 287812,
+    "setup": [
+      {
+        "name": "sprite-mixed-large",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-local-large",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-world-large",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-local-nested",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-local-small",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "319b5bb34c88f7ad952b16f8b8f950ddccf3159c029fa7a0358adf09ce0e17c0",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "layer-local-control",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "2a9857e9d3b119960c29b911b3d25642a476f9ee1966dc12f6606fb32461e792",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-empty-control",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+        "nonuniform": [false, false]
+      },
+      {
+        "name": "sprite-offscreen-large",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+        "nonuniform": [false, false]
+      },
+      {
+        "name": "sprite-local-listeners-control",
+        "initialObserverVariant": "before",
+        "post": 512,
+        "pre": 0,
+        "hash": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-empty-observed-type-control",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+        "nonuniform": [false, false]
+      },
+      {
+        "name": "sprite-mixed-lifecycle-history-control",
+        "initialObserverVariant": "before",
+        "post": 512,
+        "pre": 512,
+        "hash": "ae7084ea5c5a97906a604d8b9c20998256ad0e29e5b4c9e9806d6bac4fa2bae6",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-empty-both-types-history-control",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+        "nonuniform": [false, false]
+      }
+    ]
+  },
+  {
+    "mode": "ab",
+    "rows": 72,
+    "samples": 288,
+    "measuredFrames": 13824,
+    "elapsedMs": 287724,
+    "setup": [
+      {
+        "name": "sprite-mixed-large",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-local-large",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-world-large",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-local-nested",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-local-small",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "319b5bb34c88f7ad952b16f8b8f950ddccf3159c029fa7a0358adf09ce0e17c0",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "layer-local-control",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "2a9857e9d3b119960c29b911b3d25642a476f9ee1966dc12f6606fb32461e792",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-empty-control",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+        "nonuniform": [false, false]
+      },
+      {
+        "name": "sprite-offscreen-large",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+        "nonuniform": [false, false]
+      },
+      {
+        "name": "sprite-local-listeners-control",
+        "initialObserverVariant": "before",
+        "post": 512,
+        "pre": 0,
+        "hash": "1188f65fe0122ae570ea51f1c6613409c6144d263c7222ac250943d0591c040c",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-empty-observed-type-control",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+        "nonuniform": [false, false]
+      },
+      {
+        "name": "sprite-mixed-lifecycle-history-control",
+        "initialObserverVariant": "before",
+        "post": 512,
+        "pre": 512,
+        "hash": "ae7084ea5c5a97906a604d8b9c20998256ad0e29e5b4c9e9806d6bac4fa2bae6",
+        "nonuniform": [true, true]
+      },
+      {
+        "name": "sprite-empty-both-types-history-control",
+        "initialObserverVariant": "before",
+        "post": 0,
+        "pre": 0,
+        "hash": "fb065a448c97396793a515c13f200e19ae88e5f40fd4cf4f535e2aa65da195dc",
+        "nonuniform": [false, false]
+      }
+    ]
+  }
+]
+```
+
+### A/A：全部五項 span 與方向
+
+每輪各 label 的兩個 sample 先取均值再配對；下表報六輪 paired median 與完整範圍。before/after 的各自 median 不必相減等於 paired median。navigation 的0分母保留絕對差，百分比為n/a。
+
+| span          | cohort                                  | median before µs   | median after µs    | median paired Δ µs     | median paired Δ %         | paired % range                           | faster/slower/equal |
+| ------------- | --------------------------------------- | ------------------ | ------------------ | ---------------------- | ------------------------- | ---------------------------------------- | ------------------- |
+| simulationUs  | sprite-mixed-large                      | 240.10416741172472 | 242.1875004656613  | -1.0416676911214893    | -0.44232838734763524      | -5.67685568179913 … 8.675798833542963    | 3/3/0               |
+| simulationUs  | sprite-local-large                      | 227.6041677687317  | 216.66666702367365 | -6.25000079162416      | -2.6749493238943094       | -14.15525102317837 … -0.4651162523137614 | 6/0/0               |
+| simulationUs  | sprite-world-large                      | 286.97916702367365 | 264.5833329297602  | -29.16666733411452     | -10.186137477846348       | -18.027211322582612 … 13.8888890301477   | 5/1/0               |
+| simulationUs  | sprite-local-nested                     | 260.93750004656613 | 260.9374998913457  | -3.645833271245152     | -1.3705738459884933       | -8.108107878168708 … 2.03252082013572    | 4/2/0               |
+| simulationUs  | sprite-local-small                      | 94.79166714784999  | 93.22916739620268  | -2.604166744276881     | -2.682701263486824        | -10.101010199834244 … 6.493506297471659  | 4/2/0               |
+| simulationUs  | layer-local-control                     | 12.499999953433871 | 17.70833320915699  | 2.604166511446236      | 21.24999969964851         | -11.1111119389534 … 199.99999627470976   | 1/5/0               |
+| simulationUs  | sprite-empty-control                    | 3118.7499994412065 | 3172.91666707024   | -33.33333266588534     | -1.0163026569752758       | -5.97694177219818 … 23.215523132098856   | 3/3/0               |
+| simulationUs  | sprite-offscreen-large                  | 389.0625004811833  | 402.0833339697371  | 19.270833038414537     | 4.992825674650747         | -13.457076323709979 … 12.394366460621203 | 2/4/0               |
+| simulationUs  | sprite-local-listeners-control          | 658.8541665114462  | 623.9583331625909  | -16.666666604578438    | -2.498532202078984        | -7.765451601525656 … 17.968750063846553  | 5/1/0               |
+| simulationUs  | sprite-empty-observed-type-control      | 3282.291666759799  | 2969.270833923171  | -304.6875003880507     | -9.362546244913188        | -13.000597702721223 … -3.704837760444119 | 6/0/0               |
+| simulationUs  | sprite-mixed-lifecycle-history-control  | 1428.1249997826915 | 1415.6250000620882 | -17.187499518816594    | -1.2029962846258477       | -6.591957832281096 … 8.635312220163483   | 4/2/0               |
+| simulationUs  | sprite-empty-both-types-history-control | 2513.5416658595204 | 2256.250000325963  | -198.43749965851498    | -8.259438110405355        | -17.210216071893804 … 18.705763436729374 | 5/1/0               |
+| navigationUs  | sprite-mixed-large                      | 0                  | 0                  | 0                      | n/a: 5 zero-before rounds | n/a                                      | 1/1/4               |
+| navigationUs  | sprite-local-large                      | 0.5208333022892475 | 1.0416666821887097 | 0.5208333798994621     | n/a: 3 zero-before rounds | n/a                                      | 1/4/1               |
+| navigationUs  | sprite-world-large                      | 0                  | 0                  | 0                      | n/a: 4 zero-before rounds | n/a                                      | 2/1/3               |
+| navigationUs  | sprite-local-nested                     | 0                  | 0                  | 0                      | n/a: 5 zero-before rounds | n/a                                      | 0/2/4               |
+| navigationUs  | sprite-local-small                      | 2.0833333643774194 | 1.5625000620881715 | 0                      | n/a: 1 zero-before rounds | n/a                                      | 3/3/0               |
+| navigationUs  | layer-local-control                     | 0.5208333022892475 | 0                  | -0.5208333022892475    | n/a: 3 zero-before rounds | n/a                                      | 3/1/2               |
+| navigationUs  | sprite-empty-control                    | 1.0416666821887097 | 2.083333364377419  | 0.520833379899462      | n/a: 2 zero-before rounds | n/a                                      | 1/4/1               |
+| navigationUs  | sprite-offscreen-large                  | 0.5208333798994621 | 1.041666604578495  | -2.220446049250313e-16 | n/a: 3 zero-before rounds | n/a                                      | 3/2/1               |
+| navigationUs  | sprite-local-listeners-control          | 1.5624999844779572 | 1.0416666821887097 | -2.220446049250313e-16 | n/a: 2 zero-before rounds | n/a                                      | 3/2/1               |
+| navigationUs  | sprite-empty-observed-type-control      | 2.0833333643774194 | 1.041666604578495  | -1.5625000620881717    | n/a: 2 zero-before rounds | n/a                                      | 4/1/1               |
+| navigationUs  | sprite-mixed-lifecycle-history-control  | 0                  | 0                  | 0                      | n/a: 6 zero-before rounds | n/a                                      | 0/1/5               |
+| navigationUs  | sprite-empty-both-types-history-control | 3.1249998913456993 | 3.645833193634947  | 1.04166652696828       | n/a: 1 zero-before rounds | n/a                                      | 3/3/0               |
+| afterUpdateUs | sprite-mixed-large                      | 692.187500031044   | 675.520832805584   | -25.520833907648978    | -3.6408196519834766       | -9.03614461008287 … 4.776579439455385    | 4/2/0               |
+| afterUpdateUs | sprite-local-large                      | 754.1666665735345  | 748.4375000931323  | -6.250000325962958     | -0.8272146805035793       | -20.93663913717294 … 4.7819973266038245  | 4/2/0               |
+| afterUpdateUs | sprite-world-large                      | 971.3541669771075  | 982.2916658595204  | 15.104166620100557     | 1.5555675616950873        | -2.4287223855164464 … 5.96175483517983   | 1/5/0               |
+| afterUpdateUs | sprite-local-nested                     | 684.8958336437742  | 673.4374995964268  | 1.5624988979349155     | 0.2248873968842168        | -3.3485541709155418 … 5.45454532893236   | 3/3/0               |
+| afterUpdateUs | sprite-local-small                      | 98.4375001086543   | 95.83333383003871  | -6.249999782691404     | -6.647629771572612        | -12.24489751854125 … 8.33333298408736    | 4/2/0               |
+| afterUpdateUs | layer-local-control                     | 1636.4583333488554 | 1667.7083340473473 | 24.479166371747965     | 1.4917976581259884        | -1.6362493031527952 … 7.211848096379138  | 2/4/0               |
+| afterUpdateUs | sprite-empty-control                    | 7.2916666977107525 | 10.416666899497312 | 2.0833329763263455     | 20.833330254794816        | -19.99999940395355 … 100.00001192092893  | 2/4/0               |
+| afterUpdateUs | sprite-offscreen-large                  | 1011.4583338921268 | 1011.9791666511446 | 3.6458322623123536     | 0.3652273935505076        | -6.063618242052268 … 7.9004328045971235  | 3/3/0               |
+| afterUpdateUs | sprite-local-listeners-control          | 763.5416668684531  | 838.0208328987161  | 39.58333291423821      | 5.042516950723302         | -6.44718792233256 … 14.306151281553978   | 2/4/0               |
+| afterUpdateUs | sprite-empty-observed-type-control      | 8.33333337989946   | 6.250000325962901  | -1.0416663717478523    | -9.126981844786217        | -55.55555739520498 … 499.99995529652034  | 4/2/0               |
+| afterUpdateUs | sprite-mixed-lifecycle-history-control  | 795.3124997050812  | 793.7499997206032  | -2.6041667442768244    | -0.32637076660213893      | -6.731946197674081 … 2.960968965353607   | 4/2/0               |
+| afterUpdateUs | sprite-empty-both-types-history-control | 9.895833441987634  | 10.937500124176342 | 1.041666604578495      | 6.666665938165436         | -40.00000625848743 … 171.42856960393954  | 3/3/0               |
+| submitUs      | sprite-mixed-large                      | 5527.604166883975  | 5520.8333330228925 | -5.208333100502841     | -0.09346321687767394      | -8.776243616753474 … 0.43668125049243595 | 3/3/0               |
+| submitUs      | sprite-local-large                      | 5333.854167722166  | 5300.000000434617  | -28.645833566163674    | -0.5314556186386635       | -10.56170883879638 … 1.3155311011048991  | 3/3/0               |
+| submitUs      | sprite-world-large                      | 6518.229165890564  | 6536.458333954215  | -42.708332262312524    | -0.656182035907857        | -1.4379293532787505 … 1.2627877391917535 | 4/2/0               |
+| submitUs      | sprite-local-nested                     | 7522.3958333954215 | 7516.6666672254605 | -66.66666665114417     | -0.8720769176028794       | -3.608660789639341 … 1.5202231633397216  | 4/2/0               |
+| submitUs      | sprite-local-small                      | 578.1250003104408  | 573.9583344353985  | -12.50000010865432     | -2.226032626887442        | -15.097691021586911 … 3.6563070166491176 | 4/2/0               |
+| submitUs      | layer-local-control                     | 3144.270832572753  | 3150.0000002949187 | 51.04166711680614      | 1.6145282874877904        | -2.1866840064826616 … 4.706708838292731  | 2/4/0               |
+| submitUs      | sprite-empty-control                    | 1095.3124995964267 | 1114.5833335661641 | -65.10416604578484     | -4.76523031339138         | -17.89168268187101 … 15.167930651583141  | 4/2/0               |
+| submitUs      | sprite-offscreen-large                  | 3709.374999705081  | 3724.4791665580124 | 21.354167566945307     | 0.5700845802144436        | -3.238976601951481 … 2.7110985760648356  | 2/4/0               |
+| submitUs      | sprite-local-listeners-control          | 6606.249999642993  | 6769.791667116806  | 136.4583338145162      | 2.0647504100870084        | -1.266208993488373 … 6.165609261509424   | 2/4/0               |
+| submitUs      | sprite-empty-observed-type-control      | 1067.1874998758237 | 1095.3124995188168 | 59.37499987582362      | 5.749131904948465         | -2.868068819569581 … 26.962142221191815  | 1/5/0               |
+| submitUs      | sprite-mixed-lifecycle-history-control  | 12695.833333690342 | 12685.937500093132 | -27.604166728754535    | -0.2179549913508647       | -3.0076959238163163 … 0.2715825830954693 | 4/2/0               |
+| submitUs      | sprite-empty-both-types-history-control | 1217.1875005587935 | 1127.604166433836  | -104.68750035700691    | -8.75661644533593         | -17.07882545723699 … 14.737883244252533  | 5/1/0               |
+| categorySumUs | sprite-mixed-large                      | 6455.729166278616  | 6423.9583335972075 | -28.645833022892475    | -0.44273268874108446      | -8.387201026035113 … 1.1599806675469928  | 4/2/0               |
+| categorySumUs | sprite-local-large                      | 6318.229167566945  | 6271.354166790843  | -46.874999922389634    | -0.7360607371748579       | -11.962679084955086 … 1.0281923521245897 | 3/3/0               |
+| categorySumUs | sprite-world-large                      | 7769.791665875042  | 7757.291667240982  | -44.79166624757136     | -0.5767618338915254       | -1.2602225310030242 … 1.1381896089802168 | 4/2/0               |
+| categorySumUs | sprite-local-nested                     | 8466.666666558012  | 8418.750000186265  | -83.85416648040155     | -0.9821141432166898       | -3.2420749383531398 … 1.8071543519459634 | 4/2/0               |
+| categorySumUs | sprite-local-small                      | 772.9166672409822  | 759.3750009934108  | -18.749998960023106    | -2.3122579928479694       | -13.377483417332092 … 4.246575287407805  | 4/2/0               |
+| categorySumUs | layer-local-control                     | 4799.479166666667  | 4853.12500076058   | 82.29166672875499      | 1.7107832454066227        | -1.9086424839293383 … 5.710401118220752  | 2/4/0               |
+| categorySumUs | sprite-empty-control                    | 4290.104165983697  | 4360.937500372529  | -48.95833204500332     | -1.1001573073638098       | -6.47693817694847 … 18.033248811331255   | 4/2/0               |
+| categorySumUs | sprite-offscreen-large                  | 5130.208333566164  | 5160.416666806365  | 61.45833355064224      | 1.2111142470396823        | -4.037022460715633 … 3.7559659668759613  | 2/4/0               |
+| categorySumUs | sprite-local-listeners-control          | 8040.624999751648  | 8220.312499906868  | 154.16666795499623     | 1.9095464563085676        | -1.3279879592682535 … 5.750969630013232  | 1/5/0               |
+| categorySumUs | sprite-empty-observed-type-control      | 4359.374999379119  | 4023.9583329918482 | -214.58333303841482    | -5.218100065928317        | -9.195138711951897 … -0.6101694920961985 | 6/0/0               |
+| categorySumUs | sprite-mixed-lifecycle-history-control  | 14916.666666589057 | 14926.041666263092 | -33.333333441987634    | -0.22450485051063337      | -3.570480486389699 … 0.9570051322561267  | 3/3/0               |
+| categorySumUs | sprite-empty-both-types-history-control | 3744.7916662010057 | 3399.999999984478  | -326.56250055879354    | -8.605683479205112        | -17.112438328857575 … 17.77851902588522  | 5/1/0               |
+
+### A/B：全部五項 span 與方向
+
+| span          | cohort                                  | median before µs   | median after µs    | median paired Δ µs    | median paired Δ %         | paired % range                            | faster/slower/equal |
+| ------------- | --------------------------------------- | ------------------ | ------------------ | --------------------- | ------------------------- | ----------------------------------------- | ------------------- |
+| simulationUs  | sprite-mixed-large                      | 310.41666702367365 | 338.5416667442769  | 29.166666868453206    | 9.508244032004551         | 5.825242458131611 … 16.161615890990046    | 0/6/0               |
+| simulationUs  | sprite-local-large                      | 297.39583361273014 | 331.7708345130086  | 28.645833178112895    | 9.784701045481322         | 1.2820515851444387 … 23.048326500199092   | 0/6/0               |
+| simulationUs  | sprite-world-large                      | 377.0833335972081  | 431.7708331315468  | 52.083332867672055    | 13.646763406936955        | -3.0000000074505895 … 36.12716751902972   | 1/5/0               |
+| simulationUs  | sprite-local-nested                     | 349.4791655490796  | 384.89583351959783 | 34.895834124957474    | 10.087862397511781        | -0.8645530481725064 … 55.128205540901675  | 2/4/0               |
+| simulationUs  | sprite-local-small                      | 109.89583337989947 | 113.02083334885538 | 5.72916686845322      | 5.139257767521707         | -4.545454927219826 … 15.887849955790342   | 2/4/0               |
+| simulationUs  | layer-local-control                     | 18.7499998913457   | 17.1875002173086   | -0.5208333022892475   | -2.777777616808444        | -29.999999701976783 … 58.333336644702506  | 3/2/1               |
+| simulationUs  | sprite-empty-control                    | 3541.1458336748183 | 3370.8333332712455 | -200.52083286767152   | -5.70283985695032         | -14.277162516505976 … 19.834983473784796  | 4/2/0               |
+| simulationUs  | sprite-offscreen-large                  | 513.5416667132328  | 533.8541668218871  | 20.312500108654348    | 3.9650405122124237        | -0.20040096862717582 … 13.107822381641668 | 2/4/0               |
+| simulationUs  | sprite-local-listeners-control          | 709.3750006364037  | 767.7083339076489  | 43.229166961585406    | 5.9517974854526585        | 4.526167013720015 … 19.736842020988338    | 0/6/0               |
+| simulationUs  | sprite-empty-observed-type-control      | 2879.6875000310442 | 3282.291666837409  | 256.7708334730314     | 8.49349896293872          | -18.88217524399511 … 21.121495292190698   | 1/5/0               |
+| simulationUs  | sprite-mixed-lifecycle-history-control  | 1536.4583332557231 | 1677.0833334109436 | 130.20833294528234    | 8.463197841686874         | 4.131697833610408 … 27.4861877211029      | 0/6/0               |
+| simulationUs  | sprite-empty-both-types-history-control | 2572.395833286767  | 2643.750000046566  | 12.500000729536168    | 0.6648538653609544        | -4.14905877747277 … 26.54238791745901     | 3/3/0               |
+| navigationUs  | sprite-mixed-large                      | 0                  | 0                  | 0                     | n/a: 4 zero-before rounds | n/a                                       | 1/1/4               |
+| navigationUs  | sprite-local-large                      | 0                  | 1.0416666821887097 | 0.5208333022892475    | n/a: 4 zero-before rounds | n/a                                       | 1/3/2               |
+| navigationUs  | sprite-world-large                      | 0.5208333022892475 | 0                  | 0                     | n/a: 3 zero-before rounds | n/a                                       | 2/2/2               |
+| navigationUs  | sprite-local-nested                     | 0                  | 1.041666604578495  | 1.041666604578495     | n/a: 6 zero-before rounds | n/a                                       | 0/5/1               |
+| navigationUs  | sprite-local-small                      | 2.083333364377419  | 2.6041665114462376 | 2.220446049250313e-16 | n/a: 1 zero-before rounds | n/a                                       | 3/3/0               |
+| navigationUs  | layer-local-control                     | 0.5208333022892475 | 0                  | -0.5208333022892475   | n/a: 3 zero-before rounds | n/a                                       | 3/0/3               |
+| navigationUs  | sprite-empty-control                    | 1.0416667597989242 | 1.5624999844779572 | 7.761021447727501e-8  | n/a: 1 zero-before rounds | n/a                                       | 3/3/0               |
+| navigationUs  | sprite-offscreen-large                  | 0.5208333798994621 | 0                  | -0.5208333798994621   | n/a: 3 zero-before rounds | n/a                                       | 3/1/2               |
+| navigationUs  | sprite-local-listeners-control          | 0.5208333022892475 | 1.0416666821887097 | 0                     | n/a: 3 zero-before rounds | n/a                                       | 2/2/2               |
+| navigationUs  | sprite-empty-observed-type-control      | 1.041666604578495  | 1.0416666821887097 | 7.761021458829731e-8  | n/a: 1 zero-before rounds | n/a                                       | 1/3/2               |
+| navigationUs  | sprite-mixed-lifecycle-history-control  | 0                  | 0                  | 0                     | n/a: 5 zero-before rounds | n/a                                       | 1/1/4               |
+| navigationUs  | sprite-empty-both-types-history-control | 3.1249998913456993 | 1.5624999844779572 | -1.0416666821887095   | -33.33333416117563        | -100 … 100                                | 3/2/1               |
+| afterUpdateUs | sprite-mixed-large                      | 657.812499285986   | 664.5833339231709  | -0.5208336127301436   | -0.0856164807103723       | -2.7649767952388205 … 3.3439490637421625  | 4/2/0               |
+| afterUpdateUs | sprite-local-large                      | 824.4791664959242  | 820.8333329918485  | -2.083333519597943    | -0.24830712820419432      | -2.2332507811407267 … 1.174934498911352   | 3/3/0               |
+| afterUpdateUs | sprite-world-large                      | 945.3125005432715  | 877.0833331315467  | -27.08333296080434    | -2.876106154254398        | -9.748083189985387 … 4.302477105412484    | 3/3/0               |
+| afterUpdateUs | sprite-local-nested                     | 627.6041669771075  | 598.9583327900618  | -20.312500729536055   | -3.2635051834664166       | -5.967741982621767 … 0.36101070108141925  | 5/1/0               |
+| afterUpdateUs | sprite-local-small                      | 98.9583331005027   | 97.39583327124515  | -2.083332510665059    | -2.099779891646883        | -15.730337214099684 … 10.11236014690925   | 4/2/0               |
+| afterUpdateUs | layer-local-control                     | 1643.2291662010052 | 1657.8125002173085 | 17.18749998447788     | 1.047413182223319         | -2.3358585425933307 … 8.974359047965024   | 2/4/0               |
+| afterUpdateUs | sprite-empty-control                    | 5.7291666356225806 | 6.250000170742472  | 1.0416666821887093    | 49.999995103904354        | -49.99999850988387 … 199.99997019768026   | 2/4/0               |
+| afterUpdateUs | sprite-offscreen-large                  | 974.479166790843   | 954.1666672254603  | -20.83333255723113    | -2.088162493702609        | -8.437499918800324 … 11.784141051019038   | 4/2/0               |
+| afterUpdateUs | sprite-local-listeners-control          | 806.7708330539366  | 782.2916661389172  | -20.833333255723062   | -2.6921746407915332       | -11.168164288519458 … 4.005168049221004   | 4/2/0               |
+| afterUpdateUs | sprite-empty-observed-type-control      | 5.729166558012366  | 5.729166635622581  | 2.3283064454204805e-7 | n/a: 1 zero-before rounds | n/a                                       | 1/5/0               |
+| afterUpdateUs | sprite-mixed-lifecycle-history-control  | 794.2708336437743  | 798.4374999068677  | 7.291666232049465     | 0.917431137373326         | -0.9186351936748669 … 3.0183725814607265  | 2/4/0               |
+| afterUpdateUs | sprite-empty-both-types-history-control | 13.020833488553762 | 9.895832976326346  | -3.645833659296234    | -28.525642875427618       | -57.89473915364274 … 22.222226085486273   | 4/2/0               |
+| submitUs      | sprite-mixed-large                      | 5499.479166620101  | 5494.2708335972075 | -11.979166573534258   | -0.21574934251341288      | -1.4009844710162165 … 5.764156679741261   | 3/3/0               |
+| submitUs      | sprite-local-large                      | 5226.041666775321  | 5222.395833348855  | -13.020832479620822   | -0.24615790475065896      | -1.799687005749674 … 8.80737973440812     | 3/3/0               |
+| submitUs      | sprite-world-large                      | 6448.437500900278  | 6522.39583269693   | -52.60416772216513    | -0.8124038621312768       | -1.6095284294607664 … 3.492167097529445   | 4/2/0               |
+| submitUs      | sprite-local-nested                     | 7548.437500527749  | 7502.083333674818  | 16.66666683740914     | 0.2239050151529453        | -2.8687415409542076 … 1.7736834855382033  | 2/4/0               |
+| submitUs      | sprite-local-small                      | 582.812500031044   | 572.3958326658856  | -10.41666736515856    | -1.7861935771760238       | -13.475177197970895 … 36.0526312557449    | 4/2/0               |
+| submitUs      | layer-local-control                     | 3114.583334575097  | 3190.104166744277  | 79.1666658284762      | 2.554003238553975         | -1.8830525520928887 … 12.541620388945878  | 1/5/0               |
+| submitUs      | sprite-empty-control                    | 889.0625002483526  | 782.8124999068677  | -106.2500003414849    | -11.959790748482202       | -31.328807031188216 … 8.519004011963236   | 5/1/0               |
+| submitUs      | sprite-offscreen-large                  | 3696.3541666045785 | 3690.1041666666665 | 16.145833069458604    | 0.4274462543990566        | -3.410981717062907 … 6.334841593625422    | 3/3/0               |
+| submitUs      | sprite-local-listeners-control          | 6652.604166495925  | 6567.708333954215  | -61.97916700815131    | -0.9415533632402694       | -5.0030788027555 … 1.2583501343503267     | 4/2/0               |
+| submitUs      | sprite-empty-observed-type-control      | 909.8958324951429  | 884.8958327434957  | 23.437500620881735    | 2.608483186563535         | -18.41302137003632 … 11.495844765177774   | 2/4/0               |
+| submitUs      | sprite-mixed-lifecycle-history-control  | 12624.479166852932 | 12597.916666728755 | -28.645833643773585   | -0.22701873536340644      | -1.1742486472743772 … 5.037220852731006   | 4/2/0               |
+| submitUs      | sprite-empty-both-types-history-control | 1117.1875000776101 | 1021.8749995498608 | -72.39583367481816    | -6.484915858638257        | -15.19434621700414 … 5.6886227861929495   | 5/1/0               |
+| categorySumUs | sprite-mixed-large                      | 6490.1041671788935 | 6500.5208337679505 | 3.6458337369076617    | 0.056111611914550164      | -0.8352071936445415 … 5.662650582191444   | 2/4/0               |
+| categorySumUs | sprite-local-large                      | 6342.7083333954215 | 6375.520834000781  | 14.583333628252603    | 0.22713690935086006       | -1.4005151108866594 … 8.546852120012609   | 3/3/0               |
+| categorySumUs | sprite-world-large                      | 7759.37500060536   | 7858.33333277454   | -23.958333690339714   | -0.3064954694804669       | -1.5500846826973345 … 3.221384497616592   | 4/2/0               |
+| categorySumUs | sprite-local-nested                     | 8509.89583414048   | 8479.687500822667  | 19.270833426464378    | 0.22525153159279565       | -2.556989503385377 … 3.2454856054885877   | 2/4/0               |
+| categorySumUs | sprite-local-small                      | 787.500000015522   | 777.0833329608043  | -2.6041672099381685   | -0.3046787437253772       | -10.675675757827987 … 23.569023677392277  | 3/3/0               |
+| categorySumUs | layer-local-control                     | 4750.520833690341  | 4865.104166946063  | 121.35416672875454    | 2.566833966403039         | -2.0725388588701583 … 8.360128628885054   | 1/5/0               |
+| categorySumUs | sprite-empty-control                    | 4513.541667644556  | 4103.645833674818  | -326.04166648040155   | -7.158883949819767        | -13.914203170847433 … 17.63622003986845   | 5/1/0               |
+| categorySumUs | sprite-offscreen-large                  | 5182.291667209938  | 5163.020833861083  | -14.062499860301159   | -0.2723402780717629       | -2.8361761231022764 … 7.021448788620808   | 3/3/0               |
+| categorySumUs | sprite-local-listeners-control          | 8186.979166775322  | 8104.687500745058  | -26.56249958090484    | -0.3363969320151617       | -3.467772323136546 … 1.8124207683268823   | 3/3/0               |
+| categorySumUs | sprite-empty-observed-type-control      | 3853.124999674037  | 4251.041667147851  | 306.25000052774976    | 7.627298632564538         | -14.942849191175217 … 17.509836995489884  | 1/5/0               |
+| categorySumUs | sprite-mixed-lifecycle-history-control  | 14933.854166728755 | 15067.187500263875 | 113.02083311602473    | 0.755588194162927         | -0.5724927594553239 … 7.202797192743354   | 1/5/0               |
+| categorySumUs | sprite-empty-both-types-history-control | 3716.666666402792  | 3678.645833162591  | -86.45833337989961    | -2.229382535254238        | -6.604278046983897 … 19.576719538930305   | 3/3/0               |
+
+### 採用判斷與限制
+
+- mixed/local simulation 分別增加9.508%／9.785%，均六輪變慢；post-listener control增加5.952%、mixed lifecycle history增加8.463%，也各六輪變慢。category sum 中 mixed/local/nested 沒有穩定總收益；layer control多數總成本增加。
+- cold-type empty 的 category-sum median下降7.159%，但已觀察post類型的 empty反而增加7.627%；兩類型history empty方向3/3。A/A本身兩個history empty已有明顯漂移、也有large outlier，不能用局部下降抵銷實際常見負載的simulation成本或宣稱穩定空pool修復。
+- 原型以可變 prototype method 控制選擇，可能影響 inlining／deoptimization／callsite；before有65幀初始warm，而兩種probe各9幀，不能視為完全對稱的JIT訓練或獨立靜態production bundle認證。原型二的全域Set查詢增加工作，但這批資料不單獨證明每一差異只由該查詢造成。
+- 因不採用，沒有 promotion／build／CJS adoption proof、全套typecheck/test/lint、production CPU benchmark、audio unlock/cleanup、Safari或實體裝置認證。不得把原型native等價或正式7個單檔測試說成全套驗收。沒有聲稱allocation、GPU或FPS改善。
+
+### P269 初始 warm-up selector 的更正（保留歷史原文）
+
+P269的初始 fixture.sample(1,64) 是直接呼叫，不經 sampleGame269 的 selector。當時文字聲稱每cohort這段warm都是original，過於強烈：A/A始終original，但A/B後續cohort可沿用上一cohort最後的candidate。正式timed samples仍逐sample先選擇、再warm，且192個實際selection有紀錄；不改寫或重新跑原始384個值。P270已在每個setup warm前明示選回before，並記錄initialObserverVariant；仍公開上述warm／prototype控制限制，不能藉此追認P269穩定JIT或單因果證明。
+
+### 全部 A/A averaged samples（無刪值）
+
+| cohort                                  | round | order                     | label  | actual observer method | simulation µs      | navigation µs      | after-update µs    | submit µs          | category sum µs    | post callbacks incl warm | post listeners | pre callbacks incl warm | pre listeners |
+| --------------------------------------- | ----- | ------------------------- | ------ | ---------------------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------------ | -------------- | ----------------------- | ------------- |
+| sprite-mixed-large                      | 0     | before,after,after,before | before | before                 | 239.58333302289248 | 0                  | 643.7500004346172  | 5456.250000124176  | 6339.583333581686  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 0     | before,after,after,before | after  | before                 | 245.83333358168602 | 0                  | 639.5833343267441  | 5466.66666554908   | 6352.08333345751   | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 0     | before,after,after,before | after  | before                 | 235.41666846722364 | 0                  | 662.4999986961484  | 5579.166665362815  | 6477.083332526187  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 0     | before,after,after,before | before | before                 | 256.24999900658923 | 0                  | 741.6666677842537  | 5633.33333345751   | 6631.250000248353  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 1     | after,before,before,after | after  | before                 | 235.41666691501936 | 0                  | 662.4999983857075  | 5558.333333892127  | 6456.2499991928535 | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 1     | after,before,before,after | before | before                 | 247.91666741172472 | 0                  | 658.3333325882753  | 5527.0833332712455 | 6433.3333332712455 | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 1     | after,before,before,after | before | before                 | 229.16666821887097 | 0                  | 689.5833307256302  | 5493.75000068297   | 6412.499999627471  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 1     | after,before,before,after | after  | before                 | 233.33333215365806 | 0                  | 697.9166679084301  | 5479.166667287548  | 6410.416667349637  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 2     | before,after,after,before | before | before                 | 237.49999950329462 | 0                  | 679.1666668529311  | 5558.333332339923  | 6474.999998696148  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 2     | before,after,after,before | after  | before                 | 256.2500002483527  | 2.0833335195978484 | 704.1666644314924  | 5283.3333335195975 | 6245.833331719041  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 2     | before,after,after,before | after  | before                 | 245.83333420256773 | 0                  | 554.166667163372   | 4764.5833340163035 | 5564.583335382244  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 2     | before,after,after,before | before | before                 | 256.2500002483527  | 0                  | 704.1666650523742  | 5456.250001986821  | 6416.666667287548  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 3     | after,before,before,after | after  | before                 | 235.4166659836968  | 0                  | 683.3333348234495  | 5602.083332836628  | 6520.8333336437745 | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 3     | after,before,before,after | before | before                 | 237.5000004346172  | 0                  | 674.9999995032946  | 5556.2500000620885 | 6468.75            | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 3     | after,before,before,after | before | before                 | 218.75             | 2.0833335195978484 | 677.0833327124516  | 5564.583332898716  | 6462.499999130766  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 3     | after,before,before,after | after  | before                 | 260.4166666666667  | 0                  | 733.3333318432173  | 5566.666667039196  | 6560.41666554908   | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 4     | before,after,after,before | before | before                 | 250.00000093132257 | 0                  | 697.9166663562258  | 5562.499999379118  | 6510.416666666666  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 4     | before,after,after,before | after  | before                 | 243.74999975164732 | 0                  | 664.5833331470689  | 5512.499999254942  | 6420.833332153658  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 4     | before,after,after,before | after  | before                 | 243.75000006208816 | 0                  | 679.1666665424904  | 5539.583335009714  | 6462.500001614292  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 4     | before,after,after,before | before | before                 | 233.33333308498064 | 0                  | 697.916666045785   | 5527.083334513009  | 6458.3333336437745 | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 5     | after,before,before,after | after  | before                 | 222.9166670391957  | 0                  | 687.4999987582365  | 5493.750001303852  | 6404.166667101284  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 5     | after,before,before,after | before | before                 | 243.7500006829699  | 0                  | 708.3333333333334  | 5549.9999998137355 | 6502.083333830039  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 5     | after,before,before,after | before | before                 | 233.33333308498064 | 0                  | 700.0000011175871  | 5422.916665362815  | 6356.249999565383  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 5     | after,before,before,after | after  | before                 | 227.08333438883224 | 0                  | 670.8333327745398  | 5527.083333581686  | 6425.000000745058  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 0     | before,after,after,before | before | before                 | 235.41666567325592 | 0                  | 693.749999627471   | 5391.666667846342  | 6320.8333331470685 | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 0     | before,after,after,before | after  | before                 | 227.08333314706883 | 2.08333320915699   | 750                | 5439.5833335195975 | 6418.749999875823  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 0     | before,after,after,before | after  | before                 | 233.33333308498064 | 2.0833335195978484 | 745.8333342025677  | 5433.333332960804  | 6414.5833337679505 | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 0     | before,after,after,before | before | before                 | 231.25000080714622 | 0                  | 750                | 5416.666666045785  | 6397.9166668529315 | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 1     | after,before,before,after | after  | before                 | 229.16666604578495 | 2.0833335195978484 | 750                | 5389.5833327745395 | 6370.833332339922  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 1     | after,before,before,after | before | before                 | 241.66666778425375 | 0                  | 739.5833314706882  | 5462.500001614292  | 6443.750000869234  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 1     | after,before,before,after | before | before                 | 241.66666716337204 | 2.08333320915699   | 741.6666668529311  | 5422.9166666045785 | 6408.333333830039  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 1     | after,before,before,after | after  | before                 | 235.4166659836968  | 0                  | 802.0833336437742  | 5118.750000372529  | 6156.25            | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 2     | before,after,after,before | before | before                 | 227.08333190530539 | 0                  | 741.666667163372   | 5295.8333333954215 | 6264.583332464099  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 2     | before,after,after,before | after  | before                 | 227.08333376795053 | 0                  | 745.8333338921269  | 5349.999998385708  | 6322.916666045785  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 2     | before,after,after,before | after  | before                 | 218.74999875823656 | 0                  | 749.9999996895591  | 5400.00000068297   | 6368.749999130765  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 2     | before,after,after,before | before | before                 | 220.8333338300387  | 0                  | 762.5000001862645  | 5314.58333445092   | 6297.916668467224  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 3     | after,before,before,after | after  | before                 | 210.4166674738129  | 2.08333320915699   | 766.6666659836968  | 5293.749999875824  | 6272.916666542491  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 3     | after,before,before,after | before | before                 | 233.33333525806665 | 0                  | 770.8333311602473  | 5379.1666685914    | 6383.333335009714  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 3     | after,before,before,after | before | before                 | 220.83333507180214 | 0                  | 760.4166648040215  | 5345.83333445092   | 6327.083334326744  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 3     | after,before,before,after | after  | before                 | 210.41666809469461 | 0                  | 741.6666646798452  | 5270.833334575097  | 6222.916667349637  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 4     | before,after,after,before | before | before                 | 229.16666666666666 | 2.08333320915699   | 750.0000003104409  | 5227.0833331470685 | 6208.333333333333  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 4     | before,after,after,before | after  | before                 | 191.6666661078731  | 0                  | 639.5833327745398  | 4631.250001179676  | 5462.5000000620885 | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 4     | before,after,after,before | after  | before                 | 200.0000017384688  | 0                  | 556.2499994412065  | 4789.583334078391  | 5545.833335258067  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 4     | before,after,after,before | before | before                 | 227.0833340783914  | 0                  | 762.4999986340603  | 5306.249999751647  | 6295.833332464099  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 5     | after,before,before,after | after  | before                 | 216.66666710128388 | 0                  | 745.8333332712451  | 5289.5833337679505 | 6252.08333414048   | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 5     | after,before,before,after | before | before                 | 208.33333395421505 | 2.08333320915699   | 756.2499999379119  | 5295.833332464099  | 6262.4999995653825 | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 5     | after,before,before,after | before | before                 | 216.66666523863873 | 0                  | 758.3333337679505  | 5293.750000496705  | 6268.749999503294  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 5     | after,before,before,after | after  | before                 | 202.08333432674408 | 6.249999937911828  | 752.0833328987161  | 5345.8333335195975 | 6306.25000068297   | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 0     | before,after,after,before | before | before                 | 337.50000037252903 | 0                  | 804.1666656111678  | 6443.749999006589  | 7585.416664990285  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 0     | before,after,after,before | after  | before                 | 295.83333401630324 | 0                  | 889.5833337058624  | 6568.750000869234  | 7754.1666685914    | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 0     | before,after,after,before | after  | before                 | 304.1666659216086  | 0                  | 889.5833340163032  | 6629.166666107873  | 7822.916666045785  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 0     | before,after,after,before | before | before                 | 339.58333513389033 | 0                  | 918.7499992549419  | 6589.583332650363  | 7847.916667039196  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 1     | after,before,before,after | after  | before                 | 260.41666728754836 | 0                  | 964.5833317190409  | 6454.166668156783  | 7679.166667163372  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 1     | after,before,before,after | before | before                 | 283.3333319673936  | 2.0833335195978484 | 977.0833331470689  | 6522.9166668529315 | 7785.416665486991  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 1     | after,before,before,after | before | before                 | 262.49999925494194 | 2.0833335195978484 | 972.9166670391957  | 6516.666665052374  | 7754.166664866109  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 1     | after,before,before,after | after  | before                 | 264.5833321536581  | 0                  | 1002.083333209157  | 6397.916667473813  | 7664.583332836628  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 2     | before,after,after,before | before | before                 | 258.3333331470688  | 0                  | 989.583334264656   | 6470.833332898716  | 7718.7500003104415 | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 2     | before,after,after,before | after  | before                 | 241.66666499028602 | 0                  | 991.666667163372   | 6435.416668653488  | 7668.7500008071465 | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 2     | before,after,after,before | after  | before                 | 356.25000142802793 | 0                  | 933.3333326503634  | 6474.999999627471  | 7764.583333705862  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 2     | before,after,after,before | before | before                 | 266.66666598369676 | 4.16666641831398   | 983.3333343267441  | 6552.0833336437745 | 7806.250000372529  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 3     | after,before,before,after | after  | before                 | 260.4166666666667  | 2.08333320915699   | 991.6666662320495  | 6435.416668343048  | 7689.583334450921  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 3     | after,before,before,after | before | before                 | 262.4999995653828  | 0                  | 975.0000005587935  | 6520.8333330228925 | 7758.3333331470685 | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 3     | after,before,before,after | before | before                 | 324.9999995653828  | 0                  | 970.8333338300387  | 6485.4166666045785 | 7781.25            | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 3     | after,before,before,after | after  | before                 | 272.91666561116773 | 0                  | 977.0833337679505  | 6512.500000496705  | 7762.499999875823  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 4     | before,after,after,before | before | before                 | 316.66666828095913 | 0                  | 864.583331781129   | 6491.6666668529315 | 7672.91666691502   | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 4     | before,after,after,before | after  | before                 | 252.083333209157   | 0                  | 977.0833331470689  | 6645.833334264656  | 7875.000000620881  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 4     | before,after,after,before | after  | before                 | 245.83333327124515 | 0                  | 985.416665362815   | 6629.166667660077  | 7860.416666294137  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 4     | before,after,after,before | before | before                 | 243.7500006829699  | 0                  | 987.4999991928538  | 6654.166666790843  | 7885.416666666667  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 5     | after,before,before,after | after  | before                 | 235.41666567325592 | 0                  | 1004.1666667287549 | 6739.5833336437745 | 7979.166666045785  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 5     | after,before,before,after | before | before                 | 264.5833343267441  | 0                  | 979.1666669771075  | 6647.9166662320495 | 7891.666667535901  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 5     | after,before,before,after | before | before                 | 347.9166676600774  | 0                  | 960.4166665424904  | 6872.916666169961  | 8181.250000372529  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 5     | after,before,before,after | after  | before                 | 266.6666666045785  | 0                  | 972.9166676600775  | 6658.333332588275  | 7897.916666852931  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 0     | before,after,after,before | before | before                 | 335.4166659216086  | 0                  | 554.1666677842537  | 7627.083333209157  | 8516.66666691502   | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 0     | before,after,after,before | after  | before                 | 293.7500011175871  | 0                  | 552.0833320915699  | 7589.583333581686  | 8435.416666790843  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 0     | before,after,after,before | after  | before                 | 272.9166668529312  | 0                  | 552.0833336437742  | 7518.749998882413  | 8343.749999379119  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 0     | before,after,after,before | before | before                 | 281.25000062088174 | 0                  | 583.3333333333334  | 7708.333333333333  | 8572.916667287547  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 1     | after,before,before,after | after  | before                 | 258.33333438883227 | 2.0833335195978484 | 608.3333327745398  | 7775.0000000620885 | 8643.750000745058  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 1     | after,before,before,after | before | before                 | 260.4166663562258  | 0                  | 610.4166681567827  | 7768.750000124176  | 8639.583334637184  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 1     | after,before,before,after | before | before                 | 281.2500012417634  | 2.08333320915699   | 608.3333318432173  | 7818.750000869234  | 8710.416667163372  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 1     | after,before,before,after | after  | before                 | 277.083333581686   | 0                  | 616.6666653007269  | 7250.000000310441  | 8143.7499991928535 | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 2     | before,after,after,before | before | before                 | 260.41666759798926 | 0                  | 700.0000004967054  | 7574.999998323619  | 8535.416666418314  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 2     | before,after,after,before | after  | before                 | 247.91666710128388 | 0                  | 702.0833330849806  | 7537.5000005587935 | 8487.500000745058  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 2     | before,after,after,before | after  | before                 | 268.7500001241763  | 0                  | 620.8333329608043  | 7218.75            | 8108.333333084981  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 2     | before,after,after,before | before | before                 | 264.58333308498067 | 0                  | 668.7500008071462  | 7485.4166672254605 | 8418.750001117587  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 3     | after,before,before,after | after  | before                 | 266.6666678463419  | 4.16666641831398   | 681.2499994412065  | 7510.4166675979895 | 8462.500001303852  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 3     | after,before,before,after | before | before                 | 243.7499991307656  | 0                  | 668.7500001862645  | 7464.583334202568  | 8377.083333519598  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 3     | after,before,before,after | before | before                 | 268.7499982615312  | 0                  | 702.0833330849806  | 7564.583333830039  | 8535.416665176552  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 3     | after,before,before,after | after  | before                 | 256.2499986961484  | 0                  | 689.5833328987161  | 7479.16666790843   | 8424.999999503294  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 4     | before,after,after,before | before | before                 | 277.08333171904087 | 0                  | 679.1666680946946  | 7474.99999931703   | 8431.249999130767  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 4     | before,after,after,before | after  | before                 | 260.4166663562258  | 0                  | 729.166666045785   | 7572.916667287548  | 8562.499999689559  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 4     | before,after,after,before | after  | before                 | 260.4166666666667  | 0                  | 720.833333209157   | 7591.666666790843  | 8572.916666666666  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 4     | before,after,after,before | before | before                 | 241.66666778425375 | 0                  | 695.833332836628   | 7462.499999751647  | 8400.000000372529  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 5     | after,before,before,after | after  | before                 | 241.66666716337204 | 0                  | 704.166665362815   | 7543.7500001862645 | 8489.583332712451  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 5     | after,before,before,after | before | before                 | 262.49999925494194 | 0                  | 664.583335009714   | 7333.3333330228925 | 8260.416667287549  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 5     | after,before,before,after | before | before                 | 241.66666685293117 | 0                  | 724.9999999379119  | 7585.416665921609  | 8552.083332712453  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 5     | after,before,before,after | after  | before                 | 252.08333289871612 | 0                  | 691.6666661078731  | 7497.916668343048  | 8441.666667349637  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 0     | before,after,after,before | before | before                 | 102.08333532015483 | 2.0833335195978484 | 120.83333140860002 | 591.6666661699613  | 816.666666418314   | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 0     | before,after,after,before | after  | before                 | 104.16666666666667 | 8.333334078391394  | 87.49999882032473  | 604.1666663562258  | 804.1666659216087  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 0     | before,after,after,before | after  | before                 | 81.25000074505806  | 0                  | 118.75000068296988 | 599.9999993170301  | 800.0000007450581  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 0     | before,after,after,before | before | before                 | 104.1666657353441  | 2.0833335195978484 | 93.75000093132257  | 635.4166648040215  | 835.416664990286   | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 1     | after,before,before,after | after  | before                 | 108.33333463718493 | 0                  | 89.58333140860002  | 602.083335009714   | 800.000001055499   | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 1     | after,before,before,after | before | before                 | 112.50000105549891 | 4.166666728754838  | 104.16666449358065 | 620.8333354443312  | 841.6666677221656  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 1     | after,before,before,after | before | before                 | 83.33333302289248  | 4.166666728754838  | 72.91666666666667  | 427.0833345750968  | 587.5000009934108  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 1     | after,before,before,after | after  | before                 | 81.24999888241291  | 0                  | 70.83333345750968  | 418.7499998758237  | 570.8333322157463  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 2     | before,after,after,before | before | before                 | 89.58333327124517  | 0                  | 97.91666672875483  | 589.5833338921269  | 777.0833338921269  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 2     | before,after,after,before | after  | before                 | 91.66666616996129  | 4.166667039195697  | 112.49999919285376 | 583.3333358168602  | 791.6666682188709  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 2     | before,after,after,before | after  | before                 | 83.3333336437742   | 0                  | 104.16666697710752 | 564.5833335195979  | 752.0833341404796  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 2     | before,after,after,before | before | before                 | 97.91666672875483  | 0                  | 102.08333345750968 | 593.7499993791183  | 793.7499995653828  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 3     | after,before,before,after | after  | before                 | 83.33333333333333  | 0                  | 91.66666648040216  | 597.9166667287549  | 772.9166665424904  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 3     | after,before,before,after | before | before                 | 79.16666691501935  | 4.166666728754838  | 97.91666734963655  | 558.3333320294818  | 739.5833330228925  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 3     | after,before,before,after | before | before                 | 81.24999981373549  | 0                  | 93.75000093132257  | 577.083332153658   | 752.0833328987161  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 3     | after,before,before,after | after  | before                 | 87.49999975164731  | 2.0833335195978484 | 81.25000012417634  | 550.0000016763806  | 720.8333350718021  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 4     | before,after,after,before | before | before                 | 89.5833345130086   | 2.0833335195978484 | 91.66666648040216  | 587.5000000620881  | 770.8333345750967  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 4     | before,after,after,before | after  | before                 | 95.83333507180214  | 0                  | 77.08333308498065  | 481.2500001862645  | 654.1666683430474  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 4     | before,after,after,before | after  | before                 | 91.66666710128386  | 0                  | 102.08333469927311 | 514.583332153658   | 708.333333954215   | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 4     | before,after,after,before | before | before                 | 102.08333407839139 | 2.08333320915699   | 112.5000004346172  | 585.4166665424904  | 802.083334264656   | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 5     | after,before,before,after | after  | before                 | 97.91666828095913  | 4.166666728754838  | 106.24999925494194 | 579.1666669150194  | 787.5000011796753  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 5     | after,before,before,after | before | before                 | 97.91666641831398  | 0                  | 95.83333383003871  | 547.9166681567827  | 741.6666684051354  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 5     | after,before,before,after | before | before                 | 87.50000068296988  | 2.0833335195978484 | 97.91666641831398  | 591.6666664804021  | 779.1666671012838  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 5     | after,before,before,after | after  | before                 | 97.9166654869914   | 0                  | 97.91666828095913  | 602.0833331470689  | 797.9166669150194  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 0     | before,after,after,before | before | before                 | 10.416666666666666 | 2.08333320915699   | 1629.1666673496366 | 3143.7499998137355 | 4785.416667039196  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 0     | before,after,after,before | after  | before                 | 37.500000248352684 | 0                  | 1700.0000008071463 | 3247.916665238639  | 4985.416666294138  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 0     | before,after,after,before | after  | before                 | 12.499999875823656 | 0                  | 1543.7500008071463 | 2985.4166669150195 | 4541.6666675979895 | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 0     | before,after,after,before | before | before                 | 6.250000248352687  | 0                  | 1579.1666666045785 | 3052.0833345750966 | 4637.500001428028  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 1     | after,before,before,after | after  | before                 | 8.333333147068819  | 0                  | 1662.499999627471  | 3168.7500004967055 | 4839.5833332712455 | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 1     | after,before,before,after | before | before                 | 18.750000434617203 | 0                  | 1683.333331098159  | 3235.41666722546   | 4937.499998758236  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 1     | after,before,before,after | before | before                 | 14.583333705862364 | 0                  | 1664.5833337679505 | 3193.7499990065894 | 4872.9166664804025 | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 1     | after,before,before,after | after  | before                 | 29.166666169961292 | 0                  | 1637.5000020489097 | 3187.499997826914  | 4854.166666045785  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 2     | before,after,after,before | before | before                 | 12.500000186264515 | 2.0833335195978484 | 1660.416666418314  | 3206.2499998137355 | 4881.2499999379115 | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 2     | before,after,after,before | after  | before                 | 18.749999192853767 | 0                  | 1654.1666683430474 | 3204.1666662941375 | 4877.083333830038  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 2     | before,after,after,before | after  | before                 | 8.333333457509676  | 0                  | 1716.6666661699612 | 3285.4166654869914 | 5010.416665114462  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 2     | before,after,after,before | before | before                 | 12.499999875823656 | 4.166667039195697  | 1566.6666670391958 | 3018.750000434617  | 4602.083334388832  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 3     | after,before,before,after | after  | before                 | 14.58333401630322  | 0                  | 1614.5833345750968 | 3120.8333342025676 | 4750.000002793968  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 3     | after,before,before,after | before | before                 | 12.499999875823656 | 0                  | 1608.3333327745397 | 3100.000001179675  | 4720.833333830038  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 3     | after,before,before,after | before | before                 | 12.499999875823656 | 2.0833335195978484 | 1627.0833335195978 | 2831.2500001241765 | 4472.916667039196  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 3     | after,before,before,after | after  | before                 | 24.999998820324738 | 0                  | 1854.1666669771075 | 3089.58333513389   | 4968.750000931323  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 4     | before,after,after,before | before | before                 | 18.750000434617203 | 0                  | 1645.833333954215  | 3114.583332402011  | 4779.166666790843  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 4     | before,after,after,before | after  | before                 | 20.833333333333332 | 0                  | 1697.916666045785  | 3279.166666480402  | 4997.91666585952   | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 4     | before,after,after,before | after  | before                 | 12.500000186264515 | 0                  | 1689.5833338300388 | 3239.583334264656  | 4941.666668280959  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 4     | before,after,after,before | before | before                 | 18.750000124176342 | 0                  | 1679.1666680946946 | 3237.4999976406493 | 4935.41666585952   | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 5     | after,before,before,after | after  | before                 | 8.333333457509676  | 0                  | 1677.0833311602473 | 3197.9166688397527 | 4883.33333345751   | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 5     | after,before,before,after | before | before                 | 4.166667039195697  | 0                  | 1679.1666659216087 | 3224.999999627471  | 4908.333332588276  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 5     | after,before,before,after | before | before                 | 16.666666294137638 | 0                  | 1631.2500011796753 | 3158.3333322778344 | 4806.249999751648  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 5     | after,before,before,after | after  | before                 | 18.75000074505806  | 2.08333320915699   | 1579.1666662941377 | 3045.833334016303  | 4645.833334264656  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 0     | before,after,after,before | before | before                 | 2716.6666698952517 | 4.16666641831398   | 12.499999565382799 | 1270.8333327124517 | 4004.1666685914006 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 0     | before,after,after,before | after  | before                 | 3743.750000372529  | 0                  | 10.416666356225809 | 870.8333329608043  | 4624.999999689559  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 0     | before,after,after,before | after  | before                 | 3664.583333147069  | 2.08333320915699   | 18.749999192853767 | 897.9166680946946  | 4583.3333336437745 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 0     | before,after,after,before | before | before                 | 3295.833334326744  | 2.08333320915699   | 12.500000496705374 | 883.3333325261871  | 4193.7500005587935 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 1     | after,before,before,after | after  | before                 | 3614.58333209157   | 2.08333320915699   | 8.333334078391394  | 927.0833333333334  | 4552.083332712452  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 1     | after,before,before,after | before | before                 | 3024.999998820325  | 2.08333320915699   | 2.0833335195978484 | 995.8333338921269  | 4024.999999441207  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 1     | after,before,before,after | before | before                 | 3379.166666728755  | 2.0833335195978484 | 8.333333147068819  | 1077.0833327745397 | 4466.666666169962  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 1     | after,before,before,after | after  | before                 | 2416.6666666666665 | 2.0833335195978484 | 12.500000496705374 | 958.3333320915699  | 3389.58333277454   | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 2     | before,after,after,before | before | before                 | 3118.749998509884  | 2.0833335195978484 | 12.500000186264515 | 1135.4166669771075 | 4268.749999192854  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 2     | before,after,after,before | after  | before                 | 2979.166666356226  | 0                  | 14.583333395421505 | 1120.8333354443312 | 4114.583335195979  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 2     | before,after,after,before | after  | before                 | 3256.249999937912  | 4.166666728754838  | 12.500000496705374 | 1216.6666661699612 | 4489.583333333334  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 2     | before,after,after,before | before | before                 | 3300.0000001241765 | 0                  | 8.33333283662796   | 1091.6666661699612 | 4399.999999130766  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 3     | after,before,before,after | after  | before                 | 3322.916667597989  | 0                  | 8.33333283662796   | 1197.9166657353442 | 4529.166666169961  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 3     | after,before,before,after | before | before                 | 3395.8333348855376 | 0                  | 8.333333767950535  | 1143.7499991928537 | 4547.916667846342  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 3     | after,before,before,after | before | before                 | 3470.8333356926837 | 0                  | 4.16666641831398   | 1172.9166641210516 | 4647.9166662320495 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 3     | after,before,before,after | after  | before                 | 3133.333334388832  | 4.166666728754838  | 4.16666641831398   | 1045.8333340163033 | 4187.500001552205  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 4     | before,after,after,before | before | before                 | 2806.250000062088  | 2.08333320915699   | 10.416666356225809 | 1108.333334326744  | 3927.083333954215  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 4     | before,after,after,before | after  | before                 | 3537.499999627471  | 2.0833335195978484 | 6.24999962747097   | 1164.5833331470687 | 4710.416665921609  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 4     | before,after,after,before | after  | before                 | 2952.0833330849805 | 0                  | 14.583333395421505 | 1050.0000013659399 | 4016.6666678463416 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 4     | before,after,after,before | before | before                 | 2645.83333209157   | 0                  | 6.250000248352687  | 814.5833335195979  | 3466.6666658595204 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 5     | after,before,before,after | after  | before                 | 3047.9166669150195 | 2.08333320915699   | 2.08333320915699   | 1241.6666674738128 | 4293.7500008071465 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 5     | after,before,before,after | before | before                 | 3208.3333327124515 | 0                  | 8.333333147068819  | 1258.3333337679505 | 4474.999999627471  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 5     | after,before,before,after | before | before                 | 2862.4999995032945 | 0                  | 2.08333320915699   | 1679.1666674738128 | 4543.7500001862645 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 5     | after,before,before,after | after  | before                 | 3072.9166669771075 | 6.250000558793545  | 6.249999937911828  | 1508.3333331470687 | 4593.750000620882  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 0     | before,after,after,before | before | before                 | 368.7499997516473  | 0                  | 956.2500013659397  | 3722.9166657974324 | 5047.91666691502   | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 0     | before,after,after,before | after  | before                 | 372.916666790843   | 0                  | 1039.5833340783913 | 3745.8333323399224 | 5158.333333209157  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 0     | before,after,after,before | after  | before                 | 387.50000049670535 | 2.08333320915699   | 1037.5000005587935 | 3831.249998882413  | 5258.3333331470685 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 0     | before,after,after,before | before | before                 | 368.75000037252903 | 0                  | 968.7500015522043  | 3654.1666643073163 | 4991.6666662320495 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 1     | after,before,before,after | after  | before                 | 424.9999998137355  | 0                  | 1058.3333329608042 | 3854.166666356226  | 5337.499999130766  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 1     | after,before,before,after | before | before                 | 395.83333395421505 | 2.0833335195978484 | 927.0833336437742  | 3656.2499993791184 | 4981.250000496706  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 1     | after,before,before,after | before | before                 | 391.6666678463419  | 2.08333320915699   | 972.9166667287549  | 3708.3333327124515 | 5075.000000496705  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 1     | after,before,before,after | after  | before                 | 416.6666669771075  | 4.166666728754838  | 937.5000006208817  | 3552.083333954215  | 4910.416668280959  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 2     | before,after,after,before | before | before                 | 433.33333513389033 | 2.0833335195978484 | 1045.8333330849807 | 3827.0833337058625 | 5308.333335444331  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 2     | before,after,after,before | after  | before                 | 395.8333333333333  | 0                  | 960.4166677842537  | 3662.49999931703   | 5018.750000434617  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 2     | before,after,after,before | after  | before                 | 379.1666679705183  | 2.08333320915699   | 1008.3333325261871 | 3743.750000062088  | 5133.3333337679505 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 2     | before,after,after,before | before | before                 | 393.75000074505806 | 0                  | 1049.9999995032947 | 3827.0833330849805 | 5270.833333333333  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 3     | after,before,before,after | after  | before                 | 387.50000142802793 | 0                  | 1002.0833319673935 | 3722.9166670391955 | 5112.500000434617  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 3     | after,before,before,after | before | before                 | 360.41666598369676 | 0                  | 1079.1666669150193 | 3787.500001179675  | 5227.083334078391  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 3     | after,before,before,after | before | before                 | 379.1666676600774  | 0                  | 939.5833341404796  | 3610.4166650523744 | 4929.1666668529315 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 3     | after,before,before,after | after  | before                 | 443.7500008692344  | 2.08333320915699   | 1070.8333337679505 | 3764.5833315327764 | 5281.249999379118  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 4     | before,after,after,before | before | before                 | 541.666665735344   | 0                  | 979.1666672875484  | 3729.166665735344  | 5249.999998758236  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 4     | before,after,after,before | after  | before                 | 377.08333289871615 | 0                  | 954.1666662941376  | 3587.5000009934106 | 4918.7500001862645 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 4     | before,after,after,before | after  | before                 | 400.0000022351742  | 0                  | 1033.3333325882752 | 3822.9166666666665 | 5256.250001490116  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 4     | before,after,after,before | before | before                 | 356.25000049670535 | 0                  | 1047.9166672254603 | 3710.416666852931  | 5114.583334575096  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 5     | after,before,before,after | after  | before                 | 458.3333333333333  | 2.08333320915699   | 1027.0833332712452 | 3943.7500002483525 | 5431.250000062088  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 5     | after,before,before,after | before | before                 | 383.33333376795053 | 0                  | 1052.0833333333333 | 3822.916666356226  | 5258.33333345751   | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 5     | after,before,before,after | before | before                 | 385.4166663562258  | 2.0833335195978484 | 1052.0833342646558 | 3793.749998944501  | 5233.33333308498   | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 5     | after,before,before,after | after  | before                 | 372.91666741172475 | 0                  | 1024.9999997516472 | 3716.666667101284  | 5114.5833342646565 | 0                        | 0              | 0                       | 0             |
+| sprite-local-listeners-control          | 0     | before,after,after,before | before | before                 | 722.9166670391957  | 2.0833335195978484 | 752.0833341404796  | 6552.083331470688  | 8029.166666169961  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 0     | before,after,after,before | after  | before                 | 664.5833331470689  | 4.166666728754838  | 729.1666666666666  | 6510.416666666667  | 7908.333333209157  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 0     | before,after,after,before | after  | before                 | 679.1666674738129  | 0                  | 841.6666664804021  | 6822.9166675979895 | 8343.750001552206  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 0     | before,after,after,before | before | before                 | 654.1666664804021  | 2.08333320915699   | 779.1666658595204  | 6650.0000000620885 | 8085.416665611168  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 1     | after,before,before,after | after  | before                 | 954.1666675359011  | 0                  | 583.3333327124516  | 6143.750001055499  | 7681.250001303852  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 1     | after,before,before,after | before | before                 | 683.3333345130086  | 2.0833335195978484 | 729.1666651144624  | 6345.83333445092   | 7760.416667597989  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 1     | after,before,before,after | before | before                 | 650.0000009934107  | 2.08333320915699   | 789.5833325261871  | 6683.333334202568  | 8125.000000931323  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 1     | after,before,before,after | after  | before                 | 618.7500025456151  | 2.08333320915699   | 837.4999985098839  | 6850.0000005587935 | 8308.33333482345   | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 2     | before,after,after,before | before | before                 | 658.3333328987161  | 0                  | 743.7500009934107  | 6518.749998882413  | 7920.8333327745395 | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 2     | before,after,after,before | after  | before                 | 614.5833333333334  | 0                  | 827.0833330849806  | 6818.749999627471  | 8260.416666045785  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 2     | before,after,after,before | after  | before                 | 597.9166676600775  | 0                  | 837.4999975785613  | 6777.083334513009  | 8212.499999751648  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 2     | before,after,after,before | before | before                 | 656.2500006208817  | 0                  | 712.5000013038516  | 6287.49999931703   | 7656.250001241764  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 3     | after,before,before,after | after  | before                 | 635.4166675979892  | 0                  | 810.4166664804021  | 6737.4999998137355 | 8183.333333892127  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 3     | after,before,before,after | before | before                 | 652.0833329608043  | 0                  | 820.8333325261871  | 6772.9166668529315 | 8245.833332339924  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 3     | after,before,before,after | before | before                 | 604.1666663562258  | 0                  | 895.8333330228925  | 6883.3333331470685 | 8383.333332526186  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 3     | after,before,before,after | after  | before                 | 591.6666652386388  | 2.0833335195978484 | 885.4166666666666  | 6745.833334513009  | 8224.999999937912  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 4     | before,after,after,before | before | before                 | 685.4166658595204  | 2.0833335195978484 | 702.0833340163032  | 6439.583333209157  | 7829.1666666045785 | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 4     | before,after,after,before | after  | before                 | 618.7500000620881  | 0                  | 850.0000005587935  | 6856.249999254942  | 8324.999999875823  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 4     | before,after,after,before | after  | before                 | 641.666665362815   | 2.08333320915699   | 837.500000372529   | 6781.250000310441  | 8262.499999254942  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 4     | before,after,after,before | before | before                 | 608.3333330849806  | 6.250000248352687  | 820.8333334575096  | 6783.333333830039  | 8218.750000620883  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 5     | after,before,before,after | after  | before                 | 606.2500004967054  | 2.0833335195978484 | 839.5833329608043  | 6835.4166668529315 | 8283.33333383004   | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 5     | after,before,before,after | before | before                 | 662.499999627471   | 2.08333320915699   | 827.0833333954215  | 6727.083332836628  | 8218.749999068677  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 5     | after,before,before,after | before | before                 | 658.3333328987161  | 0                  | 756.2500011796752  | 6522.916665921609  | 7937.5             | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 5     | after,before,before,after | after  | before                 | 629.1666667287549  | 0                  | 862.5000001241764  | 6860.4166672254605 | 8352.083334078392  | 28672                    | 512            | 0                       | 0             |
+| sprite-empty-observed-type-control      | 0     | before,after,after,before | before | before                 | 3120.8333326503634 | 0                  | 12.499999565382799 | 1058.3333332712452 | 4191.666665486991  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 0     | before,after,after,before | after  | before                 | 2704.166665362815  | 2.0833335195978484 | 16.666666915019352 | 1091.666666790843  | 3814.5833325882754 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 0     | before,after,after,before | after  | before                 | 2806.2500009934106 | 0                  | 10.416666356225809 | 1025.0000000620882 | 3841.666667411725  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 0     | before,after,after,before | before | before                 | 2958.3333345750966 | 0                  | 16.666666294137638 | 1120.8333332712452 | 4095.8333341404796 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 1     | after,before,before,after | after  | before                 | 3116.6666662320495 | 0                  | 2.08333320915699   | 1000               | 4118.7499994412065 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 1     | after,before,before,after | before | before                 | 2616.6666646798453 | 4.166666728754838  | 6.250000558793545  | 916.6666663562258  | 3543.74999832362   | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 1     | after,before,before,after | before | before                 | 3708.333334264656  | 0                  | 12.500000496705374 | 783.3333313465118  | 4504.166666107873  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 1     | after,before,before,after | after  | before                 | 2695.833334699273  | 0                  | 6.250000248352687  | 874.9999984477957  | 3577.0833333954215 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 2     | before,after,after,before | before | before                 | 3472.9166676600776 | 2.0833335195978484 | 4.16666641831398   | 1085.4166662320495 | 4564.583333830039  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 2     | before,after,after,before | after  | before                 | 3075.0000001862645 | 2.08333320915699   | 4.166666728754838  | 1179.1666662320495 | 4260.416666356226  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 2     | before,after,after,before | after  | before                 | 2989.5833345750966 | 0                  | 12.500000186264515 | 987.4999998137355  | 3989.5833345750966 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 2     | before,after,after,before | before | before                 | 3497.916665238639  | 4.166666728754838  | 14.583333395421505 | 1004.1666667287549 | 4520.83333209157   | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 3     | after,before,before,after | after  | before                 | 3014.5833337058625 | 2.08333320915699   | 6.250000248352687  | 1677.0833333333333 | 4700.000000496705  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 3     | after,before,before,after | before | before                 | 3437.5             | 2.0833335195978484 | 10.416666977107525 | 1135.4166675979893 | 4585.416668094695  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 3     | after,before,before,after | before | before                 | 3500.0000006208816 | 8.333333147068819  | 4.166666728754838  | 1120.8333329608042 | 4633.33333345751   | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 3     | after,before,before,after | after  | before                 | 3272.9166662320495 | 0                  | 2.0833335195978484 | 1187.5000012417634 | 4462.500000993411  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 4     | before,after,after,before | before | before                 | 3262.499998944501  | 0                  | 0                  | 1070.8333334575098 | 4333.3333324020105 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 4     | before,after,after,before | after  | before                 | 3195.833332526187  | 0                  | 8.333333457509676  | 1191.666666418314  | 4395.8333324020105 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 4     | before,after,after,before | after  | before                 | 2422.9166662941375 | 0                  | 4.166666728754838  | 1022.9166656111678 | 3449.9999986340604 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 4     | before,after,after,before | before | before                 | 3033.333333519598  | 0                  | 2.0833335195978484 | 983.333332153658   | 4018.749999192854  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 5     | after,before,before,after | after  | before                 | 3491.666666852931  | 0                  | 4.166667039195697  | 1112.499998882413  | 4608.3333327745395 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 5     | after,before,before,after | before | before                 | 3466.666667101284  | 2.0833335195978484 | 4.166666728754838  | 1256.2500002483528 | 4729.1666675979895 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 5     | after,before,before,after | before | before                 | 3337.5000009934106 | 2.08333320915699   | 2.08333320915699   | 1175.0000001241763 | 4516.666667535901  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 5     | after,before,before,after | after  | before                 | 3060.416665238639  | 2.08333320915699   | 8.333334078391394  | 1335.416665300727  | 4406.249997826914  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-lifecycle-history-control  | 0     | before,after,after,before | before | before                 | 1391.6666672254603 | 0                  | 791.6666666666666  | 12514.583333705863 | 14697.91666759799  | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 0     | before,after,after,before | after  | before                 | 1393.7499998137355 | 0                  | 799.9999998137355  | 12581.250000124177 | 14774.999999751648 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 0     | before,after,after,before | after  | before                 | 1410.4166670391958 | 0                  | 787.499999627471   | 12591.666668032607 | 14789.583334699273 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 0     | before,after,after,before | before | before                 | 1466.666666790843  | 0                  | 791.666665735344   | 12745.833334513009 | 15004.166667039195 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 1     | after,before,before,after | after  | before                 | 1427.0833345750968 | 0                  | 806.2499985098839  | 12720.833333519598 | 14954.166666604578 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 1     | after,before,before,after | before | before                 | 1412.4999999379118 | 0                  | 802.0833324020108  | 12633.33333376795  | 14847.916666107873 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 1     | after,before,before,after | before | before                 | 1441.6666651765506 | 0                  | 789.5833343888322  | 12681.249999751648 | 14912.499999317031 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 1     | after,before,before,after | after  | before                 | 1412.499999627471  | 0                  | 785.4166676600775  | 12662.49999931703  | 14860.416666604578 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 2     | before,after,after,before | before | before                 | 1497.9166671012838 | 0                  | 806.2499988203248  | 12806.25000099341  | 15110.416666915018 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 2     | before,after,after,before | after  | before                 | 1404.1666674117248 | 2.0833335195978484 | 779.1666658595204  | 12639.583333705863 | 14825.000000496706 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 2     | before,after,after,before | after  | before                 | 1418.7499986340601 | 0                  | 779.1666674117247  | 12637.499999254942 | 14835.416665300727 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 2     | before,after,after,before | before | before                 | 1391.6666669150193 | 0                  | 783.333333209157   | 12620.833333892127 | 14795.833334016304 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 3     | after,before,before,after | after  | before                 | 1589.5833317190409 | 0                  | 783.3333338300387  | 12708.333333643774 | 15081.249999192853 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 3     | after,before,before,after | before | before                 | 1333.3333317811291 | 0                  | 775.0000016142925  | 12641.666665983697 | 14749.999999379119 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 3     | after,before,before,after | before | before                 | 1368.7500000620882 | 0                  | 772.9166665424904  | 12714.583333892127 | 14856.250000496706 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 3     | after,before,before,after | after  | before                 | 1345.8333322778344 | 0                  | 810.4166664804021  | 12652.083333892127 | 14808.333332650363 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 4     | before,after,after,before | before | before                 | 1395.8333333333333 | 0                  | 800.0000007450581  | 12739.58333209157  | 14935.41666616996  | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 4     | before,after,after,before | after  | before                 | 1575.0000004967053 | 0                  | 818.7499990065893  | 13025.00000099341  | 15418.750000496704 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 4     | before,after,after,before | after  | before                 | 1377.0833316569526 | 0                  | 768.7500004346172  | 12706.250000434617 | 14852.083332526186 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 4     | before,after,after,before | before | before                 | 1764.5833327745397 | 0                  | 902.0833329608043  | 13789.58333376795  | 16456.249999503296 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 5     | after,before,before,after | after  | before                 | 1418.7499995653827 | 0                  | 810.416668963929   | 12837.499998199442 | 15066.666666728754 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 5     | after,before,before,after | before | before                 | 1352.0833331470687 | 0                  | 804.1666680946946  | 12797.916665673256 | 14954.166666915018 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 5     | after,before,before,after | before | before                 | 1383.3333337679505 | 0                  | 791.6666669771075  | 12802.083332712451 | 14977.083333457509 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 5     | after,before,before,after | after  | before                 | 1354.1666669771075 | 0                  | 774.9999997516474  | 12739.583333333334 | 14868.75000006209  | 28672                    | 512            | 28672                   | 512           |
+| sprite-empty-both-types-history-control | 0     | before,after,after,before | before | before                 | 2181.250001924733  | 2.08333320915699   | 6.250000248352687  | 1127.0833319673936 | 3316.6666673496366 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 0     | before,after,after,before | after  | before                 | 2218.750000310441  | 4.166666728754838  | 18.750000434617203 | 1181.2499991307657 | 3422.9166666045785 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 0     | before,after,after,before | after  | before                 | 2672.916667535901  | 4.16666641831398   | 20.833333643774193 | 1235.4166669150193 | 3933.3333345130086 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 0     | before,after,after,before | before | before                 | 1939.583331036071  | 2.0833335195978484 | 8.333333457509676  | 979.166668218871   | 2929.1666662320495 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 1     | after,before,before,after | after  | before                 | 2450.0000004967055 | 0                  | 6.249999937911828  | 1177.0833330228925 | 3633.33333345751   | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 1     | after,before,before,after | before | before                 | 2718.7499990686774 | 6.249999937911828  | 10.416666356225809 | 1452.0833349476259 | 4187.5000003104415 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 1     | after,before,before,after | before | before                 | 2583.3333330228925 | 2.08333320915699   | 6.249999937911828  | 1243.750000372529  | 3835.4166665424905 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 1     | after,before,before,after | after  | before                 | 1939.5833338300388 | 4.166666728754838  | 14.583333705862364 | 1058.3333323399227 | 3016.6666666045785 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 2     | before,after,after,before | before | before                 | 2608.3333330849805 | 0                  | 14.583333084980646 | 1279.1666683430474 | 3902.0833345130086 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 2     | before,after,after,before | after  | before                 | 2062.5             | 0                  | 12.500000186264515 | 1052.08333209157   | 3127.0833322778344 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 2     | before,after,after,before | after  | before                 | 2572.9166669771075 | 10.416666356225809 | 10.416666666666666 | 1241.6666659216087 | 3835.416665921609  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 2     | before,after,after,before | before | before                 | 2458.333333643774  | 6.249999937911828  | 10.416667287548384 | 1237.4999991928537 | 3712.5000000620885 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 3     | after,before,before,after | after  | before                 | 2208.333333643774  | 2.08333320915699   | 8.33333283662796   | 1095.8333335195978 | 3314.583333209157  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 3     | after,before,before,after | before | before                 | 2468.7499993791184 | 0                  | 8.33333283662796   | 1195.8333331470687 | 3672.9166653628154 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 3     | after,before,before,after | before | before                 | 2537.49999931703   | 0                  | 10.416666666666666 | 1193.7500002483528 | 3741.6666662320495 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 3     | after,before,before,after | after  | before                 | 2179.1666662320495 | 6.249999937911828  | 10.416666356225809 | 1179.1666668529313 | 3374.999999379119  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 4     | before,after,after,before | before | before                 | 2216.6666674117246 | 4.166666728754838  | 12.50000111758709  | 1074.9999973922968 | 3308.3333326503634 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 4     | before,after,after,before | after  | before                 | 1854.1666669771075 | 2.08333320915699   | 6.24999962747097   | 887.5000004967054  | 2750.000000310441  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 4     | before,after,after,before | after  | before                 | 2310.4166674117246 | 4.16666641831398   | 6.24999962747097   | 1179.1666659216087 | 3499.999999379118  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 4     | before,after,after,before | before | before                 | 2310.4166658595204 | 2.08333320915699   | 8.333333147068819  | 1187.5000009313226 | 3508.333333147069  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 5     | after,before,before,after | after  | before                 | 2166.666668218871  | 4.166666728754838  | 18.750000124176342 | 962.4999994412065  | 3152.083334513009  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 5     | after,before,before,after | before | before                 | 2424.9999982615313 | 4.16666641831398   | 12.499999875823656 | 1195.8333359410365 | 3637.500000496705  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 5     | after,before,before,after | before | before                 | 2622.916666480402  | 2.08333320915699   | 18.750000124176342 | 1283.3333328987162 | 3927.083332712452  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 5     | after,before,before,after | after  | before                 | 2575.000001428028  | 0                  | 16.666666604578495 | 1166.6666648040216 | 3758.333332836628  | 0                        | 0              | 0                       | 0             |
+
+### 全部 A/B averaged samples（無刪值）
+
+| cohort                                  | round | order                     | label  | actual observer method | simulation µs      | navigation µs      | after-update µs    | submit µs          | category sum µs    | post callbacks incl warm | post listeners | pre callbacks incl warm | pre listeners |
+| --------------------------------------- | ----- | ------------------------- | ------ | ---------------------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------------ | -------------- | ----------------------- | ------------- |
+| sprite-mixed-large                      | 0     | before,after,after,before | before | before                 | 293.7499998758237  | 2.08333320915699   | 531.2500006208817  | 4716.6666664804025 | 5543.7500001862645 | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 0     | before,after,after,before | after  | after                  | 356.2499998758237  | 0                  | 568.7500005587935  | 5243.749999751647  | 6168.7500001862645 | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 0     | before,after,after,before | after  | after                  | 362.4999988824129  | 0                  | 645.833333954215   | 5612.499999503295  | 6620.833332339923  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 0     | before,after,after,before | before | before                 | 325.00000049670535 | 2.0833335195978484 | 685.4166671012839  | 5547.916666915019  | 6560.416668032606  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 1     | after,before,before,after | after  | after                  | 341.6666680326064  | 0                  | 695.8333325261871  | 5633.3333337679505 | 6670.833334326744  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 1     | after,before,before,after | before | before                 | 314.5833347613613  | 0                  | 664.5833319053054  | 5504.166666418314  | 6483.333333084981  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 1     | after,before,before,after | before | before                 | 310.416666790843   | 0                  | 658.3333338300387  | 5489.5833330228925 | 6458.3333336437745 | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 1     | after,before,before,after | after  | after                  | 347.91666610787314 | 0                  | 666.6666663562258  | 5522.9166668529315 | 6537.49999931703   | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 2     | before,after,after,before | before | before                 | 304.1666668529312  | 0                  | 645.833334264656   | 5512.499998944501  | 6462.5000000620885 | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 2     | before,after,after,before | after  | after                  | 333.3333342646559  | 0                  | 654.1666664804021  | 5512.499999875824  | 6500.000000620882  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 2     | before,after,after,before | after  | after                  | 339.5833332712452  | 2.0833335195978484 | 652.0833332712451  | 5518.750001055499  | 6512.500001117587  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 2     | before,after,after,before | before | before                 | 308.3333323399226  | 2.0833335195978484 | 660.4166667287549  | 5575.000000496705  | 6545.83333308498   | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 3     | after,before,before,after | after  | after                  | 333.33333240201074 | 0                  | 656.2500009313226  | 5464.583335133891  | 6454.166668467224  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 3     | after,before,before,after | before | before                 | 318.75000055879354 | 0                  | 677.0833333333334  | 5489.583333954215  | 6485.416667846342  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 3     | after,before,before,after | before | before                 | 304.16666716337204 | 0                  | 666.6666663562258  | 5514.583333084981  | 6485.4166666045785 | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 3     | after,before,before,after | after  | after                  | 339.58333389212686 | 0                  | 683.3333332712451  | 5385.416665735344  | 6408.333332898716  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 4     | before,after,after,before | before | before                 | 320.83333376795053 | 0                  | 695.833332836628   | 5447.91666790843   | 6464.583334513009  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 4     | before,after,after,before | after  | after                  | 341.66666741172475 | 2.0833335195978484 | 664.5833334575096  | 5508.33333345751   | 6516.6666678463425 | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 4     | before,after,after,before | after  | after                  | 339.5833320294817  | 0                  | 654.1666680326065  | 5489.583332712452  | 6483.33333277454   | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 4     | before,after,after,before | before | before                 | 322.91666728754836 | 0                  | 660.416666418314   | 5541.666666045785  | 6524.999999751647  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 5     | after,before,before,after | after  | after                  | 327.08333401630324 | 0                  | 668.7499992549419  | 5527.083333581686  | 6522.9166668529315 | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 5     | after,before,before,after | before | before                 | 304.1666677842538  | 0                  | 658.3333328987161  | 5516.6666666045785 | 6479.166667287548  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 5     | after,before,before,after | before | before                 | 310.4166677221656  | 0                  | 649.9999985098839  | 5587.500001924734  | 6547.916668156783  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-large                      | 5     | after,before,before,after | after  | after                  | 343.75000062088174 | 0                  | 683.3333323399225  | 5452.083334637185  | 6479.166667597989  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 0     | before,after,after,before | before | before                 | 308.3333329608043  | 0                  | 777.0833338921269  | 5197.9166663562255 | 6283.333333209157  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 0     | before,after,after,before | after  | after                  | 345.83333351959783 | 2.0833335195978484 | 787.4999986961484  | 5241.666668715577  | 6377.083334450921  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 0     | before,after,after,before | after  | after                  | 329.16666598369676 | 0                  | 827.0833327745398  | 5325.0000008071465 | 6481.249999565383  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 0     | before,after,after,before | before | before                 | 318.74999838570756 | 0                  | 818.7500011796752  | 5310.416666790843  | 6447.9166663562255 | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 1     | after,before,before,after | after  | after                  | 333.3333345750968  | 0                  | 850.0000002483526  | 5391.6666666045785 | 6575.000001428028  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 1     | after,before,before,after | before | before                 | 325.00000080714625 | 4.16666641831398   | 814.5833328987161  | 5281.249999068677  | 6424.9999991928535 | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 1     | after,before,before,after | before | before                 | 325.00000049670535 | 0                  | 822.9166663562258  | 5368.75000068297   | 6516.666667535901  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 1     | after,before,before,after | after  | after                  | 325.00000204890966 | 0                  | 793.749998944501   | 5066.666667039196  | 6185.416668032607  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 2     | before,after,after,before | before | before                 | 270.8333348855376  | 2.0833335195978484 | 543.749998944501   | 4341.666666790843  | 5158.33333414048   | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 2     | before,after,after,before | after  | after                  | 356.2499995653828  | 0                  | 497.91666741172475 | 5100.000000248353  | 5954.1666672254605 | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 2     | before,after,after,before | after  | after                  | 333.3333330228925  | 2.0833335195978484 | 845.8333344509205  | 5220.833332588275  | 6402.083333581686  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 2     | before,after,after,before | before | before                 | 289.5833340783914  | 0                  | 791.6666654249033  | 5143.750000745058  | 6225.000000248353  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 3     | after,before,before,after | after  | after                  | 327.08333401630324 | 2.08333320915699   | 812.5              | 5202.083332464099  | 6343.749999689559  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 3     | after,before,before,after | before | before                 | 293.75000080714625 | 0                  | 833.3333333333334  | 5233.3333327745395 | 6360.416666915019  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 3     | after,before,before,after | before | before                 | 289.5833325261871  | 0                  | 827.0833333954215  | 5162.500001179676  | 6279.1666671012845 | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 3     | after,before,before,after | after  | after                  | 310.41666710128385 | 0                  | 833.3333327124516  | 5083.333334575097  | 6227.083334388833  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 4     | before,after,after,before | before | before                 | 304.1666668529312  | 0                  | 827.0833340163032  | 5210.41666654249   | 6341.666667411724  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 4     | before,after,after,before | after  | after                  | 333.33333395421505 | 0                  | 818.7499990065893  | 5216.666666790843  | 6368.749999751648  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 4     | before,after,after,before | after  | after                  | 335.4166674738129  | 0                  | 822.9166663562258  | 5214.583332960804  | 6372.916666790843  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 4     | before,after,after,before | before | before                 | 297.9166656732559  | 0                  | 852.0833340783914  | 5331.249999503295  | 6481.249999254942  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 5     | after,before,before,after | after  | after                  | 331.2499998137355  | 2.08333320915699   | 820.8333325261871  | 5235.416666294138  | 6389.583331843218  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 5     | after,before,before,after | before | before                 | 306.2500013038516  | 0                  | 824.9999980131785  | 5272.916667784254  | 6404.1666671012845 | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 5     | after,before,before,after | before | before                 | 281.25000062088174 | 0                  | 837.5000009934107  | 5035.416665486991  | 6154.166667101284  | 0                        | 0              | 0                       | 0             |
+| sprite-local-large                      | 5     | after,before,before,after | after  | after                  | 316.6666670391957  | 2.08333320915699   | 820.8333340783914  | 5233.3333333954215 | 6372.916667722166  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 0     | before,after,after,before | before | before                 | 431.2499988203247  | 0                  | 804.1666684051355  | 6414.583332836628  | 7650.0000000620885 | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 0     | before,after,after,before | after  | after                  | 445.8333331470688  | 2.08333320915699   | 854.1666675979892  | 6547.916666294138  | 7850.000000248353  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 0     | before,after,after,before | after  | after                  | 481.2499995653828  | 0                  | 935.4166664804021  | 6535.416666418314  | 7952.083332464099  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 0     | before,after,after,before | before | before                 | 362.50000074505806 | 0                  | 962.4999988203248  | 6416.666667287548  | 7741.666666852931  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 1     | after,before,before,after | after  | after                  | 443.75000055879354 | 0                  | 935.4166664804021  | 6556.249998820324  | 7935.41666585952   | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 1     | after,before,before,after | before | before                 | 356.24999925494194 | 0                  | 952.0833343267441  | 6497.916668032606  | 7806.250001614292  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 1     | after,before,before,after | before | before                 | 364.5833330228925  | 2.08333320915699   | 945.8333331470689  | 6445.833334388833  | 7758.3333337679505 | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 1     | after,before,before,after | after  | after                  | 456.2499988824129  | 0                  | 797.9166659836968  | 6179.166667473813  | 7433.333332339922  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 2     | before,after,after,before | before | before                 | 345.8333338300387  | 0                  | 972.9166667287549  | 6447.9166663562255 | 7766.666666915019  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 2     | before,after,after,before | after  | after                  | 437.5              | 2.0833335195978484 | 970.8333347613612  | 6558.333332339923  | 7968.750000620882  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 2     | before,after,after,before | after  | after                  | 389.58333308498067 | 0                  | 943.7500008692344  | 6447.916665735344  | 7781.249999689559  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 2     | before,after,after,before | before | before                 | 441.6666667287548  | 2.08333320915699   | 941.6666661078731  | 6645.833333333333  | 8031.249999379118  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 3     | after,before,before,after | after  | after                  | 414.5833346992731  | 0                  | 943.7500002483526  | 6489.583331781129  | 7847.916666728755  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 3     | after,before,before,after | before | before                 | 372.916666790843   | 0                  | 952.0833327745398  | 6450.000001428028  | 7775.00000099341   | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 3     | after,before,before,after | before | before                 | 347.9166670391957  | 0                  | 949.9999992549419  | 6399.999999751647  | 7697.916666045785  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 3     | after,before,before,after | after  | after                  | 566.6666651765505  | 0                  | 772.9166662320495  | 6237.500000124176  | 7577.083331532776  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 4     | before,after,after,before | before | before                 | 477.0833334575097  | 0                  | 647.9166656111678  | 6068.750000869234  | 7193.7499999379115 | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 4     | before,after,after,before | after  | after                  | 383.3333331470688  | 0                  | 881.2499983857075  | 6716.666667411725  | 7981.249998944501  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 4     | before,after,after,before | after  | after                  | 425.0000001241763  | 0                  | 785.4166657974323  | 6495.833333581686  | 7706.249999503295  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 4     | before,after,after,before | before | before                 | 356.2499998758237  | 0                  | 949.9999998758236  | 6697.916667287548  | 8004.166667039195  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 5     | after,before,before,after | after  | after                  | 343.75000031044084 | 0                  | 935.4166664804021  | 6658.33333414048   | 7937.500000931323  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 5     | after,before,before,after | before | before                 | 349.99999900658923 | 4.16666641831398   | 916.666668218871   | 6699.999999254942  | 7970.833332898716  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 5     | after,before,before,after | before | before                 | 364.5833358168602  | 0                  | 966.6666664804021  | 6691.666666418314  | 8022.916668715576  | 0                        | 0              | 0                       | 0             |
+| sprite-world-large                      | 5     | after,before,before,after | after  | after                  | 445.83333283662796 | 0                  | 839.583333581686   | 6522.916665300727  | 7808.333331719041  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 0     | before,after,after,before | before | before                 | 370.8333332712452  | 0                  | 593.7499996895591  | 7554.1666668529315 | 8518.749999813735  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 0     | before,after,after,before | after  | after                  | 416.66666728754836 | 0                  | 564.5833325882753  | 7687.500000310441  | 8668.750000186265  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 0     | before,after,after,before | after  | after                  | 360.4166653628151  | 0                  | 575.0000008071462  | 7716.6666664804025 | 8652.083332650363  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 0     | before,after,after,before | before | before                 | 410.416666418314   | 0                  | 579.1666662941376  | 7777.083332960804  | 8766.666665673256  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 1     | after,before,before,after | after  | after                  | 364.5833336437742  | 0                  | 558.3333338921269  | 7649.999999130766  | 8572.916666666668  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 1     | after,before,before,after | before | before                 | 362.4999982615312  | 0                  | 585.4166684051355  | 7687.5             | 8635.416666666666  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 1     | after,before,before,after | before | before                 | 360.4166681567828  | 0                  | 568.7499986961484  | 7708.3333336437745 | 8637.500000496706  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 1     | after,before,before,after | after  | after                  | 352.0833346992731  | 2.08333320915699   | 599.9999983857075  | 7304.166668094695  | 8258.333334388832  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 2     | before,after,after,before | before | before                 | 349.99999931703013 | 0                  | 639.5833327745398  | 7437.500001552205  | 8427.083333643775  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 2     | before,after,after,before | after  | after                  | 402.0833329608043  | 0                  | 600.0000008692344  | 7383.3333331470685 | 8385.416666977108  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 2     | before,after,after,before | after  | after                  | 364.5833336437742  | 2.0833335195978484 | 614.5833330228925  | 7387.499998323619  | 8368.749998509884  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 2     | before,after,after,before | before | before                 | 341.6666652386387  | 0                  | 652.0833351338903  | 7539.583332215746  | 8533.333332588274  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 3     | after,before,before,after | after  | after                  | 402.0833329608043  | 0                  | 604.1666666666666  | 7458.333334575097  | 8464.583334202569  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 3     | after,before,before,after | before | before                 | 333.33333178112906 | 0                  | 664.583335009714   | 7585.41666654249   | 8583.333333333332  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 3     | after,before,before,after | before | before                 | 372.91666585952044 | 0                  | 602.0833334575096  | 7266.6666672254605 | 8241.666666542491  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 3     | after,before,before,after | after  | after                  | 370.8333345130086  | 2.08333320915699   | 627.0833322778344  | 7447.9166669771075 | 8447.916666977108  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 4     | before,after,after,before | before | before                 | 347.9166670391957  | 0                  | 641.6666659836968  | 7550.000000745058  | 8539.58333376795   | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 4     | before,after,after,before | after  | after                  | 337.5000000620882  | 2.0833335195978484 | 608.3333337058624  | 7522.91666654249   | 8470.833333830038  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 4     | before,after,after,before | after  | after                  | 414.58333500971395 | 0                  | 589.5833323399225  | 7531.250000931323  | 8535.41666828096   | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 4     | before,after,after,before | before | before                 | 331.2500013659398  | 0                  | 602.0833334575096  | 7491.666667163372  | 8425.000001986822  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 5     | after,before,before,after | after  | after                  | 358.33333401630324 | 2.08333320915699   | 647.9166653007269  | 7731.250001117587  | 8739.583333643774  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 5     | after,before,before,after | before | before                 | 327.0833333954215  | 0                  | 620.8333332712451  | 7558.333333892127  | 8506.250000558794  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 5     | after,before,before,after | before | before                 | 322.9166663562258  | 0                  | 652.083333581686   | 7593.750000310441  | 8568.750000248352  | 0                        | 0              | 0                       | 0             |
+| sprite-local-nested                     | 5     | after,before,before,after | after  | after                  | 650.0000016142925  | 0                  | 549.9999998137355  | 7689.583332898716  | 8889.583334326744  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 0     | before,after,after,before | before | before                 | 129.16666517655054 | 0                  | 97.91666641831398  | 277.0833345130086  | 504.1666661078731  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 0     | before,after,after,before | after  | after                  | 139.5833333954215  | 2.08333320915699   | 91.66666648040216  | 493.74999944120646 | 727.0833325261872  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 0     | before,after,after,before | after  | after                  | 108.33333463718493 | 4.166666728754838  | 106.24999894450109 | 583.3333330228925  | 802.0833333333333  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 0     | before,after,after,before | before | before                 | 112.49999981373549 | 4.166666728754838  | 102.08333221574624 | 514.5833333954215  | 733.333332153658   | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 1     | after,before,before,after | after  | after                  | 127.08333351959784 | 2.08333320915699   | 104.16666666666667 | 591.6666655490795  | 824.999998944501   | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 1     | after,before,before,after | before | before                 | 106.25000080714624 | 4.166666728754838  | 99.99999993791182  | 614.5833336437742  | 825.0000011175871  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 1     | after,before,before,after | before | before                 | 110.41666629413764 | 2.08333320915699   | 97.91666797051828  | 633.3333319053054  | 843.7499993791183  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 1     | after,before,before,after | after  | after                  | 106.2499995653828  | 4.166667039195697  | 110.4166666045785  | 608.333334637185   | 829.166667846342   | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 2     | before,after,after,before | before | before                 | 85.41666778425376  | 0                  | 91.66666616996129  | 577.0833324640989  | 754.166666418314   | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 2     | before,after,after,before | after  | after                  | 114.58333240201075 | 4.16666641831398   | 91.66666648040216  | 554.166667163372   | 764.5833324640989  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 2     | before,after,after,before | after  | after                  | 83.33333457509677  | 2.08333320915699   | 64.58333258827527  | 462.5000000620882  | 612.5000004346173  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 2     | before,after,after,before | before | before                 | 95.83333476136129  | 0                  | 93.74999968955915  | 597.9166667287549  | 787.5000011796753  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 3     | after,before,before,after | after  | after                  | 97.91666610787313  | 0                  | 95.83333538224299  | 595.8333307256302  | 789.5833322157463  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 3     | after,before,before,after | before | before                 | 139.58333432674408 | 4.166666728754838  | 99.99999838570754  | 614.5833351959785  | 858.333334637185   | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 3     | after,before,before,after | before | before                 | 89.58333358168602  | 2.08333320915699   | 97.91666610787313  | 527.0833332712451  | 716.6666661699612  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 3     | after,before,before,after | after  | after                  | 120.83333420256774 | 2.0833335195978484 | 95.83333227783442  | 570.8333334575096  | 789.5833334575096  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 4     | before,after,after,before | before | before                 | 114.5833336437742  | 0                  | 91.66666585952044  | 558.3333332712451  | 764.5833327745397  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 4     | before,after,after,before | after  | after                  | 129.16666455566883 | 0                  | 102.08333407839139 | 558.3333320294818  | 789.583330663542   | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 4     | before,after,after,before | after  | after                  | 129.16666734963655 | 2.08333320915699   | 102.08333314706881 | 599.9999999379119  | 833.3333336437743  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 4     | before,after,after,before | before | before                 | 108.33333277453978 | 2.0833335195978484 | 93.75000031044085  | 606.2499998758236  | 810.4166664804021  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 5     | after,before,before,after | after  | after                  | 99.99999993791182  | 4.16666641831398   | 93.75000093132257  | 539.5833325261871  | 737.4999998137355  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 5     | after,before,before,after | before | before                 | 108.3333333954215  | 0                  | 102.08333345750968 | 583.3333333333334  | 793.7500001862645  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 5     | after,before,before,after | before | before                 | 102.08333345750968 | 4.166666728754838  | 110.41666722546022 | 583.3333336437742  | 800.0000010554988  | 0                        | 0              | 0                       | 0             |
+| sprite-local-small                      | 5     | after,before,before,after | after  | after                  | 104.16666666666667 | 0                  | 95.83333351959784  | 591.6666661699613  | 791.6666663562258  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 0     | before,after,after,before | before | before                 | 22.916666232049465 | 0                  | 1518.7499991928537 | 2962.5000013038516 | 4504.1666667287545 | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 0     | before,after,after,before | after  | after                  | 18.750000124176342 | 0                  | 1683.3333332712452 | 3204.1666666045785 | 4906.25            | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 0     | before,after,after,before | after  | after                  | 10.416666666666666 | 0                  | 1681.250000372529  | 3231.250000807146  | 4922.916667846342  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 0     | before,after,after,before | before | before                 | 18.750000434617203 | 2.08333320915699   | 1568.7499990065892 | 2977.0833340783915 | 4566.666666728755  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 1     | after,before,before,after | after  | after                  | 16.666666915019352 | 0                  | 1687.4999993791182 | 3216.6666661699614 | 4920.833332464099  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 1     | after,before,before,after | before | before                 | 12.499999565382799 | 4.166666728754838  | 1777.0833317190409 | 2620.833333892127  | 4414.583331905305  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 1     | after,before,before,after | before | before                 | 12.500000186264515 | 0                  | 1554.1666674738128 | 3010.4166669771075 | 4577.083334637185  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 1     | after,before,before,after | after  | after                  | 22.916666852931183 | 0                  | 1606.2499998758237 | 3120.8333329608045 | 4749.999999689559  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 2     | before,after,after,before | before | before                 | 12.499999875823656 | 0                  | 1618.7500006829698 | 3154.166666790843  | 4785.416667349637  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 2     | before,after,after,before | after  | after                  | 25.00000037252903  | 0                  | 1645.83333209157   | 3189.583333519598  | 4860.416665983697  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 2     | before,after,after,before | after  | after                  | 8.333333767950535  | 0                  | 1672.9166678463419 | 3220.8333322778344 | 4902.083333892127  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 2     | before,after,after,before | before | before                 | 10.416666666666666 | 0                  | 1654.166666790843  | 3164.5833340783915 | 4829.166667535901  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 3     | after,before,before,after | after  | after                  | 20.833333333333332 | 0                  | 1662.5000005587935 | 3204.1666662941375 | 4887.5000001862645 | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 3     | after,before,before,after | before | before                 | 29.16666679084301  | 0                  | 1666.666666045785  | 3202.083334326744  | 4897.916667163372  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 3     | after,before,before,after | before | before                 | 8.33333283662796   | 0                  | 1633.3333334575098 | 3160.416666728755  | 4802.0833330228925 | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 3     | after,before,before,after | after  | after                  | 8.33333283662796   | 0                  | 1660.416666418314  | 3179.1666665424905 | 4847.916665797433  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 4     | before,after,after,before | before | before                 | 24.999999751647312 | 0                  | 1549.999998882413  | 2962.50000068297   | 4537.49999931703   | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 4     | before,after,after,before | after  | after                  | 18.749999813735485 | 0                  | 1654.1666674117248 | 3185.416666790843  | 4858.3333340163035 | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 4     | before,after,after,before | after  | after                  | 16.666666915019352 | 0                  | 1658.3333335195978 | 3191.6666673496366 | 4866.666667784253  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 4     | before,after,after,before | before | before                 | 12.500000186264515 | 0                  | 1647.916665300727  | 3189.583335071802  | 4850.0000005587935 | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 5     | after,before,before,after | after  | after                  | 20.833333333333332 | 0                  | 1562.4999990686774 | 2997.916666480402  | 4581.249998882413  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 5     | after,before,before,after | before | before                 | 22.916666542490322 | 2.08333320915699   | 1666.666663872699  | 3191.6666692122817 | 4883.333332836628  | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 5     | after,before,before,after | before | before                 | 16.666666915019352 | 2.08333320915699   | 1633.3333334575098 | 3114.5833333333335 | 4766.66666691502   | 0                        | 0              | 0                       | 0             |
+| layer-local-control                     | 5     | after,before,before,after | after  | after                  | 18.750000124176342 | 0                  | 1660.416666418314  | 3189.5833344509206 | 4868.750000993411  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 0     | before,after,after,before | before | before                 | 3629.166667970518  | 0                  | 6.24999962747097   | 864.583333954215   | 4500.000001552204  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 0     | before,after,after,before | after  | after                  | 3070.833335009714  | 2.08333320915699   | 6.249999937911828  | 831.2499991928538  | 3910.416667349637  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 0     | before,after,after,before | after  | after                  | 2895.8333330228925 | 6.250000248352687  | 8.333333767950535  | 772.9166668529311  | 3683.3333338921266 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 0     | before,after,after,before | before | before                 | 3331.2499995032945 | 0                  | 8.333333767950535  | 947.9166666666666  | 4287.4999999379115 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 1     | after,before,before,after | after  | after                  | 3412.499999937912  | 0                  | 2.08333320915699   | 841.6666680326065  | 4256.250001179676  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 1     | after,before,before,after | before | before                 | 3256.249999627471  | 0                  | 12.499999875823656 | 845.8333325882753  | 4114.58333209157   | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 1     | after,before,before,after | before | before                 | 3237.499998571972  | 4.16666641831398   | 8.333333457509676  | 1002.0833350718021 | 4252.0833335195975 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 1     | after,before,before,after | after  | after                  | 2902.083333892127  | 2.0833335195978484 | 8.333333767950535  | 902.0833326503634  | 3814.583333830039  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 2     | before,after,after,before | before | before                 | 3560.4166680326066 | 2.0833335195978484 | 4.166666728754838  | 966.6666671012839  | 4533.333335382244  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 2     | before,after,after,before | after  | after                  | 3766.6666681567826 | 4.166666728754838  | 12.49999925494194  | 766.6666662941376  | 4550.0000004346175 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 2     | before,after,after,before | after  | after                  | 3758.3333334575095 | 0                  | 16.66666567325592  | 760.4166672875484  | 4535.416666418314  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 2     | before,after,after,before | before | before                 | 3950.0000004967055 | 0                  | 6.249999937911828  | 777.0833332712451  | 4733.333333705863  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 3     | after,before,before,after | after  | after                  | 3133.333333147069  | 2.0833335195978484 | 10.41666604578495  | 706.2499995032946  | 3852.0833322157464 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 3     | after,before,before,after | before | before                 | 3272.9166659216085 | 8.333333147068819  | 6.249999937911828  | 1352.083334699273  | 4639.583333705863  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 3     | after,before,before,after | before | before                 | 3931.2500013038516 | 0                  | 6.24999962747097   | 795.8333324640989  | 4733.3333333954215 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 3     | after,before,before,after | after  | after                  | 3447.9166669771075 | 0                  | 0                  | 768.7499998137355  | 4216.666666790843  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 4     | before,after,after,before | before | before                 | 2864.583332402011  | 2.0833335195978484 | 6.250000248352687  | 691.666666418314   | 3564.5833325882754 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 4     | before,after,after,before | after  | after                  | 3695.8333337679505 | 0                  | 8.333333147068819  | 910.4166661078731  | 4614.5833330228925 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 4     | before,after,after,before | after  | after                  | 3868.7499991307654 | 0                  | 12.499999565382799 | 814.5833347613612  | 4695.83333345751   | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 4     | before,after,after,before | before | before                 | 3447.9166685293117 | 0                  | 4.166666728754838  | 897.9166665424904  | 4350.000001800557  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 5     | after,before,before,after | after  | after                  | 3839.5833342025676 | 4.16666641831398   | 2.08333320915699   | 758.3333331470689  | 4604.1666669771075 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 5     | after,before,before,after | before | before                 | 3925.0000001241765 | 0                  | 2.0833335195978484 | 877.0833335195979  | 4804.166667163372  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 5     | after,before,before,after | before | before                 | 3716.6666677221656 | 2.08333320915699   | 0                  | 829.1666669150194  | 4547.916667846342  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-control                    | 5     | after,before,before,after | after  | after                  | 3062.4999987582364 | 0                  | 4.166666728754838  | 672.9166672254602  | 3739.5833327124515 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 0     | before,after,after,before | before | before                 | 474.99999931703013 | 0                  | 952.083334637185   | 3652.0833314086    | 5079.1666653628145 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 0     | before,after,after,before | after  | after                  | 545.8333333954215  | 0                  | 954.166667846342   | 3677.08333209157   | 5177.083333333334  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 0     | before,after,after,before | after  | after                  | 491.66666716337204 | 0                  | 972.916666418314   | 3679.166666852931  | 5143.750000434617  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 0     | before,after,after,before | before | before                 | 466.6666680326064  | 0                  | 972.9166657974323  | 3589.5833326503634 | 5029.1666664804025 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 1     | after,before,before,after | after  | after                  | 564.5833335195979  | 2.08333320915699   | 927.0833327124516  | 3697.916666356226  | 5191.666665797433  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 1     | after,before,before,after | before | before                 | 495.833333581686   | 4.16666641831398   | 972.9166657974323  | 3743.750000372529  | 5216.666666169962  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 1     | after,before,before,after | before | before                 | 489.5833333333333  | 2.0833335195978484 | 1027.083333581686  | 3768.7499995032945 | 5287.4999999379115 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 1     | after,before,before,after | after  | after                  | 549.9999998137355  | 2.08333320915699   | 904.1666683430473  | 3558.333332029482  | 5014.5833333954215 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 2     | before,after,after,before | before | before                 | 527.0833323399225  | 2.0833335195978484 | 1018.7499995032946 | 3745.8333345130086 | 5293.749999875823  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 2     | before,after,after,before | after  | after                  | 533.3333344509205  | 0                  | 972.916666418314   | 3837.50000068297   | 5343.750001552205  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 2     | before,after,after,before | after  | after                  | 533.333333209157   | 0                  | 964.5833329608043  | 3770.8333333333335 | 5268.749999503295  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 2     | before,after,after,before | before | before                 | 489.58333395421505 | 4.166667039195697  | 995.8333317190409  | 3783.3333341404796 | 5272.9166668529315 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 3     | after,before,before,after | after  | after                  | 531.2499990686774  | 2.0833335195978484 | 1010.4166675979892 | 3843.749998447796  | 5387.499998634061  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 3     | after,before,before,after | before | before                 | 539.5833331470689  | 0                  | 954.1666684672236  | 3714.5833329608045 | 5208.333334575097  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 3     | after,before,before,after | before | before                 | 497.91666741172475 | 0                  | 937.4999987582365  | 3652.0833326503634 | 5087.499998820324  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 3     | after,before,before,after | after  | after                  | 537.5000005587935  | 0                  | 1104.16666790843   | 3989.5833311602473 | 5631.249999627471  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 4     | before,after,after,before | before | before                 | 483.3333343267441  | 0                  | 1024.9999991307657 | 3818.7500008692346 | 5327.083334326744  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 4     | before,after,after,before | after  | after                  | 510.4166663562258  | 0                  | 960.4166677842537  | 3687.499999689559  | 5158.333333830038  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 4     | before,after,after,before | after  | after                  | 527.0833329608043  | 0                  | 929.1666668529311  | 3716.6666680326066 | 5172.9166678463425 | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 4     | before,after,after,before | before | before                 | 556.2500000620881  | 2.0833335195978484 | 947.9166675979892  | 3599.999999937912  | 5106.250001117587  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 5     | after,before,before,after | after  | after                  | 631.2500005587935  | 0                  | 812.5000009313226  | 3341.666665238639  | 4785.416666728755  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 5     | after,before,before,after | before | before                 | 639.5833337058624  | 0                  | 810.4166664804021  | 3504.166666728755  | 4954.16666691502   | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 5     | after,before,before,after | before | before                 | 502.083333209157   | 0                  | 974.9999993170301  | 3766.6666666045785 | 5243.749999130765  | 0                        | 0              | 0                       | 0             |
+| sprite-offscreen-large                  | 5     | after,before,before,after | after  | after                  | 508.33333283662796 | 0                  | 966.6666664804021  | 3789.583332836628  | 5264.5833321536575 | 0                        | 0              | 0                       | 0             |
+| sprite-local-listeners-control          | 0     | before,after,after,before | before | before                 | 783.333333209157   | 2.0833335195978484 | 808.3333320294818  | 6593.750000620882  | 8187.499999379119  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 0     | before,after,after,before | after  | after                  | 835.416667163372   | 0                  | 795.8333327745398  | 6585.41666654249   | 8216.666666480402  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 0     | before,after,after,before | after  | after                  | 770.833333954215   | 0                  | 824.9999992549419  | 6787.4999999379115 | 8383.333333147068  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 0     | before,after,after,before | before | before                 | 733.3333318432173  | 4.166666728754838  | 831.2500004346172  | 6718.749999379118  | 8287.499998385707  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 1     | after,before,before,after | after  | after                  | 856.2499998758236  | 0                  | 712.5000006829699  | 6345.8333335195975 | 7914.583334078391  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 1     | after,before,before,after | before | before                 | 712.5000006829699  | 0                  | 841.666666790843   | 6822.916665735344  | 8377.083333209157  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 1     | after,before,before,after | before | before                 | 712.5000006829699  | 0                  | 781.2500012417635  | 6710.416664679845  | 8204.166666604578  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 1     | after,before,before,after | after  | after                  | 850.0000005587935  | 2.0833335195978484 | 729.1666675979892  | 6510.416665735344  | 8091.666667411725  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 2     | before,after,after,before | before | before                 | 710.4166668529311  | 2.08333320915699   | 737.4999998137355  | 6535.416667349637  | 7985.41666722546   | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 2     | before,after,after,before | after  | after                  | 739.5833333333334  | 0                  | 847.9166673496366  | 6820.833330353101  | 8408.33333103607   | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 2     | before,after,after,before | after  | after                  | 737.5000007450581  | 2.08333320915699   | 829.1666666045785  | 6758.3333331470685 | 8327.083333705861  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 2     | before,after,after,before | before | before                 | 702.0833343267441  | 0                  | 874.9999993791183  | 6875               | 8452.083333705863  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 3     | after,before,before,after | after  | after                  | 720.8333335195979  | 0                  | 770.8333333333334  | 6495.833333892127  | 7987.500000745058  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 3     | after,before,before,after | before | before                 | 664.5833337679505  | 0                  | 797.9166659836968  | 6600.0000005587935 | 8062.5000003104415 | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 3     | after,before,before,after | before | before                 | 735.4166666045785  | 0                  | 816.6666670391957  | 6695.833332215746  | 8247.91666585952   | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 3     | after,before,before,after | after  | after                  | 810.4166677221656  | 0                  | 737.4999991928538  | 6489.583334575097  | 8037.500001490116  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 4     | before,after,after,before | before | before                 | 708.3333324020108  | 0                  | 720.8333325882753  | 6387.500001428028  | 7816.666666418314  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 4     | before,after,after,before | after  | after                  | 768.7500001241764  | 2.0833335195978484 | 643.7500007450581  | 6139.583332153658  | 7554.166666542491  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 4     | before,after,after,before | after  | after                  | 770.833334264656   | 0                  | 814.5833325882753  | 6783.333335071802  | 8368.750001924733  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 4     | before,after,after,before | before | before                 | 764.5833337058624  | 0                  | 802.0833333333334  | 6770.833335195978  | 8337.500002235174  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 5     | after,before,before,after | after  | after                  | 737.5000007450581  | 4.16666641831398   | 802.0833330228925  | 6577.0833340163035 | 8120.833334202568  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 5     | after,before,before,after | before | before                 | 670.8333337058624  | 2.0833335195978484 | 789.5833312844237  | 6625.000000620882  | 8087.499999130766  | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 5     | after,before,before,after | before | before                 | 718.7500018626451  | 2.08333320915699   | 787.4999990065893  | 6672.916665362815  | 8181.2499994412065 | 28672                    | 512            | 0                       | 0             |
+| sprite-local-listeners-control          | 5     | after,before,before,after | after  | after                  | 735.4166666045785  | 0                  | 829.1666666045785  | 6708.333333333333  | 8272.91666654249   | 28672                    | 512            | 0                       | 0             |
+| sprite-empty-observed-type-control      | 0     | before,after,after,before | before | before                 | 2429.166667473813  | 2.08333320915699   | 14.583333395421505 | 812.4999996895591  | 3258.3333337679505 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 0     | before,after,after,before | after  | after                  | 2056.2499997516475 | 0                  | 8.333333767950535  | 810.4166661699613  | 2874.9999996895594 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 0     | before,after,after,before | after  | after                  | 2418.7500004967055 | 2.08333320915699   | 8.333333457509676  | 1052.0833327124517 | 3481.249999875824  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 0     | before,after,after,before | before | before                 | 3087.50000068297   | 0                  | 12.500000186264515 | 1114.5833327124517 | 4214.583333581686  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 1     | after,before,before,after | after  | after                  | 3437.499999689559  | 4.16666641831398   | 6.249999937911828  | 918.7500011175871  | 4366.666667163372  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 1     | after,before,before,after | before | before                 | 2804.1666659216085 | 2.0833335195978484 | 4.16666641831398   | 943.7500002483526  | 3754.166666107873  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 1     | after,before,before,after | before | before                 | 2883.3333322157464 | 0                  | 10.416666666666666 | 1104.1666666666667 | 3997.91666554908   | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 1     | after,before,before,after | after  | after                  | 2716.666666480402  | 0                  | 12.500000496705374 | 752.0833322778344  | 3481.249999254942  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 2     | before,after,after,before | before | before                 | 3077.0833355685077 | 2.08333320915699   | 6.249999937911828  | 993.7499988203248  | 4079.1666675359015 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 2     | before,after,after,before | after  | after                  | 3385.416666045785  | 0                  | 6.24999962747097   | 1079.1666669150193 | 4470.833332588275  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 2     | before,after,after,before | after  | after                  | 3364.583334264656  | 0                  | 6.250000248352687  | 868.7499997516474  | 4239.583334264656  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 2     | before,after,after,before | before | before                 | 2495.8333329608045 | 0                  | 6.249999937911828  | 831.2499991928538  | 3333.3333320915704 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 3     | after,before,before,after | after  | after                  | 3016.6666650523744 | 6.249999937911828  | 6.250000248352687  | 964.5833345130086  | 3993.7499997516475 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 3     | after,before,before,after | before | before                 | 2468.750001862645  | 4.166667039195697  | 8.33333283662796   | 849.9999977648258  | 3331.2499995032945 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 3     | after,before,before,after | before | before                 | 3362.5000001241765 | 0                  | 2.08333320915699   | 964.5833342025677  | 4329.166667535901  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 3     | after,before,before,after | after  | after                  | 3362.5000019868216 | 0                  | 4.16666641831398   | 939.5833335195979  | 4306.250001924734  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 4     | before,after,after,before | before | before                 | 2764.5833337058625 | 0                  | 0                  | 825.0000001862645  | 3589.583333892127  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 4     | before,after,after,before | after  | after                  | 3279.1666674117246 | 0                  | 2.0833335195978484 | 893.7499995032946  | 4175.0000004346175 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 4     | before,after,after,before | after  | after                  | 3854.1666685293117 | 0                  | 2.08333320915699   | 783.3333325882753  | 4639.583334326744  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 4     | before,after,after,before | before | before                 | 3889.5833333954215 | 0                  | 0                  | 679.1666668529311  | 4568.750000248353  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 5     | after,before,before,after | after  | after                  | 3845.8333341404796 | 2.0833335195978484 | 6.250000248352687  | 685.4166664804021  | 4539.583334388833  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 5     | after,before,before,after | before | before                 | 3762.5000017384687 | 0                  | 6.249999937911828  | 718.7500003104409  | 4487.500001986821  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 5     | after,before,before,after | before | before                 | 2856.249998944501  | 2.08333320915699   | 4.16666641831398   | 768.7499988824129  | 3631.249997454385  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-observed-type-control      | 5     | after,before,before,after | after  | after                  | 3354.1666669771075 | 0                  | 4.16666641831398   | 806.2499991307656  | 4164.583332526187  | 0                        | 0              | 0                       | 0             |
+| sprite-mixed-lifecycle-history-control  | 0     | before,after,after,before | before | before                 | 1662.5000002483528 | 0                  | 831.2500007450581  | 12783.333332588276 | 15277.083333581686 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 0     | before,after,after,before | after  | after                  | 1654.166666790843  | 0                  | 800.0000004346172  | 12514.583334016303 | 14968.750001241762 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 0     | before,after,after,before | after  | after                  | 1706.2499998137355 | 0                  | 797.9166666045785  | 12558.333332650363 | 15062.499999068677 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 0     | before,after,after,before | before | before                 | 1564.5833341404796 | 2.08333320915699   | 772.9166653007269  | 12587.500001303852 | 14927.083333954215 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 1     | after,before,before,after | after  | after                  | 1766.6666669150193 | 0                  | 787.4999999379119  | 12689.583333209157 | 15243.750000062088 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 1     | after,before,before,after | before | before                 | 1506.2500002483528 | 0                  | 785.4166673496366  | 12620.833332960805 | 14912.500000558794 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 1     | after,before,before,after | before | before                 | 1483.3333337058623 | 0                  | 804.1666665424904  | 12649.999999751648 | 14937.5            | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 1     | after,before,before,after | after  | after                  | 1664.5833343888323 | 0                  | 808.3333326503634  | 12677.083332712451 | 15149.999999751646 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 2     | before,after,after,before | before | before                 | 1508.333334699273  | 0                  | 781.2499996895591  | 12599.999999937912 | 14889.583334326744 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 2     | before,after,after,before | after  | after                  | 1752.0833328987162 | 0                  | 789.5833331470689  | 12825.000001738468 | 15366.666667784253 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 2     | before,after,after,before | after  | after                  | 2093.7499993791184 | 0                  | 845.8333319673935  | 13631.250000869235 | 16570.83333221575  | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 2     | before,after,after,before | before | before                 | 1508.3333340783913 | 0                  | 806.2500006829699  | 12587.500000372529 | 14902.08333513389  | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 3     | after,before,before,after | after  | after                  | 1677.0833330228925 | 0                  | 791.6666666666666  | 12556.250001303852 | 15025.00000099341  | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 3     | after,before,before,after | before | before                 | 1504.1666667287548 | 0                  | 795.8333333954215  | 12518.749999192854 | 14818.749999317031 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 3     | after,before,before,after | before | before                 | 1574.9999998758237 | 0                  | 791.6666672875484  | 12689.583333519598 | 15056.25000068297  | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 3     | after,before,before,after | after  | after                  | 1629.1666667287548 | 2.08333320915699   | 781.2500003104409  | 12508.333332526186 | 14920.833332774539 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 4     | before,after,after,before | before | before                 | 1583.3333333333333 | 0                  | 799.9999998137355  | 12689.583333519598 | 15072.916666666668 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 4     | before,after,after,before | after  | after                  | 1660.4166661078732 | 0                  | 804.1666668529311  | 12568.750000558794 | 15033.333333519598 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 4     | before,after,after,before | after  | after                  | 1666.6666654249032 | 0                  | 785.4166679705182  | 12564.583332588276 | 15016.666665983697 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 4     | before,after,after,before | before | before                 | 1483.3333330849807 | 0                  | 766.6666659836968  | 12537.500001179675 | 14787.500000248352 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 5     | after,before,before,after | after  | after                  | 1739.5833327124517 | 0                  | 804.1666677842537  | 12766.66666691502  | 15310.416667411726 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 5     | after,before,before,after | before | before                 | 1545.8333337058623 | 0                  | 795.833334637185   | 12647.91666685293  | 14989.583335195977 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 5     | after,before,before,after | before | before                 | 1541.6666666666667 | 0                  | 793.7499998758236  | 12631.249999937912 | 14966.666666480403 | 28672                    | 512            | 28672                   | 512           |
+| sprite-mixed-lifecycle-history-control  | 5     | after,before,before,after | after  | after                  | 1608.333334326744  | 0                  | 808.3333329608043  | 12491.66666685293  | 14908.33333414048  | 28672                    | 512            | 28672                   | 512           |
+| sprite-empty-both-types-history-control | 0     | before,after,after,before | before | before                 | 2495.833333581686  | 4.16666641831398   | 12.500000186264515 | 1095.8333341404796 | 3608.333334326744  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 0     | before,after,after,before | after  | after                  | 2931.2500009934106 | 2.0833335195978484 | 6.24999962747097   | 1122.9166655490797 | 4062.4999996895594 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 0     | before,after,after,before | after  | after                  | 2170.8333337058625 | 0                  | 10.41666604578495  | 935.4166664804021  | 3116.6666662320495 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 0     | before,after,after,before | before | before                 | 2395.833331781129  | 6.250000248352687  | 27.083332960804302 | 1116.6666665424902 | 3545.8333315327764 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 1     | after,before,before,after | after  | after                  | 2856.2500017384687 | 8.333333457509676  | 12.500000186264515 | 1175.000000745058  | 4052.0833361273008 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 1     | after,before,before,after | before | before                 | 2868.750000372529  | 4.166666728754838  | 16.666666604578495 | 1212.5000006829698 | 4102.083334388833  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 1     | after,before,before,after | before | before                 | 2529.1666674117246 | 4.166666728754838  | 10.416666977107525 | 1145.83333209157   | 3689.583333209157  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 1     | after,before,before,after | after  | after                  | 2381.249999627471  | 2.08333320915699   | 16.666666915019352 | 825.0000004967054  | 3225.000000248353  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 2     | before,after,after,before | before | before                 | 2764.58333277454   | 0                  | 14.583333705862364 | 1181.2499997516472 | 3960.4166662320495 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 2     | before,after,after,before | after  | after                  | 2618.749998820325  | 2.0833335195978484 | 6.250000248352687  | 987.500001055499   | 3614.5833336437745 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 2     | before,after,after,before | after  | after                  | 2718.75            | 6.249999937911828  | 8.333333457509676  | 1024.9999994412065 | 3758.333332836628  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 2     | before,after,after,before | before | before                 | 2795.83333277454   | 4.166666728754838  | 10.416666666666666 | 1116.6666656111677 | 3927.0833317811293 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 3     | after,before,before,after | after  | after                  | 2818.7499986961484 | 0                  | 12.500000496705374 | 1075.000001117587  | 3906.250000310441  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 3     | after,before,before,after | before | before                 | 2075.0000001862645 | 0                  | 2.0833335195978484 | 947.9166663562258  | 3025.0000000620885 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 3     | after,before,before,after | before | before                 | 2508.3333340783915 | 4.16666641831398   | 16.666666294137638 | 1139.5833340163033 | 3668.7500008071465 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 3     | after,before,before,after | after  | after                  | 2952.0833318432174 | 4.16666641831398   | 10.416666666666666 | 1131.2499999379118 | 4097.916664866109  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 4     | before,after,after,before | before | before                 | 2131.249999937912  | 6.249999937911828  | 12.499999875823656 | 1035.4166657974322 | 3185.41666554908   | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 4     | before,after,after,before | after  | after                  | 3150.0000009934106 | 0                  | 12.499999565382799 | 1000               | 4162.5000005587935 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 4     | before,after,after,before | after  | after                  | 2789.5833337679505 | 2.08333320915699   | 2.0833335195978484 | 1029.1666661699612 | 3822.916666666667  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 4     | before,after,after,before | before | before                 | 2562.500001552204  | 0                  | 12.499999875823656 | 1118.7499985098839 | 3693.7499999379115 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 5     | after,before,before,after | after  | after                  | 2660.4166673496366 | 0                  | 12.499999875823656 | 1070.8333325261872 | 3743.749999751647  | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 5     | after,before,before,after | before | before                 | 2881.250001179675  | 6.24999962747097   | 12.500000496705374 | 1187.4999987582366 | 4087.5000000620885 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 5     | after,before,before,after | before | before                 | 2541.6666651144624 | 0                  | 14.583333705862364 | 1068.7500008692343 | 3624.9999996895594 | 0                        | 0              | 0                       | 0             |
+| sprite-empty-both-types-history-control | 5     | after,before,before,after | after  | after                  | 2537.4999990065894 | 0                  | 10.416666356225809 | 1050.0000010554988 | 3597.916666418314  | 0                        | 0              | 0                       | 0             |
+
+### 準備失敗與工具界線
+
+- 最初 lifecycle script template 把 errors.join 的 newline 變成字面換行，Prettier在執行前拒絕解析；僅修正script尾端使用String.fromCharCode(10)，沒有改引擎。
+- route refresh 曾只接受 const server=，driver格式化後是const server =；guarded失敗後改成允許空白的boundary，沒有假裝前一步的fixture setup沒有發生，也沒有重跑成功階段。
+- 原型一 Proxy assertion 的bash結果未帶出log，已另讀實際失敗log並回報工具QA；沒有以空輸出宣稱通過。
+- 文件分析 helper 曾使用不存在的cohorts欄位，拋TypeError；確認實際cohortProof schema後只重做分析，沒有重跑CPU或改數字。
+- 新測試的固定三個native method table採Record而非Map；throwaway efficacy probe改用static import，因測試是在module收集完成後才執行，不需要dynamic import。
+- Vite原有OPM dynamic-import analysis warning仍完整輸出，未改vendor、音訊adapter、validation或加入ignore以壓制它。此warning不是本輪新增的音訊測試結果。
+
+### 重現用隔離 fixture（非正式引擎API）
+
+下列保留當時root／port與pinned runtime；需在該repo既有dist與Playwright環境執行，不是可攜式公開benchmark套件。driver的原型模組路由只存在於throwaway Vite middleware。原型一另將觀察方法委派hasObjectEventObservers；之後使用以下修正版模組。所有CPU矩陣在source gates完成後單獨執行，不能和formatter或profiler重疊。
+
+#### profile.mjs
+
+```javascript
+import fs from 'node:fs';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  port = 5270;
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port, strictPort: true },
+  plugins: [
+    {
+      name: 'p270-real-frame-profile',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url === '/p270') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Native Game frame profile</title></head><body style="margin:0"><canvas id="game"></canvas></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+try {
+  await server.listen();
+  const launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+    }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:' + port + '/p270');
+  await page.evaluate(async () => {
+    const api = await import('/dist/src/index.js');
+    globalThis.setup270 = async (mode) => {
+      if (document.visibilityState !== 'visible')
+        throw Error('Hidden profile page');
+      const bitmap = await createImageBitmap(
+          new ImageData(new Uint8ClampedArray(4 * 4 * 4).fill(255), 4, 4),
+        ),
+        texture = new api.Texture(bitmap),
+        emitters = [];
+      class CountedScene extends api.Scene {
+        frames = 0;
+        update() {
+          ++this.frames;
+        }
+      }
+      const scene = new CountedScene(),
+        canvas = document.getElementById('game'),
+        game = await api.Game.create({
+          canvas,
+          renderer: 'webgl2',
+          width: 1280,
+          height: 720,
+          pixelRatio: 1,
+          autoResize: false,
+          frameWorkBudgetMs: 1000 / 60,
+        });
+      game.addEventListener('error', (e) => {
+        globalThis.runtimeError270 = e.detail?.stack ?? String(e.detail);
+      });
+      for (let i = 0; i < 4; i++) {
+        const target = mode.startsWith('layer')
+          ? new api.ParticleLayer2D({ capacity: 8192 })
+          : undefined;
+        const emitter = new api.ParticleEmitter({
+          texture,
+          target,
+          capacity: 8192,
+          rate: 0,
+          lifetime: [1e6, 1e6],
+          speed: [0, 0],
+          angle: [-Math.PI, Math.PI],
+          acceleration: [0, 0],
+          startSize: [8, 4],
+          endSize: [8, 4],
+          startColor: [0.7, 0.2, 0.4, 0.8],
+          endColor: [0.7, 0.2, 0.4, 0.8],
+          seed: 17 + i,
+          space: mode.endsWith('world') ? 'world' : 'local',
+          nozzle: { kind: 'rectangle', width: 512, height: 256 },
+        });
+        emitter.position.set(160 + 320 * i, 360);
+        emitter.rotation = 0.3;
+        emitter.scale.set(1.3, 0.7);
+        if (mode !== 'sprite-empty') emitter.emit(8192);
+        scene.add(emitter);
+        emitters.push(emitter);
+      }
+      await game.setScene(scene);
+      globalThis.fixture270 = { game, scene, emitters, texture, bitmap };
+      game.start();
+      return {
+        mode,
+        requestedBackend: 'webgl2',
+        nativeWebGL2:
+          canvas.getContext('webgl2') instanceof WebGL2RenderingContext,
+        nativeImageBitmap: bitmap instanceof ImageBitmap,
+        visibility: document.visibilityState,
+        emitters: 4,
+        capacityPerEmitter: 8192,
+      };
+    };
+  });
+  const cdp = await page.context().newCDPSession(page),
+    reports = [];
+  await cdp.send('Profiler.enable');
+  await cdp.send('Profiler.setSamplingInterval', { interval: 100 });
+  for (const mode of [
+    'sprite-empty',
+    'sprite-local',
+    'sprite-world',
+    'layer-local',
+  ]) {
+    const setup = await page.evaluate(
+      (mode) => globalThis.setup270(mode),
+      mode,
+    );
+    await page.waitForFunction(
+      () =>
+        globalThis.runtimeError270 || globalThis.fixture270.scene.frames >= 90,
+      {},
+      { timeout: 60000 },
+    );
+    const before = await page.evaluate(() => {
+      if (globalThis.runtimeError270) throw Error(globalThis.runtimeError270);
+      const f = globalThis.fixture270;
+      globalThis.state270 = {
+        registered: f.scene.objects.size,
+        initialized: [...f.scene.objects].filter(
+          (o) => o.eventsInitialized === true,
+        ).length,
+        uninitialized: [...f.scene.objects].filter(
+          (o) => o.eventsInitialized === false,
+        ).length,
+        postObservers: [...f.scene.objects].filter(
+          (o) =>
+            typeof o.observesUpdate === 'function' &&
+            o.observesUpdate('postupdate'),
+        ).length,
+      };
+      return f.scene.frames;
+    });
+    await cdp.send('Profiler.start');
+    await page.waitForFunction(
+      (target) =>
+        globalThis.runtimeError270 ||
+        globalThis.fixture270.scene.frames >= target,
+      before + 180,
+      { timeout: 60000 },
+    );
+    const measurement = await page.evaluate(() => {
+      if (globalThis.runtimeError270) throw Error(globalThis.runtimeError270);
+      const f = globalThis.fixture270;
+      f.game.pause();
+      return {
+        completedFrames: f.scene.frames,
+        lastCompleteFrameWorkMs: {
+          simulation: f.game.frameWork.simulationMs,
+          navigation: f.game.frameWork.navigationMs,
+          afterUpdate: f.game.frameWork.afterUpdateMs,
+          renderSubmit: f.game.frameWork.renderSubmitMs,
+        },
+        activeParticles: f.emitters.map((e) => e.activeCount),
+        visibility: document.visibilityState,
+      };
+    });
+    const { profile } = await cdp.send('Profiler.stop');
+    fs.writeFileSync(
+      '/tmp/xyz-p270/' + mode + '.cpuprofile',
+      JSON.stringify(profile),
+    );
+    const nodes = new Map(profile.nodes.map((n) => [n.id, n])),
+      self = new Map();
+    for (let i = 0; i < profile.samples.length; i++) {
+      const frame = nodes.get(profile.samples[i]).callFrame,
+        key =
+          (frame.functionName || '(anonymous)') +
+          ' ' +
+          frame.url +
+          ':' +
+          (frame.lineNumber + 1);
+      self.set(key, (self.get(key) ?? 0) + profile.timeDeltas[i]);
+    }
+    await page.screenshot({ path: '/tmp/xyz-p270/' + mode + '.png' });
+    const cleanup = await page.evaluate(() => {
+      const f = globalThis.fixture270;
+      f.game.destroy();
+      if (f.texture.destroyed) throw Error('Game destroyed borrowed texture');
+      f.texture.destroy();
+      return {
+        gameDestroyed: f.game.state,
+        textureDestroyed: f.texture.destroyed,
+        nativeBitmapClosed: f.bitmap.width === 0,
+      };
+    });
+    if (!cleanup.nativeBitmapClosed)
+      throw Error('Native bitmap cleanup failed');
+    reports.push({
+      setup,
+      warmFrames: before,
+      profiledFrames: measurement.completedFrames - before,
+      objectState: await page.evaluate(() => globalThis.state270),
+      ...measurement,
+      topSelfMicroseconds: [...self].sort((a, b) => b[1] - a[1]).slice(0, 30),
+      cleanup,
+    });
+  }
+  const report = {
+    browser: browserIdentity('chromium', browser, launch),
+    reports,
+    errors,
+  };
+  fs.writeFileSync('/tmp/xyz-p270/profiles.json', JSON.stringify(report));
+  console.log(JSON.stringify(report, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+#### events-proxy.mjs
+
+```javascript
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p270',
+  phase = process.env.P270_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5270, strictPort: true },
+  plugins: [
+    {
+      name: 'p270-shared-graph-observer-method',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (url.pathname === '/dist/packages/core/src/event-observers.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-event-observers.mjs'));
+            return;
+          }
+          if (url.pathname === '/dist/packages/core/src/scene-object.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-scene-object.mjs'));
+            return;
+          }
+          if (url.pathname === '/p270-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Shared Game traversal isolation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+try {
+  await server.listen();
+  const launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({ viewport: { width: 64, height: 128 } }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5270/p270-game');
+  await page.evaluate(async () => {
+    const api = await import('/dist/src/index.js'),
+      controller = await import('/dist/packages/core/src/scene-object.js');
+    let fixtures = [];
+    for (const side of ['before', 'after']) {
+      const canvas = document.createElement('canvas');
+      canvas.style.display = 'block';
+      document.body.append(canvas);
+      const bitmap = await createImageBitmap(
+          new ImageData(new Uint8ClampedArray(64).fill(255), 4, 4),
+        ),
+        texture = new api.Texture(bitmap),
+        root = new api.Group2D(),
+        log = [],
+        counts = {
+          pre: 0,
+          ordinary: 0,
+          once: 0,
+          aborted: 0,
+          abortAfter: 0,
+          removed: 0,
+          late: 0,
+          initialized: 0,
+          override: 0,
+          hook: 0,
+          victim: 0,
+          proxied: 0,
+        };
+      let game,
+        tick = 0,
+        currentDelta = 0,
+        preDelta,
+        complete,
+        runtimeError,
+        late;
+      root.add(new api.Sprite({ texture, position: [20, 20] }));
+      const make = (id) => {
+        const node = root.add(new api.GameObject());
+        return node;
+      };
+      const post = (id, node) => (event) => {
+        if (
+          event.target !== node ||
+          event.currentTarget !== node ||
+          !Object.is(event.detail.dt, currentDelta) ||
+          !Number.isFinite(event.detail.dt) ||
+          event.detail.dt < 0
+        )
+          throw Error('Bad postupdate payload/target ' + id);
+        counts[id]++;
+        log.push(['post', id, tick]);
+      };
+      const pre = make('pre');
+      pre.addEventListener('preupdate', (event) => {
+        if (!Number.isFinite(event.detail.dt) || event.detail.dt < 0)
+          throw Error('Bad preupdate delta');
+        preDelta = event.detail.dt;
+        counts.pre++;
+        log.push(['pre', tick]);
+      });
+      const ordinary = make('ordinary');
+      ordinary.addEventListener('postupdate', post('ordinary', ordinary));
+      const once = make('once');
+      once.addEventListener('postupdate', post('once', once), { once: true });
+      const aborted = make('aborted'),
+        abortedSignal = new AbortController();
+      abortedSignal.abort();
+      aborted.addEventListener('postupdate', post('aborted', aborted), {
+        signal: abortedSignal.signal,
+      });
+      const abortAfter = make('abortAfter'),
+        abortSignal = new AbortController();
+      abortAfter.addEventListener(
+        'postupdate',
+        post('abortAfter', abortAfter),
+        { signal: abortSignal.signal },
+      );
+      const removed = make('removed'),
+        removedCallback = post('removed', removed);
+      removed.addEventListener('postupdate', removedCallback);
+      const initialized = make('initialized');
+      initialized.addEventListener('initialize', () => {
+        log.push(['initialize', tick]);
+        initialized.addEventListener(
+          'postupdate',
+          post('initialized', initialized),
+        );
+      });
+      const override = make('override');
+      override.addEventListener('postupdate', post('override', override));
+      override.observesUpdate = (type) => {
+        log.push(['observer-override', type, tick]);
+        return false;
+      };
+      const hook = make('hook');
+      hook.update = () => {
+        counts.hook++;
+        log.push(['hook', tick]);
+        if (tick === 4) late.addEventListener('postupdate', post('late', late));
+        if (tick === 5) victim.destroy();
+      };
+      late = make('late');
+      const victim = make('victim');
+      victim.addEventListener('postupdate', post('victim', victim));
+      victim.addEventListener('destroy', () =>
+        log.push(['destroy-victim', tick]),
+      );
+      const proxyTarget = new api.GameObject(),
+        boundNative = new Map();
+      const proxied = new Proxy(proxyTarget, {
+        get(target, key, receiver) {
+          if (
+            key === 'addEventListener' ||
+            key === 'removeEventListener' ||
+            key === 'dispatchEvent'
+          ) {
+            if (!boundNative.has(key))
+              boundNative.set(
+                key,
+                Reflect.get(target, key, target).bind(target),
+              );
+            return boundNative.get(key);
+          }
+          return Reflect.get(target, key, receiver);
+        },
+      });
+      root.add(proxied);
+      proxied.addEventListener('postupdate', post('proxied', proxyTarget));
+      const finish = () => {
+        game.pause();
+        const c = complete;
+        complete = undefined;
+        runtimeError ? c.reject(Error(runtimeError)) : c.resolve();
+      };
+      class EventScene extends api.Scene {
+        update(delta) {
+          tick++;
+          currentDelta = delta;
+          if (!Object.is(preDelta, delta))
+            throw Error(
+              'Preupdate delta does not match the same actual Game tick',
+            );
+          if (tick === 3)
+            removed.removeEventListener('postupdate', removedCallback);
+          if (tick === 5) abortSignal.abort();
+          if (tick === 7) {
+            this.remove(root);
+            this.add(root);
+          }
+          if (tick === 8) hook.update = api.GameObject.prototype.update;
+          queueMicrotask(finish);
+        }
+      }
+      const scene = new EventScene();
+      scene.add(root);
+      game = await api.Game.create({
+        canvas,
+        renderer: 'webgl2',
+        width: 64,
+        height: 64,
+        pixelRatio: 1,
+        autoResize: false,
+      });
+      game.addEventListener('error', (e) => {
+        runtimeError = e.detail?.stack ?? String(e.detail);
+      });
+      await game.setScene(scene);
+      const frame = () =>
+        new Promise((resolve, reject) => {
+          controller.setObserverVariant270(side);
+          complete = { resolve, reject };
+          game.start();
+        });
+      fixtures.push({
+        side,
+        game,
+        texture,
+        bitmap,
+        frame,
+        snapshot: () => ({
+          tick,
+          counts: { ...counts },
+          onceObserved: once.observesUpdate('postupdate'),
+          abortedObserved: aborted.observesUpdate('postupdate'),
+          lateObserved: late.observesUpdate('postupdate'),
+          victimDestroyed: victim.destroyed,
+        }),
+        log,
+        counts,
+      });
+    }
+    globalThis.proveEvents270 = async () => {
+      const snapshots = {};
+      for (const f of fixtures) {
+        snapshots[f.side] = [];
+        for (let frame = 0; frame < 12; frame++) {
+          await f.frame();
+          snapshots[f.side].push(f.snapshot());
+        }
+        const expected = {
+          pre: 12,
+          ordinary: 11,
+          once: 1,
+          aborted: 0,
+          abortAfter: 4,
+          removed: 2,
+          late: 8,
+          initialized: 11,
+          override: 0,
+          hook: 6,
+          victim: 4,
+          proxied: 11,
+        };
+        if (JSON.stringify(f.counts) !== JSON.stringify(expected))
+          throw Error(
+            'Unexpected consumer callbacks ' +
+              f.side +
+              ': ' +
+              JSON.stringify(f.counts),
+          );
+        if (f.log.filter((row) => row[0] === 'initialize').length !== 1)
+          throw Error('Reinitialized after remove/readd');
+      }
+      if (
+        JSON.stringify(snapshots.before) !== JSON.stringify(snapshots.after) ||
+        JSON.stringify(fixtures[0].log) !== JSON.stringify(fixtures[1].log)
+      )
+        throw Error('Lifecycle delivery/order changed');
+      return {
+        snapshots,
+        matchingLogs: fixtures[0].log,
+        realNativeGame: true,
+        actualClockPayloadsVerified: true,
+      };
+    };
+    globalThis.cleanupEvents270 = () => {
+      const rows = [];
+      for (const f of fixtures) {
+        f.game.destroy();
+        if (f.texture.destroyed) throw Error('Destroyed borrowed Texture');
+        f.texture.destroy();
+        if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+        rows.push({
+          side: f.side,
+          gameDestroyed: f.game.state,
+          bitmapClosed: true,
+        });
+      }
+      fixtures = [];
+      return rows;
+    };
+  });
+  const proof = await page.evaluate(() => globalThis.proveEvents270()),
+    hashes = [];
+  for (let i = 0; i < 2; i++) {
+    const bytes = await page.screenshot({
+      clip: { x: 0, y: i * 64, width: 64, height: 64 },
+      path: directory + '/events-' + (i === 0 ? 'before' : 'after') + '.png',
+    });
+    if (!pngPixels(bytes).nonuniform)
+      throw Error('Blank lifecycle Game canvas');
+    hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+  }
+  if (hashes[0] !== hashes[1]) throw Error('Lifecycle pixels differ');
+  const cleanup = await page.evaluate(() => globalThis.cleanupEvents270());
+  const result = {
+    entry: '/dist/src/index.js',
+    browser: browserIdentity('chromium', browser, launch),
+    proof,
+    matchingPngSha256: hashes[0],
+    cleanup,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/events-proxy-proof.json',
+    JSON.stringify(result),
+  );
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length) throw Error(errors.join(String.fromCharCode(10)));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+#### sprite.mjs
+
+```javascript
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p270',
+  phase = process.env.P270_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5270, strictPort: true },
+  plugins: [
+    {
+      name: 'p270-shared-graph-observer-method',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (url.pathname === '/dist/packages/core/src/event-observers.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-event-observers.mjs'));
+            return;
+          }
+          if (url.pathname === '/dist/packages/core/src/scene-object.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-scene-object.mjs'));
+            return;
+          }
+          if (url.pathname === '/p270-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Shared Game traversal isolation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+const tag = process.env.P270_TAG ?? phase;
+try {
+  await server.listen();
+  const backend = process.env.P270_BACKEND ?? 'webgl2',
+    launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({ viewport: { width: 256, height: 384 } }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5270/p270-game');
+  await page.evaluate(
+    async ({ afterEntry }) => {
+      const apiShared = await import('/dist/src/index.js'),
+        controller = await import('/dist/packages/core/src/scene-object.js'),
+        apis = { before: apiShared, after: apiShared };
+      let fixtures = [];
+      globalThis.setupDynamic270 = async ({ backend, mode }) => {
+        document.body.replaceChildren();
+        fixtures = [];
+        for (const side of ['before', 'after']) {
+          const api = apis[side],
+            canvas = document.createElement('canvas');
+          canvas.style.display = 'block';
+          document.body.append(canvas);
+          const pixels = new Uint8ClampedArray(16 * 16 * 4);
+          for (let y = 0; y < 16; y++)
+            for (let x = 0; x < 16; x++) {
+              const o = (y * 16 + x) * 4;
+              pixels[o] = x * 17;
+              pixels[o + 1] = y * 17;
+              pixels[o + 2] = (x ^ y) * 17;
+              pixels[o + 3] = 255;
+            }
+          const bitmap = await createImageBitmap(new ImageData(pixels, 16, 16)),
+            texture = new api.Texture(bitmap);
+          const view = mode.endsWith('rotated')
+              ? new api.TextureView2D(texture, {
+                  frame: { x: 4, y: 2, width: 6, height: 4 },
+                  rotation: 90,
+                })
+              : mode.endsWith('trimmed')
+                ? new api.TextureView2D(texture, {
+                    frame: { x: 2, y: 4, width: 6, height: 4 },
+                    originalSize: [12, 10],
+                    trim: { x: 3, y: 2, width: 6, height: 4 },
+                    resolution: 2,
+                  })
+                : undefined,
+            source = mode.endsWith('source')
+              ? { x: -0, y: -0, width: 7, height: 5 }
+              : undefined;
+          let game,
+            complete,
+            runtimeError,
+            tick = 0;
+          const isolated = mode.endsWith('isolated') || mode.endsWith('nested');
+          class Shaken extends (isolated ? api.IsolatedGroup2D : api.Group2D) {
+            updateWorldMatrix() {
+              const matrix = super.updateWorldMatrix();
+              matrix.elements[6] += 2;
+              return matrix;
+            }
+          }
+          const rootGroup = new Shaken();
+          if (isolated) rootGroup.isolate = true;
+          const holder = mode.endsWith('nested')
+            ? rootGroup.add(new api.IsolatedGroup2D())
+            : rootGroup;
+          if (holder !== rootGroup) holder.isolate = true;
+          rootGroup.position.set(30, 20);
+          if (mode === 'local-screen') rootGroup.space = 'screen';
+          const emitter = holder.add(
+            new api.ParticleEmitter({
+              texture,
+              view,
+              source,
+              capacity: 32,
+              rate: 0,
+              lifetime: [1e6, 1e6],
+              speed: [0, 0],
+              angle: [0, 0],
+              acceleration: [0, 0],
+              startSize: [8, 6],
+              endSize: [8, 6],
+              startColor: [0.7, 0.2, 0.4, 0.8],
+              endColor: [0.7, 0.2, 0.4, 0.8],
+              seed: 17,
+              space: mode.startsWith('world') ? 'world' : 'local',
+              nozzle: { kind: 'rectangle', width: 24, height: 12 },
+            }),
+          );
+          emitter.position.set(80, 80);
+          emitter.emit(32);
+          const particles = [...emitter.children].filter(
+            (child) => child instanceof api.Sprite && child.renderEnabled,
+          );
+          if (particles.length !== 32)
+            throw Error('Missing ordinary Sprite pool');
+          if (mode === 'local-custom') {
+            const particle = particles[0],
+              original = particle.updateWorldMatrix;
+            particle.updateWorldMatrix = function () {
+              const matrix = original.call(this);
+              matrix.elements[6] += 3;
+              return matrix;
+            };
+          }
+          const finish = () => {
+            game.pause();
+            const callback = complete;
+            complete = undefined;
+            runtimeError
+              ? callback.reject(Error(runtimeError))
+              : callback.resolve();
+          };
+          class PosedScene extends api.Scene {
+            update() {
+              ++tick;
+              rootGroup.position.set(30 + tick, 20 - tick * 0.5);
+              rootGroup.rotation = tick * 0.02;
+              rootGroup.scale.set(1 + tick * 0.01, 0.8 + tick * 0.02);
+              rootGroup.opacity = 0.6 + tick * 0.01;
+              rootGroup.tint = [1, 1 - tick * 0.005, 0.8 + tick * 0.005, 1];
+              emitter.position.set(80 + tick * 0.4, 80 - tick * 0.3);
+              emitter.rotation = tick * 0.03;
+              this.camera2D.position.set(tick * 0.1, -tick * 0.15);
+              this.camera2D.zoom = 1 + tick * 0.01;
+              queueMicrotask(finish);
+            }
+          }
+          let scene = new PosedScene();
+          scene.add(rootGroup);
+          game = await api.Game.create({
+            canvas,
+            renderer: backend,
+            width: 256,
+            height: 192,
+            pixelRatio: 1,
+            autoResize: false,
+          });
+          game.addEventListener('error', (event) => {
+            runtimeError = event.detail?.stack ?? String(event.detail);
+          });
+          await game.setScene(scene);
+          const frame = () =>
+            new Promise((resolve, reject) => {
+              controller.setObserverVariant270(side);
+              complete = { resolve, reject };
+              game.start();
+            });
+          const snapshot = () => ({
+            tick,
+            active: emitter.activeCount,
+            particles: particles.map((p) => ({
+              place: [p.position.x, p.position.y],
+              scale: [p.scale.x, p.scale.y],
+              tint: Array.from(p.tint),
+              worldSpace: p.worldSpace,
+              matrix: Array.from(p.worldMatrix.elements),
+            })),
+          });
+          fixtures.push({
+            side,
+            game,
+            get scene() {
+              return scene;
+            },
+            rootGroup,
+            emitter,
+            texture,
+            bitmap,
+            frame,
+            snapshot,
+            transfer: async () => {
+              scene.remove(rootGroup);
+              const next = new PosedScene();
+              next.add(rootGroup);
+              await game.setScene(next);
+              scene = next;
+            },
+          });
+        }
+        return {
+          mode,
+          backend,
+          visible: document.visibilityState,
+          nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+        };
+      };
+      globalThis.runDynamic270 = async (mode) => {
+        const snapshots = { before: [], after: [] };
+        for (const f of fixtures)
+          for (let frame = 0; frame < 12; frame++) {
+            if (mode === 'local-transfer' && frame === 6) await f.transfer();
+            await f.frame();
+            snapshots[f.side].push(f.snapshot());
+          }
+        let numbers = 0;
+        function equal(a, b, where) {
+          if (typeof a === 'number' && typeof b === 'number') {
+            numbers++;
+            if (!Object.is(a, b))
+              throw Error(
+                'Numeric mismatch at ' + where + ': ' + a + ' / ' + b,
+              );
+            return;
+          }
+          if (Array.isArray(a) && Array.isArray(b)) {
+            if (a.length !== b.length)
+              throw Error('Array mismatch at ' + where);
+            a.forEach((value, index) =>
+              equal(value, b[index], where + '/' + index),
+            );
+            return;
+          }
+          if (a && b && typeof a === 'object' && typeof b === 'object') {
+            const keys = Object.keys(a);
+            if (keys.join(',') !== Object.keys(b).join(','))
+              throw Error('Key mismatch at ' + where);
+            for (const key of keys) equal(a[key], b[key], where + '/' + key);
+            return;
+          }
+          if (a !== b) throw Error('Value mismatch at ' + where);
+        }
+        equal(snapshots.before, snapshots.after, mode);
+        return {
+          snapshots: 12,
+          exactNumbers: numbers,
+          signedZeroCompared: true,
+          automaticGameFrames: true,
+        };
+      };
+      globalThis.cleanupDynamic270 = () => {
+        const rows = [];
+        for (const f of fixtures) {
+          f.game.destroy();
+          if (f.texture.destroyed) throw Error('Borrowed Texture destroyed');
+          f.texture.destroy();
+          if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+          rows.push({
+            side: f.side,
+            gameState: f.game.state,
+            bitmapClosed: true,
+          });
+        }
+        fixtures = [];
+        return rows;
+      };
+    },
+    {
+      afterEntry:
+        process.env.P270_AFTER_ENTRY ?? '/p270-after/dist/src/index.js',
+    },
+  );
+  const reports = [];
+  for (const mode of [
+    'local',
+    'world',
+    'local-custom',
+    'local-screen',
+    'local-transfer',
+    'local-rotated',
+    'local-trimmed',
+    'local-source',
+    'local-isolated',
+    'world-isolated',
+    'local-nested',
+  ]) {
+    const setup = await page.evaluate(
+        (args) => globalThis.setupDynamic270(args),
+        { backend, mode },
+      ),
+      proof = await page.evaluate(
+        (mode) => globalThis.runDynamic270(mode),
+        mode,
+      ),
+      hashes = [];
+    for (let i = 0; i < 2; i++) {
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: i * 192, width: 256, height: 192 },
+        path:
+          directory +
+          '/' +
+          tag +
+          '-' +
+          backend +
+          '-' +
+          mode +
+          '-' +
+          (i === 0 ? 'before' : 'after') +
+          '.png',
+      });
+      if (!pngPixels(bytes).nonuniform)
+        throw Error('Blank native dynamic canvas');
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1])
+      throw Error('Dynamic Game pixels differ for ' + mode);
+    const cleanup = await page.evaluate(() => globalThis.cleanupDynamic270());
+    reports.push({ setup, proof, matchingPngSha256: hashes[0], cleanup });
+  }
+  const result = {
+    phase,
+    tag,
+    entryAfter: '/dist/src/index.js',
+    observerPrototypeSelection: true,
+    backend,
+    browser: browserIdentity('chromium', browser, launch),
+    reports,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + tag + '-' + backend + '-dynamic.json',
+    JSON.stringify(result),
+  );
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+#### layer.mjs
+
+```javascript
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p270',
+  phase = process.env.P270_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5270, strictPort: true },
+  plugins: [
+    {
+      name: 'p270-shared-graph-observer-method',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (url.pathname === '/dist/packages/core/src/event-observers.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-event-observers.mjs'));
+            return;
+          }
+          if (url.pathname === '/dist/packages/core/src/scene-object.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-scene-object.mjs'));
+            return;
+          }
+          if (url.pathname === '/p270-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Shared Game traversal isolation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+const tag = process.env.P270_TAG ?? phase;
+try {
+  await server.listen();
+  const backend = process.env.P270_BACKEND ?? 'webgl2',
+    launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({ viewport: { width: 256, height: 384 } }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5270/p270-game');
+  await page.evaluate(
+    async ({ afterEntry }) => {
+      const apiShared = await import('/dist/src/index.js'),
+        controller = await import('/dist/packages/core/src/scene-object.js'),
+        apis = { before: apiShared, after: apiShared };
+      let fixtures = [];
+      globalThis.setupDynamic270 = async ({ backend, mode }) => {
+        document.body.replaceChildren();
+        fixtures = [];
+        for (const side of ['before', 'after']) {
+          const api = apis[side],
+            canvas = document.createElement('canvas');
+          canvas.style.display = 'block';
+          document.body.append(canvas);
+          const pixels = new Uint8ClampedArray(16 * 16 * 4);
+          for (let y = 0; y < 16; y++)
+            for (let x = 0; x < 16; x++) {
+              const o = (y * 16 + x) * 4;
+              pixels[o] = x * 17;
+              pixels[o + 1] = y * 17;
+              pixels[o + 2] = (x ^ y) * 17;
+              pixels[o + 3] = 255;
+            }
+          const bitmap = await createImageBitmap(new ImageData(pixels, 16, 16)),
+            texture = new api.Texture(bitmap);
+          const view = mode.endsWith('rotated')
+              ? new api.TextureView2D(texture, {
+                  frame: { x: 4, y: 2, width: 6, height: 4 },
+                  rotation: 90,
+                })
+              : mode.endsWith('trimmed')
+                ? new api.TextureView2D(texture, {
+                    frame: { x: 2, y: 4, width: 6, height: 4 },
+                    originalSize: [12, 10],
+                    trim: { x: 3, y: 2, width: 6, height: 4 },
+                    resolution: 2,
+                  })
+                : undefined,
+            source = mode.endsWith('source')
+              ? { x: -0, y: -0, width: 7, height: 5 }
+              : undefined;
+          let game,
+            complete,
+            runtimeError,
+            tick = 0;
+          const isolated = mode.endsWith('isolated') || mode.endsWith('nested');
+          class Shaken extends (isolated ? api.IsolatedGroup2D : api.Group2D) {
+            updateWorldMatrix() {
+              const matrix = super.updateWorldMatrix();
+              matrix.elements[6] += 2;
+              return matrix;
+            }
+          }
+          const rootGroup = new Shaken();
+          if (isolated) rootGroup.isolate = true;
+          const holder = mode.endsWith('nested')
+            ? rootGroup.add(new api.IsolatedGroup2D())
+            : rootGroup;
+          if (holder !== rootGroup) holder.isolate = true;
+          rootGroup.position.set(30, 20);
+          if (mode === 'local-screen') rootGroup.space = 'screen';
+          const target = new api.ParticleLayer2D({ capacity: 32 });
+          const emitter = holder.add(
+            new api.ParticleEmitter({
+              texture,
+              view,
+              source,
+              target,
+              capacity: 32,
+              rate: 0,
+              lifetime: [1e6, 1e6],
+              speed: [0, 0],
+              angle: [0, 0],
+              acceleration: [0, 0],
+              startSize: [8, 6],
+              endSize: [8, 6],
+              startColor: [0.7, 0.2, 0.4, 0.8],
+              endColor: [0.7, 0.2, 0.4, 0.8],
+              seed: 17,
+              space: mode.startsWith('world') ? 'world' : 'local',
+              nozzle: { kind: 'rectangle', width: 24, height: 12 },
+            }),
+          );
+          emitter.position.set(80, 80);
+          emitter.emit(32);
+          if (target.activeCount !== 32)
+            throw Error('Missing target particles');
+          if (mode === 'local-custom') {
+            const original = target.updateWorldMatrix;
+            target.updateWorldMatrix = function () {
+              const matrix = original.call(this);
+              matrix.elements[6] += 3;
+              return matrix;
+            };
+          }
+          const finish = () => {
+            game.pause();
+            const callback = complete;
+            complete = undefined;
+            runtimeError
+              ? callback.reject(Error(runtimeError))
+              : callback.resolve();
+          };
+          class PosedScene extends api.Scene {
+            update() {
+              ++tick;
+              rootGroup.position.set(30 + tick, 20 - tick * 0.5);
+              rootGroup.rotation = tick * 0.02;
+              rootGroup.scale.set(1 + tick * 0.01, 0.8 + tick * 0.02);
+              rootGroup.opacity = 0.6 + tick * 0.01;
+              rootGroup.tint = [1, 1 - tick * 0.005, 0.8 + tick * 0.005, 1];
+              emitter.position.set(80 + tick * 0.4, 80 - tick * 0.3);
+              emitter.rotation = tick * 0.03;
+              this.camera2D.position.set(tick * 0.1, -tick * 0.15);
+              this.camera2D.zoom = 1 + tick * 0.01;
+              queueMicrotask(finish);
+            }
+          }
+          let scene = new PosedScene();
+          scene.add(rootGroup);
+          game = await api.Game.create({
+            canvas,
+            renderer: backend,
+            width: 256,
+            height: 192,
+            pixelRatio: 1,
+            autoResize: false,
+          });
+          game.addEventListener('error', (event) => {
+            runtimeError = event.detail?.stack ?? String(event.detail);
+          });
+          await game.setScene(scene);
+          const frame = () =>
+            new Promise((resolve, reject) => {
+              controller.setObserverVariant270(side);
+              complete = { resolve, reject };
+              game.start();
+            });
+          const snapshot = () => ({
+            tick,
+            active: emitter.activeCount,
+            version: target.version,
+            localBounds: { ...target.getLocalBounds() },
+            worldBounds: { ...target.getWorldBounds() },
+            particles: Array.from({ length: target.activeCount }, (_, i) => {
+              const index = target.activeSlotAt(i),
+                p = target.getSlot(index);
+              return {
+                index,
+                generation: p.generation,
+                affine: [p.a, p.b, p.c, p.d, p.tx, p.ty],
+                tint: [p.tintR, p.tintG, p.tintB, p.tintA],
+                anchor: [p.anchorX, p.anchorY],
+                space: p.space,
+                versions: [
+                  p.transformVersion,
+                  p.tintVersion,
+                  p.sourceVersion,
+                  p.anchorVersion,
+                ],
+                matrix: Array.from(
+                  target.getSlotWorldMatrix(index, new api.Matrix3()).elements,
+                ),
+              };
+            }),
+          });
+          fixtures.push({
+            side,
+            game,
+            get scene() {
+              return scene;
+            },
+            rootGroup,
+            emitter,
+            texture,
+            bitmap,
+            frame,
+            snapshot,
+            transfer: async () => {
+              scene.remove(rootGroup);
+              const next = new PosedScene();
+              next.add(rootGroup);
+              await game.setScene(next);
+              scene = next;
+            },
+          });
+        }
+        return {
+          mode,
+          backend,
+          visible: document.visibilityState,
+          nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+        };
+      };
+      globalThis.runDynamic270 = async (mode) => {
+        const snapshots = { before: [], after: [] };
+        for (const f of fixtures)
+          for (let frame = 0; frame < 12; frame++) {
+            if (mode === 'local-transfer' && frame === 6) await f.transfer();
+            await f.frame();
+            snapshots[f.side].push(f.snapshot());
+          }
+        let numbers = 0;
+        function equal(a, b, where) {
+          if (typeof a === 'number' && typeof b === 'number') {
+            numbers++;
+            if (!Object.is(a, b))
+              throw Error(
+                'Numeric mismatch at ' + where + ': ' + a + ' / ' + b,
+              );
+            return;
+          }
+          if (Array.isArray(a) && Array.isArray(b)) {
+            if (a.length !== b.length)
+              throw Error('Array mismatch at ' + where);
+            a.forEach((value, index) =>
+              equal(value, b[index], where + '/' + index),
+            );
+            return;
+          }
+          if (a && b && typeof a === 'object' && typeof b === 'object') {
+            const keys = Object.keys(a);
+            if (keys.join(',') !== Object.keys(b).join(','))
+              throw Error('Key mismatch at ' + where);
+            for (const key of keys) equal(a[key], b[key], where + '/' + key);
+            return;
+          }
+          if (a !== b) throw Error('Value mismatch at ' + where);
+        }
+        equal(snapshots.before, snapshots.after, mode);
+        return {
+          snapshots: 12,
+          exactNumbers: numbers,
+          signedZeroCompared: true,
+          automaticGameFrames: true,
+        };
+      };
+      globalThis.cleanupDynamic270 = () => {
+        const rows = [];
+        for (const f of fixtures) {
+          f.game.destroy();
+          if (f.texture.destroyed) throw Error('Borrowed Texture destroyed');
+          f.texture.destroy();
+          if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+          rows.push({
+            side: f.side,
+            gameState: f.game.state,
+            bitmapClosed: true,
+          });
+        }
+        fixtures = [];
+        return rows;
+      };
+    },
+    {
+      afterEntry:
+        process.env.P270_AFTER_ENTRY ?? '/p270-after/dist/src/index.js',
+    },
+  );
+  const reports = [];
+  for (const mode of [
+    'local',
+    'world',
+    'local-custom',
+    'local-screen',
+    'local-transfer',
+    'local-rotated',
+    'local-trimmed',
+    'local-source',
+    'local-isolated',
+    'world-isolated',
+    'local-nested',
+  ]) {
+    const setup = await page.evaluate(
+        (args) => globalThis.setupDynamic270(args),
+        { backend, mode },
+      ),
+      proof = await page.evaluate(
+        (mode) => globalThis.runDynamic270(mode),
+        mode,
+      ),
+      hashes = [];
+    for (let i = 0; i < 2; i++) {
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: i * 192, width: 256, height: 192 },
+        path:
+          directory +
+          '/' +
+          tag +
+          '-' +
+          backend +
+          '-' +
+          mode +
+          '-' +
+          (i === 0 ? 'before' : 'after') +
+          '.png',
+      });
+      if (!pngPixels(bytes).nonuniform)
+        throw Error('Blank native dynamic canvas');
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1])
+      throw Error('Dynamic Game pixels differ for ' + mode);
+    const cleanup = await page.evaluate(() => globalThis.cleanupDynamic270());
+    reports.push({ setup, proof, matchingPngSha256: hashes[0], cleanup });
+  }
+  const result = {
+    phase,
+    tag,
+    entryAfter: '/dist/src/index.js',
+    observerPrototypeSelection: true,
+    backend,
+    browser: browserIdentity('chromium', browser, launch),
+    reports,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + tag + '-' + backend + '-dynamic.json',
+    JSON.stringify(result),
+  );
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+#### game.mjs
+
+```javascript
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createServer } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/vite/dist/node/index.js';
+import { chromium } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/node_modules/playwright-core/index.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+} from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/browser-launch.mjs';
+import { pngPixels } from '/Users/yueyuhoshizora/Code/Tooles/XYZ.js/scripts/site-smoke-support.mjs';
+const root = '/Users/yueyuhoshizora/Code/Tooles/XYZ.js',
+  directory = '/tmp/xyz-p270',
+  phase = process.env.P270_PHASE ?? 'source';
+const server = await createServer({
+  root,
+  configFile: false,
+  server: { host: '127.0.0.1', port: 5270, strictPort: true },
+  plugins: [
+    {
+      name: 'p270-shared-graph-observer-method',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url, 'http://127.0.0.1');
+          if (url.pathname === '/dist/packages/core/src/event-observers.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-event-observers.mjs'));
+            return;
+          }
+          if (url.pathname === '/dist/packages/core/src/scene-object.js') {
+            res.setHeader('Content-Type', 'text/javascript');
+            res.end(fs.readFileSync(directory + '/shared-scene-object.mjs'));
+            return;
+          }
+          if (url.pathname === '/p270-game') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(
+              '<!doctype html><html><head><title>Shared Game traversal isolation</title></head><body style="margin:0"></body></html>',
+            );
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+let browser;
+try {
+  await server.listen();
+  const launch = await browserLaunchOptions('chromium');
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+    }),
+    errors = [];
+  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  await page.goto('http://127.0.0.1:5270/p270-game');
+  await page.evaluate(
+    async ({ controlMode }) => {
+      const apiShared = await import('/dist/src/index.js'),
+        contractShared =
+          await import('/dist/packages/core/src/scene-object.js');
+      let fixtures = [];
+      globalThis.setupGame270 = async (config) => {
+        contractShared.setObserverVariant270('before');
+        if (document.visibilityState !== 'visible')
+          throw Error('Hidden paired Game page');
+        document.body.replaceChildren();
+        fixtures = [];
+        for (const side of ['shared']) {
+          const api = apiShared,
+            canvas = document.createElement('canvas');
+          canvas.style.display = 'block';
+          document.body.append(canvas);
+          const bitmap = await createImageBitmap(
+              new ImageData(new Uint8ClampedArray(4 * 4 * 4).fill(255), 4, 4),
+            ),
+            texture = new api.Texture(bitmap);
+          let game,
+            pending,
+            runtimeError,
+            postCalls = 0,
+            listenerCount = 0,
+            preCalls = 0,
+            preListenerCount = 0;
+          const record = () => {
+            if (!pending) return;
+            if (runtimeError) {
+              const p = pending;
+              pending = undefined;
+              game.pause();
+              p.reject(Error(runtimeError));
+              return;
+            }
+            if (pending.warm > 0) {
+              --pending.warm;
+              return;
+            }
+            const stats = game.frameWork;
+            pending.simulation += stats.simulationMs;
+            pending.navigation += stats.navigationMs;
+            pending.afterUpdate += stats.afterUpdateMs;
+            pending.submit += stats.renderSubmitMs;
+            if (--pending.remaining === 0) {
+              const p = pending;
+              pending = undefined;
+              game.pause();
+              const result = {};
+              for (const key of [
+                'simulation',
+                'navigation',
+                'afterUpdate',
+                'submit',
+              ])
+                result[key + 'Us'] = (p[key] * 1000) / p.frames;
+              result.categorySumUs =
+                result.simulationUs +
+                result.navigationUs +
+                result.afterUpdateUs +
+                result.submitUs;
+              const deliveredPre = preCalls - p.preAtStart;
+              if (deliveredPre !== p.expectedPostFrames * preListenerCount) {
+                p.reject(
+                  Error('Lost/duplicated preupdate callbacks: ' + deliveredPre),
+                );
+                return;
+              }
+              const delivered = postCalls - p.postAtStart;
+              if (delivered !== p.expectedPostFrames * listenerCount) {
+                p.reject(
+                  Error('Lost/duplicated postupdate callbacks: ' + delivered),
+                );
+                return;
+              }
+              p.resolve({
+                ...result,
+                observerVariant: contractShared.getObserverVariant270(),
+                postupdateCallbacksIncludingWarm: delivered,
+                postListeners: listenerCount,
+                preupdateCallbacksIncludingWarm: deliveredPre,
+                preListeners: preListenerCount,
+              });
+            }
+          };
+          class MeasuredScene extends api.Scene {
+            update() {
+              queueMicrotask(record);
+            }
+          }
+          if (config.bothTypesSeen) {
+            const history = new api.GameObject();
+            let historyCalls = 0;
+            const priorListener = () => {
+              historyCalls++;
+            };
+            history.addEventListener('preupdate', priorListener);
+            history.addEventListener('postupdate', priorListener);
+            history.removeEventListener('preupdate', priorListener);
+            history.removeEventListener('postupdate', priorListener);
+            history.destroy();
+            if (historyCalls !== 0)
+              throw Error('Detached history object unexpectedly updated');
+          }
+          const scene = new MeasuredScene();
+          game = await api.Game.create({
+            canvas,
+            renderer: 'webgl2',
+            width: 1280,
+            height: 720,
+            pixelRatio: 1,
+            autoResize: false,
+            frameWorkBudgetMs: 1000 / 60,
+          });
+          game.addEventListener('error', (event) => {
+            runtimeError = event.detail?.stack ?? String(event.detail);
+          });
+          let holder = scene;
+          for (let depth = 0; depth < (config.depth ?? 0); depth++)
+            holder = holder.add(new api.Group2D());
+          const emitters = [];
+          for (let i = 0; i < 4; i++) {
+            const target = config.target
+              ? new api.ParticleLayer2D({ capacity: config.capacity })
+              : undefined;
+            const emitter = new api.ParticleEmitter({
+              texture,
+              target,
+              capacity: config.capacity,
+              rate: 0,
+              lifetime: [1e6, 1e6],
+              speed: [0, 0],
+              angle: [-Math.PI, Math.PI],
+              acceleration: [0, 0],
+              startSize: [8, 4],
+              endSize: [8, 4],
+              startColor: [0.7, 0.2, 0.4, 0.8],
+              endColor: [0.7, 0.2, 0.4, 0.8],
+              seed: 17 + i,
+              space:
+                config.space === 'mixed'
+                  ? i < 2
+                    ? 'local'
+                    : 'world'
+                  : config.space,
+              nozzle: { kind: 'rectangle', width: 512, height: 256 },
+            });
+            emitter.position.set(
+              config.offscreen ? -10000 + 320 * i : 160 + 320 * i,
+              360,
+            );
+            emitter.rotation = 0.3;
+            emitter.scale.set(1.3, 0.7);
+            if (!config.empty) emitter.emit(config.capacity);
+            holder.add(emitter);
+            emitters.push(emitter);
+          }
+          if (config.diversity) {
+            scene.add(new api.GameObject());
+            scene.add(new api.Sprite({ texture, position: [40, 40] }));
+            scene.add(new api.ParticleLayer2D({ capacity: 1 }));
+          }
+          const sentinel = scene.add(
+            new api.ParticleEmitter({
+              texture,
+              capacity: 1,
+              rate: 0,
+              lifetime: [0.001, 0.001],
+              speed: [0, 0],
+              angle: [0, 0],
+              acceleration: [0, 0],
+              startSize: [1, 1],
+              endSize: [1, 1],
+              startColor: [1, 1, 1, 1],
+              endColor: [1, 1, 1, 1],
+              seed: 1,
+            }),
+          );
+          sentinel.emit(1);
+          if (config.listenersPerEmitter) {
+            for (const emitter of emitters)
+              for (const actor of [...emitter.children].slice(
+                0,
+                config.listenersPerEmitter,
+              )) {
+                actor.addEventListener('postupdate', (event) => {
+                  if (!Number.isFinite(event.detail.dt) || event.detail.dt < 0)
+                    runtimeError = 'Invalid actual postupdate delta';
+                  postCalls++;
+                });
+                listenerCount++;
+              }
+          }
+          if (config.preListenersPerEmitter) {
+            for (const emitter of emitters)
+              for (const actor of [...emitter.children].slice(
+                0,
+                config.preListenersPerEmitter,
+              )) {
+                actor.addEventListener('preupdate', (event) => {
+                  if (!Number.isFinite(event.detail.dt) || event.detail.dt < 0)
+                    runtimeError = 'Invalid actual preupdate delta';
+                  preCalls++;
+                });
+                preListenerCount++;
+              }
+          }
+          await game.setScene(scene);
+          const sample = (frames, warm = 8) =>
+            new Promise((resolve, reject) => {
+              pending = {
+                frames,
+                remaining: frames,
+                warm,
+                expectedPostFrames: frames + warm,
+                postAtStart: postCalls,
+                preAtStart: preCalls,
+                simulation: 0,
+                navigation: 0,
+                afterUpdate: 0,
+                submit: 0,
+                resolve,
+                reject,
+              };
+              game.start();
+            });
+          fixtures.push({
+            side,
+            game,
+            scene,
+            emitters,
+            sentinel,
+            texture,
+            bitmap,
+            sample,
+            listenerCount,
+            preListenerCount,
+          });
+        }
+        for (const fixture of fixtures) {
+          await fixture.sample(1, 64);
+          if (fixture.sentinel.activeCount !== 0)
+            throw Error(
+              'Foreign emitter class: actual Scene did not advance sentinel',
+            );
+          for (const emitter of fixture.emitters)
+            if (emitter.activeCount !== (config.empty ? 0 : config.capacity))
+              throw Error('Main fixture active count changed');
+        }
+        return {
+          visibility: document.visibilityState,
+          nativeBitmaps: fixtures.every((f) => f.bitmap instanceof ImageBitmap),
+          automaticSceneSimulation: true,
+          initialObserverVariant: contractShared.getObserverVariant270(),
+          postListenerCount: fixtures.reduce((n, f) => n + f.listenerCount, 0),
+          preListenerCount: fixtures.reduce(
+            (n, f) => n + f.preListenerCount,
+            0,
+          ),
+          activeParticlesPerSide: config.empty ? 0 : config.capacity * 4,
+        };
+      };
+      globalThis.sampleGame270 = async ({ side, frames }) => {
+        const fixture = fixtures[0];
+        if (fixtures.length !== 1) throw Error('Expected one shared Game');
+        contractShared.setObserverVariant270(
+          controlMode === 'aa' ? 'before' : side,
+        );
+        return fixture.sample(frames);
+      };
+      globalThis.cleanupGame270 = () => {
+        const result = [];
+        for (const f of fixtures) {
+          f.game.destroy();
+          if (f.texture.destroyed)
+            throw Error('Game destroyed borrowed Texture');
+          f.texture.destroy();
+          if (f.bitmap.width !== 0) throw Error('Native bitmap not closed');
+          result.push({
+            side: f.side,
+            gameDestroyed: f.game.state,
+            bitmapClosed: true,
+          });
+        }
+        fixtures = [];
+        return result;
+      };
+    },
+    { controlMode: process.env.P270_MODE ?? 'ab' },
+  );
+  const matrixStartedAt = Date.now();
+  const mode = process.env.P270_MODE ?? 'ab',
+    cohorts = [
+      { name: 'sprite-mixed-large', space: 'mixed', capacity: 8192 },
+      { name: 'sprite-local-large', space: 'local', capacity: 8192 },
+      { name: 'sprite-world-large', space: 'world', capacity: 8192 },
+      { name: 'sprite-local-nested', space: 'local', capacity: 8192, depth: 4 },
+      { name: 'sprite-local-small', space: 'local', capacity: 128 },
+      {
+        name: 'layer-local-control',
+        space: 'local',
+        capacity: 8192,
+        target: true,
+      },
+      {
+        name: 'sprite-empty-control',
+        space: 'local',
+        capacity: 8192,
+        empty: true,
+      },
+      {
+        name: 'sprite-offscreen-large',
+        space: 'local',
+        capacity: 8192,
+        offscreen: true,
+      },
+      {
+        name: 'sprite-local-listeners-control',
+        space: 'local',
+        capacity: 8192,
+        listenersPerEmitter: 128,
+      },
+      {
+        name: 'sprite-empty-observed-type-control',
+        space: 'local',
+        capacity: 8192,
+        empty: true,
+      },
+      {
+        name: 'sprite-mixed-lifecycle-history-control',
+        space: 'mixed',
+        capacity: 8192,
+        depth: 4,
+        listenersPerEmitter: 128,
+        bothTypesSeen: true,
+        diversity: true,
+        preListenersPerEmitter: 128,
+      },
+      {
+        name: 'sprite-empty-both-types-history-control',
+        space: 'local',
+        capacity: 8192,
+        empty: true,
+      },
+    ],
+    rows = [],
+    cohortProof = [];
+  for (const config of cohorts) {
+    const setup = await page.evaluate(
+      (config) => globalThis.setupGame270(config),
+      config,
+    );
+    const hashes = [],
+      nonuniform = [];
+    for (const side of ['before', 'after']) {
+      const probe = await page.evaluate(
+        (args) => globalThis.sampleGame270(args),
+        { side, frames: 1 },
+      );
+      if (probe.observerVariant !== (mode === 'aa' ? 'before' : side))
+        throw Error('Wrong actual selected partition');
+      const bytes = await page.screenshot({
+        clip: { x: 0, y: 0, width: 1280, height: 720 },
+        path: directory + '/' + mode + '-' + config.name + '-' + side + '.png',
+      });
+      const pixel = pngPixels(bytes);
+      nonuniform.push(pixel.nonuniform);
+      if (
+        config.empty || config.offscreen ? pixel.nonuniform : !pixel.nonuniform
+      )
+        throw Error('Unexpected probe pixels for ' + config.name);
+      hashes.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+    }
+    if (hashes[0] !== hashes[1]) throw Error('Shared Game probe pixels differ');
+    for (let round = 0; round < 6; round++) {
+      const order =
+          round % 2 === 0
+            ? ['before', 'after', 'after', 'before']
+            : ['after', 'before', 'before', 'after'],
+        samples = [];
+      for (const side of order) {
+        const sample = await page.evaluate(
+          (args) => globalThis.sampleGame270(args),
+          { side, frames: 48 },
+        );
+        if (sample.observerVariant !== (mode === 'aa' ? 'before' : side))
+          throw Error('Wrong timed selected partition');
+        samples.push({ side, ...sample });
+      }
+      rows.push({ name: config.name, round, order: order.join(','), samples });
+    }
+    const cleanup = await page.evaluate(() => globalThis.cleanupGame270());
+    if (cleanup.length !== 1) throw Error('Not one shared Game');
+    cohortProof.push({
+      config,
+      setup,
+      oneSharedGame: true,
+      oneSharedCanvas: true,
+      preTimingNativeProbe: true,
+      matchingPngSha256: hashes[0],
+      nonuniform,
+      cleanup,
+    });
+  }
+  const result = {
+    phase,
+    mode,
+    observerPrototypeSelection: true,
+    sameCoreGraph: true,
+    matrixStartedAt,
+    matrixCompletedAt: Date.now(),
+    browser: browserIdentity('chromium', browser, launch),
+    cohortProof,
+    rows,
+    errors,
+  };
+  fs.writeFileSync(
+    directory + '/' + mode + '-game-results.json',
+    JSON.stringify(result),
+  );
+  console.log(
+    JSON.stringify(
+      {
+        phase,
+        browser: result.browser,
+        cohorts: cohortProof,
+        rows: rows.length,
+        samples: rows.length * 4,
+        errors,
+      },
+      null,
+      2,
+    ),
+  );
+  if (errors.length) throw Error(errors.join('\n'));
+} finally {
+  await browser?.close();
+  await server.close();
+}
+```
+
+#### shared-scene-object.mjs
+
+```javascript
+import {
+  hasObservedEventType,
+  observeEventType,
+  observeObjectEventTypes,
+} from './event-observers.js';
+/** Base facade for scene-owned objects, independent of 2D or 3D transforms. */
+export class SceneObject extends EventTarget {
+  owningScene;
+  disposed = false;
+  observedEventTypes;
+  ownershipGeneration = 0;
+  /** @internal Invalidates callback continuations on remove/re-add within the same Scene. */
+  get registrationGeneration() {
+    return this.ownershipGeneration;
+  }
+  addEventListener(type, callback, options) {
+    super.addEventListener(type, callback, options);
+    if (callback && !(typeof options === 'object' && options.signal?.aborted)) {
+      if (!this.observedEventTypes)
+        observeObjectEventTypes(this, (this.observedEventTypes = new Set()));
+      this.observedEventTypes.add(type);
+      observeEventType(type);
+      if (type === 'preupdate') this.owningScene?.trackObjectPasses(this);
+    }
+  }
+  /** @internal Untouched pooled sprites need no lifecycle Event allocations. */
+  dispatchObjectEvent(type, detail) {
+    if (this.observedEventTypes?.has(type))
+      this.dispatchEvent(new CustomEvent(type, { detail }));
+  }
+  /** @internal Whether `emitUpdate(type)` would dispatch. */
+  observesUpdate(type) {
+    return this.observedEventTypes?.has(type) === true;
+  }
+  /** @internal Update payloads are allocated only for objects observing lifecycle events. */
+  emitUpdate(type, dt) {
+    if (this.observedEventTypes?.has(type))
+      this.dispatchEvent(new CustomEvent(type, { detail: { dt } }));
+  }
+  get scene() {
+    return this.owningScene;
+  }
+  get destroyed() {
+    return this.disposed;
+  }
+  /** @internal Called only by Scene during registration. */
+  attach(scene) {
+    if (this.disposed) throw new Error('Cannot add a destroyed scene object.');
+    if (this.owningScene)
+      throw new Error('Scene object already belongs to a scene.');
+    this.owningScene = scene;
+    this.ownershipGeneration++;
+  }
+  /** @internal Called only by Scene during removal. */
+  detach(scene) {
+    if (this.owningScene === scene) {
+      this.owningScene = undefined;
+      this.ownershipGeneration++;
+    }
+  }
+  destroy() {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.owningScene?.remove(this);
+    try {
+      this.onDestroy();
+    } finally {
+      this.dispatchObjectEvent('destroy');
+    }
+  }
+  onDestroy() {}
+}
+function observesUpdateAfter270(type) {
+  return (
+    hasObservedEventType(type) && this.observedEventTypes?.has(type) === true
+  );
+}
+const observerBefore270 = SceneObject.prototype.observesUpdate;
+export function setObserverVariant270(variant) {
+  SceneObject.prototype.observesUpdate =
+    variant === 'after' ? observesUpdateAfter270 : observerBefore270;
+}
+export function getObserverVariant270() {
+  const current = SceneObject.prototype.observesUpdate;
+  return current === observesUpdateAfter270
+    ? 'after'
+    : current === observerBefore270
+      ? 'before'
+      : 'other';
+}
+```
+
+#### shared-event-observers.mjs
+
+```javascript
+const objectEventObservers = new WeakMap();
+/** Every type any object has observed; a superset of each per-object Set, never shrinking. */
+const observedEventTypes = new Set();
+/** @internal Share the existing listener Set without expanding scene facade declarations. */
+export function observeObjectEventTypes(object, types) {
+  objectEventObservers.set(object, types);
+}
+/** @internal Record each type added to a shared Set; unobserved types skip the object lookup. */
+export function observeEventType(type) {
+  observedEventTypes.add(type);
+}
+/** @internal Negative guard only; receiver-owned Sets also support proxied facades. */
+export function hasObservedEventType(type) {
+  return observedEventTypes.has(type);
+}
+/** @internal Observation stays conservative after remove, once, and signal abort. */
+export function hasObjectEventObservers(object, type) {
+  return (
+    hasObservedEventType(type) &&
+    (objectEventObservers.get(object)?.has(type) ?? false)
+  );
+}
+```
+
+### 最終 scoped verification 與清理
+
+- 正式 `tests/scene-lazy.test.ts`：7 tests 通過；該檔 ESLint 通過。拒絕候選的隔離 efficacy probe 為預期的 1 failed／6 passed，不冒稱通過。
+- 六份文件與該測試檔的 Prettier check 全部通過；398個相對檔案連結存在，沒有認證 anchor。
+- ACCEPTANCE append 前的8009868 bytes逐 byte保留，不重寫歷史。完整source timing與fixture已記錄；只清除本輪自己的temporary fixture目錄，沒有變動使用者檔案或正式產物。

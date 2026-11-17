@@ -76,6 +76,45 @@ describe('scene lazy service lifetime', () => {
     scene.destroy();
   });
 
+  it('delivers late postupdate events through object proxies', () => {
+    const scene = new Scene();
+    const target = new GameObject();
+    const nativeMethods: Record<PropertyKey, unknown> = {
+      addEventListener: target.addEventListener.bind(target),
+      removeEventListener: target.removeEventListener.bind(target),
+      dispatchEvent: target.dispatchEvent.bind(target),
+    };
+    const proxy = new Proxy(target, {
+      get(object, key, receiver) {
+        return Object.hasOwn(nativeMethods, key)
+          ? nativeMethods[key]
+          : Reflect.get(object, key, receiver);
+      },
+    });
+    const deltas: number[] = [];
+    const advance = (dt: number) => {
+      scene.beginObjectFrame();
+      scene.beginObjectUpdates(dt, continueFrame);
+      scene.advanceObjects(dt, continueFrame);
+    };
+    try {
+      scene.add(proxy);
+      advance(0.1);
+      proxy.addEventListener('postupdate', (event) => {
+        expect(event.target).toBe(target);
+        expect(event.currentTarget).toBe(target);
+        deltas.push((event as CustomEvent<{ dt: number }>).detail.dt);
+      });
+      advance(0.2);
+      scene.remove(proxy);
+      scene.add(proxy);
+      advance(0.3);
+      expect(deltas).toEqual([0.2, 0.3]);
+    } finally {
+      scene.destroy();
+    }
+  });
+
   it('activates only 2D physics for a late attachment and unregisters on removal', () => {
     const scene = new Scene();
     const object = scene.add(new GameObject());

@@ -6305,3 +6305,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 先固定八cohort A/A（所有label都選原函式），再固定同八cohort A/B，共384 samples／18,432量測frames。A/A仍有波動，A/B大型場景方向不穩定，先前明顯收益未重現，候選不採用；不扣除A/A median、不以跨期absolute時間比較宣稱改善。
 - 單一Game在量測前實際以兩個選擇各render probe再截圖；不是在最後狀態重複截圖冒充before/after。記錄每sample實際選中函式、全部分項／ties／outliers，量測期間無其他自啟工作。
 - 保留fixture文字替換失敗、未更新的native entryAfter metadata與原有Vite音訊dynamic-import warning，沒有因此改引擎或壓制validation。只交付六份證據文件，正式source／dist不變；方法仍有inlining／warmup／時間序列限制，見 `ACCEPTANCE.md` P269，不 push／升版。
+
+## P270 — observer guard 證據與 Proxy lifecycle 保護
+
+- 正式 Game 的四種 CDP profile 區分採樣 self time 與單幀 frameWork；未將空 pool 先前多毫秒 simulation 判為已找到根因。
+- 首個 WeakMap receiver 索引候選在合法 Proxy façade 遺漏 postupdate，直接否決；修正版只以全域曾觀察類型作負向 guard，仍讀 receiver 原有 Set。
+- 修正版三 backend 動態畫面與 lifecycle gate 通過，但固定十二 cohort 的 A/A＋A/B 全量矩陣不支持採用；常見 active 與真實 listener simulation 成本增加。兩個候選都不寫入正式 runtime。
+- 永久補上 late listener 與 remove/re-add 的 Proxy regression test。完整樣本、負向結果、P269 初始 warm-up selector 更正及驗證界線見 ACCEPTANCE；版本與產物維持原狀。
