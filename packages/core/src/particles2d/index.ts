@@ -92,12 +92,8 @@ function color(
   return [value[0], value[1], value[2], value[3]];
 }
 
-/** Still an ordinary Sprite: only its affine transform has different ownership. */
+/** Local particles inherit ordinary Sprite composition and its presentation reuse. */
 class ParticleSprite extends Sprite {
-  private axisXX = 1;
-  private axisXY = 0;
-  private axisYX = 0;
-  private axisYY = 1;
   // GameObject retains this tuple. Validated interpolation writes it in place instead
   // of invoking the public validating setter (and allocating callbacks) each tick.
   readonly particleColor = this.tint as [number, number, number, number];
@@ -105,14 +101,19 @@ class ParticleSprite extends Sprite {
   readonly place = this.position;
   readonly extent = this.scale;
 
-  constructor(
-    options: SpriteOptions,
-    private readonly simulationSpace: 'local' | 'world',
-  ) {
+  constructor(options: SpriteOptions) {
     super(options);
     this.renderEnabled = false;
     this.visible = false;
   }
+}
+
+/** World births retain their affine axes independently of subsequent ancestor motion. */
+class WorldParticleSprite extends ParticleSprite {
+  private axisXX = 1;
+  private axisXY = 0;
+  private axisYX = 0;
+  private axisYY = 1;
 
   retainAxes(matrix: Matrix3): void {
     const e = matrix.elements;
@@ -123,7 +124,6 @@ class ParticleSprite extends Sprite {
   }
 
   override updateWorldMatrix(): Matrix3 {
-    if (this.simulationSpace === 'local') return super.updateWorldMatrix();
     const e = this.worldMatrix.elements,
       scale = this.extent,
       position = this.place;
@@ -303,14 +303,20 @@ export class ParticleEmitter extends Group2D {
     this.active = new Int32Array(options.capacity);
     this.free = new Int32Array(options.capacity);
     this.freeCount = options.capacity;
+    const SpriteType = this.target
+      ? undefined
+      : this.simulationSpace === 'world'
+        ? WorldParticleSprite
+        : ParticleSprite;
     for (let i = 0; i < options.capacity; i++) {
-      if (!this.target)
+      if (SpriteType)
         this.pool.push(
           this.add(
-            new ParticleSprite(
-              { texture, view: options.view, source: options.source },
-              this.simulationSpace,
-            ),
+            new SpriteType({
+              texture,
+              view: options.view,
+              source: options.source,
+            }),
           ),
         );
       this.free[i] = options.capacity - i - 1;
@@ -552,7 +558,7 @@ export class ParticleEmitter extends Group2D {
         this.birthAxes[axis + 1] = e[1];
         this.birthAxes[axis + 2] = e[3];
         this.birthAxes[axis + 3] = e[4];
-      } else particle.retainAxes(matrix);
+      } else (particle as WorldParticleSprite).retainAxes(matrix);
     }
     const lifetime = this.sample(this.lifetime);
     if (this.target) {

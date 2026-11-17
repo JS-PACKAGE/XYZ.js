@@ -6236,3 +6236,12 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 新增 2D／3D × presentation／matrix 四個跨 Scene regression cases；四份相關測試共 51 tests、strict 與 scoped lint 通過。
 - 隔離 build 僅提升五個 Scene 產物，11 個使用者修改檔 SHA256 保持不變；正式 minified ESM／CJS 共 16 個往返／跨 pass consumer cases 通過。
 - source 與正式 dist 各在 Canvas2D／WebGL2／WebGPU 通過真實 Game 首幀／次幀像素一致及 borrowed-texture cleanup，既有 showcase auto／三 forced backends 4/4 non-blank 通過。保留既有 OPM Vite warning；不將單幀 stats 或 profiler 樣本冒充平均 CPU／GPU／fps 收益，詳細證據見 `ACCEPTANCE.md` P261。
+
+## P262：粒子 affine ownership 分型與 local presentation composition 重用
+
+- 原本 local ParticleSprite 的純 forwarding override 不符合既有 base-only cache identity guard。移除 local override，world 的出生 affine axes／matrix implementation 留在 private WorldParticleSprite；constructor 依既有 immutable mode 選型，不新增 cache 欄位或公開 API。
+- 移除 local 無用途的四個 axes 與每個 Sprite 重複保存的 simulationSpace；共用 position／scale／tint aliases、全部模擬公式、target slot／generation／validation 不變，不改 renderer 或放寬 override guard。
+- Source-slot 與正式 minified ESM 各跑真實 Game 六 cohorts、六輪 ABBA／BAAB、每輪四個48-frame samples，共各144 samples；自然過期 sentinel 證明是正式 Scene simulation，不拿直接 updateSimulation 假冒 Game。
+- 正式大型 local／world 計測四區段合計為 -7.63%／-21.46%，submit -7.51%／-10.97%，均六輪較快；mixed／small 合計方向各3快3慢，未宣稱穩定收益。mixed after-update +19.23%、world simulation +19.00% 均六輪慢，empty submit +18.74% 五輪慢，成本完整保留。
+- 原生 lifecycle 2,048 組精確對照、三 scope 各三 backend 共45個動態 Game cases／294,840個數字及 non-blank matching PNG、borrowed-resource cleanup 通過；36 targeted tests、strict／scoped lint、僅四檔提升的 isolated build 通過，11個使用者檔保持原 bytes。
+- 既有 particles2d／showcase 各 auto／三 forced backends 4/4 PASS；正式 emitter minified -11 B、其 gzip -2 B。這是 desktop Chromium WebGL2 的計測區段收益，不是 GPU／呈現 fps、heap／GC 或所有 workload／瀏覽器認證；全部原始 timing、離群值與限制見 `ACCEPTANCE.md` P262。

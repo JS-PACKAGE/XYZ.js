@@ -7530,3 +7530,11 @@ source-slot 對照及真實 consumer 探針保留深層 freeze、十二個已擁
 真實跨 Scene consumer 揭露一個快取正確性前提：物件的矩陣 stamp 隨物件保留，但 Scene 各自的 pass counter 可能給出相同身份。離屏 Sprite 移至新 Scene 的可見位置後，首幀被舊 bounds 錯誤 cull，次幀才正確。presentation 與 explicit matrix pass 現在共用 module-global nonce，刪除過時 per-Scene counter；不增 per-object state／Map、override cache 或公開功能。
 
 新增四個 2D／3D transfer regressions，51 targeted tests、strict／scoped lint、只提升五個產物的 guarded build、正式 minified ESM／CJS 共 16 個 consumer cases 通過。source／正式 dist 在 Canvas2D／WebGL2／WebGPU 的首幀／次幀像素一致與 borrowed-resource cleanup 通過；既有 showcase auto／三 forced backends 4/4 通過。11 個使用者修改檔保持原 bytes。既有 OPM dynamic-import warning 保留；不宣稱 full suite、audio unlock、實機／Safari 或 CPU／GPU／fps 收益。證據見 [ACCEPTANCE](../ACCEPTANCE.md) P261，不 push／升版。
+
+## P262：local 粒子直接繼承 base presentation composition
+
+local pool 粒子改為普通 Sprite 的 composition，不再以 forwarding override 阻斷既有 base-only matrix-cache identity guard；private WorldParticleSprite 保留原本的出生 axes／world-matrix implementation。emitter 依 immutable mode 選定 constructor，移除 local unused axes 與每個 Sprite 重複保存的 mode。不加 cache 欄位、Map、matrix、protected hook、renderer 實作或公開型別，也不放寬 override 判斷。
+
+正式 minified WebGL2 Game 配對的大型 local／world 計測區段合計為 -7.63%／-21.46%，同步 submit 為 -7.51%／-10.97%，均六輪較快。mixed／small 合計方向各3快3慢，不宣稱穩定收益。mixed after-update +19.23%、world simulation +19.00% 為六輪退步，empty submit +18.74% 五輪較慢，完整保留。這些具名 wall-clock 區段不是 GPU 時間、完整 RAF／fps 或通用加速，也不臆測 class／layout 方向的 JIT／GC 根因。
+
+原生 lifecycle 對照、source-slot／實際 source／正式 production root 在三 backend 共45個真實 Game cases、294,840個精確數字、nonblank matching PNG 與 borrowed-resource cleanup 通過。36 targeted tests、strict／scoped lint、僅提升四檔的 guarded build，以及 particles2d／showcase 各4/4 backend smoke 通過；11個使用者檔維持原 bytes。該 emitter 檔 minified 少11 B、gzip 少2 B，不是整包大小或 heap 宣稱。192個 simulation-only 與288個 Game timing samples、全部 outliers、fixture 修正與限制見 [ACCEPTANCE](../ACCEPTANCE.md) P262。未認證 full suite、audio unlock、CJS graphics timing、GPU／heap／GC／fps、實機／Safari，不 push／升版。

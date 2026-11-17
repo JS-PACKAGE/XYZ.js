@@ -254,6 +254,36 @@ describe('pooled CPU particles', () => {
     expect(particle.worldSpace).toBe('screen');
   });
 
+  it('keeps local particle matrix overrides coherent across presentations', () => {
+    const settings = options({ capacity: 2, rate: 0, space: 'local' });
+    const scene = new Scene();
+    const ancestor = scene.add(new Group2D());
+    const emitter = ancestor.add(new ParticleEmitter(settings));
+    emitter.position.set(3, 4);
+    emitter.emit(2);
+    const [regular, shifted] = live(emitter);
+    const compose = shifted.updateWorldMatrix.bind(shifted);
+    shifted.updateWorldMatrix = () => {
+      const matrix = compose();
+      matrix.elements[6] += 5;
+      return matrix;
+    };
+    try {
+      for (const x of [10, 30]) {
+        ancestor.position.set(x, 20);
+        scene.beginPresentation();
+        expect(regular.updateWorldMatrix().elements[6]).toBe(x + 3);
+        expect(shifted.updateWorldMatrix().elements[6]).toBe(x + 8);
+        expect(shifted.updateWorldMatrix().elements[6]).toBe(x + 8);
+        scene.endPresentation();
+      }
+    } finally {
+      scene.endPresentation();
+      scene.destroy();
+      settings.texture?.destroy();
+    }
+  });
+
   it.each<ParticleNozzle>([
     { kind: 'point' },
     { kind: 'rectangle', width: 12, height: 8 },

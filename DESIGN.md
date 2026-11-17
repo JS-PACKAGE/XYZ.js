@@ -6375,3 +6375,11 @@ nearest 回傳的 Vector3 現在借用 caller 傳入的 `out`，只保證到下�
 - 重用既有 nonzero-pass 契約，將 `beginPresentation`／`beginMatrixPass` 的 ID 配發集中到 module-global nonce；`beginMatrixPass` 已開 pass 時仍不另開，結束仍回到零。移除每 Scene counter，不增新欄位、另一套快取或公開 API。
 - 只修識別碼作用域：base-only matrix reuse、override 不重複套用調整、physics presentation、lighting 與 skinning 的既有邊界不變；非 pass 讀取仍即時反映變動。
 - 2D／3D regression、正式 ESM／CJS 跨 pass 往返、source／dist 三 backend 首幀像素及 showcase smoke 通過。完整 Game profile 保留為熱點證據而非 paired speedup；ParticleSprite／renderer 實作本輪未改，沒有新增效能或瀏覽器認證宣稱。見 `ACCEPTANCE.md` P261。
+
+## P262：以真實 affine ownership 保留 base composition 身份
+
+- local 粒子就是普通 Sprite 的 composition，不應為了 world births 共同包一個 forwarding updateWorldMatrix，否則永遠無法使用 GameObject 現有的 base-only presentation cache。
+- ParticleSprite 只保留共用的 tint／position／scale aliases 與初始 pool visibility；private WorldParticleSprite 持有四個出生 axes 並覆寫 world matrix。由 emitter immutable simulationSpace 選定 constructor，world retainAxes caller 依同一 invariant 遷移，target 不建立 Sprite pool。
+- 不新增另一套 cache、flag、Map、matrix、protected hook 或 renderer API，也不放寬 custom override guard；local 使用 P261 的跨 Scene unique pass，world 仍保留原 affine ownership。private mode copy／local unused axes 移除，但不把 source 欄位數當 heap／allocation／GC 量測。
+- 採用依據是完整實際 Game 的正式 minified paired clocks：大型 local／world 合計六輪皆改善。mixed／small 未確立收益，mixed after-update／world simulation／empty submit 等退步照錄；class layout 與 ownership 同時改變，不把 world／empty 或未修改 target control 的方向臆測成單一 cache／JIT 因果。
+- 原生數值／pixel／instance override／screen-root／Scene transfer／cleanup、既有測試及四產物 byte guard 通過；公開 declaration、資源 ownership、source validation 與數值運算式不變。完整 scope／raw pairs 見 `ACCEPTANCE.md` P262。

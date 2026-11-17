@@ -25,23 +25,23 @@ function color(e, t) {
 	];
 }
 var ParticleSprite = class extends require_sprite.Sprite {
-	simulationSpace;
+	particleColor = this.tint;
+	place = this.position;
+	extent = this.scale;
+	constructor(e) {
+		super(e), this.renderEnabled = !1, this.visible = !1;
+	}
+};
+var WorldParticleSprite = class extends ParticleSprite {
 	axisXX = 1;
 	axisXY = 0;
 	axisYX = 0;
 	axisYY = 1;
-	particleColor = this.tint;
-	place = this.position;
-	extent = this.scale;
-	constructor(e, t) {
-		super(e), this.simulationSpace = t, this.renderEnabled = !1, this.visible = !1;
-	}
 	retainAxes(e) {
 		let t = e.elements;
 		this.axisXX = t[0], this.axisXY = t[1], this.axisYX = t[3], this.axisYY = t[4];
 	}
 	updateWorldMatrix() {
-		if (this.simulationSpace === `local`) return super.updateWorldMatrix();
 		let e = this.worldMatrix.elements, t = this.extent, n = this.place;
 		return e[0] = this.axisXX * t.x, e[1] = this.axisXY * t.x, e[2] = 0, e[3] = this.axisYX * t.y, e[4] = this.axisYY * t.y, e[5] = 0, e[6] = n.x, e[7] = n.y, e[8] = 1, this.worldMatrix;
 	}
@@ -136,11 +136,12 @@ var ParticleEmitter = class extends require_group2d.Group2D {
 			transform: this.particleTransform,
 			tint: this.particleTint
 		}), this.state = new Float64Array(r.capacity * 8), this.active = new Int32Array(r.capacity), this.free = new Int32Array(r.capacity), this.freeCount = r.capacity;
-		for (let e = 0; e < r.capacity; e++) this.target || this.pool.push(this.add(new ParticleSprite({
+		let l = this.target ? void 0 : this.simulationSpace === `world` ? WorldParticleSprite : ParticleSprite;
+		for (let e = 0; e < r.capacity; e++) l && this.pool.push(this.add(new l({
 			texture: c,
 			view: r.view,
 			source: r.source
-		}, this.simulationSpace))), this.free[e] = r.capacity - e - 1;
+		}))), this.free[e] = r.capacity - e - 1;
 		this.target && this.add(this.target);
 	}
 	get activeCount() {
