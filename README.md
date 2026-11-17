@@ -218,6 +218,12 @@ P280: Fix stale resident WebGPU particle geometry when only a render target's lo
 
 P280：物理サイズ不変のRenderTexture resizeでWebGPU粒子の常駐geometryが古いままになる問題を修正。既存Float32値を比較しbackingは追加しない。旧bodyで失敗する回帰と三backend各19検証を確認。624対サンプルのCPU増加・対照も [検収記録](ACCEPTANCE.md) に保持し、加速とは主張しない。API／版は不変。
 
+P281：不採用 WebGPU particle resolution-key 刪減候選。24個 retained-cache 原生 cases 維持畫面／狀態，static resolution-only 步驟可省一次288-byte upload；但固定13 cohort 的624個 A/A→A/B samples 未支持整體採用，部分 large／small 較慢，controls／漂移全留。候選 payload 減少不冒稱 heap／FPS 改善；正式 source／dist／API／版本不變。完整原型與證據見 [ACCEPTANCE](ACCEPTANCE.md)。
+
+P281: Reject particle resolution-key deletion. Native retained-cache cases preserve pixels and remove some unnecessary uploads, but the complete 624-sample CPU matrix has mixed and adverse targets. Candidate payload savings are not heap/FPS evidence. Formal code/artifacts/API/version remain unchanged; full evidence is in [ACCEPTANCE](ACCEPTANCE.md).
+
+P281：粒子resolution key削減案は不採用。常駐cacheの原生画素と一部upload減少だけでは、624サンプルの不利・混在CPU結果を上回らない。対照・偏移・payloadとheapの区別も [検収記録](ACCEPTANCE.md) に保持。正式source／dist／API／版は変更しない。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

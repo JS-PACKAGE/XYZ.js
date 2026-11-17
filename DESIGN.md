@@ -6508,3 +6508,11 @@ full raw RenderTexture 的 quad natural size 使用 logicalWidth／logicalHeight
 producer offscreen repaint 另走 GPU begin/finish；geometry budget 為 Infinity 時，未使用的 consumer particle entry 會在 finish 被丟棄，因此舊 mutable-source pixel fixtures 沒有驗證 resident cache 的這個邊界。新回歸明確使用 finite budget，個別讀回寬度變化、高度變化及縮小；歷史驗收不改寫，這是新增 coverage。
 
 同 canonical class／Game／backing 的624個配對量測 samples 完整記錄 guard 成本。large full RenderTexture submit 各六輪較慢的事實不刪除，correctness 優先於 performance。controls／A/A drift 與未改 spans 的偏移不作單一原因推論；Sprite 的 current-only standard 不假裝為 before/after 改善。正式驗證／raw 見 ACCEPTANCE。
+
+## P281 — semantic 冗餘不等於已驗證的 CPU 收益
+
+full raw render quad 使用 logical dimensions，view／crop 使用自身 immutable geometry；physical尺寸控制UV，resolution本身不進particle packed fields。sandbox刪除三值sourceSizes中的resolution，減少一個getter／key／write及8×capacity候選payload，保留P280 logical guard與原validation。這是候選，不改正式結構。
+
+同canonical class／Game的配對fixture保留before原熱stride3、after2，constructor/backing共同配置max3；每次selector在warm前cold-invalidates來源metadata。registry僅constructor／destroy登記，量測中無per-slot selector或native wrapper。共用allocation、cold填寫與mutable targets仍限制外推，不能把fixture說成已量到實際metadata heap減少。
+
+原生queue忠實委派觀察證明部分static resize少傳而畫面一致；完整624 samples卻有不利large／small、mixed full targets與controls漂移。拒絕以局部native節省、單一local目標或結構payload下降取代CPU收益，不裁切outlier、不加有利場景特例。正式source／dist維持P280，詳見ACCEPTANCE。

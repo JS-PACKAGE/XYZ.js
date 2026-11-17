@@ -7670,3 +7670,11 @@ raw full RenderTexture 的 particle natural dimensions 依 logical size 而定�
 offscreen producer repaint 另走 begin/finish；Infinity geometry budget 會丟棄未使用 consumer entries，因此舊 source-resize fixtures 未涵蓋這個 resident-cache 邊界。新增 finite-budget 原生回歸在舊 body 的 width-only edge 精準失敗，修正後三 backend 各19 assertions 通過，獨立涵蓋寬、高與 shrink；不改寫歷史測試結果。
 
 固定13 cohort 的624個 A/A→A/B samples 全留，包括成本與 controls。large full-target submit 每輪較慢，中位數約增3.1%，採用是 correctness 修復，不是加速。small／image／controls 混合值與 A/A drift 全記。strict／scoped lint、33定向 tests、只 promote 四 artifact 的隔離 full build、正式 dev/dist compatibility／原生 pixels、三 backend main lifecycle、showcase navigation cleanup 與 CJS module load 通過。standard Sprite 僅 current-only，不是配對證據；GPU／FPS、native CJS、實體裝置或 Safari 未認證。完整證據見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P281 — 不採用 particle resolution-key 刪減
+
+sandbox候選刪除獨立resolution getter／key／write，sourceSizes三個double改兩個，保留physical尺寸、P280 logical guard與validation。full raw render geometry使用logical尺寸，view／crop依自身immutable metadata；候選payload少8×capacity bytes，不等於實測heap／RSS或物件數下降。
+
+24個finite-budget native cases的paired state／像素／cleanup一致。physical／logical不變的resolution-only步驟，static full／crop／rotated／trimmed各省一次288-byte upload；真正logical變動仍更新。CPU fixture維持before原熱stride3、after2，共用max3 backing，cold invalidation在warm前，不在measured frames。
+
+固定13 cohort共624個A/A→A/B samples全留，包含不利large／small、mixed full targets、controls／drift／outliers。證據不足以採用，正式source／artifacts／API／版本不變；本輪沒有新正式unit／typecheck／build、CJS、standard／showcase、GPU／FPS或實機認證。完整原型／方法／raw見 [ACCEPTANCE](../ACCEPTANCE.md)。

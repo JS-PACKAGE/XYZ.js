@@ -6385,3 +6385,10 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - finite geometry budget 讓 repaint 間的 consumer cache 保留。新 permanent browser regression 在舊 body 的 width-only edge 失敗，修正後三 backend 各19 assertions（寬／高度個別／shrink）及 save/restore/destroy 通過。
 - 固定13 cohort 的 A/A→A/B 共624 samples，full RenderTexture／image overhead／crop、AllDynamic、Sprite、empty controls 全留。large full submit 約3.1%增加不隱藏，採用為 correctness 修復，不列為加速成果。
 - 執行33定向 tests、strict／2 files scoped lint、保護11 user paths／只 promote 四 artifact 的隔離 full build、正式 dev/dist compatibility／原生 pixels、showcase unlock/navigation cleanup、CJS module load、current-only standard Sprite 量測。API／package 1.23.0不變，完整證據見 ACCEPTANCE，只依功能 commit，不 push。
+
+## P281 — 不採用 particle resolution metadata 刪減
+
+- 證明 GPU particle packed fields 不依賴獨立 resolution 值；sandbox 候選刪除 getter／比較／寫入，sourceSizes stride3→2，保留 P279／P280。候選少8×capacity bytes payload，但不宣稱實測 heap／RSS。
+- 24個 finite-budget native cases，含 physical／logical皆不變的 resolution-only 步驟，before／after state／PNG／cleanup一致。四種 static render source 各少一次288-byte particle upload；真正 logical resize 仍更新，validation fatal契約保留。
+- 固定13 cohort 先312個A/A再312個A/B，共624 samples。before熱stride3、after2，共用max3 allocation與cold invalidation置於warm前，不修改原before熱layout。所有controls／ties／outliers／drift全留，mixed與不利large／small不足以採用。
+- 本輪僅證據文件commit，不改正式source／artifacts，不重跑或冒稱unit／strict／build／CJS／standard／showcase驗收。完整原型與raw見ACCEPTANCE，package不變、不push，轉查其他瓶頸。
