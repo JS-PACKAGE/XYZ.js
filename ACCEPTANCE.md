@@ -95505,3 +95505,56 @@ Node small／fallback八輪皆慢，Chromium mixed且A/A small／fractional已�
 上述World matrices均由同一canonical物件圖，在sample warm前切換method；constructor／warm不計入timed180ticks。共同layout、可變call target、source-slot與時間序列仍是限制。所有outliers保留於執行環境raw，不把較少source投影或helper calls換算成heap／GC或FPS。
 
 本輪raw保留於 `/tmp/xyz-input-*-results.json`、`/tmp/xyz-input-slots-cpu.log`、`/tmp/xyz-animation-poseat-results.jsonl`、`/tmp/xyz-mp4-micros-*-results.json`、`/tmp/xyz-physics-relative-results.json`、`/tmp/xyz-physics-clip-results.json`、`/tmp/xyz-physics3d-profile.cpuprofile`。這些是暫存、不是永久連結；throwaway drivers完成後移除。不新增巨大base64附件，只提交六份證據文件，不改或冒稱驗收新的正式能力。
+
+## P284 — Tiled cells 直接讀取 base64 binary string（2026-11-18）
+
+### 範圍與決策
+
+- 原版 decodeTiledBase64 經 tiledBase64Bytes 先建立／填入完整 Uint8Array，再讀回四個 bytes 組成一個 GID。改為共用 private tiledBase64Binary 的 bounded 驗證及 atob 結果，直接從 binary string 的 charCodeAt 組合 unsigned little-endian uint32。沒有改用乘法、改動 flip bits、預配 holey cells、額外 cache 或放寬格式／上限。
+- tiledBase64Bytes 仍傳回獨立 Uint8Array，保留 normalizeTiledMap 的 gzip／zlib 契約；驗證及錯誤順序共用而非複製。parser 的 gid validation／map snapshot／freeze 與 HTTP origin／abort／資源釋放架構不變，公開 declarations 與 package 1.23.0 不變。
+- canonical 隔離 constructor probe 的8 cells 原版／候選 Uint8Array 明確建構次數為1／0，結果一致。推算262,144-cell 上限可省去一份1 MiB byte backing array，但不是量到的 heap／peak RSS／GC；binary string、輸出 number array 及 parser 的驗證快照仍存在。
+
+### 固定 CPU 比較
+
+Node v26.7.0 與 managed headless Chromium 153.0.8010.12 分開執行，沒有同時跑其他 CPU experiments／build／tests。每個 run 固定4 cohorts，每 cohort 每 profile／mode 先50次 warm；每 sample 先3次 warm，再依表內固定 calls 計時。每 phase 八輪 alternating ABBA／BAAB，cohort 的 A/A→A/B 與 A/B→A/A 順序 counterbalance；每 run 共256 samples，每 sample 含八個完整 profile。數字為32組配對百分比的**上中位數**（排序後 index16），負數較快；不是未配對時間比值、單次最佳值或信賴區間。短 sample 受 Chromium timer 粒度與 JIT 漂移影響。
+
+同 canonical module graph 保留同 parser／limits／錯誤類別，切換原版／候選 decode helper：
+
+| profile           | calls / sample | Node A/A | Node A/B | Chromium A/A | Chromium A/B |
+| ----------------- | -------------: | -------: | -------: | -----------: | -----------: |
+| decode16          |           1000 |  -1.614% | -13.185% |       0.000% |     -20.000% |
+| decode65536       |             10 |  -0.798% | -12.518% |       0.000% |     -11.017% |
+| parse16           |           1000 |  -3.254% |  -7.255% |       0.000% |     -10.000% |
+| parse4096         |            100 |  -0.034% |  -7.766% |      +1.444% |      -7.170% |
+| parse65536        |             10 |  +0.728% |  -6.730% |      -0.231% |      -6.061% |
+| parse262144       |              3 |  -0.052% |  -5.316% |      -0.573% |      -6.835% |
+| array-control4096 |            100 |  -0.214% |  -0.221% |       0.000% |       0.000% |
+| bytes65536        |             10 |  +0.928% |  +0.115% |      +0.259% |      -0.528% |
+
+另對當時工作區正式 root 與隔離 full build 的真實 minified ESM root 執行相同固定矩陣；這是**不同 module graphs** 的佐證，不冒充 canonical 因果隔離。parse profiles 經各自公開 root parseTiledMap，其餘 decode／bytes profiles 用對應內部 module。
+
+| profile           | calls / sample | Node A/A | Node A/B | Chromium A/A | Chromium A/B |
+| ----------------- | -------------: | -------: | -------: | -----------: | -----------: |
+| decode16          |           1000 |  +0.712% | -13.806% |       0.000% |     -12.500% |
+| decode65536       |             10 |  -0.230% | -11.159% |      +0.402% |     -10.970% |
+| parse16           |           1000 |  -3.685% |  -5.571% |       0.000% |       0.000% |
+| parse4096         |            100 |  -0.936% |  -6.560% |      -0.382% |      -7.087% |
+| parse65536        |             10 |  +0.027% |  -5.875% |      -0.234% |      -5.660% |
+| parse262144       |              3 |  +0.477% |  -5.782% |      -0.195% |      -6.403% |
+| array-control4096 |            100 |  -0.129% |  +0.859% |       0.000% |       0.000% |
+| bytes65536        |             10 |  -0.292% |  -3.000% |      +0.249% |      -0.535% |
+
+- 兩種矩陣的中大型完整 parser 結果均優於 respective controls；採用理由是減少實際中介資料搬移，不是只數 source operations。正式 Chromium 的16-cell 完整 parser 沒有可辨識收益，不宣稱所有地圖都加速。
+- 數字陣列 control 沒有同幅改善；byte helper 仍做原有工作，正式 Node 的 byte-only 差異也不能獨立歸因於此重構。不宣稱 gzip／zlib、network／完整資產載入延遲、GPU submit 或 FPS 加速。
+
+### 功能與正式產物驗證
+
+- canonical Node／Chromium 與正式 ESM-root Node／Chromium 每 run 的197組對照、665,204個 uint32 DataView oracle word checks 通過；四個 run 使用相同固定 fixtures，不是四份獨立隨機種子。涵蓋1至cell上限、seeded uint32、合法高位 flags、ASCII／Unicode whitespace、無效 base64／padding、count／byte bounds 與完整 frozen map 結果；另確認 snapshots 不依賴呼叫者後續改寫。兩個 browser runs 均無 page errors。
+- 首輪實驗的 freeze fixture 在 compare callback 內生成不同隨機資料，造成假 mismatch；改為 callback 外建立同一份輸入後才執行本紀錄矩陣。首次 browser launcher 誤用未安裝的 playwright 路徑，改依專案 playwright-core convention；這兩次失敗不是正式產品錯誤，沒有將失敗計時算入矩陣。source 首次 helper 分段 edit 的 signature 位置錯誤由工具即時指出並在執行 checks 前修正。
+- 既有 tests/tiled-import.test.mjs 與 tests/tiled-profiles.test.mjs：**2檔／13 tests 通過**；tsc -p tsconfig.check.json、parser scoped ESLint／Prettier 通過。既有 tests 已涵蓋本路徑的 endian／flip／空白／錯誤與 gzip／zlib 整合，沒有加只檢查 wiring 的新 tests。未冒稱執行完整 test suite、最低 Node 版本或重新安裝依賴。
+- 在 /tmp 的隔離副本執行正式 tsc → minify（377 JS）→完整 vendor copy → CJS build（720 files）；只帶回四個 tiled-parser ESM／CJS JS＋maps，declaration 比較不變。未重新產生或提交使用者的 physics2d／world2d 產物；原有11檔 SHA256 guard 全部通過。
+- 帶回後實際 Node 正式 ESM root、CJS root，以及 managed Chromium 正式 ESM root 經原生 HTTP／fetch 各通過12種 loadTiledMap lifecycle：plain base64、gzip、zlib、數字陣列、負座標 infinite chunks、whitespace、malformed、short data、unresolved GID、unsupported hex flag、native decompression bomb、pre-abort。valid cells／flags／freeze、scope release、borrowed Texture 存活均確認，沒有圖片請求或 page errors。使用公開 borrowed-texture 契約隔離圖片，不代表圖片解碼或 rendered pixels／三 backend 重新驗收。
+
+### 證據與交付界線
+
+原始資料暫存 /tmp/xyz-tiled-binary-node-results.json、/tmp/xyz-tiled-binary-browser-results.json、/tmp/xyz-tiled-binary-formal-node-results.json、/tmp/xyz-tiled-binary-formal-browser-results.json、/tmp/xyz-tiled-binary-smoke-results.json；不是套件附件。throwaway drivers／生成副本於驗證後清除，保留上述 raw results。同步六份文件、依階段獨立 commit，不 push，不擴大其他瀏覽器／實機／音訊／圖形認證。

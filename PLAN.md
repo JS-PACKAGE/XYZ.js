@@ -6405,3 +6405,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - Gamepad button Map 重查在同 canonical class 的 Node／Chromium 完整 frame matrix 後不採用：Chromium first button +4.593%、無pad的17 actions +2.926%，各八輪較慢。這也符合 P156 既有拒絕紀錄；不因 JSC 的後段按鈕收益重加 table。
 - Root-motion rest-copy elision、MP4 numeric timestamp fast path、3D solver relative-velocity fusion、box clipping projection reuse 均完成隔離原型／功能比較，卻沒有足夠整體 CPU 理由；全部不採用，不加 cache／場景門檻來追有利結果。
 - 正式 minified PhysicsWorld3D 的256剛體 profile 將調查轉向 solver／box narrowphase；採樣權重不是逐幀 CPU 分布或加速證明。只同步六份研究紀錄、依階段提交，不 build 或冒稱正式 runtime 重新驗收，source／dist／API／版本不變。完整矩陣與限制見 ACCEPTANCE。
+
+## P284 — Tiled base64 直接讀取 binary string
+
+- 同一份 bounded base64 驗證與 atob 改由 private helper 回傳 binary string；未壓縮 cells 直接組成 little-endian uint32，不再先建立並掃描 Uint8Array。需要 bytes 的 gzip／zlib 路徑仍取得自己的 Uint8Array，不改公開 API、上限或錯誤順序。
+- canonical source 與正式 minified ESM root 的 Node／Chromium 固定 controls 支持中大型 parser 的 CPU 改善；小圖、數字陣列與 byte-only controls 不宣稱普遍加速。不把減少一份中介 buffer 換算成 heap／GC／FPS 成果。
+- 既有 Tiled tests、strict／scoped checks、隔離 full build 及正式 ESM／CJS／Chromium HTTP loader lifecycle 通過；只帶回四個 parser artifacts，保留11個使用者檔案。完整數據與範圍見 ACCEPTANCE。

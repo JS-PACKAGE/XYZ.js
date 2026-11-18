@@ -7690,3 +7690,9 @@ sandbox候選刪除獨立resolution getter／key／write，sourceSizes三個doub
 固定 controls 不支持 button-slot Map（含 Chromium first button／無pad frame 回退）、root-motion rest-copy 刪減、safe-integer MP4 timestamp fast path、contact relative-velocity 合併及 clipping projection 重用。精確功能比較不等於加速；source operation 數或 Node profiler 採樣權重也不是 CPU／FPS 或配置量測。
 
 button Map 亦重現 P156 既有拒絕的 tradeoff。正式沒有保留新 table／helper／cache／API／source／artifact 變更；本階段只有證據文件，沒有重跑正式 tests／build、畫面、production ESM／CJS CPU 或實機認證。完整矩陣與限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P284 — Tiled cells 不再繞經中介 byte array
+
+private bounded-base64 helper 回傳 atob 的 binary string。未壓縮 cells 直接以 charCodeAt 組合 little-endian uint32；gzip／zlib 所需的 byte helper 仍建立獨立 Uint8Array。驗證順序、上限、錯誤、unsigned flip flags、快照、公開型別與版本不變；不是零配置 parser。
+
+canonical source controls 與 Node／headless Chromium 正式 minified ESM root 對照支持所測中大型地圖的 CPU 改善，不擴大到所有地圖、byte-only 或解壓路徑。既有 Tiled tests、strict／scoped checks、隔離 full build 與正式 ESM／CJS／瀏覽器 HTTP loader lifecycle 通過，只帶回四個 parser artifacts。不宣稱畫面、GC／heap 或其他瀏覽器認證。完整矩陣與限制見 [ACCEPTANCE](../ACCEPTANCE.md)。

@@ -8045,3 +8045,9 @@ Eight concurrent jobs retain eight distinct callbacks before versus one in curre
 Fixed controls reject the button-slot Map (including slower first-button/no-pad Chromium frames), root-motion rest-copy elision, a safe-integer MP4 timestamp fast path, fused contact-relative-velocity writes and reused clipping projections. Exact functional comparisons do not establish a speedup; source-operation counts and Node sampling weights are not CPU/FPS or allocation measurements.
 
 The input Map also repeats P156's previously rejected tradeoff. No table, helper, cache, API, source or artifact change remains. This evidence-only phase did not rerun formal tests/build, rendered surfaces, production ESM/CJS CPU or hardware certification. Full matrices and limitations: [ACCEPTANCE](../ACCEPTANCE.md).
+
+## P284 — decode Tiled cells without an intermediate byte array
+
+The private bounded-base64 helper returns atob's binary string. Uncompressed cells assemble little-endian uint32 values directly from its character codes; the byte helper still creates an owned Uint8Array for gzip/zlib consumers. Validation order, limits, errors, unsigned flip flags, snapshots, public types and package version remain unchanged. This is not an allocation-free parser.
+
+Canonical source controls and real minified ESM-root comparisons in Node/headless Chromium support a CPU improvement for the measured medium/large maps, not all maps or byte/decompression paths. Existing Tiled tests, strict/scoped checks, an isolated full build and real ESM/CJS/browser HTTP loader lifecycle checks pass; only four generated parser artifacts are promoted. No rendering, GC/heap or additional-browser certification is claimed. Full matrices and limitations: [ACCEPTANCE](../ACCEPTANCE.md).

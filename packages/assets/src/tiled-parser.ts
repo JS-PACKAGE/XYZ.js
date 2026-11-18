@@ -602,16 +602,16 @@ export function decodeTiledBase64(
 ): number[] {
   if (!Number.isSafeInteger(count) || count <= 0 || count > tiledLimits.cells)
     throw new TiledError(path, 'cell budget exceeded');
-  const bytes = tiledBase64Bytes(value, count * 4, path);
-  if (bytes.byteLength !== count * 4)
+  const decoded = tiledBase64Binary(value, count * 4, path);
+  if (decoded.length !== count * 4)
     throw new TiledError(path, 'decoded cell count mismatch');
   const cells: number[] = [];
-  for (let i = 0; i < bytes.length; i += 4)
+  for (let i = 0; i < decoded.length; i += 4)
     cells.push(
-      (bytes[i]! |
-        (bytes[i + 1]! << 8) |
-        (bytes[i + 2]! << 16) |
-        (bytes[i + 3]! << 24)) >>>
+      (decoded.charCodeAt(i) |
+        (decoded.charCodeAt(i + 1) << 8) |
+        (decoded.charCodeAt(i + 2) << 16) |
+        (decoded.charCodeAt(i + 3) << 24)) >>>
         0,
     );
   return cells;
@@ -622,6 +622,17 @@ export function tiledBase64Bytes(
   maxBytes: number,
   path: string,
 ): Uint8Array<ArrayBuffer> {
+  const decoded = tiledBase64Binary(value, maxBytes, path);
+  const bytes = new Uint8Array(decoded.length);
+  for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+  return bytes;
+}
+
+function tiledBase64Binary(
+  value: string,
+  maxBytes: number,
+  path: string,
+): string {
   if (value.length > Math.ceil(maxBytes / 3) * 4 + 4096)
     throw new TiledError(path, 'encoded byte budget exceeded');
   const compact = value.replace(/\s/g, '');
@@ -636,7 +647,5 @@ export function tiledBase64Bytes(
   const decoded = atob(compact);
   if (decoded.length > maxBytes)
     throw new TiledError(path, 'decoded byte budget exceeded');
-  const bytes = new Uint8Array(decoded.length);
-  for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
-  return bytes;
+  return decoded;
 }

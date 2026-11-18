@@ -236,6 +236,12 @@ P283: Reject input/animation/MP4/3D-physics prototypes with regressions or incon
 
 P283：input／animation／MP4／3D physicsの試案は回退または利益不明確のため不採用。正式source／distは不変。負の結果と検証範囲は [検収記録](ACCEPTANCE.md) を参照。
 
+P284：Tiled 未壓縮 base64 cells 直接讀取 binary string，移除中介 byte array；中大型 parser 的固定 Node／Chromium controls 支持 CPU 改善。公開契約、壓縮路徑與資源生命週期維持，不宣稱所有地圖或 FPS 加速。詳見 [ACCEPTANCE](ACCEPTANCE.md)。
+
+P284: Decode uncompressed Tiled base64 cells directly from the binary string, removing the intermediate byte array. Fixed Node/Chromium controls support measured medium/large-map parser CPU gains, not universal or FPS improvements. [Evidence](ACCEPTANCE.md).
+
+P284：Tiledの非圧縮base64 cellsをbinary stringから直接読み、中間byte arrayを除去。Node／Chromiumの固定controlsで中大型parserのCPU改善を確認。全地図やFPSの高速化は主張しない。[検収記録](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

@@ -6530,3 +6530,9 @@ full raw render quad 使用 logical dimensions，view／crop 使用自身 immuta
 button name Map 保留 mutable 公開 layout 與 internal slot 分離、root-motion 候選只省 private rest copies、MP4 候選只在 scaled ticks 為 safe integer 時走 Number 並正規化負零、solver fusion 保留運算順序、clipping 候選只沿 polygon 邊重用上一個 dq。這些都只是隔離原型；功能等價不等於 CPU 改善。
 
 同 class／graph 的 Node 與 Chromium controls 揭露 button first/no-pad 回退、MP4 fallback 成本；root-motion／clipping 收益落於混合與漂移範圍，solver fusion 則明顯更慢。全部拒絕，沒有正式新 field／helper／table／cache、公開 API 或產物變更。profiler 僅用來選研究位置，不宣稱已隔離 JIT／GC 單一原因。完整原型範圍、方法與負向結果見 ACCEPTANCE。
+
+## P284 — 共用 base64 驗證，不強迫所有消費者取得 bytes
+
+Tiled 的 private tiledBase64Binary 負責原有 encoded／decoded budget、空白正規化、格式驗證與 atob。同步 cell decoder 直接用四次 charCodeAt 組合 little-endian uint32，保留 unsigned flip bits；tiledBase64Bytes 才把 binary string 複製至獨立 Uint8Array，供壓縮資料流程使用。沒有新 cache、公開輸入型別或額外依賴。
+
+移除的是未壓縮 cells 的中介 byte array 與一次填入／讀回，不是輸出 cells、parser 的驗證快照或 atob binary string。精確對照、controls、正式產物與資源生命週期驗證見 ACCEPTANCE；CPU、明確 JS constructor 次數及 backing-byte 理論上限分開報告，不推論 GC／heap 或呈現幀率。

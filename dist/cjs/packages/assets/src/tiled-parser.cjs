@@ -287,21 +287,24 @@ function parseTiledMap(t, n) {
 }
 function decodeTiledBase64(t, n, r) {
 	if (!Number.isSafeInteger(n) || n <= 0 || n > require_tiled.tiledLimits.cells) throw new TiledError(r, `cell budget exceeded`);
-	let i = tiledBase64Bytes(t, n * 4, r);
-	if (i.byteLength !== n * 4) throw new TiledError(r, `decoded cell count mismatch`);
+	let i = tiledBase64Binary(t, n * 4, r);
+	if (i.length !== n * 4) throw new TiledError(r, `decoded cell count mismatch`);
 	let a = [];
-	for (let e = 0; e < i.length; e += 4) a.push((i[e] | i[e + 1] << 8 | i[e + 2] << 16 | i[e + 3] << 24) >>> 0);
+	for (let e = 0; e < i.length; e += 4) a.push((i.charCodeAt(e) | i.charCodeAt(e + 1) << 8 | i.charCodeAt(e + 2) << 16 | i.charCodeAt(e + 3) << 24) >>> 0);
 	return a;
 }
 function tiledBase64Bytes(e, t, n) {
+	let r = tiledBase64Binary(e, t, n), i = new Uint8Array(r.length);
+	for (let e = 0; e < r.length; e++) i[e] = r.charCodeAt(e);
+	return i;
+}
+function tiledBase64Binary(e, t, n) {
 	if (e.length > Math.ceil(t / 3) * 4 + 4096) throw new TiledError(n, `encoded byte budget exceeded`);
 	let r = e.replace(/\s/g, ``);
 	if (r.length > Math.ceil(t / 3) * 4 || r.length % 4 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(r)) throw new TiledError(n, `invalid/budget-exceeding base64`);
 	let i = atob(r);
 	if (i.length > t) throw new TiledError(n, `decoded byte budget exceeded`);
-	let a = new Uint8Array(i.length);
-	for (let e = 0; e < i.length; e++) a[e] = i.charCodeAt(e);
-	return a;
+	return i;
 }
 //#endregion
 exports.TiledError = TiledError;
