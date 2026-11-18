@@ -6416,3 +6416,9 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 
 - 隔離原型嘗試讓 base64 decoder 自有 cells 經驗證後直接 freeze，避免 native map 產生第二份 number array；外部陣列仍走 map 快照。完整中大型 parser 有收益，但 Node／Chromium 小圖回退，Chromium 外部陣列 control 亦回退，因此不採用、不加大小門檻。
 - 原型的數值／錯誤、caller ownership、Proxy／species／holes 與 frozen descriptors 對照通過；這不等於可接受的整體效能。正式 source／dist 留在 P284，沒有 runtime tests／build 或額外瀏覽器認證。完整負向矩陣見 ACCEPTANCE。
+
+## P286 — 壓縮 Tiled cells 依驗證後的 count 配置
+
+- gzip／zlib 完成 bounded native decode、精確 byte-size check 與 abort check 後，依 count 建立固定長度 number array，以索引寫入原有 little-endian uint32；不再逐 cell push。只改兩行，不動驗證、快照、資料上限或公開 API。
+- 將 native async wall-time 與同步 copy＋完整 parser CPU 分開：前者混合且有控制組差異，不能宣稱完整載入普遍加速；後者共用同一實際 minified parser、隔離 workload 的固定比較支持所測中大型案例。沒有 heap／GC／FPS 推論。
+- 13項既有 Tiled tests、strict／scoped checks、隔離 full build、正式 ESM／CJS／Chromium HTTP import 與 tile publication 通過，只帶回四個 normalizer artifacts，11個使用者檔案不變。完整矩陣見 ACCEPTANCE。

@@ -248,6 +248,12 @@ P285: Reject decoder-owned cell reuse after small-map and caller-array control r
 
 P285：decoder所有cellsの直接検証／freezeは小型地図・外部配列controlが回退したため不採用。正式runtimeはP284を維持。[検収記録](ACCEPTANCE.md)。
 
+P286：壓縮 Tiled cells 在既有 budget／byte-size／abort 檢查後依 count 配置、索引填入。同步 copy＋parser 比較支持局部 CPU 改善；native async wall-time 仍混合，不宣稱完整載入普遍加速。正式 import／tile publication／cleanup 通過。[證據與限制](ACCEPTANCE.md)。
+
+P286: Presize bounded decompressed Tiled cells after existing checks. Synchronous copy/parser controls support local CPU gains; mixed native async wall-times do not prove universal load acceleration. Formal imports, tile publication and cleanup pass. [Evidence](ACCEPTANCE.md).
+
+P286：検証済みの解凍cell数で配列を確保して索引で書き込む。同期copy／parserのCPU改善と、結果が混在するnative async wall-timeを区別。正式import・tile publication・cleanupを確認。[検収記録](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

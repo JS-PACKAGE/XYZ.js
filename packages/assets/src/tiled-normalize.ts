@@ -121,8 +121,8 @@ export async function normalizeTiledMap(
         throw new TiledError(path, 'decoded cell count mismatch');
       const view = new DataView(await blob.arrayBuffer());
       signal.throwIfAborted();
-      const cells: number[] = [];
-      for (let i = 0; i < count; i++) cells.push(view.getUint32(i * 4, true));
+      const cells = new Array<number>(count);
+      for (let i = 0; i < count; i++) cells[i] = view.getUint32(i * 4, true);
       holder.data = cells;
     } catch (error) {
       signal.throwIfAborted();

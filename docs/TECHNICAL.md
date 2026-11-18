@@ -8057,3 +8057,9 @@ Canonical source controls and real minified ESM-root comparisons in Node/headles
 A source-only prototype validates the decoder-owned cell array in a loop and freezes it directly, while caller arrays retain their map snapshot. Medium/large cases improve, but small base64 maps and the Chromium caller-array control regress. Ownership/Proxy/species/hole/descriptor equivalence does not justify those costs; the prototype is rejected without a size threshold.
 
 Runtime source/artifacts remain at P284. This phase records evidence only: no new runtime tests/build, production-root timing, rendering or browser certification. Full fixed matrices: [ACCEPTANCE](../ACCEPTANCE.md).
+
+## P286 — presize bounded decompressed Tiled cells
+
+After count/budget, native byte-size and abort checks, the gzip/zlib normalizer allocates the known cell length and writes each existing little-endian uint32 by index instead of growing via push. It does not preallocate before validation or change the parser's caller-array snapshot, limits, public types or package version.
+
+Workload-isolated synchronous copy plus the same real minified parser improves in measured medium/large cases. Native async normalization/parser wall-times remain mixed, including regressions and control drift; no universal full-load, heap/GC or FPS gain is claimed. Thirteen existing tests, strict/scoped checks, an isolated full build and real ESM/CJS/browser HTTP imports, tile publication and cleanup pass. Only four normalizer artifacts are promoted. Full positive/negative matrices and limitations: [ACCEPTANCE](../ACCEPTANCE.md).

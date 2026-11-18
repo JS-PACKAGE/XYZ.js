@@ -95592,3 +95592,59 @@ Node v26.7.0／managed headless Chromium 153.0.8010.12 分開、無其他 CPU ex
 - 呼叫者陣列保持 unfrozen、結果不是 caller identity；改寫／push caller 後 snapshot 不變。輸出 own keys、frozen data descriptor、Reflect set／delete 拒絕相同。Proxy array 的 length／map／constructor／species／index read trace，以及 sparse hole keys 與自訂 species 結果一致；沒有宣稱檢查 private callback 的所有 metadata。Chromium 無 page errors。
 - 這是已執行的 source-only 實驗，不是正式 source 採用、public TiledContent／loadTiledMap lifecycle、production-root CPU、圖形、其他瀏覽器或實機認證。正式 tests／typecheck／lint／build 不重跑；P284 已驗收結果不冒稱本階段重新執行。
 - 原始記錄暫存 /tmp/xyz-tiled-owned-node-results.json、/tmp/xyz-tiled-owned-browser-results.json，不是套件附件。throwaway drivers／生成副本驗證後清除；六份文件同步、獨立記錄拒絕決策，不 push。
+
+## P286 — 壓縮 Tiled cells 固定長度填入（2026-11-18）
+
+### 兩行變更與採用範圍
+
+P285/P284 runtime baseline：normalizer 在驗證 count／cell budget、完整 native decode byte size、arrayBuffer 與 abort 後，以 push 建立 cells。改為 `new Array<number>(count)` 與索引填入；DataView.getUint32(i*4,true)、所有前置檢查與 holder.data 發布時機不變。每個索引都寫滿，沒有保留 holes、增加 cache／大小門檻、跳過 parser 快照或假設 typed-array 的 host endianness。
+
+採用理由限定為已知 count 的固定填入策略，以及下列同步 copy＋完整 parser 比較所支持的中大型 JS 工作成本。native async 量測有回退，全部保留；不宣稱完整 gzip／zlib 載入、排程、network、GC／heap 或呈現幀率普遍改善，也沒有量測 backing-store 配置次數或宣稱零配置。公開 API／declarations、package 1.23.0、依賴及 vendor 不變。
+
+### Native async 整合矩陣（不可當作純 JS CPU）
+
+Node v26.7.0 與 managed headless Chromium 153.0.8010.12 分開執行，沒有其他 CPU experiments／build／tests 並行。共用同一 module graph／parser／readResponse／類別，兩份 normalizer functions 切換 before／after。native DecompressionStream → bounded readResponse → Blob／arrayBuffer → cells →完整 parser 都在 async wall-time 內；fresh map clone 不計時。這不是 production-root CPU，亦無法隔離 native 排程／thread pool／GC。
+
+每 runtime 固定4 cohorts、每 profile／mode 20 calls warm、sample 另3 calls warm；每 phase 八輪 alternating ABBA／BAAB，cohort A/A→A/B 與 A/B→A/A 順序 counterbalance，共256 sample records／runtime，每 record 含八個 profile timings。表內均32組配對百分比的 median（兩個中央值平均），負值較快。
+
+| profile    | calls / sample | Node A/A | Node A/B | Chromium A/A | Chromium A/B |
+| ---------- | -------------: | -------: | -------: | -----------: | -----------: |
+| gzip16     |             50 |  -1.039% | -16.862% |       0.000% |      +0.526% |
+| zlib16     |             50 |  +0.799% |  -0.757% |      -0.267% |      +0.533% |
+| gzip4096   |             10 |  +3.063% |  -0.944% |       0.000% |      -5.218% |
+| zlib4096   |             10 |  -0.086% | +17.810% |       0.000% |      -1.771% |
+| gzip65536  |              2 |  +0.045% |  -5.016% |       0.000% |      -8.197% |
+| gzip262144 |              1 |  -0.620% | -12.465% |       0.000% |      -3.994% |
+| array4096  |             50 |  -0.385% |  +0.289% |       0.000% |      +5.253% |
+| base644096 |             10 |  -0.333% |  +0.621% |       0.000% |      +2.381% |
+
+這個 matrix 不能提供「全部較快」結論；尤其 Node zlib4096 的回退與 Chromium array4096 control 的差異不被刪除。不將 tiny gzip 的大百分比當成 array 配置的因果證明，也不擅自斷言差異由特定 JIT／GC 或 native scheduler 機制造成。
+
+### 分離 copy／parser 與 native 非同步排程
+
+不是重跑相同 clock 挑有利值：另建立**同步、workload-isolated** 矩陣。各 profile 的完整 cohorts 獨立執行，共用同一實際 minified parser；只切換兩個與 source 相同的 DataView→cells fill functions。decompressed-byte fixtures 以既有 expected uint32 在計時外建立；計時含 cells copy、fresh map metadata 與完整 parser，排除 stream／Blob／arrayBuffer／排程／network。array controls 根本不執行 fill function，避免把兩份 normalizer function 當成無成本差異。
+
+各 profile 固定4 cohorts、每 mode 50 calls warm、sample 另3 calls warm；相同 counterbalanced phases／八輪 ABBA／BAAB。每 profile 256 samples，共1,536 samples／runtime，仍使用32組配對 median。
+
+| profile            | calls / sample | Node A/A | Node A/B | Chromium A/A | Chromium A/B |
+| ------------------ | -------------: | -------: | -------: | -----------: | -----------: |
+| array-control4096  |            100 |  -0.568% |  -0.046% |       0.000% |       0.000% |
+| copy16             |           1000 |  -0.475% |  -1.254% |       0.000% |       0.000% |
+| copy4096           |            100 |  +0.154% | -14.643% |      +0.806% |     -15.873% |
+| copy65536          |             10 |  -0.239% | -12.791% |       0.000% |      -8.696% |
+| copy262144         |              3 |  -0.835% | -11.148% |       0.000% |      -8.879% |
+| array-control65536 |             10 |  +1.338% |  -0.558% |       0.000% |       0.000% |
+
+同步 controls 近乎持平，中大型 copy＋parser 多數／全部 paired rounds 較快，故保留這個局部最小變更；不是改寫或抹去前一矩陣。16-cell Chromium 沒有可辨識收益，不外推小圖或 TiledContent CPU／圖片解碼。
+
+### 功能與正式產物
+
+- Native Node／Chromium 各23組前後精確 normalized-map／parsed-data／錯誤對照、672,330 fixture cells 及 pre-abort 通過；fixtures 相同，不算獨立隨機種子。含 gzip／zlib 1至262,144 cells、數字陣列與未壓縮 controls、負座標 infinite chunks、無效 base64、native header 錯誤、短 data、解壓 bomb、budget 與 unsupported compression。native header 錯誤文字可因 runtime 不同，前後比較只在各自 runtime 內；沒有偽造一致 fallback。
+- 既有 tests/tiled-import.test.mjs、tests/tiled-profiles.test.mjs：**2檔／13 tests 通過**；tsc -p tsconfig.check.json、normalizer scoped ESLint／Prettier 通過。沒有新依賴或永久 tests；未冒稱執行全 suite、最低 Node 或其他瀏覽器。
+- 隔離副本正式執行 tsc → minify（377 JS）→完整 vendor copy → CJS build（720 files）；只帶回四個 tiled-normalize ESM／CJS JS＋maps，declaration 比較不變。原有11個 physics2d／world2d 使用者 source／產物 SHA256 guard 全部通過，沒有帶回那些 build outputs。
+- 帶回後 Node 正式 ESM root／CJS root 與 managed Chromium 正式 ESM root 經原生 HTTP／fetch，各通過上述23 fixtures＋pre-abort；valid cells／freeze／scope release／borrowed Texture 存活符合。各 target 另外實際發布586 cells、檢查456個 Sprite transforms，八種 flip combinations、GID metadata、負座標 chunks、setGid 後續編輯與 destroy 均通過。大型 fixtures 只驗證載入與完整資料，不建立大量 Sprite；沒有假裝驗證大型 publication CPU。Chromium 無 page errors，沒有圖片請求。
+- 使用公開 borrowed Texture 隔離圖片；這是正式資料與物件變換／生命週期驗證，不是 rendered pixels、圖片 codec、WebGPU／WebGL2／Canvas2D、音訊或實機重新認證。
+
+### 證據與交付
+
+/tmp/xyz-tiled-presized-node-results.json、/tmp/xyz-tiled-presized-browser-results.json、/tmp/xyz-tiled-presized-sync-node-results.json、/tmp/xyz-tiled-presized-sync-browser-results.json、/tmp/xyz-tiled-presized-smoke-results.json 為暫存 raw evidence，不是套件附件。驗證後清除 throwaway drivers／生成副本，保留 raw results；同步六份文件，依功能獨立 commit、不 push。

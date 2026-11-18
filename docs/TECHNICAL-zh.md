@@ -7702,3 +7702,9 @@ canonical source controls 與 Node／headless Chromium 正式 minified ESM root 
 source-only 原型讓 decoder 自有 cells 經迴圈驗證後直接 freeze，外部陣列仍保留 map 快照。中大型案例較快，但小型 base64 地圖與 Chromium 外部陣列 control 回退；ownership／Proxy／species／holes／descriptor 等價不足以抵銷，故拒絕、不加大小門檻。
 
 正式 source／artifacts 留在 P284。本階段只有證據，不代表新 runtime tests／build、production-root 計時、畫面或瀏覽器認證。固定完整矩陣見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P286 — 預配已驗證的解壓 cells 長度
+
+count／累計預算、native byte size 與 abort 檢查通過後，gzip／zlib normalizer 依已知長度建立 cells，以索引寫入原有 little-endian uint32，不再逐項 push。不在驗證前預配，也不改 parser 的外部陣列快照、上限、公開型別或版本。
+
+隔離 workload 的同步 copy＋同一份實際 minified parser 支持所測中大型案例的 CPU 改善。native async normalize／parser wall-time 仍混合，含回退與 controls 漂移；不宣稱完整載入普遍加速、heap／GC 或 FPS 改善。13項既有 tests、strict／scoped checks、隔離 full build、正式 ESM／CJS／瀏覽器 HTTP import、tile publication 與 cleanup 通過，只帶回四個 normalizer artifacts。完整正／負矩陣及限制見 [ACCEPTANCE](../ACCEPTANCE.md)。

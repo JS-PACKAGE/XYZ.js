@@ -6542,3 +6542,9 @@ Tiled 的 private tiledBase64Binary 負責原有 encoded／decoded budget、空�
 base64 decoder 的 number array 雖可安全地在驗證後直接 freeze，替代原有 map 副本，但改成共用具名 validator 與明確迴圈的原型，會影響小圖及外部陣列 control。所有權證明只解決 correctness，不證明 CPU 優勢；不要以大圖收益掩蓋常用途徑回退，也不以 input size threshold 或額外 cache 包裝。
 
 保留 P284 原有 map 驗證／快照，沒有正式 helper、cast、cache 或 API 變更。沒有證據將回退歸因於單一 JIT／GC 機制。原型方法與限制見 ACCEPTANCE。
+
+## P286 — 已知且有界的壓縮 cell count
+
+normalizer 只在 count 已為正整數且累計不超限、native output byte size 精確相符、arrayBuffer 完成且 abort check 通過後建立固定長度 cells，依原有 DataView.getUint32(offset,true) 順序寫滿所有索引，再發布 holder.data。沒有提前大額配置、typed-array endianness 假設、快取或新驗證分支；parser 仍保留原有 map 快照。
+
+選擇範圍僅為這個兩行的 array-fill 策略。同步 copy＋parser 的固定 controls 支持 CPU 改善；native stream／Blob／scheduler wall-time 含回退與漂移，不能被該結果覆蓋或冒稱整體載入加速。具體負向數字、測量邊界及正式 tile publication 見 ACCEPTANCE。
