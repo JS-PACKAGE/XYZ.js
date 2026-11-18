@@ -47,7 +47,7 @@ jobs:
       - run: npx --yes pnpm@12.6.0 run format:check
       - run: npx --yes pnpm@12.6.0 run typecheck
       - run: npx --yes pnpm@12.6.0 run lint
-      - run: npx --yes pnpm@12.6.0 run test
+      - run: node scripts/test-ci.mjs regular
       - run: npx --yes pnpm@12.6.0 run build
       - name: Verify versioned public declarations and supported consumers
         run: npx --yes pnpm@12.6.0 run check:api-compatibility
@@ -66,9 +66,41 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
 
+  procedural-tests:
+    name: Node ${{ matrix.node }} procedural ${{ matrix.shard }}/4 / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24', '26']
+        os: [ubuntu-24.04, windows-11-arm]
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        env:
+          GIT_CONFIG_COUNT: ${{ runner.os == 'Windows' && '1' || '0' }}
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: 'false'
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Restore the pnpm store (content-verified by the frozen lockfile)
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/pnpm-store
+          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: echo "pnpm_config_store_dir=$RUNNER_TEMP/pnpm-store" >> "$GITHUB_ENV"
+        shell: bash
+      - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
+      - run: node scripts/test-ci.mjs ${{ matrix.shard }}/4
+
   browser:
     name: ${{ matrix.engine }} / Node ${{ matrix.node }} / ${{ matrix.os }}
-    timeout-minutes: 25
+    # WebKit's Ubuntu mirror downloads alone reached the existing 25-minute job limit.
+    timeout-minutes: ${{ matrix.os == 'ubuntu-24.04' && matrix.engine == 'webkit' && 45 || 25 }}
     defaults:
       run:
         shell: bash
@@ -120,9 +152,12 @@ jobs:
           echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
       - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
       - run: npx --yes pnpm@12.6.0 run build
-      - name: Install the pinned Playwright engine and system prerequisites
+      - name: Install pinned Playwright system prerequisites
+        if: runner.os != 'Windows'
+        run: npx --yes pnpm@12.6.0 exec playwright-core install-deps ${{ matrix.engine }}
+      - name: Install the pinned Playwright engine
         # On Windows, --with-deps only runs Playwright's ~3 minute install_media_pack.ps1 for Chromium.
-        run: npx --yes pnpm@12.6.0 exec playwright-core install ${{ runner.os != 'Windows' && '--with-deps' || '' }} ${{ matrix.engine }}
+        run: npx --yes pnpm@12.6.0 exec playwright-core install ${{ matrix.engine }}
       - name: Provide Firefox with a native headless audio output
         if: matrix.os == 'ubuntu-24.04' && matrix.engine == 'firefox'
         run: |

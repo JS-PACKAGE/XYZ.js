@@ -95918,3 +95918,10 @@ Open 64／256 cardinal 的 Node 約9.8%／8.4%，Chromium 約15.4%／9.9%；三�
 
 - 判定：縮版 16–16,384 instances 的父節點變換收集少 10.3–17.6%；混合 mesh 及單純 instance 變更少 3.6% 及 3.5%。縮版單 instance 及 opt-out 配對中位數分別慢 3.0%（24/32 組）及 2.9%（20/32 組）；保留此取捨，目的不是加速這兩類。相機、靜態、一般 mesh 對照中位數持平。這是單環境 CPU 微量測，不是 GPU submit、呈現 FPS、其他瀏覽器或通用效能保證。
 - 工具：Node.js 26.7.0；兩個改動 TS 檔 Prettier／ESLint、4 個針對性 Vitest 檔共 42 測試、strict typecheck 通過。隔離目錄產出 377 個縮版 JS、複製 vendor 及 720 個 CJS distribution 檔。僅同步受影響的 2 個模組及其 map／宣告。11 個既有使用者變更的 SHA256 未變。不將選跑記為全套測試。
+
+## v1.24.1 release gate remediation
+
+- v1.24.0 的 GitHub Release workflow 兩次取消，未產生發佈附件。Ubuntu Node 26 日誌比對顯示只有兩個程序材質測試檔未回報完成；v1.23.0 也有相同現象。Vitest 執行期收集共 11,517 個程序材質案例，包含各組參數展開的案例。Linux WebKit 第二次取消時仍在下載原本要求的 APT 套件。
+- CI 以執行期案例 ID 分四份，每個 Node／OS 組合仍跑齊；分片必須觀察到所有選中案例通過，拒絕漏跑或多跑。一般測試保留 Vitest 的預設排除條件，僅另外排除已分片的兩個檔案；本機 `pnpm test` 不變。
+- Linux WebKit 將依賴安裝與瀏覽器安裝分開記錄，工作時間上限由 25 分鐘調至 45 分鐘。Playwright 版本、系統依賴與後續驗證不變。Release 仍須通過完整的 CI workflow 和實際封裝檢查；不重新指派 v1.24.0 tag，也不發 npm。
+- 本機 Node 26.7.0：一般測試 181 檔／4,037 案例通過；分片入口抽樣選中的 91 個程序材質案例皆通過，未選中案例不執行。此紀錄不把抽樣當成四份或 hosted OS／Node 矩陣已通過，也不代表 release 已發佈。
