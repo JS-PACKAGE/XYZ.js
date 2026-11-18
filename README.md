@@ -266,6 +266,12 @@ P288: Reject delaying sweep-order truncation after mixed lifecycle results and a
 
 P288：2D broadphaseのsweepOrder切り詰め延期は、実際の登録更新・step比較で安定した改善がないため不採用。[検収記録](ACCEPTANCE.md)。
 
+P289：glTF 非 sparse interleaved FLOAT VEC3 複製與 finite 檢查融合有大型案例收益訊號，但小型回退、對照漂移，正式 loader 不變。[驗收紀錄](ACCEPTANCE.md)。
+
+P289: Reject fusing the strided FLOAT VEC3 copy and finite scan after mixed full-parser results. Loader behavior and code remain unchanged. [Evidence](ACCEPTANCE.md).
+
+P289：glTFのstrided FLOAT VEC3コピーとfinite検査の融合は、実際のparse結果が混在するため不採用。[検収記録](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

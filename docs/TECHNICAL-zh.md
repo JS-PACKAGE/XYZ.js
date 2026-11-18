@@ -7718,3 +7718,7 @@ profile 只提供調查方向，不代表配置／GC 或 rendered-frame 證明�
 ## P288 — 保留 sweep-order 的先截短再 append
 
 2D broadphase 候選在壓縮上一步順序後，先以索引覆寫新 pieces，再截短尾端。差異案例保留 CCD、排序輸入、碰撞回呼、查詢結果與 revision。真實 register／unregister／update 計時無可靠收益；Node 大型 full churn 回退，Chromium 結果混合。未採用 source 或 dist 變更；固定矩陣與限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P289 — 保留 glTF copy 後的 finite scan
+
+隔離候選只在 little-endian、非 sparse 的 strided FLOAT VEC3 路徑邊複製 owned array 邊檢查 finite，維持 sparse overlay 與錯誤次序。實際 parse／dispose 結果混合，Node 小型 track 回退，packed controls 也漂移，故不採用正式修改或零複製 alias。完整計時與功能證據見 [ACCEPTANCE](../ACCEPTANCE.md)。

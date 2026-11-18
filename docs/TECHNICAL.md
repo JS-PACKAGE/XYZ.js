@@ -8073,3 +8073,7 @@ Profiles are selection evidence, not allocation/GC or rendered-frame proof. Runt
 ## P288 — retain sweep-order truncation before append
 
 The 2D broadphase candidate writes new pieces over the tail of the compacted previous order before truncating. It leaves CCD, the input sequence to the sort, contact callbacks, query results and revisions unchanged in the differential scenarios. Real register/unregister/update timings show no robust benefit, with a large full-churn Node regression and mixed Chromium results. No source or dist changes are adopted; [ACCEPTANCE](../ACCEPTANCE.md) records the fixed matrix and limitations.
+
+## P289 — retain the post-copy glTF finite scan
+
+An isolated non-sparse, little-endian strided FLOAT VEC3 candidate combines the existing owned copy with finite checking. Sparse overlays retain their original ordering and validation. Real parse/dispose workloads have mixed results, including small-track Node regressions and packed-control drift, so no production change is adopted. No zero-copy aliasing is introduced. See [ACCEPTANCE](../ACCEPTANCE.md) for the complete timing and functional evidence.

@@ -6560,3 +6560,9 @@ validatedRegion 原先先讀完 x／y／width／height，再 every(Number.isInte
 CCD 執行後，sweepOrder 先壓縮上一步仍存在的 pieces，再依當步收集順序加入新 pieces，最後執行既有 sort。候選保留相同完整序列，只改為索引覆寫到最後再截短；不延後碰撞事件、引入 pose cache 或更換排序／paired solver。
 
 完整 public lifecycle 的固定比較不支持採用，即使候選避免把 full-churn 的長度先降成零。沒有量測 backing storage、heap／GC、畫面或 FPS，保留正式實作；方法與數據見 ACCEPTANCE。
+
+## P289 — 保留 glTF accessor copy 後的 finite scan
+
+strided FLOAT VEC3 候選在 native copy 同步收集 finite flag，僅用於 little-endian 非 normalized、非 sparse 路徑，仍在既有位置拋錯。sparse base 允許後續合法 overlay 修正，所以不能提前拒絕；packed、matrix、integer、byte budgets 等原路徑保留。沒有引入零拷貝 alias，避免 decoder callbacks／重疊 views／公開 ownership 問題。
+
+同 class 完整 parser 有跨大小及 control 的混合結果，不採用額外 helper／branch。正式流程不改，完整數據見 ACCEPTANCE。

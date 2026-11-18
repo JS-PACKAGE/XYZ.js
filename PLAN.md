@@ -6432,3 +6432,8 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 
 - 2D sweepOrder 候選將 survivor compaction 後截短再 push，改為連續索引覆寫後一次截短；CCD、排序、碰撞／查詢順序和 revision 不改。
 - 完整 register／unregister／update 測量沒有可靠收益，Node 大型 full churn 回退，Chromium 短 clocks 混合。只保留負向紀錄，正式 source／dist 不改。完整驗證與限制見 ACCEPTANCE。
+
+## P289 — 不採用 glTF interleaved FLOAT VEC3 驗證融合
+
+- 調查 non-sparse strided VEC3 在 copy 後重新掃描 finite 的成本。隔離原型保持 owned array、bounds／budget、sparse overlay 與錯誤次序；不借用輸入 buffer。
+- 中大型 cases 有訊號，但 Node 小型 animation 回退、packed controls 也變動，Chromium mixed。只記錄實際 parser 比較，不改正式 loader 或宣稱整體載入加速。詳見 ACCEPTANCE。

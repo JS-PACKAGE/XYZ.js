@@ -95741,3 +95741,45 @@ Node v26.7.0 與 isolated managed Chromium 153.0.8010.12 各比較5條真實世�
 兩 runtime timing checksum 均9,819,264；Chromium 無 page errors。這是所測 CPU／同步 lifecycle wall-time，不是 allocation、heap、GC pause、GPU／presentation FPS 或碰撞 renderer 認證。因不採用，沒有重跑正式 tests／lint／typecheck／build，也不覆寫本機其他檔案。六份同步文件的新增段落及相對檔案連結檢查，僅此階段獨立 commit，不 push。
 
 原始證據保留於 /tmp/xyz-broadphase-proof-node-results.json、/tmp/xyz-broadphase-proof-browser-results.json、/tmp/xyz-broadphase-cpu-node-results.json、/tmp/xyz-broadphase-cpu-browser-results.json。原型／drivers／generated tree 驗證後清除，不進套件。
+
+## P289 — 拒絕 glTF strided FLOAT VEC3 copy／finite 融合（2026-11-18）
+
+### Scope and decision
+
+既有 native stridedAccessor 先複製，FLOAT 再掃描 owned Float32Array 做 finite check。候選僅在 little-endian、non-sparse、non-normalized、step≠size 的 FLOAT VEC3 copy 時用三個 local values 累積 finite flag；輸出仍是獨立 buffer，仍於原 finite gate 拋相同 AssetError。packed copy、matrix、normalized／integer、其他 size、alignment、bounds／budget、abort 與 public declarations 不變。sparse overlay 仍在掃描前，不能提前拒絕可被修復的 base NaN。沒有反向引入共享 buffer、額外 API／依賴。
+
+**不採用**。所測 medium／large strided animation 有改善訊號，但 Node 4-key strided A/B +10.456%（26/32 pairs 較慢）、不應走 fused helper 的 packed 4 +8.201% 及 packed 32768 +7.231%；Chromium 小型 mesh strided／packed 比較亦偏慢。較快的一些大型 profiles 不足以支持額外 helper 與 branch；packed controls 變動表示不能把結果全歸因於移除第二趟 loop。沒有推定 JIT、allocation 或 scheduling 根因。正式 source、dist、tests、版本1.23.0 不變。
+
+### Full public parser comparison
+
+Node v26.7.0、managed headless Chromium 153.0.8010.12（document visibility=visible）分開。將 source-transpiled GLTFLoader module 放到共用的正式 minified dependency graph；同一 class 與 parse method，獨立 loader instances 在同一 own decode slot 選完整原版或候選 decode。不是正式 minified loader、CJS、GPU 或 network load 的測量。
+
+CPU driver 使用事先生成的 GLB，非零 view／accessor offsets、packed controls、兩個 authored transform tracks 共用 accessor；Chromium 另跑實際 indexed Mesh／Geometry、native ImageData／createImageBitmap 及 asset cleanup。Mesh clocks 是含 native await 的 wall-time，不是純 JS CPU；沒有假造 bitmap 或把 Node animation 替代真實 geometry。每個 sample 包含完整 parse／consumer read／dispose；建立輸入在 clocks 外。
+
+Proof 與 timing 在不同 process。每 profile固定4 cohorts，profile／phase 正反順序；每 side 6 warm batches、每 sample 再1 warm batch，8 rounds alternating ABBA／BAAB；每 profile 256 samples，Node 6 profiles共1,536，Chromium 11 profiles共2,816。表是各 phase 32個配對百分比 median，負值較快，完整有效 run 不刪 outliers。首次 Chromium run 的 tiny mesh 4 calls 低於 timer 範圍出現零 paired duration，整個 run 未產出可用矩陣；僅將兩個 tiny mesh profiles 同步延長到80 calls 後重跑 Chromium clocks，保留 Node 已完成的 run 及兩份 proof。
+
+| Profile            | Calls / sample | Node A/A | Node A/B | Chromium A/A | Chromium A/B |
+| ------------------ | -------------: | -------: | -------: | -----------: | -----------: |
+| anim-strided-4     |             96 |  +0.538% | +10.456% |       0.000% |       0.000% |
+| anim-packed-4      |             96 |  +0.103% |  +8.201% |       0.000% |       0.000% |
+| anim-strided-4096  |             16 |  +0.021% |  -6.555% |      -6.905% |      -3.333% |
+| anim-packed-4096   |             16 |  -0.533% |  -0.326% |       0.000% |       0.000% |
+| anim-strided-32768 |              4 |  +0.117% |  -5.776% |      +1.786% |      -4.000% |
+| anim-packed-32768  |              4 |  -4.410% |  +7.231% |       0.000% |      -2.083% |
+| mesh-strided-3     |             80 |        — |        — |       0.000% |      +3.571% |
+| mesh-packed-3      |             80 |        — |        — |       0.000% |      +7.418% |
+| mesh-strided-4095  |              4 |        — |        — |       0.000% |      -6.667% |
+| mesh-strided-65535 |              2 |        — |        — |      +0.467% |      -3.774% |
+| mesh-packed-65535  |              2 |        — |        — |      -0.510% |      -2.000% |
+
+### Ownership and validation proof
+
+| Runtime  | Fixtures | Expected rejections | Compared bytes | Value-oracle words |
+| -------- | -------: | ------------------: | -------------: | -----------------: |
+| Node     |       32 |                  22 |      1,505,236 |            262,528 |
+| Chromium |       44 |                  28 |      2,690,612 |            492,024 |
+
+- GLB 與 data URI JSON 都核對 packed／strided 非零 offsets、padding NaN 忽略、signed zero、首／中／末 scalar 的 NaN／±Infinity、合法 sparse 修正及 sparse 錯誤優先；比較原／候選輸出 bytes 與來自 fixture 數值 oracle，包含 caller GLB bytes 不變、shared accessor 的兩個公開 animation track arrays 即使編輯仍隔離。另原／候選 preabort reason identity 正確。
+- Chromium native mesh 額外確認 indexed POSITION／NORMAL、RGB／tangents、morph 更新後的 bytes、共用 accessor 的不同 primitive 幾何獨立與二次 dispose。兩 browser runs 無 page errors；timing checksum Node 958,169,088、Chromium 2,484,754,944，workload 不同不跨 runtime 比較。
+- 沒有採用 source，未重跑正式 unit suite、lint／typecheck、build、HTTP load／codec、GPU render／showcase；沒有宣稱 heap／GC、FPS 或新的瀏覽器相容性。六份文件只做新增段落格式及相對檔案連結檢查，獨立 commit 不 push。
+- 原始 proof 與 clocks 位於 /tmp/xyz-gltf-copy-{proof,cpu}-{node,browser}-results.json；保留 raw samples，清除 throwaway drivers／生成 tree，不是套件附件。
