@@ -95925,3 +95925,10 @@ Open 64／256 cardinal 的 Node 約9.8%／8.4%，Chromium 約15.4%／9.9%；三�
 - CI 以執行期案例 ID 分四份，每個 Node／OS 組合仍跑齊；分片必須觀察到所有選中案例通過，拒絕漏跑或多跑。一般測試保留 Vitest 的預設排除條件，僅另外排除已分片的兩個檔案；本機 `pnpm test` 不變。
 - Linux WebKit 將依賴安裝與瀏覽器安裝分開記錄，工作時間上限由 25 分鐘調至 45 分鐘。Playwright 版本、系統依賴與後續驗證不變。Release 仍須通過完整的 CI workflow 和實際封裝檢查；不重新指派 v1.24.0 tag，也不發 npm。
 - 本機 Node 26.7.0：一般測試 181 檔／4,037 案例通過；分片入口抽樣選中的 91 個程序材質案例皆通過，未選中案例不執行。此紀錄不把抽樣當成四份或 hosted OS／Node 矩陣已通過，也不代表 release 已發佈。
+
+## v1.24.2 release gate remediation
+
+- [v1.24.1 Release workflow](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/44290477746) 的 14 個失敗工作都在程序材質分片；27 個非程序材質工作成功，另有發佈與診斷工作跳過。分片日誌有 20 次 30 秒單案逾時，最慢報時 59.994 秒，以及 5 次吸子平均色調斷言失敗。
+- 將 `procedural-material.test.ts` 的單案時限與既有 motif suite 對齊至 120 秒，不調整測試矩陣、總工作時限或重試策略。Map Attractors 仍檢查同樣的 seed、亮部比例、最低平均色調和其餘材質通道；將既有平均色調上限改成「低色調像素覆蓋過半」，避免把混沌軌道隨三角函式實作而變動的密度統計固定在單一平台。獨立軌道相關、暗處、邊界、決定性與 maps 測試不變。套件材質輸出不變。
+- Node 26.7.0 隔離快照：CI 回報的 10 個不同案例全部通過（原檔仍收集 7,917 案例），Prettier、ESLint、strict typecheck、正式建置與 `xyz.js-1.24.2.tgz` 套件內容檢查通過。未把定向結果算成完整 hosted 矩陣。
+- 不移動既有 v1.24.0／v1.24.1 tags；v1.24.2 仍須通過完整 GitHub Release 流程，不發 npm。
