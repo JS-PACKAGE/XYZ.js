@@ -4,7 +4,7 @@ Browser-native TypeScript game engine for 2D and 3D.
 
 [繁體中文](#繁體中文) · [English](#english) · [日本語](#日本語)
 
-**1.24.2 · [Apache-2.0](LICENSE) · npm 尚未發佈 / not published / 未公開**
+**1.25.0 · [Apache-2.0](LICENSE) · npm 尚未發佈 / not published / 未公開**
 
 效能維護：持續減少導航（含 tiled／NavMesh search）、動畫、action、ECS、timer、input、資源解析（含 strict MP4 demux）、文字排版、heightfield topology／normals 與空 interior smoothing、CPU skinning query mirror、morph influence bounds 與 base copy、2D 同 key command sort、WebGPU contact-depth upload 暫時 view、Sprite 粒子池與 ParticleLayer2D affine bounds、GPU particle command ring（含低佔用 catch-up）、Profiler report、polygon hit test、frustum culling 與 raycast 的冗餘運算、配置、查詢及空集合清理，改善銷毀後的記憶體釋放，並保留 UTF-8 byte budgets、exclusion snapshots、排程、callback snapshot／順序與 ownership 清理契約。精確比對、CPU／heap 量測、修正、未採用候選及未驗證範圍見 [ACCEPTANCE](ACCEPTANCE.md)，亦區分 Node／native Worker、輸入／cache history、fixture 隔離、warmup、控制組與 microbenchmark／正式 CPU submit 取捨；不以配置減少或短批次結果宣稱幀率提升。
 
@@ -1378,10 +1378,10 @@ npx pnpm@12.6.0 build
 npx pnpm@12.6.0 pack
 ```
 
-將產生的 `xyz.js-1.24.2.tgz` 複製到你的專案，再於該專案安裝：
+將產生的 `xyz.js-1.25.0.tgz` 複製到你的專案，再於該專案安裝：
 
 ```sh
-npx pnpm@12.6.0 add ./xyz.js-1.24.2.tgz
+npx pnpm@12.6.0 add ./xyz.js-1.25.0.tgz
 ```
 
 在可解析 `xyz.js` 的 TypeScript／bundler 專案中，先加入畫布：
@@ -1453,7 +1453,7 @@ npx pnpm@12.6.0 format:check
 
 CI 將兩個大型程序材質測試檔依 Vitest 案例 ID 拆成四份；`node scripts/test-ci.mjs regular` 執行其餘測試，`node scripts/test-ci.mjs 1/4` 至 `4/4` 合計執行所有程序材質案例。`pnpm test` 仍可在本機執行未分片的完整套件。
 
-`npx pnpm@12.6.0 docs:api` 產生可搜尋的 API 文件；`npx pnpm@12.6.0 build:site` 建置範例與文件網站至 `.vite/site/`，文件入口為 `docs/`，API 位於 `api/1.24.2/`。部署時保留整個網站目錄，並以支援 directory index 的 HTTP／HTTPS 伺服器提供。
+`npx pnpm@12.6.0 docs:api` 產生可搜尋的 API 文件；`npx pnpm@12.6.0 build:site` 建置範例與文件網站至 `.vite/site/`，文件入口為 `docs/`，API 位於 `api/1.25.0/`。部署時保留整個網站目錄，並以支援 directory index 的 HTTP／HTTPS 伺服器提供。
 
 README 只提供入門與導覽；各版本的階段紀錄、測試數與效能量測留在驗收文件，不視為目前版本的通用保證。
 
