@@ -6536,3 +6536,9 @@ button name Map 保留 mutable 公開 layout 與 internal slot 分離、root-mot
 Tiled 的 private tiledBase64Binary 負責原有 encoded／decoded budget、空白正規化、格式驗證與 atob。同步 cell decoder 直接用四次 charCodeAt 組合 little-endian uint32，保留 unsigned flip bits；tiledBase64Bytes 才把 binary string 複製至獨立 Uint8Array，供壓縮資料流程使用。沒有新 cache、公開輸入型別或額外依賴。
 
 移除的是未壓縮 cells 的中介 byte array 與一次填入／讀回，不是輸出 cells、parser 的驗證快照或 atob binary string。精確對照、controls、正式產物與資源生命週期驗證見 ACCEPTANCE；CPU、明確 JS constructor 次數及 backing-byte 理論上限分開報告，不推論 GC／heap 或呈現幀率。
+
+## P285 — 自有資料不代表應直接重用
+
+base64 decoder 的 number array 雖可安全地在驗證後直接 freeze，替代原有 map 副本，但改成共用具名 validator 與明確迴圈的原型，會影響小圖及外部陣列 control。所有權證明只解決 correctness，不證明 CPU 優勢；不要以大圖收益掩蓋常用途徑回退，也不以 input size threshold 或額外 cache 包裝。
+
+保留 P284 原有 map 驗證／快照，沒有正式 helper、cast、cache 或 API 變更。沒有證據將回退歸因於單一 JIT／GC 機制。原型方法與限制見 ACCEPTANCE。

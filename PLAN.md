@@ -6411,3 +6411,8 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 同一份 bounded base64 驗證與 atob 改由 private helper 回傳 binary string；未壓縮 cells 直接組成 little-endian uint32，不再先建立並掃描 Uint8Array。需要 bytes 的 gzip／zlib 路徑仍取得自己的 Uint8Array，不改公開 API、上限或錯誤順序。
 - canonical source 與正式 minified ESM root 的 Node／Chromium 固定 controls 支持中大型 parser 的 CPU 改善；小圖、數字陣列與 byte-only controls 不宣稱普遍加速。不把減少一份中介 buffer 換算成 heap／GC／FPS 成果。
 - 既有 Tiled tests、strict／scoped checks、隔離 full build 及正式 ESM／CJS／Chromium HTTP loader lifecycle 通過；只帶回四個 parser artifacts，保留11個使用者檔案。完整數據與範圍見 ACCEPTANCE。
+
+## P285 — 不採用 decoder-owned cells 原地驗證
+
+- 隔離原型嘗試讓 base64 decoder 自有 cells 經驗證後直接 freeze，避免 native map 產生第二份 number array；外部陣列仍走 map 快照。完整中大型 parser 有收益，但 Node／Chromium 小圖回退，Chromium 外部陣列 control 亦回退，因此不採用、不加大小門檻。
+- 原型的數值／錯誤、caller ownership、Proxy／species／holes 與 frozen descriptors 對照通過；這不等於可接受的整體效能。正式 source／dist 留在 P284，沒有 runtime tests／build 或額外瀏覽器認證。完整負向矩陣見 ACCEPTANCE。

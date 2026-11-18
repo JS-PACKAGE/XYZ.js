@@ -242,6 +242,12 @@ P284: Decode uncompressed Tiled base64 cells directly from the binary string, re
 
 P284：Tiledの非圧縮base64 cellsをbinary stringから直接読み、中間byte arrayを除去。Node／Chromiumの固定controlsで中大型parserのCPU改善を確認。全地図やFPSの高速化は主張しない。[検収記録](ACCEPTANCE.md)。
 
+P285：decoder-owned cells 直接驗證／freeze 的原型在小圖與外部陣列 control 出現回退，故不採用；保留 P284 正式架構，不以大圖收益掩蓋成本。[完整紀錄](ACCEPTANCE.md)。
+
+P285: Reject decoder-owned cell reuse after small-map and caller-array control regressions. Runtime remains at P284; large-map gains do not justify those costs. [Evidence](ACCEPTANCE.md).
+
+P285：decoder所有cellsの直接検証／freezeは小型地図・外部配列controlが回退したため不採用。正式runtimeはP284を維持。[検収記録](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

@@ -95558,3 +95558,37 @@ Node v26.7.0 與 managed headless Chromium 153.0.8010.12 分開執行，沒有�
 ### 證據與交付界線
 
 原始資料暫存 /tmp/xyz-tiled-binary-node-results.json、/tmp/xyz-tiled-binary-browser-results.json、/tmp/xyz-tiled-binary-formal-node-results.json、/tmp/xyz-tiled-binary-formal-browser-results.json、/tmp/xyz-tiled-binary-smoke-results.json；不是套件附件。throwaway drivers／生成副本於驗證後清除，保留上述 raw results。同步六份文件、依階段獨立 commit，不 push，不擴大其他瀏覽器／實機／音訊／圖形認證。
+
+## P285 — 拒絕 decoder-owned cells 直接驗證／freeze（2026-11-18）
+
+### 原型與決策
+
+P284 baseline：gids 的 base64 branch 已擁有 decoder 建立的完整 number array，隨後 native map 驗證又建立一份快照。隔離原型抽出同一 validator；只有 string input 使用明確索引迴圈驗證，再 freeze decoder 自有 array，外部 array 仍 values.map(validator) 後 freeze。不改 uint32／flag／GID range 驗證、錯誤順序、上限或外部輸入所有權。
+
+不採用。中大型 cases 的少一份副本收益明確，但小型 base64 地圖及 Chromium 外部陣列 control 回退，不能將全部來源的成本當成中立。沒有大小分流、cache 或推測性 JIT workaround；source／dist／API／package 1.23.0 與11個使用者檔案均維持 P284。另準備過 native forEach 驗證版本，但沒有執行或列為驗證成果；不以尚未量測的改動掩蓋負向結果。
+
+### 固定完整 parser CPU matrix
+
+Node v26.7.0／managed headless Chromium 153.0.8010.12 分開、無其他 CPU experiments／build／tests 並行。每個 run 共用同一 module graph／helpers／類別，保留兩份完整 parser function，透過 mutable wrapper 選 before／after；不是同一個 parser body，亦不是 production minified ESM／CJS root。
+
+固定4 cohorts，每 profile／mode 先50 calls warm，每 sample 另3 calls warm；A/A→A/B 與 A/B→A/A cohort 順序 counterbalance，每 phase 八輪 alternating ABBA／BAAB，共256 samples／run，各 sample 含八個完整 parser profiles。表格為32組配對百分比的 median（兩個中央值平均，**與 P284 上中位數定義不同**）；負數較快。不丟 outliers、不重跑挑選有利 round。
+
+| profile             | calls / sample | Node A/A | Node A/B | Chromium A/A | Chromium A/B |
+| ------------------- | -------------: | -------: | -------: | -----------: | -----------: |
+| base64-16           |           1000 |  +0.278% | +28.312% |       0.000% |     +12.132% |
+| base64-4096         |            100 |  -0.281% | -21.898% |      +0.482% |     -15.778% |
+| base64-65536        |             10 |  +0.110% | -25.453% |      +0.280% |     -21.674% |
+| base64-262144       |              3 |  +0.139% | -27.115% |      +0.219% |     -21.613% |
+| sixteen-layers-4096 |            100 |  -0.060% | -21.043% |      +0.244% |     -14.357% |
+| sixteen-chunks-4096 |            100 |  +0.224% | -16.447% |      -0.493% |     -14.778% |
+| array-control4096   |            100 |  +0.103% |  -0.738% |      +1.099% |      +5.000% |
+| array-control65536  |             10 |  -0.353% |  -3.622% |      +0.639% |      -0.949% |
+
+大圖的收益不外推為 heap／GC 或 FPS；小圖量測短且有 timer／JIT 漂移，但兩個 runtime 都回退，不能只挑大圖。外部陣列 control 的變化也不能宣稱已隔離為 validator、function name、freeze capacity 或單一引擎原因。
+
+### 功能比較與界線
+
+- Node／Chromium 各556組精確結果／錯誤對照，997,806個 fixture cells 對照通過；固定 seeded values 涵蓋1至262,144 cells、base64／array／whitespace、flags與128個 seeded invalid-GID families。兩個 runtime 使用相同資料，不是獨立隨機種子。
+- 呼叫者陣列保持 unfrozen、結果不是 caller identity；改寫／push caller 後 snapshot 不變。輸出 own keys、frozen data descriptor、Reflect set／delete 拒絕相同。Proxy array 的 length／map／constructor／species／index read trace，以及 sparse hole keys 與自訂 species 結果一致；沒有宣稱檢查 private callback 的所有 metadata。Chromium 無 page errors。
+- 這是已執行的 source-only 實驗，不是正式 source 採用、public TiledContent／loadTiledMap lifecycle、production-root CPU、圖形、其他瀏覽器或實機認證。正式 tests／typecheck／lint／build 不重跑；P284 已驗收結果不冒稱本階段重新執行。
+- 原始記錄暫存 /tmp/xyz-tiled-owned-node-results.json、/tmp/xyz-tiled-owned-browser-results.json，不是套件附件。throwaway drivers／生成副本驗證後清除；六份文件同步、獨立記錄拒絕決策，不 push。

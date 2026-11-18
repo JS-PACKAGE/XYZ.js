@@ -8051,3 +8051,9 @@ The input Map also repeats P156's previously rejected tradeoff. No table, helper
 The private bounded-base64 helper returns atob's binary string. Uncompressed cells assemble little-endian uint32 values directly from its character codes; the byte helper still creates an owned Uint8Array for gzip/zlib consumers. Validation order, limits, errors, unsigned flip flags, snapshots, public types and package version remain unchanged. This is not an allocation-free parser.
 
 Canonical source controls and real minified ESM-root comparisons in Node/headless Chromium support a CPU improvement for the measured medium/large maps, not all maps or byte/decompression paths. Existing Tiled tests, strict/scoped checks, an isolated full build and real ESM/CJS/browser HTTP loader lifecycle checks pass; only four generated parser artifacts are promoted. No rendering, GC/heap or additional-browser certification is claimed. Full matrices and limitations: [ACCEPTANCE](../ACCEPTANCE.md).
+
+## P285 — retain Tiled's validating map snapshot
+
+A source-only prototype validates the decoder-owned cell array in a loop and freezes it directly, while caller arrays retain their map snapshot. Medium/large cases improve, but small base64 maps and the Chromium caller-array control regress. Ownership/Proxy/species/hole/descriptor equivalence does not justify those costs; the prototype is rejected without a size threshold.
+
+Runtime source/artifacts remain at P284. This phase records evidence only: no new runtime tests/build, production-root timing, rendering or browser certification. Full fixed matrices: [ACCEPTANCE](../ACCEPTANCE.md).

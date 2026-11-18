@@ -7696,3 +7696,9 @@ button Map 亦重現 P156 既有拒絕的 tradeoff。正式沒有保留新 table
 private bounded-base64 helper 回傳 atob 的 binary string。未壓縮 cells 直接以 charCodeAt 組合 little-endian uint32；gzip／zlib 所需的 byte helper 仍建立獨立 Uint8Array。驗證順序、上限、錯誤、unsigned flip flags、快照、公開型別與版本不變；不是零配置 parser。
 
 canonical source controls 與 Node／headless Chromium 正式 minified ESM root 對照支持所測中大型地圖的 CPU 改善，不擴大到所有地圖、byte-only 或解壓路徑。既有 Tiled tests、strict／scoped checks、隔離 full build 與正式 ESM／CJS／瀏覽器 HTTP loader lifecycle 通過，只帶回四個 parser artifacts。不宣稱畫面、GC／heap 或其他瀏覽器認證。完整矩陣與限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P285 — 保留 Tiled map 驗證快照
+
+source-only 原型讓 decoder 自有 cells 經迴圈驗證後直接 freeze，外部陣列仍保留 map 快照。中大型案例較快，但小型 base64 地圖與 Chromium 外部陣列 control 回退；ownership／Proxy／species／holes／descriptor 等價不足以抵銷，故拒絕、不加大小門檻。
+
+正式 source／artifacts 留在 P284。本階段只有證據，不代表新 runtime tests／build、production-root 計時、畫面或瀏覽器認證。固定完整矩陣見 [ACCEPTANCE](../ACCEPTANCE.md)。
