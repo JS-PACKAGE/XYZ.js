@@ -6442,3 +6442,8 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 
 - 候選只移動兩組 position edge vector 計算到 UV determinant 退化判斷後，沒有改採樣、公式、累加順序或 fallback。直接 Geometry 與瀏覽器真實 glTF parse 比較輸出一致。
 - Chromium 部分退化 UV 測量較快，但 Node 大型退化、混合與非退化 cases 回退，authored control 亦漂移；不採用，正式 runtime 不變。詳見 ACCEPTANCE。
+
+## P291 — 裁切 A* 鄰格掃描範圍
+
+- 每次 grid expansion 先取得有效 row／column 範圍，cardinal 模式不走相鄰 row 的對角 columns，row base 只算一次。維持同一 row-major offer 順序、兩側 corner／clearance checks、cost、expansion budget、狀態／修訂與排程。
+- 相符的 minified ESM 產物在所測 open cardinal 與三個 weighted cardinal seeds 改善；保留 source-only weighted 反例與持平 controls，不外推 FPS。25項既有 navigation tests、typecheck／scoped checks、隔離 full build、正式 ESM／CJS／Chromium HTTP root 皆通過，完整矩陣見 ACCEPTANCE。

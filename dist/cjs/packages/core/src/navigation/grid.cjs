@@ -94,17 +94,18 @@ var NavigationGrid2D = class {
 			to: a,
 			estimate: (e) => this.heuristic(e % this.columns, Math.floor(e / this.columns), o, s),
 			expand: (e, t) => {
-				let { columns: n, rows: r, costs: i } = this, a = t.distance, l = e % n, u = Math.floor(e / n);
-				for (let d = -1; d <= 1; d++) for (let f = -1; f <= 1; f++) {
-					if (f === 0 && d === 0 || !s && f !== 0 && d !== 0) continue;
-					let p = l + f, m = u + d;
-					if (p < 0 || m < 0 || p >= n || m >= r) continue;
-					let h = m * n + p;
-					if (!traversable(h)) continue;
-					let g = f !== 0 && d !== 0;
-					if (g && !c && (!traversable(u * n + p) || !traversable(m * n + l))) continue;
-					let _ = a[e] + i[h] * (g ? Math.SQRT2 : 1);
-					_ >= a[h] || t.offer(h, _, _ + this.heuristic(p, m, o, s), e);
+				let { columns: n, rows: r, costs: i } = this, a = t.distance, l = e % n, u = Math.floor(e / n), d = Math.max(0, l - 1), f = Math.min(n - 1, l + 1), p = Math.min(r - 1, u + 1);
+				for (let r = Math.max(0, u - 1); r <= p; r++) {
+					let p = r * n, m = r === u, h = s || m, g = h ? f : l;
+					for (let f = h ? d : l; f <= g; f++) {
+						if (m && f === l) continue;
+						let d = p + f;
+						if (!traversable(d)) continue;
+						let h = !m && f !== l;
+						if (h && !c && (!traversable(u * n + f) || !traversable(p + l))) continue;
+						let g = a[e] + i[d] * (h ? Math.SQRT2 : 1);
+						g >= a[d] || t.offer(d, g, g + this.heuristic(f, r, o, s), e);
+					}
 				}
 			},
 			result: (e, t) => {

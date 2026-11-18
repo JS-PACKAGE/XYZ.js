@@ -6572,3 +6572,9 @@ strided FLOAT VEC3 候選在 native copy 同步收集 finite flag，僅用於 li
 UV determinant guard 不依賴 position edge，可在讀入已驗證私有 UV 資料後先略過退化三角形，再讀 position XYZ。隔離候選只移動兩組 edge 計算，保留 determinant guard、corner order、Float64 累加、fallback、符號與 caller input 讀序。
 
 直接 Geometry 與真實 glTF consumer 的 comparison 不支持跨平台採用：Node 大型建構回退、未走該 loop 的 authored control 亦變動。不把較少方程式當成穩定 CPU／FPS 成果；詳見 ACCEPTANCE。
+
+## P291 — 維持 row-major tie 行為的有效鄰格迴圈
+
+每個 current cell 的 x/y 來自既有整數 index。先裁切最多三個 XY rows/columns，再對沒有 diagonal 的上下 row 只走 current column；同 row 仍略過自己。由低到高的 y、x 產生完全相同的鄰格序列，沒有改 offer/take 或 heuristic。next row 的整數 base 也用於第二個 corner check，不改第一側檢查、順序、clearance 或浮點 cost 算式。
+
+不增加預計算表、配置、場景／目標 cache、權重 special case 或新參數。Source-only timing 的 Node weighted 退步不隱藏；正式採用依據是 byte-matched minified candidate 的固定矩陣及多 seed 驗證。詳見 ACCEPTANCE。

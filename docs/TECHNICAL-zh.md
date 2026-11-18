@@ -7726,3 +7726,9 @@ profile 只提供調查方向，不代表配置／GC 或 rendered-frame 證明�
 ## P290 — 保留 tangent edge 計算位置
 
 候選將兩組 position edge 計算移到 UV determinant 退化判斷後，保留輸出 buffers 與 fallback frames。正式建構流程的隔離比較中，Chromium 部分改善，但 Node 大型建構回退，authored 控制也漂移，故不採用 source／dist 變更。完整比較及限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P291 — A* 鄰格範圍預先裁切
+
+NavigationGrid2D 每次展開先裁切相鄰 rows／columns，cardinal 模式的相鄰 row 只走目前 column，重用每 row 的整數 base。保持 row-major offer 順序、corner／clearance 檢查、cost、revision、budget 與 frozen path snapshots。
+
+與正式 build code 相同的 minified 候選在 Node／Chromium 的 open-cardinal 與三個 weighted-cardinal seeds 改善；紀錄保留 source-only weighted 回退與持平 controls。既有 navigation tests、strict checks、隔離 build 與正式 ESM／CJS／Chromium HTTP API 驗證通過。這是查詢 CPU 證據，不是 renderer 或 FPS 成果。見[完整驗收](../ACCEPTANCE.md)。

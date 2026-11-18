@@ -8081,3 +8081,9 @@ An isolated non-sparse, little-endian strided FLOAT VEC3 candidate combines the 
 ## P290 — retain the tangent edge calculation order
 
 A prototype moves two position-edge calculations after the degenerate UV determinant guard, preserving generated buffers and fallback frames. Real construction measurements include large Node regressions and a changed authored-tangent control despite some Chromium improvements. No source or dist change is adopted. See [ACCEPTANCE](../ACCEPTANCE.md) for the complete comparison and limits.
+
+## P291 — clipped A* neighbor ranges
+
+NavigationGrid2D clips the adjacent row and column ranges once per expansion, visits only the current column on adjacent cardinal rows, and reuses each row base. Exact row-major offer order, corner and clearance checks, cost, revisions, budgets and frozen path snapshots stay unchanged.
+
+The byte-matched minified candidate improves measured open-cardinal and three weighted-cardinal cases in Node and Chromium; a source-only weighted regression and flat controls are retained in the record. Existing navigation tests, strict checks, an isolated build and published ESM/CJS/Chromium HTTP API proofs pass. This is query CPU evidence, not a renderer or FPS claim. [Full acceptance](../ACCEPTANCE.md).

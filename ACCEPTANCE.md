@@ -95827,3 +95827,68 @@ CPU mode 每 profile 獨立固定4 cohorts、phase counterbalance；每 side 6 w
 Chromium document visibility=visible，仍是 Playwright managed headless；64／128 指 grid 邊 cell 數，含兩三角形/cell。短 sample timer 粒度／warm effects 對比例影響較大，例如 Chromium tiny-zero baseline A/B raw median 約0.325 ms且 A/A −29.286%，不將 +42.857% 當精確 slowdown。Node／Chromium checksum 是2,887,308,096／3,363,616,512，cases 不同不跨 runtime 比；Chromium page errors 為空。不是 heap、GC、GPU time、native shader 或 presentation FPS 數據。
 
 正式 runtime 沒改、未重跑正式 tests／typecheck／lint／build／showcase，不新增瀏覽器／GPU backend 認證。六份文件檢查新增內容格式與相對檔案連結，獨立 commit 不 push。raw 證據保留於 /tmp/xyz-geometry-tangent-{proof,cpu}-{node,browser}-results.json，不發佈 throwaway drivers／生成 tree。
+
+## P291 — 裁切 2D grid A* 鄰格範圍（2026-11-18）
+
+### Adopted scope
+
+NavigationGrid2D.createSearch 的 expand callback 將原本固定9 slots 的逐 neighbor 邊界／cardinal 斜角篩選改成裁切 row／column 範圍；相鄰 cardinal rows 只走 current column，同 row 仍略過 current cell。精確整數 rowStart 在該 row 重用，含第二個 corner check。由小到大 y、x 的候選／offer 序維持；兩個 orthogonal checks 的 short-circuit、clearance、Float64 distance／heuristic 算式、heap stable tie、revision、budget 與 result freeze 都不變。沒有新 buffer、預分配表、cache、public API／版本或 runtime 依賴。
+
+**採用**：正式 minified module code 的固定比較在所測兩個 open-cardinal sizes、三個 weighted-cardinal seeds 與單 row／column 都改善；A/A controls 及無路短 query 完整保留。Node source-only 某 seed 回退，且不同 minified 組沒有重現，不能宣稱所有 source 執行方式或輸入都加速，也不推測 JIT 根因。
+
+### Matched minified consumer timing
+
+Node v26.7.0 與 managed headless Chromium 153.0.8010.12（可見 document）分開，與其他 CPU test／build 不並行。A 是實際 P290 minified ESM root 的 NavigationGrid2D；B 是原依賴 graph 中單獨按正式 minifier options 編譯的完整候選 grid class，無 method replacement。確認原 source 以相同方式生成的 JS code 與 A byte 相同；B 之後與正式 tsc→minify build code 亦 byte 相同（排除 source map trailer）。這不是整套 package build 或渲染的計時。
+
+固定16 profiles，每 profile 4 cohorts、A/A 與 A/B phase counterbalance、兩 side 各6 warm batches、每 sample 前對該 side 1 warm batch，8 rounds alternating ABBA／BAAB。每 profile 256 samples、每 runtime 4,096 samples；按 rounds 內兩 A 與兩 B 平均，比值百分比取32個配對的 median（中間兩值平均），負值較快。完整 findPath 或 step(7) 至完成、讀公開 path 計入；grid／weights 建構和全部 destroy 在時鐘外。每 fixture 先檢查等量 expansions／path count／cost，兩 runtime checksum 都60,361,024；沒有刪除 samples。
+
+| Profile                          | Calls / sample | Expansions / query | Node A/A | Node A/B | Chromium A/A | Chromium A/B |
+| -------------------------------- | -------------: | -----------------: | -------: | -------: | -----------: | -----------: |
+| tiny-cardinal                    |            512 |                 16 |  -0.436% | -10.724% |       0.000% |      -5.000% |
+| tiny-diag                        |            512 |                  4 |  -0.540% |  -1.299% |       0.000% |     -15.476% |
+| open64-cardinal                  |              6 |              4,096 |  +0.206% |  -9.767% |      +3.576% |     -15.385% |
+| open64-diag                      |            192 |                 64 |  +1.011% |  -5.103% |       0.000% |      -5.971% |
+| weight64-cardinal                |              6 |              3,596 |  -0.434% | -11.056% |       0.000% |     -21.429% |
+| weight64-diag-clearance          |              6 |              3,137 |  -0.740% |  -8.500% |       0.000% |     -12.917% |
+| wall128-diag                     |              3 |              8,683 |  +1.665% |  -1.529% |       0.000% |      -4.420% |
+| open256-cardinal                 |              1 |             65,536 |  +0.390% |  -8.389% |       0.000% |      -9.934% |
+| open256-diag                     |             36 |                256 |  +0.046% |  -1.701% |       0.000% |      -3.775% |
+| single-column2048                |             16 |              2,048 |  +0.300% | -11.928% |      +1.389% |     -12.827% |
+| single-row2048                   |             16 |              2,048 |  +0.080% | -12.068% |      -1.429% |     -17.395% |
+| budget7-weight64-diag            |              5 |              3,585 |  -0.011% |  -7.922% |       0.000% |      -6.667% |
+| weighted-cardinal-seed1901       |              6 |              3,573 |  -0.743% | -14.419% |       0.000% |     -15.385% |
+| weighted-cardinal-seed5689       |              6 |              3,586 |  -0.120% | -14.621% |       0.000% |     -10.762% |
+| weighted-diag-clearance-seed1901 |              6 |              3,124 |  +2.673% | -11.214% |       0.000% |       0.000% |
+| isolated-start-control           |           1024 |                  1 |  -1.577% |  -1.585% |       0.000% |       0.000% |
+
+Open 64／256 cardinal 的 Node 約9.8%／8.4%，Chromium 約15.4%／9.9%；三個 weighted cardinal seeds 的配對改善 Node 約11–15%，Chromium 約11–21%，範圍僅適用所測資料。Open64 Chromium A/A +3.576%、少量或單次短 samples 受 clocks 粒度影響；isolated-start 近持平，1901 diagonal-clearance 在 Chromium 無改善訊號。沒有配置／heap／GC、GPU time、畫面或 presentation FPS 推論。
+
+### Source-only exploration and fixture correction
+
+同一 source-transpiled class 用相同 own slot 比較兩個 createSearch methods，與 minified 雙 class matrix 不可跨表相減。首次 seeded weighted cardinal／diagonal-clearance 竟只展開起點，未形成預期 weighted 工作；Node 當時完成12 profiles，但 Chromium ratio guard 因短批次為零而拒絕。Node 原始 diagnostics 保留（兩個誤配 case A/B +39.084%／+27.778%，6 calls 太短），不作採用依據。
+
+修正 weighted fixture：保留原固定權重，讓首 row／末 column 可走且 clearance 無限制，加入 connectivity／最低 expansions preflight，另以1,024 calls 明確比較真正單起點 isolated control。相同候選重跑修正矩陣；corrected source-only 13 profiles、每 runtime 3,328 samples，checksum 59,036,800。其 Node weighted cardinal +9.387%（26/32 較慢）仍保留。為排除 own-method prototype 與正式 minifier 的外推，另跑上表 genuine minified module，加入固定 seed1901／5689 以及額外 radius case；不挑掉 source regression 或改算法讓測試過關。
+
+| Profile                 | Calls / sample | Node A/A | Node A/B | Chromium A/A | Chromium A/B |
+| ----------------------- | -------------: | -------: | -------: | -----------: | -----------: |
+| tiny-cardinal           |            512 |  -0.305% | -13.821% |       0.000% |     -14.286% |
+| tiny-diag               |            512 |  +0.047% |  -1.019% |       0.000% |       0.000% |
+| open64-cardinal         |              6 |  -0.342% | -10.002% |       0.000% |     -10.348% |
+| open64-diag             |            192 |  -0.133% |  -2.926% |       0.000% |      -3.571% |
+| weight64-cardinal       |              6 |  +0.264% |  +9.387% |      -4.257% |     -10.769% |
+| weight64-diag-clearance |              6 |  +0.128% |  -0.753% |       0.000% |      -4.348% |
+| wall128-diag            |              3 |  -0.456% |  -3.523% |       0.000% |      -3.002% |
+| open256-cardinal        |              1 |  -0.155% |  -8.373% |       0.000% |      -9.722% |
+| open256-diag            |             36 |  +0.465% |  -2.139% |       0.000% |       0.000% |
+| single-column2048       |             16 |  -0.167% |  -8.772% |       0.000% |     -13.793% |
+| single-row2048          |             16 |  -0.061% | -12.528% |       0.000% |     -15.741% |
+| budget7-weight64-diag   |              5 |  -0.054% |  -8.584% |       0.000% |      -2.000% |
+| isolated-start-control  |           1024 |  +0.528% |  -1.824% |     -25.000% |       0.000% |
+
+### Functional and production verification
+
+- Source-transpiled 與 minified probes 各在 Node／Chromium 分開執行；正式 promoted ESM（Node）、CJS（Node）、ESM（Chromium 實際 HTTP import）各直接從公開 root 重做 proof，對照 P290 root，不借用候選方法。每個入口各485個 exact path pairs／70,169 cells、1,730 budgeted-step comparisons、480個獨立 Dijkstra 最低 cost 對照（oracle 容差與 before/after exact 分開）。比較 ordered cells、cost、status／expansion counts、frozen snapshots 與 path ownership。
+- 有 weighted／clearance／兩種 corner rules、unreachable、-0 start、1×1／細長格及65,536-cell 邊界；另23個 endpoint／options 讀取 observations、4種原 validation 錯誤、cancel／no-op edit／invalidate／destroy，以及真 scheduler 22 ticks 完成12條 routes、workspace 正確歸還。所有完成的 Chromium proof／clocks 無 page errors。沒有渲染、showcase／audio 或其他 browser／實機認證。
+- 現有 tests/navigation.test.ts、tests/navigation-jobs.test.ts、tests/navigation-scheduler.test.ts、tests/navigation-dynamic.test.ts：4 files／25 tests 通過；strict tsconfig.check、scoped ESLint／Prettier 通過。沒有重複新增永久 tests。
+- 隔離正式 tsc→minify 377 JS→完整 vendor copy→720-file CJS build 成功；grid.d.ts byte 不變，只回寫 grid ESM／CJS code/maps 共4個 artifacts。11個本機其他 source／dist 檔 SHA256 全部一致。六份文件只核對新增段落格式／相對檔案連結，依本功能獨立 commit、不 push，版本仍1.23.0。
+- 原始結果保留於 /tmp/xyz-grid-bounds-proof-{node,browser}-results.json、/tmp/xyz-grid-bounds-cpu-node-results.json、/tmp/xyz-grid-bounds-cpu-fixed-{node,browser}-results.json、/tmp/xyz-grid-bounds-{proof,cpu}-minified-{node,browser}-results.json、/tmp/xyz-p291-published-smoke-results.json。不發佈 throwaway driver／build trees，除 raw evidence 外清除本階段暫存。

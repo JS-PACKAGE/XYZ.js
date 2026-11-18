@@ -258,21 +258,24 @@ export class NavigationGrid2D {
           distances = search.distance;
         const column = current % columns;
         const row = Math.floor(current / columns);
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            if ((dx === 0 && dy === 0) || (!diagonal && dx !== 0 && dy !== 0))
-              continue;
-            const x = column + dx;
-            const y = row + dy;
-            if (x < 0 || y < 0 || x >= columns || y >= rows) continue;
-            const next = y * columns + x;
+        const firstColumn = Math.max(0, column - 1);
+        const lastColumn = Math.min(columns - 1, column + 1);
+        const lastRow = Math.min(rows - 1, row + 1);
+        for (let y = Math.max(0, row - 1); y <= lastRow; y++) {
+          const rowStart = y * columns;
+          const sameRow = y === row;
+          const scanSides = diagonal || sameRow;
+          const end = scanSides ? lastColumn : column;
+          for (let x = scanSides ? firstColumn : column; x <= end; x++) {
+            if (sameRow && x === column) continue;
+            const next = rowStart + x;
             if (!traversable(next)) continue;
-            const isDiagonal = dx !== 0 && dy !== 0;
+            const isDiagonal = !sameRow && x !== column;
             if (
               isDiagonal &&
               !cornerCutting &&
               (!traversable(row * columns + x) ||
-                !traversable(y * columns + column))
+                !traversable(rowStart + column))
             )
               continue;
             const distance =

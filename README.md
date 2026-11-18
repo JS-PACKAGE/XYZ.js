@@ -278,6 +278,12 @@ P290: Reject deferring tangent edge calculations after mixed construction result
 
 P290：退化UVでtangentのedge計算を遅らせる案は、大型GeometryのNode回帰があるため不採用。[検収記録](ACCEPTANCE.md)。
 
+P291：2D grid A* 先裁切有效鄰格，保留原本路徑與搜尋預算。所測 minified open／weighted cardinal 查詢加快，正式三入口及25項 navigation tests 通過。[驗收紀錄](ACCEPTANCE.md)。
+
+P291: Clip 2D grid A* neighbor ranges without changing paths or budgets. Measured minified open/weighted cardinal searches improve; published-root and navigation tests pass. [Evidence](ACCEPTANCE.md).
+
+P291：2D grid A*の近傍走査範囲を先に絞り、経路・予算は維持。計測したminified cardinal探索が改善し、正式entrypointと25項目のテストを確認。[検収記録](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
