@@ -80,7 +80,6 @@ export declare class RenderVisibilityCache {
     private nodeCount;
     private readonly cameraStamp;
     private readonly localSphere;
-    private readonly worldSphere;
     private readonly stampValues;
     private readonly baseSphere;
     private frame;

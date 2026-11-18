@@ -284,6 +284,12 @@ P291: Clip 2D grid A* neighbor ranges without changing paths or budgets. Measure
 
 P291：2D grid A*の近傍走査範囲を先に絞り、経路・予算は維持。計測したminified cardinal探索が改善し、正式entrypointと25項目のテストを確認。[検収記録](ACCEPTANCE.md)。
 
+P292 在 instance 裁切資料失效時每個 mesh 只算一次共用的世界球半徑係數；Chromium 縮版的 16–16,384 instances 父變換案例中，裁切收集 CPU 配對中位數少 10.3–17.6%，不代表呈現 FPS。詳見 [驗收紀錄](ACCEPTANCE.md#p292)。
+
+P292 computes the shared world-space sphere scale only once per mesh when instance culling bounds are rebuilt. In minified Chromium runs, parent motion with 16–16,384 instances reduced paired median CPU collection time by 10.3–17.6%; this is not a presentation FPS result. See the [acceptance record](ACCEPTANCE.md#p292).
+
+P292 では、インスタンスのカリング境界を再構築する際、メッシュごとにワールド空間の球のスケール係数を一度だけ計算します。最小化済みの Chromium 計測では、親が動く 16–16,384 インスタンスで、カリング収集の CPU 時間のペア中央値が 10.3–17.6% 減少しました。描画 FPS の計測ではありません。[受け入れ記録](ACCEPTANCE.md#p292) を参照してください。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

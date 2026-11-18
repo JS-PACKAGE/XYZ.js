@@ -30,6 +30,11 @@ export function transformSphereElements(
   out.x = e[a] * x + e[a + 4] * y + e[a + 8] * z + e[a + 12];
   out.y = e[a + 1] * x + e[a + 5] * y + e[a + 9] * z + e[a + 13];
   out.z = e[a + 2] * x + e[a + 6] * y + e[a + 10] * z + e[a + 14];
+  out.radius = radius * sphereLinearScale(e, a);
+  return out;
+}
+
+export function sphereLinearScale(e: ArrayLike<number>, a: number): number {
   const columns = Math.max(
     Math.abs(e[a]) + Math.abs(e[a + 1]) + Math.abs(e[a + 2]),
     Math.abs(e[a + 4]) + Math.abs(e[a + 5]) + Math.abs(e[a + 6]),
@@ -40,8 +45,7 @@ export function transformSphereElements(
     Math.abs(e[a + 1]) + Math.abs(e[a + 5]) + Math.abs(e[a + 9]),
     Math.abs(e[a + 2]) + Math.abs(e[a + 6]) + Math.abs(e[a + 10]),
   );
-  out.radius = radius * Math.sqrt(columns * rows);
-  return out;
+  return Math.sqrt(columns * rows);
 }
 export function sphereIsFinite(sphere: Readonly<BoundingSphere3D>): boolean {
   return (

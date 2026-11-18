@@ -8087,3 +8087,7 @@ A prototype moves two position-edge calculations after the degenerate UV determi
 NavigationGrid2D clips the adjacent row and column ranges once per expansion, visits only the current column on adjacent cardinal rows, and reuses each row base. Exact row-major offer order, corner and clearance checks, cost, revisions, budgets and frozen path snapshots stay unchanged.
 
 The byte-matched minified candidate improves measured open-cardinal and three weighted-cardinal cases in Node and Chromium; a source-only weighted regression and flat controls are retained in the record. Existing navigation tests, strict checks, an isolated build and published ESM/CJS/Chromium HTTP API proofs pass. This is query CPU evidence, not a renderer or FPS claim. [Full acceptance](../ACCEPTANCE.md).
+
+## P292 — Shared world scale for instance culling
+
+On a cache miss, the visibility collector rebuilds each enabled InstancedMesh's world spheres in its existing Float64Array. Per-instance local sphere transforms are unchanged. All spheres in the mesh share the same second-stage world matrix and the same conservative linear scale bound, including under shear; the collector evaluates that bound once per rebuild. Camera-only motion can reuse the spheres. This is an internal change, not a culling policy or public API change. See [P292 measurements and limits](../ACCEPTANCE.md#p292).

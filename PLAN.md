@@ -6447,3 +6447,7 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 
 - 每次 grid expansion 先取得有效 row／column 範圍，cardinal 模式不走相鄰 row 的對角 columns，row base 只算一次。維持同一 row-major offer 順序、兩側 corner／clearance checks、cost、expansion budget、狀態／修訂與排程。
 - 相符的 minified ESM 產物在所測 open cardinal 與三個 weighted cardinal seeds 改善；保留 source-only weighted 反例與持平 controls，不外推 FPS。25項既有 navigation tests、typecheck／scoped checks、隔離 full build、正式 ESM／CJS／Chromium HTTP root 皆通過，完整矩陣見 ACCEPTANCE。
+
+## P292 — 重用 instance 世界球的縮放係數
+
+已完成：可裁切的 InstancedMesh 在世界球快取失效時，每個 mesh 只算一次共用的世界矩陣縮放上界，直接填入原有的 sphere buffer。維持含 shear 的保守上界、球心算術、快取條件及可見 instance 順序。以實際 renderer 比對改前後輸出；CPU 採用依據與輕量案例回退另列於驗收。不擴大 backend 認證。

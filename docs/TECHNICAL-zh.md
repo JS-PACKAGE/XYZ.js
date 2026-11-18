@@ -7732,3 +7732,7 @@ profile 只提供調查方向，不代表配置／GC 或 rendered-frame 證明�
 NavigationGrid2D 每次展開先裁切相鄰 rows／columns，cardinal 模式的相鄰 row 只走目前 column，重用每 row 的整數 base。保持 row-major offer 順序、corner／clearance 檢查、cost、revision、budget 與 frozen path snapshots。
 
 與正式 build code 相同的 minified 候選在 Node／Chromium 的 open-cardinal 與三個 weighted-cardinal seeds 改善；紀錄保留 source-only weighted 回退與持平 controls。既有 navigation tests、strict checks、隔離 build 與正式 ESM／CJS／Chromium HTTP API 驗證通過。這是查詢 CPU 證據，不是 renderer 或 FPS 成果。見[完整驗收](../ACCEPTANCE.md)。
+
+## P292 — 重用 instance 裁切的世界縮放係數
+
+世界球快取失效時，收集器在既有 Float64Array 內重建可裁切 InstancedMesh 的世界球。各 instance 的局部球轉換不變；同一個 mesh 的第二段世界矩陣相同，因此包含 shear 的保守縮放上界每次重建只需求一次。只有相機移動可沿用這些球。這是內部實作調整，沒有更改裁切策略或公開 API。見 [P292 量測與限制](../ACCEPTANCE.md#p292)。

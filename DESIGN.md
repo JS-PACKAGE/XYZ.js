@@ -6578,3 +6578,7 @@ UV determinant guard 不依賴 position edge，可在讀入已驗證私有 UV �
 每個 current cell 的 x/y 來自既有整數 index。先裁切最多三個 XY rows/columns，再對沒有 diagonal 的上下 row 只走 current column；同 row 仍略過自己。由低到高的 y、x 產生完全相同的鄰格序列，沒有改 offer/take 或 heuristic。next row 的整數 base 也用於第二個 corner check，不改第一側檢查、順序、clearance 或浮點 cost 算式。
 
 不增加預計算表、配置、場景／目標 cache、權重 special case 或新參數。Source-only timing 的 Node weighted 退步不隱藏；正式採用依據是 byte-matched minified candidate 的固定矩陣及多 seed 驗證。詳見 ACCEPTANCE。
+
+## P292 — Instance 裁切世界球重建
+
+graphics 不重算 bounds。core 的 RenderVisibilityCache 保留依矩陣、幾何球及 instance 版本判斷的世界球快取。重建時，每個 instance 仍先用該 instance 的矩陣轉換局部球；第二段的球心用共用世界矩陣的仿射式，半徑乘上每次重建只求一次的 $\sqrt{\Vert A\Vert_1\Vert A\Vert_\infty}$ 上界。兩段變換不合併，也不改用只對無 shear 矩陣成立的列長度。世界球直接寫入原有 Float64Array，刪除中繼世界球物件。非 instance、彙總 bounds、raycast 仍使用原本的球轉換函式。

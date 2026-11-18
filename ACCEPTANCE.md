@@ -95892,3 +95892,29 @@ Open 64／256 cardinal 的 Node 約9.8%／8.4%，Chromium 約15.4%／9.9%；三�
 - 現有 tests/navigation.test.ts、tests/navigation-jobs.test.ts、tests/navigation-scheduler.test.ts、tests/navigation-dynamic.test.ts：4 files／25 tests 通過；strict tsconfig.check、scoped ESLint／Prettier 通過。沒有重複新增永久 tests。
 - 隔離正式 tsc→minify 377 JS→完整 vendor copy→720-file CJS build 成功；grid.d.ts byte 不變，只回寫 grid ESM／CJS code/maps 共4個 artifacts。11個本機其他 source／dist 檔 SHA256 全部一致。六份文件只核對新增段落格式／相對檔案連結，依本功能獨立 commit、不 push，版本仍1.23.0。
 - 原始結果保留於 /tmp/xyz-grid-bounds-proof-{node,browser}-results.json、/tmp/xyz-grid-bounds-cpu-node-results.json、/tmp/xyz-grid-bounds-cpu-fixed-{node,browser}-results.json、/tmp/xyz-grid-bounds-{proof,cpu}-minified-{node,browser}-results.json、/tmp/xyz-p291-published-smoke-results.json。不發佈 throwaway driver／build trees，除 raw evidence 外清除本階段暫存。
+
+## P292
+
+- 日期：2026-11-18。以 P291 作為舊版對照。
+- 硬指標：含旋轉、非均勻縮放、反射及 shear 的球界與裁切結果不變；不更動快取失效規則、instance 順序、公開 API 或渲染器。採用前比對來源與縮版 CPU，保留對照組與回退紀錄。
+- 實作：同一 InstancedMesh 重建世界球時，第二段世界矩陣的 1-/∞-norm 半徑上界只算一次，仍逐個用原式轉換中心，直接寫原有 Float64Array。局部 instance 球照舊計算。移除每個 visibility cache 的一個世界球 scratch；沒有以配置數換算 FPS。通用球變換函式及彙總 bounds 的數值契約不變。
+- 等值：在管理的 Chromium 153.0.8010.12，以實際 Scene、Group、InstancedMesh、Mesh、OrthographicCamera、原生 OffscreenCanvas／Texture 測試 7 類共 420 幀。來源、縮版及實際已產出的 ESM 各自與舊版比對：210,900 個世界球欄位用 Object.is（涵蓋非有限值與負零語意）、3,980,196 個矩陣／索引／顏色 byte、10,120 個純量、47,205 個封裝 instance 總數及 124 次遮蔽 callback 完全相符。涵蓋世界與 instance 變換、相機、幾何 revision、移除及重加、cull opt-out、未知 displacement、部分可見與零縮放。檢查 clear、資源銷毀。已產出的兩個 ESM 模組程式碼與計時候選相符（不含 map 註記）。
+- 實際呈現：相同 Chromium 由 HTTP 匯入舊版及本階段的 ESM，WebGPU 與 WebGL2 各跑 4 個 192×128 呈現幀：初始、父節點移動、instance 移動、opt-out。各 backend 改前後 PNG hash、draw count、triangle count 及 cull count 一致；每幀 1 draw，提交 triangle 依序 24、24、36、48。兩個原生 backend 均觀察到可見圖形隨變換更新。Game.destroy 後場景已銷毀，外借 Texture 仍存活，由擁有者銷毀。Vite 的 showcase 在 WebGPU、WebGL2、Canvas2D 各走 Scene A → B、實際 canvas 非單色、離頁無 console error；不把 Canvas2D 算作 3D 或認證其他瀏覽器，未重測 audio unlock。Node CommonJS 套件入口載入及入口不外洩內部 helper，未以 CJS 另跑 GPU 場景。
+- CPU 方法：同版本 Chromium、隔離的 headless 分頁 visible，只量實際 visibility collect，不呼叫 renderer。來源與 minified ESM 各自跑獨立瀏覽器行程，A/A 舊對舊，A/B 舊對新。每 profile 4 cohorts、交叉次序，每端預熱 8 批且每 sample 有 1 批預熱，各 cohort 8 輪 ABBA/BAAB 交替。每 phase 32 組配對平均量的配對中位數，11 profiles 共 2,816 samples／版本；checksum 都是 11,259,660,256。初次來源的短 batch 有 0 計時配對，未納入；加長批次後另跑。負值表示較舊版快。
+
+| Profile              | Frames / sample | Source A/A | Source A/B | Minified A/A | Minified A/B |
+| -------------------- | --------------: | ---------: | ---------: | -----------: | -----------: |
+| pose-1               |            4096 |     0.000% |     0.000% |       0.000% |      +3.030% |
+| pose-16              |            2048 |     0.000% |   -13.333% |       0.000% |     -10.283% |
+| pose-512             |             160 |     0.000% |   -23.256% |       0.000% |     -17.308% |
+| pose-4096            |              24 |     0.000% |   -24.490% |      +0.725% |     -17.465% |
+| pose-16384           |              10 |     0.000% |   -25.000% |       0.000% |     -17.593% |
+| mixed-16x128         |              48 |    +1.111% |   -14.444% |      +0.897% |      -3.604% |
+| instance-4096        |              20 |    +0.649% |   -13.889% |       0.000% |      -3.468% |
+| camera-4096-control  |             100 |    -1.429% |     0.000% |       0.000% |       0.000% |
+| static-4096-control  |            4096 |     0.000% |     0.000% |       0.000% |       0.000% |
+| optout-4096-control  |             100 |     0.000% |     0.000% |       0.000% |      +2.941% |
+| ordinary-128-control |              96 |     0.000% |     0.000% |       0.000% |       0.000% |
+
+- 判定：縮版 16–16,384 instances 的父節點變換收集少 10.3–17.6%；混合 mesh 及單純 instance 變更少 3.6% 及 3.5%。縮版單 instance 及 opt-out 配對中位數分別慢 3.0%（24/32 組）及 2.9%（20/32 組）；保留此取捨，目的不是加速這兩類。相機、靜態、一般 mesh 對照中位數持平。這是單環境 CPU 微量測，不是 GPU submit、呈現 FPS、其他瀏覽器或通用效能保證。
+- 工具：Node.js 26.7.0；兩個改動 TS 檔 Prettier／ESLint、4 個針對性 Vitest 檔共 42 測試、strict typecheck 通過。隔離目錄產出 377 個縮版 JS、複製 vendor 及 720 個 CJS distribution 檔。僅同步受影響的 2 個模組及其 map／宣告。11 個既有使用者變更的 SHA256 未變。不將選跑記為全套測試。

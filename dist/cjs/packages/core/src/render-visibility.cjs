@@ -47,12 +47,6 @@ var RenderVisibilityCache = class {
 		z: 0,
 		radius: 0
 	};
-	worldSphere = {
-		x: 0,
-		y: 0,
-		z: 0,
-		radius: 0
-	};
 	stampValues = /* @__PURE__ */ new Float64Array(15);
 	baseSphere = {
 		x: 0,
@@ -223,11 +217,11 @@ var RenderVisibilityCache = class {
 		for (let e = 0; e < 16; e++) Object.is(r[e], i[e]) || (a = !1), r[e] = i[e];
 		let o = t.version;
 		if ((!Object.is(r[16], n.x) || !Object.is(r[17], n.y) || !Object.is(r[18], n.z) || !Object.is(r[19], n.radius) || r[20] !== o) && (a = !1), r[16] = n.x, r[17] = n.y, r[18] = n.z, r[19] = n.radius, r[20] = o, a) return e.instanceSpheres;
-		let s = e.instanceSpheres?.length === t.count * 4 ? e.instanceSpheres : e.instanceSpheres = new Float64Array(t.count * 4);
+		let s = e.instanceSpheres?.length === t.count * 4 ? e.instanceSpheres : e.instanceSpheres = new Float64Array(t.count * 4), u = require_render_bounds.sphereLinearScale(i, 0);
 		for (let e = 0; e < t.count; e++) {
 			require_render_bounds.transformSphereElements(n, t.matrices, e * 16, this.localSphere);
-			let r = require_render_bounds.transformSphere(this.localSphere, t.worldMatrix, this.worldSphere);
-			s[e * 4] = r.x, s[e * 4 + 1] = r.y, s[e * 4 + 2] = r.z, s[e * 4 + 3] = r.radius;
+			let { x: r, y: a, z: o, radius: c } = this.localSphere, d = e * 4;
+			s[d] = i[0] * r + i[4] * a + i[8] * o + i[12], s[d + 1] = i[1] * r + i[5] * a + i[9] * o + i[13], s[d + 2] = i[2] * r + i[6] * a + i[10] * o + i[14], s[d + 3] = c * u;
 		}
 		return s;
 	}

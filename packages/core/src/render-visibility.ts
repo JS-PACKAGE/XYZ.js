@@ -10,7 +10,7 @@ import type { Object3D } from './object3d.js';
 import { PBRMaterial } from './pbr-material.js';
 import {
   sphereIsFinite,
-  transformSphere,
+  sphereLinearScale,
   transformSphereElements,
   type BoundingSphere3D,
 } from './render-bounds.js';
@@ -143,12 +143,6 @@ export class RenderVisibilityCache {
   private nodeCount = 0;
   private readonly cameraStamp = new Float64Array(18).fill(NaN);
   private readonly localSphere: BoundingSphere3D = {
-    x: 0,
-    y: 0,
-    z: 0,
-    radius: 0,
-  };
-  private readonly worldSphere: BoundingSphere3D = {
     x: 0,
     y: 0,
     z: 0,
@@ -584,6 +578,8 @@ export class RenderVisibilityCache {
       record.instanceSpheres?.length === mesh.count * 4
         ? record.instanceSpheres
         : (record.instanceSpheres = new Float64Array(mesh.count * 4));
+    // Every instance shares the same world-space scale bound.
+    const worldScale = sphereLinearScale(matrix, 0);
     for (let index = 0; index < mesh.count; index++) {
       transformSphereElements(
         base,
@@ -591,15 +587,14 @@ export class RenderVisibilityCache {
         index * 16,
         this.localSphere,
       );
-      const s = transformSphere(
-        this.localSphere,
-        mesh.worldMatrix,
-        this.worldSphere,
-      );
-      spheres[index * 4] = s.x;
-      spheres[index * 4 + 1] = s.y;
-      spheres[index * 4 + 2] = s.z;
-      spheres[index * 4 + 3] = s.radius;
+      const { x, y, z, radius } = this.localSphere;
+      const at = index * 4;
+      spheres[at] = matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12];
+      spheres[at + 1] =
+        matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13];
+      spheres[at + 2] =
+        matrix[2] * x + matrix[6] * y + matrix[10] * z + matrix[14];
+      spheres[at + 3] = radius * worldScale;
     }
     return spheres;
   }
