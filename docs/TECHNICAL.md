@@ -8077,3 +8077,7 @@ The 2D broadphase candidate writes new pieces over the tail of the compacted pre
 ## P289 — retain the post-copy glTF finite scan
 
 An isolated non-sparse, little-endian strided FLOAT VEC3 candidate combines the existing owned copy with finite checking. Sparse overlays retain their original ordering and validation. Real parse/dispose workloads have mixed results, including small-track Node regressions and packed-control drift, so no production change is adopted. No zero-copy aliasing is introduced. See [ACCEPTANCE](../ACCEPTANCE.md) for the complete timing and functional evidence.
+
+## P290 — retain the tangent edge calculation order
+
+A prototype moves two position-edge calculations after the degenerate UV determinant guard, preserving generated buffers and fallback frames. Real construction measurements include large Node regressions and a changed authored-tangent control despite some Chromium improvements. No source or dist change is adopted. See [ACCEPTANCE](../ACCEPTANCE.md) for the complete comparison and limits.

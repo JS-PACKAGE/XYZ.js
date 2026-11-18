@@ -7722,3 +7722,7 @@ profile 只提供調查方向，不代表配置／GC 或 rendered-frame 證明�
 ## P289 — 保留 glTF copy 後的 finite scan
 
 隔離候選只在 little-endian、非 sparse 的 strided FLOAT VEC3 路徑邊複製 owned array 邊檢查 finite，維持 sparse overlay 與錯誤次序。實際 parse／dispose 結果混合，Node 小型 track 回退，packed controls 也漂移，故不採用正式修改或零複製 alias。完整計時與功能證據見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P290 — 保留 tangent edge 計算位置
+
+候選將兩組 position edge 計算移到 UV determinant 退化判斷後，保留輸出 buffers 與 fallback frames。正式建構流程的隔離比較中，Chromium 部分改善，但 Node 大型建構回退，authored 控制也漂移，故不採用 source／dist 變更。完整比較及限制見 [ACCEPTANCE](../ACCEPTANCE.md)。

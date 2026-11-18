@@ -6566,3 +6566,9 @@ CCD 執行後，sweepOrder 先壓縮上一步仍存在的 pieces，再依當步�
 strided FLOAT VEC3 候選在 native copy 同步收集 finite flag，僅用於 little-endian 非 normalized、非 sparse 路徑，仍在既有位置拋錯。sparse base 允許後續合法 overlay 修正，所以不能提前拒絕；packed、matrix、integer、byte budgets 等原路徑保留。沒有引入零拷貝 alias，避免 decoder callbacks／重疊 views／公開 ownership 問題。
 
 同 class 完整 parser 有跨大小及 control 的混合結果，不採用額外 helper／branch。正式流程不改，完整數據見 ACCEPTANCE。
+
+## P290 — 保留 tangent loop 的 position edge 計算位置
+
+UV determinant guard 不依賴 position edge，可在讀入已驗證私有 UV 資料後先略過退化三角形，再讀 position XYZ。隔離候選只移動兩組 edge 計算，保留 determinant guard、corner order、Float64 累加、fallback、符號與 caller input 讀序。
+
+直接 Geometry 與真實 glTF consumer 的 comparison 不支持跨平台採用：Node 大型建構回退、未走該 loop 的 authored control 亦變動。不把較少方程式當成穩定 CPU／FPS 成果；詳見 ACCEPTANCE。

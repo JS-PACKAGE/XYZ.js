@@ -272,6 +272,12 @@ P289: Reject fusing the strided FLOAT VEC3 copy and finite scan after mixed full
 
 P289：glTFのstrided FLOAT VEC3コピーとfinite検査の融合は、実際のparse結果が混在するため不採用。[検収記録](ACCEPTANCE.md)。
 
+P290：退化 UV 略過 position edge 計算的原型通過輸出對照，但 Node 大型 Geometry 回退，Chromium 混合；不改 runtime。[驗收紀錄](ACCEPTANCE.md)。
+
+P290: Reject deferring tangent edge calculations after mixed construction results and large Node regressions. [Evidence](ACCEPTANCE.md).
+
+P290：退化UVでtangentのedge計算を遅らせる案は、大型GeometryのNode回帰があるため不採用。[検収記録](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

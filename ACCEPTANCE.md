@@ -95783,3 +95783,47 @@ Proof 與 timing 在不同 process。每 profile固定4 cohorts，profile／phas
 - Chromium native mesh 額外確認 indexed POSITION／NORMAL、RGB／tangents、morph 更新後的 bytes、共用 accessor 的不同 primitive 幾何獨立與二次 dispose。兩 browser runs 無 page errors；timing checksum Node 958,169,088、Chromium 2,484,754,944，workload 不同不跨 runtime 比較。
 - 沒有採用 source，未重跑正式 unit suite、lint／typecheck、build、HTTP load／codec、GPU render／showcase；沒有宣稱 heap／GC、FPS 或新的瀏覽器相容性。六份文件只做新增段落格式及相對檔案連結檢查，獨立 commit 不 push。
 - 原始 proof 與 clocks 位於 /tmp/xyz-gltf-copy-{proof,cpu}-{node,browser}-results.json；保留 raw samples，清除 throwaway drivers／生成 tree，不是套件附件。
+
+## P290 — 拒絕 tangent edge 延後計算（2026-11-18）
+
+### Scope and decision
+
+Geometry 自動生成 tangents 時，候選將 AB／AC 兩組 position edge 計算從 UV 讀取前移到原 determinant 退化 guard 後；只在原本就 continue 的三角形省掉六個減法及其已驗證 Float32 position 讀取。保留 UV0／UV1、正負零、threshold、normal／bitangent、angle weighting、corner 次序、Float64 累加、最終 fallback／handedness。沒有跨來源或對 public getter 做 cache、刪除驗證、改 shader 或配置大小。
+
+**不採用**：Node 128-grid zero／mixed／normal 分別 +28.143%／+11.130%／+19.578%；mixed 和 normal 32/32 pairs 較慢。沒有走該 loop 的 authored control 卻 −17.367%，提示 prototype／conditioning 有其他差異，不猜測 JIT 因果。Chromium 128 zero −9.302%、UV1 zero −10.899%、完整 glTF 缺 UV −5.119%，仍不足以抵消 Node 或 Chromium glTF authored UV0 +2.410%。保留所有 controls，未重跑以挑漂亮結果，正式 source／dist／API 和版本1.23.0 不變。
+
+### Differential proof
+
+當時正式 minified dependency graph，Geometry module 改用兩個 source-transpiled classes，透過同一個 live Geometry binding 換版；真實 GLTFLoader、Mesh、math 與其他 consumers 共用 graph。這是隔離對照，不是兩份正式 package build。Proof、Node clocks、Chromium clocks 皆獨立執行。
+
+| Runtime                | Geometry pairs | Native glTF pairs | Compared output bytes | Checked input bytes | Fallback oracle words |
+| ---------------------- | -------------: | ----------------: | --------------------: | ------------------: | --------------------: |
+| Node v26.7.0           |            180 |                 — |             4,213,184 |           3,546,248 |                 4,624 |
+| Chromium 153.0.8010.12 |            180 |                 6 |             5,498,528 |           4,012,136 |                 4,624 |
+
+- 144 seeded triangle sets 加36個固定 grid cases，包含 UV0／UV1、兩種 conventions、signed zero、零／非單位 normals、重複頂點、極小／退化 UV、大 finite positions 與著作 tangents。比對 vertices、indices、tangents、UV1 buffers 的 bytes、boundingSphere 數值及 revision；輸入 arrays bytes 不變。另採固定 +Z normal 的 constant UV 獨立 fallback frame oracle，檢查 caller mutation isolation。
+- 每 runtime 5個 proxy get traces／validation scenarios 共385個 observations，含正確 fixture、非 finite position／UV、index OOB、invalid authored handedness。比較 read order 和完整錯誤，不是 monkey-patched builtins 測試。
+- Chromium 真 glTF GLB 無 UV／有 UV0 各三個大小，native fallback bitmap；兩版本的 generated geometry 與直接 fixture construction 按 bytes／bounds 相同、caller GLB 保持不變、destroy scene。沒有渲染或讀 GPU pixels。
+
+### Geometry construction and native parser clocks
+
+CPU mode 每 profile 獨立固定4 cohorts、phase counterbalance；每 side 6 warm batches、每 sample 1 warm batch，8 rounds alternating ABBA／BAAB，256 samples/profile。Node 10 profiles共2,560、Chromium 12 profiles共3,072。表是各 phase 的32個配對百分比 median，負值較快。建立 fixture／切換 binding 在 clocks 外；direct profiles 跑完整 new Geometry、公開輸出讀取；glTF profiles 另含 parse／native bitmap／geometry read／dispose 的 wall-time 並非純 JS CPU。
+
+| Profile                | Calls / sample | Node A/A | Node A/B | Chromium A/A | Chromium A/B |
+| ---------------------- | -------------: | -------: | -------: | -----------: | -----------: |
+| geometry-1-zero        |            512 |  -1.001% |  -2.956% |     -29.286% |     +42.857% |
+| geometry-1-normal      |            512 |  +0.173% |  -6.415% |      +5.556% |      -5.000% |
+| geometry-32-zero       |             24 |  +0.429% |  -6.617% |      +5.556% |      -5.882% |
+| geometry-32-normal     |             12 |  +0.725% |  -7.961% |       0.000% |       0.000% |
+| geometry-128-zero      |              4 |  -1.409% | +28.143% |       0.000% |      -9.302% |
+| geometry-128-mixed     |              3 |  +0.071% | +11.130% |       0.000% |      -1.250% |
+| geometry-128-normal    |              3 |  +0.058% | +19.578% |       0.000% |      +0.370% |
+| geometry-64-uv1-zero   |             10 |  -0.332% |  +5.167% |       0.000% |     -10.899% |
+| geometry-64-uv1-normal |              6 |  +0.520% |  -4.955% |       0.000% |       0.000% |
+| geometry-128-authored  |              4 |  -0.219% | -17.367% |       0.000% |       0.000% |
+| gltf-96-no-uv          |              3 |        — |        — |       0.000% |      -5.119% |
+| gltf-96-uv0            |              3 |        — |        — |       0.000% |      +2.410% |
+
+Chromium document visibility=visible，仍是 Playwright managed headless；64／128 指 grid 邊 cell 數，含兩三角形/cell。短 sample timer 粒度／warm effects 對比例影響較大，例如 Chromium tiny-zero baseline A/B raw median 約0.325 ms且 A/A −29.286%，不將 +42.857% 當精確 slowdown。Node／Chromium checksum 是2,887,308,096／3,363,616,512，cases 不同不跨 runtime 比；Chromium page errors 為空。不是 heap、GC、GPU time、native shader 或 presentation FPS 數據。
+
+正式 runtime 沒改、未重跑正式 tests／typecheck／lint／build／showcase，不新增瀏覽器／GPU backend 認證。六份文件檢查新增內容格式與相對檔案連結，獨立 commit 不 push。raw 證據保留於 /tmp/xyz-geometry-tangent-{proof,cpu}-{node,browser}-results.json，不發佈 throwaway drivers／生成 tree。

@@ -6437,3 +6437,8 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 
 - 調查 non-sparse strided VEC3 在 copy 後重新掃描 finite 的成本。隔離原型保持 owned array、bounds／budget、sparse overlay 與錯誤次序；不借用輸入 buffer。
 - 中大型 cases 有訊號，但 Node 小型 animation 回退、packed controls 也變動，Chromium mixed。只記錄實際 parser 比較，不改正式 loader 或宣稱整體載入加速。詳見 ACCEPTANCE。
+
+## P290 — tangent 邊向量延後計算不採用
+
+- 候選只移動兩組 position edge vector 計算到 UV determinant 退化判斷後，沒有改採樣、公式、累加順序或 fallback。直接 Geometry 與瀏覽器真實 glTF parse 比較輸出一致。
+- Chromium 部分退化 UV 測量較快，但 Node 大型退化、混合與非退化 cases 回退，authored control 亦漂移；不採用，正式 runtime 不變。詳見 ACCEPTANCE。
