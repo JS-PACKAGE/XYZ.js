@@ -1,9 +1,9 @@
 {
   "name": "OPM.js",
-  "version": "1.14.0",
-  "release": "https://github.com/JS-PACKAGE/OPM.js/releases/tag/v1.14.0",
-  "archive": "https://github.com/JS-PACKAGE/OPM.js/releases/download/v1.14.0/opm.js-1.14.0.tgz",
-  "sha256": "542c421bfc743e59438f9f524dac46b3579d34d4f57916e020697ac979dea583",
-  "checksums": "https://api.github.com/repos/JS-PACKAGE/OPM.js/releases/assets/710993039",
+  "version": "1.15.0",
+  "release": "https://github.com/JS-PACKAGE/OPM.js/releases/tag/v1.15.0",
+  "archive": "https://github.com/JS-PACKAGE/OPM.js/releases/download/v1.15.0/opm.js-1.15.0.tgz",
+  "sha256": "da00523dd85559f5a781589e93c472fed2ddabc73e3dfacbd3be46acd435360e",
+  "checksums": "https://api.github.com/repos/JS-PACKAGE/OPM.js/releases/assets/763060461",
   "contents": "Complete official dist/ and LICENSE, without modifications"
 }

@@ -330,11 +330,11 @@ OPM 需要 AudioWorklet（HTTPS 或 localhost）。無法啟動時 `unlock()` �
 const game = await Game.create({
   canvas: '#game',
   opmModuleUrl:
-    'https://cdn.jsdelivr.net/gh/JS-PACKAGE/OPM.js@7cf66b7b54fb5499f55b26d82cf4d280354417e1/dist/api/index.js',
+    'https://cdn.jsdelivr.net/gh/JS-PACKAGE/OPM.js@4d02255c81f303a5150f0d73675e2579f9797080/dist/api/index.js',
 });
 ```
 
-CDN 必須以 CORS 提供 OPM.js 1.14.0，CSP 也必須允許它。其內容無法做完整性驗證；使用前請先看技術參考。
+CDN 必須以 CORS 提供 OPM.js 1.15.0，CSP 也必須允許它。其內容無法做完整性驗證；使用前請先看技術參考。
 
 ## 8. 資產安全與清理
 

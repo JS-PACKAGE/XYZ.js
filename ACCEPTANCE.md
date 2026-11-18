@@ -95932,3 +95932,9 @@ Open 64／256 cardinal 的 Node 約9.8%／8.4%，Chromium 約15.4%／9.9%；三�
 - 將 `procedural-material.test.ts` 的單案時限與既有 motif suite 對齊至 120 秒，不調整測試矩陣、總工作時限或重試策略。Map Attractors 仍檢查同樣的 seed、亮部比例、最低平均色調和其餘材質通道；將既有平均色調上限改成「低色調像素覆蓋過半」，避免把混沌軌道隨三角函式實作而變動的密度統計固定在單一平台。獨立軌道相關、暗處、邊界、決定性與 maps 測試不變。套件材質輸出不變。
 - Node 26.7.0 隔離快照：CI 回報的 10 個不同案例全部通過（原檔仍收集 7,917 案例），Prettier、ESLint、strict typecheck、正式建置與 `xyz.js-1.24.2.tgz` 套件內容檢查通過。未把定向結果算成完整 hosted 矩陣。
 - 不移動既有 v1.24.0／v1.24.1 tags；v1.24.2 仍須通過完整 GitHub Release 流程，不發 npm。
+
+## OPM.js vendor 更新至 v1.15.0
+
+- 下載 [官方 v1.15.0 release](https://github.com/JS-PACKAGE/OPM.js/releases/tag/v1.15.0)（tag 指向 `4d02255c81f303a5150f0d73675e2579f9797080`）。`opm.js-1.15.0.tgz` 的 SHA256 `da00523dd85559f5a781589e93c472fed2ddabc73e3dfacbd3be46acd435360e` 與 GitHub asset digest 相符。165 個官方 dist 檔及 LICENSE 原樣保留；建置的 vendor 副本逐檔相同。釘選 CDN 的 API、worklet 與版本檔亦與 vendor 位元組相同。
+- 保持 XYZ.js 的八個隔離 OPM slots、內部 voice v8 正規化與公開 `OPMVoice` `version: 1` 契約；未新增公開音訊功能。
+- 驗證：7 個定向測試檔共 60 案例、strict typecheck、隔離建置與封裝內容檢查通過。Chromium 實際 `audio-lab` Canvas2D 頁面點擊解鎖後 OPM ready，SFX 顯示播放中，音樂可開始及停止，離頁無 page error。不代表實機聽感、其他瀏覽器或完整測試套件已驗證。

@@ -332,11 +332,11 @@ To load OPM from a CDN instead of the vendored copy, pass a commit-pinned module
 const game = await Game.create({
   canvas: '#game',
   opmModuleUrl:
-    'https://cdn.jsdelivr.net/gh/JS-PACKAGE/OPM.js@7cf66b7b54fb5499f55b26d82cf4d280354417e1/dist/api/index.js',
+    'https://cdn.jsdelivr.net/gh/JS-PACKAGE/OPM.js@4d02255c81f303a5150f0d73675e2579f9797080/dist/api/index.js',
 });
 ```
 
-The CDN must serve OPM.js 1.14.0 with CORS, and your CSP must allow it. Its bytes cannot be integrity-checked; see the technical reference before relying on it.
+The CDN must serve OPM.js 1.15.0 with CORS, and your CSP must allow it. Its bytes cannot be integrity-checked; see the technical reference before relying on it.
 
 ## 8. Asset Safety and Cleanup
 
