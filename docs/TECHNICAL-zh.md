@@ -7708,3 +7708,9 @@ source-only 原型讓 decoder 自有 cells 經迴圈驗證後直接 freeze，外
 count／累計預算、native byte size 與 abort 檢查通過後，gzip／zlib normalizer 依已知長度建立 cells，以索引寫入原有 little-endian uint32，不再逐項 push。不在驗證前預配，也不改 parser 的外部陣列快照、上限、公開型別或版本。
 
 隔離 workload 的同步 copy＋同一份實際 minified parser 支持所測中大型案例的 CPU 改善。native async normalize／parser wall-time 仍混合，含回退與 controls 漂移；不宣稱完整載入普遍加速、heap／GC 或 FPS 改善。13項既有 tests、strict／scoped checks、隔離 full build、正式 ESM／CJS／瀏覽器 HTTP import、tile publication 與 cleanup 通過，只帶回四個 normalizer artifacts。完整正／負矩陣及限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P287 — 保留 atlas integer tuple 檢查
+
+source-only validator 原型保留最初四個 accessor 讀取，再以明確 integer checks 取代 tuple／every；bounds 與 snapshot 的讀取不合併。getter／錯誤、共用 SpriteSheet、NineSlice 與 Sprite3D 比較通過，但完整 consumer CPU 結果混合，Node 中型 sheet 回退，故不採用。
+
+profile 只提供調查方向，不代表配置／GC 或 rendered-frame 證明。正式 runtime 留在 P286；本階段沒有重跑正式 tests／build、GPU backends 或 showcase 認證。完整矩陣與 conditioning 限制見 [ACCEPTANCE](../ACCEPTANCE.md)。

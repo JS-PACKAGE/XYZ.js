@@ -8063,3 +8063,9 @@ Runtime source/artifacts remain at P284. This phase records evidence only: no ne
 After count/budget, native byte-size and abort checks, the gzip/zlib normalizer allocates the known cell length and writes each existing little-endian uint32 by index instead of growing via push. It does not preallocate before validation or change the parser's caller-array snapshot, limits, public types or package version.
 
 Workload-isolated synchronous copy plus the same real minified parser improves in measured medium/large cases. Native async normalization/parser wall-times remain mixed, including regressions and control drift; no universal full-load, heap/GC or FPS gain is claimed. Thirteen existing tests, strict/scoped checks, an isolated full build and real ESM/CJS/browser HTTP imports, tile publication and cleanup pass. Only four normalizer artifacts are promoted. Full positive/negative matrices and limitations: [ACCEPTANCE](../ACCEPTANCE.md).
+
+## P287 — retain the atlas integer tuple check
+
+A source-only validator prototype preserves the initial four accessor reads, then performs explicit integer checks without the tuple/every expression. Bounds and snapshot reads remain separate. Getter/error and shared SpriteSheet, NineSlice and Sprite3D comparisons pass, but consumer CPU results are mixed and the medium-sheet Node case regresses, so no runtime change is adopted.
+
+Profiles are selection evidence, not allocation/GC or rendered-frame proof. Runtime stays at P286; this phase did not rerun formal tests/build, GPU backends or showcase certification. Full matrices and conditioning limits: [ACCEPTANCE](../ACCEPTANCE.md).

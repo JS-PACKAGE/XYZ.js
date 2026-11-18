@@ -6548,3 +6548,9 @@ base64 decoder 的 number array 雖可安全地在驗證後直接 freeze，替�
 normalizer 只在 count 已為正整數且累計不超限、native output byte size 精確相符、arrayBuffer 完成且 abort check 通過後建立固定長度 cells，依原有 DataView.getUint32(offset,true) 順序寫滿所有索引，再發布 holder.data。沒有提前大額配置、typed-array endianness 假設、快取或新驗證分支；parser 仍保留原有 map 快照。
 
 選擇範圍僅為這個兩行的 array-fill 策略。同步 copy＋parser 的固定 controls 支持 CPU 改善；native stream／Blob／scheduler wall-time 含回退與漂移，不能被該結果覆蓋或冒稱整體載入加速。具體負向數字、測量邊界及正式 tile publication 見 ACCEPTANCE。
+
+## P287 — 固定 tuple 的移除不是配置／CPU 證明
+
+validatedRegion 原先先讀完 x／y／width／height，再 every(Number.isInteger)，後續 bounds 與 snapshot 會重讀 accessors。候選必須保留這個完整初次讀取，不能改成直接逐欄位 short-circuit 或順便快取後續 getters。隔離原型的 locals 只取代 first-pass tuple。
+
+共享真實 callers 的比較仍有混合／回退，不值得增加正式 locals／comment／判斷。保留 P286 的 validatedRegion，不宣稱 JIT 已消除或未消除 tuple、不把 Node profiler 或 source-operation 減少當成 heap／GC／FPS 成果。詳見 ACCEPTANCE。

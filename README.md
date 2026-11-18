@@ -254,6 +254,12 @@ P286: Presize bounded decompressed Tiled cells after existing checks. Synchronou
 
 P286：検証済みの解凍cell数で配列を確保して索引で書き込む。同期copy／parserのCPU改善と、結果が混在するnative async wall-timeを区別。正式import・tile publication・cleanupを確認。[検収記録](ACCEPTANCE.md)。
 
+P287：atlas validator 的 tuple 刪減雖保留 getter／錯誤語意，consumer CPU 收益仍混合，故不採用；正式 runtime 保留 P286。profile 與負向結果見 [ACCEPTANCE](ACCEPTANCE.md)，不把較少 source operations 當成加速。
+
+P287: Reject atlas-validator tuple elision after mixed shared-consumer CPU results; runtime remains at P286. Profiles and negative controls are recorded, not presented as allocation/FPS gains. [Evidence](ACCEPTANCE.md).
+
+P287：atlas validatorのtuple削減はgetter／例外比較を通過したが、CPU結果は混在するため不採用。正式runtimeはP286を維持。[検収記録](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

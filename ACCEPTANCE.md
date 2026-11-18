@@ -95648,3 +95648,46 @@ Node v26.7.0 與 managed headless Chromium 153.0.8010.12 分開執行，沒有�
 ### 證據與交付
 
 /tmp/xyz-tiled-presized-node-results.json、/tmp/xyz-tiled-presized-browser-results.json、/tmp/xyz-tiled-presized-sync-node-results.json、/tmp/xyz-tiled-presized-sync-browser-results.json、/tmp/xyz-tiled-presized-smoke-results.json 為暫存 raw evidence，不是套件附件。驗證後清除 throwaway drivers／生成副本，保留 raw results；同步六份文件，依功能獨立 commit、不 push。
+
+## P287 — 拒絕 atlas validator tuple 刪減（2026-11-18）
+
+### Baseline profile 不是加速成果
+
+當時真實 minified public ESM root，以 borrowed native Texture／TiledAsset／createTiledContent，兩次 warm 後六次 constructor＋cleanup lifecycle，Node inspector interval100 µs；沒有與其他 CPU experiments／build／tests 並行。profile 包含 asset setup、construction 與 cleanup，不是逐幀或 constructor-only CPU 分布。
+
+| workload                        | samples | setGid self | index self | getTile self | validatedRegion self | TiledContent self | GC self |
+| ------------------------------- | ------: | ----------: | ---------: | -----------: | -------------------: | ----------------: | ------: |
+| 32 atlas ×3 frames、4,096 cells |     308 |          69 |         20 |           16 |                    — |                 — |      83 |
+| 1 atlas ×65,536 frames、1 cell  |     183 |           — |          — |            — |                   70 |                49 |      25 |
+
+樣本少、constructor wall-time 有漂移，僅用來選擇 atlas helper 研究，不聲稱其中任何佔比是可節省的 CPU、配置量或 GC pause。沒有調整多 atlas 的 public getTile／setGid 呼叫語意。
+
+### 候選與保守決策
+
+validatedRegion 的 [frame.x,frame.y,frame.width,frame.height].every(Number.isInteger) 改為依序讀取四個 locals 後 explicit integer checks。仍在 texture.destroyed check 之後，保留所有 first-pass getter 讀取，即使較早值不合法；bounds／snapshot 仍讀原 frame，沒有擅自把 mutable getter 合併成 atomic snapshot。只移除 source-level tuple／every 表達式，不宣稱 V8 一定配置該 array。
+
+**不採用**：Node sheet256 回退、grid／Tiled／NineSlice／Sprite3D 結果不足以支持普遍收益，Chromium 大 frames 的個別改善不覆蓋 Node 或其他 callers。沒有新 cache、型別放寬、特殊 input threshold 或移除 integer validation；正式 source／dist／public declarations／package 1.23.0 留在 P286。
+
+### 共用實際 consumers 的固定矩陣
+
+Node v26.7.0 與 managed headless Chromium 153.0.8010.12 分開執行。複製正式 dist graph，只以 source-transpiled SpriteSheet module 取代對應 module；同一 SpriteSheet class 與其 TileMap／TiledContent、NineSlice、Sprite3D consumers 共用一個 live validator binding，切換原版／候選。**不是完整正式 minified module、不是兩份 class graph，也不是正式 source／CJS 或 renderer 認證**。
+
+84個功能 probes 在同 graph 的 warm 前執行，含 Proxy／動態 getters／非數字值；這個 conditioning 被保留，不冒稱乾淨程序的單一 shape benchmark，也不推測其 JIT 因果。各 workload 的完整 cohorts 獨立執行，固定4 cohorts、每 profile／mode 30 calls warm、每 sample 另3 calls warm；A/A→A/B 與 A/B→A/A cohort 順序 counterbalance，每 phase 八輪 alternating ABBA／BAAB，每 profile256 samples、每 runtime共2,048 samples。表內是32組配對百分比 median（兩個中央值平均），負值較快，短 sample 有 timer 粒度限制；不挑 round 或重跑同 implementation clocks。
+
+| profile                   | calls / sample | Node A/A | Node A/B | Chromium A/A | Chromium A/B |
+| ------------------------- | -------------: | -------: | -------: | -----------: | -----------: |
+| sheet1                    |           5000 |  -0.061% |  -2.754% |       0.000% |       0.000% |
+| sheet256                  |            100 |  +0.121% |  +1.319% |       0.000% |      -1.316% |
+| sheet65536                |              2 |  +0.543% |  -2.404% |      +0.475% |      -3.521% |
+| grid65536                 |              2 |  -0.891% |  -0.415% |      -2.942% |      -1.043% |
+| tiled65536frames          |              2 |  -5.819% |  -0.036% |      -0.170% |      -4.616% |
+| nine-slice                |            100 |  +0.300% |  -0.008% |       0.000% |       0.000% |
+| sprite3d-updates          |           2000 |  -0.058% |  -0.373% |       0.000% |       0.000% |
+| sprite3d-nochange-control |          50000 |  -0.010% |  -0.043% |       0.000% |       0.000% |
+
+### 功能與交付界線
+
+- 各 runtime 84 probes：60個 scalar-field cases（含負零、fractional／NaN／Infinity／undefined／null／string／BigInt／Symbol）、18個 throw-position scenarios、3個動態 getter cases、1個 destroyed-texture case，另2個 Sprite3D output probes。比較 getter／exception histories、snapshot values／negative zero／frozen descriptor；不是宣稱18種每種都觸發 throw。初次四個欄位仍完整讀取，destroyed texture 仍先拒絕。沒有測試被任意 monkey-patch 的 Number.isInteger／Array.prototype.every metadata 契約。
+- 同 graph 真實 public SpriteSheet／grid、TiledContent、NineSlice 建構／destroy、Sprite3D.setSource 的 geometry UV 與無變動 early-return control；NineSlice child source／position／scale 與兩份 Sprite3D vertices 一致。Node／Chromium checksum 均293,461,296，Chromium 無 page errors。這是資料／CPU probes，不是圖片解碼、GPU pixel、三 backend／showcase 或實機畫面驗證。
+- 正式 source 沒有改動，不重跑 tests／typecheck／lint／build；P286 的通過紀錄不冒充本階段重新執行，也沒有新增永久 tests 或 runtime 依賴。六份文件檢查新增段落格式與相對檔案連結，不 push。
+- 原始證據暫存 /tmp/xyz-region-node-results.json、/tmp/xyz-region-browser-results.json、/tmp/xyz-tiled-publication-profile-results.json，以及兩份 /tmp/xyz-tiled-publication-32atlases-3frames-4096cells.cpuprofile／/tmp/xyz-tiled-publication-1atlases-65536frames-1cells.cpuprofile；不是套件附件。驗證後清除 throwaway drivers／生成副本，保留 raw evidence。

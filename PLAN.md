@@ -6422,3 +6422,8 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - gzip／zlib 完成 bounded native decode、精確 byte-size check 與 abort check 後，依 count 建立固定長度 number array，以索引寫入原有 little-endian uint32；不再逐 cell push。只改兩行，不動驗證、快照、資料上限或公開 API。
 - 將 native async wall-time 與同步 copy＋完整 parser CPU 分開：前者混合且有控制組差異，不能宣稱完整載入普遍加速；後者共用同一實際 minified parser、隔離 workload 的固定比較支持所測中大型案例。沒有 heap／GC／FPS 推論。
 - 13項既有 Tiled tests、strict／scoped checks、隔離 full build、正式 ESM／CJS／Chromium HTTP import 與 tile publication 通過，只帶回四個 normalizer artifacts，11個使用者檔案不變。完整矩陣見 ACCEPTANCE。
+
+## P287 — atlas integer-check 原型不採用
+
+- 真實 minified root 的多 atlas／大量 frames 初始化 profile 只作選題依據；不把 self samples 當成配置或穩定速度。SpriteSheet validatedRegion 將四元素 tuple.every 改為依序 locals＋明確 integer checks 的隔離候選，保留初次 accessor pass 與後續 bounds／snapshot 讀取。
+- 共用 SpriteSheet class／consumers 的 Node／Chromium matrix 收益混合，Node 中型 sheet 回退、Tiled 大 frames 的 Node 收益不可辨識，故不採用。只更新負向紀錄，source／dist 留在 P286，不新增 runtime 或三 backend 認證。完整方法見 ACCEPTANCE。
