@@ -8069,3 +8069,7 @@ Workload-isolated synchronous copy plus the same real minified parser improves i
 A source-only validator prototype preserves the initial four accessor reads, then performs explicit integer checks without the tuple/every expression. Bounds and snapshot reads remain separate. Getter/error and shared SpriteSheet, NineSlice and Sprite3D comparisons pass, but consumer CPU results are mixed and the medium-sheet Node case regresses, so no runtime change is adopted.
 
 Profiles are selection evidence, not allocation/GC or rendered-frame proof. Runtime stays at P286; this phase did not rerun formal tests/build, GPU backends or showcase certification. Full matrices and conditioning limits: [ACCEPTANCE](../ACCEPTANCE.md).
+
+## P288 — retain sweep-order truncation before append
+
+The 2D broadphase candidate writes new pieces over the tail of the compacted previous order before truncating. It leaves CCD, the input sequence to the sort, contact callbacks, query results and revisions unchanged in the differential scenarios. Real register/unregister/update timings show no robust benefit, with a large full-churn Node regression and mixed Chromium results. No source or dist changes are adopted; [ACCEPTANCE](../ACCEPTANCE.md) records the fixed matrix and limitations.

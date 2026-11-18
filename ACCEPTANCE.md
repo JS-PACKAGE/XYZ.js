@@ -95691,3 +95691,53 @@ Node v26.7.0 與 managed headless Chromium 153.0.8010.12 分開執行。複製�
 - 同 graph 真實 public SpriteSheet／grid、TiledContent、NineSlice 建構／destroy、Sprite3D.setSource 的 geometry UV 與無變動 early-return control；NineSlice child source／position／scale 與兩份 Sprite3D vertices 一致。Node／Chromium checksum 均293,461,296，Chromium 無 page errors。這是資料／CPU probes，不是圖片解碼、GPU pixel、三 backend／showcase 或實機畫面驗證。
 - 正式 source 沒有改動，不重跑 tests／typecheck／lint／build；P286 的通過紀錄不冒充本階段重新執行，也沒有新增永久 tests 或 runtime 依賴。六份文件檢查新增段落格式與相對檔案連結，不 push。
 - 原始證據暫存 /tmp/xyz-region-node-results.json、/tmp/xyz-region-browser-results.json、/tmp/xyz-tiled-publication-profile-results.json，以及兩份 /tmp/xyz-tiled-publication-32atlases-3frames-4096cells.cpuprofile／/tmp/xyz-tiled-publication-1atlases-65536frames-1cells.cpuprofile；不是套件附件。驗證後清除 throwaway drivers／生成副本，保留 raw evidence。
+
+## P288 — 拒絕 broadphase sweepOrder 延後截短（2026-11-18）
+
+### Scope and decision
+
+PhysicsWorld2D.simulate 先收集 owner／compound pieces 並完成 CCD，接著對上一步的 sweepOrder 執行 survivor compaction、截短、依當步收集序加入未保留 pieces、既有 sort。候選保留同序 survivor prefix，將 append 改為指標覆寫，先寫完新 entries，再在長度不等時截短。沒有挪移 visible callbacks、改 collider bounds／liveness／sort 或保留 stale tail 到 sort；正式方案沒有假設 V8 backing storage 是否會收縮。
+
+**不採用**：Node 的 full-churn 64、512、2,048 及半量 churn 512 結果偏慢，Chromium 無穩定跨 workload 優勢。2,048 full churn 的 Node A/B +26.884%，A/A +9.717% 本身亦漂移；不將兩個百分比直接相減或推斷分配／GC／JIT 因果。Chromium 同 workload 單點 −2.440% 不足以覆蓋其他結果。未更動 source／tests／dist／公開 API／版本1.23.0。
+
+### Differential proof
+
+同一替代 world module 以 canonical TypeScript source transpile 成一個 PhysicsWorld2D class，僅同一 own slot 選原版或候選 simulate；其餘 dependencies 來自同一份當時 dist graph，包括本機既有的 physics2d/narrowphase 與 world2d 產物，未改也未拿 HEAD 版另做對照。非兩份 module graph，也非正式 minified world／CJS 認證。
+
+Node v26.7.0 與 isolated managed Chromium 153.0.8010.12 各比較5條真實世界 lifecycle，原版與候選 per-frame 可觀察結果完整相等。對照 ordered event type／self／other／normal／points／penetration／sensor、debug shapes／contacts、owner poses／velocities／sleeping、membership／geometry revision、CCD stats 與 overlap／raycast／sweep；序列化前明確區分 -0／NaN／±Infinity。
+
+| Scenario  | Encoded characters | Collision events | Snapshots |
+| --------- | -----------------: | ---------------: | --------: |
+| turnover  |             77,288 |                0 |        15 |
+| contacts  |            328,418 |            1,405 |        15 |
+| callbacks |            302,681 |            1,193 |        15 |
+| compound  |            228,367 |              626 |        15 |
+| ccd       |             50,487 |              102 |        15 |
+
+各 runtime 合計987,241個 encoded characters、3,326個 events、75個 snapshots，包含 partial／full re-register、單獨 grow／shrink、同 owner 更換 collider/body、compound pieces、clear/reuse／兩次 destroy、更新中 unregister／移位／替換 collider／cancelResponse、CCD impact budget exhaustion。另3個 nonfinite velocity rejection pairs 皆維持 RangeError 與原訊息。沒有直接覆蓋極端座標、任意 getter override 或實機 renderer。
+
+初版 Node proof fixture 以 circle 作 compound piece，既有 convex-polygon 驗證正確拒絕；修成兩個 box 並將感測器間距調到確實接觸，加入 full-turnover collision、四種 callback mutation ticks 和 CCD budget 的非空斷言後，兩 runtime 才通過。初版未執行 clocks，未調整正式驗證。
+
+### Complete lifecycle clocks
+
+兩 runtime 分開且與 build／test／其他 CPU experiment 不並行；Chromium 頁面 visibilityState=visible，仍是 headless 桌面 automation。CPU process 與 proof 分開。Mixed 使用分離的 circle／box、四分之一 static／其餘 dynamic，零重力、不 sleep。每 tick 在時鐘內依固定 rotation unregister/register 既有 owners，含生成新 registration proxies 與完整 public update；並非重新配置 owner/collider 的測量。半量 cycle 交替取消與恢復後半部 memberships，setup／cleanup 在 clocks 外。
+
+各11 profiles固定4 cohorts、獨立 A/A、A/B fixtures、phase 順序與 profile 順序 counterbalance；每 phase 各8 warm batches，每 sample 2 warm batches，再8 rounds alternating ABBA／BAAB；每 profile 256 samples、每 runtime 2,816 samples。表是各 phase 的32個配對百分比 median，負值較快，沒有刪除 outliers。Short Chromium batch 的 paired ratio 受 timer 粒度影響，例如 64-no-churn A/B 兩邊 raw batch median 皆約0.25 ms，不能把 +18.333% 解讀為精確 slowdown。
+
+| Profile              | Ticks / sample | Node A/A | Node A/B | Chromium A/A | Chromium A/B |
+| -------------------- | -------------: | -------: | -------: | -----------: | -----------: |
+| mixed-64-churn0      |             30 |  +0.716% |  -0.717% |       0.000% |     +18.333% |
+| mixed-64-churn10     |             30 |  +1.136% |  +0.400% |       0.000% |       0.000% |
+| mixed-64-churn50     |             30 |  +0.744% |  +0.235% |       0.000% |       0.000% |
+| mixed-64-churn100    |             30 |  -0.212% |  +2.047% |      -2.000% |      +1.923% |
+| mixed-512-churn0     |              4 |  +2.369% |  -0.528% |       0.000% |       0.000% |
+| mixed-512-churn10    |              4 |  -0.187% |  -0.336% |       0.000% |      +4.545% |
+| mixed-512-churn50    |              4 |  -0.032% |  +2.746% |       0.000% |       0.000% |
+| mixed-512-churn100   |              4 |  +1.169% |  +1.794% |       0.000% |      +3.333% |
+| mixed-2048-churn0    |              1 |  -1.802% |  +2.763% |       0.000% |       0.000% |
+| mixed-2048-churn100  |              1 |  +9.717% | +26.884% |      +1.515% |      -2.440% |
+| mixed-512-half-cycle |              4 |  -0.306% |  +0.490% |       0.000% |       0.000% |
+
+兩 runtime timing checksum 均9,819,264；Chromium 無 page errors。這是所測 CPU／同步 lifecycle wall-time，不是 allocation、heap、GC pause、GPU／presentation FPS 或碰撞 renderer 認證。因不採用，沒有重跑正式 tests／lint／typecheck／build，也不覆寫本機其他檔案。六份同步文件的新增段落及相對檔案連結檢查，僅此階段獨立 commit，不 push。
+
+原始證據保留於 /tmp/xyz-broadphase-proof-node-results.json、/tmp/xyz-broadphase-proof-browser-results.json、/tmp/xyz-broadphase-cpu-node-results.json、/tmp/xyz-broadphase-cpu-browser-results.json。原型／drivers／generated tree 驗證後清除，不進套件。

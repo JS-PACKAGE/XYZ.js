@@ -7714,3 +7714,7 @@ count／累計預算、native byte size 與 abort 檢查通過後，gzip／zlib 
 source-only validator 原型保留最初四個 accessor 讀取，再以明確 integer checks 取代 tuple／every；bounds 與 snapshot 的讀取不合併。getter／錯誤、共用 SpriteSheet、NineSlice 與 Sprite3D 比較通過，但完整 consumer CPU 結果混合，Node 中型 sheet 回退，故不採用。
 
 profile 只提供調查方向，不代表配置／GC 或 rendered-frame 證明。正式 runtime 留在 P286；本階段沒有重跑正式 tests／build、GPU backends 或 showcase 認證。完整矩陣與 conditioning 限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+## P288 — 保留 sweep-order 的先截短再 append
+
+2D broadphase 候選在壓縮上一步順序後，先以索引覆寫新 pieces，再截短尾端。差異案例保留 CCD、排序輸入、碰撞回呼、查詢結果與 revision。真實 register／unregister／update 計時無可靠收益；Node 大型 full churn 回退，Chromium 結果混合。未採用 source 或 dist 變更；固定矩陣與限制見 [ACCEPTANCE](../ACCEPTANCE.md)。

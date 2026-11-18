@@ -6554,3 +6554,9 @@ normalizer 只在 count 已為正整數且累計不超限、native output byte s
 validatedRegion 原先先讀完 x／y／width／height，再 every(Number.isInteger)，後續 bounds 與 snapshot 會重讀 accessors。候選必須保留這個完整初次讀取，不能改成直接逐欄位 short-circuit 或順便快取後續 getters。隔離原型的 locals 只取代 first-pass tuple。
 
 共享真實 callers 的比較仍有混合／回退，不值得增加正式 locals／comment／判斷。保留 P286 的 validatedRegion，不宣稱 JIT 已消除或未消除 tuple、不把 Node profiler 或 source-operation 減少當成 heap／GC／FPS 成果。詳見 ACCEPTANCE。
+
+## P288 — 保留 broadphase 的先截短再 append
+
+CCD 執行後，sweepOrder 先壓縮上一步仍存在的 pieces，再依當步收集順序加入新 pieces，最後執行既有 sort。候選保留相同完整序列，只改為索引覆寫到最後再截短；不延後碰撞事件、引入 pose cache 或更換排序／paired solver。
+
+完整 public lifecycle 的固定比較不支持採用，即使候選避免把 full-churn 的長度先降成零。沒有量測 backing storage、heap／GC、畫面或 FPS，保留正式實作；方法與數據見 ACCEPTANCE。

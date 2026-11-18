@@ -260,6 +260,12 @@ P287: Reject atlas-validator tuple elision after mixed shared-consumer CPU resul
 
 P287：atlas validatorのtuple削減はgetter／例外比較を通過したが、CPU結果は混在するため不採用。正式runtimeはP286を維持。[検収記録](ACCEPTANCE.md)。
 
+P288：2D broadphase 延後截短 sweepOrder 的原型行為一致，但完整 membership churn／update 計時無可靠收益；Node 大型 full churn 回退，不改正式 runtime。[驗收紀錄](ACCEPTANCE.md)。
+
+P288: Reject delaying sweep-order truncation after mixed lifecycle results and a large full-churn Node regression. No runtime change. [Evidence](ACCEPTANCE.md).
+
+P288：2D broadphaseのsweepOrder切り詰め延期は、実際の登録更新・step比較で安定した改善がないため不採用。[検収記録](ACCEPTANCE.md)。
+
 ## 繁體中文
 
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。

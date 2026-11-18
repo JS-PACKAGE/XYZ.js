@@ -6427,3 +6427,8 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 
 - 真實 minified root 的多 atlas／大量 frames 初始化 profile 只作選題依據；不把 self samples 當成配置或穩定速度。SpriteSheet validatedRegion 將四元素 tuple.every 改為依序 locals＋明確 integer checks 的隔離候選，保留初次 accessor pass 與後續 bounds／snapshot 讀取。
 - 共用 SpriteSheet class／consumers 的 Node／Chromium matrix 收益混合，Node 中型 sheet 回退、Tiled 大 frames 的 Node 收益不可辨識，故不採用。只更新負向紀錄，source／dist 留在 P286，不新增 runtime 或三 backend 認證。完整方法見 ACCEPTANCE。
+
+## P288 — broadphase sweepOrder overwrite 原型不採用
+
+- 2D sweepOrder 候選將 survivor compaction 後截短再 push，改為連續索引覆寫後一次截短；CCD、排序、碰撞／查詢順序和 revision 不改。
+- 完整 register／unregister／update 測量沒有可靠收益，Node 大型 full churn 回退，Chromium 短 clocks 混合。只保留負向紀錄，正式 source／dist 不改。完整驗證與限制見 ACCEPTANCE。
